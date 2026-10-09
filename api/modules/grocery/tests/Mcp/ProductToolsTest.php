@@ -335,6 +335,25 @@ class ProductToolsTest extends KernelTestCase
         self::assertNull($em->find(Product::class, $created['product']['id'])->getRestockQuantity());
     }
 
+    public function testUpdateProductToOutRestocksItOnceWhenAutomaticRestockIsOn(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+        $created = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', restockQuantity: 2, autoRestock: true), true, 512, JSON_THROW_ON_ERROR);
+        $id = $created['product']['id'];
+
+        json_decode(($this->manageProducts())('update', productId: $id, stockState: 'out'), true, 512, JSON_THROW_ON_ERROR);
+        json_decode(($this->manageProducts())('update', productId: $id, stockState: 'out', name: 'Riz long'), true, 512, JSON_THROW_ON_ERROR);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $items = $em->getRepository(\Maggie\Grocery\Entity\GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame(2.0, $items[0]->getQuantity());
+        self::assertSame(\Maggie\Grocery\Enum\GroceryItemSource::Restock, $items[0]->getSource());
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+    }
+
     public function testUpdateProductSwitchesTheAutomaticRestockOff(): void
     {
         $this->loadFixtures('user.yaml');
