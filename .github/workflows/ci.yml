@@ -212,7 +212,8 @@ jobs:
       # order) apply them in different orders (infra/scripts/migrations-order.sh).
       # Decisive on the merge group, judged against its parent — the group of
       # the PR ahead, or main: the queue chains the groups, so `base_sha` (main)
-      # would let B (V150) pass behind A (V200). An early hint on a pull request.
+      # would let B (V150) pass behind A (V200). `HEAD^1` relies on the queue's
+      # squash method (one commit per PR). An early hint on a pull request.
       - name: Added migrations come after main's
         if: github.event_name == 'merge_group' || github.event_name == 'pull_request'
         working-directory: .
@@ -1341,8 +1342,8 @@ jobs:
           fi
           export PR_TITLE PR_BRANCH
           if [ -n "$GROUP_REF" ] && ! bash infra/scripts/incident-gate.sh; then
-            # Not true here: a held group drops its PR from the queue, and
-            # nothing puts it back by itself.
+            # The gate's « re-runs by itself » does not hold on a merge group:
+            # a held group drops its PR from the queue, nothing puts it back.
             echo "::error::On a merge group the gate does not re-run: enqueue the PR again once the freeze lifts."
             exit 1
           fi
