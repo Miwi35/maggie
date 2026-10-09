@@ -25,6 +25,9 @@
 #      Gradle's task history come with it, so only what differs is rebuilt.
 #   5. Only the unit test task. Arguments are options (`--tests`, `--info`…),
 #      never another task: APK, lint and Maestro belong to CI.
+#   6. Its own cgroup, capped: Gradle and its daemons run in a transient systemd
+#      scope (5 GB high, 6 GB max, 4 cores), so the build is what runs out of
+#      memory, never Cyrus and its sessions with it.
 #
 # Thresholds live in wt/limits.env; exported variables win over it.
 
@@ -133,11 +136,29 @@ sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
 [ ! -d "$sdk_root" ] || export ANDROID_HOME="$sdk_root"
 
 cd "$root/mobile"
+# Rule 6. A cgroup of its own for the out-of-memory killer (9 Oct 2026: systemd-oomd
+# killed Cyrus a 17th time, its Gradle daemon was in cyrus.service). Run from a
+# Cyrus session, Gradle — and the daemons it forks, which outlive the build —
+# would sit in the session's cgroup, and systemd-oomd kills a whole cgroup: Cyrus
+# and every session with it. In a transient scope of their own, the build is
+# what it kills. The scope is also capped (owner, 9 Oct.: « cap les ressources de
+# Gradle »): throttled past 5 GB, killed past 6 GB, four cores at most; the
+# daemons stay in it, so they stay capped from one build to the next. Not where `systemd-run --user` cannot reach a user manager (CI,
+# containers): the command then runs as before.
+scope=()
+if [ -z "${WT_GRADLE_NO_SCOPE:-}" ] && command -v systemd-run >/dev/null 2>&1 \
+    && systemd-run --user --scope --quiet -- true >/dev/null 2>&1; then
+  scope=(systemd-run --user --scope --quiet --collect
+         "--unit=wt-gradle-$(date +%s)-$$"
+         -p "MemoryHigh=${WT_GRADLE_MEMORY_HIGH:-5G}"
+         -p "MemoryMax=${WT_GRADLE_MEMORY_MAX:-6G}"
+         -p "CPUQuota=${WT_GRADLE_CPU_QUOTA:-400%}" --)
+fi
 # Rule 3. Every build of this command asks for the same JVM options, so they all
 # reuse one warm daemon pair.
-./gradlew --console=plain \
+${scope[@]+"${scope[@]}"} ./gradlew --console=plain \
     "-Dorg.gradle.jvmargs=${WT_GRADLE_JVMARGS:--Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ActiveProcessorCount=4}" \
     "-Pkotlin.daemon.jvmargs=${WT_KOTLIN_DAEMON_JVMARGS:--Xmx1g -XX:ActiveProcessorCount=4}" \
-    "-Dorg.gradle.daemon.idletimeout=${WT_GRADLE_IDLE_TIMEOUT_MS:-1800000}" \
+    "-Dorg.gradle.daemon.idletimeout=${WT_GRADLE_IDLE_TIMEOUT_MS:-10800000}" \
     "--max-workers=${WT_GRADLE_MAX_WORKERS:-4}" \
     "$task_name" "$@" 9>&-
