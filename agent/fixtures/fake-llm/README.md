@@ -21,6 +21,7 @@ match:                       # every condition declared has to hold
   user_matches: 'demain|ce soir'   # a regex on the last user message
   system_contains: "routeur de contexte"   # matched on the system prompt
   history_contains: "mon budget"   # matched on the conversation sent, minus the last message
+  history_matches: 'id\W+(\w{26})'   # a regex on the same; its groups feed `\1` instead of user_matches
 
 turns:                       # one entry per model turn, in order
   - text: "Je regarde."      # optional: what she says this turn
@@ -116,6 +117,11 @@ any other content, so `history_contains` matches them.
 grocery label the suite never types, and `includeDeferred`, the argument the call
 that fetched it was made with. One needle per half of the round: a result without
 its call in front of it is a conversation the API rejects.
+
+`history_matches` goes one step further: its capture groups are expanded into the
+scenario's text and tool arguments, in place of `user_matches`'. « Finalement,
+supprime-la » names nothing — `76-delete-event-just-created.yaml` captures the id the
+replayed `create_event` result of `75` gave, and calls `delete_event` with it.
 
 Two consequences when writing a scenario with tools. A round is counted as one of
 *this* run's turns only while it is the current run's — a replayed one is not, so a

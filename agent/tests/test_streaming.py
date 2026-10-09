@@ -472,6 +472,7 @@ class TestWhatTheToolsSaidIsStored:
             contexts.find_active = AsyncMock(return_value=[])
             thread.append_tool_call = AsyncMock(return_value=None)
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 

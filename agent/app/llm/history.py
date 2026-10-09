@@ -354,6 +354,8 @@ def _is_orphan(row: Message, current_message_id: str | None) -> bool:
     if lease.tzinfo is None:
         lease = lease.replace(tzinfo=UTC)
     return lease < datetime.now(UTC)
+
+
 def _replay_window(rows: list[Message], context_id: str | None) -> set[str]:
     """Which messages are sent their tool blocks back, and not merely their text.
 

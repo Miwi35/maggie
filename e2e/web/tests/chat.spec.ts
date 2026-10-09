@@ -164,6 +164,13 @@ const TOOL_REPLAY = {
   answer: 'Le dernier article de ta liste, ce sont les piles LR03.',
 }
 
+/** 75-create-event-to-delete.yaml + 76-delete-event-just-created.yaml — « supprime-la », by the id last turn's result gave. */
+const DELETE_JUST_CREATED = {
+  create: 'Note-moi la vidange de la voiture le 9 avril 2099 à 9h',
+  title: 'Vidange',
+  remove: 'Finalement, supprime-la.',
+}
+
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
 const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
@@ -948,6 +955,51 @@ test('a tool result read last turn is still there on the next one, without calli
   expect(calledTools(events)).not.toContain('get_grocery_list')
 
   await expect(chat.bubbles(TOOL_REPLAY.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-211, as seen in production on 7 Oct.: after a `create_event`, « supprime
+ * l'événement qu'on vient de créer » got `update_event(id: "last_created_event")` —
+ * an id made up, because only the text of the turn had survived it.
+ *
+ * 76-delete-event-just-created.yaml takes the id from the replayed `tool_result`
+ * of 75's `create_event`, or matches nothing. The policy holds `delete_event` for
+ * approval (MAG-4), so the id the call carried is read back from the pending
+ * action, and compared with the event the first turn really booked.
+ */
+test('an event created last turn is deleted by its real id, with no search first', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+
+  const created = await chat.send(DELETE_JUST_CREATED.create)
+  expect(toolResults(created)).toContainEqual({ toolName: 'create_event', status: 'success' })
+  const booked = await waitForIndexed<SeededEvent>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === DELETE_JUST_CREATED.title,
+    { what: `The ${DELETE_JUST_CREATED.title} Maggie booked` },
+  )
+
+  const events = await chat.send(DELETE_JUST_CREATED.remove)
+
+  const answer = assistantText(events)
+  expect(isUnscripted(answer), `the create_event result never reached the history — Maggie said: ${answer}`).toBe(
+    false,
+  )
+  // One call, straight to the deletion: no reading of the agenda to find it again.
+  expect(calledTools(events)).toEqual(['delete_event'])
+
+  const response = await api.get('/agent/approvals')
+  expect(response.ok()).toBe(true)
+  const held = ((await response.json()) as Array<{ id: string; toolName: string; arguments: { id?: string } }>).find(
+    (action) => action.toolName === 'delete_event' && action.arguments.id === String(booked.id),
+  )
+  expect(held, `no delete_event held for ${String(booked.id)}`).toBeDefined()
+
+  // Answered, so the card does not wait in the bell of the journeys after this one.
+  expect((await api.post(`/agent/approvals/${held!.id}/deny`)).ok()).toBe(true)
 })
 
 /**

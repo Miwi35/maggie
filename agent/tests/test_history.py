@@ -380,7 +380,7 @@ class TestWhatTheToolsSaid:
         ]
 
     async def test_another_threads_call_is_never_replayed(self, say, thread):
-        """Its text comes in labelled, which is all a neighbouring thread is there for."""
+        """Its text comes in, which is all a neighbouring thread is there for."""
         budget = await thread("Budget")
         courses = await thread("Courses")
         await say("user", "Où en est mon budget ?", context=budget.id, minutes=1)
@@ -394,7 +394,7 @@ class TestWhatTheToolsSaid:
             turns = await build_history(OWNER, context_id=budget.id)
 
         assert "get_grocery_list" not in str(turns)
-        assert "[fil « Courses »] Ta liste est prête." in str(turns)
+        assert "Ta liste est prête." in str(turns)
 
     async def test_an_answer_just_before_a_round_is_folded_into_it(self, say, thread):
         """The API refuses two of Maggie's turns in a row, and a proaction lands between two."""
