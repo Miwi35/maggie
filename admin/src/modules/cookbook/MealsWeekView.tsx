@@ -156,6 +156,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
       data-testid={`meal-${meal.id}`}
       sx={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'center',
         gap: 0.5,
         borderRadius: 1,
@@ -179,12 +180,12 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
         <DragIndicatorIcon sx={{ fontSize: 16 }} />
       </IconButton>
       <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 4rem', minWidth: 0 }}>
         {meal.recipes?.map((r: Recipe) => (
           <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
         ))}
         {(!meal.recipes || meal.recipes.length === 0) && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
             {meal.summary}
           </Typography>
         )}
@@ -192,6 +193,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
       <IconButton
         size="small"
         aria-label={`Supprimer le repas ${meal.summary}`}
+        sx={{ ml: 'auto' }}
         onClick={(e) => {
           e.stopPropagation()
           onDelete(meal)
@@ -518,7 +520,7 @@ export const MealsWeekView = () => {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: '100px repeat(7, 1fr)',
+            gridTemplateColumns: '100px repeat(7, minmax(0, 1fr))',
             gap: 0.5,
             opacity: loading && meals.length === 0 ? 0.5 : 1,
           }}

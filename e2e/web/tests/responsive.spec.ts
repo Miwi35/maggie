@@ -1,5 +1,7 @@
 import { test, expect } from '../fixtures/index.js'
 import type { Page } from '@playwright/test'
+import { waitForIndexed } from '../helpers/api.js'
+import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
@@ -184,6 +186,40 @@ test.describe('Responsive @responsive', () => {
       for (let day = 0; day < 7; day++) {
         await expect(shell.content.getByTestId(`meal-cell-${slot}-${day}`)).toBeVisible()
       }
+    }
+  })
+
+  test('a week with a long unbroken meal name still fits the window', async ({ page, api }) => {
+    // MAG-366: the grid's `1fr` columns grew to the widest word they held, so a
+    // busy week pushed the page sideways — the CI run that merged MAG-366 failed
+    // here on what other journeys had planted. Plant the word instead of hoping,
+    // on Wednesday dinner, a cell no other journey uses (meals-move owns Saturday).
+    const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const name = `Velouté-MAG-366-${'x'.repeat(40)}`
+    const recipe = await api.post('/api/recipes', { headers: jsonLd, data: { name, servings: 2 } })
+    expect(recipe.status()).toBe(201)
+    const planted = (await recipe.json()) as { id: string; '@id': string }
+    const created = await api.post('/api/meals', {
+      headers: jsonLd,
+      data: { summary: 'Dîner', date: dayOfThisWeek(2), slot: 'dinner', recipes: [planted['@id']] },
+    })
+    expect(created.status()).toBe(201)
+    const meal = (await created.json()) as { id: string }
+
+    try {
+      await waitForIndexed<{ summary: string }>(api, '/api/meals', (m) => String(m.summary).includes(name), {
+        what: 'The meal with the long name',
+      })
+
+      const shell = new AdminShell(page)
+      await shell.goto(ROUTES.meals)
+      await shell.expectLoaded()
+      await expect(shell.content.getByTestId('meal-cell-dinner-2')).toContainText(name)
+
+      expect(await sidewaysOverflow(page), 'a long meal name spills the week out of the window').toBeLessThanOrEqual(1)
+    } finally {
+      await api.delete(`/api/meals/${meal.id}`)
+      await api.delete(`/api/recipes/${planted.id}`)
     }
   })
 

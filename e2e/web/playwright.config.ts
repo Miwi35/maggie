@@ -39,6 +39,7 @@ const RESPONSIVE = /@responsive/
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
+  globalSetup: './global-setup.ts',
 
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
