@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
@@ -13,7 +12,6 @@ use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Message\EndErrandCommand;
 use Maggie\Grocery\Message\EndErrandResult;
 use Maggie\Grocery\Repository\GroceryListRepository;
-use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -23,8 +21,6 @@ class EndErrandHandler
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly UserRepository $userRepository,
-        private readonly EntityBroadcaster $entityBroadcaster,
-        private readonly GroceryListBroadcaster $listBroadcaster,
     ) {
     }
 
@@ -68,13 +64,6 @@ class EndErrandHandler
 
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
-
-        // After the flush, so the indexer finds the rows. The handler returns a
-        // result object, not the list, so the middlewares publish nothing here.
-        $this->listBroadcaster->broadcast($list);
-        foreach ($restocked as $product) {
-            $this->entityBroadcaster->broadcast($product);
-        }
 
         return new EndErrandResult($list, array_values($restocked));
     }

@@ -22,7 +22,7 @@ api/modules/calendar/tests/
   Service/RecurrenceServiceTest.php
   Repository/EventRepositoryTest.php
   Mcp/CreateEventToolTest.php
-  Middleware/MercurePublishMiddlewareTest.php
+  Projection/…ProjectionTest.php
   Api/EventApiTest.php
 
 api/tests/Support/          — shared helpers only (traits, in-memory hub)
@@ -143,42 +143,22 @@ instantiates a new entity and returns 500. Use a dedicated controller and test i
 
 ## Enforcement: Mercure Publication Tests
 
-**Every entity MUST have Create/Update/Delete Mercure tests** in `MercurePublishMiddlewareTest` (unit test — `TestCase` with mocked Hub).
-
-3 tests per entity (9 total for Event + Agenda + Task):
+**Every entity MUST have its Mercure publication tested** by dispatching its commands on the bus (`KernelTestCase`), not by mocking the Hub: `ProjectionMiddleware` publishes what each command changed (`agent-os/standards/backend/projection.md`).
 
 ```php
-public function testCreate{Entity}PublishesToMercure(): void
+public function testDeleteStorePublishesTheDeletionToTheOwner(): void
 {
-    $entity = new Entity();
-    $entity->setName('Test');
+    $this->resetMercure();
+    $this->resetAsyncTransport();
 
-    $middleware = new MercurePublishMiddleware($this->hub);
-    $envelope = new Envelope(new Create{Entity}Command(name: 'Test'));
+    $bus->dispatch(new DeleteStoreCommand(storeId: $id, userId: $ownerId));
 
-    $middleware->handle($envelope, $this->createPassthroughStack($entity));
-
-    self::assertCount(1, $this->publishedUpdates);
-    $data = json_decode($this->publishedUpdates[0]->getData(), true);
-    self::assertSame('Test', $data['name']);
-    self::assertStringContainsString('/api/{entities}/', $data['@id']);
-}
-
-public function testDelete{Entity}PublishesToMercure(): void
-{
-    $id = (string) new Ulid();
-
-    $middleware = new MercurePublishMiddleware($this->hub);
-    $envelope = new Envelope(new Delete{Entity}Command({entity}Id: $id));
-
-    $middleware->handle($envelope, $this->createPassthroughStack());
-
-    self::assertCount(1, $this->publishedUpdates);
-    $data = json_decode($this->publishedUpdates[0]->getData(), true);
-    self::assertSame('/api/{entities}/' . $id, $data['@id']);
-    self::assertTrue($data['deleted']);
+    $this->assertMercureDeletePublished('/api/stores/'.$id);
+    $this->assertElasticsearchDeleteDispatched('stores');
 }
 ```
+
+References: `core/tests/Projection/ProjectionMiddlewareTest.php`, `grocery/tests/Projection/GroceryProjectionTest.php`, `cookbook/tests/Projection/MealProjectionTest.php`. Assert once (`assertMercurePublishedOnce`) wherever a flow used to broadcast by hand.
 
 ## Assertions
 

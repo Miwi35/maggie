@@ -8,7 +8,6 @@ use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\DeleteMeal;
-use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -18,7 +17,6 @@ class DeleteMealHandler
         private readonly DeleteMeal $deleteMeal,
         private readonly MealRepository $mealRepository,
         private readonly MealGrocerySync $mealGrocerySync,
-        private readonly GroceryListBroadcaster $groceryListBroadcaster,
     ) {
     }
 
@@ -31,10 +29,8 @@ class DeleteMealHandler
         // `DeleteMeal` commits, so the ingredients leave the list and the meal
         // leaves the agenda in one transaction — a delete that fails must not
         // leave the shopping already gone.
-        $list = $this->mealGrocerySync->revoke($meal);
+        $this->mealGrocerySync->revoke($meal);
 
         $this->deleteMeal->execute($meal);
-
-        $this->groceryListBroadcaster->broadcast($list);
     }
 }

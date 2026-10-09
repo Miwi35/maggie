@@ -40,7 +40,7 @@ class Task implements MercurePublishable
 ```
 
 - `toMercurePayload()` returns all fields consumers need (no IRI — middleware adds `@id`)
-- `MercurePublishMiddleware` auto-publishes on Create/Update/Delete commands
+- `ProjectionMiddleware` publishes what every command changed (`agent-os/standards/backend/projection.md`)
 - Delete publishes `{'@id': '...', 'deleted': true}`
 - Topic pattern: `/api/{entities}/{id}`
 
@@ -77,4 +77,4 @@ framework:
             'Maggie\Calendar\Message\Delete{Entity}Command': sync
 ```
 
-This enables `MercurePublishMiddleware` to intercept and publish automatically.
+`ProjectionMiddleware` then publishes and indexes automatically.

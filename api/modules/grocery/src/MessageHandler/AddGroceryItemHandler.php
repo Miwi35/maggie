@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -19,14 +18,12 @@ use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class AddGroceryItemHandler
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly MessageBusInterface $bus,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
@@ -56,8 +53,6 @@ class AddGroceryItemHandler
 
         $newProduct = null;
 
-        $productUpdated = false;
-
         if (null !== $matched) {
             $item->setProduct($matched);
             if (null !== $matched->getPreferredStore()) {
@@ -68,7 +63,6 @@ class AddGroceryItemHandler
                 $cat = ProductCategory::tryFrom($command->category);
                 if (null !== $cat && $cat !== $matched->getCategory()) {
                     $matched->setCategory($cat);
-                    $productUpdated = true;
                 }
             }
         } else {
@@ -114,7 +108,6 @@ class AddGroceryItemHandler
         // Update preferred store on existing matched products if resolved store differs
         if (null !== $matched && null !== $resolvedStore && $matched->getPreferredStore() !== $resolvedStore) {
             $matched->setPreferredStore($resolvedStore);
-            $productUpdated = true;
         }
 
         if (null !== $command->quantity) {
@@ -135,25 +128,6 @@ class AddGroceryItemHandler
         $list->addItem($item);
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
-
-        if (null !== $newProduct) {
-            $this->bus->dispatch(new IndexDocumentCommand(
-                entityClass: Product::class,
-                entityId: (string) $newProduct->getId(),
-            ));
-        } elseif ($productUpdated) {
-            $this->bus->dispatch(new IndexDocumentCommand(
-                entityClass: Product::class,
-                entityId: (string) $matched->getId(),
-            ));
-        }
-
-        if (null !== $newStore) {
-            $this->bus->dispatch(new IndexDocumentCommand(
-                entityClass: Store::class,
-                entityId: (string) $newStore->getId(),
-            ));
-        }
 
         return $list;
     }

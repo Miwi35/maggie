@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
@@ -31,7 +30,6 @@ class CreateTransactionHandler
         private readonly OwnedReferenceResolver $references,
         private readonly TransactionNatureGuard $natureGuard,
         private readonly UserRepository $userRepository,
-        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -73,7 +71,6 @@ class CreateTransactionHandler
         // A movement between two of the owner's own accounts is recognised as
         // it lands, like a rule claiming a category: the second leg of a
         // transfer is often imported minutes after the first.
-        $counterpart = $rejected;
         if (null === $rejected) {
             $counterpart = $this->detectInternalTransfers->detectFor($transaction);
             $counterpart?->markAsInternalTransfer($transaction, TransferSource::Auto);
@@ -83,13 +80,6 @@ class CreateTransactionHandler
 
         if (null !== $rejected) {
             $this->detectRejections->notify($rejected, $transaction);
-        }
-
-        // The other leg changed too, and the middlewares only ever see the
-        // result: without this the search index — which is what the
-        // transaction list reads — still calls it an ordinary expense.
-        if (null !== $counterpart) {
-            $this->broadcaster->broadcast($counterpart);
         }
 
         return $transaction;

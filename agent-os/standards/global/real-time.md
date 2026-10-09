@@ -29,7 +29,7 @@ Every Mercure image reference is `dunglas/mercure:<tag>@sha256:<digest>` (today 
 A public update ignores the subscriber's token grants. Publish with `private: true` (PHP) or `private=on` (agent); list any new topic outside `/users/{id}/` in `MercureSubscriberTokenFactory` (as an exact `match`); open every `EventSource` with `{ withCredentials: true }`.
 
 ## `MERCURE_JWT_SECRET` is at least 32 bytes
-HS256 refuses a key under 256 bits, and the publisher swallows the error: the request succeeds, the entity is written, **no update is ever published** — nothing looks broken. The API therefore refuses every request and console command (worker included) when the secret is shorter than 32 bytes (`MercureSecretGuard`), and `MercurePublishMiddleware` logs an unsignable secret as `critical`. Generate with `openssl rand -hex 32`; the API, the agent and the hub must share the same value, so redeploy the three together. Example values in `.env.prod.example` and `infra/k8s/secrets.example.yaml` are already long enough — replace them, never shorten them.
+HS256 refuses a key under 256 bits, and the publisher swallows the error: the request succeeds, the entity is written, **no update is ever published** — nothing looks broken. The API therefore refuses every request and console command (worker included) when the secret is shorter than 32 bytes (`MercureSecretGuard`), and `ProjectionMiddleware` logs an unsignable secret as `critical`. Generate with `openssl rand -hex 32`; the API, the agent and the hub must share the same value, so redeploy the three together. Example values in `.env.prod.example` and `infra/k8s/secrets.example.yaml` are already long enough — replace them, never shorten them.
 
 ## Client pattern
 Use native `EventSource` API. No library needed.

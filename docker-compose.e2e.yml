@@ -101,7 +101,7 @@ x-php-environment: &php-environment
   MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
   # At least 32 bytes, and that is not decoration: lcobucci/jwt refuses to sign
   # HS256 with anything shorter, so a 144-bit secret made every publish throw
-  # "Key provided is shorter than 256 bits". MercurePublishMiddleware catches
+  # "Key provided is shorter than 256 bits". ProjectionMiddleware catches
   # and logs that, so the stack looked healthy and simply had no real-time at
   # all — found by the first browser journey to assert on it (MAG-97).
   MERCURE_JWT_SECRET: e2e-mercure-secret-at-least-32-bytes-long

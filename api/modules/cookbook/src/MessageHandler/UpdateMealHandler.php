@@ -11,7 +11,6 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\UpdateMeal;
-use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -22,7 +21,6 @@ class UpdateMealHandler
         private readonly MealRepository $mealRepository,
         private readonly RecipeRepository $recipeRepository,
         private readonly MealGrocerySync $mealGrocerySync,
-        private readonly GroceryListBroadcaster $groceryListBroadcaster,
     ) {
     }
 
@@ -63,7 +61,7 @@ class UpdateMealHandler
 
         // Swapping a recipe or moving the meal changes what has to be bought,
         // and when: the old ingredients come off the list, the new ones go on.
-        $this->groceryListBroadcaster->broadcast($this->mealGrocerySync->sync($meal));
+        $this->mealGrocerySync->sync($meal);
 
         return $meal;
     }

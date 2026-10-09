@@ -24,7 +24,7 @@ Per unit touched, whatever the ticket is about:
 |---|---|
 | MCP tool | no user bound, bad input (missing required arg **and** unknown `action`), happy path asserting DB state, `assertMercureUpdatePublished()`, `assertElasticsearchIndexDispatched()` when the entity is indexed |
 | API endpoint (REST controller, API Platform operation) | 401 unauthenticated, 400 bad input, happy path asserting DB state, Mercure, Elasticsearch — same list |
-| Entity | Create/Update/Delete Mercure publication, in `MercurePublishMiddlewareTest` |
+| Entity | Mercure publication and indexing of what its commands change, asserted by dispatching them on the bus (`ProjectionMiddlewareTest`, `GroceryProjectionTest`) |
 | Service, repository, pure logic | happy path **and** every error branch |
 | Admin component | initial render, the user interaction it exists for, error/empty state |
 | Mobile ViewModel | one test per state transition — loading, success, error — asserting `uiState` |

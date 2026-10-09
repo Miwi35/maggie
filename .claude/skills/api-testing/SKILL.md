@@ -12,7 +12,7 @@ user-invocable: false
 |------|------|
 | MCP tool | no user bound, missing required arg, unknown `action`, happy path asserting DB state, `assertMercureUpdatePublished()`, `assertElasticsearchIndexDispatched()` when indexed |
 | Endpoint (controller, API Platform operation) | 401 unauthenticated, 400 bad input, then the same list |
-| Entity | Create/Update/Delete Mercure publication in `MercurePublishMiddlewareTest` |
+| Entity | Mercure publication and indexing, asserted by dispatching its commands on the bus (`GroceryProjectionTest`) |
 | Service, repository | happy path **and** every error branch |
 
 Reference: `api/modules/grocery/tests/Mcp/GroceryToolsTest.php`,
@@ -71,7 +71,7 @@ list above. Bind the user the way a real MCP call does, with `loginFixtureUser()
 
 ## Enforcement: Mercure Publication Tests
 
-**Every entity MUST have Create/Update/Delete Mercure tests** in `MercurePublishMiddlewareTest`.
+**Every entity MUST have its Mercure publication tested** by dispatching its commands on the bus (`ProjectionMiddlewareTest`, `GroceryProjectionTest`).
 
 Use `MercureAssertionTrait` for write tool integration tests:
 
@@ -101,7 +101,7 @@ class MyToolTest extends KernelTestCase
 }
 ```
 
-Note: Delete commands and `OwnedThroughInterface` entities don't publish Mercure without an authenticated user in `KernelTestCase`. Cover via unit tests in `MercurePublishMiddlewareTest` instead.
+Note: publication does not need a logged-in user: `ProjectionMiddleware` publishes to the owner of each row, so Delete commands and `OwnedThroughInterface` entities are covered by dispatching the command.
 
 ## Assertions
 

@@ -12,9 +12,7 @@ use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\CreateMeal;
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
-use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -26,8 +24,6 @@ class CreateMealHandler
         private readonly RecipeRepository $recipeRepository,
         private readonly UserRepository $userRepository,
         private readonly MealGrocerySync $mealGrocerySync,
-        private readonly GroceryListBroadcaster $groceryListBroadcaster,
-        private readonly EntityBroadcaster $entityBroadcaster,
     ) {
     }
 
@@ -40,7 +36,7 @@ class CreateMealHandler
 
         // Whatever agenda a client had in mind, a meal is filed in the meals' module
         // agenda: it is internal, and Google never sees it (MAG-324).
-        [$agenda, $agendaCreated] = $this->moduleAgendas->forUser($user, Agenda::MODULE_COOKBOOK, 'Repas', '#FF6B35');
+        [$agenda] = $this->moduleAgendas->forUser($user, Agenda::MODULE_COOKBOOK, 'Repas', '#FF6B35');
 
         $meal = new Meal();
         $meal->setSlot($slot);
@@ -66,12 +62,7 @@ class CreateMealHandler
 
         $meal = $this->createMeal->execute($meal);
 
-        // The handler returns the meal, so nothing else pushes the agenda
-        // created on the way or the list.
-        if ($agendaCreated) {
-            $this->entityBroadcaster->broadcast($agenda);
-        }
-        $this->groceryListBroadcaster->broadcast($this->mealGrocerySync->sync($meal));
+        $this->mealGrocerySync->sync($meal);
 
         return $meal;
     }

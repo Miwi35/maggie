@@ -124,7 +124,7 @@ class GoogleTaskListSelection
      * Tells the open screens the choice moved.
      *
      * Published here rather than through the bus: the write is a field on the
-     * user, not one of the CRUD commands MercurePublishMiddleware recognises.
+     * user, not one of the CRUD commands ProjectionMiddleware projects.
      */
     private function publish(User $user): void
     {

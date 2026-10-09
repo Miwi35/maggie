@@ -397,7 +397,7 @@ here because they are properties of the *stack*, not of Playwright:
   pulls fresh, so it broke there first while every local stack stayed green on a
   cached image. Rules and upgrade steps: `real-time.md`.
 - **`MERCURE_JWT_SECRET` must be at least 32 bytes.** lcobucci/jwt refuses to
-  sign HS256 with less, `MercurePublishMiddleware` catches and logs the
+  sign HS256 with less, `ProjectionMiddleware` catches and logs the
   failure, and the stack then has no real-time at all while looking perfectly
   healthy. That is how it shipped until the first browser journey asserted on
   a live update.

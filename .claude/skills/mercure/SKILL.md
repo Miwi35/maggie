@@ -43,7 +43,7 @@ A public update is delivered to any subscriber whose requested topic matches, **
 
 Every entity MUST implement `MercurePublishable` with `toMercurePayload()`:
 - Returns data fields only (no IRI — middleware adds `@id`)
-- `MercurePublishMiddleware` auto-publishes on Create/Update/Delete commands
+- `ProjectionMiddleware` publishes what every command changed (`agent-os/standards/backend/projection.md`)
 - Delete publishes `{'@id': '...', 'deleted': true}`
 - Topic pattern: `/users/{userId}/api/{entities}/{id}`
 
@@ -59,10 +59,9 @@ For standard CRUD Update commands, the middleware automatically publishes only t
 
 ```
 Handler modifies entity → $em->flush()
-  → onFlush: ChangesetCaptureListener stores changed field names in ChangesetStore
-  → SQL executes, UOW clears
-  → Handler returns entity via HandledStamp
-  → MercurePublishMiddleware reads ChangesetStore
+  → onFlush: WorkCollector keeps one Change (kind + changed field names) per row for the message
+  → postFlush: the flush went through, the Changes join the message's work
+  → Handler returns; ProjectionMiddleware projects the work of the root message
   → entity->toMercurePayload($changedProperties) → filtered payload
 ```
 
@@ -203,10 +202,9 @@ No `/healthz` endpoint. Test with: `curl http://maggie.local/.well-known/mercure
 
 - `api/modules/core/src/Contract/MercureActionPayload.php`
 - `api/modules/core/src/Contract/MercurePublishable.php`
-- `api/modules/core/src/Mercure/ChangesetStore.php`
-- `api/modules/core/src/Mercure/Listener/ChangesetCaptureListener.php`
+- `api/modules/core/src/Projection/WorkCollector.php`
 - `api/modules/core/src/Mercure/Trait/MercurePayloadFilterTrait.php`
-- `api/modules/core/src/Mercure/Middleware/MercurePublishMiddleware.php`
+- `api/modules/core/src/Projection/ProjectionMiddleware.php`
 - `admin/src/hooks/useMercure.ts`
 - `mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/GroceryViewModel.kt` (reference client)
 - `admin/src/modules/grocery/GroceryListView.tsx` (reference client)

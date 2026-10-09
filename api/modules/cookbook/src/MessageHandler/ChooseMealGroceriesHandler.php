@@ -11,7 +11,6 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Service\MealGroceryChoice;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Core\Repository\UserRepository;
-use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -22,7 +21,6 @@ class ChooseMealGroceriesHandler
         private readonly UserRepository $userRepository,
         private readonly MealGroceryChoice $choice,
         private readonly MealGrocerySync $mealGrocerySync,
-        private readonly GroceryListBroadcaster $groceryListBroadcaster,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -34,16 +32,13 @@ class ChooseMealGroceriesHandler
         $meal = $this->mealRepository->findOneForUser($command->mealId, $user)
             ?? throw new \DomainException("Meal not found: {$command->mealId}");
 
-        $list = $this->mealGrocerySync->syncChoice($meal, $this->choice->chosenLines($meal, $command->chosen));
+        $this->mealGrocerySync->syncChoice($meal, $this->choice->chosenLines($meal, $command->chosen));
 
         // One flush for the lines and the marker: lines committed without the
         // marker would be taken back by the meal's next sync, which would
         // still derive them from the recipes.
         $meal->setGroceryChoiceMadeAt(new \DateTimeImmutable());
         $this->em->flush();
-
-        // The handler returns the meal, so the middleware never sees the list.
-        $this->groceryListBroadcaster->broadcast($list);
 
         return $meal;
     }

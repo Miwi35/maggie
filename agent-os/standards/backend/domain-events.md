@@ -12,7 +12,7 @@ UpdateProductHandler → use case → flush
                        $eventBus->dispatch(new ProductOutOfStockEvent($productId))
             └─ event handler (RestockOnProductOutOfStock): $commandBus->dispatch(new RestockProductCommand($productId))
                  └─ command handler (RestockProductHandler) → use case RestockProduct → service GroceryListItems::addProduct()
-                      ← returns the GroceryList: the Mercure and Elasticsearch middlewares publish it
+                      ← the list's lines are read from Doctrine: ProjectionMiddleware publishes and indexes the list (projection.md)
 ```
 
 | Tier | Does | Never |
@@ -25,7 +25,7 @@ UpdateProductHandler → use case → flush
 
 ## Buses
 
-- `messenger.bus.default`: commands, with the Mercure and Elasticsearch middlewares.
+- `messenger.bus.default`: commands, with `ProjectionMiddleware` (`projection.md`).
 - `event.bus`: events only, `allow_no_handlers` (an event nobody listens to is fine), no Mercure or Elasticsearch middleware. Inject each bus by name (`#[Autowire(service: 'event.bus')]`); the handler of an event is `#[AsMessageHandler(bus: 'event.bus')]`.
 - Route the event in `messenger.yaml` (`sync` like the commands of the module). Going `async` later is a routing change only.
 
