@@ -184,7 +184,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
           <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
         ))}
         {(!meal.recipes || meal.recipes.length === 0) && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
             {meal.summary}
           </Typography>
         )}
@@ -518,7 +518,7 @@ export const MealsWeekView = () => {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: '100px repeat(7, 1fr)',
+            gridTemplateColumns: '100px repeat(7, minmax(0, 1fr))',
             gap: 0.5,
             opacity: loading && meals.length === 0 ? 0.5 : 1,
           }}
