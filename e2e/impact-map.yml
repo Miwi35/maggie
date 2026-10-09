@@ -355,6 +355,8 @@ web:
     areas: [finance]
   e2e/web/tests/finance-review.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-recurring.spec.ts:
+    areas: [finance]
   e2e/web/tests/finance-rules.spec.ts:
     areas: [finance]
 
