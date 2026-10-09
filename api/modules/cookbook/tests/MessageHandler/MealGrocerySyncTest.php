@@ -186,6 +186,27 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertSame(GroceryItemSource::Manual, $this->item('Tomate')->getSource());
     }
 
+    public function testAQuantityTheUserSetByHandSurvivesTheNextSync(): void
+    {
+        $mealId = $this->planMeal('pasta');
+
+        // The − / + on the list line (MAG-291): the shopper wants ten tomatoes.
+        $this->item('Tomate')->setQuantity(10.0);
+        $this->em()->flush();
+
+        // Syncing is idempotent: it moves a line by what the meal's need
+        // changed, not back to what the meal alone asks for.
+        $this->bus()->dispatch(new UpdateMealCommand(mealId: $mealId, date: null, slot: null, recipeIds: null));
+        $this->generate();
+
+        self::assertSame(['Lait' => 1.0, 'Pâtes' => 400.0, 'Tomate' => 10.0], $this->list());
+
+        // A later change to the recipe still moves the line by the difference.
+        $this->editRecipe('pasta', [['pasta_product', 400, 'g'], ['tomato', 5, 'piece']]);
+
+        self::assertSame(['Lait' => 1.0, 'Pâtes' => 400.0, 'Tomate' => 11.0], $this->list());
+    }
+
     public function testALineWhoseUnitTheUserCorrectedIsLetGoRatherThanJoinedTwice(): void
     {
         // Two meals on one tomato line, so taking the first one's share back

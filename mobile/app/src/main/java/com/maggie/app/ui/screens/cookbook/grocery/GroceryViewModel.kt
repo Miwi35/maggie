@@ -15,12 +15,17 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
@@ -51,6 +56,8 @@ data class GroceryUiState(
     val pendingFinishRestockedCount: Int = 0,
     /** The same announcement when there is no leftover to show it with; shown once, then consumed. */
     val restockedToast: String? = null,
+    /** Why a quantity was refused or put back (MAG-291); shown once, then dismissed. */
+    val quantityMessage: String? = null,
 ) {
     // Deferred items count in neither figure: they are not on today's list.
     val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
@@ -63,6 +70,9 @@ fun restockedProductsMessage(count: Int): String? = when {
     count == 1 -> "1 produit repassé en stock"
     else -> "$count produits repassés en stock"
 }
+
+// Taps on − / + made within this delay are one request carrying the last quantity.
+internal const val QUANTITY_SAVE_DELAY_MS = 400L
 
 private val BUY_AFTER_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -86,6 +96,16 @@ class GroceryViewModel(
     val uiState: StateFlow<GroceryUiState> = _uiState
 
     private var mercureJob: Job? = null
+
+    // Quantities shown but not yet confirmed by the API, by item id. They hide the
+    // older value a Mercure echo or a refresh would bring back mid-burst.
+    private val pendingQuantities = mutableMapOf<String, Float>()
+
+    // The quantity an item had before the current burst of taps (null: none),
+    // put back if the API refuses.
+    private val quantityBaselines = mutableMapOf<String, Float?>()
+    private val quantityJobs = mutableMapOf<String, Job>()
+    private val quantitySaves = Mutex()
 
     init {
         // Loaded once the auth token is available, and again on every sign-in:
@@ -153,7 +173,7 @@ class GroceryViewModel(
                                 val itemsElement = payload["items"]?.jsonArray ?: run { refresh(); return@collect }
                                 val items = json.decodeFromString<List<GroceryItem>>(itemsElement.toString())
                                 val currentList = _uiState.value.groceryList ?: return@collect
-                                val updatedList = currentList.copy(items = items)
+                                val updatedList = currentList.copy(items = withPendingQuantities(items))
                                 _uiState.value = _uiState.value.copy(
                                     groceryList = updatedList,
                                     storeGroups = buildStoreGroups(updatedList),
@@ -182,7 +202,8 @@ class GroceryViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val list = groceryListRepository.getGroceryList().getOrThrow()
+                val fetched = groceryListRepository.getGroceryList().getOrThrow()
+                val list = fetched?.copy(items = withPendingQuantities(fetched.items))
                 val groups = buildStoreGroups(list)
                 _uiState.value = _uiState.value.copy(
                     groceryList = list,
@@ -256,6 +277,85 @@ class GroceryViewModel(
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
         }
+    }
+
+    private fun withPendingQuantities(items: List<GroceryItem>): List<GroceryItem> {
+        if (pendingQuantities.isEmpty()) return items
+        return items.map { item ->
+            val pending = item.id?.let { pendingQuantities[it] }
+            if (pending != null) item.copy(quantity = pending) else item
+        }
+    }
+
+    private fun currentItem(itemId: String): GroceryItem? =
+        _uiState.value.groceryList?.items?.firstOrNull { it.id == itemId }
+
+    fun incrementQuantity(item: GroceryItem) {
+        val itemId = item.id ?: return
+        val current = currentItem(itemId) ?: return
+        requestQuantity(current, increasedQuantity(current.quantity, current.unit))
+    }
+
+    /** At the minimum, − does nothing: removing a line is the delete gesture. */
+    fun decrementQuantity(item: GroceryItem) {
+        val itemId = item.id ?: return
+        val current = currentItem(itemId) ?: return
+        if (!canDecreaseQuantity(current.quantity, current.unit)) return
+        requestQuantity(current, decreasedQuantity(current.quantity, current.unit))
+    }
+
+    /** A quantity typed by hand; anything that is not a number above zero is refused and nothing is sent. */
+    fun setQuantity(item: GroceryItem, text: String) {
+        val itemId = item.id ?: return
+        val current = currentItem(itemId) ?: return
+        val quantity = parseQuantity(text)
+        if (quantity == null) {
+            _uiState.value = _uiState.value.copy(quantityMessage = "Quantité invalide : saisissez un nombre supérieur à 0")
+            return
+        }
+        if (quantity != current.quantity) requestQuantity(current, quantity)
+    }
+
+    fun dismissQuantityMessage() {
+        _uiState.value = _uiState.value.copy(quantityMessage = null)
+    }
+
+    private fun requestQuantity(item: GroceryItem, quantity: Float) {
+        val itemId = item.id ?: return
+        if (!quantityBaselines.containsKey(itemId)) quantityBaselines[itemId] = item.quantity
+        pendingQuantities[itemId] = quantity
+        applyItemUpdate { if (it.id == itemId) it.copy(quantity = quantity) else it }
+
+        quantityJobs[itemId]?.cancel()
+        quantityJobs[itemId] = viewModelScope.launch {
+            delay(QUANTITY_SAVE_DELAY_MS)
+            // Once the delay is over the request goes out whatever happens to the screen.
+            withContext(NonCancellable) { quantitySaves.withLock { sendQuantity(itemId) } }
+        }
+    }
+
+    private suspend fun sendQuantity(itemId: String) {
+        val sent = pendingQuantities[itemId] ?: return
+        val result = groceryListRepository.editItem(itemId = itemId, quantity = sent)
+        val stillCurrent = pendingQuantities[itemId] == sent
+        if (result.isSuccess) {
+            if (stillCurrent) {
+                pendingQuantities.remove(itemId)
+                quantityBaselines.remove(itemId)
+            } else {
+                quantityBaselines[itemId] = sent
+            }
+            return
+        }
+        val label = currentItem(itemId)?.label ?: "l'article"
+        val message = "Erreur : la quantité de « $label » n'a pas été modifiée"
+        if (stillCurrent) {
+            val baseline = quantityBaselines[itemId]
+            pendingQuantities.remove(itemId)
+            quantityBaselines.remove(itemId)
+            applyItemUpdate { if (it.id == itemId) it.copy(quantity = baseline) else it }
+        }
+        _uiState.value = _uiState.value.copy(quantityMessage = message)
     }
 
     fun toggleItemChecked(item: GroceryItem) {

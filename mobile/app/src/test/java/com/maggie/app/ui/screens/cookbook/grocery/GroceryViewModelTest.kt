@@ -7,6 +7,7 @@ import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Store
@@ -25,7 +26,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -816,5 +819,195 @@ class GroceryViewModelTest {
         assertEquals("07/10/2026", formatBuyAfter("2026-10-07"))
         assertEquals("07/10/2026", formatBuyAfter("2026-10-07T00:00:00+00:00"))
         assertNull(formatBuyAfter("not a date"))
+    }
+
+    // --- MAG-291: − / + and typed quantity on the line ---
+
+    private val quantityItems = listOf(
+        GroceryItem(id = "item-riz", label = "Riz", quantity = 1f, unit = CookbookUnit.PACK, store = store, position = 0),
+        GroceryItem(id = "item-farine", label = "Farine", quantity = 500f, unit = CookbookUnit.G, store = store, position = 1),
+        GroceryItem(id = "item-sel", label = "Sel", store = store, position = 2),
+    )
+
+    private fun stubQuantities(editResult: Result<Unit> = Result.success(Unit)) {
+        coEvery { groceryListRepository.getGroceryList() } returns
+            Result.success(GroceryList(id = "list-1", items = quantityItems))
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns editResult
+    }
+
+    private fun quantityOf(id: String): Float? =
+        viewModel.uiState.value.groceryList!!.items.first { it.id == id }.quantity
+
+    private fun item(id: String): GroceryItem = viewModel.uiState.value.groceryList!!.items.first { it.id == id }
+
+    private fun sentQuantities(id: String): List<Float?> {
+        val sent = mutableListOf<Float?>()
+        coVerify(atLeast = 0) {
+            groceryListRepository.editItem(eq(id), any(), captureNullable(sent), any(), any(), any(), any())
+        }
+        return sent
+    }
+
+    @Test
+    fun `plus shows the next quantity at once and saves it after the delay`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+
+        assertEquals(2f, quantityOf("item-riz"))
+        assertEquals(emptyList<Float?>(), sentQuantities("item-riz"))
+
+        advanceTimeBy(QUANTITY_SAVE_DELAY_MS + 1)
+        runCurrent()
+
+        assertEquals(listOf<Float?>(2f), sentQuantities("item-riz"))
+        assertEquals(2f, quantityOf("item-riz"))
+        assertNull(viewModel.uiState.value.quantityMessage)
+    }
+
+    @Test
+    fun `two taps on plus are one request carrying 3`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+        assertEquals(3f, quantityOf("item-riz"))
+
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(3f), sentQuantities("item-riz"))
+    }
+
+    @Test
+    fun `plus plus minus is one request carrying the net quantity`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        viewModel.incrementQuantity(item("item-riz"))
+        viewModel.decrementQuantity(item("item-riz"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(2f), sentQuantities("item-riz"))
+    }
+
+    @Test
+    fun `minus at the minimum changes nothing and sends nothing`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.decrementQuantity(item("item-riz"))
+        viewModel.decrementQuantity(item("item-sel"))
+        advanceUntilIdle()
+
+        assertEquals(1f, quantityOf("item-riz"))
+        assertNull(quantityOf("item-sel"))
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { groceryListRepository.deleteItem(any()) }
+    }
+
+    @Test
+    fun `the step follows the unit and a line without quantity starts at one step`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-farine"))
+        viewModel.incrementQuantity(item("item-sel"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(600f), sentQuantities("item-farine"))
+        assertEquals(listOf<Float?>(1f), sentQuantities("item-sel"))
+    }
+
+    @Test
+    fun `a typed quantity is saved, a comma being a decimal point`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.setQuantity(item("item-riz"), "2,5")
+        runCurrent()
+        assertEquals(2.5f, quantityOf("item-riz"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(2.5f), sentQuantities("item-riz"))
+    }
+
+    @Test
+    fun `an empty, zero, negative or non numeric quantity is refused and nothing is sent`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        for (typed in listOf("", "0", "-3", "abc")) {
+            viewModel.dismissQuantityMessage()
+            viewModel.setQuantity(item("item-riz"), typed)
+            assertNotNull("'$typed' should be refused", viewModel.uiState.value.quantityMessage)
+        }
+        advanceUntilIdle()
+
+        assertEquals(1f, quantityOf("item-riz"))
+        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `an API refusal puts the previous quantity back with a message`() = runTest {
+        stubQuantities(editResult = Result.failure(RuntimeException("400")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+        assertEquals(2f, quantityOf("item-riz"))
+
+        advanceUntilIdle()
+
+        assertEquals(1f, quantityOf("item-riz"))
+        assertTrue(viewModel.uiState.value.quantityMessage!!.contains("Riz"))
+
+        viewModel.dismissQuantityMessage()
+        assertNull(viewModel.uiState.value.quantityMessage)
+    }
+
+    @Test
+    fun `a Mercure update during a burst of taps does not bring the old quantity back`() = runTest {
+        stubQuantities()
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns updates
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+        updates.emit(MercureEvent(data = """{"items":[{"id":"item-riz","label":"Riz","quantity":2,"unit":"pack"}]}"""))
+        runCurrent()
+
+        assertEquals(3f, quantityOf("item-riz"))
+    }
+
+    @Test
+    fun `a quantity changed on another screen arrives through Mercure`() = runTest {
+        stubQuantities()
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns updates
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        updates.emit(MercureEvent(data = """{"items":[{"id":"item-riz","label":"Riz","quantity":4,"unit":"pack"}]}"""))
+        advanceUntilIdle()
+
+        assertEquals(4f, quantityOf("item-riz"))
     }
 }

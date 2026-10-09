@@ -139,8 +139,11 @@ tags:
       LABEL: Tisane MAG-178
       STATE: present
 
-# A tick on the phone reaches the database.
-- longPressOn: ".*Tisane MAG-178.*"
+# A tick on the phone reaches the database. The long press names the label
+# exactly: `.*label.*` also matches the − / quantity / + controls of the line
+# (their descriptions carry the label), and a long press on the quantity opens
+# its edit field instead of selecting the line.
+- longPressOn: "Tisane MAG-178"
 - tapOn: "Cocher les articles"
 - extendedWaitUntil:
     visible: "Terminé"
@@ -153,7 +156,7 @@ tags:
       STATE: checked
 
 # And a removal on the phone reaches it too, which leaves the list as found.
-- longPressOn: ".*Tisane MAG-178.*"
+- longPressOn: "Tisane MAG-178"
 - tapOn: "Supprimer les articles"
 - extendedWaitUntil:
     visible: "Cette action est irréversible."
@@ -200,7 +203,7 @@ tags:
       below: "Épicerie du coin"
     timeout: 30000
 
-- longPressOn: ".*Levain MAG-178.*"
+- longPressOn: "Levain MAG-178"
 - tapOn: "Cocher les articles"
 - extendedWaitUntil:
     visible: "Terminé"
