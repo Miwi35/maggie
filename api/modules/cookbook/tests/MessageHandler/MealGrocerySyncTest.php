@@ -18,6 +18,7 @@ use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\DeleteRecipeCommand;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
+use Maggie\Cookbook\Message\SyncMealGroceriesCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Maggie\Core\Entity\User;
@@ -229,7 +230,7 @@ class MealGrocerySyncTest extends KernelTestCase
         // new one. Re-joining the line it had just let go used to insert a
         // second contribution for the same pair while the first one's delete
         // was still pending — straight into the unique index, 500.
-        $this->bus()->dispatch(new UpdateMealCommand(mealId: $pastaId, date: null, slot: null, recipeIds: null));
+        $this->bus()->dispatch(new SyncMealGroceriesCommand(mealId: $pastaId));
 
         // Pâtes, Parmesan, the gratin's two tomatoes left on the old line,
         // and the pasta's four on a new one.
