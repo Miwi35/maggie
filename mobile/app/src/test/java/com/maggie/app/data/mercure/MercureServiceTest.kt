@@ -18,17 +18,8 @@ import kotlin.concurrent.thread
 
 class MercureServiceTest {
 
-    // The rule itself, without a network: a shared CI runner can be slow to open
-    // sockets, the dispatcher's limits cannot be.
-    @Test
-    fun `the stream dispatcher lets more than five streams reach one host`() {
-        val dispatcher = MercureService.streamDispatcher()
-        assertTrue(dispatcher.maxRequestsPerHost > 5)
-        assertTrue(dispatcher.maxRequests >= dispatcher.maxRequestsPerHost)
-    }
-
-    // The same through the real client: the limits must reach the engine, which
-    // Ktor builds with a fresh dispatcher of its own (9 Oct.: one thread per
+    // Through the real client: the limits must reach the engine, which Ktor
+    // builds with a fresh dispatcher of its own (9 Oct.: one thread per
     // stream and 30 s, after two red CI runs on a loaded runner).
     @Test
     fun `the default client holds more than five streams to one host at once`() = runBlocking {
