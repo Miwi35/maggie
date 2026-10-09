@@ -124,8 +124,12 @@ class ChatRepository(
     }
 
     /** Send a user message via AG-UI streaming. Returns a flow of AG-UI events. */
-    fun sendMessageStream(content: String, screenContext: String? = null): Flow<AgUiEvent> {
-        return apiService.sendChatStream(message = content, screenContext = screenContext)
+    fun sendMessageStream(
+        content: String,
+        screenContext: String? = null,
+        idempotencyKey: String = java.util.UUID.randomUUID().toString(),
+    ): Flow<AgUiEvent> {
+        return apiService.sendChatStream(message = content, screenContext = screenContext, idempotencyKey = idempotencyKey)
     }
 
     /** Persist a completed assistant message to Room. */

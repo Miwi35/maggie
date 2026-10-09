@@ -59,9 +59,9 @@ fun AssistantOverlay(
     SpokenReplies(viewModel, voiceManager)
     SpokenApprovals(viewModel, voiceManager, onListen)
 
-    LaunchedEffect(uiState.messages.size) {
+    LaunchedEffect(uiState.messages.size, uiState.failure) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+            listState.animateScrollToItem(uiState.messages.size - (if (uiState.failure == null) 1 else 0))
         }
     }
 
@@ -132,6 +132,9 @@ fun AssistantOverlay(
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                         }
+                    }
+                    uiState.failure?.let { failure ->
+                        item { ChatFailureNotice(failure, onRetry = viewModel::retry) }
                     }
                 }
 

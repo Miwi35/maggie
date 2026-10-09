@@ -1,17 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
+import { newMessageKey } from './messageKey'
 
 const STREAM_URL = '/agent/chat/stream'
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('token')
   return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-// `crypto.randomUUID` only exists in a secure context; the key only has to be unique.
-function newMessageKey(): string {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
 interface AgUiCallbacks {
@@ -28,7 +22,9 @@ interface AgUiCallbacks {
 }
 
 interface UseAgUiStreamReturn {
-  send: (message: string) => Promise<void>
+  // [idempotencyKey] is one per message composed: a retry passes the key of the first send, so an
+  // agent that already received the message answers it once (MAG-363).
+  send: (message: string, idempotencyKey?: string) => Promise<void>
   isStreaming: boolean
 }
 
@@ -37,14 +33,14 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
   const callbacksRef = useRef(callbacks)
   callbacksRef.current = callbacks
 
-  const send = useCallback(async (message: string) => {
+  const send = useCallback(async (message: string, idempotencyKey: string = newMessageKey()) => {
     setIsStreaming(true)
 
     try {
       const response = await fetch(STREAM_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ message, idempotency_key: newMessageKey() }),
+        body: JSON.stringify({ message, idempotency_key: idempotencyKey }),
       })
 
       if (!response.ok) {

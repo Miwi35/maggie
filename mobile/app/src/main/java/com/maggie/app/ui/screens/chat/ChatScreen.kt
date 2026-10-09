@@ -91,6 +91,7 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
                 isLoadingHistory = uiState.isLoadingHistory,
                 onLoadMore = viewModel::loadOlderMessages,
                 onMessageTapped = viewModel::onMessageTapped,
+                onRetry = viewModel::retry,
                 modifier = Modifier.weight(1f),
                 approvals = uiState.pendingApprovals,
                 onApprove = viewModel::approve,

@@ -6,6 +6,7 @@ import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import InputAdornment from '@mui/material/InputAdornment'
+import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import Tab from '@mui/material/Tab'
@@ -30,6 +31,7 @@ import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTop
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
+import { newMessageKey } from '../../hooks/messageKey'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import { ContextList } from '../mind/ContextList'
@@ -189,6 +191,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const streamedMessageIdRef = useRef<string | null>(null)
     const streamingTextRef = useRef('')
 
+    // The last message sent, with its key; and, when the agent could not be reached, the
+    // same pair as a state of that message — not a message of Maggie's (MAG-363).
+    const lastSendRef = useRef<{ text: string; key: string } | null>(null)
+    const [failedSend, setFailedSend] = useState<{ text: string; key: string } | null>(null)
+
     // Search state
     const [searchMode, setSearchMode] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -307,15 +314,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       },
       onError: (message) => {
         console.error('Stream error:', message)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `err-${Date.now()}`,
-            role: 'assistant',
-            content: "Erreur : impossible de contacter l'agent.",
-            createdAt: new Date().toISOString(),
-          },
-        ])
+        setFailedSend(lastSendRef.current)
         onAgentStateChange('idle')
       },
     })
@@ -485,7 +484,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       if (prevOpenRef.current && !open && messages.length > 0) {
         const lastMsg = messages[messages.length - 1]
-        if (lastMsg && !lastMsg.id.startsWith('tmp-') && !lastMsg.id.startsWith('err-')) {
+        if (lastMsg && !lastMsg.id.startsWith('tmp-')) {
           localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
         }
         setUnreadFromId(null)
@@ -499,7 +498,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       if (following && unreadFromId) {
         setUnreadFromId(null)
         const lastMsg = messages[messages.length - 1]
-        if (lastMsg && !lastMsg.id.startsWith('tmp-') && !lastMsg.id.startsWith('err-')) {
+        if (lastMsg && !lastMsg.id.startsWith('tmp-')) {
           localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
         }
       }
@@ -519,10 +518,22 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         ])
         setFollowing(true)
 
-        await agUiStream.send(userMessage)
+        const key = newMessageKey()
+        lastSendRef.current = { text: userMessage, key }
+        setFailedSend(null)
+        await agUiStream.send(userMessage, key)
       },
       [agUiStream, setFollowing],
     )
+
+    const retryFailedSend = useCallback(async () => {
+      if (!failedSend || agUiStream.isStreaming) return
+      lastSendRef.current = failedSend
+      setFailedSend(null)
+      setFollowing(true)
+      onAgentStateChange('thinking')
+      await agUiStream.send(failedSend.text, failedSend.key)
+    }, [failedSend, agUiStream, setFollowing, onAgentStateChange])
 
     useImperativeHandle(
       ref,
@@ -726,6 +737,15 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     const isTranscribing = recorder.state === 'processing' || transcription.loading
     const isLoading = agUiStream.isStreaming
+
+    // The message left without an answer: the mention goes under it, and goes away as soon
+    // as something from Maggie lands after it.
+    const unansweredId = (() => {
+      if (!failedSend) return null
+      const at = messages.map((m) => m.role === 'user' && m.content.trim() === failedSend.text).lastIndexOf(true)
+      if (at === -1 || messages.slice(at + 1).some((m) => m.role !== 'user')) return null
+      return messages[at].id
+    })()
     const voiceError = recorder.error || transcription.error
 
     // --- Render ---
@@ -992,6 +1012,19 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                           >
                             {saidInMessage(msg.content)}
                           </ChatBubble>
+                          {msg.id === unansweredId && (
+                            <Box
+                              data-testid="chat-send-failed"
+                              sx={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 0.5, px: 1 }}
+                            >
+                              <Typography variant="caption" color="error">
+                                Maggie n'a pas pu être jointe
+                              </Typography>
+                              <Button size="small" onClick={retryFailedSend}>
+                                Réessayer
+                              </Button>
+                            </Box>
+                          )}
                         </Fragment>
                       )
                     })}

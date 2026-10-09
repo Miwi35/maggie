@@ -672,8 +672,13 @@ class MaggieApiService(
     }
 
     // Chat streaming — AG-UI SSE endpoint
-    fun sendChatStream(message: String, screenContext: String? = null): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
-        val idempotencyKey = java.util.UUID.randomUUID().toString()
+    // [idempotencyKey] is one per message composed: a retry passes the key of the first send,
+    // so the agent that already received it answers once (MAG-363).
+    fun sendChatStream(
+        message: String,
+        screenContext: String? = null,
+        idempotencyKey: String = java.util.UUID.randomUUID().toString(),
+    ): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
                 waitForAgentStream()

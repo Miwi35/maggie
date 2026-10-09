@@ -451,11 +451,89 @@ describe('ChatWidget', () => {
 
     // Verify the streaming send was called
     await waitFor(() => {
-      expect(mockSend).toHaveBeenCalledWith('Hello Maggie')
+      expect(mockSend).toHaveBeenCalledWith('Hello Maggie', expect.any(String))
     })
 
     // Verify optimistic user message appears
     expect(screen.getByText('Hello Maggie')).toBeInTheDocument()
+  })
+
+  // MAG-363: a message the agent did not answer is a state of that message, with a way
+  // to send it again — not an answer from Maggie.
+  describe('a message the agent could not be reached for', () => {
+    async function sendHello() {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      const user = userEvent.setup()
+      renderWithTheme(<ChatWidget {...defaultProps} />)
+      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Hello Maggie')
+      await user.click(screen.getByTestId('SendIcon').closest('button')!)
+      await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1))
+      return user
+    }
+
+    test('adds no bubble of Maggie: a mention with « Réessayer » sits under the message', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      await sendHello()
+
+      act(() => stream.callbacks.onError('HTTP 502'))
+
+      expect(await screen.findByText("Maggie n'a pas pu être jointe")).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
+      expect(screen.queryByText(/impossible de contacter/i)).not.toBeInTheDocument()
+      expect(screen.getAllByText('Hello Maggie')).toHaveLength(1)
+      expect(defaultProps.onAgentStateChange).toHaveBeenLastCalledWith('idle')
+    })
+
+    test('« Réessayer » sends the same text under the same key, without a second bubble', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const user = await sendHello()
+      act(() => stream.callbacks.onError('HTTP 502'))
+
+      await user.click(await screen.findByRole('button', { name: 'Réessayer' }))
+
+      expect(mockSend).toHaveBeenCalledTimes(2)
+      expect(mockSend.mock.calls[1]).toEqual(mockSend.mock.calls[0])
+      expect(screen.queryByText("Maggie n'a pas pu être jointe")).not.toBeInTheDocument()
+      expect(screen.getAllByText('Hello Maggie')).toHaveLength(1)
+      expect(defaultProps.onAgentStateChange).toHaveBeenLastCalledWith('thinking')
+    })
+
+    test('a second failure shows the mention and its button again, with the same key', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const user = await sendHello()
+      act(() => stream.callbacks.onError('HTTP 502'))
+      await user.click(await screen.findByRole('button', { name: 'Réessayer' }))
+      act(() => stream.callbacks.onError('Network error'))
+
+      await user.click(await screen.findByRole('button', { name: 'Réessayer' }))
+
+      expect(mockSend).toHaveBeenCalledTimes(3)
+      expect(mockSend.mock.calls[2]).toEqual(mockSend.mock.calls[0])
+    })
+
+    test('goes away when the answer lands another way', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+      try {
+        await sendHello()
+        act(() => stream.callbacks.onError('HTTP 502'))
+        await screen.findByText("Maggie n'a pas pu être jointe")
+
+        const source = MockEventSource.instances.find(
+          (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
+        )!
+        act(() => {
+          source.onmessage?.({
+            data: JSON.stringify({ id: 'a-1', role: 'assistant', content: 'Bonjour !', createdAt: '2026-10-09T10:00:00Z' }),
+          } as MessageEvent)
+        })
+
+        await waitFor(() => expect(screen.queryByText("Maggie n'a pas pu être jointe")).not.toBeInTheDocument())
+        expect(screen.getByText('Bonjour !')).toBeInTheDocument()
+      } finally {
+        localStorage.removeItem('user')
+      }
+    })
   })
 
   test('does not duplicate messages with same ID', async () => {

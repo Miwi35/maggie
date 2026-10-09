@@ -247,6 +247,7 @@ private fun ChatHistory(
         onLoadMore = viewModel::loadOlderMessages,
         onMessageTapped = viewModel::onMessageTapped,
         modifier = modifier,
+        onRetry = viewModel::retry,
         approvals = uiState.pendingApprovals,
         onApprove = viewModel::approve,
         onDeny = viewModel::deny,
