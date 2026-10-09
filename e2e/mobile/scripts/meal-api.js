@@ -58,7 +58,7 @@ function named(path, name) {
 }
 
 function meals() {
-  return collection('/api/meals?itemsPerPage=200').filter(function (row) { return row.summary === recipeName })
+  return collection('/api/meals?itemsPerPage=200').filter(function (row) { return String(row.summary).includes(recipeName) })
 }
 
 function post(path, body) {
