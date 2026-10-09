@@ -47,13 +47,13 @@ fun QuantityStepper(
 ) {
     var draft by remember { mutableStateOf<String?>(null) }
     val quantity = item.quantity
-    val unitText = unitLabel(item.unit, quantity ?: 0f)
+    val unitText = unitLabel(item.countedUnit, quantity ?: 0f)
     val shown = (quantity?.let(::formatQuantity) ?: "—") + if (unitText.isNotEmpty()) " $unitText" else ""
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         IconButton(
             onClick = onDecrement,
-            enabled = canDecreaseQuantity(quantity, item.unit),
+            enabled = canDecreaseQuantity(quantity, item.countedUnit),
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
@@ -107,6 +107,16 @@ fun QuantityStepper(
                     .onFocusChanged { state ->
                         if (state.isFocused) hadFocus = true else if (hadFocus) commit()
                     },
+            )
+        }
+
+        val packaging = item.packagingContent()
+        if (packaging != null && current == null) {
+            Text(
+                text = packaging,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { contentDescription = "Contenu d'un conditionnement de ${item.label} : $packaging" },
             )
         }
 

@@ -1,0 +1,79 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Product:
+  product_riz:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  product_lait:
+    name: Lait
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@test_user'
+  product_farine:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+  product_semoule:
+    name: Semoule
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Jar)>'
+  product_pates:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+  product_sel:
+    name: Sel
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Spice)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_riz:
+    groceryList: '@grocery_list'
+    product: '@product_riz'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  item_lait_checked:
+    groceryList: '@grocery_list'
+    product: '@product_lait'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+  item_farine:
+    groceryList: '@grocery_list'
+    product: '@product_farine'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 3
+  item_sel:
+    groceryList: '@grocery_list'
+    product: '@product_sel'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 4
+  item_pates:
+    groceryList: '@grocery_list'
+    product: '@product_pates'
+    quantity: 2
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 5

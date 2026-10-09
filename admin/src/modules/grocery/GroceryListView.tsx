@@ -39,6 +39,8 @@ import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { QuantityStepper } from './QuantityStepper'
+import { lineUnit, packagingContent } from './groceryQuantity'
+import type { PackagedProduct } from './groceryQuantity'
 
 interface ProductOption {
   id: string
@@ -57,7 +59,7 @@ interface GroceryItem {
   id: string
   '@id': string
   label: string
-  product?: string
+  product?: PackagedProduct | null
   customLabel?: string
   quantity?: number
   unit?: string
@@ -208,7 +210,8 @@ function SortableGroceryItem({
       <QuantityStepper
         label={label}
         quantity={item.quantity}
-        unit={item.unit}
+        unit={lineUnit(item.unit, item.product)}
+        packaging={packagingContent(item.unit, item.product)}
         disabled={isRemoving}
         onChange={(quantity) => onQuantityChange(item, quantity)}
         onInvalid={onQuantityInvalid}

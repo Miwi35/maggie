@@ -38,7 +38,16 @@ const line = (id: string, label: string, quantity: number | undefined, unit: str
   position,
 })
 
-const list = (items: ReturnType<typeof line>[]) => ({ id: 'list-1', '@id': '/api/grocery_lists/list-1', items })
+const rice = { id: 'product-riz', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' }
+const jam = { id: 'product-confiture', packagingUnit: 'jar', packagingSize: null, packagingSizeUnit: null }
+
+const packaged = (id: string, label: string, quantity: number, unit: string | undefined, product: object, position: number) => ({
+  ...line(id, label, quantity, unit ?? '', position),
+  unit,
+  product,
+})
+
+const list = (items: object[]) => ({ id: 'list-1', '@id': '/api/grocery_lists/list-1', items })
 
 const sampleList = list([
   line('item-riz', 'Riz', 1, 'pack', 0),
@@ -257,5 +266,95 @@ describe('GroceryListView — quantity on the line', () => {
     await userEvent.setup().click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  describe('counted in packagings (MAG-299)', () => {
+    const packagedList = list([
+      packaged('item-riz', 'Riz', 1, 'pack', rice, 0),
+      packaged('item-confiture', 'Confiture', 2, 'jar', jam, 1),
+      packaged('item-semoule', 'Semoule', 2, undefined, rice, 2),
+      packaged('item-riz-g', 'Riz basmati', 300, 'g', rice, 3),
+    ])
+
+    beforeEach(() => {
+      mockGetList.mockResolvedValue({ data: [packagedList], total: 1 })
+      mockGetOne.mockResolvedValue({ data: packagedList })
+    })
+
+    test('reads « 1 paquet » with what a pack holds after it, and nothing after a jar of unknown content', async () => {
+      await open()
+
+      expect(within(row('Riz')).getByText('1 paquet')).toBeInTheDocument()
+      expect(within(row('Riz')).getByTestId('quantity-packaging')).toHaveTextContent('(500 g)')
+      expect(within(row('Confiture')).getByText('2 bocaux')).toBeInTheDocument()
+      expect(within(row('Confiture')).queryByTestId('quantity-packaging')).not.toBeInTheDocument()
+    })
+
+    test('a line with no unit of a packaged product reads as its packaging', async () => {
+      await open()
+
+      expect(within(row('Semoule')).getByText('2 paquets')).toBeInTheDocument()
+      expect(within(row('Semoule')).getByTestId('quantity-packaging')).toHaveTextContent('(500 g)')
+    })
+
+    test('a line in grams keeps the free step and shows no pack content', async () => {
+      await open()
+      const user = userEvent.setup()
+
+      expect(within(row('Riz basmati')).getByText('300 g')).toBeInTheDocument()
+      expect(within(row('Riz basmati')).queryByTestId('quantity-packaging')).not.toBeInTheDocument()
+
+      await user.click(within(row('Riz basmati')).getByRole('button', { name: 'Augmenter la quantité de Riz basmati' }))
+      await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
+      expect(patches(mockFetch)[0].body).toEqual({ quantity: 400 })
+    })
+
+    test('+ adds one pack and − takes one off: « 3 paquets » after two taps, one request', async () => {
+      await open()
+      const user = userEvent.setup()
+      const plus = within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' })
+
+      await user.click(plus)
+      await user.click(plus)
+
+      expect(within(row('Riz')).getByText('3 paquets')).toBeInTheDocument()
+      await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
+      expect(patches(mockFetch)[0].body).toEqual({ quantity: 3 })
+
+      await user.click(within(row('Confiture')).getByRole('button', { name: 'Diminuer la quantité de Confiture' }))
+      expect(within(row('Confiture')).getByText('1 bocal')).toBeInTheDocument()
+      await waitFor(() => expect(patches(mockFetch)).toHaveLength(2))
+      expect(patches(mockFetch)[1].body).toEqual({ quantity: 1 })
+    })
+
+    test('the last pack cannot be taken off with −', async () => {
+      await open()
+
+      expect(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' })).toBeDisabled()
+    })
+
+    test('an API refusal puts the previous packs back and says so', async () => {
+      mockApi({ ok: false, status: 400 })
+      await open()
+
+      await userEvent.setup().click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' }))
+      expect(within(row('Riz')).getByText('2 paquets')).toBeInTheDocument()
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringContaining('Riz'), { type: 'error' }))
+      expect(within(row('Riz')).getByText('1 paquet')).toBeInTheDocument()
+    })
+
+    test('a Mercure update keeps the packaging of the line', async () => {
+      await open()
+
+      act(() => {
+        eventSources[0].onmessage?.({
+          data: JSON.stringify(list([packaged('item-riz', 'Riz', 4, 'pack', rice, 0)])),
+        } as MessageEvent)
+      })
+
+      await waitFor(() => expect(within(row('Riz')).getByText('4 paquets')).toBeInTheDocument())
+      expect(within(row('Riz')).getByTestId('quantity-packaging')).toHaveTextContent('(500 g)')
+    })
   })
 })

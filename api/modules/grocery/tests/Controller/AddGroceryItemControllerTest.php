@@ -538,4 +538,168 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertCount(1, $items);
         self::assertSame('Supermarché', $items[0]->getStore()->getName());
     }
+
+    /** @param array<string, mixed> $body */
+    private function addItem(array $body): void
+    {
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    /** @return list<GroceryItem> */
+    private function itemsOf(string $label): array
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return array_values(array_filter(
+            $em->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => $item->getLabel() === $label,
+        ));
+    }
+
+    private function loadMergeFixtures(): void
+    {
+        $this->loadFixtures('add_item_merge.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        // The fixtures set each line's list, not the list's lines: reload the list from the database.
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+    }
+
+    public function testAddingAProductAlreadyOnTheListRaisesItsQuantity(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 1, 'unit' => 'pack']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(4, $data['itemCount']);
+
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(2.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testAddingAPackagedProductWithoutQuantityAddsOnePackaging(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz']);
+
+        self::assertResponseIsSuccessful();
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(2.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+    }
+
+    public function testAddingAPackagedProductNotYetOnTheListCountsInPackagings(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Semoule']);
+
+        self::assertResponseIsSuccessful();
+        $semolina = $this->itemsOf('Semoule');
+        self::assertCount(1, $semolina);
+        self::assertSame(1.0, $semolina[0]->getQuantity());
+        self::assertSame('jar', $semolina[0]->getUnit()?->value);
+    }
+
+    public function testATickedLineIsNeverMerged(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Lait', 'quantity' => 1, 'unit' => 'l']);
+
+        self::assertResponseIsSuccessful();
+        $milk = $this->itemsOf('Lait');
+        self::assertCount(2, $milk);
+        $ticked = array_values(array_filter($milk, static fn (GroceryItem $i) => $i->isChecked()));
+        $fresh = array_values(array_filter($milk, static fn (GroceryItem $i) => !$i->isChecked()));
+        self::assertCount(1, $ticked);
+        self::assertSame(2.0, $ticked[0]->getQuantity());
+        self::assertCount(1, $fresh);
+        self::assertSame(1.0, $fresh[0]->getQuantity());
+    }
+
+    public function testAnotherUnitMakesANewLine(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Farine', 'quantity' => 1, 'unit' => 'pack']);
+        self::assertResponseIsSuccessful();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 300, 'unit' => 'g']);
+        self::assertResponseIsSuccessful();
+
+        $flour = $this->itemsOf('Farine');
+        self::assertCount(2, $flour);
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(2, $rice);
+        $quantities = array_map(static fn (GroceryItem $i) => [$i->getUnit()?->value, $i->getQuantity()], $rice);
+        sort($quantities);
+        self::assertSame([['g', 300.0], ['pack', 1.0]], $quantities);
+    }
+
+    public function testMergingMatchesTheProductNameCaseInsensitively(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'farine', 'quantity' => 250, 'unit' => 'g']);
+
+        self::assertResponseIsSuccessful();
+        $flour = $this->itemsOf('Farine');
+        self::assertCount(1, $flour);
+        self::assertSame(750.0, $flour[0]->getQuantity());
+    }
+
+    public function testAddingALineWithNoQuantityOnEitherSideChangesNothing(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Sel']);
+
+        self::assertResponseIsSuccessful();
+        $salt = $this->itemsOf('Sel');
+        self::assertCount(1, $salt);
+        self::assertNull($salt[0]->getQuantity());
+    }
+
+    public function testAMergedLineDeferredByAMealComesBackToToday(): void
+    {
+        $this->loadFixtures('add_item_merge.yaml');
+        $this->getFixture('item_farine')->setBuyAfter(new \DateTimeImmutable('+5 days'));
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        $this->addItem(['label' => 'Farine', 'quantity' => 500, 'unit' => 'g']);
+
+        self::assertResponseIsSuccessful();
+        $flour = $this->itemsOf('Farine');
+        self::assertCount(1, $flour);
+        self::assertSame(1000.0, $flour[0]->getQuantity());
+        self::assertNull($flour[0]->getBuyAfter());
+    }
+
+    public function testALineWithNoUnitOfAPackagedProductReadsAsItsPackaging(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Pâtes', 'quantity' => 1, 'unit' => 'pack']);
+
+        self::assertResponseIsSuccessful();
+        $pasta = $this->itemsOf('Pâtes');
+        self::assertCount(1, $pasta);
+        self::assertSame(3.0, $pasta[0]->getQuantity());
+        self::assertSame('pack', $pasta[0]->getUnit()?->value);
+    }
 }

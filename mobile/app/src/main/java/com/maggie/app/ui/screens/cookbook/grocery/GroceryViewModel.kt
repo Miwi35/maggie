@@ -293,15 +293,15 @@ class GroceryViewModel(
     fun incrementQuantity(item: GroceryItem) {
         val itemId = item.id ?: return
         val current = currentItem(itemId) ?: return
-        requestQuantity(current, increasedQuantity(current.quantity, current.unit))
+        requestQuantity(current, increasedQuantity(current.quantity, current.countedUnit))
     }
 
     /** At the minimum, − does nothing: removing a line is the delete gesture. */
     fun decrementQuantity(item: GroceryItem) {
         val itemId = item.id ?: return
         val current = currentItem(itemId) ?: return
-        if (!canDecreaseQuantity(current.quantity, current.unit)) return
-        requestQuantity(current, decreasedQuantity(current.quantity, current.unit))
+        if (!canDecreaseQuantity(current.quantity, current.countedUnit)) return
+        requestQuantity(current, decreasedQuantity(current.quantity, current.countedUnit))
     }
 
     /** A quantity typed by hand; anything that is not a number above zero is refused and nothing is sent. */

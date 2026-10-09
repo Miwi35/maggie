@@ -4,6 +4,8 @@ import {
   decreaseQuantity,
   formatQuantity,
   increaseQuantity,
+  lineUnit,
+  packagingContent,
   parseQuantity,
   quantityStep,
   unitLabel,
@@ -61,5 +63,29 @@ describe('groceryQuantity', () => {
     expect(unitLabel('g', 500)).toBe('g')
     expect(unitLabel(undefined, 2)).toBe('')
     expect(formatQuantity(1.5)).toBe('1,5')
+  })
+
+  describe('packaging (MAG-299)', () => {
+    const rice = { packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' }
+
+    test('a line with no unit reads as the packaging of its product', () => {
+      expect(lineUnit(undefined, rice)).toBe('pack')
+      expect(lineUnit(null, rice)).toBe('pack')
+      expect(lineUnit('g', rice)).toBe('g')
+      expect(lineUnit(undefined, null)).toBeUndefined()
+      expect(lineUnit(undefined, {})).toBeUndefined()
+    })
+
+    test('what a pack holds shows on a line counted in the packaging only', () => {
+      expect(packagingContent('pack', rice)).toBe('(500 g)')
+      expect(packagingContent(undefined, rice)).toBe('(500 g)')
+      expect(packagingContent('g', rice)).toBeNull()
+    })
+
+    test('nothing to show when the packaging has no size, or there is no product', () => {
+      expect(packagingContent('jar', { packagingUnit: 'jar', packagingSize: null, packagingSizeUnit: null })).toBeNull()
+      expect(packagingContent('pack', null)).toBeNull()
+      expect(packagingContent('pack', {})).toBeNull()
+    })
   })
 })

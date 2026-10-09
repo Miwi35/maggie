@@ -1,0 +1,63 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Product:
+  product_rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+  product_sauce:
+    name: Sauce tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Condiment)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Jar)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+  product_bananas:
+    name: Bananes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_rice:
+    groceryList: '@grocery_list'
+    product: '@product_rice'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  item_sauce:
+    groceryList: '@grocery_list'
+    product: '@product_sauce'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Jar)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+    buyAfter: '<(new \DateTimeImmutable("+5 days"))>'
+  item_bananas:
+    groceryList: '@grocery_list'
+    product: '@product_bananas'
+    quantity: 6
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 3
+  item_custom:
+    groceryList: '@grocery_list'
+    customLabel: Savon
+    quantity: 1
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 4

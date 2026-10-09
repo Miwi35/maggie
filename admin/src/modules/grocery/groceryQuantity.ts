@@ -1,3 +1,5 @@
+import { quantityLabel } from './packaging'
+
 // Step of the − / + buttons on a list line (MAG-291): a counted unit moves by
 // one, a weight or a volume by what a shopper would add at a time. The smallest
 // quantity a line can be lowered to is one step: − never removes the line.
@@ -41,4 +43,23 @@ export const parseQuantity = (text: string): number | null => {
   const value = Number(text.trim().replace(',', '.'))
   if (text.trim() === '' || !Number.isFinite(value) || value <= 0) return null
   return round(value)
+}
+
+export interface PackagedProduct {
+  packagingUnit?: string | null
+  packagingSize?: number | null
+  packagingSizeUnit?: string | null
+}
+
+// A product with a packaging is counted in it: a line with no unit of its own
+// reads as that packaging, « Riz » alone being one pack.
+export const lineUnit = (unit?: string | null, product?: PackagedProduct | null): string | undefined =>
+  unit || product?.packagingUnit || undefined
+
+// « (500 g) » — what one pack holds, only on a line counted in the packaging
+// itself: a line in grams of the same product says its weight, not its pack.
+export const packagingContent = (unit?: string | null, product?: PackagedProduct | null): string | null => {
+  if (!product?.packagingUnit || product.packagingSize == null || !product.packagingSizeUnit) return null
+  if (unit && unit !== product.packagingUnit) return null
+  return `(${quantityLabel(product.packagingSize, product.packagingSizeUnit)})`
 }

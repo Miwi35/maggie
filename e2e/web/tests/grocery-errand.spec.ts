@@ -116,6 +116,7 @@ const WRITES = {
   observed: 'Levure MAG-101',
   posted: 'Pois chiches MAG-101',
   stepped: 'Boulgour du placard',
+  packaged: 'Riz MAG-299',
   errandBought: 'Anchois MAG-101',
   errandKept: 'Olives MAG-101',
   deleted: 'Lait MAG-283',
@@ -468,6 +469,64 @@ test('pressing + twice on a line makes it three, in the other window and after a
   await field.press('Enter')
   await expect(acting.line(label)).toContainText('3')
   expect(writes, 'an empty quantity was sent to the API').toHaveLength(0)
+})
+
+test('a packaged product is counted in packs, and adding it again raises the line — MAG-299', async ({
+  otherUser,
+}) => {
+  const label = WRITES.packaged
+  const { api } = otherUser
+  const observerPage = await otherUser.secondWindow()
+
+  // Given « Riz », bought in packs of 500 g, at 1 pack on the list.
+  const created = await api.post('/api/products', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name: label, category: 'grain', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' },
+  })
+  expect(created.status(), `the API refused the product: ${await created.text()}`).toBe(201)
+
+  const acting = new GroceryListPage(otherUser.page)
+  const watching = new GroceryListPage(observerPage)
+
+  await acting.open()
+  await acting.addItem(label, { quantity: 1, store: SHOPS.market })
+  await expectLine(api, label, (line) => 1 === line?.quantity, 'one pack of rice on the list')
+  await acting.expectItemEventually(label)
+  await expect(acting.line(label)).toContainText('1 paquet')
+  await expect(acting.line(label)).toContainText('(500 g)')
+
+  await openSubscribed(
+    observerPage,
+    () => watching.open(),
+    userTopic(otherUser.session.user.id, GROCERY_TOPIC),
+  )
+
+  // When I press + twice, the line reads « 3 paquets », in the other window too,
+  // and still after a reload.
+  await expectRealtimeSync(
+    observerPage,
+    async () => {
+      const plus = acting.line(label).getByRole('button', { name: `Augmenter la quantité de ${label}` })
+      await plus.click()
+      await plus.click()
+      await expect(acting.line(label)).toContainText('3 paquets')
+    },
+    async () => {
+      await expect(watching.line(label)).toContainText('3 paquets')
+    },
+  )
+  await expectLine(api, label, (line) => 3 === line?.quantity, 'the stored quantity is 3 packs')
+  await acting.expectItemEventually(label)
+  await expect(acting.line(label)).toContainText('3 paquets')
+
+  // And adding the same product again raises the line instead of making a second one.
+  await acting.addItem(label, { quantity: 1 })
+  await expectLine(api, label, (line) => 4 === line?.quantity, 'the quantity is raised to 4 packs')
+  const lines = (await storedList(api)).items.filter((item) => item.label === label)
+  expect(lines, 'the product is on the list once').toHaveLength(1)
+  await acting.expectItemEventually(label)
+  await expect(acting.line(label)).toHaveCount(1)
+  await expect(acting.line(label)).toContainText('4 paquets')
 })
 
 test('adding a line goes through the endpoint the API really exposes', async ({ otherUser }) => {

@@ -90,6 +90,45 @@ class GroceryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
+    public function testAddGroceryItemMergesIntoALineAlreadyOnTheList(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz', 1, 'pack'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame(4, $data['itemCount'], 'the rice line is raised, no fifth line');
+
+        $this->em()->clear();
+        $rice = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
+        ));
+        self::assertCount(1, $rice);
+        self::assertSame(3.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testAddGroceryItemInAnotherUnitMakesANewLine(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz', 300, 'g'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(5, $data['itemCount']);
+    }
+
     public function testAddGroceryItemCaseInsensitiveMatch(): void
     {
         $this->loadFixtures('product.yaml');
@@ -184,6 +223,54 @@ class GroceryToolsTest extends KernelTestCase
         self::assertArrayHasKey('groceryList', $data);
         self::assertSame(2, $data['groceryList']['totalItems']);
         self::assertSame(1, $data['groceryList']['checkedItems']);
+    }
+
+    public function testGetGroceryListCarriesThePackagingAndTheStockStateOfEachLine(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(includeDeferred: true), true, 512, JSON_THROW_ON_ERROR);
+
+        $lines = [];
+        foreach ($data['groceryList']['storeGroups'] as $group) {
+            foreach ($group['items'] as $line) {
+                $lines[$line['label']] = $line;
+            }
+        }
+
+        self::assertEquals(2.0, $lines['Riz']['quantity']);
+        self::assertSame('pack', $lines['Riz']['unit']);
+        self::assertEquals(['unit' => 'pack', 'size' => 500.0, 'sizeUnit' => 'g'], $lines['Riz']['packaging']);
+        self::assertSame('low', $lines['Riz']['stockState']);
+
+        self::assertSame(['unit' => 'jar', 'size' => null, 'sizeUnit' => null], $lines['Sauce tomate']['packaging']);
+        self::assertSame('out', $lines['Sauce tomate']['stockState']);
+
+        self::assertNull($lines['Bananes']['packaging']);
+        self::assertSame('in_stock', $lines['Bananes']['stockState']);
+
+        self::assertNull($lines['Savon']['packaging'], 'a custom line has no product');
+        self::assertNull($lines['Savon']['stockState']);
+    }
+
+    public function testGetGroceryListCarriesThePackagingOnTheDeferredLinesToo(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertCount(1, $data['groceryList']['later']);
+        $later = $data['groceryList']['later'][0];
+        self::assertSame('Sauce tomate', $later['label']);
+        self::assertEquals(3.0, $later['quantity']);
+        self::assertSame('jar', $later['packaging']['unit']);
+        self::assertSame('out', $later['stockState']);
     }
 
     /**

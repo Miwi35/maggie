@@ -10,6 +10,8 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -928,6 +930,84 @@ class GroceryViewModelTest {
 
         assertEquals(listOf<Float?>(600f), sentQuantities("item-farine"))
         assertEquals(listOf<Float?>(1f), sentQuantities("item-sel"))
+    }
+
+    // --- MAG-299: quantities counted in packagings ---
+
+    private val rice = Product(
+        id = "product-riz",
+        name = "Riz",
+        category = ProductCategory.GRAIN,
+        packagingUnit = CookbookUnit.PACK,
+        packagingSize = 500f,
+        packagingSizeUnit = CookbookUnit.G,
+    )
+
+    private fun stubPackaged() {
+        val items = listOf(
+            GroceryItem(id = "item-riz", label = "Riz", product = rice, quantity = 1f, unit = CookbookUnit.PACK, store = store, position = 0),
+            GroceryItem(id = "item-semoule", label = "Semoule", product = rice, quantity = 2f, store = store, position = 1),
+            GroceryItem(id = "item-riz-g", label = "Riz basmati", product = rice, quantity = 300f, unit = CookbookUnit.G, store = store, position = 2),
+        )
+        coEvery { groceryListRepository.getGroceryList() } returns Result.success(GroceryList(id = "list-1", items = items))
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+    }
+
+    @Test
+    fun `two taps on plus on a packaged line make 3 packs in a single request`() = runTest {
+        stubPackaged()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+
+        assertEquals(3f, quantityOf("item-riz"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(3f), sentQuantities("item-riz"))
+    }
+
+    @Test
+    fun `minus on a packaged line takes one pack off, never below one`() = runTest {
+        stubPackaged()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.decrementQuantity(item("item-semoule"))
+        viewModel.decrementQuantity(item("item-semoule"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(1f), sentQuantities("item-semoule"))
+        assertEquals(1f, quantityOf("item-semoule"))
+    }
+
+    @Test
+    fun `a line in grams of a packaged product keeps the free step`() = runTest {
+        stubPackaged()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz-g"))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Float?>(400f), sentQuantities("item-riz-g"))
+    }
+
+    @Test
+    fun `a refused change on a packaged line puts the previous packs back and says so`() = runTest {
+        stubPackaged()
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns
+            Result.failure(RuntimeException("400"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        advanceUntilIdle()
+
+        assertEquals(1f, quantityOf("item-riz"))
+        assertNotNull(viewModel.uiState.value.quantityMessage)
     }
 
     @Test
