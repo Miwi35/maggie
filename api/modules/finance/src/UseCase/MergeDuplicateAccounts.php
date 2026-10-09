@@ -34,6 +34,9 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExcep
  */
 class MergeDuplicateAccounts
 {
+    /** One fee on the same day is a coincidence; two movements are a history. */
+    private const MIN_SHARED_MOVEMENTS = 2;
+
     /** @var array<string, array<string, array<int, int>>> account id → its movements, for one run */
     private array $movementDays = [];
 
@@ -163,8 +166,9 @@ class MergeDuplicateAccounts
      * The sets of accounts that are one real account. Copies chain: the oldest
      * may share no day with the newest, only with the copy in between — so a
      * set is everything linked to it, step by step. A set that links two
-     * different identifications is two real accounts: their own copies merge,
-     * the lookalikes in between are reported.
+     * different identifications — two keys, or two accounts the sync just read
+     * — is two real accounts: their own copies merge, the lookalikes in
+     * between are reported.
      *
      * @param list<Account>         $accounts oldest first
      * @param array<string, string> $keys
@@ -223,20 +227,21 @@ class MergeDuplicateAccounts
         $duplicated = [];
         $ambiguous = [];
         foreach ($sets as $members) {
-            $byKey = [];
-            $keyless = [];
+            $byIdentity = [];
+            $unidentified = [];
             foreach ($members as $member) {
-                $key = $keys[(string) $member->getId()] ?? null;
-                if (null === $key) {
-                    $keyless[] = $member;
+                $id = (string) $member->getId();
+                $identity = $keys[$id] ?? (isset($live[$id]) ? 'read|'.$id : null);
+                if (null === $identity) {
+                    $unidentified[] = $member;
                 } else {
-                    $byKey[$key][] = $member;
+                    $byIdentity[$identity][] = $member;
                 }
             }
 
-            if (\count($byKey) > 1) {
-                array_push($ambiguous, ...$keyless);
-                $members = array_values(array_filter($byKey, static fn (array $same) => \count($same) > 1));
+            if (\count($byIdentity) > 1) {
+                array_push($ambiguous, ...$unidentified);
+                $members = array_values(array_filter($byIdentity, static fn (array $same) => \count($same) > 1));
                 array_push($duplicated, ...$members);
             } elseif (\count($members) > 1) {
                 $duplicated[] = $members;
@@ -286,7 +291,8 @@ class MergeDuplicateAccounts
      * Over the days both accounts cover, more than half the movements of the
      * busier one are on the other too, same day and amount — the label left
      * out, the bank rewording it between two reads. Two real accounts of one
-     * holder share a fee now and then, never most of their history.
+     * holder share a fee now and then, never most of their history — nor
+     * several movements on a day or two of overlap.
      */
     private function sharesMovements(Account $account, Account $other): bool
     {
@@ -319,7 +325,7 @@ class MergeDuplicateAccounts
             $counted[1] += array_sum($amounts);
         }
 
-        return 2 * $shared > max($counted);
+        return $shared >= self::MIN_SHARED_MOVEMENTS && 2 * $shared > max($counted);
     }
 
     /**

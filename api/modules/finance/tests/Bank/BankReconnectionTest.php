@@ -453,9 +453,12 @@ class BankReconnectionTest extends KernelTestCase
         $oldest = $this->legacyAccount($connection, 'uid-a', 'M. CADARE MEVEN', -15000);
         $between = $this->legacyAccount($connection, 'uid-b', 'M. CADARE MEVEN', -17000);
         $this->storedMovement($oldest, 'CARTE BOULANGERIE', -450, '2026-09-10');
-        $this->storedMovement($oldest, 'CARTE PHARMACIE', -1290, '2026-09-20');
-        $this->storedMovement($between, 'CARTE PHARMACIE', -1290, '2026-09-20');
+        foreach ([$oldest, $between] as $account) {
+            $this->storedMovement($account, 'CARTE LIBRAIRIE', -1850, '2026-09-15');
+            $this->storedMovement($account, 'CARTE PHARMACIE', -1290, '2026-09-20');
+        }
         $this->storedMovement($between, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+        $this->storedMovement($between, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
 
         $session = 'session-2';
         $this->connect($http);
@@ -465,7 +468,7 @@ class BankReconnectionTest extends KernelTestCase
         self::assertCount(1, $accounts);
         self::assertTrue($oldest->getId()->equals($accounts[0]->getId()));
         self::assertSame('uid-new', $accounts[0]->getExternalAccountId());
-        self::assertCount(4, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findAll());
+        self::assertCount(5, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findAll());
     }
 
     public function testTwoAccountsTheSyncReadsAreNeverFoldedTogether(): void
@@ -484,6 +487,27 @@ class BankReconnectionTest extends KernelTestCase
         $this->sync($http);
 
         self::assertCount(2, $this->bankAccounts());
+    }
+
+    public function testADeadCopyLinkingTwoAccountsTheSyncReadsMergesNeither(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // A dead copy sharing movements with each of two real accounts the
+        // session lists: it cannot be the copy of both, so nothing is guessed.
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => []], $session);
+        $connection = $this->connect($http);
+        $this->legacyAccount($connection, 'uid-checking', 'Meven Cadare');
+        $this->legacyAccount($connection, 'uid-card', 'Meven Cadare');
+        $dead = $this->legacyAccount($connection, 'uid-dead', 'Meven Cadare', 4000);
+        $dead->setClosedAt(new \DateTimeImmutable('-1 day'));
+        $this->storedMovement($dead, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+        $this->storedMovement($dead, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+
+        $this->sync($http);
+
+        self::assertCount(3, $this->bankAccounts());
     }
 
     public function testTheAccountKeptFollowsTheUidTheSessionReadsNotANewerDeadCopy(): void
