@@ -427,8 +427,10 @@ else
   step "Coverage: one flow at a time"
   APP_ID=com.maggie.app.e2e
   COVERAGE_EXEC="${E2E_COVERAGE_DIR:-$REPO_ROOT/e2e/coverage}/exec/mobile"
-  # Emptied first: counts left by an earlier run would be converted again as this one's.
-  rm -rf "$COVERAGE_EXEC"
+  # Not emptied: a CI lot runs this script up to four times (its journeys, those in
+  # quarantine, a retry of each — scripts/e2e/mobile-journeys.sh) and every run's
+  # flows belong to the lot. Each flow replaces its own files below; the job starts
+  # from an empty e2e/coverage/, and so should a local run.
   mkdir -p "$COVERAGE_EXEC" "$REPORT_DIR/junit-flows"
   if [ "${targets[0]}" = "$FLOW_DIR" ]; then
     targets=()
@@ -438,6 +440,10 @@ else
   for flow in "${targets[@]}"; do
     journey="${flow#"$REPO_ROOT"/}"
     slug="$(tr '/.' '__' <<<"$journey")"
+    # Missing until the dump below succeeds — a flow cut short by the quarantine's
+    # time limit included: collect.d/50-mobile.sh then calls the lot incomplete.
+    rm -f "$COVERAGE_EXEC/$slug.ec" "$COVERAGE_EXEC/$slug.journey"
+    printf '%s\n' "$journey" >"$COVERAGE_EXEC/$slug.missing"
     flow_status=0
     "$MAESTRO" --device "$SERIAL" test "$flow" \
       --format junit \
@@ -455,6 +461,7 @@ else
       && "$ADB" -s "$SERIAL" exec-out run-as "$APP_ID" cat files/e2e-coverage.ec >"$COVERAGE_EXEC/$slug.ec" \
       && [ "$(head -c 3 "$COVERAGE_EXEC/$slug.ec" | od -An -tx1 | tr -d ' \n')" = 01c0c0 ]; then
       printf '%s\n' "$journey" >"$COVERAGE_EXEC/$slug.journey"
+      rm -f "$COVERAGE_EXEC/$slug.missing"
       note "coverage of $journey: $(wc -c <"$COVERAGE_EXEC/$slug.ec") bytes"
     else
       # No dump, or a file without JaCoCo's header (01 c0 c0): run-as wrote its error there.
@@ -477,15 +484,10 @@ for path in sys.argv[2:]:
 ET.ElementTree(merged).write(sys.argv[1], encoding="UTF-8", xml_declaration=True)
 PY
 
-  # Exec data + the build's classes → e2e/coverage/raw/mobile/<slug>.json. The classes
-  # come with the APK (`E2E_COVERAGE=1 build-apk.sh` copies them beside it).
-  classes="${E2E_MOBILE_CLASSES:-$(dirname "$APK")/classes}"
-  if [ -d "$classes" ]; then
-    "$REPO_ROOT/scripts/e2e/coverage/mobile.sh" "$COVERAGE_EXEC" "$classes" \
-      || warn "the mobile coverage could not be converted; the exec data stays in ${COVERAGE_EXEC#"$REPO_ROOT"/}"
-  else
-    warn "no classes at $classes: the exec data stays in ${COVERAGE_EXEC#"$REPO_ROOT"/}, convert it with scripts/e2e/coverage/mobile.sh"
-  fi
+  # Exec data + the build's classes → e2e/coverage/raw/mobile/<slug>.json: not here
+  # but once the lot is over, by scripts/e2e/coverage/collect-lot.sh and its hook
+  # collect.d/50-mobile.sh (locally: `collect-lot.sh local` on the stack still up).
+  note "coverage data in ${COVERAGE_EXEC#"$REPO_ROOT"/}: scripts/e2e/coverage/collect-lot.sh converts it"
 fi
 
 if [ "$status" -ne 0 ]; then

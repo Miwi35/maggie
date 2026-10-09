@@ -156,12 +156,14 @@ jobs:
       - uses: actions/checkout@v4
         continue-on-error: true
 
+      # One directory per lot, never merged on download: a spec Playwright split
+      # across two shards leaves a raw file of the same name in each lot's
+      # artifact, and a merge would keep only one. build-map.py unions them.
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           pattern: e2e-coverage-raw-*
-          merge-multiple: true
-          path: e2e/coverage/raw
+          path: e2e/coverage/lots
 
       - name: Build the map
         id: build
@@ -176,7 +178,7 @@ jobs:
           [ -n "$expected" ] || { echo "::warning::the lots of tonight are unknown: no e2e line map"; exit 0; }
           status=0
           # shellcheck disable=SC2086 # one argument per lot
-          python3 scripts/e2e/coverage/build-map.py --raw e2e/coverage/raw --out e2e-coverage-map.json \
+          python3 scripts/e2e/coverage/build-map.py --raw e2e/coverage/lots --out e2e-coverage-map.json \
             --commit "$GITHUB_SHA" --expect $expected || status=$?
           if [ "$status" -ne 0 ]; then
             echo "::warning::no e2e line map tonight (build-map exit $status): pull requests keep the zones of e2e/impact-map.yml"

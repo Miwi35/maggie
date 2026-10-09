@@ -10,6 +10,11 @@ the nightly with E2E_COVERAGE=1, one per component and journey:
     e2e/coverage/raw/<component>/<journey slug>.json
     {"journey": "<repo path of the journey>", "files": {"<repo path>": [executed lines]}}
 
+at any depth: the nightly downloads each lot's artifact into a directory of its
+own (DIR/<artifact>/<component>/<slug>.json), since a spec Playwright split
+across two shards leaves a file of the same name in each. Files are keyed by
+their `journey`, never by their name: every file of a journey is unioned.
+
 and writes the map `scripts/e2e/impacted.sh select --coverage-map` reads:
 
     {"version": 1, "commit": "<sha>", "generatedAt": "<UTC ISO, seconds>",
@@ -23,7 +28,8 @@ its admin lines are the same journey). A component that left no file brings no
 line: the selection falls back to e2e/impact-map.yml for its files.
 
 --expect names the lots the night played (web-<shard>, mobile-phone-<lot>):
-each must have left its completion mark (<raw>/_lots/<lot>.ok, collect-lot.sh).
+each must have left its completion mark (_lots/<lot>.ok anywhere under DIR,
+written by collect-lot.sh).
 
 Exit 0 with the map written; 3 when there is no usable raw file (no map is
 better than an empty one); 4 when an expected lot is not complete (nor is a
@@ -118,13 +124,17 @@ def main():
         nargs="*",
         default=[],
         metavar="LOT",
-        help="lots that must be marked complete (<raw>/_lots/<lot>.ok, written by collect-lot.sh)",
+        help="lots that must be marked complete (_lots/<lot>.ok under --raw, written by collect-lot.sh)",
     )
     args = parser.parse_args()
 
     # A lot missing would leave lines "covered" by only some of the journeys that
     # run them: a pull request would play too few. No map is safe, a partial one is not.
-    missing = [lot for lot in args.expect if not os.path.isfile(os.path.join(args.raw, "_lots", f"{lot}.ok"))]
+    marks = {
+        os.path.basename(path)[: -len(".ok")]
+        for path in glob.glob(os.path.join(args.raw, "**", "_lots", "*.ok"), recursive=True)
+    }
+    missing = [lot for lot in args.expect if lot not in marks]
     if missing:
         warn(f"incomplete coverage, no map: no complete collection for {', '.join(missing)}")
         return 4
