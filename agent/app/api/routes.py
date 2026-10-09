@@ -21,9 +21,9 @@ from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
+from app.db.models import NOTHING_SAID
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
-from app.db.models import NOTHING_SAID
 from app.db.proaction_repository import proaction_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
