@@ -4,7 +4,6 @@ namespace App\Tests\Support;
 
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Events;
 use Maggie\Finance\Doctrine\TransactionListener;
 use Nelmio\Alice\Loader\NativeLoader;
 
@@ -47,16 +46,7 @@ trait FixtureLoaderTrait
      */
     protected function flushWithoutTransactionEffects(EntityManagerInterface $em): void
     {
-        $effects = self::getContainer()->get(TransactionListener::class);
-        $events = $em->getEventManager();
-        // Listeners are lazy services: they only become removable once resolved.
-        $events->getAllListeners();
-        $events->removeEventListener([Events::preFlush, Events::onFlush, Events::postFlush], $effects);
-        try {
-            $em->flush();
-        } finally {
-            $events->addEventListener([Events::preFlush, Events::onFlush, Events::postFlush], $effects);
-        }
+        self::getContainer()->get(TransactionListener::class)->withoutEffects($em->flush(...));
     }
 
     protected function purgeDatabase(): void

@@ -39,11 +39,24 @@ final class TransactionListener
     /** @var list<Transaction> */
     private array $removed = [];
 
+    private bool $suspended = false;
+
     public function __construct(
         #[Autowire(service: 'event.bus')]
         private readonly MessageBusInterface $eventBus,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    /** Runs work whose flushes store history as it is — fixtures, the e2e seed — and raise no event. */
+    public function withoutEffects(\Closure $work): mixed
+    {
+        $this->suspended = true;
+        try {
+            return $work();
+        } finally {
+            $this->suspended = false;
+        }
     }
 
     /** A flush that failed after onFlush never reached postFlush: its changes must not outlive it. */
@@ -55,6 +68,10 @@ final class TransactionListener
 
     public function onFlush(OnFlushEventArgs $args): void
     {
+        if ($this->suspended) {
+            return;
+        }
+
         $uow = $args->getObjectManager()->getUnitOfWork();
 
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entity) {
