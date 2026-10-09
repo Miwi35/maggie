@@ -1,0 +1,24 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: clear-notifications@example.com
+    googleId: google-clear-notifications
+    name: Clear Notifications User
+  other_user:
+    email: clear-notifications-other@example.com
+    googleId: google-clear-notifications-other
+    name: Clear Notifications Other User
+
+Maggie\Notification\Entity\Notification:
+  own_unread:
+    user: '@test_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Rendez-vous dentiste'
+  own_read:
+    user: '@test_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Proaction)>'
+    title: 'Courses à faire'
+    readAt: '<(new \DateTimeImmutable("2026-03-01 09:00"))>'
+  other_user_notification:
+    user: '@other_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Pas pour nous'
