@@ -13,7 +13,7 @@ root message → ProjectionMiddleware::begin()
 ```
 
 - **Unit of work, not return value.** A store, a product and a list created on the way to a grocery line are all announced; the handler returns whatever it likes.
-- **Once, at the root.** A nested command's changes are folded into its parent's frame; a row touched twice is published once (class + id), insert wins over update, delete wins over everything.
+- **Once, at the root.** A nested command's changes are folded into its parent's frame; a row touched twice is published once (class + id), insert wins over update, delete wins over a later update.
 - **After the handler.** Nothing leaves while the handler runs. A handler that throws *after* a flush still has its committed rows projected (they exist); a flush that failed projects nothing.
 - **To the owner of the row**, never to whoever is logged in (`Security` is empty in a worker): `OwnedByUserInterface`, `OwnedThroughInterface`, or the `User` itself. A row with no owner is not published.
 - **Payload**: insert → full; update → differential (the changed Doctrine properties, `MercurePayloadFilterTrait`); delete → `{"deleted": true}`. A class and its published ancestors (Meal/Event, Ingredient/Product) each get their topic.
