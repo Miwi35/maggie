@@ -46,4 +46,16 @@ class IsRecurringGroceryItemDueTest extends TestCase
 
         self::assertTrue((new IsRecurringGroceryItemDue(new \DateTimeImmutable('2026-10-09 06:00')))->isSatisfiedBy($item));
     }
+
+    public function testTheDayOfTheLastAdditionIsACalendarDayWhateverTheZoneItWasReadIn(): void
+    {
+        // Read back from the database in UTC, asked on a Paris day: exactly a week apart.
+        $item = (new RecurringGroceryItem())
+            ->setFrequency(RecurringFrequency::Weekly)
+            ->setLastAddedAt(new \DateTimeImmutable('2026-10-02', new \DateTimeZone('UTC')));
+
+        $today = new \DateTimeImmutable('2026-10-09', new \DateTimeZone('Europe/Paris'));
+
+        self::assertTrue((new IsRecurringGroceryItemDue($today))->isSatisfiedBy($item));
+    }
 }
