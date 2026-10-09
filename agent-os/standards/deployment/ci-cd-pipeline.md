@@ -158,10 +158,11 @@ docker/build-push-action:
 2. Run `deploy-k3s.sh <RELEASE_SHA>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
    2. **Backup** (`backup-k3s.sh`, MAG-188) — `pg_dump | gzip` of **both** databases into `/opt/maggie/backups`: `maggie_predeploy_<ts>.sql.gz` (`DATABASE_URL`) and `maggie_agent_predeploy_<ts>.sql.gz` (`AGENT_DATABASE_URL`: memory, messages, contexts, directives, proactions, personality). Last 10 of each kept; a failed or empty dump, either one, aborts the deploy
-   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
-   4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
-   5. **Post-deploy** — migrations (no `cache:clear`: the image ships a warmed cache), Elasticsearch mapping update and reindex
-   6. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
+   3. **Migrate (MAG-361)** — before any new pod serves: `app:calendar:dedupe-google-agendas` in the running php pod, then `doctrine:migrations:migrate` in a one-shot pod (`kubectl run migrate`) on the php image about to be deployed. A failure stops the deploy before anything changed. The old pods keep serving the new schema, so **a migration only adds** (column, table, index, nullable or defaulted): what removes or renames waits for the deploy after the one that stopped using it. Migrating after the rollout is what failed in production: `Meal` is a joined child of `Event`, so the first deploy of a new `meal` column made every event read throw `InvalidFieldNameException` until the migration ran.
+   4. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
+   5. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
+   6. **Post-deploy** — filing of meals in the module agenda, Elasticsearch mapping update and reindex, Google push channels (no `cache:clear`: the image ships a warmed cache)
+   7. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
 
 ### Smoke job (MAG-106)
 

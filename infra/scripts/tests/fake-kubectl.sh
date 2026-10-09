@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A kubectl that knows just enough about deployment revisions for
-# rollback-k3s.test.sh. State lives in $FAKE_KUBECTL_DIR: one `rev-<deployment>`
+# rollback-k3s.test.sh (and the order of the calls of deploy-k3s.test.sh). State lives in $FAKE_KUBECTL_DIR: one `rev-<deployment>`
 # file per deployment, and a `calls` log.
 set -euo pipefail
 
@@ -17,6 +17,11 @@ case "$1 $2" in
     ;;
   "get pods") echo "fake pods" ;;
   "get pod")
+    # `get pod migrate -o jsonpath={.status.phase}`: the content of `migrate-phase`.
+    if [ "${3:-}" = migrate ]; then
+      cat "$dir/migrate-phase" 2>/dev/null || echo Succeeded
+      exit 0
+    fi
     # `get pod -l app=<name> -o jsonpath=…`: answers with the lines of
     # `pods-<name>`, already in the `name|deletionTimestamp|imageID` shape.
     for arg in "$@"; do
@@ -53,5 +58,19 @@ case "$1 $2" in
     echo $(( $(cat "$dir/rev-$name") + 10 )) > "$dir/rev-$name"
     ;;
   "rollout status") ;;
+  "get nodes") ;;
+  "get deployment") echo 1 ;;
+  "apply -k") ;;
+  "delete pod") ;;
+  "exec deployment/"*) ;;
+  "run migrate")
+    # The one-shot migration pod: kubectl itself fails when `fail-run` exists;
+    # the pod's phase is the content of `migrate-phase` (Succeeded by default).
+    if [ -f "$dir/fail-run" ]; then
+      echo "error: pod could not be created" >&2
+      exit 1
+    fi
+    ;;
+  "logs migrate") echo "migration output" ;;
   *) echo "fake-kubectl: unexpected call: $*" >&2; exit 2 ;;
 esac

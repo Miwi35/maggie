@@ -9,12 +9,14 @@ set -euo pipefail
 # Philosophy mirrored from hilo/scripts/deploy-k3s.sh:
 #   1. Preflight   — shared services up
 #   2. Backup      — pg_dump of both databases (API + agent) before any change
-#   3. Apply       — bump image tags in kustomization, kubectl apply -k
-#   4. Wait        — rollout status on every Maggie deployment
-#   5. Post-deploy — data repairs, migrations, ES mapping + reindex
-#   6. Verify      — pod list + healthcheck
+#   3. Migrate     — data repair, then the migrations of the image being
+#                    deployed, before any new pod serves (MAG-361)
+#   4. Apply       — bump image tags in kustomization, kubectl apply -k
+#   5. Wait        — rollout status on every Maggie deployment
+#   6. Post-deploy — meals filing, ES mapping + reindex
+#   7. Verify      — pod list + healthcheck
 #
-# The revisions the deployments had before phase 3 are recorded for
+# The revisions the deployments had before phase 4 are recorded for
 # rollback-k3s.sh, which the CD workflow runs if the deploy or the post-deploy
 # smoke suite fails (MAG-106).
 # =============================================================================
@@ -22,9 +24,9 @@ set -euo pipefail
 TAG="${1:?Usage: deploy-k3s.sh <image-tag>}"
 NAMESPACE="maggie"
 SHARED_NS="shared"
-KUSTOMIZE_DIR="/opt/maggie/infra/k8s"
+KUSTOMIZE_DIR="${MAGGIE_KUSTOMIZE_DIR:-/opt/maggie/infra/k8s}"
 KUBECTL="${KUBECTL:-sudo k3s kubectl}"
-HEALTH_URL="https://maggieai.fr/api/docs"
+HEALTH_URL="${MAGGIE_HEALTH_URL:-https://maggieai.fr/api/docs}"
 STATE_DIR="${MAGGIE_STATE_DIR:-/opt/maggie/state}"
 REVISIONS_FILE="$STATE_DIR/pre-deploy-revisions"
 DIGESTS_FILE="$STATE_DIR/pre-deploy-digests"
@@ -69,7 +71,7 @@ log "Phase 2: Backing up the API and agent databases..."
 # dump aborting the deploy. Lives in its own script so it can be tested (MAG-188).
 bash "$(dirname "${BASH_SOURCE[0]}")/backup-k3s.sh" || fail "Database backup is empty or failed"
 
-# === PHASE 3 : APPLY MANIFESTS ===
+# === PHASE 3 : PREPARE IMAGES, THEN MIGRATE ===
 log "Phase 3: Updating image tags to $TAG (only when image exists on GHCR)..."
 
 # Per-service build jobs only run when their scope changed, so a commit that
@@ -140,21 +142,77 @@ for image in "${IMAGES[@]}"; do
 done
 mv "$DIGESTS_FILE.tmp" "$DIGESTS_FILE"
 
+PHP_IMAGE="ghcr.io/miwi35/maggie-php"
+PHP_REF="$PHP_IMAGE:latest"
 for image in "${IMAGES[@]}"; do
+  ref="$image:latest"
   if image_tag_exists "$image" "$TAG"; then
     set_image_field "$image" "newTag" "$TAG"
+    ref="$image:$TAG"
     log "  $image → $TAG"
   else
     digest=$(running_digest "$image")
     if [ -n "$digest" ]; then
       set_image_field "$image" "digest" "$digest"
+      ref="$image@$digest"
       log "  $image → pinned to running ${digest:0:26}… (tag $TAG not on GHCR)"
     else
       warn "  $image → left at latest (tag $TAG not on GHCR, no running digest found)"
     fi
   fi
+  if [ "$image" = "$PHP_IMAGE" ]; then
+    PHP_REF="$ref"
+  fi
 done
 
+# === PHASE 3 (cont.): MIGRATE, BEFORE ANY NEW POD SERVES (MAG-361) ===
+# New code reads the new schema: an entity selecting a column that does not
+# exist yet fails every query that touches it (Meal is a joined child of Event,
+# so every event read), for as long as the rollout and the migrations are apart.
+# So the migrations of the image about to be deployed run first, in a one-shot
+# pod, while the old pods keep serving. The old code must therefore survive the
+# new schema: a migration only adds, and what removes or renames waits for the
+# deploy after the one that stopped using it (agent-os/standards/deployment/
+# ci-cd-pipeline.md). A failure here stops the deploy before anything changed.
+#
+# The agenda repair comes first: the unique index on (user_id,
+# google_calendar_id) cannot be created while a user still holds two agendas
+# for the same Google calendar (MAG-148). A no-op once that index exists, and
+# safe to run again. It runs in the old pod, so it sees the previous schema; it
+# is built for that — with nothing to merge it answers from plain SQL and never
+# loads an entity. A repair step added later that does touch entities belongs
+# after the rollout instead.
+log "Phase 3: Merging agendas that share a Google calendar..."
+$KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedupe-google-agendas --no-interaction
+
+log "Phase 3: Running migrations with $PHP_REF..."
+MIGRATE_OVERRIDES='{"spec":{"imagePullSecrets":[{"name":"ghcr-pull"}],"containers":[{"name":"migrate","image":"'"$PHP_REF"'","envFrom":[{"configMapRef":{"name":"maggie-config"}},{"secretRef":{"name":"maggie-env"}}],"env":[{"name":"SENTRY_DSN","valueFrom":{"secretKeyRef":{"name":"glitchtip-dsn","key":"api","optional":true}}}]}]}}'
+MIGRATE_TIMEOUT="${MAGGIE_MIGRATE_TIMEOUT:-600}"
+MIGRATE_POLL="${MAGGIE_POLL_SECONDS:-3}"
+
+# The pod's own phase decides, not the exit code of `kubectl run -i`: attached
+# to a pod that already failed, kubectl may report success, and the rollout
+# would start on the old schema — the very thing this phase exists to prevent.
+$KUBECTL delete pod migrate -n "$NAMESPACE" --ignore-not-found >/dev/null
+$KUBECTL run migrate -n "$NAMESPACE" --restart=Never \
+  --image="$PHP_REF" --overrides="$MIGRATE_OVERRIDES" \
+  --command -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration \
+  || fail "Could not start the migration pod: nothing was deployed."
+
+phase=""
+deadline=$((SECONDS + MIGRATE_TIMEOUT))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  phase=$($KUBECTL get pod migrate -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  case "$phase" in Succeeded|Failed) break ;; esac
+  sleep "$MIGRATE_POLL"
+done
+
+$KUBECTL logs migrate -n "$NAMESPACE" 2>&1 || true
+$KUBECTL delete pod migrate -n "$NAMESPACE" --ignore-not-found >/dev/null || true
+[ "$phase" = "Succeeded" ] \
+  || fail "Migrations did not succeed (pod phase: ${phase:-unknown}): nothing was deployed. Fix and deploy again."
+
+# === PHASE 4 : APPLY MANIFESTS ===
 # Revision of every deployment right before the apply. `rollout undo` alone
 # would be wrong: a deployment this deploy did not touch has no new revision, so
 # undoing it would send it back to an older release than the one it serves.
@@ -173,8 +231,8 @@ log "Recorded pre-deploy revisions: $(tr '\n' ' ' < "$REVISIONS_FILE")"
 log "Applying manifests..."
 $KUBECTL apply -k "$KUSTOMIZE_DIR"
 
-# === PHASE 4 : WAIT ROLLOUT ===
-log "Phase 4: Waiting for rollouts to complete..."
+# === PHASE 5 : WAIT ROLLOUT ===
+log "Phase 5: Waiting for rollouts to complete..."
 
 ROLLOUT_FAILED=0
 for deploy in "${DEPLOYMENTS[@]}"; do
@@ -198,26 +256,13 @@ fi
 
 log "All rollouts complete."
 
-# === PHASE 5 : POST-DEPLOY TASKS ===
-# Must run before the migrations: the unique index on (user_id,
-# google_calendar_id) cannot be created while a user still holds two agendas
-# for the same Google calendar (MAG-148). A no-op once that index exists, and
-# safe to run again, so it stays here rather than being a one-off by hand.
-#
-# Running before the migrations means it sees the previous schema. It is built
-# for that — with nothing to merge it answers from plain SQL and never loads an
-# entity — and that is what keeps it safe to leave here. A repair step added
-# later that does touch entities belongs after the migrations instead.
-log "Phase 5a: Merging agendas that share a Google calendar..."
-$KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedupe-google-agendas --no-interaction
-
-log "Phase 5b: Running migrations..."
-$KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+# === PHASE 6 : POST-DEPLOY TASKS ===
+# The migrations already ran (phase 3).
 
 # Meals filed before the « Repas » module agenda existed move into it and lose
 # their Google copy (MAG-324). Needs the migration's `module` column, hence after
-# it; a no-op once every meal is filed, and safe to run again.
-log "Phase 5b2: Filing meals in the module agenda..."
+# the migrations; a no-op once every meal is filed, and safe to run again.
+log "Phase 6a: Filing meals in the module agenda..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:cookbook:file-meals-in-module-agenda --no-interaction; then
   warn "Filing meals failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:cookbook:file-meals-in-module-agenda"
 fi
@@ -225,12 +270,12 @@ fi
 # No cache:clear here (MAG-146): the image ships a warmed cache, and deleting
 # var/cache/prod under a pod that is serving requests fails at random.
 
-log "Phase 5c: Updating Elasticsearch mappings..."
+log "Phase 6b: Updating Elasticsearch mappings..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:mapping:update --all --no-interaction; then
   warn "ES mapping update failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:mapping:update --all"
 fi
 
-log "Phase 5d: Reindexing Elasticsearch..."
+log "Phase 6c: Reindexing Elasticsearch..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:reindex --all --no-interaction; then
   warn "ES reindex failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --all"
 fi
@@ -239,13 +284,13 @@ fi
 # only the expiry is stored, so every deploy replaces the channels with ones
 # for the address this release is configured with. Safe to repeat; the 5-minute
 # cron covers the instant between the old channel and the new one.
-log "Phase 5e: Recreating the Google push channels..."
+log "Phase 6d: Recreating the Google push channels..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console maggie:google-calendar:renew-watch --all --no-interaction; then
   warn "Google watch channels not recreated (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console maggie:google-calendar:renew-watch --all"
 fi
 
-# === PHASE 6 : VERIFICATION ===
-log "Phase 6: Final verification..."
+# === PHASE 7 : VERIFICATION ===
+log "Phase 7: Final verification..."
 
 echo ""
 $KUBECTL get pods -n "$NAMESPACE"

@@ -213,11 +213,7 @@ IMAGE_TAG=latest    # Updated by CD pipeline to git SHA
 ## Database Management
 
 ### Migrations in Production
-Run automatically during CD deployment:
-```bash
-sudo k3s kubectl -n maggie exec deploy/php -- bin/console doctrine:database:create --no-interaction --if-not-exists
-sudo k3s kubectl -n maggie exec deploy/php -- bin/console doctrine:migrations:migrate --no-interaction
-```
+Run automatically during CD deployment, before the new pods serve (`deploy-k3s.sh`, one-shot `migrate` pod on the image being deployed; see `ci-cd-pipeline.md`). A migration only adds.
 
 ### Manual Migration
 ```bash
