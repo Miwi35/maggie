@@ -17,7 +17,6 @@ use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
-use Maggie\Core\Contract\RecordsDomainEvents;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
@@ -25,11 +24,9 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
-use Maggie\Core\Trait\RecordsDomainEventsTrait;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
-use Maggie\Grocery\Event\ProductStockRanLow;
 use Maggie\Grocery\Exception\InvalidPackagingException;
 use Maggie\Grocery\Exception\InvalidStockException;
 use Maggie\Grocery\Repository\ProductRepository;
@@ -52,10 +49,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     new Patch(processor: UpdateProductProcessor::class),
     new Delete(processor: DeleteProductProcessor::class),
 ])]
-class Product implements MercurePublishable, OwnedByUserInterface, IndexableInterface, RecordsDomainEvents
+class Product implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use MercurePayloadFilterTrait;
-    use RecordsDomainEventsTrait;
 
     // The admin sends a record back with `id` set to its IRI; the id is never
     // writable, so it must not be parsed as a Ulid on the way in.
@@ -342,15 +338,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
 
     public function setStockState(ProductStockState $stockState): static
     {
-        $wasInStock = ProductStockState::InStock === $this->stockState;
         $this->stockState = $stockState;
-
-        if (ProductStockState::InStock === $stockState) {
-            // Back in stock before the flush: the run-out never reached the database.
-            $this->forgetDomainEvents(ProductStockRanLow::class);
-        } elseif ($wasInStock) {
-            $this->recordDomainEvent(new ProductStockRanLow((string) $this->id, $stockState));
-        }
 
         return $this;
     }

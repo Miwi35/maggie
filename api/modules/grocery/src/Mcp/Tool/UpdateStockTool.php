@@ -43,7 +43,7 @@ class UpdateStockTool
             $stockState = Product::parseStockState($state);
             $found = $this->resolveProduct($user, $product);
 
-            $lineBefore = $this->openLineQuantity($user, $found);
+            $linesBefore = $this->openLineQuantities($user, $found);
 
             $this->bus->dispatch(new UpdateProductCommand(
                 productId: (string) $found->getId(),
@@ -54,7 +54,7 @@ class UpdateStockTool
                 'success' => true,
                 'product' => ['id' => (string) $found->getId(), 'name' => $found->getName()],
                 'stockState' => $stockState->value,
-                'restock' => $this->restock($user, $found, $stockState, $lineBefore),
+                'restock' => $this->restock($user, $found, $stockState, $linesBefore),
                 'plannedMeals' => $this->plannedMeals($user, $found),
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|\DomainException $e) {
@@ -104,9 +104,11 @@ class UpdateStockTool
      * The restock itself is the consequence of the product running low, not
      * of this tool: the answer says what the list gained.
      *
+     * @param array<string, float> $linesBefore quantity of each open line of the product before the change
+     *
      * @return array{added: bool, reason?: string, quantity?: int, unit?: string|null, lineQuantity?: float|null}
      */
-    private function restock(User $user, Product $product, ProductStockState $state, ?float $lineBefore): array
+    private function restock(User $user, Product $product, ProductStockState $state, array $linesBefore): array
     {
         if (ProductStockState::InStock === $state) {
             return ['added' => false, 'reason' => 'The product is in stock: nothing to buy.'];
@@ -119,9 +121,13 @@ class UpdateStockTool
             return ['added' => false, 'reason' => 'This product has no restock quantity: nothing was added to the list.'];
         }
 
-        $line = $this->openLine($user, $product);
-        $lineAfter = $this->quantityOf($line);
-        if (null === $lineAfter || (null !== $lineBefore && $lineAfter <= $lineBefore)) {
+        $line = null;
+        foreach ($this->openLines($user, $product) as $candidate) {
+            if (($candidate->getQuantity() ?? 0.0) > ($linesBefore[(string) $candidate->getId()] ?? -1.0)) {
+                $line = $candidate;
+            }
+        }
+        if (null === $line) {
             return ['added' => false, 'reason' => 'The product was already low or out: its restock was added when it ran low, nothing more was added to the list.'];
         }
 
@@ -129,35 +135,33 @@ class UpdateStockTool
             'added' => true,
             'quantity' => $quantity,
             'unit' => $product->getPackagingUnit()?->value,
-            'lineQuantity' => $line?->getQuantity(),
+            'lineQuantity' => $line->getQuantity(),
         ];
     }
 
-    private function openLineQuantity(User $user, Product $product): ?float
+    /** @return array<string, float> a line with no quantity counts as 0, so that adding to it is still a gain */
+    private function openLineQuantities(User $user, Product $product): array
     {
-        return $this->quantityOf($this->openLine($user, $product));
+        $quantities = [];
+        foreach ($this->openLines($user, $product) as $line) {
+            $quantities[(string) $line->getId()] = $line->getQuantity() ?? 0.0;
+        }
+
+        return $quantities;
     }
 
-    /** A line with no quantity counts as 0, so that adding to it is still a gain. */
-    private function quantityOf(?GroceryItem $line): ?float
-    {
-        return null === $line ? null : ($line->getQuantity() ?? 0.0);
-    }
-
-    private function openLine(User $user, Product $product): ?GroceryItem
+    /** @return list<GroceryItem> */
+    private function openLines(User $user, Product $product): array
     {
         $list = $this->groceryListRepository->findOneBy(['user' => $user]);
         if (null === $list) {
-            return null;
+            return [];
         }
 
-        foreach ($list->getItems() as $item) {
-            if (!$item->isChecked() && (string) $item->getProduct()?->getId() === (string) $product->getId()) {
-                return $item;
-            }
-        }
-
-        return null;
+        return array_values(array_filter(
+            $list->getItems()->toArray(),
+            static fn (GroceryItem $item) => !$item->isChecked() && (string) $item->getProduct()?->getId() === (string) $product->getId(),
+        ));
     }
 
     /** @return list<array{date: string, slot: string, recipes: list<string>}> */

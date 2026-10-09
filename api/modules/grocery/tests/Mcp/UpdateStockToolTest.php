@@ -67,7 +67,7 @@ class UpdateStockToolTest extends KernelTestCase
         return $this->em()->getRepository(GroceryItem::class)->findAll();
     }
 
-    private function putRiceOnTheList(bool $checked, GroceryItemSource $source = GroceryItemSource::Manual): void
+    private function putRiceOnTheList(bool $checked, GroceryItemSource $source = GroceryItemSource::Manual, Unit $unit = Unit::Pack): void
     {
         $em = $this->em();
         $list = new GroceryList();
@@ -77,7 +77,7 @@ class UpdateStockToolTest extends KernelTestCase
         $item = new GroceryItem();
         $item->setProduct($em->find(Product::class, $this->getFixture('rice')->getId()));
         $item->setQuantity(1);
-        $item->setUnit(Unit::Pack);
+        $item->setUnit($unit);
         $item->setChecked($checked);
         $item->setSource($source);
         $item->setPosition(1);
@@ -181,6 +181,17 @@ class UpdateStockToolTest extends KernelTestCase
         $items = $this->listItems();
         self::assertCount(1, $items);
         self::assertSame(2.0, $items[0]->getQuantity());
+    }
+
+    public function testARestockInAnotherUnitThanTheOpenLineIsStillReportedAsAdded(): void
+    {
+        $this->loadAndLogin();
+        $this->putRiceOnTheList(false, unit: Unit::Kilogram);
+
+        $data = $this->call('Riz', 'out');
+
+        self::assertSame(['added' => true, 'quantity' => 2, 'unit' => 'pack', 'lineQuantity' => 2], $data['restock']);
+        self::assertCount(2, $this->listItems(), 'the kilos line is kept, the packs go on their own line');
     }
 
     public function testTheProductCanBeGivenByItsId(): void

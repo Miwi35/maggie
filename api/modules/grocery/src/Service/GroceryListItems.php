@@ -2,46 +2,33 @@
 
 declare(strict_types=1);
 
-namespace Maggie\Grocery\MessageHandler;
+namespace Maggie\Grocery\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
-use Maggie\Grocery\Message\RestockProductCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
-use Maggie\Grocery\Repository\ProductRepository;
-use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
-/**
- * Puts a product's restock quantity back on its owner's list.
- *
- * Returns the list so the Mercure and Elasticsearch middlewares publish and
- * reindex it: the open screens get the line without reloading.
- */
-#[AsMessageHandler]
-class RestockProductHandler
+/** The one place that puts a product on a user's grocery list. */
+class GroceryListItems
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
-        private readonly ProductRepository $productRepository,
     ) {
     }
 
-    public function __invoke(RestockProductCommand $command): GroceryList
+    /**
+     * Adds to the open line of the product when there is one in the same unit,
+     * else appends a line at the end, in the product's usual store. Flushes.
+     */
+    public function addProduct(User $user, Product $product, int|float $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
     {
-        $product = $this->productRepository->find($command->productId)
-            ?? throw new \DomainException("Product not found: {$command->productId}");
-
-        $quantity = $product->getRestockQuantity();
-        if (null === $quantity || $quantity <= 0) {
-            throw new \DomainException('This product has no restock quantity.');
-        }
-
-        $list = $this->groceryListRepository->findOrCreateForUser($product->getUser());
-        $unit = $product->getPackagingUnit();
+        $list = $this->groceryListRepository->findOrCreateForUser($user);
 
         $maxPosition = 0;
         $mergeable = null;
@@ -49,7 +36,7 @@ class RestockProductHandler
             $maxPosition = max($maxPosition, $existing->getPosition());
 
             // A ticked line is already in the basket: raising it would hide the new need.
-            if (null === $mergeable && !$existing->isChecked() && $this->isLineOf($existing, $command->productId, $unit)) {
+            if (null === $mergeable && !$existing->isChecked() && $this->isLineOf($existing, $product, $unit)) {
                 $mergeable = $existing;
             }
         }
@@ -60,7 +47,7 @@ class RestockProductHandler
         } else {
             $item = new GroceryItem();
             $item->setProduct($product);
-            $item->setSource(GroceryItemSource::Restock);
+            $item->setSource($source);
             $item->setStore($product->getPreferredStore());
             $item->setQuantity($quantity);
             $item->setUnit($unit);
@@ -74,15 +61,14 @@ class RestockProductHandler
         return $list;
     }
 
-    private function isLineOf(GroceryItem $item, string $productId, ?Unit $unit): bool
+    private function isLineOf(GroceryItem $item, Product $product, ?Unit $unit): bool
     {
-        $product = $item->getProduct();
-        if (null === $product || (string) $product->getId() !== $productId) {
+        if ((string) $item->getProduct()?->getId() !== (string) $product->getId()) {
             return false;
         }
 
         // Quantities of different units cannot be added; a line with no
-        // quantity at all can take the restock one.
+        // quantity at all can take the new one.
         return $item->getUnit() === $unit || null === $item->getQuantity();
     }
 }

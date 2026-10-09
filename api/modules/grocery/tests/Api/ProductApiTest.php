@@ -517,7 +517,7 @@ class ProductApiTest extends WebTestCase
         self::assertSame([], $this->listItems());
     }
 
-    public function testAProductCreatedOutIsNotRestockedByTheCreation(): void
+    public function testAProductCreatedOutIsRestockedByTheCreation(): void
     {
         $this->load();
 
@@ -526,6 +526,26 @@ class ProductApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
             'name' => 'Sel', 'category' => 'other', 'stockState' => 'out', 'restockQuantity' => 1, 'autoRestock' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $items = $em->getRepository(GroceryItem::class)->findBy(['source' => GroceryItemSource::Restock]);
+        self::assertCount(1, $items);
+        self::assertSame(1.0, $items[0]->getQuantity());
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+    }
+
+    public function testAProductCreatedInStockIsNotRestocked(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Sel', 'category' => 'other', 'restockQuantity' => 1, 'autoRestock' => true,
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(201);
