@@ -49,6 +49,15 @@ on:
         type: boolean
         required: false
         default: false
+      # Run the journeys with E2E_COVERAGE=1 and upload what each lot executed
+      # (`e2e-coverage-raw-*`), from which nightly-e2e.yml builds the line map
+      # `Detect changes` selects with (spec « Sélection e2e par couverture »).
+      # The nightly only — never a pull request. The mobile flows only on the
+      # phone: the three formats run the same code.
+      coverage:
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly and
@@ -65,6 +74,11 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The PR's files (paths-filter) and the nightly's line map (gh run download).
+      pull-requests: read
+      actions: read
     outputs:
       # `suite` (a `workflow_call` input, empty on a pull request): `e2e` runs the
       # e2e jobs alone (nightly-e2e.yml), `no-e2e` everything but them (nightly.yml).
@@ -100,6 +114,10 @@ jobs:
             || '[{"name":"phone","profile":"pixel_6"}]' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # On a pull request, the merge commit and its first parent (the base):
+          # the changed lines the line map is read with.
+          fetch-depth: 2
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -180,11 +198,59 @@ jobs:
       # `e2e-stack` and `e2e-mobile` still report, green, when nothing plays — a
       # skipped job satisfies branch protection, and the aggregator tells a skip
       # from a failure.
+      #
+      # Finer when the nightly left a line map (spec « Sélection e2e par
+      # couverture »): a changed line plays the journeys that executed it the
+      # night before, and only what the map cannot judge keeps the zones. The
+      # map is the `e2e-coverage-map` artifact of one of the last successful
+      # nightly runs of main; impacted.sh ignores it past three days. Any failure
+      # here leaves no map — the zones, as before — and never a red check.
+      - name: Fetch the nightly's line map
+        id: coverage
+        if: contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          dir="$RUNNER_TEMP/e2e-coverage"
+          mkdir -p "$dir"
+          ids="$(gh run list --workflow nightly-e2e.yml --branch main --status success -L 3 --json databaseId --jq '.[].databaseId')" \
+            || { echo "::notice::no nightly run listed: journeys selected by zones"; exit 0; }
+          for id in $ids; do
+            rm -rf "$dir/map"
+            if gh run download "$id" -n e2e-coverage-map -D "$dir/map" 2>/dev/null && [ -s "$dir/map/e2e-coverage-map.json" ]; then
+              echo "line map of nightly run $id: $(jq -r '"\(.generatedAt), commit \(.commit[:7])"' "$dir/map/e2e-coverage-map.json")"
+              break
+            fi
+          done
+          [ -s "$dir/map/e2e-coverage-map.json" ] || { echo "::notice::no line map in the last nightly runs: journeys selected by zones"; exit 0; }
+          # The changed lines: against the merge commit's base on a pull request,
+          # against the main the group (or the push) was built on otherwise.
+          if [ "$EVENT" = pull_request ]; then
+            base="$(git rev-parse HEAD^1)"
+          else
+            base="$BASE_SHA"
+            git fetch --no-tags --depth=1 origin "$base" \
+              || { echo "::notice::base $base cannot be fetched: journeys selected by zones"; exit 0; }
+          fi
+          git diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base" HEAD > "$dir/changes.diff" \
+            || { echo "::notice::no diff against $base: journeys selected by zones"; exit 0; }
+          {
+            echo "map=$dir/map/e2e-coverage-map.json"
+            echo "diff=$dir/changes.diff"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Select the e2e journeys
         id: select
         env:
           FILES: ${{ steps.filter.outputs.all_files }}
           EVENT: ${{ github.event_name }}
+          # Empty without a line map: impacted.sh then selects by zones alone.
+          E2E_COVERAGE_MAP: ${{ steps.coverage.outputs.map }}
+          E2E_COVERAGE_DIFF: ${{ steps.coverage.outputs.diff }}
         run: |
           if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ "$EVENT" = push ]; then
             jq -r '.[]' <<<"${FILES:-[]}" | scripts/e2e/impacted.sh select --github-output > selection.json
@@ -508,6 +574,8 @@ jobs:
       # worktree hash: concurrent jobs must not share containers or a network.
       COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
+      # The nightly's line map (`coverage` input): empty, so off, everywhere else.
+      E2E_COVERAGE: ${{ inputs.coverage && '1' || '' }}
     steps:
       # `lfs: true`, like `build-ciqual` in main.yml and for the same reason:
       # `ciqual/data/ciqual/compo.xml` is 69 MB and stored in Git LFS, and a
@@ -668,6 +736,26 @@ jobs:
         # that has nothing to do with prompts.
         run: task e2e:eval:check
 
+      # What this shard's journeys executed, while the stack is still up
+      # (`coverage` input, the nightly). Never part of the verdict.
+      - name: Collect the journeys' coverage
+        if: ${{ !cancelled() && inputs.coverage }}
+        continue-on-error: true
+        env:
+          LABEL: web shard ${{ matrix.shard }}
+        run: scripts/e2e/coverage/collect.sh "$LABEL"
+
+      - name: Raw coverage
+        if: ${{ !cancelled() && inputs.coverage }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-raw-web-${{ matrix.shard }}
+          path: e2e/coverage/raw
+          retention-days: 2
+          if-no-files-found: ignore
+          overwrite: true
+
       # Read by the nightly report (nightly-e2e.yml): which journey failed,
       # passed on a retry or failed in quarantine, lot by lot.
       - name: Verdict
@@ -789,6 +877,9 @@ jobs:
     env:
       # Compiled into the APK, and what the stack the shards start expects.
       E2E_LOGIN_TOKEN: ci-e2e-login-token
+      # The nightly's line map (`coverage` input): the APK the devices install
+      # is the one that can record what a flow executed.
+      E2E_COVERAGE: ${{ inputs.coverage && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -923,6 +1014,9 @@ jobs:
     env:
       COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
+      # The nightly's line map (`coverage` input), on the phone only: the
+      # foldable and the tablet run the same code.
+      E2E_COVERAGE: ${{ inputs.coverage && matrix.device.name == 'phone' && '1' || '' }}
     steps:
       # lfs: true for the same reason as `e2e-stack`: `task e2e:up` builds the
       # Ciqual food base from a 69 MB file stored in Git LFS, and a pointer makes
@@ -1095,6 +1189,27 @@ jobs:
           # The blocking flows, then the ones in quarantine, each judged by
           # scripts/e2e/verdict.sh: only the first run's verdict fails the job.
           script: scripts/e2e/mobile-journeys.sh
+
+      # What this lot's flows executed, in the app and in the stack, which is
+      # still up (`coverage` input, the nightly, phone only). Never part of the
+      # verdict.
+      - name: Collect the journeys' coverage
+        if: ${{ !cancelled() && env.E2E_COVERAGE == '1' }}
+        continue-on-error: true
+        env:
+          LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}
+        run: scripts/e2e/coverage/collect.sh "$LABEL"
+
+      - name: Raw coverage
+        if: ${{ !cancelled() && env.E2E_COVERAGE == '1' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-raw-mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}
+          path: e2e/coverage/raw
+          retention-days: 2
+          if-no-files-found: ignore
+          overwrite: true
 
       # Read by the nightly report (nightly-e2e.yml), as the web shards' are.
       - name: Verdict
@@ -1393,7 +1508,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh \
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh \
             e2e/*.sh e2e/mobile/*.sh
       # Every journey of e2e/ is in e2e/impact-map.yml, and the map is sound: a
       # journey forgotten there would only ever play on the nightly run.

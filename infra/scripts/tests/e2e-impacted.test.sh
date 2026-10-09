@@ -217,6 +217,152 @@ SEL="$(echo src/a/x.ts | E2E_ROOT="$root" "$IMPACTED" select 2>"$work/stderr")"
 [ "$(count web)" -eq 2 ] && [ "$(count mobile)" -eq 2 ] && grep -q 'cannot be read' "$work/stderr" \
   && ok "a map that cannot be read plays every journey, with a warning" || bad "broken map: $(count web) web, $(count mobile) mobile — $(cat "$work/stderr")"
 
+# ---------------------------------------------------------------------------
+# The line map (spec « Sélection e2e par couverture »): built from raw files
+# here, read against the real e2e/impact-map.yml.
+# ---------------------------------------------------------------------------
+BUILD_MAP="$REPO/scripts/e2e/coverage/build-map.py"
+API_SERVICE=mobile/app/src/main/java/com/maggie/app/data/api/MaggieApiService.kt
+RECIPE_EDIT=admin/src/modules/cookbook/RecipeEdit.tsx
+FINANCE_PHP=api/modules/finance/src/Service/BudgetCalculator.php
+raw="$work/raw"
+mkdir -p "$raw/mobile" "$raw/admin" "$raw/api" "$raw/agent"
+# Two voice and chat flows run lines 100–110 of the app's API service, the finance
+# flow 200–210; a journey since removed from disk ran line 100 too.
+printf '{"journey":"e2e/mobile/flows/02-voice-overlay.yaml","files":{"%s":[100,101,102,103,104,105,106,107,108,109,110]}}' "$API_SERVICE" >"$raw/mobile/02-voice-overlay.json"
+printf '{"journey":"e2e/mobile/flows/13-chat-opens-on-latest.yaml","files":{"%s":[110,109,108,107,106,105,104,103,102,101,100,100]}}' "$API_SERVICE" >"$raw/mobile/13-chat.json"
+printf '{"journey":"e2e/mobile/flows/09-finance-banks.yaml","files":{"%s":[200,201,202,203,204,205,206,207,208,209,210]}}' "$API_SERVICE" >"$raw/mobile/09-finance.json"
+printf '{"journey":"e2e/web/tests/gone.spec.ts","files":{"%s":[100]}}' "$API_SERVICE" >"$raw/mobile/gone.json"
+# The recipe screen: lines 20–40 by the recipes journey only.
+printf '{"journey":"e2e/web/tests/recipes.spec.ts","files":{"%s":[20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]}}' "$RECIPE_EDIT" >"$raw/admin/recipes.json"
+# An API line both platforms reach: the same journey id across two components merges.
+printf '{"journey":"e2e/web/tests/finance-budget.spec.ts","files":{"%s":[10,11,12]}}' "$FINANCE_PHP" >"$raw/api/finance-budget.json"
+printf '{"journey":"e2e/mobile/flows/09-finance-banks.yaml","files":{"./%s":[10,11,12]}}' "$FINANCE_PHP" >"$raw/api/09-finance.json"
+printf '{"journey": 12}' >"$raw/agent/broken.json"
+printf 'not json' >"$raw/agent/garbage.json"
+
+printf '\n\033[1mThe map builder\033[0m\n'
+"$BUILD_MAP" --raw "$raw" --out "$work/map.json" --commit abc1234def --now 2026-10-09T03:30:00Z >"$work/build.out" 2>"$work/build.err"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && ok "builds ($(cat "$work/build.out"))" || bad "exit $STATUS: $(cat "$work/build.err")"
+grep -q 'broken.json skipped' "$work/build.err" && grep -q 'garbage.json skipped' "$work/build.err" \
+  && ok "a malformed raw file is skipped with a warning" || bad "warnings: $(cat "$work/build.err")"
+jq -e '.version == 1 and .commit == "abc1234def" and .generatedAt == "2026-10-09T03:30:00Z"' "$work/map.json" >/dev/null \
+  && ok "version, commit and date" || bad "header: $(jq -c 'del(.files)' "$work/map.json")"
+jq -e '.journeys == ["e2e/mobile/flows/02-voice-overlay.yaml","e2e/mobile/flows/09-finance-banks.yaml","e2e/mobile/flows/13-chat-opens-on-latest.yaml","e2e/web/tests/finance-budget.spec.ts","e2e/web/tests/gone.spec.ts","e2e/web/tests/recipes.spec.ts"]' "$work/map.json" >/dev/null \
+  && ok "the journeys, sorted, each once" || bad "journeys: $(jq -c .journeys "$work/map.json")"
+# 02 = bit 0, 09 = bit 1, 13 = bit 2, finance-budget = bit 3, gone = bit 4, recipes = bit 5.
+jq -e --arg f "$API_SERVICE" '.files[$f] == [[100,100,"15"],[101,110,"5"],[200,210,"2"]]' "$work/map.json" >/dev/null \
+  && ok "consecutive lines with the same journeys are one range, a bitmask in hex" || bad "ranges: $(jq -c --arg f "$API_SERVICE" '.files[$f]' "$work/map.json")"
+jq -e --arg f "$FINANCE_PHP" '.files[$f] == [[10,12,"a"]]' "$work/map.json" >/dev/null \
+  && ok "one path from two components, ./ dropped, merged" || bad "finance: $(jq -c --arg f "$FINANCE_PHP" '.files[$f]' "$work/map.json")"
+mkdir -p "$work/raw-empty"
+"$BUILD_MAP" --raw "$work/raw-empty" --out "$work/none.json" >/dev/null 2>&1
+STATUS=$?
+[ "$STATUS" -eq 3 ] && [ ! -e "$work/none.json" ] && ok "no raw file: exit 3, no map" || bad "no raw file: exit $STATUS"
+
+# select_diff <diff file> <file>… — the selection with the line map, in $SEL.
+NOW=$(jq -n '"2026-10-10T12:00:00Z" | fromdateiso8601')
+select_diff() {
+  local diff="$1"; shift
+  SEL="$(printf '%s\n' "$@" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/map.json" --diff "$diff" 2>"$work/stderr")"
+  STATUS=$?
+}
+hunk() { # hunk <path> <@@ header>… — a git diff -U0 of one file
+  local path="$1"; shift
+  printf 'diff --git a/%s b/%s\nindex 1111111..2222222 100644\n--- a/%s\n+++ b/%s\n' "$path" "$path" "$path" "$path"
+  for h in "$@"; do printf '%s\n-old\n+new\n' "$h"; done
+}
+
+printf '\n\033[1mA line two flows ran plays those two and the core, even in a transversal file\033[0m\n'
+hunk "$API_SERVICE" '@@ -105 +105 @@' >"$work/d1"
+select_diff "$work/d1" "$API_SERVICE"
+[ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS: $(cat "$work/stderr")"
+[ "$(names mobile)" = "01-login-chat.yaml 02-voice-overlay.yaml 13-chat-opens-on-latest.yaml" ] \
+  && ok "02-voice-overlay, 13-chat and the core 01" || bad "flows: $(names mobile)"
+[ "$(count web)" -eq 0 ] && ok "no web journey (the journey gone from disk is dropped)" || bad "web: $(names web)"
+jq -e '.files[0].why == "coverage" and .files[0].lines == [[105,105]] and (.full.mobile | not)' >/dev/null <<<"$SEL" \
+  && ok "why: coverage, with the lines" || bad "files: $(jq -c .files <<<"$SEL")"
+jq -e '.coverage == {used: true, commit: "abc1234def", generatedAt: "2026-10-09T03:30:00Z"}' >/dev/null <<<"$SEL" \
+  && ok "says which map it used" || bad "coverage: $(jq -c .coverage <<<"$SEL")"
+
+printf '\n\033[1mA deleted range and a pure addition are read on the old side\033[0m\n'
+hunk "$API_SERVICE" '@@ -199,3 +198,0 @@' >"$work/d2"
+select_diff "$work/d2" "$API_SERVICE"
+[ "$(names mobile)" = "01-login-chat.yaml 09-finance-banks.yaml" ] && ok "lines 199–201 deleted: the finance flow" || bad "flows: $(names mobile)"
+hunk "$API_SERVICE" '@@ -110,0 +111,4 @@' >"$work/d3"
+select_diff "$work/d3" "$API_SERVICE"
+[ "$(names mobile)" = "01-login-chat.yaml 02-voice-overlay.yaml 13-chat-opens-on-latest.yaml" ] \
+  && jq -e '.files[0].lines == [[110,111]]' >/dev/null <<<"$SEL" && ok "lines added after 110: the flows of 110–111" || bad "flows: $(names mobile) $(jq -c .files <<<"$SEL")"
+# A deleted line that starts with `-- ` is a line, not a header.
+printf 'diff --git a/%s b/%s\n--- a/%s\n+++ b/%s\n@@ -205 +205 @@\n--- old comment\n+++ new comment\n' \
+  "$API_SERVICE" "$API_SERVICE" "$API_SERVICE" "$API_SERVICE" >"$work/d4"
+select_diff "$work/d4" "$API_SERVICE"
+[ "$(names mobile)" = "01-login-chat.yaml 09-finance-banks.yaml" ] && ok "a removed '-- ' line" || bad "flows: $(names mobile)"
+
+printf '\n\033[1mAn API line both platforms ran plays both, each with its core\033[0m\n'
+hunk "$FINANCE_PHP" '@@ -11 +11 @@' >"$work/d5"
+select_diff "$work/d5" "$FINANCE_PHP"
+[ "$(names web)" = "auth.spec.ts chat.spec.ts finance-budget.spec.ts smoke.spec.ts" ] && ok "web: finance-budget + core" || bad "web: $(names web)"
+[ "$(names mobile)" = "01-login-chat.yaml 09-finance-banks.yaml" ] && ok "mobile: 09 + core" || bad "mobile: $(names mobile)"
+
+printf '\n\033[1mA line no journey ran falls back to its zone\033[0m\n'
+select_files "$RECIPE_EDIT"
+zone="$(jq -c '{web, mobile}' <<<"$SEL")"
+hunk "$RECIPE_EDIT" '@@ -100 +100 @@' >"$work/d6"
+select_diff "$work/d6" "$RECIPE_EDIT"
+[ "$(jq -c '{web, mobile}' <<<"$SEL")" = "$zone" ] && jq -e '.files[0].why == "journeys" and .files[0].lines == null' >/dev/null <<<"$SEL" \
+  && ok "the cookbook zone, as without the map" || bad "selection: $(jq -c '{web, files}' <<<"$SEL")"
+hunk "$RECIPE_EDIT" '@@ -30 +30 @@' '@@ -100 +100 @@' >"$work/d7"
+select_diff "$work/d7" "$RECIPE_EDIT"
+[ "$(jq -c '{web, mobile}' <<<"$SEL")" = "$zone" ] && jq -e '.files[0].lines == [[30,30]] and .files[0].uncovered == [[100,100]] and .files[0].line_journeys == ["e2e/web/tests/recipes.spec.ts"]' >/dev/null <<<"$SEL" \
+  && ok "one hunk covered, one not: the zone, the covered lines reported" || bad "selection: $(jq -c '.files' <<<"$SEL")"
+hunk "$RECIPE_EDIT" '@@ -30 +30 @@' >"$work/d8"
+select_diff "$work/d8" "$RECIPE_EDIT"
+[ "$(names web)" = "auth.spec.ts chat.spec.ts recipes.spec.ts smoke.spec.ts" ] && ok "a covered line alone: recipes + core" || bad "web: $(names web)"
+
+printf '\n\033[1mWhat the map cannot see keeps today'"'"'s rules\033[0m\n'
+MIGRATION=api/migrations/Version20261008210000.php
+hunk "$MIGRATION" '@@ -5 +5 @@' >"$work/d9"
+select_diff "$work/d9" "$MIGRATION"
+[ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && jq -e '.files[0].why == "transversal"' >/dev/null <<<"$SEL" \
+  && ok "a migration: everything" || bad "migration: $(count web) web, $(count mobile) mobile"
+NEWFILE=admin/src/modules/cookbook/NewThing.tsx
+printf 'diff --git a/%s b/%s\nnew file mode 100644\n--- /dev/null\n+++ b/%s\n@@ -0,0 +1,3 @@\n+a\n+b\n+c\n' "$NEWFILE" "$NEWFILE" "$NEWFILE" >"$work/d10"
+select_diff "$work/d10" "$NEWFILE"
+[ "$(jq -c '{web, mobile}' <<<"$SEL")" = "$zone" ] && ok "a new file: its zone" || bad "new file: $(names web)"
+select_diff "$work/d1" admin/src/modules/cookbook/RecipeEdit.test.tsx
+[ "$(count web)" -eq 0 ] && [ "$(count mobile)" -eq 0 ] && ok "an ignored file still plays nothing" || bad "ignored: $(names web)"
+
+printf '\n\033[1mNo map, or a stale one: exactly today'"'"'s selection\033[0m\n'
+FILES_MIX=("$API_SERVICE" "$RECIPE_EDIT" "$MIGRATION")
+cat "$work/d1" "$work/d8" "$work/d9" >"$work/dmix"
+today="$(printf '%s\n' "${FILES_MIX[@]}" | "$IMPACTED" select 2>/dev/null | jq -c 'del(.coverage)')"
+SEL="$(printf '%s\n' "${FILES_MIX[@]}" | "$IMPACTED" select --coverage-map "$work/missing.json" --diff "$work/dmix" 2>"$work/stderr")"
+[ "$(jq -c 'del(.coverage)' <<<"$SEL")" = "$today" ] && grep -q 'selected by zones' "$work/stderr" \
+  && ok "a map that is not there: today's selection, a notice" || bad "missing map differs"
+SEL="$(printf '%s\n' "${FILES_MIX[@]}" | E2E_COVERAGE_NOW="$(jq -n '"2026-10-12T04:00:00Z" | fromdateiso8601')" "$IMPACTED" select --coverage-map "$work/map.json" --diff "$work/dmix" 2>/dev/null)"
+[ "$(jq -c 'del(.coverage)' <<<"$SEL")" = "$today" ] && jq -e '.coverage.used == false and (.coverage.reason | test("older than 3 days"))' >/dev/null <<<"$SEL" \
+  && ok "a map of more than three days: ignored" || bad "stale map: $(jq -c .coverage <<<"$SEL")"
+SEL="$(printf '%s\n' "${FILES_MIX[@]}" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/map.json" 2>/dev/null)"
+[ "$(jq -c 'del(.coverage)' <<<"$SEL")" = "$today" ] && ok "a map without a diff: ignored" || bad "no diff: differs"
+echo '{"version": 2}' >"$work/v2.json"
+SEL="$(printf '%s\n' "${FILES_MIX[@]}" | "$IMPACTED" select --coverage-map "$work/v2.json" --diff "$work/dmix" 2>/dev/null)"
+[ "$(jq -c 'del(.coverage)' <<<"$SEL")" = "$today" ] && ok "a map of another version: ignored" || bad "v2 map: differs"
+SEL="$(E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --all --coverage-map "$work/map.json" </dev/null 2>/dev/null)"
+[ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && ok "--all ignores the map" || bad "--all with a map: $(count web) web"
+
+printf '\n\033[1mThe job summary says how the journeys were chosen\033[0m\n'
+: >"$work/output"; : >"$work/summary"
+printf '%s\n' "$API_SERVICE" | E2E_COVERAGE_NOW="$NOW" GITHUB_OUTPUT="$work/output" GITHUB_STEP_SUMMARY="$work/summary" \
+  "$IMPACTED" select --coverage-map "$work/map.json" --diff "$work/d1" --github-output >/dev/null 2>&1
+grep -q 'Sélection par couverture (carte du 2026-10-09, abc1234)' "$work/summary" && grep -q 'lines 105 → 02-voice-overlay.yaml, 13-chat-opens-on-latest.yaml' "$work/summary" \
+  && ok "coverage: the map's date and commit, and the lines" || bad "summary: $(cat "$work/summary")"
+grep -qx 'mobile=true' "$work/output" && grep -qx 'e2e=false' "$work/output" && ok "outputs: mobile only" || bad "outputs: $(cat "$work/output")"
+: >"$work/summary"
+printf '%s\n' "$API_SERVICE" | GITHUB_OUTPUT="$work/output" GITHUB_STEP_SUMMARY="$work/summary" "$IMPACTED" select --github-output >/dev/null
+grep -q 'Carte par zones (no coverage map)' "$work/summary" && ok "zones: says so" || bad "summary: $(cat "$work/summary")"
+
 printf '\n'
 if [ "$failures" -gt 0 ]; then
   printf '\033[31m%d failure(s)\033[0m\n' "$failures"
