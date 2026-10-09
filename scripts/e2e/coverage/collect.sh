@@ -29,7 +29,7 @@ set -uo pipefail
 ROOT="${E2E_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
 RAW="${E2E_COVERAGE_RAW:-$ROOT/e2e/coverage/raw}"
 HOOKS="${E2E_COVERAGE_HOOKS:-$ROOT/scripts/e2e/coverage/collect.d}"
-lot="${1:?usage: collect.sh <lot>}"
+lot="${1:-unnamed}"
 
 cd "$ROOT" || exit 0
 
@@ -60,7 +60,7 @@ if [ "$total" -eq 0 ]; then
 elif [ "$failed" -gt 0 ]; then
   echo "::warning::coverage of $lot: $total raw files ($summary ) but incomplete — no map tonight"
 else
-  mkdir -p "$RAW/_lots" && : >"$RAW/_lots/$lot.ok"
+  mkdir -p "$RAW/_lots" && echo ok >"$RAW/_lots/$lot.ok"
   echo "coverage of $lot: $total raw files ($summary )"
 fi
 exit 0
