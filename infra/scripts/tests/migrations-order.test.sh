@@ -71,6 +71,14 @@ judge
 [ "$STATUS" -ne 0 ] && ok "fails" || bad "passed — $OUTPUT"
 grep -qF 'Version20261009120000' <<<"$OUTPUT" && ok "lists the one in order too" || bad "$OUTPUT"
 
+printf '\n\033[1mBehind a PR in the merge queue: judged against the group ahead, not main\033[0m\n'
+fresh_repo
+change api/migrations/Version20261010000000.php
+BASE="$HEAD_SHA"
+change api/migrations/Version20261009120000.php
+judge
+[ "$STATUS" -ne 0 ] && ok "fails: production would run it after the newer one ahead" || bad "passed — $OUTPUT"
+
 printf '\n\033[1mThe first migration of an empty directory\033[0m\n'
 rm -rf "$work/repo"; mkdir -p "$work/repo"; g init -q
 touch "$work/repo/README"; g add -A; g commit -qm base; BASE="$(g rev-parse HEAD)"

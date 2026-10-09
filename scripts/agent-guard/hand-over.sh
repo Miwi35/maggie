@@ -19,14 +19,16 @@ gh label create needs-human --color D93F0B --description "A human must look at t
 gh api -X POST "repos/$GH_REPO/issues/$PR/labels" -f "labels[]=needs-human" > /dev/null
 gh pr merge "$PR" --disable-auto 2>/dev/null || true
 # Already in the merge queue (`gh pr merge --auto` enqueues at once a PR whose
-# checks are green): take it out, or it merges with the queue.
+# checks are green): take it out, or it merges with the queue. A refusal turns
+# the guard run red (after the comment), so the owner sees it.
+stuck=0
 queue="$(gh api graphql -F n="$PR" -f o="${GH_REPO%/*}" -f r="${GH_REPO#*/}" \
   -f query='query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) { pullRequest(number: $n) { id isInMergeQueue } } }' \
   --jq '.data.repository.pullRequest | "\(.id) \(.isInMergeQueue)"' 2>/dev/null || true)"
 if [ "${queue#* }" = true ]; then
   gh api graphql -f id="${queue%% *}" \
     -f query='mutation($id: ID!) { dequeuePullRequest(input: {id: $id}) { clientMutationId } }' > /dev/null \
-    || echo "::warning::could not take #$PR out of the merge queue: remove it by hand"
+    || { echo "::error::could not take #$PR out of the merge queue: remove it by hand"; stuck=1; }
 fi
 
 ids="$(gh api "repos/$GH_REPO/issues/$PR/comments" --paginate \
@@ -38,3 +40,5 @@ if [ -n "$id" ]; then
 else
   gh pr comment "$PR" --body "$BODY"
 fi
+
+[ "$stuck" -eq 0 ]

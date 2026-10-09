@@ -133,7 +133,7 @@ set_runs '{"id":'"$RUN_ID"',"conclusion":"success","created_at":"2026-10-06T00:1
 decide
 [ "$SKIP" = "true" ] && ok "skips: only finished runs count" || bad "skip='$SKIP' — $OUTPUT"
 
-printf '\n\033[1mA green run whose jobs were all skipped (a draft)\033[0m\n'
+printf '\n\033[1mA green run whose jobs were all skipped\033[0m\n'
 fresh_world
 printf '{"jobs":[{"name":"Detect changes","conclusion":"skipped"},{"name":"API tests","conclusion":"skipped"}]}' \
   > "$work/gh/jobs-$RUN_ID.json"

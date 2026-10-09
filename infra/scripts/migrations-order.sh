@@ -12,9 +12,10 @@ set -euo pipefail
 # order. Two orders, two schemas, as soon as the migrations touch the same table.
 #
 # So a change may only add migrations whose version is newer than the newest one
-# of its base. Run on the merge group, whose base is main as it will be merged
-# onto: a PR that was cut before another migration landed is sent back to bump
-# its version (rename the class and the file). Run on a PR too, as an early hint.
+# of its base. Run on the merge group against the group's parent (the group of
+# the PR ahead, or main): a PR cut before another migration landed or was queued
+# is sent back to bump its version (rename the class and the file). Run on a PR
+# too, as an early hint.
 #
 # Exit 0: in order, or no migration added. Exit 1: the offending files, and why.
 # Needs both commits in the local repository.

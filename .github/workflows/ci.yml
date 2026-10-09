@@ -203,20 +203,30 @@ jobs:
         working-directory: api
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The parent of a merge group commit, for the migration order below.
+          fetch-depth: 2
       # Two PRs that add a migration each can now land back to back through the
       # merge queue: the ones a change adds must be newer than every migration
       # of main, or production (merge order) and a fresh database (version
       # order) apply them in different orders (infra/scripts/migrations-order.sh).
-      # Decisive on the merge group, whose base is main as it will be merged
-      # onto; an early hint on a pull request.
+      # Decisive on the merge group, judged against its parent — the group of
+      # the PR ahead, or main: the queue chains the groups, so `base_sha` (main)
+      # would let B (V150) pass behind A (V200). An early hint on a pull request.
       - name: Added migrations come after main's
         if: github.event_name == 'merge_group' || github.event_name == 'pull_request'
         working-directory: .
         env:
-          BASE: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE"
-          bash infra/scripts/migrations-order.sh "$BASE" HEAD
+          if [ "$EVENT" = merge_group ]; then
+            base="$(git rev-parse HEAD^1)"
+          else
+            base="$PR_BASE"
+            git fetch --no-tags --depth=1 origin "$base"
+          fi
+          bash infra/scripts/migrations-order.sh "$base" HEAD
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -1330,10 +1340,16 @@ jobs:
             fi
           fi
           export PR_TITLE PR_BRANCH
-          bash infra/scripts/incident-gate.sh
+          if [ -n "$GROUP_REF" ] && ! bash infra/scripts/incident-gate.sh; then
+            # Not true here: a held group drops its PR from the queue, and
+            # nothing puts it back by itself.
+            echo "::error::On a merge group the gate does not re-run: enqueue the PR again once the freeze lifts."
+            exit 1
+          fi
+          [ -n "$GROUP_REF" ] || bash infra/scripts/incident-gate.sh
 
   # The one check that cannot be skipped (MAG-267). GitHub counts a skipped
-  # required check as green, so a draft run, a run cancelled by a newer one or a
+  # required check as green, so a run that tested nothing, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
   # auto-merge merged pull requests no test had run on. `if: always()` makes this
   # job run on every pull request — drafts included, since they run their CI now
