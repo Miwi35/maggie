@@ -77,7 +77,7 @@ class EventRepository extends ServiceEntityRepository
 
     /**
      * The events of `[start, end)`: a timed one by its instants, an all-day one
-     * by its days, the last included (MAG-382) — the days of the range are
+     * by its days, `[startDate, endDate)` (MAG-382) — the days of the range are
      * {@see DayBound}'s, as for the API's filters.
      */
     private function dateRangeQueryBuilder(\DateTimeImmutable $start, \DateTimeImmutable $end): QueryBuilder
@@ -88,7 +88,7 @@ class EventRepository extends ServiceEntityRepository
                 // Non-recurring timed events that overlap with the range
                 '(e.rrule IS NULL AND e.startAt IS NOT NULL AND e.startAt < :end AND e.endAt > :start)'
                 // Non-recurring all-day events whose days meet the range's
-                .' OR (e.rrule IS NULL AND e.startAt IS NULL AND e.startDate <= :lastDay AND e.endDate >= :firstDay)'
+                .' OR (e.rrule IS NULL AND e.startAt IS NULL AND e.startDate <= :lastDay AND e.endDate > :firstDay)'
                 // OR recurring event masters (they need expansion)
                 .' OR (e.rrule IS NOT NULL)'
             )

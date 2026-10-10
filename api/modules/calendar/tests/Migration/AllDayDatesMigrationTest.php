@@ -47,32 +47,32 @@ class AllDayDatesMigrationTest extends KernelTestCase
     }
 
     /**
-     * [convention, start_at, end_at as the old client stored them, in UTC, the first and the last day].
+     * [convention, start_at, end_at as the old client stored them, in UTC, the first day and the end, excluded as Google stores it].
      *
      * @return iterable<string, array{string, string, string, string, string}>
      */
     public static function conventions(): iterable
     {
         // The owner's report: Google's 1st of January, its end the next midnight.
-        yield 'google, one day' => ['google', '2037-01-01 00:00:00+00', '2037-01-02 00:00:00+00', '2037-01-01', '2037-01-01'];
-        yield 'google, three days' => ['google', '2037-01-26 00:00:00+00', '2037-01-29 00:00:00+00', '2037-01-26', '2037-01-28'];
+        yield 'google, one day' => ['google', '2037-01-01 00:00:00+00', '2037-01-02 00:00:00+00', '2037-01-01', '2037-01-02'];
+        yield 'google, three days' => ['google', '2037-01-26 00:00:00+00', '2037-01-29 00:00:00+00', '2037-01-26', '2037-01-29'];
         // The admin's: 00:00Z to 23:59:59Z of the last day.
-        yield 'admin, one day' => ['admin', '2037-01-01 00:00:00+00', '2037-01-01 23:59:59+00', '2037-01-01', '2037-01-01'];
-        yield 'admin, three days' => ['admin', '2037-01-26 00:00:00+00', '2037-01-28 23:59:59+00', '2037-01-26', '2037-01-28'];
+        yield 'admin, one day' => ['admin', '2037-01-01 00:00:00+00', '2037-01-01 23:59:59+00', '2037-01-01', '2037-01-02'];
+        yield 'admin, three days' => ['admin', '2037-01-26 00:00:00+00', '2037-01-28 23:59:59+00', '2037-01-26', '2037-01-29'];
         // The mobile's: midnight in Paris, which is 23:00 the day before in UTC in winter.
-        yield 'mobile, winter' => ['mobile', '2036-12-31 23:00:00+00', '2037-01-01 23:00:00+00', '2037-01-01', '2037-01-01'];
-        yield 'mobile, summer, three days' => ['mobile', '2037-07-25 22:00:00+00', '2037-07-28 22:00:00+00', '2037-07-26', '2037-07-28'];
+        yield 'mobile, winter' => ['mobile', '2036-12-31 23:00:00+00', '2037-01-01 23:00:00+00', '2037-01-01', '2037-01-02'];
+        yield 'mobile, summer, three days' => ['mobile', '2037-07-25 22:00:00+00', '2037-07-28 22:00:00+00', '2037-07-26', '2037-07-29'];
     }
 
     #[DataProvider('conventions')]
-    public function testEachConventionLandsOnItsDaysWithNoInstantLeft(string $convention, string $startAt, string $endAt, string $first, string $last): void
+    public function testEachConventionLandsOnItsDaysWithNoInstantLeft(string $convention, string $startAt, string $endAt, string $first, string $until): void
     {
         $id = $this->anAllDayEventStoredAs($startAt, $endAt);
 
         $this->runMigration('up');
 
         self::assertSame(
-            ['start_date' => $first, 'end_date' => $last, 'start_at' => null, 'end_at' => null],
+            ['start_date' => $first, 'end_date' => $until, 'start_at' => null, 'end_at' => null],
             $this->connection->fetchAssociative('SELECT start_date, end_date, start_at, end_at FROM event WHERE id = :id', ['id' => $id]),
         );
         self::assertContains("  {$convention}: 1", $this->report);
@@ -120,7 +120,7 @@ class AllDayDatesMigrationTest extends KernelTestCase
         $this->runMigration('up');
 
         self::assertSame(
-            ['start_date' => '2037-01-01', 'end_date' => '2037-01-01', 'start_at' => null],
+            ['start_date' => '2037-01-01', 'end_date' => '2037-01-02', 'start_at' => null],
             $this->connection->fetchAssociative('SELECT start_date, end_date, start_at FROM event WHERE id = :id', ['id' => $id]),
         );
         self::assertContains('  meal: 1', $this->report);

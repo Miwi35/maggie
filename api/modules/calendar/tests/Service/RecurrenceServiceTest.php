@@ -173,12 +173,12 @@ class RecurrenceServiceTest extends TestCase
     }
 
     /** A yearly birthday on the 1st, expanded on its days (MAG-382). */
-    private function birthdayOnTheFirst(string $first = '2030-01-01', string $last = '2030-01-01'): Event
+    private function birthdayOnTheFirst(string $first = '2030-01-01', string $until = '2030-01-02'): Event
     {
         $event = new Event();
         $event->setSummary('Anniversaire');
         $event->setTimeZone('Europe/Paris');
-        $event->scheduleAllDay(new \DateTimeImmutable($first), new \DateTimeImmutable($last));
+        $event->scheduleAllDay(new \DateTimeImmutable($first), new \DateTimeImmutable($until));
         $event->setRrule('FREQ=YEARLY');
 
         return $event;
@@ -200,7 +200,7 @@ class RecurrenceServiceTest extends TestCase
 
         self::assertCount(1, $result);
         self::assertSame('2037-01-01', $result[0]->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2037-01-01', $result[0]->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2037-01-02', $result[0]->getEndDate()?->format('Y-m-d'), 'The end excluded, as Google stores it');
         self::assertNull($result[0]->getStartAt());
     }
 
@@ -229,13 +229,13 @@ class RecurrenceServiceTest extends TestCase
         $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
 
         $result = $this->recurrenceService->expandOccurrences(
-            $this->birthdayOnTheFirst('2030-01-26', '2030-01-28'),
+            $this->birthdayOnTheFirst('2030-01-26', '2030-01-29'),
             new \DateTimeImmutable('2037-01-28T00:00:00+01:00'),
             new \DateTimeImmutable('2037-01-29T00:00:00+01:00'),
         );
 
         self::assertCount(1, $result, 'The last day of an occurrence is in it');
-        self::assertSame(['2037-01-26', '2037-01-28'], [$result[0]->getStartDate()?->format('Y-m-d'), $result[0]->getEndDate()?->format('Y-m-d')]);
+        self::assertSame(['2037-01-26', '2037-01-29'], [$result[0]->getStartDate()?->format('Y-m-d'), $result[0]->getEndDate()?->format('Y-m-d')]);
     }
 
     /** An all-day occurrence is known to its exception by the midnight UTC of its day. */

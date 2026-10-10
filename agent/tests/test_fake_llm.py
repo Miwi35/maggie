@@ -1204,11 +1204,11 @@ class TestTheShippedFixtures:
         assert answer.stop_reason == "tool_use"
         call = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
         assert call.name == "create_event"
-        # Read by the chat journey: no duration, no recurrence, the last day included.
+        # Read by the chat journey: no duration, no recurrence, the end excluded (MAG-382).
         assert call.input == {
             "title": "Vacances d'hiver",
             "start_date": "2099-12-22",
-            "end_date": "2100-01-03",
+            "end_date": "2100-01-04",
             "all_day": True,
         }
 

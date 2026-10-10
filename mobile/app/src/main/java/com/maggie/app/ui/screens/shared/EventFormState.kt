@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.shared
 
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.endDateAfter
+import com.maggie.app.data.model.lastDayOf
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -15,7 +17,8 @@ import java.time.ZoneId
  * The dates of the event form: a start and an end, never a typed duration.
  * Moving the start moves the end by as much, so the duration the owner set
  * survives (19:00–00:00 stays five hours on another day). For an all-day event
- * only the dates count, and [end] is the last day, as the API has it (MAG-382).
+ * only the dates count, and [end] is the last day shown — included, as in Google
+ * Agenda; the API's exclusive end is the day after (MAG-382).
  */
 data class EventFormState(
     val allDay: Boolean,
@@ -66,8 +69,8 @@ data class EventFormState(
     /** The API's `startDate` (`YYYY-MM-DD`) of an all-day event; null for a timed one. */
     val allDayStartDate: String? get() = if (allDay) startDate.toString() else null
 
-    /** The API's `endDate`, the last day included; null for a timed one. */
-    val allDayEndDate: String? get() = if (allDay) endDate.toString() else null
+    /** The API's `endDate`, exclusive: the day after the last one shown; null for a timed one. */
+    val allDayEndDate: String? get() = if (allDay) endDateAfter(endDate).toString() else null
 
     /**
      * The dates of a PATCH: both pairs, the unused one as an explicit null, so an event
@@ -91,7 +94,7 @@ data class EventFormState(
 
         fun fromEvent(event: ExpandedEvent): EventFormState {
             if (event.allDay && event.startDate != null) {
-                val last = event.endDate ?: event.startDate
+                val last = event.endDate?.let(::lastDayOf) ?: event.startDate
                 return EventFormState(
                     allDay = true,
                     start = event.startDate.atStartOfDay(),

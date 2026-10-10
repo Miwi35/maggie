@@ -11,17 +11,18 @@ import org.junit.Test
  * stored 2037-01-01 00:00 UTC → 2037-01-02 00:00 UTC; converted to Paris its end
  * fell at 01:00 on the 2nd, and the day, week and month views drew it on both days.
  *
- * Here the event is a pair of dates (the end included), and the three views must
- * draw it on exactly those days.
+ * Here the event is a pair of dates, the end exclusive as in Google (1 January:
+ * startDate 1, endDate 2), and the three views must draw it on exactly its days.
  */
 class AllDayEventDaysTest {
 
     private val paris = ZoneId.of("Europe/Paris")
 
     private val newYear = LocalDate.of(2037, 1, 1)
-    private val birthday = allDay("birthday", newYear, newYear)
+    private val birthday = allDay("birthday", newYear, LocalDate.of(2037, 1, 2))
 
-    private val stay = allDay("stay", LocalDate.of(2037, 1, 26), LocalDate.of(2037, 1, 28))
+    // From the 26th to the 28th: endDate is the 29th.
+    private val stay = allDay("stay", LocalDate.of(2037, 1, 26), LocalDate.of(2037, 1, 29))
 
     @Test
     fun `the day view shows a one-day event on its day only`() {
@@ -81,12 +82,12 @@ class AllDayEventDaysTest {
         return (0L..6L).map { monday.plusDays(it) }
     }
 
-    /** As the API serves it since MAG-382: its first and last day, no instant. */
-    private fun allDay(id: String, first: LocalDate, last: LocalDate) = ExpandedEvent(
+    /** As the API serves it since MAG-382: its start date and exclusive end date, no instant. */
+    private fun allDay(id: String, start: LocalDate, end: LocalDate) = ExpandedEvent(
         id = id,
         summary = id,
         allDay = true,
-        startDate = first,
-        endDate = last,
+        startDate = start,
+        endDate = end,
     )
 }

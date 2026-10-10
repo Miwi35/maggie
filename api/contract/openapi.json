@@ -10414,13 +10414,13 @@
                         "example": "2037-01-01"
                     },
                     "endDate": {
-                        "description": "The last day of an all-day event, YYYY-MM-DD, included: a one-day event has endDate = startDate, which is what an absent endDate becomes. Null on a timed event.",
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
                         "type": [
                             "string",
                             "null"
                         ],
                         "format": "date",
-                        "example": "2037-01-01"
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10565,13 +10565,13 @@
                         "example": "2037-01-01"
                     },
                     "endDate": {
-                        "description": "The last day of an all-day event, YYYY-MM-DD, included: a one-day event has endDate = startDate, which is what an absent endDate becomes. Null on a timed event.",
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
                         "type": [
                             "string",
                             "null"
                         ],
                         "format": "date",
-                        "example": "2037-01-01"
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10716,13 +10716,13 @@
                         "example": "2037-01-01"
                     },
                     "endDate": {
-                        "description": "The last day of an all-day event, YYYY-MM-DD, included: a one-day event has endDate = startDate, which is what an absent endDate becomes. Null on a timed event.",
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
                         "type": [
                             "string",
                             "null"
                         ],
                         "format": "date",
-                        "example": "2037-01-01"
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10869,13 +10869,13 @@
                                 "example": "2037-01-01"
                             },
                             "endDate": {
-                                "description": "The last day of an all-day event, YYYY-MM-DD, included: a one-day event has endDate = startDate, which is what an absent endDate becomes. Null on a timed event.",
+                                "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
                                 "type": [
                                     "string",
                                     "null"
                                 ],
                                 "format": "date",
-                                "example": "2037-01-01"
+                                "example": "2037-01-02"
                             },
                             "timeZone": {
                                 "default": "Europe/Paris",

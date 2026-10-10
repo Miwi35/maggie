@@ -17,7 +17,7 @@ export interface DashboardEvent {
   /** An instant on a timed event; null on an all-day one (MAG-382). */
   startAt: string | null
   endAt: string | null
-  /** `YYYY-MM-DD` on an all-day event, the end included; null on a timed one. */
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google; null on a timed one. */
   startDate: string | null
   endDate: string | null
   allDay: boolean

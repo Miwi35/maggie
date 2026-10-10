@@ -42,6 +42,8 @@ class GetUpcomingEventsTool
             'endAt' => $event->getEndAt()?->format('c'),
             'startDate' => $event->getStartDate()?->format('Y-m-d'),
             'endDate' => $event->getEndDate()?->format('Y-m-d'),
+            // The end is excluded, as Google's: the last day is what Maggie announces (MAG-382).
+            'lastDay' => $event->getEndDate()?->modify('-1 day')->format('Y-m-d'),
             'status' => $event->getStatus()->value,
             'agenda' => $event->getAgenda()->getName(),
             'recurring' => $event->isRecurring(),

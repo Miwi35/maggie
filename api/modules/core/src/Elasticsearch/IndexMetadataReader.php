@@ -11,7 +11,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 final class IndexMetadataReader
 {
     /**
-     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>, dayFields: array<string, string>}|null
+     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>, dayFields: array<string, array{field: string, exclusiveEnd: bool}>}|null
      */
     public function read(string $className): ?array
     {
@@ -40,7 +40,7 @@ final class IndexMetadataReader
 
                 $fields[$fieldName] = self::mappingOf($field);
                 if (null !== $field->dayField) {
-                    $dayFields[$fieldName] = $field->dayField;
+                    $dayFields[$fieldName] = ['field' => $field->dayField, 'exclusiveEnd' => $field->dayFieldIsExclusiveEnd];
                 }
             }
 
@@ -66,7 +66,7 @@ final class IndexMetadataReader
                         }
                         $fields[$fieldName] = self::mappingOf($field);
                         if (null !== $field->dayField) {
-                            $dayFields[$fieldName] = $field->dayField;
+                            $dayFields[$fieldName] = ['field' => $field->dayField, 'exclusiveEnd' => $field->dayFieldIsExclusiveEnd];
                         }
                     }
                 }

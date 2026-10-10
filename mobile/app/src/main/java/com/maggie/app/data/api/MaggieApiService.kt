@@ -98,7 +98,7 @@ data class ApiCollection<T>(val member: List<T> = emptyList())
 
 /**
  * A timed event sends [startAt]/[endAt], an all-day one [startDate]/[endDate]
- * (`YYYY-MM-DD`, the end included) and no instant (MAG-382). Null fields are left
+ * (`YYYY-MM-DD`, the end exclusive as in Google) and no instant (MAG-382). Null fields are left
  * out of the body: the client's JSON does not encode defaults.
  */
 @Serializable

@@ -35,13 +35,13 @@ class GoogleEventMapper
         $startDateTime = $start?->getDateTime();
 
         if ($startDate) {
-            // All-day event: Google's `end.date` is the day after the last one,
-            // ours is the last one (MAG-382) — the one conversion there is.
+            // All-day event: Google's `start.date` and `end.date` are ours, the
+            // end excluded, as they are (MAG-382) — no conversion.
             /** @var ?string $endDate */
             $endDate = $end?->getDate();
             $first = self::day($startDate);
-            $last = null !== $endDate && '' !== $endDate ? self::day($endDate)->modify('-1 day') : $first;
-            $event->scheduleAllDay($first, $last < $first ? $first : $last);
+            $until = null !== $endDate && '' !== $endDate ? self::day($endDate) : null;
+            $event->scheduleAllDay($first, null !== $until && $until > $first ? $until : null);
             $event->setTimeZone($agenda->getTimeZone());
         } elseif ($startDateTime) {
             /** @var ?string $endDateTime */
@@ -178,9 +178,8 @@ class GoogleEventMapper
     }
 
     /**
-     * The start and the end as Google takes them. An all-day event's `end.date`
-     * is the day after its last one (MAG-382): `endDate + 1`, the inverse of
-     * the `- 1` in fromGoogle().
+     * The start and the end as Google takes them. An all-day event's dates are
+     * Google's own, the end excluded (MAG-382): they go as they are.
      *
      * @return array{EventDateTime, EventDateTime}
      */
@@ -192,7 +191,7 @@ class GoogleEventMapper
         $startDate = $event->getStartDate();
         if (null !== $startDate) {
             $start->setDate($startDate->format('Y-m-d'));
-            $end->setDate(($event->getEndDate() ?? $startDate)->modify('+1 day')->format('Y-m-d'));
+            $end->setDate(($event->getEndDate() ?? $startDate->modify('+1 day'))->format('Y-m-d'));
         } else {
             $start->setDateTime($event->getStartInstant()->format(\DateTimeInterface::RFC3339));
             $start->setTimeZone($event->getTimeZone());

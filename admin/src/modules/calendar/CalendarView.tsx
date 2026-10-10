@@ -145,7 +145,7 @@ interface CalendarEvent {
   /** An instant on a timed event; null on an all-day one (MAG-382). */
   startAt: string | null
   endAt: string | null
-  /** `YYYY-MM-DD` on an all-day event, the end included; null on a timed one. */
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google; null on a timed one. */
   startDate?: string | null
   endDate?: string | null
   allDay: boolean
@@ -236,23 +236,27 @@ interface CalendarData {
 // All-day events are pairs of dates (MAG-382)
 // ---------------------------------------------------------------------------
 
-/** First and last date of an all-day event, the last one included. */
-const eventDays = (e: CalendarEvent): { first: string; last: string } => {
-  const first = e.startDate ?? (e.startAt ?? '').slice(0, 10)
-  return { first, last: e.endDate ?? first }
+/**
+ * Start and end date of an all-day event, the end excluded as the API and Google
+ * store it (MAG-382). Nothing in this file shows the last day: the card and the
+ * dialogs do, through `lastDayOf`/`endDateOf`.
+ */
+const eventDays = (e: CalendarEvent): { start: string; end: string } => {
+  const start = e.startDate ?? (e.startAt ?? '').slice(0, 10)
+  return { start, end: e.endDate ?? addDays(start, 1) }
+}
+
+/** The event as FullCalendar wants it. Its all-day end is exclusive, like ours: passed as it is. */
+const toFullCalendarTiming = (e: CalendarEvent): Pick<EventInput, 'start' | 'end' | 'allDay'> => {
+  if (!e.allDay) return { start: e.startAt ?? undefined, end: e.endAt ?? undefined, allDay: false }
+  const { start, end } = eventDays(e)
+  return { start, end, allDay: true }
 }
 
 /**
- * The event as FullCalendar wants it. Its all-day end is exclusive: the day after
- * the last one, counted on the date itself — the one adapter there is.
+ * Start and end of a FullCalendar event: dates, the end excluded, when all-day —
+ * FullCalendar's own convention, so taken as it is — and instants otherwise.
  */
-const toFullCalendarTiming = (e: CalendarEvent): Pick<EventInput, 'start' | 'end' | 'allDay'> => {
-  if (!e.allDay) return { start: e.startAt ?? undefined, end: e.endAt ?? undefined, allDay: false }
-  const { first, last } = eventDays(e)
-  return { start: first, end: addDays(last, 1), allDay: true }
-}
-
-/** Start and end of a FullCalendar event: dates (last one included) when all-day, instants otherwise. */
 const fromFullCalendar = (
   start: Date | null,
   end: Date | null,
@@ -260,7 +264,7 @@ const fromFullCalendar = (
 ): { start: string; end: string } => {
   if (allDay) {
     const first = start ? localDay(start) : ''
-    return { start: first, end: end ? addDays(localDay(end), -1) : first }
+    return { start: first, end: end ? localDay(end) : first && addDays(first, 1) }
   }
   const startIso = start?.toISOString() || ''
   return { start: startIso, end: end?.toISOString() || startIso }
@@ -283,7 +287,8 @@ const timingFields = (allDay: boolean, start: string, end: string, patch: boolea
     ? {
         allDay: true,
         startDate: start.slice(0, 10),
-        endDate: (end || start).slice(0, 10),
+        // Exclusive: an end missing, or not after the start, is the day after the start.
+        endDate: end && end.slice(0, 10) > start.slice(0, 10) ? end.slice(0, 10) : addDays(start.slice(0, 10), 1),
         ...(patch ? { startAt: null, endAt: null } : {}),
       }
     : {
@@ -877,12 +882,12 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         // Each occurrence: its key against the exceptions, its id, its FullCalendar timing.
         let occurrences: { key: number; isoDate: string; timing: Pick<EventInput, 'start' | 'end' | 'allDay'> }[]
         if (e.allDay) {
-          const { first, last } = eventDays(e)
-          const length = daysBetween(first, last)
-          occurrences = expandRruleDays(e.rrule, first, length, localDay(rangeStart), localDay(rangeEnd)).map((day) => ({
+          const { start, end } = eventDays(e)
+          const length = daysBetween(start, end)
+          occurrences = expandRruleDays(e.rrule, start, length, localDay(rangeStart), localDay(rangeEnd)).map((day) => ({
             key: new Date(occurrenceKey(day)).getTime(),
             isoDate: day,
-            timing: { start: day, end: addDays(day, length + 1), allDay: true },
+            timing: { start: day, end: addDays(day, length), allDay: true },
           }))
         } else {
           const dtstart = new Date(e.startAt ?? '')
@@ -1188,7 +1193,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           type: 'delete',
           eventId,
           masterEventId: eventId,
-          occurrenceStart: rawEvent.allDay ? eventDays(rawEvent).first : rawEvent.startAt ?? '',
+          occurrenceStart: rawEvent.allDay ? eventDays(rawEvent).start : rawEvent.startAt ?? '',
           calendarIri: rawEvent.agenda,
           summary: rawEvent.summary,
           rrule: rawEvent.rrule,
@@ -1454,7 +1459,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           if (master && newStart && newEnd && occurrenceStart && master.allDay === seriesAllDay) {
             if (seriesAllDay) {
               // Days, not milliseconds: an all-day series moves by whole dates.
-              const masterStart = addDays(eventDays(master).first, daysBetween(occurrenceStart.slice(0, 10), newStart))
+              const masterStart = addDays(eventDays(master).start, daysBetween(occurrenceStart.slice(0, 10), newStart))
               start = masterStart
               end = addDays(masterStart, daysBetween(newStart, newEnd))
             } else {
@@ -1573,8 +1578,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             setPopoverEvent({
               id: event.id,
               title: event.summary,
-              start: (event.allDay ? eventDays(event).first : event.startAt) ?? '',
-              end: (event.allDay ? eventDays(event).last : event.endAt) ?? '',
+              start: (event.allDay ? eventDays(event).start : event.startAt) ?? '',
+              end: (event.allDay ? eventDays(event).end : event.endAt) ?? '',
               allDay: event.allDay,
               color,
               calendarName: calendarNameMap.get(calId) || '',
@@ -1592,7 +1597,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               id: `meal-${meal.id}`,
               title: mealTitle(meal),
               start: meal.date,
-              end: meal.date,
+              // A meal is one day: the same exclusive end as an all-day event.
+              end: addDays(meal.date, 1),
               allDay: true,
               color: MEAL_COLOR,
               calendarName: '',

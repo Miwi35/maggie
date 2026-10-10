@@ -1,6 +1,7 @@
 # A stretch of days is one whole-day event, not a series (MAG-317): the scenario
-# sends `all_day` with a start and an end date, the last day included, and the
-# journey checks that the API stored a single event covering the thirteen days.
+# sends `all_day` with a start and an end date — the end excluded, the day after
+# the last, as Google stores it (MAG-382) — and the journey checks that the API
+# stored a single event covering the thirteen days.
 #
 # 2099-12-22 → 2100-01-03 crosses the new year on purpose, and stays in the
 # far future for the same reason as 35-create-event.yaml.
@@ -16,6 +17,6 @@ turns:
         input:
           title: "Vacances d'hiver"
           start_date: "2099-12-22"
-          end_date: "2100-01-03"
+          end_date: "2100-01-04"
           all_day: true
   - text: "C'est noté : vacances d'hiver du 22 décembre 2099 au 3 janvier 2100, sur toute la durée."

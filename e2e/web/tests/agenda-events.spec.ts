@@ -32,7 +32,7 @@ interface StoredEvent {
   summary?: string
   startAt?: string | null
   endAt?: string | null
-  /** `YYYY-MM-DD` on an all-day event, the last one included (MAG-382). */
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google (MAG-382). */
   startDate?: string | null
   endDate?: string | null
   agenda?: string
@@ -273,8 +273,9 @@ test('a night-train event is on the day it starts and on the day it ends', async
  *
  * It was stored as two instants — 00:00Z to the next 00:00Z from Google, 00:00Z to
  * 23:59:59Z from this admin — and read in Paris that ended on the 2nd, so a one-day
- * event spilled onto the next day. It is now two dates, the last one included, and
- * FullCalendar's exclusive end is computed on the date itself. The seeded event is
+ * event spilled onto the next day. It is now two dates, the end excluded exactly as
+ * Google's `start.date`/`end.date` — 1st → 2nd — which FullCalendar takes as it is,
+ * while the card shows the last day included, as Google Agenda does. The seeded event is
  * on the 1st of the anchor's month, the very day an offset pushes into the previous
  * month or the next day.
  *
@@ -287,11 +288,12 @@ test('an all-day event of the 1st fills one cell of the month, and only the 1st'
   const summary = 'Journée du 1er MAG-382'
   const id = seedId('e2e_event_all_day_first')
   const first = `${DAY.slice(0, 7)}-01`
+  const second = `${DAY.slice(0, 7)}-02`
 
   const response = await api.get(`/api/events/${id}`)
   expect(response.ok()).toBe(true)
   const stored = (await response.json()) as StoredEvent
-  expect(stored).toMatchObject({ allDay: true, startDate: first, endDate: first })
+  expect(stored).toMatchObject({ allDay: true, startDate: first, endDate: second })
   expect(stored.startAt ?? null).toBeNull()
 
   await calendar.goToEventDate(id, summary)
@@ -299,7 +301,7 @@ test('an all-day event of the 1st fills one cell of the month, and only the 1st'
   await expect(calendar.monthCell(first).getByText(summary, { exact: true })).toHaveCount(1)
   expect(await calendar.monthCellsSpanned(summary, first), 'the bar runs past the 1st').toBe(1)
 
-  // And the card says the 1st, the only day it covers.
+  // And the card says the 1st alone — not « au 2 », the exclusive end it is stored with.
   await calendar.openChip(summary)
   await expect(calendar.popover).not.toContainText(' – ')
 
@@ -310,7 +312,11 @@ test('an all-day event of the 1st fills one cell of the month, and only the 1st'
   await expect(calendar.chip(summary), 'still there on the 2nd').toHaveCount(0)
 })
 
-/** An all-day event created from the dialog is stored as its two dates, with no instant (MAG-382). */
+/**
+ * An all-day event created from the dialog is stored as its two dates, with no instant (MAG-382).
+ *
+ * « du X au X » is typed, as in Google Agenda; the API gets the day after as `endDate`.
+ */
 test('an all-day event created from the dialog is stored as its dates', async ({ page, api }) => {
   const { summary } = slot('Journée de formation')
   const calendar = new CalendarPage(page)
@@ -319,7 +325,7 @@ test('an all-day event created from the dialog is stored as its dates', async ({
   await calendar.createEvent({ summary, start: DAY, end: DAY, allDay: true, agenda: 'Perso' })
 
   const stored = await storedEvent(api, summary)
-  expect(stored).toMatchObject({ allDay: true, startDate: DAY, endDate: DAY })
+  expect(stored).toMatchObject({ allDay: true, startDate: DAY, endDate: seedDate(1) })
   expect(stored.startAt ?? null).toBeNull()
   expect(stored.endAt ?? null).toBeNull()
 })

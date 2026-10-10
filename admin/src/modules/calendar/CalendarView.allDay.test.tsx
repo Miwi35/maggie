@@ -30,7 +30,7 @@ vi.mock('react-admin', () => ({
 
 const AGENDA = '/api/agendas/01PERSO'
 
-/** An all-day event as the API sends it since MAG-382: two dates, the last one included, no instant. */
+/** An all-day event as the API sends it since MAG-382: two dates, the end excluded as in Google, no instant. */
 const allDay = (id: string, summary: string, startDate: string, endDate: string, extra: Record<string, unknown> = {}) => ({
   id: `/api/events/${id}`,
   summary,
@@ -43,9 +43,9 @@ const allDay = (id: string, summary: string, startDate: string, endDate: string,
   ...extra,
 })
 
-const STAGE = allDay('01STAGE', 'Stage de voile', '2037-01-26', '2037-01-28')
-const NEW_YEAR = allDay('01NOUVELAN', 'Nouvel an', '2037-01-01', '2037-01-01')
-const BIRTHDAY = allDay('01SACHA', 'Anniversaire de Sacha', '2001-01-20', '2001-01-20', { rrule: 'FREQ=YEARLY' })
+const STAGE = allDay('01STAGE', 'Stage de voile', '2037-01-26', '2037-01-29')
+const NEW_YEAR = allDay('01NOUVELAN', 'Nouvel an', '2037-01-01', '2037-01-02')
+const BIRTHDAY = allDay('01SACHA', 'Anniversaire de Sacha', '2001-01-20', '2001-01-21', { rrule: 'FREQ=YEARLY' })
 
 const serve = (events: unknown[]) => {
   mockGetList.mockImplementation((resource: string) => {
@@ -79,7 +79,7 @@ const nextDay = async () => {
  *
  * They were datetimes — `T00:00:00Z` → `T23:59:59Z` from this admin, the next
  * midnight from Google — and the grid put a one-day event on two days. They are now
- * a pair of dates; FullCalendar's exclusive end is the only adapter.
+ * a pair of dates, the end excluded as in Google, which FullCalendar takes as it is.
  */
 describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () => {
   beforeEach(() => {
@@ -140,7 +140,7 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
     await waitFor(() => expect(screen.queryByText('Stage de voile')).not.toBeInTheDocument())
   })
 
-  test('the card says « au 28 », the last day as stored (MAG-358)', async () => {
+  test('the card says « au 28 » for an end stored on the 29th (MAG-358)', async () => {
     serve([STAGE])
     render(<CalendarView />)
 
@@ -159,12 +159,12 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
   })
 
   test('a cancelled exception keyed at midnight UTC of the date hides that occurrence', async () => {
-    const cancelled = allDay('01ANNUL', 'Anniversaire de Sacha', '2037-01-20', '2037-01-20', {
+    const cancelled = allDay('01ANNUL', 'Anniversaire de Sacha', '2037-01-20', '2037-01-21', {
       recurringEvent: BIRTHDAY.id,
       originalStartAt: '2037-01-20T00:00:00+00:00',
       status: 'cancelled',
     })
-    const other = allDay('01AUTRE', 'Repère', '2037-01-21', '2037-01-21')
+    const other = allDay('01AUTRE', 'Repère', '2037-01-21', '2037-01-22')
     serve([BIRTHDAY, cancelled, other])
     render(<CalendarView />)
 
@@ -182,7 +182,7 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
     const dialog = await screen.findByRole('dialog', { name: "Modifier l'événement" })
     expect(within(dialog).getByLabelText(/Début/)).toHaveValue('2037-01-26')
     expect(within(dialog).getByLabelText(/Fin/)).toHaveValue('2037-01-28')
-    fireEvent.change(within(dialog).getByLabelText(/Fin/), { target: { value: '2037-01-29' } })
+    fireEvent.change(within(dialog).getByLabelText(/Fin/), { target: { value: '2037-01-30' } })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
 
     await waitFor(() =>
@@ -193,7 +193,8 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
           data: expect.objectContaining({
             allDay: true,
             startDate: '2037-01-26',
-            endDate: '2037-01-29',
+            // « au 30 » typed, the day after stored.
+            endDate: '2037-01-31',
             startAt: null,
             endAt: null,
           }),
@@ -230,7 +231,7 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
     expect(data).toMatchObject({
       allDay: true,
       startDate: '2037-01-20',
-      endDate: '2037-01-20',
+      endDate: '2037-01-21',
       originalStartAt: '2037-01-20T00:00:00+00:00',
       recurringEvent: BIRTHDAY.id,
       status: 'cancelled',
@@ -257,7 +258,7 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
     expect(mockCreate.mock.calls[0][1].data).toMatchObject({
       allDay: true,
       startDate: '2037-01-24',
-      endDate: '2037-01-24',
+      endDate: '2037-01-25',
       originalStartAt: '2037-01-20T00:00:00+00:00',
       recurringEvent: BIRTHDAY.id,
     })
@@ -285,7 +286,7 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
           data: expect.objectContaining({
             allDay: true,
             startDate: '2001-01-22',
-            endDate: '2001-01-22',
+            endDate: '2001-01-23',
             startAt: null,
             endAt: null,
           }),

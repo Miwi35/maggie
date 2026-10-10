@@ -61,7 +61,8 @@ class GetEventToolTest extends KernelTestCase
 
         self::assertTrue($data['event']['allDay']);
         self::assertSame('2026-12-24', $data['event']['startDate']);
-        self::assertSame('2026-12-24', $data['event']['endDate']);
+        self::assertSame('2026-12-25', $data['event']['endDate'], 'Excluded, as Google stores it');
+        self::assertSame('2026-12-24', $data['event']['lastDay']);
         self::assertNull($data['event']['startAt']);
         self::assertNull($data['event']['endAt']);
     }

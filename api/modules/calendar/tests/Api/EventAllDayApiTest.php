@@ -87,32 +87,32 @@ class EventAllDayApiTest extends WebTestCase
             'summary' => 'Anniversaire',
             'allDay' => true,
             'startDate' => '2037-01-01',
-            'endDate' => '2037-01-01',
+            'endDate' => '2037-01-02',
             'agenda' => $this->agendaIri(),
         ]);
 
         self::assertResponseStatusCodeSame(201);
         self::assertSame('2037-01-01', $data['startDate']);
-        self::assertSame('2037-01-01', $data['endDate']);
+        self::assertSame('2037-01-02', $data['endDate']);
         self::assertNull($data['startAt'] ?? null);
         self::assertNull($data['endAt'] ?? null);
 
         $row = $this->row($data['id']);
         self::assertTrue($row['all_day']);
         self::assertSame('2037-01-01', $row['start_date']);
-        self::assertSame('2037-01-01', $row['end_date']);
+        self::assertSame('2037-01-02', $row['end_date']);
         self::assertNull($row['start_at']);
         self::assertNull($row['end_at']);
 
         $this->assertMercureUpdatePublished('/events/');
         $payload = $this->mercurePayloadsOn('/api/events/'.$data['id'])[0] ?? [];
         self::assertSame('2037-01-01', $payload['startDate'] ?? null);
-        self::assertSame('2037-01-01', $payload['endDate'] ?? null);
+        self::assertSame('2037-01-02', $payload['endDate'] ?? null);
         self::assertTrue($payload['allDay'] ?? null);
         $this->assertElasticsearchIndexDispatched(Event::class);
     }
 
-    public function testAnAbsentLastDayIsTheFirstOne(): void
+    public function testAnAbsentEndMakesItOneDay(): void
     {
         $this->login();
 
@@ -124,7 +124,7 @@ class EventAllDayApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(201);
-        self::assertSame('2037-05-01', $this->row($data['id'])['end_date']);
+        self::assertSame('2037-05-02', $this->row($data['id'])['end_date']);
     }
 
     public function testAnAnonymousCreationIsRefused(): void
@@ -144,7 +144,9 @@ class EventAllDayApiTest extends WebTestCase
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function mixedSchedules(): iterable
     {
-        yield 'a last day before the first' => [['allDay' => true, 'startDate' => '2037-01-28', 'endDate' => '2037-01-26'], 'endDate'];
+        yield 'an end before the start' => [['allDay' => true, 'startDate' => '2037-01-28', 'endDate' => '2037-01-26'], 'endDate'];
+        // The end is excluded: on the start day, it is a day of nothing.
+        yield 'an end on the start' => [['allDay' => true, 'startDate' => '2037-01-28', 'endDate' => '2037-01-28'], 'endDate'];
         yield 'a day with no first day' => [['allDay' => true, 'endDate' => '2037-01-26'], 'startDate'];
         yield 'a day with an instant' => [['allDay' => true, 'startDate' => '2037-01-26', 'startAt' => '2037-01-26T00:00:00Z'], 'startAt'];
         yield 'a timed event with a day' => [['startAt' => '2037-01-26T09:00:00+01:00', 'endAt' => '2037-01-26T10:00:00+01:00', 'startDate' => '2037-01-26'], 'startDate'];
@@ -187,14 +189,14 @@ class EventAllDayApiTest extends WebTestCase
         $this->send('PATCH', '/api/events/'.$id, [
             'allDay' => true,
             'startDate' => '2037-01-26',
-            'endDate' => '2037-01-28',
+            'endDate' => '2037-01-29',
             'startAt' => null,
             'endAt' => null,
         ]);
 
         self::assertResponseIsSuccessful();
         $row = $this->row($id);
-        self::assertSame(['2037-01-26', '2037-01-28'], [$row['start_date'], $row['end_date']]);
+        self::assertSame(['2037-01-26', '2037-01-29'], [$row['start_date'], $row['end_date']]);
         self::assertNull($row['start_at']);
         $this->assertMercureUpdatePublished('/events/');
         $this->assertElasticsearchIndexDispatched(Event::class);
@@ -220,11 +222,11 @@ class EventAllDayApiTest extends WebTestCase
         $this->login();
         $id = (string) $this->getFixture('three_days')->getId();
 
-        $this->send('PATCH', '/api/events/'.$id, ['endDate' => '2037-01-30']);
+        $this->send('PATCH', '/api/events/'.$id, ['endDate' => '2037-01-31']);
 
         self::assertResponseIsSuccessful();
         $row = $this->row($id);
-        self::assertSame(['2037-01-26', '2037-01-30'], [$row['start_date'], $row['end_date']]);
+        self::assertSame(['2037-01-26', '2037-01-31'], [$row['start_date'], $row['end_date']]);
     }
 
     public function testSwitchingToAllDayWithoutClearingTheInstantsIsRefused(): void
@@ -286,7 +288,7 @@ class EventAllDayApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertTrue($data['allDay']);
         self::assertSame('2037-01-26', $data['startDate']);
-        self::assertSame('2037-01-28', $data['endDate']);
+        self::assertSame('2037-01-29', $data['endDate'], 'Excluded, as Google stores it');
         self::assertNull($data['startAt'] ?? null);
     }
 }

@@ -10,7 +10,7 @@ final readonly class UpdateEventCommand
 
     /**
      * The schedule changes whole or not at all: `allDay` true with `startDate`
-     * (and `endDate`, the last day, included), or `startAt` and `endAt` (MAG-382).
+     * (and `endDate`, excluded), or `startAt` and `endAt` (MAG-382).
      *
      * @param array<string, mixed>|null                          $reminders
      * @param list<'description'|'location'|'rrule'|'reminders'> $clearFields

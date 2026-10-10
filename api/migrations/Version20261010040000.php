@@ -8,7 +8,8 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * An all-day event is a pair of dates, the last one included (MAG-382).
+ * An all-day event is a pair of dates, the end excluded — Google's own
+ * `start.date` / `end.date` (MAG-382, the owner's final decision).
  *
  * `start_date` and `end_date` are filled for every all-day row, whatever
  * convention wrote its instants — three coexisted, and each display was wrong
@@ -20,10 +21,11 @@ use Doctrine\Migrations\AbstractMigration;
  * - `meal`: a meal's own `date`, which is what it always meant;
  * - `other`: anything else, read in Paris like the mobile rows.
  *
- * One rule covers the first four: the first day is the day `start_at` falls on,
- * the last one the day of the second before `end_at`, both read in the zone the
- * convention wrote in. `start_at` and `end_at` are then emptied: a day has no
- * instant.
+ * One rule covers them all: the first day is the day `start_at` falls on, the
+ * end the day after the day of the second before `end_at`, both read in the
+ * zone the convention wrote in — Google's dates as they are, the admin's last
+ * day + 1, the mobile's Paris dates. A meal ends the day after its day.
+ * `start_at` and `end_at` are then emptied: a day has no instant.
  *
  * Dry run first: `doctrine:migrations:migrate --dry-run` prints the count per
  * convention and a few rows of each, without writing. The exceptions of an
@@ -54,7 +56,7 @@ final class Version20261010040000 extends AbstractMigration
 
     public function getDescription(): string
     {
-        return 'Make an all-day event a pair of dates: event.start_date and event.end_date (the last day included), start_at and end_at emptied';
+        return 'Make an all-day event a pair of dates: event.start_date and event.end_date (excluded, as Google stores it), start_at and end_at emptied';
     }
 
     public function up(Schema $schema): void
@@ -95,11 +97,11 @@ final class Version20261010040000 extends AbstractMigration
                     ELSE (event.start_at AT TIME ZONE z.zone)::date
                 END,
                 end_date = CASE
-                    WHEN z.convention = 'meal' THEN (SELECT m.date FROM meal m WHERE m.id = event.id)
+                    WHEN z.convention = 'meal' THEN (SELECT m.date FROM meal m WHERE m.id = event.id) + 1
                     ELSE GREATEST(
                         (event.start_at AT TIME ZONE z.zone)::date,
                         ((event.end_at - INTERVAL '1 second') AT TIME ZONE z.zone)::date
-                    )
+                    ) + 1
                 END
             FROM zoned z
             WHERE z.id = event.id
@@ -118,7 +120,7 @@ final class Version20261010040000 extends AbstractMigration
         $this->addSql(<<<'SQL'
             UPDATE event SET
                 start_at = start_date::timestamp AT TIME ZONE 'UTC',
-                end_at = (COALESCE(end_date, start_date) + 1)::timestamp AT TIME ZONE 'UTC'
+                end_at = COALESCE(end_date, start_date + 1)::timestamp AT TIME ZONE 'UTC'
             WHERE start_date IS NOT NULL AND start_at IS NULL
             SQL);
         $this->addSql('ALTER TABLE event ALTER COLUMN start_at SET NOT NULL');

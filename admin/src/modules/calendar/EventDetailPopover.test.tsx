@@ -41,16 +41,16 @@ describe('EventDetailPopover', () => {
   })
 })
 
-/** An all-day event shows its dates as they are stored: the last one is included (MAG-358, MAG-382). */
+/** An all-day event shows its last day included, from the exclusive end it is stored with (MAG-358, MAG-382). */
 describe('EventDetailPopover — all-day', () => {
   test('says « au 28 » for an event from the 26th to the 28th', () => {
-    renderPopover({ allDay: true, start: '2037-01-26', end: '2037-01-28' })
+    renderPopover({ allDay: true, start: '2037-01-26', end: '2037-01-29' })
 
     expect(screen.getByText('Lundi 26 janvier 2037 – mercredi 28 janvier 2037')).toBeInTheDocument()
   })
 
   test('shows a one-day event on its own date, the 1st and not the eve or the day after', () => {
-    renderPopover({ allDay: true, start: '2037-01-01', end: '2037-01-01' })
+    renderPopover({ allDay: true, start: '2037-01-01', end: '2037-01-02' })
 
     expect(screen.getByText('Jeudi 1 janvier 2037')).toBeInTheDocument()
   })
@@ -60,7 +60,7 @@ describe('EventDetailPopover — all-day', () => {
     const onDelete = vi.fn()
     render(
       <EventDetailPopover
-        event={{ ...event, allDay: true, start: '2037-01-01', end: '2037-01-01' }}
+        event={{ ...event, allDay: true, start: '2037-01-01', end: '2037-01-02' }}
         anchorEl={document.body}
         onClose={vi.fn()}
         onEdit={onEdit}

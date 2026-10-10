@@ -64,7 +64,7 @@ final class MealDayTest extends TestCase
 
         self::assertSame($day, $meal->getDate()?->format('Y-m-d'));
         self::assertSame($day, $meal->getStartDate()?->format('Y-m-d'));
-        self::assertSame($day, $meal->getEndDate()?->format('Y-m-d'));
+        self::assertSame((new \DateTimeImmutable($day))->modify('+1 day')->format('Y-m-d'), $meal->getEndDate()?->format('Y-m-d'), 'Excluded, as Google stores it');
         self::assertNull($meal->getStartAt());
         self::assertNull($meal->getEndAt());
         self::assertTrue($meal->isAllDay());
@@ -93,7 +93,7 @@ final class MealDayTest extends TestCase
 
         self::assertSame('2026-10-09', $meal->getDate()?->format('Y-m-d'));
         self::assertSame('2026-10-09', $meal->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-09', $meal->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-10', $meal->getEndDate()?->format('Y-m-d'));
         self::assertNull($meal->getStartAt());
         self::assertNull($meal->getEndAt());
         self::assertTrue($meal->isAllDay());
@@ -107,7 +107,7 @@ final class MealDayTest extends TestCase
         $meal->scheduleAllDay(new \DateTimeImmutable('2026-10-12'), new \DateTimeImmutable('2026-10-14'));
 
         self::assertSame('2026-10-12', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-12', $meal->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-13', $meal->getEndDate()?->format('Y-m-d'));
     }
 
     /** The day is the one the writer meant, which is the day in the meal's zone. */
@@ -130,7 +130,7 @@ final class MealDayTest extends TestCase
         $meal->setEndDate(new \DateTimeImmutable('2026-11-30'));
 
         self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-07', $meal->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-08', $meal->getEndDate()?->format('Y-m-d'));
         self::assertNull($meal->getEndAt());
     }
 

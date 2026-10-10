@@ -318,8 +318,8 @@ class CalendarViewModelTest {
     /** MAG-382: a day is its dates. The 14th's event, which midnight UTC used to drag into the 15th, stays on the 14th. */
     @Test
     fun `the day view holds the all-day events of its date only, and the meals as dates`() = runTest {
-        val birthday = Event(id = "01BDAY", summary = "Anniversaire", allDay = true, startDate = "2026-06-15", endDate = "2026-06-15")
-        val dayBefore = Event(id = "01EVE", summary = "Veille", allDay = true, startDate = "2026-06-14", endDate = "2026-06-14")
+        val birthday = Event(id = "01BDAY", summary = "Anniversaire", allDay = true, startDate = "2026-06-15", endDate = "2026-06-16")
+        val dayBefore = Event(id = "01EVE", summary = "Veille", allDay = true, startDate = "2026-06-14", endDate = "2026-06-15")
         stubRepositories(events = listOf(birthday, dayBefore))
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(dinner))
 
@@ -334,7 +334,7 @@ class CalendarViewModelTest {
         val day = java.time.LocalDate.of(2026, 6, 15)
         for (event in shown) {
             assertEquals(event.id, day, event.startDate)
-            assertEquals(event.id, day, event.endDate)
+            assertEquals(event.id, day.plusDays(1), event.endDate)
             assertNull(event.id, event.startAt)
         }
     }

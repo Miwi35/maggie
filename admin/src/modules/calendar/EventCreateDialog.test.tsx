@@ -124,7 +124,7 @@ describe('EventCreateDialog', () => {
     expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
   })
 
-  // An all-day event is a pair of dates, the last one included, and no instant at all (MAG-382).
+  // An all-day event is a pair of dates, the end excluded as in Google, and no instant (MAG-382).
   test('an all-day event is posted as its dates, without startAt or endAt', async () => {
     await open()
 
@@ -134,12 +134,12 @@ describe('EventCreateDialog', () => {
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
     const { data } = mockCreate.mock.calls[0][1] as { data: Record<string, unknown> }
-    expect(data).toMatchObject({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-05' })
+    expect(data).toMatchObject({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-06' })
     expect(data).not.toHaveProperty('startAt')
     expect(data).not.toHaveProperty('endAt')
   })
 
-  test('a selection of three days on the grid is posted with its last day included', async () => {
+  test('a selection of three days shows its last day, and is posted with the day after', async () => {
     // FullCalendar's selection end is exclusive: 26 → 29 is the 26th, 27th and 28th.
     render(
       <EventCreateDialog
@@ -161,7 +161,7 @@ describe('EventCreateDialog', () => {
       expect(mockCreate).toHaveBeenCalledWith(
         'events',
         expect.objectContaining({
-          data: expect.objectContaining({ allDay: true, startDate: '2037-01-26', endDate: '2037-01-28' }),
+          data: expect.objectContaining({ allDay: true, startDate: '2037-01-26', endDate: '2037-01-29' }),
         }),
       ),
     )

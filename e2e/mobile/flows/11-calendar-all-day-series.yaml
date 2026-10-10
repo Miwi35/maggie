@@ -15,7 +15,8 @@ tags:
 # its dates: which days it covers is the JVM's business (`RruleUtilsExpandTest`).
 #
 # Then a one-day event shows on its day and not the next (MAG-382). « Journée du
-# 1er MAG-382 » is all-day, startDate = endDate = the 1st of the anchor's month.
+# 1er MAG-382 » is all-day on the 1st of the anchor's month: startDate the 1st,
+# endDate the 2nd, exclusive as in Google.
 # Stored as midnight UTC, Paris's offset pushed its end to 01:00 on the 2nd and the
 # app drew it on both days; it is now a pair of dates, read with no zone. The flow
 # finds it in the month, opens the 1st by its number, then steps to the 2nd and

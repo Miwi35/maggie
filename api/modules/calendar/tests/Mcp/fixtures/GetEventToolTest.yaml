@@ -22,5 +22,5 @@ Maggie\Calendar\Entity\Event:
     allDay: true
     timeZone: Europe/Paris
     startDate: '<(new \DateTimeImmutable("2026-12-24"))>'
-    endDate: '<(new \DateTimeImmutable("2026-12-24"))>'
+    endDate: '<(new \DateTimeImmutable("2026-12-25"))>'
     agenda: '@own_agenda'

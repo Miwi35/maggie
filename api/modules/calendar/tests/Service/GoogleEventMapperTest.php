@@ -108,42 +108,41 @@ class GoogleEventMapperTest extends TestCase
     }
 
     /**
-     * Google's `end.date` is the day after the last; ours is the last one
-     * (MAG-382). The one conversion of the system, on the way in…
+     * Google's `start.date` and `end.date`, the end excluded, are ours as they
+     * are: no conversion either way (MAG-382, the owner's final decision).
      *
-     * @return iterable<string, array{array{string, string}, string, string}>
+     * @return iterable<string, array{array{string, string}}>
      */
     public static function googleDays(): iterable
     {
-        yield 'one day' => [['2037-01-01', '2037-01-02'], '2037-01-01', '2037-01-01'];
-        yield 'three days' => [['2037-01-26', '2037-01-29'], '2037-01-26', '2037-01-28'];
-        yield 'across the new year' => [['2036-12-31', '2037-01-02'], '2036-12-31', '2037-01-01'];
+        yield 'one day' => [['2037-01-01', '2037-01-02']];
+        yield 'three days' => [['2037-01-26', '2037-01-29']];
+        yield 'across the new year' => [['2036-12-31', '2037-01-02']];
     }
 
     /** @param array{string, string} $google */
     #[\PHPUnit\Framework\Attributes\DataProvider('googleDays')]
-    public function testAGoogleDayComesInAsItsDaysTheLastIncluded(array $google, string $startDate, string $endDate): void
+    public function testAGoogleDayComesInAsItsDatesUnchanged(array $google): void
     {
         $event = (new GoogleEventMapper())->fromGoogle($this->googleDay($google), (new Agenda())->setName('Perso'));
 
         self::assertTrue($event->isAllDay());
-        self::assertSame($startDate, $event->getStartDate()?->format('Y-m-d'));
-        self::assertSame($endDate, $event->getEndDate()?->format('Y-m-d'));
+        self::assertSame($google, [$event->getStartDate()?->format('Y-m-d'), $event->getEndDate()?->format('Y-m-d')]);
         self::assertNull($event->getStartAt());
         self::assertNull($event->getEndAt());
     }
 
     /**
-     * …and back out, inverted, so a round trip keeps the day on its day.
+     * And back out as they came, so a round trip keeps the day on its day.
      *
      * @param array{string, string} $google
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('googleDays')]
-    public function testADayGoesBackToGoogleAsItCameAndRoundTrips(array $google, string $startDate, string $endDate): void
+    public function testADayGoesBackToGoogleAsItCameAndRoundTrips(array $google): void
     {
         $mapper = new GoogleEventMapper();
         $event = (new Event())->setSummary('Anniversaire')
-            ->scheduleAllDay(new \DateTimeImmutable($startDate), new \DateTimeImmutable($endDate));
+            ->scheduleAllDay(new \DateTimeImmutable($google[0]), new \DateTimeImmutable($google[1]));
 
         $sent = $mapper->toGoogle($event);
         self::assertSame($google, [$sent->getStart()->getDate(), $sent->getEnd()->getDate()]);
@@ -153,7 +152,7 @@ class GoogleEventMapperTest extends TestCase
         self::assertSame($google, [$patch->getStart()->getDate(), $patch->getEnd()->getDate()]);
 
         $back = $mapper->fromGoogle($sent, (new Agenda())->setName('Perso'));
-        self::assertSame([$startDate, $endDate], [$back->getStartDate()?->format('Y-m-d'), $back->getEndDate()?->format('Y-m-d')]);
+        self::assertSame($google, [$back->getStartDate()?->format('Y-m-d'), $back->getEndDate()?->format('Y-m-d')]);
     }
 
     public function testAGoogleEventWithATimeBecomingADayLosesItsInstants(): void

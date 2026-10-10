@@ -21,7 +21,7 @@ const day: DashboardEvent = {
   startAt: null,
   endAt: null,
   startDate: '2037-01-01',
-  endDate: '2037-01-01',
+  endDate: '2037-01-02',
 }
 
 const rowOf = (summary: string) => screen.getByText(summary).closest('li') as HTMLElement

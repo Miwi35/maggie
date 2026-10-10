@@ -41,6 +41,6 @@ Maggie\Calendar\Entity\Event:
     summary: Anniversaire
     allDay: true
     startDate: '<(new \DateTimeImmutable("2026-11-10"))>'
-    endDate: '<(new \DateTimeImmutable("2026-11-10"))>'
+    endDate: '<(new \DateTimeImmutable("2026-11-11"))>'
     timeZone: 'Europe/Paris'
     agenda: '@own_agenda'

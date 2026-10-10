@@ -89,9 +89,10 @@ const TIMEZONE_CALL = {
 const HOLIDAY = {
   question: 'Ajoute les vacances du 22 décembre 2099 au 3 janvier 2100',
   title: "Vacances d'hiver",
-  // A day is a date (MAG-382): the first one and the last one, included — no instant.
-  firstDay: '2099-12-22',
-  lastDay: '2100-01-03',
+  // A day is a date (MAG-382), stored as Google does: the end excluded, so « au 3
+  // janvier » is 2100-01-04 — no instant.
+  startDate: '2099-12-22',
+  endDate: '2100-01-04',
 }
 
 /**
@@ -357,8 +358,8 @@ test('a stretch of days asked for is one whole-day event, not a series', async (
   )
   expect(booked.allDay).toBe(true)
   expect(booked.rrule ?? null).toBeNull()
-  expect(booked.startDate).toBe(HOLIDAY.firstDay)
-  expect(booked.endDate).toBe(HOLIDAY.lastDay)
+  expect(booked.startDate).toBe(HOLIDAY.startDate)
+  expect(booked.endDate).toBe(HOLIDAY.endDate)
   expect(booked.startAt ?? null).toBeNull()
 
   // Only one row: a daily series, or thirteen events, would be found here.

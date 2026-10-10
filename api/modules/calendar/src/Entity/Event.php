@@ -99,8 +99,11 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     // A timed event has instants, an all-day one has days — never both (MAG-382).
     //
-    // An all-day event is a pair of dates, the last one included: the 1st of
-    // January alone is `startDate = endDate = 2037-01-01`. No time, no zone,
+    // An all-day event is a pair of dates, the end excluded, exactly as Google's
+    // API stores `start.date` and `end.date`: the 1st of January alone is
+    // `startDate = 2037-01-01`, `endDate = 2037-01-02`. The clients show and
+    // take the last day included, as Google Agenda does, and convert at their
+    // edge only (MAG-382, the owner's final decision). No time, no zone,
     // so no reader can push it onto the day next door the way an instant at
     // midnight did — read in Paris, the old `00:00Z → 00:00Z` of the next day
     // ended at 01:00 on the 2nd and showed on two days. `startAt` and `endAt`
@@ -115,7 +118,7 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     private ?\DateTimeImmutable $startAt = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
-    #[IndexedField(type: 'date', dayField: 'endDate')]
+    #[IndexedField(type: 'date', dayField: 'endDate', dayFieldIsExclusiveEnd: true)]
     #[ApiProperty(description: 'When a timed event ends. Null on an all-day event, which has endDate instead.')]
     private ?\DateTimeImmutable $endAt = null;
 
@@ -134,8 +137,8 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date', format: 'yyyy-MM-dd')]
     #[ApiProperty(
-        description: 'The last day of an all-day event, YYYY-MM-DD, included: a one-day event has endDate = startDate, which is what an absent endDate becomes. Null on a timed event.',
-        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
+        description: 'The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google\'s end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-02'],
     )]
     #[Context(
         normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'],
@@ -321,16 +324,16 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     }
 
     /**
-     * Makes the event an all-day one, from its first day to its last, included.
+     * Makes the event an all-day one, from its first day to its end, excluded.
      *
-     * The instants go: an all-day event has none. No last day is one day long.
+     * The instants go: an all-day event has none. No end is one day long.
      */
     public function scheduleAllDay(\DateTimeImmutable $startDate, ?\DateTimeImmutable $endDate = null): static
     {
         $this->setStartAt(null);
         $this->setEndAt(null);
         $this->setStartDate($startDate);
-        $this->setEndDate($endDate ?? $startDate);
+        $this->setEndDate($endDate ?? self::bareDay($startDate)?->modify('+1 day'));
 
         return $this->setAllDay(true);
     }
@@ -363,17 +366,18 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         return new \DateTimeImmutable(($this->startDate ?? new \DateTimeImmutable('today'))->format('Y-m-d'), $this->zone());
     }
 
-    /** Same as {@see getStartInstant()}: an all-day event ends at the midnight after its last day. */
+    /** Same as {@see getStartInstant()}: an all-day event ends at midnight of its end date. */
     #[Ignore]
     public function getEndInstant(): \DateTimeImmutable
     {
         if (null !== $this->endAt) {
             return $this->endAt;
         }
+        if (null !== $this->endDate) {
+            return new \DateTimeImmutable($this->endDate->format('Y-m-d'), $this->zone());
+        }
 
-        $last = $this->endDate ?? $this->startDate ?? new \DateTimeImmutable('today');
-
-        return (new \DateTimeImmutable($last->format('Y-m-d'), $this->zone()))->modify('+1 day');
+        return $this->getStartInstant()->modify('+1 day');
     }
 
     /** One schedule or the other, whole — a 400 otherwise (MAG-382). */
@@ -390,8 +394,8 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
                         ->setParameter('{{ field }}', $path)->atPath($path)->addViolation();
                 }
             }
-            if (null !== $this->startDate && null !== $this->endDate && $this->endDate < $this->startDate) {
-                $context->buildViolation('endDate is the last day, included: it cannot be before startDate.')->atPath('endDate')->addViolation();
+            if (null !== $this->startDate && null !== $this->endDate && $this->endDate <= $this->startDate) {
+                $context->buildViolation('endDate is the day after the last one, excluded, as Google\'s end.date: it must be after startDate.')->atPath('endDate')->addViolation();
             }
 
             return;

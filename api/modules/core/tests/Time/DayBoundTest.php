@@ -56,6 +56,13 @@ final class DayBoundTest extends TestCase
         self::assertNull(DayBound::forOperator('between', '2037-01-01'));
     }
 
+    /** An end excluded, as Google's `end.date`, is the day after the last one. */
+    public function testAnExcludedEndIsComparedAsTheDayAfterTheLastOne(): void
+    {
+        self::assertSame(['gt', '2037-01-01'], self::shown(DayBound::forOperator('after', '2037-01-01T00:00:00+01:00', true)));
+        self::assertSame(['lte', '2037-01-02'], self::shown(DayBound::forOperator('before', '2037-01-02T00:00:00+01:00', true)));
+    }
+
     public function testAnEmptyBoundIsNotNow(): void
     {
         $this->expectException(\InvalidArgumentException::class);

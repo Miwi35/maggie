@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { addDays, daysBetween, localDay, parseDay } from './dates'
+import { addDays, daysBetween, endDateOf, lastDayOf, localDay, parseDay } from './dates'
 
 /**
  * The whole admin-side half of MAG-251 is this function, so it is pinned here
@@ -51,6 +51,16 @@ describe('day arithmetic', () => {
     expect(daysBetween('2037-01-01', '2037-01-01')).toBe(0)
     expect(daysBetween('2026-10-24', '2026-10-26')).toBe(2)
     expect(daysBetween('2037-01-28', '2037-01-26')).toBe(-2)
+  })
+
+  test('turns the exclusive end of the contract into the last day shown, and back', () => {
+    // A day of the 1st is stored 1st → 2nd: the owner reads « le 1er ».
+    expect(lastDayOf('2037-01-02')).toBe('2037-01-01')
+    // « du 26 au 28 » is stored 26 → 29.
+    expect(endDateOf('2037-01-28')).toBe('2037-01-29')
+    expect(lastDayOf('2037-01-01')).toBe('2036-12-31')
+    expect(endDateOf('2036-12-31')).toBe('2037-01-01')
+    expect(lastDayOf(endDateOf('2028-02-28'))).toBe('2028-02-28')
   })
 
   test('reads a date as its local midnight', () => {

@@ -116,7 +116,7 @@ class MonthCalendarViewTest {
         summary = summary,
         allDay = true,
         startDate = first,
-        endDate = last,
+        endDate = last.plusDays(1),
     )
 
     private fun timed(id: String, summary: String, day: LocalDate, at: LocalTime) = ExpandedEvent(

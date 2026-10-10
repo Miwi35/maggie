@@ -102,7 +102,7 @@ class RecurrenceService
     /**
      * An all-day series, expanded on its days (MAG-382): no zone, so no
      * occurrence can slip to the day next door. Each occurrence keeps the
-     * master's length in days.
+     * master's length in days, `[startDate, endDate)`.
      *
      * An occurrence is known to its exceptions by the midnight UTC of its day:
      * `originalStartAt` is an instant, and that one names a day without
@@ -114,7 +114,7 @@ class RecurrenceService
     {
         $utc = new \DateTimeZone('UTC');
         $first = new \DateTimeImmutable((string) $event->getStartDate()?->format('Y-m-d'), $utc);
-        $lengthInDays = (int) $first->diff($event->getEndDate() ?? $first)->format('%r%a');
+        $lengthInDays = max(1, (int) $first->diff($event->getEndDate() ?? $first)->format('%r%a'));
         $firstDay = DayBound::firstDay($rangeStart);
         $lastDay = DayBound::lastDay($rangeEnd);
 
@@ -131,8 +131,8 @@ class RecurrenceService
             if ($day > $lastDay) {
                 break;
             }
-            $lastOfOccurrence = $day->modify("+{$lengthInDays} days");
-            if ($lastOfOccurrence < $firstDay) {
+            $endOfOccurrence = $day->modify("+{$lengthInDays} days");
+            if ($endOfOccurrence <= $firstDay) {
                 continue;
             }
 
@@ -146,7 +146,7 @@ class RecurrenceService
 
             $occurrence = clone $event;
             $occurrence->setStartDate($day);
-            $occurrence->setEndDate($lastOfOccurrence);
+            $occurrence->setEndDate($endOfOccurrence);
             $occurrences[] = $occurrence;
         }
 

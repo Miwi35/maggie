@@ -62,5 +62,5 @@ Maggie\Calendar\Entity\Event:
     summary: Anniversaire
     allDay: true
     startDate: '<(new \DateTimeImmutable("2037-01-01"))>'
-    endDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-02"))>'
     agenda: '@test_agenda'

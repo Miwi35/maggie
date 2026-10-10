@@ -151,9 +151,9 @@ class DashboardViewModelTest {
         val today = com.maggie.app.util.DateRanges.todayDate()
         coEvery { eventRepository.refreshEvents() } returns Result.success(
             listOf(
-                Event(id = "today", summary = "Anniversaire", allDay = true, startDate = "$today", endDate = "$today"),
-                Event(id = "yesterday", summary = "Veille", allDay = true, startDate = "${today.minusDays(1)}", endDate = "${today.minusDays(1)}"),
-                Event(id = "in3", summary = "Plus tard", allDay = true, startDate = "${today.plusDays(3)}", endDate = "${today.plusDays(3)}"),
+                Event(id = "today", summary = "Anniversaire", allDay = true, startDate = "$today", endDate = "${today.plusDays(1)}"),
+                Event(id = "yesterday", summary = "Veille", allDay = true, startDate = "${today.minusDays(1)}", endDate = "$today"),
+                Event(id = "in3", summary = "Plus tard", allDay = true, startDate = "${today.plusDays(3)}", endDate = "${today.plusDays(4)}"),
             ),
         )
 

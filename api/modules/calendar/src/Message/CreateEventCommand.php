@@ -6,7 +6,7 @@ final readonly class CreateEventCommand
 {
     /**
      * A timed event carries `startAt` and `endAt`; an all-day one `startDate` and
-     * `endDate`, the last day included and the first one when absent (MAG-382).
+     * `endDate`, the end excluded as Google stores it, one day when absent (MAG-382).
      *
      * @param array<string, mixed>|null $reminders Google's shape: {useDefault, overrides: [{method, minutes}]}
      */

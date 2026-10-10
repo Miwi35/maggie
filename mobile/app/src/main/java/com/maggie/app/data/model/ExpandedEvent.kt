@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * Flattened event occurrence — either a real event or a virtual RRULE occurrence.
  *
  * Timed: [startAt]/[endAt] are instants. All-day: [startDate]/[endDate] are the
- * first and last day (included), and the instants are null (MAG-382).
+ * API's dates, the end exclusive, and the instants are null (MAG-382).
  */
 @Serializable
 data class ExpandedEvent(
@@ -40,11 +40,15 @@ data class ExpandedEvent(
     val sortKey: String get() = startAt ?: startDate?.toString().orEmpty()
 
     /**
-     * The days the event covers in [zone]. An all-day event covers its dates as they
-     * are — no zone ever applies to a date. Null when the event carries neither.
+     * The days the event covers in [zone]. An all-day event covers the days d with
+     * startDate <= d < endDate — no zone ever applies to a date. Null when the event
+     * carries neither.
      */
     fun days(zone: ZoneId): ClosedRange<LocalDate>? {
-        if (allDay && startDate != null) return startDate..maxOf(startDate, endDate ?: startDate)
+        if (allDay && startDate != null) {
+            val last = endDate?.let(::lastDayOf) ?: startDate
+            return startDate..maxOf(startDate, last)
+        }
         val start = startAt?.let { Instant.parse(it).atZone(zone).toLocalDate() } ?: return null
         val end = endAt?.let { Instant.parse(it).atZone(zone).toLocalDate() } ?: start
         return start..maxOf(start, end)

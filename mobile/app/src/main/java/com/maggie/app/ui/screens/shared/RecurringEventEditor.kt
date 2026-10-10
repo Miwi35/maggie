@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.shared
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.endDateAfter
 import com.maggie.app.data.model.occurrenceDate
 import com.maggie.app.data.model.occurrenceKey
 import com.maggie.app.data.repository.EventRepository
@@ -148,7 +149,7 @@ fun cancelledOccurrence(event: ExpandedEvent, masterId: String): EventCreateRequ
         startAt = if (date == null) key else null,
         endAt = if (date == null) key else null,
         startDate = date,
-        endDate = if (date != null) (event.endDate ?: event.startDate).toString() else null,
+        endDate = if (date != null) (event.endDate ?: endDateAfter(event.startDate!!)).toString() else null,
         allDay = event.allDay,
         timeZone = event.timeZone,
         agenda = event.agendaIri,

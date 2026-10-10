@@ -16,15 +16,15 @@ Maggie\Calendar\Entity\Event:
     summary: Anniversaire
     allDay: true
     startDate: '<(new \DateTimeImmutable("2037-01-01"))>'
-    endDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-02"))>'
     agenda: '@test_agenda'
 
-  # Three days, the last one included.
+  # Three days, the 26th to the 28th: the end, excluded, is the 29th.
   three_days:
     summary: Séminaire
     allDay: true
     startDate: '<(new \DateTimeImmutable("2037-01-26"))>'
-    endDate: '<(new \DateTimeImmutable("2037-01-28"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-29"))>'
     agenda: '@test_agenda'
 
   timed:

@@ -19,7 +19,7 @@ final class ElasticsearchFilterTranslator
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
      *                                                                                   source. Filtering on one needs
      *                                                                                   it — see relationClause().
-     * @param array<string, string>                                           $dayFields an instant field → the day field a
+     * @param array<string, array{field: string, exclusiveEnd: bool}>         $dayFields an instant field → the day field a
      *                                                                                   document holds instead when it
      *                                                                                   has no instant — see dayAwareDateFilter()
      *
@@ -81,7 +81,7 @@ final class ElasticsearchFilterTranslator
                 foreach ($value as $operator => $operand) {
                     if (\in_array($operator, ['after', 'before', 'strictly_after', 'strictly_before'], true)) {
                         $filter[] = isset($dayFields[$key])
-                            ? $this->dayAwareDateFilter($key, $dayFields[$key], $operator, (string) $operand)
+                            ? $this->dayAwareDateFilter($key, $dayFields[$key]['field'], $dayFields[$key]['exclusiveEnd'], $operator, (string) $operand)
                             : $this->buildDateFilter($key, $operator, $operand);
                     }
                 }
@@ -194,9 +194,9 @@ final class ElasticsearchFilterTranslator
      *
      * @return array<string, mixed>
      */
-    private function dayAwareDateFilter(string $field, string $dayField, string $operator, string $value): array
+    private function dayAwareDateFilter(string $field, string $dayField, bool $exclusiveEnd, string $operator, string $value): array
     {
-        $bound = DayBound::forOperator($operator, $value);
+        $bound = DayBound::forOperator($operator, $value, $exclusiveEnd);
         if (null === $bound) {
             return $this->buildDateFilter($field, $operator, $value);
         }

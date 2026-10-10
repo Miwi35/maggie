@@ -16,7 +16,8 @@ export function localDay(d: Date): string {
 }
 
 /*
- * An all-day event is a pair of dates, `YYYY-MM-DD`, the end included (MAG-382).
+ * An all-day event is a pair of dates, `YYYY-MM-DD`, the end EXCLUDED — exactly
+ * Google's `start.date`/`end.date` (MAG-382): a day of the 1st is 1st → 2nd.
  * The helpers below do arithmetic on the date itself — through `Date.UTC`, which
  * has no offset and no daylight saving — so no time zone can move a day.
  */
@@ -36,6 +37,21 @@ export function addDays(day: string, n: number): string {
 /** How many days from `from` to `to` (`to` − `from`). */
 export function daysBetween(from: string, to: string): number {
   return Math.round((utcOf(to) - utcOf(from)) / DAY_MS)
+}
+
+/**
+ * The last day an all-day event covers, from its exclusive `endDate` — what the
+ * owner reads and types (« du 26 au 28 »). With {@link endDateOf}, the only place
+ * the admin turns the contract's exclusive end into an included one and back:
+ * the dialogs and the card use them, everything else keeps the exclusive end.
+ */
+export function lastDayOf(endDate: string): string {
+  return addDays(endDate, -1)
+}
+
+/** The exclusive `endDate` of an all-day event whose last day is `lastDay`. */
+export function endDateOf(lastDay: string): string {
+  return addDays(lastDay, 1)
 }
 
 /** Local midnight of `day` — for a widget that only takes a `Date`, never for storage. */

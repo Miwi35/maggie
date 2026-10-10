@@ -92,7 +92,7 @@ class UpdateEventHandler
         }
 
         // One schedule or the other, whole (MAG-382): an all-day event loses its
-        // instants, a timed one its days. A missing last day is the first one.
+        // instants, a timed one its days. A missing end makes it one day long.
         if (true === $command->allDay || null !== $command->startDate) {
             $startDate = $command->startDate ?? $event->getStartDate();
             if (null === $startDate) {

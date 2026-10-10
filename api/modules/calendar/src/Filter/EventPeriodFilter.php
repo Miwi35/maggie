@@ -50,7 +50,7 @@ final class EventPeriodFilter extends AbstractFilter
 
             try {
                 $instant = new \DateTimeImmutable($operand);
-                $bound = DayBound::forOperator($operator, $operand);
+                $bound = DayBound::forOperator($operator, $operand, 'endDate' === $dayField);
             } catch (\Exception) {
                 // DateFilter's own answer to a value that is not a date: no clause.
                 continue;
@@ -70,7 +70,7 @@ final class EventPeriodFilter extends AbstractFilter
                     self::OPERATORS[$operator],
                     $instantParameter,
                     $dayField,
-                    'gte' === $bound[0] ? '>=' : '<=',
+                    ['gte' => '>=', 'gt' => '>', 'lte' => '<='][$bound[0]],
                     $dayParameter,
                 ))
                 ->setParameter($instantParameter, $instant, Types::DATETIMETZ_IMMUTABLE)

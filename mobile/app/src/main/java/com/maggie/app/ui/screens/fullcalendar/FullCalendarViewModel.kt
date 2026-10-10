@@ -16,6 +16,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
+import com.maggie.app.data.model.endDateAfter
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
@@ -320,7 +321,7 @@ class FullCalendarViewModel(
                     summary = "${if (meal.slot == MealSlot.LUNCH) "Déj" else "Dîner"}: ${meal.summary}",
                     allDay = true,
                     startDate = day,
-                    endDate = day,
+                    endDate = endDateAfter(day),
                     agendaIri = MEALS_FILTER_ID,
                     agendaColor = MEALS_COLOR,
                     agendaName = "Repas",

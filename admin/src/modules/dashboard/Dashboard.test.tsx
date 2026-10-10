@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { addDays } from '../../dates'
 import { Dashboard } from './Dashboard'
 
 class MockEventSource {
@@ -14,13 +15,13 @@ vi.mock('react-admin', () => ({
   useNotify: () => vi.fn(),
 }))
 
-/** An all-day event as the API sends it since MAG-382: two dates, the last one included, no instant. */
+/** An all-day event as the API sends it since MAG-382: two dates, the end excluded as in Google, no instant. */
 const allDay = (id: string, summary: string, startDate: string, extra: Record<string, unknown> = {}) => ({
   id,
   summary,
   allDay: true,
   startDate,
-  endDate: startDate,
+  endDate: addDays(startDate, 1),
   startAt: null,
   endAt: null,
   agenda: '/api/agendas/01PERSO',

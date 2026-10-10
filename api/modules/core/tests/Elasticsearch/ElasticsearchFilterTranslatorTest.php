@@ -246,7 +246,7 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
             ['startAt' => ['before' => '2037-01-02T00:00:00+01:00'], 'endAt' => ['after' => '2037-01-01T00:00:00+01:00']],
             [],
             [],
-            ['startAt' => 'startDate', 'endAt' => 'endDate'],
+            ['startAt' => ['field' => 'startDate', 'exclusiveEnd' => false], 'endAt' => ['field' => 'endDate', 'exclusiveEnd' => true]],
         );
 
         self::assertSame([
@@ -266,7 +266,8 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
                     ['range' => ['endAt' => ['gte' => '2037-01-01T00:00:00+01:00']]],
                     ['bool' => [
                         'must_not' => [['exists' => ['field' => 'endAt']]],
-                        'filter' => [['range' => ['endDate' => ['gte' => '2037-01-01']]]],
+                        // The end is excluded, as Google's: an event ending on the 2nd holds the 1st.
+                        'filter' => [['range' => ['endDate' => ['gt' => '2037-01-01']]]],
                     ]],
                 ],
                 'minimum_should_match' => 1,
@@ -276,7 +277,7 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
 
     public function testAFieldWithNoDayFieldKeepsItsPlainRange(): void
     {
-        $translated = $this->translator->translate(['dueDate' => ['before' => '2037-01-02']], [], [], ['startAt' => 'startDate']);
+        $translated = $this->translator->translate(['dueDate' => ['before' => '2037-01-02']], [], [], ['startAt' => ['field' => 'startDate', 'exclusiveEnd' => false]]);
 
         self::assertSame([['range' => ['dueDate' => ['lte' => '2037-01-02']]]], $translated['filter']);
     }

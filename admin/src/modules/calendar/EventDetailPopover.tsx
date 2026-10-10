@@ -11,7 +11,7 @@ import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined
 import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import Chip from '@mui/material/Chip'
-import { parseDay } from '../../dates'
+import { lastDayOf, parseDay } from '../../dates'
 import { rruleToFrenchText } from './recurrenceUtils'
 import { remindersToFrenchText } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
@@ -22,7 +22,7 @@ export interface PopoverEvent {
   title: string
   /** An instant (ISO 8601), or for an all-day event its first date, `YYYY-MM-DD`. */
   start: string
-  /** An instant (ISO 8601), or for an all-day event its last date, included (MAG-382). */
+  /** An instant (ISO 8601), or for an all-day event its end date, excluded as stored (MAG-382). */
   end: string
   allDay: boolean
   color: string
@@ -56,10 +56,10 @@ const formatDateTime = (start: string, end: string, allDay: boolean): string => 
   }
 
   if (allDay) {
-    // Two dates, the last one included: shown as they are, never through an instant
-    // that a time zone could move to the day before or after (MAG-358, MAG-382).
+    // Shown as Google shows it, the last day included (« au 28 »), from the stored
+    // exclusive end — never through an instant a time zone could move (MAG-358, MAG-382).
     const firstDay = start.slice(0, 10)
-    const lastDay = (end || start).slice(0, 10)
+    const lastDay = end ? lastDayOf(end.slice(0, 10)) : firstDay
     const startStr = parseDay(firstDay).toLocaleDateString('fr-FR', dateOpts)
     if (lastDay <= firstDay) {
       return capitalize(startStr)

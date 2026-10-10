@@ -242,7 +242,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode(
-            ($this->getTool())('Vacances', '2026-08-03', end_date: '2026-08-07', all_day: true),
+            ($this->getTool())('Vacances', '2026-08-03', end_date: '2026-08-08', all_day: true),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -251,13 +251,14 @@ class CreateEventToolTest extends KernelTestCase
         self::assertTrue($data['success']);
         self::assertTrue($data['event']['allDay']);
         self::assertSame('2026-08-03', $data['event']['startDate']);
-        self::assertSame('2026-08-07', $data['event']['endDate']);
+        self::assertSame('2026-08-08', $data['event']['endDate']);
+        self::assertSame('2026-08-07', $data['event']['lastDay'], 'The day Maggie announces as the last');
 
         // MAG-382: dates in the database, the last day included, and no instant.
         $stored = $this->stored('Vacances');
         self::assertTrue($stored->isAllDay());
         self::assertSame('2026-08-03', $stored->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2026-08-07', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-08-08', $stored->getEndDate()?->format('Y-m-d'));
         self::assertNull($stored->getStartAt());
         self::assertNull($stored->getEndAt());
         self::assertNull($data['event']['startAt']);
@@ -272,7 +273,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->resetAsyncTransport();
 
         $data = json_decode(
-            ($this->getTool())('Vacances de Noël', start_date: '2026-12-22', end_date: '2027-01-03', all_day: true),
+            ($this->getTool())('Vacances de Noël', start_date: '2026-12-22', end_date: '2027-01-04', all_day: true),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -281,7 +282,8 @@ class CreateEventToolTest extends KernelTestCase
         self::assertTrue($data['success']);
         self::assertTrue($data['event']['allDay']);
         self::assertSame('2026-12-22', $data['event']['startDate']);
-        self::assertSame('2027-01-03', $data['event']['endDate']);
+        self::assertSame('2027-01-04', $data['event']['endDate']);
+        self::assertSame('2027-01-03', $data['event']['lastDay']);
         self::assertNull($data['event']['rrule']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
@@ -291,8 +293,8 @@ class CreateEventToolTest extends KernelTestCase
         self::assertTrue($stored->isAllDay());
         self::assertNull($stored->getRrule());
         self::assertSame('2026-12-22', $stored->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2027-01-03', $stored->getEndDate()?->format('Y-m-d'));
-        self::assertSame(12, (int) $stored->getStartDate()?->diff($stored->getEndDate() ?? $stored->getStartDate())->days);
+        self::assertSame('2027-01-04', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertSame(13, (int) $stored->getStartDate()?->diff($stored->getEndDate() ?? $stored->getStartDate())->days);
         self::assertNull($stored->getStartAt());
         $this->assertMercureUpdatePublished('/events/');
         $this->assertElasticsearchIndexDispatched(Event::class);
@@ -308,6 +310,8 @@ class CreateEventToolTest extends KernelTestCase
         yield 'the end is before the start' => [['start_date' => '2026-03-20', 'start_time' => '10:00', 'end_date' => '2026-03-19', 'end_time' => '11:00'], 'after'];
         yield 'all day with a time' => [['all_day' => true, 'start_date' => '2026-03-20', 'end_date' => '2026-03-20', 'end_time' => '11:00'], 'no start_time or end_time'];
         yield 'all day ending before it starts' => [['all_day' => true, 'start_date' => '2026-03-20', 'end_date' => '2026-03-19'], 'after'];
+        // The end is excluded: the start day itself is no day at all.
+        yield 'all day ending on its start' => [['all_day' => true, 'start_date' => '2026-03-20', 'end_date' => '2026-03-20'], 'after'];
     }
 
     /** @param array<string, mixed> $schedule */

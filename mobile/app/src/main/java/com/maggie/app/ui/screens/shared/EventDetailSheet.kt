@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.lastDayOf
 import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.util.RruleUtils
 import java.time.Instant
@@ -43,14 +44,14 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
 
 /**
  * When the event takes place, as the detail shows it. An all-day event shows its
- * dates as they are, the last one included (« Du … au … »), never through a zone
+ * dates, the last day included (« Du … au … », the day before the exclusive end), never through a zone
  * (MAG-382); a timed one its day and hours in its own zone.
  */
 internal fun eventDateLabel(event: ExpandedEvent): String {
     fun capitalised(text: String) = text.replaceFirstChar { it.uppercase() }
     val firstDay = event.startDate
     if (event.allDay && firstDay != null) {
-        val lastDay = event.endDate ?: firstDay
+        val lastDay = event.endDate?.let(::lastDayOf) ?: firstDay
         if (lastDay <= firstDay) return capitalised(firstDay.format(dateFormatter))
         return "Du ${firstDay.format(dateFormatter)} au ${lastDay.format(dateFormatter)}"
     }

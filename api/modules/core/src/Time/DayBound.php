@@ -8,9 +8,9 @@ namespace Maggie\Core\Time;
  * Where a range of instants starts and ends, in days — the one place a day is
  * compared with an instant (MAG-382).
  *
- * An all-day event is a pair of dates, the last one included; a range asked
- * for is a pair of instants, `[from, to)`. The event belongs to the range when
- * its days meet the range's days: from the day `from` falls on to the day of
+ * An all-day event is a pair of dates, `[startDate, endDate)` as Google stores
+ * them; a range asked for is a pair of instants, `[from, to)`. The event
+ * belongs to the range when its days meet the range's days: from the day `from` falls on to the day of
  * the last instant before `to`. So a month asked as `[1st 00:00, 1st of next
  * month 00:00)` covers the 1st to the 30th, and not the 1st of the next month.
  *
@@ -43,13 +43,18 @@ final class DayBound
      * and the loose forms only differ on the very instant of the bound, and a
      * day has no instant.
      *
-     * @return array{0: 'gte'|'lte', 1: \DateTimeImmutable}|null null for an operator that is not a bound
+     * An all-day event's `endDate` is the day after its last one, as Google's
+     * `end.date`: compared as an end, it is shifted back a day first — so
+     * `endAt[after]` of the 1st takes an event ending, excluded, on the 2nd
+     * (it holds the 1st), and not one ending on the 1st (it does not).
+     *
+     * @return array{0: 'gte'|'lte'|'gt', 1: \DateTimeImmutable}|null null for an operator that is not a bound
      */
-    public static function forOperator(string $operator, string $value): ?array
+    public static function forOperator(string $operator, string $value, bool $exclusiveEnd = false): ?array
     {
         return match ($operator) {
-            'after', 'strictly_after' => ['gte', self::firstDay($value)],
-            'before', 'strictly_before' => ['lte', self::lastDay($value)],
+            'after', 'strictly_after' => [$exclusiveEnd ? 'gt' : 'gte', self::firstDay($value)],
+            'before', 'strictly_before' => ['lte', $exclusiveEnd ? self::lastDay($value)->modify('+1 day') : self::lastDay($value)],
             default => null,
         };
     }

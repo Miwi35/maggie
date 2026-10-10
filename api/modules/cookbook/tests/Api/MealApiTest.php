@@ -308,7 +308,7 @@ class MealApiTest extends WebTestCase
         $stored = $em->getRepository(Meal::class)->find($data['id']);
         // An all-day event on that one day, with no instant (MAG-382).
         self::assertSame('2026-10-07', $stored->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-07', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-08', $stored->getEndDate()?->format('Y-m-d'));
         self::assertNull($stored->getStartAt());
         self::assertNull($stored->getEndAt());
     }
@@ -349,7 +349,7 @@ class MealApiTest extends WebTestCase
         self::assertSame('2026-10-08', $stored->getDate()->format('Y-m-d'), 'the day did not follow the instant');
         // And it is that day again, with no instant — not the hour sent (MAG-382).
         self::assertSame('2026-10-08', $stored->getStartDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-08', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-09', $stored->getEndDate()?->format('Y-m-d'));
         self::assertNull($stored->getStartAt());
         self::assertNull($stored->getEndAt());
     }

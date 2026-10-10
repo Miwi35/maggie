@@ -68,12 +68,12 @@ class EventExpanderSingleTest {
 
     @Test
     fun `an all-day master is shown on its dates, its start named by the key of its date`() {
-        val birthday = Event(id = "b1", summary = "Anniversaire", allDay = true, startDate = "2037-01-01", endDate = "2037-01-01", rrule = "FREQ=YEARLY")
+        val birthday = Event(id = "b1", summary = "Anniversaire", allDay = true, startDate = "2037-01-01", endDate = "2037-01-02", rrule = "FREQ=YEARLY")
 
         val result = EventExpander.single(birthday, null, agendas)
 
         assertEquals(java.time.LocalDate.of(2037, 1, 1), result.startDate)
-        assertEquals(java.time.LocalDate.of(2037, 1, 1), result.endDate)
+        assertEquals(java.time.LocalDate.of(2037, 1, 2), result.endDate)
         assertNull(result.startAt)
         assertNull(result.endAt)
         assertEquals("2037-01-01T00:00:00+00:00", result.masterStartAt)

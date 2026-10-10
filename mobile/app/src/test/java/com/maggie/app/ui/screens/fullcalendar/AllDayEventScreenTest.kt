@@ -34,7 +34,7 @@ class AllDayEventScreenTest {
         summary = summary,
         allDay = true,
         startDate = first.toString(),
-        endDate = first.toString(),
+        endDate = first.plusDays(1).toString(),
     )
 
     @Test

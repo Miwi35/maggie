@@ -64,17 +64,17 @@ export const expandRrule = (
  * Each date is fed to rrule.js as its UTC midnight — a label, not an instant — so
  * an annual birthday stays on its day whatever the zone and the clocks. Returns the
  * first date of every occurrence that covers part of `[firstDay, endDay)`, given
- * that an occurrence lasts `durationDays` after its first date (0: one day).
+ * that an occurrence covers `lengthDays` days (`endDate − startDate`, 1 for one day).
  */
 export const expandRruleDays = (
   rruleString: string,
   startDate: string,
-  durationDays: number,
+  lengthDays: number,
   firstDay: string,
   endDay: string,
 ): string[] => {
   const asUtc = (day: string) => new Date(`${day}T00:00:00Z`)
-  const from = new Date(asUtc(firstDay).getTime() - durationDays * DAY_MS)
+  const from = new Date(asUtc(firstDay).getTime() - (Math.max(lengthDays, 1) - 1) * DAY_MS)
 
   return rrulestr(rruleString, { dtstart: asUtc(startDate) })
     .between(from, asUtc(endDay), true)

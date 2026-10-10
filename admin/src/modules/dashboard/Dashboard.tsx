@@ -18,7 +18,7 @@ const DASHBOARD_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
 /** The timing fields of a row, as the widget reads them. */
 const timingOf = (e: RawEvent): Pick<DashboardEvent, 'startAt' | 'endAt' | 'startDate' | 'endDate' | 'allDay'> =>
   e.allDay
-    ? { allDay: true, startAt: null, endAt: null, startDate: e.startDate ?? null, endDate: e.endDate ?? e.startDate ?? null }
+    ? { allDay: true, startAt: null, endAt: null, startDate: e.startDate ?? null, endDate: e.endDate ?? (e.startDate ? addDays(e.startDate, 1) : null) }
     : { allDay: false, startAt: e.startAt, endAt: e.endAt, startDate: null, endDate: null }
 
 /**
@@ -36,7 +36,7 @@ interface RawEvent {
   location?: string
   startAt: string | null
   endAt: string | null
-  /** `YYYY-MM-DD` on an all-day event, the end included (MAG-382). */
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google (MAG-382). */
   startDate?: string | null
   endDate?: string | null
   allDay: boolean
@@ -151,9 +151,10 @@ export const Dashboard = () => {
         if (e.rrule && e.allDay && e.startDate) {
           // An all-day series is expanded on its dates (MAG-382); an occurrence is
           // keyed, against its exceptions, by its date at midnight UTC.
-          const length = daysBetween(e.startDate, e.endDate ?? e.startDate)
+          const length = e.endDate ? daysBetween(e.startDate, e.endDate) : 1
           const exceptions = exceptionMap.get(`/api/events/${e.id}`)
-          for (const day of expandRruleDays(e.rrule, e.startDate, 0, localDay(start), localDay(end))) {
+          // Length 1: like a one-off event, an occurrence belongs to the section it starts in.
+          for (const day of expandRruleDays(e.rrule, e.startDate, 1, localDay(start), localDay(end))) {
             const exception = exceptions?.get(new Date(`${day}T00:00:00Z`).getTime())
             if (exception) {
               if (exception.status === 'cancelled') continue

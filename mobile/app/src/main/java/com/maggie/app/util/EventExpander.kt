@@ -125,7 +125,7 @@ object EventExpander {
             } else {
                 // Non-recurring: include if event overlaps the range
                 val overlaps = if (dated) {
-                    e.firstDate!! <= lastDay && e.lastDate!! >= firstDay
+                    e.firstDate!! <= lastDay && e.endDateExclusive!! > firstDay
                 } else if (e.startAt != null && e.endAt != null) {
                     Instant.parse(e.startAt) < rangeEnd && Instant.parse(e.endAt) > rangeStart
                 } else {
@@ -166,13 +166,13 @@ object EventExpander {
 
     /**
      * Occurrence k starts and ends k days (or weeks, months…) after the first, both dates
-     * moved by as many days. An occurrence that began before the range but still covers
-     * its first day is kept.
+     * moved by as many days; its length is endDate − startDate days (at least one). An
+     * occurrence that began before the range but still covers its first day is kept.
      */
     private fun dateOccurrences(e: Event, firstDay: LocalDate, lastDay: LocalDate): List<Occurrence> {
         val first = e.firstDate!!
-        val lengthDays = ChronoUnit.DAYS.between(first, maxOf(first, e.lastDate!!))
-        return RruleUtils.expandRruleDates(e.rrule!!, first, firstDay.minusDays(lengthDays), lastDay).map { start ->
+        val lengthDays = ChronoUnit.DAYS.between(first, e.endDateExclusive!!).coerceAtLeast(1)
+        return RruleUtils.expandRruleDates(e.rrule!!, first, firstDay.minusDays(lengthDays - 1), lastDay).map { start ->
             Occurrence(
                 key = occurrenceKey(start),
                 idDate = start.toString(),
@@ -191,7 +191,7 @@ object EventExpander {
         startAt = e.startAt.takeUnless { e.allDay && e.firstDate != null },
         endAt = e.endAt.takeUnless { e.allDay && e.firstDate != null },
         startDate = e.firstDate.takeIf { e.allDay },
-        endDate = e.lastDate.takeIf { e.allDay },
+        endDate = e.endDateExclusive.takeIf { e.allDay },
         timeZone = e.timeZone,
         status = e.status,
         reminders = e.reminders,

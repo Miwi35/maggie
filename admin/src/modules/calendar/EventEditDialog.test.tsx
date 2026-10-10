@@ -118,8 +118,9 @@ describe('EventEditDialog', () => {
     expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
   })
 
-  // An all-day event is a pair of dates, the last one included (MAG-382).
-  const birthday = { ...event, allDay: true, start: '2037-01-26', end: '2037-01-28' }
+  // An all-day event is a pair of dates, the end excluded as stored (MAG-382); the
+  // form shows and takes the last day included, as Google Agenda does.
+  const birthday = { ...event, allDay: true, start: '2037-01-26', end: '2037-01-29' }
 
   test('shows an all-day event on its dates, the last one as it is', () => {
     render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={vi.fn()} />)
@@ -132,14 +133,14 @@ describe('EventEditDialog', () => {
     const onSubmit = vi.fn()
     render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={onSubmit} />)
 
-    fireEvent.change(screen.getByLabelText(/Fin/), { target: { value: '2037-01-29' } })
+    fireEvent.change(screen.getByLabelText(/Fin/), { target: { value: '2037-01-30' } })
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         allDay: true,
         startDate: '2037-01-26',
-        endDate: '2037-01-29',
+        endDate: '2037-01-31',
         startAt: null,
         endAt: null,
       }),
@@ -149,12 +150,12 @@ describe('EventEditDialog', () => {
   test('a one-day event keeps one date at each end', async () => {
     const onSubmit = vi.fn()
     render(
-      <EventEditDialog open event={{ ...birthday, start: '2037-01-01', end: '2037-01-01' }} onClose={vi.fn()} onSubmit={onSubmit} />,
+      <EventEditDialog open event={{ ...birthday, start: '2037-01-01', end: '2037-01-02' }} onClose={vi.fn()} onSubmit={onSubmit} />,
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startDate: '2037-01-01', endDate: '2037-01-01' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startDate: '2037-01-01', endDate: '2037-01-02' }))
   })
 
   test('switching a timed event to all-day sends dates and nulls the instants', async () => {
@@ -165,7 +166,7 @@ describe('EventEditDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-05', startAt: null, endAt: null }),
+      expect.objectContaining({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-06', startAt: null, endAt: null }),
     )
   })
 

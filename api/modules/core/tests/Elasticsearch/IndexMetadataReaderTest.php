@@ -154,7 +154,10 @@ class IndexMetadataReaderTest extends TestCase
     {
         $meta = $this->reader->read(\Maggie\Calendar\Entity\Event::class);
 
-        self::assertSame(['startAt' => 'startDate', 'endAt' => 'endDate'], $meta['dayFields'] ?? null);
+        self::assertSame([
+            'startAt' => ['field' => 'startDate', 'exclusiveEnd' => false],
+            'endAt' => ['field' => 'endDate', 'exclusiveEnd' => true],
+        ], $meta['dayFields'] ?? null);
         self::assertSame(['type' => 'date', 'format' => 'yyyy-MM-dd'], $meta['fields']['startDate'] ?? null);
         self::assertArrayNotHasKey('dayField', $meta['fields']['startAt']);
     }

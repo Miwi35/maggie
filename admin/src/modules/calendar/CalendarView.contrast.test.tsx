@@ -54,7 +54,7 @@ const day = (offset: number) => new Date(noon.getTime() + offset * 86_400_000).t
 const allDay = (id: string, summary: string, agenda: string, extra: Record<string, unknown> = {}) => ({
   id,
   summary,
-  // An all-day event is a pair of dates, the last one included (MAG-382).
+  // An all-day event is a pair of dates, the end excluded as in Google (MAG-382).
   startAt: null,
   endAt: null,
   startDate: localDay(noon),
@@ -136,7 +136,7 @@ describe('CalendarView — readable text on coloured bars', { timeout: 60_000 },
       startAt: null,
       endAt: null,
       startDate: localDay(new Date(day(1))),
-      endDate: localDay(new Date(day(1))),
+      endDate: localDay(new Date(day(2))),
       allDay: true,
       agenda: '/api/agendas/01JAUNE',
       recurringEvent: master.id,

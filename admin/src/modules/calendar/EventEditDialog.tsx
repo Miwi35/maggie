@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
+import { endDateOf, lastDayOf } from '../../dates'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
 import type { EventStatus } from './eventStatus'
@@ -17,7 +18,7 @@ export interface EditableEvent {
   summary: string
   /** An instant (ISO 8601), or for an all-day event its first date, `YYYY-MM-DD`. */
   start: string
-  /** An instant (ISO 8601), or for an all-day event its last date, included. */
+  /** An instant (ISO 8601), or for an all-day event its end date, excluded as stored (MAG-382). */
   end: string
   allDay: boolean
   description?: string
@@ -36,7 +37,7 @@ export interface EventEditValues {
   endAt: string | null
   /** `YYYY-MM-DD`, set on an all-day event only. */
   startDate: string | null
-  /** `YYYY-MM-DD`, the last day included, set on an all-day event only. */
+  /** `YYYY-MM-DD`, excluded as the API stores it, set on an all-day event only. */
   endDate: string | null
   allDay: boolean
   description: string | null
@@ -74,9 +75,11 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     setSummary(event.summary)
     setAllDay(event.allDay)
     if (event.allDay) {
-      // Already the dates the owner sees, the last one included: no time zone to cross.
-      setStartAt(event.start.slice(0, 10))
-      setEndAt((event.end || event.start).slice(0, 10))
+      // The owner types and reads the last day included, as in Google Agenda; the
+      // event carries the exclusive end. Dates both: no time zone to cross.
+      const first = event.start.slice(0, 10)
+      setStartAt(first)
+      setEndAt(event.end ? lastDayOf(event.end.slice(0, 10)) : first)
     } else {
       setStartAt(toLocalDatetime(new Date(event.start)))
       setEndAt(toLocalDatetime(new Date(event.end)))
@@ -107,7 +110,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     onSubmit({
       summary: summary.trim(),
       ...(allDay
-        ? { startDate: startAt, endDate: endAt, startAt: null, endAt: null }
+        ? { startDate: startAt, endDate: endDateOf(endAt || startAt), startAt: null, endAt: null }
         : { startAt: new Date(startAt).toISOString(), endAt: new Date(endAt).toISOString(), startDate: null, endDate: null }),
       allDay,
       description: description.trim() || null,

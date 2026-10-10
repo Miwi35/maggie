@@ -90,21 +90,22 @@ class EventFormStateTest {
     }
 
     @Test
-    fun `an all-day event is sent as its dates, the last one included, and no instant`() {
+    fun `an all-day event entered up to the 9th is sent with the 10th as its exclusive end, and no instant`() {
         val form = evening.withAllDay(true).withEndDate(LocalDate.of(2026, 10, 9))
 
+        assertEquals(LocalDate.of(2026, 10, 9), form.endDate)
         assertEquals("2026-10-07", form.allDayStartDate)
-        assertEquals("2026-10-09", form.allDayEndDate)
+        assertEquals("2026-10-10", form.allDayEndDate)
         assertNull(form.startAt(paris))
         assertNull(form.endAt(paris))
     }
 
     @Test
-    fun `a one-day all-day event is sent with the same start and end date`() {
+    fun `a one-day all-day event, entered from the 7th to the 7th, ends on the 8th`() {
         val form = evening.withAllDay(true)
 
         assertEquals("2026-10-07", form.allDayStartDate)
-        assertEquals("2026-10-07", form.allDayEndDate)
+        assertEquals("2026-10-08", form.allDayEndDate)
     }
 
     @Test
@@ -118,7 +119,7 @@ class EventFormStateTest {
         val toAllDay = evening.withAllDay(true).patch(paris)
         assertEquals(JsonPrimitive(true), toAllDay["allDay"])
         assertEquals(JsonPrimitive("2026-10-07"), toAllDay["startDate"])
-        assertEquals(JsonPrimitive("2026-10-07"), toAllDay["endDate"])
+        assertEquals(JsonPrimitive("2026-10-08"), toAllDay["endDate"])
         assertEquals(JsonNull, toAllDay["startAt"])
         assertEquals(JsonNull, toAllDay["endAt"])
 
@@ -138,15 +139,16 @@ class EventFormStateTest {
                 summary = "Anniversaire",
                 allDay = true,
                 startDate = LocalDate.of(2037, 1, 1),
-                endDate = LocalDate.of(2037, 1, 1),
+                endDate = LocalDate.of(2037, 1, 2),
                 timeZone = "Europe/Paris",
             ),
         )
 
+        // Shown « du 1er au 1er », as Google Agenda does, and sent back unchanged.
         assertTrue(form.allDay)
         assertEquals(LocalDate.of(2037, 1, 1), form.startDate)
         assertEquals(LocalDate.of(2037, 1, 1), form.endDate)
-        assertEquals("2037-01-01", form.allDayEndDate)
+        assertEquals("2037-01-02", form.allDayEndDate)
     }
 
     @Test
@@ -157,7 +159,7 @@ class EventFormStateTest {
                 summary = "Séjour",
                 allDay = true,
                 startDate = LocalDate.of(2037, 1, 26),
-                endDate = LocalDate.of(2037, 1, 28),
+                endDate = LocalDate.of(2037, 1, 29),
             ),
         )
 
@@ -168,7 +170,7 @@ class EventFormStateTest {
     @Test
     fun `an all-day event opened then switched to timed gets an hour on its first day`() {
         val form = EventFormState.fromEvent(
-            ExpandedEvent(id = "e1", summary = "Anniversaire", allDay = true, startDate = LocalDate.of(2037, 1, 1), endDate = LocalDate.of(2037, 1, 1)),
+            ExpandedEvent(id = "e1", summary = "Anniversaire", allDay = true, startDate = LocalDate.of(2037, 1, 1), endDate = LocalDate.of(2037, 1, 2)),
         ).withAllDay(false)
 
         assertEquals(LocalDateTime.of(2037, 1, 1, 9, 0), form.start)

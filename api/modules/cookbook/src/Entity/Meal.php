@@ -210,7 +210,7 @@ class Meal extends Event implements MercurePublishable
         parent::setStartAt(null);
         parent::setEndAt(null);
         parent::setStartDate($this->date);
-        parent::setEndDate($this->date);
+        parent::setEndDate($this->date->modify('+1 day'));
         parent::setAllDay(true);
 
         return $this;
@@ -262,8 +262,8 @@ class Meal extends Event implements MercurePublishable
 
     public function setEndDate(?\DateTimeImmutable $endDate): static
     {
-        // A meal is one day: its last day is its first.
-        return parent::setEndDate($this->date);
+        // A meal is one day: it ends, excluded, the day after.
+        return parent::setEndDate($this->date?->modify('+1 day'));
     }
 
     public function setAllDay(bool $allDay): static

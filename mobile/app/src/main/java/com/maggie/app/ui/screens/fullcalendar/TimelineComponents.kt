@@ -207,7 +207,7 @@ fun calculateEventPosition(
 /**
  * Get events for a specific date, split into all-day and timed.
  * Multi-day events appear on every day they span; an all-day event on the days
- * from its start date to its end date, both included, whatever [zone] (MAG-382).
+ * from its start date to the day before its exclusive end date, whatever [zone] (MAG-382).
  */
 fun eventsForDate(
     events: List<ExpandedEvent>,

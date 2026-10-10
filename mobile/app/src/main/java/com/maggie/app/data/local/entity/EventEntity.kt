@@ -24,7 +24,7 @@ data class EventEntity(
     /** Null for an all-day event, which has [startDate]/[endDate] instead (MAG-382). */
     val startAt: String?,
     val endAt: String?,
-    /** `YYYY-MM-DD`, the last day included; null for a timed event. */
+    /** `YYYY-MM-DD`, the end exclusive as the API has it; null for a timed event. */
     val startDate: String?,
     val endDate: String?,
     val timeZone: String,

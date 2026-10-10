@@ -186,7 +186,7 @@ class RecurringEventEditorTest {
         summary = "Anniversaire",
         allDay = true,
         startDate = LocalDate.of(2038, 1, 1),
-        endDate = LocalDate.of(2038, 1, 1),
+        endDate = LocalDate.of(2038, 1, 2),
         isVirtualOccurrence = true,
         masterEventId = "bd",
         masterRrule = "FREQ=YEARLY",
@@ -194,7 +194,7 @@ class RecurringEventEditorTest {
         originalStartAt = "2038-01-01T00:00:00+00:00",
     )
 
-    // The form moves it to the 3rd and makes it two days long.
+    // The form moves it to the 3rd and makes it two days long: the 3rd and the 4th, endDate the 5th.
     private fun movedToThe3rd(): JsonObject = EventFormState(
         allDay = true,
         start = LocalDate.of(2038, 1, 3).atStartOfDay(),
@@ -211,7 +211,7 @@ class RecurringEventEditorTest {
         assertEquals("2038-01-01T00:00:00+00:00", request.captured.originalStartAt)
         assertEquals(true, request.captured.allDay)
         assertEquals("2038-01-03", request.captured.startDate)
-        assertEquals("2038-01-04", request.captured.endDate)
+        assertEquals("2038-01-05", request.captured.endDate)
         assertNull(request.captured.startAt)
         assertNull(request.captured.endAt)
     }
@@ -228,7 +228,7 @@ class RecurringEventEditorTest {
         }
         assertEquals(JsonPrimitive("FREQ=YEARLY;UNTIL=20371231T235959Z"), patch.captured["rrule"])
         assertEquals("2038-01-03", request.captured.startDate)
-        assertEquals("2038-01-04", request.captured.endDate)
+        assertEquals("2038-01-05", request.captured.endDate)
         assertNull(request.captured.startAt)
     }
 
@@ -240,7 +240,7 @@ class RecurringEventEditorTest {
         coVerify(exactly = 1) { repository.updateEvent("bd", capture(patch)) }
         // +2 days on the master (2037-01-01), two days long
         assertEquals(JsonPrimitive("2037-01-03"), patch.captured["startDate"])
-        assertEquals(JsonPrimitive("2037-01-04"), patch.captured["endDate"])
+        assertEquals(JsonPrimitive("2037-01-05"), patch.captured["endDate"])
         assertEquals(JsonNull, patch.captured["startAt"])
         assertEquals(JsonNull, patch.captured["endAt"])
     }
@@ -253,7 +253,7 @@ class RecurringEventEditorTest {
         assertEquals("/api/events/bd", request.recurringEvent)
         assertEquals("2038-01-01T00:00:00+00:00", request.originalStartAt)
         assertEquals("2038-01-01", request.startDate)
-        assertEquals("2038-01-01", request.endDate)
+        assertEquals("2038-01-02", request.endDate)
         assertNull(request.startAt)
         assertNull(request.endAt)
     }

@@ -10,7 +10,7 @@ import java.time.LocalDate
 class AllDayLabelsTest {
 
     private fun allDay(first: LocalDate, last: LocalDate) =
-        ExpandedEvent(id = "e", summary = "e", allDay = true, startDate = first, endDate = last)
+        ExpandedEvent(id = "e", summary = "e", allDay = true, startDate = first, endDate = last.plusDays(1))
 
     @Test
     fun `the detail shows a one-day event on its date`() {

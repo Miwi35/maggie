@@ -49,7 +49,7 @@ Maggie\Calendar\Entity\Event:
     allDay: true
     timeZone: Europe/Paris
     startDate: '<(new \DateTimeImmutable("2026-10-10"))>'
-    endDate: '<(new \DateTimeImmutable("2026-10-10"))>'
+    endDate: '<(new \DateTimeImmutable("2026-10-11"))>'
     agenda: '@test_agenda'
 
   event_foreign:
