@@ -279,7 +279,7 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   for (const label of [debit, credit]) {
     await waitForIndexed<StoredTransaction>(
       api,
-      '/api/transactions?itemsPerPage=100',
+      '/api/transactions?transferKind=rejected&itemsPerPage=100',
       (candidate) => candidate.label === label && candidate.transferKind === 'rejected',
       { what: `The line "${label}", recognised as a rejection` },
     )
@@ -290,15 +290,26 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
 
   const account = new FinanceTransfersPage(page)
   await account.openTransactions(accountId)
-  // Each line names the other one, so a row is told apart by its own sentence.
-  const debitRow = account.row(debit).filter({ hasText: 'Rendu par' })
-  const creditRow = account.row(credit).filter({ hasText: 'Rejet de' })
-  await expect(debitRow.getByText('Rejeté', { exact: true })).toBeVisible()
-  await expect(creditRow).toContainText(`Rejet de : ${accountName}`)
-  await expect(creditRow).toContainText(debit)
+
+  // The pair is no operation of the account (MAG-375): the list leaves it out
+  // and the Incidents tab reads it as one line.
+  await expect(account.incidentsTab(1)).toBeVisible()
+  await expect(account.row(debit)).toHaveCount(0)
+  await expect(account.row(credit)).toHaveCount(0)
+
+  await account.incidentsTab(1).click()
+  const incident = account.row('ELECTRICITE DE FRANCE')
+  await expect(incident).toHaveCount(1)
+  await expect(incident).toContainText('Prélèvement rejeté')
+  await expect(incident).toContainText('206,00')
+
+  // A click opens the two original operations.
+  await incident.click()
+  await expect(account.incidentDetail).toContainText(debit)
+  await expect(account.incidentDetail).toContainText(credit)
 
   // The owner disagrees: both lines go back to ordinary ones.
-  await creditRow.getByRole('link', { name: 'Éditer' }).click()
+  await account.incidentDetail.getByRole('link', { name: 'Éditer' }).last().click()
   await account.content.getByRole('button', { name: 'Ce n’est pas un rejet' }).click()
   await expect(account.content.getByRole('button', { name: 'C’est un rejet' })).toBeVisible()
   for (const label of [debit, credit]) {
@@ -309,6 +320,12 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
       { what: `The line "${label}", once released` },
     )
   }
+
+  // Back in the list, and gone from the incidents.
+  await account.openTransactions(accountId)
+  await expect(account.row(debit)).toBeVisible()
+  await expect(account.row(credit)).toBeVisible()
+  await expect(account.incidentsTab(0)).toBeVisible()
 })
 
 /**

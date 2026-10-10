@@ -1,0 +1,32 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: account-incidents@example.com
+    googleId: google-account-incidents
+    name: Account Incidents User
+  other_user:
+    email: account-incidents-other@example.com
+    googleId: google-account-incidents-other
+    name: Account Incidents Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'

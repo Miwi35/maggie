@@ -1,6 +1,8 @@
 package com.maggie.app.data.api
 
 import com.maggie.app.BuildConfig
+import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
@@ -986,6 +988,11 @@ class MaggieApiService(
             // every account showed the full transaction list.
             accountId?.let { url.parameters.append("account", "/api/accounts/$it") }
         }.body<ApiCollection<Transaction>>().member
+    }
+
+    /** The account's rejected payments, one line each; the transaction list leaves them out (MAG-375). */
+    suspend fun getAccountIncidents(accountId: String): List<AccountIncident> {
+        return client.get("$baseUrl/api/accounts/$accountId/incidents").body<AccountIncidents>().incidents
     }
 
     suspend fun createTransaction(request: TransactionCreateRequest): Transaction {

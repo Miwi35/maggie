@@ -2,6 +2,7 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.TransactionCreateRequest
+import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -12,6 +13,10 @@ class TransactionRepository(
 ) {
     suspend fun getTransactions(accountId: String? = null): Result<List<Transaction>> = runCatching {
         apiService.getTransactions(accountId)
+    }
+
+    suspend fun getIncidents(accountId: String): Result<List<AccountIncident>> = runCatching {
+        apiService.getAccountIncidents(accountId)
     }
 
     suspend fun createTransaction(request: TransactionCreateRequest): Result<Transaction> = runCatching {

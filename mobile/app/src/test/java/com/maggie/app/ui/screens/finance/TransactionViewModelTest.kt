@@ -6,6 +6,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -67,6 +68,7 @@ class TransactionViewModelTest {
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
         coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(sampleTransactions)
+        coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(emptyList())
     }
 
     private fun newViewModel() =
@@ -434,5 +436,115 @@ class TransactionViewModelTest {
         advanceTimeBy(10_000)
 
         coVerify(exactly = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    // MAG-375: the rejected payments leave the list and make one line each on the Incidents tab.
+    private val edfIncident = AccountIncident(
+        debitId = "tx-edf",
+        creditId = "tx-rej",
+        bookedAt = "2026-09-15",
+        rejectedAt = "2026-09-17",
+        counterpartyName = "EDF",
+        amountCents = 6240,
+    )
+
+    @Test
+    fun `incidents are loading until the API answers`() = runTest {
+        viewModel = newViewModel()
+
+        assertTrue(viewModel.uiState.value.incidents.isEmpty())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoadingIncidents)
+    }
+
+    @Test
+    fun `the incidents of the account are loaded with the list`() = runTest {
+        coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(listOf(edfIncident))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(edfIncident), state.incidents)
+        assertFalse(state.isLoadingIncidents)
+        assertNull(state.incidentsError)
+        assertEquals(2, state.transactions.size)
+        coVerify { transactionRepository.getIncidents(accountId) }
+    }
+
+    @Test
+    fun `an account with no rejection has an empty incident list and no error`() = runTest {
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<AccountIncident>(), viewModel.uiState.value.incidents)
+        assertNull(viewModel.uiState.value.incidentsError)
+    }
+
+    @Test
+    fun `unreadable incidents are an error of their own, the transaction list stays`() = runTest {
+        coEvery { transactionRepository.getIncidents(accountId) } returns Result.failure(RuntimeException("offline"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("offline", state.incidentsError)
+        assertFalse(state.isLoadingIncidents)
+        assertNull(state.error)
+        assertEquals(2, state.transactions.size)
+    }
+
+    @Test
+    fun `a rejection detected while the screen is open reaches the incidents on the Mercure message`() = runTest {
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns events
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.incidents.isEmpty())
+
+        coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(listOf(edfIncident))
+        events.emit(MercureEvent(data = "{}"))
+        advanceTimeBy(5_000)
+        advanceUntilIdle()
+
+        assertEquals(listOf(edfIncident), viewModel.uiState.value.incidents)
+    }
+
+    @Test
+    fun `opening an incident opens its payment, which names the credit that gave it back`() = runTest {
+        coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(listOf(edfIncident))
+        coEvery { transactionRepository.getTransfer("tx-edf") } returns Result.success(
+            TransferInfo(
+                transferKind = "rejected",
+                transferSource = "auto",
+                counterpart = TransferLeg(id = "tx-rej", label = "REJET PRLV SEPA", amountCents = 6240, accountId = accountId),
+            ),
+        )
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openIncident(edfIncident)
+        assertTrue(viewModel.uiState.value.detail!!.isLoading)
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("tx-edf", detail.transaction.id)
+        assertEquals(-6240, detail.transaction.amountCents)
+        assertTrue(detail.transaction.isRejected)
+        assertEquals("REJET PRLV SEPA", detail.info!!.counterpart!!.label)
+    }
+
+    @Test
+    fun `an incident whose payment is not on the account opens its credit`() = runTest {
+        val creditOnly = edfIncident.copy(debitId = null)
+        coEvery { transactionRepository.getTransfer("tx-rej") } returns Result.success(TransferInfo(transferKind = "rejected"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openIncident(creditOnly)
+        advanceUntilIdle()
+
+        assertEquals("tx-rej", viewModel.uiState.value.detail!!.transaction.id)
+        assertEquals(6240, viewModel.uiState.value.detail!!.transaction.amountCents)
     }
 }

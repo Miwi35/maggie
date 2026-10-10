@@ -231,6 +231,13 @@ object UiTags {
     /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
     const val REJECTION_BADGE = "rejection_badge"
 
+    /** The account screen's tabs: the transactions, and « Incidents (n) » for the rejected payments (MAG-375). */
+    const val TRANSACTIONS_TAB = "transactions_tab"
+    const val INCIDENTS_TAB = "incidents_tab"
+
+    /** One rejection of the Incidents tab. */
+    const val INCIDENT_ROW = "incident_row"
+
     /** The detail screen's « Ce n'est pas un rejet »: there is no marking from the phone, only this release. */
     const val REJECTION_RELEASE = "rejection_release"
 }

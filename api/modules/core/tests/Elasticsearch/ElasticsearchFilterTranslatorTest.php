@@ -173,6 +173,14 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
         self::assertSame([['term' => ['priority' => 'high']]], $translated['filter']);
     }
 
+    /** MAG-375: the transaction list keeps `none` and `internal` and drops `rejected`. */
+    public function testAListOfValuesOnAFieldBecomesATermsClause(): void
+    {
+        $translated = $this->translator->translate(self::query('transferKind[]=none&transferKind[]=internal'));
+
+        self::assertSame([['terms' => ['transferKind' => ['none', 'internal']]]], $translated['filter']);
+    }
+
     /**
      * 04f1de6: PHP parses `exists[completedAt]=false` into a nested array,
      * and the translator used to walk past it, leaving the query unfiltered.

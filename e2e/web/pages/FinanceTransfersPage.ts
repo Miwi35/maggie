@@ -43,4 +43,14 @@ export class FinanceTransfersPage extends FinanceAccountsPage {
     await this.row(label).getByRole('link', { name: 'Éditer' }).click()
     await expect(this.content.getByRole('button', { name: 'Enregistrer' })).toBeVisible()
   }
+
+  /** The « Incidents (n) » tab of an account: the rejected payments, one line each (MAG-375). */
+  incidentsTab(count: number): Locator {
+    return this.content.getByRole('tab', { name: `Incidents (${count})` })
+  }
+
+  /** The detail of a rejection: its two original operations. */
+  get incidentDetail(): Locator {
+    return this.page.getByRole('dialog', { name: /rejeté/ })
+  }
 }

@@ -26,6 +26,7 @@ import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
+import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -322,7 +323,9 @@ class FakeTransactionTransfers(
         val (auth, mercure) = signedIn()
 
         coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())
-        coEvery { repository.getTransactions(any()) } answers { Result.success(lines.toList()) }
+        // The API leaves the rejected payments out of the list and serves them as incidents (MAG-375).
+        coEvery { repository.getTransactions(any()) } answers { Result.success(lines.filterNot { it.isRejected }) }
+        coEvery { repository.getIncidents(any()) } answers { Result.success(incidents()) }
         coEvery { repository.getTransfer(any()) } answers {
             val line = lines.first { it.id == firstArg<String>() }
             Result.success(
@@ -367,6 +370,21 @@ class FakeTransactionTransfers(
 
         TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth)
     }
+
+    /** One incident per rejected debit, with the credit that gave it back when this account has it. */
+    private fun incidents(): List<AccountIncident> =
+        lines.filter { it.isRejected && it.amountCents < 0 }.map { debit ->
+            val credit = rejectionLeg(debit)
+            AccountIncident(
+                debitId = debit.id,
+                creditId = credit?.id,
+                bookedAt = debit.bookedAt ?: "",
+                rejectedAt = credit?.bookedAt,
+                counterpartyName = debit.label.removePrefix("PRELEVEMENT "),
+                amountCents = -debit.amountCents,
+                kind = "direct_debit",
+            )
+        }
 
     /** The other leg of a rejection: the rejected line of opposite amount on this account. */
     private fun rejectionLeg(line: Transaction): Transaction? =

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
@@ -21,7 +22,6 @@ use Maggie\Core\Doctrine\Filter\UlidRelationFilter;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
-use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
@@ -34,6 +34,7 @@ use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\State\CreateTransactionProcessor;
 use Maggie\Finance\State\DeleteTransactionProcessor;
+use Maggie\Finance\State\TransactionCollectionProvider;
 use Maggie\Finance\State\UpdateTransactionProcessor;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -44,9 +45,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['account_id', 'external_id'], name: 'idx_transaction_account_external_id')]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
+// The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
+#[ApiFilter(SearchFilter::class, properties: ['transferKind' => 'exact'])]
 #[Indexed(index: 'transactions', module: 'finance')]
 #[ApiResource(operations: [
-    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new GetCollection(provider: TransactionCollectionProvider::class),
     new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateTransactionProcessor::class),
     new Patch(processor: UpdateTransactionProcessor::class),

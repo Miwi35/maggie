@@ -8,6 +8,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -23,6 +24,10 @@ data class TransactionUiState(
     val categories: List<Category> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    // The account's rejected payments (MAG-375), kept out of [transactions]; they have their own tab.
+    val incidents: List<AccountIncident> = emptyList(),
+    val isLoadingIncidents: Boolean = false,
+    val incidentsError: String? = null,
     // The line whose detail screen is open; null while the list is showing.
     val detail: TransferDetailState? = null,
 )
@@ -82,6 +87,7 @@ class TransactionViewModel(
     }
 
     fun refresh() {
+        refreshIncidents()
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
@@ -96,6 +102,22 @@ class TransactionViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
+        }
+    }
+
+    fun refreshIncidents() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingIncidents = true, incidentsError = null)
+            transactionRepository.getIncidents(accountId)
+                .onSuccess { incidents ->
+                    _uiState.value = _uiState.value.copy(incidents = incidents, isLoadingIncidents = false)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingIncidents = false,
+                        incidentsError = e.message ?: "Impossible de lire les incidents",
+                    )
+                }
         }
     }
 
@@ -146,6 +168,13 @@ class TransactionViewModel(
         val transaction = _uiState.value.transactions.firstOrNull { it.id == transactionId } ?: return
         _uiState.value = _uiState.value.copy(detail = TransferDetailState(transaction = transaction, isLoading = true))
         loadDetailInfo(transactionId)
+    }
+
+    /** An incident opens the detail of its payment, which names the credit that gave it back. */
+    fun openIncident(incident: AccountIncident) {
+        val line = incident.asTransaction() ?: return
+        _uiState.value = _uiState.value.copy(detail = TransferDetailState(transaction = line, isLoading = true))
+        loadDetailInfo(line.id)
     }
 
     fun closeDetail() {

@@ -42,7 +42,9 @@ class TransactionRepository extends ServiceEntityRepository
 
     /**
      * One page of a user's lines, newest first, narrowed by the filters given,
-     * with how many lines match in all. Like `findByUser`, transfers stay in.
+     * with how many lines match in all. Like `findByUser`, transfers stay in;
+     * the rejected payments are out unless `$transferKind` asks for them, as
+     * the REST list does (MAG-375).
      *
      * @param \DateTimeImmutable|null $from      first booking day included
      * @param \DateTimeImmutable|null $to        last booking day included
@@ -59,10 +61,17 @@ class TransactionRepository extends ServiceEntityRepository
         ?\DateTimeImmutable $to = null,
         ?string $text = null,
         ?string $direction = null,
+        ?TransferKind $transferKind = null,
     ): array {
         $qb = $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
             ->setParameter('user', $user->getId(), 'ulid');
+
+        if (null === $transferKind) {
+            $qb->andWhere('t.transferKind != :rejected')->setParameter('rejected', TransferKind::Rejected->value);
+        } else {
+            $qb->andWhere('t.transferKind = :transferKind')->setParameter('transferKind', $transferKind->value);
+        }
 
         if (null !== $accountId) {
             $qb->andWhere('t.account = :account')->setParameter('account', Ulid::fromString($accountId), 'ulid');
@@ -100,6 +109,28 @@ class TransactionRepository extends ServiceEntityRepository
     public function findByAccount(Account $account): array
     {
         return $this->findBy(['account' => $account], ['bookedAt' => 'DESC']);
+    }
+
+    /**
+     * The rejected lines of an account, with the leg each one points at
+     * loaded in the same query. Either side of a pair may be what is found
+     * here, so the caller folds the two legs into one incident.
+     *
+     * @return Transaction[]
+     */
+    public function findRejectedByAccount(Account $account): array
+    {
+        return $this->createQueryBuilder('t')
+            ->leftJoin('t.counterpart', 'c')
+            ->addSelect('c')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.transferKind = :rejected')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->setParameter('rejected', TransferKind::Rejected->value)
+            ->orderBy('t.bookedAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**

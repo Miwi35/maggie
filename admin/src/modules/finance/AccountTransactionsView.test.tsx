@@ -1,10 +1,18 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { AccountTransactionsEmpty, AccountTransactionsView } from './AccountTransactionsView'
+
+const mercureListeners: Array<(data?: string) => void> = []
+vi.mock('../../hooks/useMercure', () => ({
+  useMercure: (_topics: string[], cb: (data?: string) => void) => {
+    mercureListeners.push(cb)
+  },
+}))
+const emitMercure = () => act(() => mercureListeners.forEach((listener) => listener('{}')))
 
 const ACCOUNT_IRI = '/api/accounts/01ABC'
 
@@ -20,6 +28,16 @@ const LocationState = () => {
   const { pathname, state } = useLocation()
   return <pre data-testid="location">{JSON.stringify({ pathname, state })}</pre>
 }
+
+/** Answers the incidents route with `incidents`, every other route with `transfer`. */
+const stubFetch = (transfer: unknown = {}, incidents: unknown[] = []) =>
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (String(url).endsWith('/incidents') ? { incidents } : transfer),
+    })),
+  )
 
 describe('AccountTransactionsEmpty', () => {
   test('says the account is empty and offers the button that adds a transaction', () => {
@@ -142,11 +160,7 @@ describe('AccountTransactionsView', () => {
       )
 
     test('a marked line carries the badge and names its counterpart; an ordinary one does not', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
+      stubFetch({
             transferKind: 'internal',
             transferSource: 'auto',
             counterpart: {
@@ -158,9 +172,7 @@ describe('AccountTransactionsView', () => {
               accountId: '01CHK',
               accountName: 'Courant',
             },
-          }),
-        }),
-      )
+          })
 
       renderView()
 
@@ -174,13 +186,7 @@ describe('AccountTransactionsView', () => {
     })
 
     test('a line paired with nothing says the other account is not followed', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ transferKind: 'internal', transferSource: 'manual', counterpart: null }),
-        }),
-      )
+      stubFetch({ transferKind: 'internal', transferSource: 'manual', counterpart: null })
 
       renderView()
 
@@ -189,11 +195,7 @@ describe('AccountTransactionsView', () => {
     })
 
     test('a rejected payment reads « Rejeté » and names the credit that gave it back', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
+      stubFetch({
             transferKind: 'rejected',
             transferSource: 'auto',
             counterpart: {
@@ -205,9 +207,7 @@ describe('AccountTransactionsView', () => {
               accountId: '01ABC',
               accountName: 'Livret',
             },
-          }),
-        }),
-      )
+          })
 
       renderView([{ ...rows[0], transferKind: 'rejected', counterpart: '/api/transactions/01BACK' }])
 
@@ -216,5 +216,124 @@ describe('AccountTransactionsView', () => {
       expect(await within(rejected).findByText(/Rendu par :/)).toBeInTheDocument()
       expect(within(rejected).queryByText('Virement interne')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('Incidents tab', () => {
+  const incident = {
+    debitId: '01DEBIT',
+    creditId: '01CREDIT',
+    bookedAt: '2026-09-05',
+    rejectedAt: '2026-09-06',
+    counterpartyName: 'EDF',
+    amountCents: 20600,
+    kind: 'direct_debit',
+  }
+  const legs: Record<string, Record<string, unknown>> = {
+    '/api/transactions/01DEBIT': {
+      id: '/api/transactions/01DEBIT',
+      label: 'PRELEVEMENT EDF',
+      amountCents: -20600,
+      currency: 'EUR',
+      bookedAt: '2026-09-05',
+    },
+    '/api/transactions/01CREDIT': {
+      id: '/api/transactions/01CREDIT',
+      label: 'REJET PRLV ELECTRICITE DE FRANCE',
+      amountCents: 20600,
+      currency: 'EUR',
+      bookedAt: '2026-09-06',
+    },
+  }
+  const provider = testDataProvider({
+    getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
+    getOne: ((resource: string, params: { id: string }) =>
+      Promise.resolve({
+        data: resource === 'transactions' ? legs[params.id] : { id: ACCOUNT_IRI, name: 'Compte joint' },
+      })) as unknown as DataProvider['getOne'],
+  })
+
+  const renderView = () =>
+    render(
+      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
+        <AdminContext dataProvider={provider}>
+          <Routes>
+            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+          </Routes>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('the tab carries the number of rejections, and each one reads as a single line', async () => {
+    stubFetch({}, [incident, { ...incident, debitId: '01D2', creditId: '01C2', counterpartyName: 'Mme Martin', kind: 'transfer', amountCents: 5000 }])
+    const user = userEvent.setup()
+
+    renderView()
+
+    const tab = await screen.findByRole('tab', { name: 'Incidents (2)' })
+    await user.click(tab)
+
+    const edf = (await screen.findByText('EDF')).closest('tr')!
+    expect(within(edf).getByText('05/09/2026')).toBeInTheDocument()
+    expect(within(edf).getByText('Prélèvement rejeté')).toBeInTheDocument()
+    expect(within(edf).getByText(/206,00/)).toBeInTheDocument()
+    const martin = screen.getByText('Mme Martin').closest('tr')!
+    expect(within(martin).getByText('Virement rejeté')).toBeInTheDocument()
+  })
+
+  test('a click on a rejection opens the two original operations', async () => {
+    stubFetch({}, [incident])
+    const user = userEvent.setup()
+
+    renderView()
+
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (1)' }))
+    await user.click((await screen.findByText('EDF')).closest('tr')!)
+
+    const dialog = await screen.findByRole('dialog', { name: /EDF · Prélèvement rejeté/ })
+    expect(await within(dialog).findByText(/05\/09\/2026 · PRELEVEMENT EDF/)).toBeInTheDocument()
+    expect(await within(dialog).findByText(/06\/09\/2026 · REJET PRLV ELECTRICITE DE FRANCE/)).toBeInTheDocument()
+    expect(within(dialog).getAllByRole('link', { name: 'Éditer' })).toHaveLength(2)
+  })
+
+  test('an account with no rejection says so', async () => {
+    stubFetch({}, [])
+    const user = userEvent.setup()
+
+    renderView()
+
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (0)' }))
+    expect(await screen.findByText('Aucun incident sur ce compte')).toBeInTheDocument()
+  })
+
+  test('an unreadable list says so instead of showing an empty one', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })))
+    const user = userEvent.setup()
+
+    renderView()
+
+    await user.click(await screen.findByRole('tab', { name: 'Incidents' }))
+    expect(await screen.findByText('Impossible de lire les incidents')).toBeInTheDocument()
+    expect(screen.queryByText('Aucun incident sur ce compte')).not.toBeInTheDocument()
+  })
+
+  test('a rejection detected while the screen is open joins the tab without a reload', async () => {
+    let incidents: unknown[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ incidents }) })),
+    )
+
+    renderView()
+    await screen.findByRole('tab', { name: 'Incidents (0)' })
+
+    incidents = [incident]
+    await emitMercure()
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Incidents (1)' })).toBeInTheDocument())
   })
 })
