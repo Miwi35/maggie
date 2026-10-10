@@ -51,7 +51,7 @@ if grep -v '^#' "$crontab_file" | grep -q '/proc/1/'; then
 else
   ok "no redirection to /proc/1/fd/*"
 fi
-for job in maggie:google-calendar:sync 'maggie:google-calendar:sync --tasks' maggie:google-calendar:renew-watch maggie:google-calendar:check-sync 'app:finance:sync --write' app:finance:check-consents maggie:notification:check-reminders; do
+for job in maggie:google-calendar:sync 'maggie:google-calendar:sync --tasks' maggie:google-calendar:renew-watch maggie:google-calendar:check-sync 'app:finance:sync --write' app:finance:check-consents maggie:grocery:add-due-recurring-items maggie:notification:check-reminders; do
   grep -v '^#' "$crontab_file" | grep -qF "console $job" && ok "schedules $job" || bad "does not schedule $job"
 done
 if docker run --rm --entrypoint supercronic "$IMAGE" -test /etc/maggie/crontab >"$work/test.out" 2>&1; then

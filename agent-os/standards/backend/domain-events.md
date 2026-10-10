@@ -42,3 +42,7 @@ UpdateProductHandler → use case → flush
 8. **A snapshot is allowed when the database erases the data with the row**: `MealRemoved` carries what the meal had put on the list (ids and quantities, read in `onFlush`), because the cascade deletes it before any handler runs. Plain values only, never an entity.
 
 Example: `api/modules/grocery/src/Doctrine/ProductStockListener.php`, `Specification/IsProductOutOfStock.php`, `EventSubscriber/RestockOnProductOutOfStock.php`.
+
+## Temporal facts
+
+A fact that is « the date arrived » has no changeset: a console command run by the cron container takes the listener's place. It asks the Specification (`IsRecurringGroceryItemDue`) for each row and dispatches the event (`RecurringGroceryItemDue`) on `event.bus`; the rest of the chain is unchanged. The use case checks the Specification again, so a second run, or another door (`generate_grocery_list`), never adds twice. Example: `Command/AddDueRecurringGroceryItemsCommand.php`, scheduled in `.docker/php/crontab`.
