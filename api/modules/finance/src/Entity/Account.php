@@ -88,7 +88,7 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
      * What identifies the real account across sessions: Enable Banking's
      * `identification_hash`, or a hash of the IBAN when it gives none.
      */
-    #[ORM\Column(length: 128, nullable: true)]
+    #[ORM\Column(type: 'text', nullable: true)]
     #[ApiProperty(writable: false)]
     private ?string $externalKey = null;
 
