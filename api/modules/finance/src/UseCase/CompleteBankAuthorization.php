@@ -13,6 +13,9 @@ use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Specification\RealCurrency;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -30,8 +33,10 @@ class CompleteBankAuthorization
         private readonly EnableBankingClient $client,
         private readonly BankConnectionRepository $connectionRepository,
         private readonly AccountRepository $accountRepository,
+        private readonly TransactionRepository $transactionRepository,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -76,10 +81,16 @@ class CompleteBankAuthorization
                 $account->setName($this->readName($remote, $connection->getBankName()));
                 $account->setBank($connection->getBankName());
                 $account->setType(AccountType::Checking);
-                $account->setCurrency($this->readCurrency($remote));
+                $account->setCurrency($this->settleCurrency($remote, $externalId, null));
                 $this->em->persist($account);
                 ++$created;
             } else {
+                // A real currency already stored is never replaced: the
+                // settled one only lands on an account left without a real one.
+                $settled = $this->settleCurrency($remote, $externalId, $account);
+                if (!RealCurrency::isReal($account->getCurrency())) {
+                    $account->setCurrency($settled);
+                }
                 ++$linked;
             }
 
@@ -153,15 +164,15 @@ class CompleteBankAuthorization
         }
 
         $name = mb_strtolower($this->readName($remote, $connection->getBankName()));
-        $currency = $this->readCurrency($remote);
+        $remoteCurrency = $this->readCurrency($remote);
 
         $legacy = array_values(array_filter(
             $accounts,
-            static fn (Account $account) => null === $account->getExternalKey()
+            fn (Account $account) => null === $account->getExternalKey()
                 && null !== $account->getExternalAccountId()
                 && true === $account->getBankConnection()?->getId()?->equals($connection->getId())
                 && mb_strtolower($account->getName()) === $name
-                && $account->getCurrency() === $currency,
+                && $this->sameCurrency($account->getCurrency(), $remoteCurrency),
         ));
 
         // Two of them is the duplication itself, or two real accounts of the
@@ -243,10 +254,45 @@ class CompleteBankAuthorization
     }
 
     /** @param array<string, mixed> $remote */
-    private function readCurrency(array $remote): string
+    private function readCurrency(array $remote): ?string
     {
         $currency = $remote['currency'] ?? null;
 
-        return \is_string($currency) && preg_match('/^[A-Z]{3}$/', $currency) ? $currency : 'EUR';
+        return RealCurrency::isReal($currency) ? $currency : null;
+    }
+
+    /** A side that has no real currency tells nothing, so it cannot tell two accounts apart. */
+    private function sameCurrency(string $stored, ?string $remote): bool
+    {
+        return null === $remote || !RealCurrency::isReal($stored) || $stored === $remote;
+    }
+
+    /**
+     * The bank's currency when it is a real one; otherwise the one the
+     * account's movements are in, the one stored, and last the euro.
+     *
+     * @param array<string, mixed> $remote
+     */
+    private function settleCurrency(array $remote, string $externalId, ?Account $account): string
+    {
+        $fromBank = $this->readCurrency($remote);
+        if (null !== $fromBank) {
+            return $fromBank;
+        }
+
+        $known = match (true) {
+            null === $account => [],
+            RealCurrency::isReal($account->getCurrency()) => [$account->getCurrency()],
+            default => $this->transactionRepository->findCurrenciesOfAccount($account),
+        };
+        $currency = RealCurrency::resolve(...$known);
+
+        $this->logger->warning('The bank gave no real currency for an account: {fallback} is used instead.', [
+            'bankCurrency' => $remote['currency'] ?? null,
+            'fallback' => $currency,
+            'externalAccountId' => $externalId,
+        ]);
+
+        return $currency;
     }
 }

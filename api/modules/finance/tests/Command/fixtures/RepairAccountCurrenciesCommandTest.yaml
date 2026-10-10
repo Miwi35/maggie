@@ -1,0 +1,5 @@
+Maggie\Core\Entity\User:
+  owner:
+    email: repair-currencies-owner@example.com
+    googleId: google-repair-currencies-owner
+    name: Repair Currencies Owner

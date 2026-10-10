@@ -3,13 +3,17 @@
 namespace Maggie\Finance\Tests\Bank;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use Maggie\Core\Entity\User;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
+use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\CompleteBankAuthorization;
 use Maggie\Finance\UseCase\StartBankAuthorization;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -63,8 +67,10 @@ class BankAuthorizationTest extends KernelTestCase
             $this->client($http),
             $container->get(BankConnectionRepository::class),
             $container->get(\Maggie\Finance\Repository\AccountRepository::class),
+            $container->get(TransactionRepository::class),
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
+            new NullLogger(),
         );
     }
 
@@ -310,5 +316,127 @@ class BankAuthorizationTest extends KernelTestCase
         self::assertNull($result['connection']->getConsentExpiresAt());
         self::assertTrue($result['connection']->isUsable());
         self::assertNull($result['connection']->daysBeforeExpiry());
+    }
+
+    /**
+     * Brings a connection back from the bank with the given accounts.
+     *
+     * @param list<array<string, mixed>> $accounts
+     */
+    private function connectWith(array $accounts, string $bank = 'N26'): array
+    {
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), $bank)['connection'];
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-'.bin2hex(random_bytes(3)),
+            'accounts' => $accounts,
+        ])));
+
+        return $this->completer($completeHttp)->execute($connection->getState(), 'code');
+    }
+
+    private function storedCurrencyOf(string $externalAccountId): string
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        $account = $em->getRepository(Account::class)->findOneBy(['externalAccountId' => $externalAccountId]);
+        self::assertNotNull($account, 'the account was not stored');
+
+        return $account->getCurrency();
+    }
+
+    public function testAnAccountTheBankGivesNoCurrencyIsCreatedInEuro(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // « XXX » is ISO 4217 for « no currency »: the bank has nothing to say.
+        $this->connectWith([['uid' => 'acc-xxx', 'name' => 'N26 Main', 'currency' => 'XXX']]);
+
+        self::assertSame('EUR', $this->storedCurrencyOf('acc-xxx'));
+    }
+
+    public function testATestCurrencyIsTreatedLikeNoCurrency(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $this->connectWith([['uid' => 'acc-xts', 'name' => 'N26 Main', 'currency' => 'XTS']]);
+
+        self::assertSame('EUR', $this->storedCurrencyOf('acc-xts'));
+    }
+
+    public function testARealCurrencyOtherThanEuroIsKept(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $this->connectWith([['uid' => 'acc-chf', 'name' => 'N26 Main', 'currency' => 'CHF']]);
+
+        self::assertSame('CHF', $this->storedCurrencyOf('acc-chf'));
+    }
+
+    public function testARealCurrencyAlreadyStoredIsNotReplacedByTheBanksNothing(): void
+    {
+        // The hand-typed account is in Swiss francs; the bank, this time, says nothing.
+        $this->loadFixtures('account.yaml');
+        $this->getFixture('checking')->setCurrency('CHF');
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+
+        $result = $this->connectWith([['uid' => 'remote-1', 'name' => 'Compte courant', 'currency' => 'XXX']], 'Compte courant');
+
+        self::assertSame(1, $result['linked']);
+        self::assertSame('CHF', $this->storedCurrencyOf('remote-1'));
+    }
+
+    public function testAnAccountStoredWithoutARealCurrencyTakesTheOneItsMovementsAreIn(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $checking = $this->getFixture('checking');
+        $checking->setCurrency('XXX');
+        foreach (['CHF', 'CHF', 'EUR'] as $i => $currency) {
+            $em->persist((new Transaction())
+                ->setUser($this->getFixture('test_user'))
+                ->setAccount($checking)
+                ->setLabel('MOVEMENT '.$i)
+                ->setAmountCents(-1000)
+                ->setCurrency($currency)
+                ->setBookedAt(new \DateTimeImmutable('2026-09-0'.($i + 1))));
+        }
+        $em->flush();
+
+        $this->connectWith([['uid' => 'remote-1', 'name' => 'Compte courant', 'currency' => 'XXX']], 'Compte courant');
+
+        // The movements say more than the bank does, and the most frequent wins.
+        self::assertSame('CHF', $this->storedCurrencyOf('remote-1'));
+    }
+
+    public function testAnAccountStoredWithoutARealCurrencyIsStillRecognisedWhenTheBankGivesNone(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $first = $this->connectWith([['uid' => 'acc-1', 'name' => 'N26 Main', 'currency' => 'XXX']]);
+        $em->clear();
+        $stored = $em->getRepository(Account::class)->findOneBy(['externalAccountId' => 'acc-1']);
+        $stored->setCurrency('XXX');
+        $em->flush();
+
+        // The renewed consent names the same account with a new uid.
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $owner = $em->find(User::class, $this->getFixture('test_user')->getId());
+        $connection = $this->starter($startHttp)->execute($owner, 'N26')['connection'];
+        self::assertTrue($first['connection']->getId()->equals($connection->getId()));
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-renewed',
+            'accounts' => [['uid' => 'acc-2', 'name' => 'N26 Main', 'currency' => 'XXX']],
+        ])));
+        $result = $this->completer($completeHttp)->execute($connection->getState(), 'code');
+
+        self::assertSame(1, $result['linked']);
+        self::assertSame(0, $result['created']);
+        self::assertSame('EUR', $this->storedCurrencyOf('acc-2'));
     }
 }

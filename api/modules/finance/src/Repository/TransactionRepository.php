@@ -684,6 +684,26 @@ class TransactionRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * The currencies this account's movements are in, the most frequent first.
+     *
+     * @return list<string>
+     */
+    public function findCurrenciesOfAccount(Account $account): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.currency AS currency')
+            ->andWhere('t.account = :account')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->groupBy('t.currency')
+            ->orderBy('COUNT(t.id)', 'DESC')
+            ->addOrderBy('t.currency', 'ASC')
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_values(array_map(static fn (array $row): string => (string) $row['currency'], $rows));
+    }
+
     /** The movement the bank already sent under this reference, on this account. */
     public function findOneByExternalId(Account $account, string $externalId): ?Transaction
     {

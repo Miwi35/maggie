@@ -617,4 +617,71 @@ class SyncBankAccountsTest extends KernelTestCase
         self::assertNotNull($refreshed->getLastSyncedAt());
         self::assertSame(BankConnectionStatus::Active, $refreshed->getStatus());
     }
+
+    public function testAMovementTheBankGivesNoCurrencyIsStoredInTheAccountsOwn(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $xxx = $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR');
+        $xxx['transaction_amount']['currency'] = 'XXX';
+        $xts = $this->movement('2026-09-03', '5.00', 'DBIT', 'BOULANGERIE');
+        $xts['transaction_amount']['currency'] = 'XTS';
+
+        $this->sync($this->provider([$this->page([$xxx, $xts])]))->execute($this->getFixture('test_user'));
+
+        // « XXX » means « no currency »: the account's own is what the movement is in.
+        self::assertSame('EUR', $this->transactionLabelled('CARREFOUR')->getCurrency());
+        self::assertSame('EUR', $this->transactionLabelled('BOULANGERIE')->getCurrency());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('EUR', $em->find(Account::class, $this->getFixture('checking')->getId())->getCurrency());
+    }
+
+    public function testAMovementInARealForeignCurrencyKeepsIt(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $chf = $this->movement('2026-09-02', '45.99', 'DBIT', 'MIGROS');
+        $chf['transaction_amount']['currency'] = 'CHF';
+
+        $this->sync($this->provider([$this->page([$chf])]))->execute($this->getFixture('test_user'));
+
+        self::assertSame('CHF', $this->transactionLabelled('MIGROS')->getCurrency());
+    }
+
+    public function testASyncNeverReplacesARealAccountCurrencyByTheBanksNothing(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $xxx = $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR');
+        $xxx['transaction_amount']['currency'] = 'XXX';
+        $http = $this->provider([$this->page([$xxx])]);
+
+        $sync = $this->sync($http);
+        $sync->execute($this->getFixture('test_user'));
+        $sync->execute($this->getFixture('test_user'));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('EUR', $em->find(Account::class, $this->getFixture('checking')->getId())->getCurrency());
+    }
+
+    public function testAMovementOfAnAccountStoredWithoutARealCurrencyFallsBackOnEuro(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+        $this->getFixture('checking')->setCurrency('XXX');
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+
+        $xxx = $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR');
+        $xxx['transaction_amount']['currency'] = 'XXX';
+
+        $this->sync($this->provider([$this->page([$xxx])]))->execute($this->getFixture('test_user'));
+
+        self::assertSame('EUR', $this->transactionLabelled('CARREFOUR')->getCurrency());
+    }
 }

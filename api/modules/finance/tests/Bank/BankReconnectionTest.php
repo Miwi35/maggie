@@ -13,11 +13,13 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\CompleteBankAuthorization;
 use Maggie\Finance\UseCase\ImportStatement;
 use Maggie\Finance\UseCase\MergeDuplicateAccounts;
 use Maggie\Finance\UseCase\StartBankAuthorization;
 use Maggie\Finance\UseCase\SyncBankAccounts;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -136,8 +138,10 @@ class BankReconnectionTest extends KernelTestCase
             $this->client($http),
             $container->get(BankConnectionRepository::class),
             $container->get(AccountRepository::class),
+            $container->get(TransactionRepository::class),
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
+            new NullLogger(),
         ))->execute($connection->getState(), 'code');
 
         return $connection;
