@@ -39,6 +39,7 @@ class MessageRepository:
         client_key: str | None = None,
         turn_lease_until: datetime | None = None,
         turn_screen_context: str | None = None,
+        blocks: list[dict] | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -48,9 +49,22 @@ class MessageRepository:
         A `turn_lease_until` says the message opens a turn that is running (MAG-344), and
         until when its process holds it. `client_key` is the client's idempotency key: a
         second message of the same user with the same key raises `IntegrityError`.
+
+        `blocks` is what the turn did before it answered — its `tool_use` / `tool_result`
+        rounds (MAG-211). Stored for the next model call only: the published payload is
+        `to_dict()`, which does not carry them, so no client sees a thing change.
         """
         async with agent_session() as session:
-            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id, client_key=client_key)
+            msg = Message(
+                user_id=user_id,
+                role=role,
+                content=content,
+                context_id=context_id,
+                client_key=client_key,
+                # `None` rather than `[]` for a turn that called nothing: the column then
+                # says « no round », not « a round that is empty ».
+                blocks=blocks or None,
+            )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING
                 msg.turn_lease_until = turn_lease_until

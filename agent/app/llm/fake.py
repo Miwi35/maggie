@@ -118,6 +118,7 @@ class Scenario:
     user_matches: str | None = None
     system_contains: tuple[str, ...] = ()
     history_contains: tuple[str, ...] = ()
+    history_matches: str | None = None
     is_default: bool = False
     source: str = ""
 
@@ -125,7 +126,13 @@ class Scenario:
         """Every declared condition has to hold. A scenario declaring none matches nothing."""
         if self.is_default:
             return True
-        conditions = bool(self.user_contains or self.user_matches or self.system_contains or self.history_contains)
+        conditions = bool(
+            self.user_contains
+            or self.user_matches
+            or self.system_contains
+            or self.history_contains
+            or self.history_matches
+        )
         if not conditions:
             return False
         lowered_user = user_text.lower()
@@ -137,21 +144,32 @@ class Scenario:
             return False
         if any(needle.lower() not in lowered_history for needle in self.history_contains):
             return False
+        if self.history_matches and not re.search(self.history_matches, history, re.IGNORECASE):
+            return False
         return all(needle.lower() in lowered_system for needle in self.system_contains)
 
     def turn(self, index: int) -> Turn | None:
         return self.turns[index] if 0 <= index < len(self.turns) else None
 
-    def render(self, text: str, user_text: str) -> str:
+    def render(self, text: str, user_text: str, history: str = "") -> str:
         r"""Put the capture groups of `user_matches` back into a turn's text, as `\1`, `\2`…
 
         The one thing a scripted answer cannot hardcode is an id, since it
         differs between runs. This is how the context router answers with the id
         of a context the stack made a moment ago.
+
+        A scenario declaring `history_matches` takes its groups from the history instead
+        (MAG-211): « supprime-le » names nothing, and the id it means is in the
+        `tool_result` of the call that created it — replayed, or not there at all.
         """
-        if not text or not self.user_matches:
+        if not text:
             return text
-        found = re.search(self.user_matches, user_text, re.IGNORECASE)
+        if self.history_matches:
+            found = re.search(self.history_matches, history, re.IGNORECASE)
+        elif self.user_matches:
+            found = re.search(self.user_matches, user_text, re.IGNORECASE)
+        else:
+            return text
         if found is None:
             return text
         try:
@@ -160,7 +178,7 @@ class Scenario:
             logger.error(f"[fake-llm] scenario {self.name!r}: cannot expand its text ({exc})")
             return text
 
-    def render_input(self, value: Any, user_text: str) -> Any:
+    def render_input(self, value: Any, user_text: str, history: str = "") -> Any:
         r"""The same substitution, through a scripted tool's arguments.
 
         A tool that takes an id was simply unreachable from a journey before
@@ -175,11 +193,11 @@ class Scenario:
         quantities and booleans must not be turned into text.
         """
         if isinstance(value, str):
-            return self.render(value, user_text)
+            return self.render(value, user_text, history)
         if isinstance(value, dict):
-            return {key: self.render_input(item, user_text) for key, item in value.items()}
+            return {key: self.render_input(item, user_text, history) for key, item in value.items()}
         if isinstance(value, list):
-            return [self.render_input(item, user_text) for item in value]
+            return [self.render_input(item, user_text, history) for item in value]
         return value
 
 
@@ -221,12 +239,15 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
     # this loader refuses, not a `re.error` escaping `resolve()` — which would
     # come out as a 500 on /chat and "Désolé, une erreur est survenue." on the
     # stream, with the `[fake-llm]` sentence never printed.
-    user_matches = match.get("user_matches")
-    if user_matches is not None:
+    patterns = {key: match.get(key) for key in ("user_matches", "history_matches")}
+    for key, pattern in patterns.items():
+        if pattern is None:
+            continue
         try:
-            re.compile(str(user_matches))
+            re.compile(str(pattern))
         except re.error as exc:
-            raise ValueError(f"{source}: 'user_matches' is not a valid regex: {exc}") from exc
+            raise ValueError(f"{source}: '{key}' is not a valid regex: {exc}") from exc
+    user_matches, history_matches = patterns["user_matches"], patterns["history_matches"]
 
     return Scenario(
         name=str(name),
@@ -235,6 +256,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         user_matches=str(user_matches) if user_matches is not None else None,
         system_contains=_as_tuple(match.get("system_contains")),
         history_contains=_as_tuple(match.get("history_contains")),
+        history_matches=str(history_matches) if history_matches is not None else None,
         is_default=bool(raw.get("default")),
         source=source,
     )
@@ -359,14 +381,26 @@ def history_text(messages: list[dict] | None) -> str:
 
 
 def turn_index(messages: list[dict] | None) -> int:
-    """How many tool rounds this run has already been through.
+    """How many tool rounds *this* run has already been through.
 
-    The tool loop appends one assistant message and one batch of tool results
-    per round, and conversation history holds nothing but plain strings — so
-    counting the batches counts the rounds, without the fake keeping any state
-    of its own between requests.
+    The tool loop appends one assistant message and one batch of tool results per round,
+    so counting the batches counts the rounds — without the fake keeping any state of its
+    own between requests.
+
+    Counted from the end, and stopped at the message being answered: since MAG-211 the
+    history replays the rounds of the thread's last turns, which are batches too. Counting
+    those as well would have the fake answering with turn 3 of a scenario on the first
+    call of a run — `[fake-llm] le scénario … n'a pas de tour 3`, on a scenario that is
+    perfectly fine.
     """
-    return sum(1 for m in messages or [] if m.get("role") == "user" and isinstance(m.get("content"), list))
+    rounds = 0
+    for message in reversed(messages or []):
+        if message.get("role") != "user":
+            continue
+        if isinstance(message.get("content"), str):
+            break
+        rounds += 1
+    return rounds
 
 
 def _tokens(text: str) -> int:
@@ -471,7 +505,8 @@ class FakeMessages:
         prompt = system_text(system)
         index = turn_index(messages)
 
-        scenario = self._library.resolve(user_text, prompt, history_text(messages))
+        history = history_text(messages)
+        scenario = self._library.resolve(user_text, prompt, history)
         if scenario is None:
             logger.error(f"[fake-llm] no scenario for {user_text!r} — add one under {self._library.directory}")
             turn = Turn(text=no_scenario_message(user_text))
@@ -485,7 +520,7 @@ class FakeMessages:
             else:
                 turn = found
 
-        text = scenario.render(turn.text, user_text) if scenario else turn.text
+        text = scenario.render(turn.text, user_text, history) if scenario else turn.text
 
         offered = {tool["name"] for tool in tools if isinstance(tool, dict) and "name" in tool} if tools else set()
         content: list[FakeTextBlock | FakeToolUseBlock] = []
@@ -497,7 +532,7 @@ class FakeMessages:
                     f"[fake-llm] scenario {scenario_name!r} calls {tool.name!r}, which was not offered — "
                     "is its module still in discovery.scan_dirs?"
                 )
-            arguments = scenario.render_input(dict(tool.input), user_text) if scenario else dict(tool.input)
+            arguments = scenario.render_input(dict(tool.input), user_text, history) if scenario else dict(tool.input)
             content.append(
                 FakeToolUseBlock(
                     id=f"toolu_fake_{index}_{position}",

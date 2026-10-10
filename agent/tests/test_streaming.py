@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.db.context_model import ContextStatus
-from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
+from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.streaming import StreamingGateway, tool_result_status
 
 
@@ -434,6 +434,82 @@ class TestSummaryTrigger:
 
             assert gw._background == set()
             summarizer.maybe_summarize.assert_not_awaited()
+
+
+class TestWhatTheToolsSaidIsStored:
+    """A streamed turn's `tool_use` / `tool_result` rounds are kept on its answer (MAG-211)."""
+
+    @staticmethod
+    def _gateway(tool_name: str = "get_grocery_list"):
+        """A run of two steps: one tool call, then the answer."""
+        steps = [
+            FakeMessage(
+                content=[FakeToolUseBlock(id="toolu_1", name=tool_name, input={"includeDeferred": False})],
+                stop_reason="tool_use",
+                usage=FakeUsage(input_tokens=10, output_tokens=5),
+            ),
+            FakeMessage(
+                content=[FakeTextBlock(text="Des tomates et des piles.")],
+                stop_reason="end_turn",
+                usage=FakeUsage(input_tokens=10, output_tokens=5),
+            ),
+        ]
+        gw = TestSummaryTrigger._gateway()
+        gw.client.messages.stream = lambda **_kwargs: FakeStream(steps.pop(0))
+        gw.tool_router.get_tool_definitions = AsyncMock(return_value=[{"name": tool_name}])
+        gw.tool_router.call_tool = AsyncMock(return_value='{"items": ["Pile LR03"]}')
+        return gw
+
+    async def _answer(self, gw) -> dict:
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.streaming.context_repo") as thread,
+            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Ma liste ?"}])),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.context_summarizer") as summarizer,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            thread.append_tool_call = AsyncMock(return_value=None)
+            skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
+            messages.create = AsyncMock()
+            summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+            async for _ in gw.chat_stream("Ma liste ?", "user-1", "msg-1"):
+                pass
+            await asyncio.gather(*gw._background)
+
+            return messages.create.await_args.kwargs
+
+    async def test_the_round_is_stored_with_the_answer(self):
+        stored = await self._answer(self._gateway())
+
+        assert stored["content"] == "Des tomates et des piles."
+        assert stored["blocks"] == [
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "get_grocery_list",
+                        "input": {"includeDeferred": False},
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "toolu_1", "content": '{"items": ["Pile LR03"]}'}
+                ],
+            },
+        ]
+
+    async def test_a_turn_that_called_nothing_stores_no_blocks(self):
+        stored = await self._answer(TestSummaryTrigger._gateway())
+
+        assert stored["blocks"] == []
 
 
 class TestStreamedExchangeReachesOtherDevices:

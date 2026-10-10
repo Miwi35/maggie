@@ -1,0 +1,24 @@
+# « Finalement, supprime-la » right after 75-create-event-to-delete.yaml (MAG-211).
+#
+# Seen in production on 7 Oct.: with only the text of the previous turn in her history,
+# Maggie called `update_event(id: "last_created_event")` — an id she made up. The real one
+# is in the `tool_result` of `create_event`, so this scenario takes it from there:
+# `history_matches` captures the id the result gives next to the summary « Vidange », and
+# `\1` hands it to `delete_event`. No replay, no match — `[fake-llm] aucun scénario…`.
+#
+# `\W+` between the keys, because the history is the blocks stringified: the result is
+# JSON inside a Python repr, quoted one way or the other depending on what it contains.
+# `delete_event` is held for approval by the policy (MAG-4), so the call is stored as a
+# pending action carrying that id, which is what the journey reads back.
+name: delete-event-just-created
+description: Delete the event booked the turn before, by the id its tool result gave.
+
+match:
+  user_contains: "finalement, supprime-la"
+  history_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+summary\W+Vidange'
+
+turns:
+  - tools:
+      - name: delete_event
+        input: {id: "\\1"}
+  - text: "Je te demande ton accord pour supprimer la vidange."

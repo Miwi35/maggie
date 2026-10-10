@@ -43,6 +43,7 @@ from app.llm.fake import (
 from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.time_tool import run_date_time
+from app.llm.tool_blocks import record
 
 
 def write_scenario(directory: Path, filename: str, scenario: dict) -> Path:
@@ -140,6 +141,26 @@ class TestReadingTheRequest:
             {"role": "user", "content": [{"type": "tool_result"}]},
         ]
         assert turn_index(after_one_round) == 1
+
+    def test_turn_index_ignores_the_rounds_the_history_replays(self):
+        """MAG-211: the history carries past rounds, which are batches too.
+
+        Counting them would have the fake answering with turn 3 of a scenario on the first
+        call of a run — `[fake-llm] le scénario … n'a pas de tour 3` on a scenario that is
+        perfectly fine.
+        """
+        replayed = [
+            {"role": "user", "content": "ma liste ?"},
+            {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_1"}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1"}]},
+            {"role": "assistant", "content": "des tomates et des piles"},
+            {"role": "user", "content": "et le dernier article ?"},
+        ]
+
+        assert turn_index(replayed) == 0
+
+        # And the current run's own round still counts, replay or no replay.
+        assert turn_index([*replayed, {"role": "assistant", "content": []}, {"role": "user", "content": [{}]}]) == 1
 
 
 class TestParsing:
@@ -363,6 +384,76 @@ class TestMatching:
         answer = await ask(client, "ajoute du basilic", tools=[{"name": "add_grocery_item"}])
 
         assert answer.content[0].input == {"label": "Basilic", "quantity": 1}
+
+    async def test_history_matches_takes_its_groups_from_the_history(self, fixtures_dir):
+        # « supprime-le » names nothing: the id it means is in what the history held (MAG-211).
+        write_scenario(
+            fixtures_dir,
+            "10-delete.yaml",
+            {
+                "match": {"user_contains": "supprime-le", "history_matches": 'id": "(\\w{26})'},
+                "turns": [{"tools": [{"name": "delete_event", "input": {"id": "\\1"}}]}],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        answer = await ask(
+            client,
+            "Supprime-le",
+            tools=[{"name": "delete_event"}],
+            history=[
+                {"role": "user", "content": "Crée-le"},
+                {"role": "assistant", "content": 'Créé : {"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}'},
+            ],
+        )
+
+        assert answer.content[0].input == {"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}
+
+    async def test_history_matches_misses_when_the_history_does_not_hold_it(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-delete.yaml",
+            {
+                "match": {"user_contains": "supprime-le", "history_matches": 'id": "(\\w{26})'},
+                "turns": [{"text": "supprimé"}],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        answer = await ask(client, "Supprime-le", history=[{"role": "assistant", "content": "C'est noté."}])
+
+        assert "[fake-llm]" in text_of(answer)
+
+    def test_a_typoed_history_pattern_is_refused_at_load_time(self):
+        with pytest.raises(ValueError, match="history_matches"):
+            parse_scenario({"match": {"history_matches": "id("}, "turns": [{"text": "ok"}]}, source="x.yaml")
+
+    async def test_the_delete_scenario_reads_the_id_from_a_replayed_create_event(self):
+        """76-delete-event-just-created.yaml against the history `build_history` really sends.
+
+        The result is the API's JSON, an apostrophe in it so the repr flips its quotes —
+        the shape a summary like « Rendez-vous chez l'opticien » gives in production.
+        """
+        event_id = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
+        result = json.dumps(
+            {"success": True, "event": {"id": event_id, "summary": "Vidange", "agenda": "Agenda d'Alex"}},
+            separators=(",", ":"),
+        )
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(
+            client,
+            "Finalement, supprime-la.",
+            tools=[{"name": "delete_event"}],
+            history=[
+                {"role": "user", "content": "Note-moi la vidange le 9 avril 2099 à 9h"},
+                *record([{"id": "toolu_1", "name": "create_event", "input": {"title": "Vidange"}, "result": result}]),
+                {"role": "assistant", "content": "J'ai ajouté la vidange le 9 avril 2099 à 9h à votre agenda."},
+            ],
+        )
+
+        assert answer.content[0].name == "delete_event"
+        assert answer.content[0].input == {"id": event_id}
 
 
 class TestTurns:

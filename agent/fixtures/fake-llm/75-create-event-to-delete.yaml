@@ -1,0 +1,21 @@
+# The first half of « crée X, puis supprime-le » (MAG-211): an event the next turn will
+# have to name by its id, which only the `tool_result` of this call knows.
+#
+# Its own title rather than 35-create-event.yaml's dentist: the chat journeys book that
+# one too, and 76 has to find this event's id and no other in the history.
+name: create-event-to-delete
+description: Book an oil change, which the next message asks to delete without naming it.
+
+match:
+  user_matches: "vidange"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Vidange"
+          start_date: "2099-04-09"
+          start_time: "09:00"
+          end_date: "2099-04-09"
+          end_time: "10:00"
+  - text: "J'ai ajouté la vidange le 9 avril 2099 à 9h à votre agenda."

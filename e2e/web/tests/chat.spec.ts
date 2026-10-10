@@ -156,6 +156,21 @@ const RULE = {
   answer: "J'ai créé la compétence « Rappel avec notification »",
 }
 
+/** 45-grocery-list.yaml + 73-tool-result-replay.yaml — reading a result Maggie fetched last turn. */
+const TOOL_REPLAY = {
+  read: "Qu'est-ce qu'il me faut acheter ?",
+  readAnswer: 'Sur votre liste il y a des tomates, des pâtes et des piles.',
+  followUp: "Et le dernier article de cette liste, c'est quoi exactement ?",
+  answer: 'Le dernier article de ta liste, ce sont les piles LR03.',
+}
+
+/** 75-create-event-to-delete.yaml + 76-delete-event-just-created.yaml — « supprime-la », by the id last turn's result gave. */
+const DELETE_JUST_CREATED = {
+  create: 'Note-moi la vidange de la voiture le 9 avril 2099 à 9h',
+  title: 'Vidange',
+  remove: 'Finalement, supprime-la.',
+}
+
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
 const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
@@ -893,6 +908,98 @@ test('picking an older thread back up sends that thread, not the last messages o
   expect(contextLabel(events)).toBe('Budget e2e')
 
   await expect(chat.bubbles(THREAD_RECALL.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-211: a tool call and its result survive the turn they were made in.
+ *
+ * Before this, `agent_message` held a `role` and a TEXT `content`, so the
+ * `tool_use` / `tool_result` blocks of a turn died with it: at the next message
+ * Maggie saw « voici tes courses » and no sign of the `get_grocery_list` that
+ * had taught her — so she called it again for something she already knew.
+ *
+ * Both halves are checked, because each is plausible without the other. The
+ * answer proves the blocks reached the model: 73-tool-result-replay.yaml
+ * declares `Pile LR03` — a seeded label the suite never types, so it can only
+ * come from the tool result — and `includeDeferred`, the argument of the call
+ * that fetched it, so the result cannot have arrived without its `tool_use` in
+ * front of it. And the tool list of the second run proves the point of the
+ * ticket: she does not fetch the list a second time.
+ *
+ * After the MAG-13 test and before MAG-229's, so the two exchanges it adds land
+ * in the thread that was last spoken in and the counts above are untouched.
+ */
+test('a tool result read last turn is still there on the next one, without calling the tool again', async ({
+  page,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+
+  // The turn that fetches the list — this is the round that has to survive.
+  const read = await chat.send(TOOL_REPLAY.read)
+  expect(calledTools(read)).toContain('get_grocery_list')
+  expect(assistantText(read)).toContain(TOOL_REPLAY.readAnswer)
+
+  const events = await chat.send(TOOL_REPLAY.followUp)
+
+  const answer = assistantText(events)
+  expect(
+    isUnscripted(answer),
+    `the tool call and its result never reached the history — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(TOOL_REPLAY.answer)
+
+  // And she answered from what she had read, rather than reading it again.
+  expect(calledTools(events)).not.toContain('get_grocery_list')
+
+  await expect(chat.bubbles(TOOL_REPLAY.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-211, as seen in production on 7 Oct.: after a `create_event`, « supprime
+ * l'événement qu'on vient de créer » got `update_event(id: "last_created_event")` —
+ * an id made up, because only the text of the turn had survived it.
+ *
+ * 76-delete-event-just-created.yaml takes the id from the replayed `tool_result`
+ * of 75's `create_event`, or matches nothing. The policy holds `delete_event` for
+ * approval (MAG-4), so the id the call carried is read back from the pending
+ * action, and compared with the event the first turn really booked.
+ */
+test('an event created last turn is deleted by its real id, with no search first', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+
+  const created = await chat.send(DELETE_JUST_CREATED.create)
+  expect(toolResults(created)).toContainEqual({ toolName: 'create_event', status: 'success' })
+  const booked = await waitForIndexed<SeededEvent>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === DELETE_JUST_CREATED.title,
+    { what: `The ${DELETE_JUST_CREATED.title} Maggie booked` },
+  )
+
+  const events = await chat.send(DELETE_JUST_CREATED.remove)
+
+  const answer = assistantText(events)
+  expect(isUnscripted(answer), `the create_event result never reached the history — Maggie said: ${answer}`).toBe(
+    false,
+  )
+  // One call, straight to the deletion: no reading of the agenda to find it again.
+  expect(calledTools(events)).toEqual(['delete_event'])
+
+  const response = await api.get('/agent/approvals')
+  expect(response.ok()).toBe(true)
+  const held = ((await response.json()) as Array<{ id: string; toolName: string; arguments: { id?: string } }>).find(
+    (action) => action.toolName === 'delete_event' && action.arguments.id === String(booked.id),
+  )
+  expect(held, `no delete_event held for ${String(booked.id)}`).toBeDefined()
+
+  // Answered, so the card does not wait in the bell of the journeys after this one.
+  expect((await api.post(`/agent/approvals/${held!.id}/deny`)).ok()).toBe(true)
 })
 
 /**
