@@ -1,8 +1,11 @@
 package com.maggie.app.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Flattened event occurrence — either a real event or a virtual RRULE occurrence.
  */
+@Serializable
 data class ExpandedEvent(
     val id: String,
     val summary: String,

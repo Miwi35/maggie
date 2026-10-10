@@ -203,4 +203,18 @@ class AdaptiveNavigationTest {
         assertFalse(dropsPaneSelection(Screen.Calendar.route, true))
         assertFalse(dropsPaneSelection(null, true))
     }
+
+    @Test
+    fun `an item open in the pane opens again as a route once the pane is gone`() {
+        assertEquals(Screen.RecipeDetail.route, reopensDetailRoute(Screen.Cookbook.route, recipeOpen = true, accountOpen = false))
+        assertEquals(Screen.AccountTransactions.route, reopensDetailRoute(Screen.AccountList.route, recipeOpen = false, accountOpen = true))
+    }
+
+    @Test
+    fun `nothing reopens without an open item or away from the list`() {
+        assertNull(reopensDetailRoute(Screen.Cookbook.route, recipeOpen = false, accountOpen = true))
+        assertNull(reopensDetailRoute(Screen.AccountList.route, recipeOpen = true, accountOpen = false))
+        assertNull(reopensDetailRoute(Screen.Calendar.route, recipeOpen = true, accountOpen = true))
+        assertNull(reopensDetailRoute(null, recipeOpen = true, accountOpen = true))
+    }
 }
