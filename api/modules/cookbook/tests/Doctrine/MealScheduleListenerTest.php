@@ -83,19 +83,19 @@ class MealScheduleListenerTest extends KernelTestCase
         $this->em()->flush();
         self::assertSame([], $this->dispatched);
 
-        $meal->setStartAt($meal->getStartAt()->modify('+3 days'));
+        $meal->setDate($meal->getDate()->modify('+3 days'));
         $this->em()->flush();
 
         self::assertEquals([new MealRescheduled($mealId)], $this->dispatched);
     }
 
-    public function testWritingTheSameInstantAgainSendsNothing(): void
+    public function testWritingTheSameDayAgainSendsNothing(): void
     {
         $mealId = $this->planMeal('fish_dish', '+10 days');
         $this->dispatched = [];
 
         $meal = $this->em()->find(Meal::class, $mealId);
-        $meal->setStartAt(new \DateTimeImmutable($meal->getStartAt()->format('c')));
+        $meal->setDate(new \DateTimeImmutable($meal->getDate()->format('Y-m-d')));
         $this->em()->flush();
 
         self::assertSame([], $this->dispatched);
@@ -122,12 +122,12 @@ class MealScheduleListenerTest extends KernelTestCase
         );
 
         $meal = $this->em()->find(Meal::class, $mealId);
-        $moved = $meal->getStartAt()->modify('+3 days');
-        $meal->setStartAt($moved);
+        $moved = $meal->getDate()->modify('+3 days');
+        $meal->setDate($moved);
         $this->em()->flush();
 
         $this->em()->clear();
-        self::assertEquals($moved, $this->em()->find(Meal::class, $mealId)->getStartAt());
+        self::assertEquals($moved, $this->em()->find(Meal::class, $mealId)->getDate());
         self::assertNotEmpty($this->dispatched, 'the other listener still got its event');
     }
 
@@ -137,7 +137,7 @@ class MealScheduleListenerTest extends KernelTestCase
         $this->dispatched = [];
 
         $meal = $this->em()->find(Meal::class, $mealId);
-        $meal->setStartAt($meal->getStartAt()->modify('+3 days'));
+        $meal->setDate($meal->getDate()->modify('+3 days'));
         $manager = $this->em()->getEventManager();
         $boom = new class {
             public function onFlush(): void
