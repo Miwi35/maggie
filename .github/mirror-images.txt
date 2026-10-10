@@ -1,0 +1,12 @@
+# Third-party images that are not Docker Hub official images, copied to
+# ghcr.io/miwi35/mirror/<target> by .github/workflows/mirror-images.yml (weekly
+# and on demand). CI and the e2e stack pull the copy, never Docker Hub, whose
+# anonymous pull limit took CI down twice (9–10 Oct.). An official image needs no
+# line here: use public.ecr.aws/docker/library/<name>:<tag>.
+#
+# <target name:tag>          <source on Docker Hub>
+# A source pinned by digest (@sha256:…) is copied at that digest, and the copy
+# must keep it: the references pin the same digest.
+wiremock:3.9.1               docker.io/wiremock/wiremock:3.9.1
+mercure:v1.0.2               docker.io/dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+buildkit:buildx-stable-1     docker.io/moby/buildkit:buildx-stable-1

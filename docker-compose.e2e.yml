@@ -144,7 +144,7 @@ services:
   # Traefik — the stack's single door, on one ephemeral host port
   # ===========================================================================
   traefik:
-    image: traefik:v3.6
+    image: public.ecr.aws/docker/library/traefik:v3.6
     command:
       - "--api.dashboard=false"
       - "--providers.docker=true"
@@ -254,7 +254,7 @@ services:
   # Vite dev server. A bug that only appears in a production build — and those
   # exist — would otherwise reach users unseen.
   admin-build:
-    image: node:${NODE_VERSION:-22}-alpine
+    image: public.ecr.aws/docker/library/node:${NODE_VERSION:-22}-alpine
     working_dir: /var/www/admin
     user: ${UID:-1000}:${GID:-1000}
     volumes:
@@ -339,7 +339,7 @@ services:
   # PostgreSQL — in memory, unpublished
   # ===========================================================================
   database:
-    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION:-17}-alpine
     environment:
       POSTGRES_USER: maggie
       POSTGRES_PASSWORD: maggie
@@ -372,7 +372,7 @@ services:
     # subscribe parameter and the token format and broke every subscriber at once
     # (MAG-97). The digest freezes the build; the tag says which version it is.
     # Upgrading is a ticket of its own: read the release notes, move every client.
-    image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+    image: ghcr.io/miwi35/mirror/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
     environment:
       SERVER_NAME: ':80'
       # Mercure 1.0: the hub trusts tokens issued by `maggie`, and `aud` is pinned to the
@@ -399,7 +399,7 @@ services:
   # RabbitMQ
   # ===========================================================================
   rabbitmq:
-    image: rabbitmq:3-alpine
+    image: public.ecr.aws/docker/library/rabbitmq:3-alpine
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -432,7 +432,7 @@ services:
   # A stale or missing index returns an empty list in silence, so search
   # journeys would pass for the wrong reason without it.
   elasticsearch:
-    image: elasticsearch:8.17.0
+    image: public.ecr.aws/docker/library/elasticsearch:8.17.0
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -615,7 +615,7 @@ services:
   # ===========================================================================
   # See .docker/e2e/wiremock/README.md for what is stubbed and what is not.
   wiremock:
-    image: wiremock/wiremock:3.9.1
+    image: ghcr.io/miwi35/mirror/wiremock:3.9.1
     command: ["--disable-banner", "--local-response-templating"]
     environment:
       # The JVM sizes its heap from the container limit; a quarter of 320 MB

@@ -1,0 +1,6 @@
+# Images infra/scripts/docker-hub-guard.sh lets through although they come from
+# Docker Hub or a registry it does not know. One line per image, as the guard
+# prints it (variables resolved), then the reason — a line without a reason
+# fails the guard:
+#   <image> <reason>
+# Prefer a mirror (.github/mirror-images.txt) to a line here.

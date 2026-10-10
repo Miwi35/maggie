@@ -15,6 +15,7 @@
 #   e2e/images.sh env      print E2E_IMAGE_<SERVICE>=<ref> lines (>> $GITHUB_ENV)
 #   e2e/images.sh hash <svc>  the hash alone (wt/image.sh tags its php image with it)
 #   e2e/images.sh ref <svc>   the full registry reference for that hash
+#   e2e/images.sh pull     pull the third-party images, one at a time, retried
 #   e2e/images.sh ensure   pull or build+push each image, and pull the third-party
 #                          ones meanwhile; needs `docker login ghcr.io` to push
 #
@@ -85,16 +86,27 @@ print_env() {
 build_one() {
   local svc="$1" cache="$2" log
   log="$(mktemp)"
-  if docker buildx bake -f "$COMPOSE_FILE" --load --progress=plain \
-      --set "$svc.cache-from=type=registry,ref=$cache" \
-      --set "$svc.cache-to=type=inline" "$svc" >"$log" 2>&1; then
-    echo "[$svc] $(grep -c ' CACHED$' "$log" || true) steps from cache"
-    rm -f "$log"
-  else
-    cat "$log" >&2
-    rm -f "$log"
-    return 1
-  fi
+  local attempt
+  # The base images come from ECR Public, which turns away more than one
+  # anonymous pull per second and per IP: a build refused for that is retried.
+  for attempt in 1 2 3; do
+    if docker buildx bake -f "$COMPOSE_FILE" --load --progress=plain \
+        --set "$svc.cache-from=type=registry,ref=$cache" \
+        --set "$svc.cache-to=type=inline" "$svc" >"$log" 2>&1; then
+      echo "[$svc] $(grep -c ' CACHED$' "$log" || true) steps from cache"
+      rm -f "$log"
+      return 0
+    fi
+    if [ "$attempt" -lt 3 ] && grep -qE 'toomanyrequests|Rate exceeded' "$log"; then
+      echo "::warning::[$svc] base image pull rate-limited (attempt $attempt), retrying" >&2
+      sleep $((attempt * 10))
+      continue
+    fi
+    break
+  done
+  cat "$log" >&2
+  rm -f "$log"
+  return 1
 }
 
 ensure_one() {
@@ -120,6 +132,27 @@ ensure_one() {
   fi
 }
 
+# The third-party images come from ECR Public and the GHCR mirror, never Docker
+# Hub (10 Oct.). ECR Public allows one anonymous pull per second and per IP and
+# answers `toomanyrequests: Rate exceeded` beyond: the images are pulled one
+# service at a time, and a failed pull is retried after a pause.
+pull_third_party() {
+  local svc attempt services
+  services="$(docker compose -f "$COMPOSE_FILE" config --services)"
+  [ -n "$services" ] || { echo "::error::no service in $COMPOSE_FILE" >&2; return 1; }
+  for svc in $services; do
+    for attempt in 1 2 3 4; do
+      docker compose -f "$COMPOSE_FILE" pull --ignore-buildable --quiet "$svc" && break
+      if [ "$attempt" -eq 4 ]; then
+        echo "::error::third-party image of $svc: pull failed 4 times" >&2
+        return 1
+      fi
+      echo "::warning::third-party image of $svc: pull failed (attempt $attempt), retrying" >&2
+      sleep $((attempt * 5))
+    done
+  done
+}
+
 ensure() {
   while IFS='=' read -r name value; do export "$name=$value"; done < <(print_env)
 
@@ -128,7 +161,7 @@ ensure() {
   # Third-party images download while the four above pull or build. The
   # Playwright one (~2 GB, behind a profile) is not among them: it is not needed
   # before the journeys and would take the bandwidth the php image is waiting for.
-  docker compose -f "$COMPOSE_FILE" pull --ignore-buildable --quiet &
+  pull_third_party &
   pids+=("$!"); names+=("third-party images")
 
   for svc in "${SERVICES[@]}"; do
@@ -156,5 +189,6 @@ case "${1:-}" in
   ensure) ensure ;;
   hash)   hash_of "${2:?service}" ;;
   ref)    ref_of "${2:?service}" ;;
-  *)      echo "usage: $0 env|ensure|hash <svc>|ref <svc>" >&2; exit 2 ;;
+  pull)   pull_third_party ;;
+  *)      echo "usage: $0 env|ensure|pull|hash <svc>|ref <svc>" >&2; exit 2 ;;
 esac

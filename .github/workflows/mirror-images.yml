@@ -1,0 +1,67 @@
+name: Mirror images
+
+# Copies the third-party images of .github/mirror-images.txt from Docker Hub to
+# ghcr.io/miwi35/mirror/…, which CI and the e2e stack pull instead: GitHub
+# runners share their IPs, and Docker Hub's anonymous pull limit took every e2e
+# job, API test and image build down for hours, twice (9–10 Oct.). Weekly, so a
+# moving tag (buildx-stable-1) follows upstream; on demand after adding a line.
+# A pull limit hit here costs a stale copy for a week, not a red CI.
+
+run-name: Miroir des images tierces
+
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: mirror-images
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Copy to ghcr.io/miwi35/mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/mirror-images.txt
+          sparse-checkout-cone-mode: false
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `imagetools create` copies the manifest list as is, every platform, with
+      # no builder (the BuildKit image is one of the copies). A source pinned by
+      # digest must keep it: the references pin the same digest.
+      - name: Copy every image
+        run: |
+          failed=0
+          while read -r target source; do
+            case "$target" in ''|'#'*) continue ;; esac
+            dest="ghcr.io/miwi35/mirror/$target"
+            echo "::group::$source -> $dest"
+            if docker buildx imagetools create --tag "$dest" "$source"; then
+              if [[ "$source" == *@sha256:* ]]; then
+                want="${source##*@}"
+                got="$(docker buildx imagetools inspect "$dest" --format '{{.Manifest.Digest}}')"
+                if [[ "$got" != "$want" ]]; then
+                  echo "::error::$dest is $got, not the pinned $want"
+                  failed=1
+                fi
+              fi
+            else
+              echo "::error::could not copy $source"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done < .github/mirror-images.txt
+          exit "$failed"

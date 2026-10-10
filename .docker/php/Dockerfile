@@ -4,7 +4,7 @@ ARG PHP_VERSION=8.4
 # =============================================================================
 # Base stage - shared configuration
 # =============================================================================
-FROM php:${PHP_VERSION}-fpm-alpine AS base
+FROM public.ecr.aws/docker/library/php:${PHP_VERSION}-fpm-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -48,7 +48,7 @@ RUN pecl install amqp \
     && docker-php-ext-enable amqp
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=public.ecr.aws/docker/library/composer:latest /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Create custom PHP configuration

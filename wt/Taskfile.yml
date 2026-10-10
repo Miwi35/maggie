@@ -44,7 +44,7 @@ vars:
     # The fallback keeps `wt:down`, `wt:ps` and `wt:prune` working when Compose or
     # jq cannot compute the hash: stopping must not depend on the build inputs.
     sh: '{{.ROOT_DIR}}/wt/image.sh tag 2>/dev/null || echo maggie-wt-php:unknown'
-  NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
+  NODE_IMAGE: 'public.ecr.aws/docker/library/node:{{.NODE_VERSION | default "22"}}-alpine'
   GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
   STACK: '{{.ROOT_DIR}}/wt/stack.sh'
   IMAGE_SH: '{{.ROOT_DIR}}/wt/image.sh'

@@ -3,7 +3,7 @@ services:
   # Traefik (Edge router + monitoring dashboard)
   # ===========================================================================
   traefik:
-    image: traefik:v3.6
+    image: public.ecr.aws/docker/library/traefik:v3.6
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"
@@ -141,7 +141,7 @@ services:
   # PostgreSQL
   # ===========================================================================
   database:
-    image: postgres:${POSTGRES_VERSION}-alpine
+    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION}-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -168,7 +168,7 @@ services:
     # subscribe parameter and the token format and broke every subscriber at once
     # (MAG-97). The digest freezes the build; the tag says which version it is.
     # Upgrading is a ticket of its own: read the release notes, move every client.
-    image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+    image: ghcr.io/miwi35/mirror/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
     environment:
       SERVER_NAME: ':80'
       # Mercure 1.0: the hub trusts tokens issued by `maggie`, and `aud` is pinned to the
@@ -194,7 +194,7 @@ services:
   # RabbitMQ (Message Queue)
   # ===========================================================================
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: public.ecr.aws/docker/library/rabbitmq:3-management-alpine
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -301,7 +301,7 @@ services:
   # Elasticsearch (Full-text search)
   # ===========================================================================
   elasticsearch:
-    image: elasticsearch:8.17.0
+    image: public.ecr.aws/docker/library/elasticsearch:8.17.0
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false

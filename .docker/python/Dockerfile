@@ -3,7 +3,7 @@ ARG PYTHON_VERSION=3.12
 # =============================================================================
 # Base stage - shared configuration
 # =============================================================================
-FROM python:${PYTHON_VERSION}-slim AS base
+FROM public.ecr.aws/docker/library/python:${PYTHON_VERSION}-slim AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

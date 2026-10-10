@@ -3,7 +3,7 @@ ARG PYTHON_VERSION=3.12
 # =============================================================================
 # Base
 # =============================================================================
-FROM python:${PYTHON_VERSION}-slim AS base
+FROM public.ecr.aws/docker/library/python:${PYTHON_VERSION}-slim AS base
 WORKDIR /app
 
 COPY ciqual/pyproject.toml ./
