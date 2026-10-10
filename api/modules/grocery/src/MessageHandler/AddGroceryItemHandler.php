@@ -110,12 +110,26 @@ class AddGroceryItemHandler
             $matched->setPreferredStore($resolvedStore);
         }
 
-        if (null !== $command->quantity) {
-            $item->setQuantity($command->quantity);
+        $unit = null !== $command->unit ? Unit::from($command->unit) : null;
+        $quantity = $command->quantity;
+
+        // A product with a packaging is counted in it: « Riz » alone is one pack.
+        if (null === $unit && null !== $matched && null !== $matched->getPackagingUnit()) {
+            $unit = $matched->getPackagingUnit();
+            $quantity ??= 1.0;
         }
-        if (null !== $command->unit) {
-            $item->setUnit(Unit::from($command->unit));
+
+        $mergeable = null !== $matched ? $this->findMergeable($list, $matched, $unit) : null;
+        if (null !== $mergeable) {
+            $this->merge($mergeable, $quantity, $unit);
+            $list->setUpdatedAt(new \DateTimeImmutable());
+            $this->em->flush();
+
+            return $list;
         }
+
+        $item->setQuantity($quantity);
+        $item->setUnit($unit);
 
         $maxPosition = 0;
         foreach ($list->getItems() as $existing) {
@@ -130,5 +144,40 @@ class AddGroceryItemHandler
         $this->em->flush();
 
         return $list;
+    }
+
+    /**
+     * The line an added product joins instead of doubling: same product, same
+     * unit, not yet in the basket — a ticked line is never merged, the new need
+     * must not hide in it (same key as `MealGrocerySync::findMergeable()`).
+     */
+    private function findMergeable(GroceryList $list, Product $product, ?Unit $unit): ?GroceryItem
+    {
+        foreach ($list->getItems() as $existing) {
+            if ($existing->isChecked()) {
+                continue;
+            }
+
+            // A line with no unit of a packaged product reads as that packaging (« 2 » is 2 packs).
+            if ((string) $existing->getProduct()?->getId() === (string) $product->getId()
+                && ($existing->getUnit() ?? $product->getPackagingUnit()) === $unit) {
+                return $existing;
+            }
+        }
+
+        return null;
+    }
+
+    private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit): void
+    {
+        $existing->setUnit($unit);
+
+        // Without a quantity on either side there is nothing to count: the line is already there.
+        if (null !== $quantity || null !== $existing->getQuantity()) {
+            $existing->setQuantity(($existing->getQuantity() ?? 1.0) + ($quantity ?? 1.0));
+        }
+
+        // Added by hand, so wanted now: a line deferred by a meal's shelf life comes back.
+        $existing->setBuyAfter(null);
     }
 }

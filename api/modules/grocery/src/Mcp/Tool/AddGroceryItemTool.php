@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'add_grocery_item', description: 'Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store.')]
+#[McpTool(name: 'add_grocery_item', description: 'Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product already on the list (not yet ticked, same unit) gets its quantity raised instead of a second line. A product bought in a packaging (pack, jar…) is counted in it when no unit is given: « Riz » alone is one pack.')]
 class AddGroceryItemTool
 {
     public function __construct(

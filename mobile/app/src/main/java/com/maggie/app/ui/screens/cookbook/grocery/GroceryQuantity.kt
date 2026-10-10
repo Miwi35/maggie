@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
 import com.maggie.app.data.model.CookbookUnit
+import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.formatQuantity as formatSize
+import com.maggie.app.data.model.frenchLabel
 import kotlin.math.roundToInt
 
 // Step of the − / + buttons on a list line (MAG-291), the same as the admin's: a
@@ -55,4 +58,25 @@ fun unitLabel(unit: CookbookUnit?, quantity: Float): String {
         CookbookUnit.SACHET -> if (plural) "sachets" else "sachet"
         CookbookUnit.JAR -> if (plural) "bocaux" else "bocal"
     }
+}
+
+/**
+ * The unit a line is counted in. A product with a packaging is counted in it: a
+ * line with no unit of its own reads as that packaging, « Riz » alone being one
+ * pack (MAG-299).
+ */
+val GroceryItem.countedUnit: CookbookUnit?
+    get() = unit ?: product?.packagingUnit
+
+/**
+ * « (500 g) »: what one pack holds, shown after the quantity on a line counted in
+ * the packaging itself. A line in grams of the same product says its weight, not its pack.
+ */
+fun GroceryItem.packagingContent(): String? {
+    val product = product ?: return null
+    val packaging = product.packagingUnit ?: return null
+    val size = product.packagingSize ?: return null
+    val sizeUnit = product.packagingSizeUnit ?: return null
+    if (unit != null && unit != packaging) return null
+    return "(${formatSize(size)} ${sizeUnit.frenchLabel(size)})"
 }

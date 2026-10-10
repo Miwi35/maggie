@@ -18,12 +18,13 @@ interface QuantityStepperProps {
   label: string
   quantity?: number | null
   unit?: string
+  packaging?: string | null
   disabled?: boolean
   onChange: (quantity: number) => void
   onInvalid: () => void
 }
 
-export function QuantityStepper({ label, quantity, unit, disabled, onChange, onInvalid }: QuantityStepperProps) {
+export function QuantityStepper({ label, quantity, unit, packaging, disabled, onChange, onInvalid }: QuantityStepperProps) {
   const [draft, setDraft] = useState<string | null>(null)
 
   const commitDraft = () => {
@@ -93,6 +94,11 @@ export function QuantityStepper({ label, quantity, unit, disabled, onChange, onI
           }}
           sx={{ width: 72 }}
         />
+      )}
+      {packaging && draft === null && (
+        <Typography variant="caption" color="text.secondary" data-testid="quantity-packaging" sx={{ whiteSpace: 'nowrap' }}>
+          {packaging}
+        </Typography>
       )}
       <IconButton
         size="small"

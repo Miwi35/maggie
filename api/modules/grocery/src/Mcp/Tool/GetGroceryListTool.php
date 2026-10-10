@@ -6,10 +6,11 @@ namespace Maggie\Grocery\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead.')]
+#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. Each line carries `quantity` and `unit` (a packaging unit such as pack or jar reads « 2 paquets »), `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out).')]
 class GetGroceryListTool
 {
     public function __construct(
@@ -47,6 +48,7 @@ class GetGroceryListTool
                         'label' => $item->getLabel(),
                         'quantity' => $item->getQuantity(),
                         'unit' => $item->getUnit()?->value,
+                        ...$this->productFacts($item),
                         'buyAfter' => $buyAfter->format('Y-m-d'),
                     ];
 
@@ -77,6 +79,7 @@ class GetGroceryListTool
                 'label' => $item->getLabel(),
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
+                ...$this->productFacts($item),
                 'source' => $item->getSource()->value,
                 'checked' => $item->isChecked(),
                 'position' => $item->getPosition(),
@@ -117,5 +120,27 @@ class GetGroceryListTool
                 'later' => $later,
             ],
         ], JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * What Maggie needs to say « 2 paquets » or « en rupture » from a line: the
+     * packaging the product is bought in (the line's unit is that packaging when
+     * the two agree) and what is left of it at home.
+     *
+     * @return array{packaging: array{unit: ?string, size: ?float, sizeUnit: ?string}|null, stockState: ?string}
+     */
+    private function productFacts(GroceryItem $item): array
+    {
+        $product = $item->getProduct();
+        $packagingUnit = $product?->getPackagingUnit();
+
+        return [
+            'packaging' => null !== $product && null !== $packagingUnit ? [
+                'unit' => $packagingUnit->value,
+                'size' => $product->getPackagingSize(),
+                'sizeUnit' => $product->getPackagingSizeUnit()?->value,
+            ] : null,
+            'stockState' => $product?->getStockState()->value,
+        ];
     }
 }
