@@ -91,14 +91,21 @@ class UpdateEventHandler
             $event->setGoogleUpdatedAt(null);
         }
 
-        if (null !== $command->startAt) {
-            $event->setStartAt($command->startAt);
-        }
-        if (null !== $command->endAt) {
-            $event->setEndAt($command->endAt);
-        }
-        if (null !== $command->allDay) {
-            $event->setAllDay($command->allDay);
+        // One schedule or the other, whole (MAG-382): an all-day event loses its
+        // instants, a timed one its days. A missing last day is the first one.
+        if (true === $command->allDay || null !== $command->startDate) {
+            $startDate = $command->startDate ?? $event->getStartDate();
+            if (null === $startDate) {
+                throw new \DomainException('An all-day event needs a startDate.');
+            }
+            $event->scheduleAllDay($startDate, $command->endDate);
+        } elseif (false === $command->allDay || null !== $command->startAt || null !== $command->endAt) {
+            $startAt = $command->startAt ?? $event->getStartAt();
+            $endAt = $command->endAt ?? $event->getEndAt();
+            if (null === $startAt || null === $endAt) {
+                throw new \DomainException('A timed event needs a startAt and an endAt.');
+            }
+            $event->scheduleTimed($startAt, $endAt);
         }
         if (null !== $command->rrule) {
             $event->setRrule($command->rrule);
@@ -125,6 +132,12 @@ class UpdateEventHandler
         }
         if (null !== $command->allDay) {
             $changedFields[] = 'allDay';
+        }
+        if (null !== $command->startDate) {
+            $changedFields[] = 'startDate';
+        }
+        if (null !== $command->endDate) {
+            $changedFields[] = 'endDate';
         }
         if (null !== $command->rrule || $command->clears('rrule')) {
             $changedFields[] = 'rrule';

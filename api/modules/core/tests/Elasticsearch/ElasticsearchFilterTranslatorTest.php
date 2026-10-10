@@ -235,4 +235,49 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
 
         return $parsed;
     }
+
+    /**
+     * An all-day event has days and no instant (MAG-382): a bound on the
+     * instant also takes, by its day, a document that has none.
+     */
+    public function testABoundOnAnInstantAlsoMatchesADocumentWithOnlyItsDay(): void
+    {
+        $translated = $this->translator->translate(
+            ['startAt' => ['before' => '2037-01-02T00:00:00+01:00'], 'endAt' => ['after' => '2037-01-01T00:00:00+01:00']],
+            [],
+            [],
+            ['startAt' => 'startDate', 'endAt' => 'endDate'],
+        );
+
+        self::assertSame([
+            ['bool' => [
+                'should' => [
+                    ['range' => ['startAt' => ['lte' => '2037-01-02T00:00:00+01:00']]],
+                    ['bool' => [
+                        'must_not' => [['exists' => ['field' => 'startAt']]],
+                        // The range ends, excluded, at midnight of the 2nd: its last day is the 1st.
+                        'filter' => [['range' => ['startDate' => ['lte' => '2037-01-01']]]],
+                    ]],
+                ],
+                'minimum_should_match' => 1,
+            ]],
+            ['bool' => [
+                'should' => [
+                    ['range' => ['endAt' => ['gte' => '2037-01-01T00:00:00+01:00']]],
+                    ['bool' => [
+                        'must_not' => [['exists' => ['field' => 'endAt']]],
+                        'filter' => [['range' => ['endDate' => ['gte' => '2037-01-01']]]],
+                    ]],
+                ],
+                'minimum_should_match' => 1,
+            ]],
+        ], $translated['filter']);
+    }
+
+    public function testAFieldWithNoDayFieldKeepsItsPlainRange(): void
+    {
+        $translated = $this->translator->translate(['dueDate' => ['before' => '2037-01-02']], [], [], ['startAt' => 'startDate']);
+
+        self::assertSame([['range' => ['dueDate' => ['lte' => '2037-01-02']]]], $translated['filter']);
+    }
 }

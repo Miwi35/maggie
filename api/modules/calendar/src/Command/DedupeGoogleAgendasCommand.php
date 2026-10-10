@@ -374,6 +374,8 @@ final class DedupeGoogleAgendasCommand extends Command
         $to->setAllDay($from->isAllDay());
         $to->setStartAt($from->getStartAt());
         $to->setEndAt($from->getEndAt());
+        $to->setStartDate($from->getStartDate());
+        $to->setEndDate($from->getEndDate());
         $to->setTimeZone($from->getTimeZone());
         $to->setRrule($from->getRrule());
         $to->setOriginalStartAt($from->getOriginalStartAt());

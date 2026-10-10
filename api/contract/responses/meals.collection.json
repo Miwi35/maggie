@@ -12,12 +12,12 @@
             "recipes": [
                 "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV"
             ],
-            "startAt": "2026-03-15T23:00:00+00:00",
-            "endAt": "2026-03-16T22:59:59+00:00",
+            "startDate": "2026-03-16",
+            "endDate": "2026-03-16",
             "allDay": true,
-            "timeZone": "Europe/Paris",
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "summary": "Recorded meal",
+            "timeZone": "Europe/Paris",
             "status": "confirmed",
             "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "ownerRelation": "agenda",

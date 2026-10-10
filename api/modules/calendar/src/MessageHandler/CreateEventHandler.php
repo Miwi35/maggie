@@ -46,11 +46,19 @@ class CreateEventHandler
 
         $event = new Event();
         $event->setSummary($command->summary);
-        $event->setStartAt($command->startAt);
-        $event->setEndAt($command->endAt);
         $event->setTimeZone($command->timeZone);
         $event->setAgenda($agenda);
-        $event->setAllDay($command->allDay);
+        if ($command->allDay) {
+            if (null === $command->startDate) {
+                throw new \DomainException('An all-day event needs a startDate.');
+            }
+            $event->scheduleAllDay($command->startDate, $command->endDate);
+        } else {
+            if (null === $command->startAt || null === $command->endAt) {
+                throw new \DomainException('A timed event needs a startAt and an endAt.');
+            }
+            $event->scheduleTimed($command->startAt, $command->endAt);
+        }
 
         if (null !== $command->description) {
             $event->setDescription($command->description);

@@ -9,6 +9,9 @@ final readonly class UpdateEventCommand
     use ClearsFieldsTrait;
 
     /**
+     * The schedule changes whole or not at all: `allDay` true with `startDate`
+     * (and `endDate`, the last day, included), or `startAt` and `endAt` (MAG-382).
+     *
      * @param array<string, mixed>|null                          $reminders
      * @param list<'description'|'location'|'rrule'|'reminders'> $clearFields
      */
@@ -26,6 +29,8 @@ final readonly class UpdateEventCommand
         public ?string $previousAgendaId = null,
         public ?array $reminders = null,
         public array $clearFields = [],
+        public ?\DateTimeImmutable $startDate = null,
+        public ?\DateTimeImmutable $endDate = null,
     ) {
     }
 }

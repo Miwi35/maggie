@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { localDay } from './dates'
+import { addDays, daysBetween, localDay, parseDay } from './dates'
 
 /**
  * The whole admin-side half of MAG-251 is this function, so it is pinned here
@@ -32,5 +32,29 @@ describe('localDay', () => {
   test('keeps the local day of an instant just past midnight', () => {
     // 00:30 in Paris is still the day before in UTC.
     expect(localDay(new Date(2026, 9, 7, 0, 30))).toBe('2026-10-07')
+  })
+})
+
+/** An all-day event is a pair of dates (MAG-382): their arithmetic must not see a time zone. */
+describe('day arithmetic', () => {
+  test('adds days across a month, a year and the clocks going back', () => {
+    expect(addDays('2037-01-28', 1)).toBe('2037-01-29')
+    expect(addDays('2036-12-31', 1)).toBe('2037-01-01')
+    expect(addDays('2037-01-01', -1)).toBe('2036-12-31')
+    // 25 hours long in Paris: a day of 24 h in local time would land on the 25th again.
+    expect(addDays('2026-10-25', 1)).toBe('2026-10-26')
+    expect(addDays('2028-02-28', 1)).toBe('2028-02-29')
+  })
+
+  test('counts the days between two dates', () => {
+    expect(daysBetween('2037-01-26', '2037-01-28')).toBe(2)
+    expect(daysBetween('2037-01-01', '2037-01-01')).toBe(0)
+    expect(daysBetween('2026-10-24', '2026-10-26')).toBe(2)
+    expect(daysBetween('2037-01-28', '2037-01-26')).toBe(-2)
+  })
+
+  test('reads a date as its local midnight', () => {
+    expect(localDay(parseDay('2037-01-01'))).toBe('2037-01-01')
+    expect(parseDay('2037-01-01').getHours()).toBe(0)
   })
 })

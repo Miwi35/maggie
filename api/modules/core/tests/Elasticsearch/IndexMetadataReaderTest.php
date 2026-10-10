@@ -148,4 +148,14 @@ class IndexMetadataReaderTest extends TestCase
         self::assertSame(['products'], $this->reader->indicesOf(\Maggie\Cookbook\Entity\Ingredient::class));
         self::assertSame([], $this->reader->indicesOf(StubNotIndexedEntity::class));
     }
+
+    /** MAG-382: an event's instants name the day fields that stand for them on an all-day event. */
+    public function testTheDayFieldsOfTheInstantsAreRead(): void
+    {
+        $meta = $this->reader->read(\Maggie\Calendar\Entity\Event::class);
+
+        self::assertSame(['startAt' => 'startDate', 'endAt' => 'endDate'], $meta['dayFields'] ?? null);
+        self::assertSame(['type' => 'date', 'format' => 'yyyy-MM-dd'], $meta['fields']['startDate'] ?? null);
+        self::assertArrayNotHasKey('dayField', $meta['fields']['startAt']);
+    }
 }

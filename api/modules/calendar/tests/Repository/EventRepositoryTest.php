@@ -97,4 +97,29 @@ class EventRepositoryTest extends KernelTestCase
         self::assertCount(1, $exceptions);
         self::assertSame('Modified meeting', $exceptions[0]->getSummary());
     }
+
+    /**
+     * The owner's report, in the reads Maggie answers from: a birthday on the
+     * 1st is in the day of the 1st and not in the day of the 2nd (MAG-382).
+     * The days are read in Paris, whatever offset the bounds carry.
+     */
+    public function testAnAllDayEventIsInTheDaysItCoversOnly(): void
+    {
+        $this->loadFixtures('EventRepositoryTest.yaml');
+        $summaries = fn (string $from, string $to) => array_map(
+            fn (Event $e) => $e->getSummary(),
+            array_filter(
+                $this->repository->findByDateRange($this->user(), new \DateTimeImmutable($from), new \DateTimeImmutable($to)),
+                fn (Event $e) => !$e->isRecurring(),
+            ),
+        );
+
+        self::assertContains('Anniversaire', $summaries('2037-01-01T00:00:00+01:00', '2037-01-02T00:00:00+01:00'));
+        self::assertNotContains('Anniversaire', $summaries('2037-01-02T00:00:00+01:00', '2037-01-03T00:00:00+01:00'));
+        self::assertNotContains('Anniversaire', $summaries('2037-01-01T23:00:00Z', '2037-01-02T23:00:00Z'));
+        self::assertNotContains('Anniversaire', $summaries('2036-12-31T00:00:00+01:00', '2037-01-01T00:00:00+01:00'));
+
+        $onTheFirst = $this->repository->findByDate($this->user(), new \DateTimeImmutable('2037-01-01', new \DateTimeZone('Europe/Paris')));
+        self::assertContains('Anniversaire', array_map(fn (Event $e) => $e->getSummary(), $onTheFirst));
+    }
 }

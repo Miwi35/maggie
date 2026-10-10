@@ -137,6 +137,7 @@ fun NowIndicator(modifier: Modifier = Modifier) {
 fun AllDayRow(
     events: List<ExpandedEvent>,
     modifier: Modifier = Modifier,
+    tag: String? = null,
     onEventClick: (ExpandedEvent) -> Unit = {},
 ) {
     if (events.isEmpty()) return
@@ -153,15 +154,18 @@ fun AllDayRow(
             Surface(
                 color = bgColor.copy(alpha = 0.85f),
                 shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.clickable { onEventClick(event) },
             ) {
+                // Tag and click on the Text itself, as in EventBlock: Maestro matches both at once.
                 Text(
                     text = event.summary,
                     style = MaterialTheme.typography.labelSmall,
                     color = readableTextOn(bgColor),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier
+                        .then(if (tag != null) Modifier.testTag(tag) else Modifier)
+                        .clickable { onEventClick(event) }
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
         }
@@ -190,8 +194,9 @@ fun calculateEventPosition(
         }.coerceIn(0, gridEndMinutes)
     }
 
-    val startMinutes = minutesOnGrid(event.startAt)
-    val durationMinutes = (minutesOnGrid(event.endAt) - startMinutes).coerceAtLeast(15)
+    val startAt = event.startAt ?: return 0.dp to 0.dp
+    val startMinutes = minutesOnGrid(startAt)
+    val durationMinutes = (minutesOnGrid(event.endAt ?: startAt) - startMinutes).coerceAtLeast(15)
 
     val topOffset = (startMinutes.toFloat() / 60f) * HOUR_HEIGHT.value
     val height = (durationMinutes.toFloat() / 60f) * HOUR_HEIGHT.value
@@ -201,22 +206,14 @@ fun calculateEventPosition(
 
 /**
  * Get events for a specific date, split into all-day and timed.
- * Multi-day events appear on every day they span.
+ * Multi-day events appear on every day they span; an all-day event on the days
+ * from its start date to its end date, both included, whatever [zone] (MAG-382).
  */
 fun eventsForDate(
     events: List<ExpandedEvent>,
     date: LocalDate,
     zone: ZoneId = ZoneId.of("Europe/Paris"),
 ): Pair<List<ExpandedEvent>, List<ExpandedEvent>> {
-    val dayEvents = events.filter { event ->
-        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
-        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
-            endZoned.toLocalDate().minusDays(1)
-        } else {
-            endZoned.toLocalDate()
-        }
-        date in startDate..maxOf(startDate, endDate)
-    }
+    val dayEvents = events.filter { event -> event.days(zone)?.contains(date) == true }
     return dayEvents.partition { it.allDay }
 }

@@ -29,38 +29,29 @@ class GoogleEventMapper
         /** @var ?EventDateTime $end */
         $end = $googleEvent->getEnd();
 
-        if ($start) {
-            /** @var ?string $startDate */
-            $startDate = $start->getDate();
-            /** @var ?string $startDateTime */
-            $startDateTime = $start->getDateTime();
+        /** @var ?string $startDate */
+        $startDate = $start?->getDate();
+        /** @var ?string $startDateTime */
+        $startDateTime = $start?->getDateTime();
 
-            if ($startDate) {
-                // All-day event
-                $event->setAllDay(true);
-                $event->setStartAt(new \DateTimeImmutable($startDate));
-                $event->setTimeZone($agenda->getTimeZone());
-            } elseif ($startDateTime) {
-                $event->setAllDay(false);
-                $event->setStartAt(new \DateTimeImmutable($startDateTime));
-                /** @var ?string $tz */
-                $tz = $start->getTimeZone();
-                if ($tz) {
-                    $event->setTimeZone($tz);
-                }
-            }
-        }
-
-        if ($end) {
+        if ($startDate) {
+            // All-day event: Google's `end.date` is the day after the last one,
+            // ours is the last one (MAG-382) — the one conversion there is.
             /** @var ?string $endDate */
-            $endDate = $end->getDate();
+            $endDate = $end?->getDate();
+            $first = self::day($startDate);
+            $last = null !== $endDate && '' !== $endDate ? self::day($endDate)->modify('-1 day') : $first;
+            $event->scheduleAllDay($first, $last < $first ? $first : $last);
+            $event->setTimeZone($agenda->getTimeZone());
+        } elseif ($startDateTime) {
             /** @var ?string $endDateTime */
-            $endDateTime = $end->getDateTime();
-
-            if ($endDate) {
-                $event->setEndAt(new \DateTimeImmutable($endDate));
-            } elseif ($endDateTime) {
-                $event->setEndAt(new \DateTimeImmutable($endDateTime));
+            $endDateTime = $end?->getDateTime();
+            $startAt = new \DateTimeImmutable($startDateTime);
+            $event->scheduleTimed($startAt, $endDateTime ? new \DateTimeImmutable($endDateTime) : $startAt);
+            /** @var ?string $tz */
+            $tz = $start?->getTimeZone();
+            if ($tz) {
+                $event->setTimeZone($tz);
             }
         }
 
@@ -134,21 +125,9 @@ class GoogleEventMapper
         if (isset($fields['location'])) {
             $googleEvent->setLocation($event->getLocation());
         }
-        if (isset($fields['startAt']) || isset($fields['endAt']) || isset($fields['allDay'])) {
+        if (array_intersect_key($fields, array_flip(['startAt', 'endAt', 'allDay', 'startDate', 'endDate']))) {
             // Date fields are interdependent, always send both start+end together
-            $start = new EventDateTime();
-            $end = new EventDateTime();
-
-            if ($event->isAllDay()) {
-                $start->setDate($event->getStartAt()->format('Y-m-d'));
-                $end->setDate($event->getEndAt()->format('Y-m-d'));
-            } else {
-                $start->setDateTime($event->getStartAt()->format(\DateTimeInterface::RFC3339));
-                $start->setTimeZone($event->getTimeZone());
-                $end->setDateTime($event->getEndAt()->format(\DateTimeInterface::RFC3339));
-                $end->setTimeZone($event->getTimeZone());
-            }
-
+            [$start, $end] = $this->scheduleToGoogle($event);
             $googleEvent->setStart($start);
             $googleEvent->setEnd($end);
         }
@@ -178,19 +157,7 @@ class GoogleEventMapper
         $googleEvent->setLocation($event->getLocation());
 
         // Date/time handling
-        $start = new EventDateTime();
-        $end = new EventDateTime();
-
-        if ($event->isAllDay()) {
-            $start->setDate($event->getStartAt()->format('Y-m-d'));
-            $end->setDate($event->getEndAt()->format('Y-m-d'));
-        } else {
-            $start->setDateTime($event->getStartAt()->format(\DateTimeInterface::RFC3339));
-            $start->setTimeZone($event->getTimeZone());
-            $end->setDateTime($event->getEndAt()->format(\DateTimeInterface::RFC3339));
-            $end->setTimeZone($event->getTimeZone());
-        }
-
+        [$start, $end] = $this->scheduleToGoogle($event);
         $googleEvent->setStart($start);
         $googleEvent->setEnd($end);
 
@@ -208,6 +175,38 @@ class GoogleEventMapper
         }
 
         return $googleEvent;
+    }
+
+    /**
+     * The start and the end as Google takes them. An all-day event's `end.date`
+     * is the day after its last one (MAG-382): `endDate + 1`, the inverse of
+     * the `- 1` in fromGoogle().
+     *
+     * @return array{EventDateTime, EventDateTime}
+     */
+    private function scheduleToGoogle(Event $event): array
+    {
+        $start = new EventDateTime();
+        $end = new EventDateTime();
+
+        $startDate = $event->getStartDate();
+        if (null !== $startDate) {
+            $start->setDate($startDate->format('Y-m-d'));
+            $end->setDate(($event->getEndDate() ?? $startDate)->modify('+1 day')->format('Y-m-d'));
+        } else {
+            $start->setDateTime($event->getStartInstant()->format(\DateTimeInterface::RFC3339));
+            $start->setTimeZone($event->getTimeZone());
+            $end->setDateTime($event->getEndInstant()->format(\DateTimeInterface::RFC3339));
+            $end->setTimeZone($event->getTimeZone());
+        }
+
+        return [$start, $end];
+    }
+
+    /** A Google `date`, which is a day: no time, no zone. */
+    private static function day(string $date): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable(substr($date, 0, 10), new \DateTimeZone('UTC'));
     }
 
     /** @param array<string, mixed> $reminderData */

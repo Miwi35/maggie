@@ -128,8 +128,8 @@ Maggie\Calendar\Entity\Event:
   e2e_event_all_day:
     summary: Anniversaire de Sacha
     allDay: true
-    startAt: '<e2eDate("+9 days 00:00")>'
-    endAt: '<e2eDate("+10 days 00:00")>'
+    startDate: '<e2eDate("+9 days")>'
+    endDate: '<e2eDate("+9 days")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
@@ -138,11 +138,24 @@ Maggie\Calendar\Entity\Event:
   # refused it against the absolute start it was given, and the exception took the
   # calendar screen down. Starts today so it is always in the week the journey opens;
   # UNTIL is two weeks out and read in Paris: its day is the last occurrence.
+  # A day is a date (MAG-382): one day, the 1st of the anchor's month, with no
+  # instant. Read as an instant in Paris, the old 00:00Z → 00:00Z of the next
+  # day ended at 01:00 on the 2nd and the mobile showed it on two days. The
+  # journeys check it fills the 1st alone, in the month and in the day views.
+  e2e_event_all_day_first:
+    summary: Journée du 1er MAG-382
+    allDay: true
+    startDate: '<e2eDate("first day of this month")>'
+    endDate: '<e2eDate("first day of this month")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
   e2e_event_all_day_series:
     summary: Stage de voile MAG-288
     allDay: true
-    startAt: '<e2eDate("00:00")>'
-    endAt: '<e2eDate("+1 day 00:00")>'
+    startDate: '<e2eDate()>'
+    endDate: '<e2eDate()>'
     timeZone: 'Europe/Paris'
     rrule: 'FREQ=WEEKLY;UNTIL=<e2eDateString("+14 days", "Ymd")>'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'

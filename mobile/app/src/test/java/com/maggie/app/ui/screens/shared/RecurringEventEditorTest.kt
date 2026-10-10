@@ -22,6 +22,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDate
+import java.time.ZoneId
 
 class RecurringEventEditorTest {
     private lateinit var repository: EventRepository
@@ -176,5 +178,92 @@ class RecurringEventEditorTest {
         editor.edit(single, null, editedData())
 
         coVerify(exactly = 1) { repository.updateEvent("single1", any()) }
+    }
+
+    // MAG-382: the 2038 occurrence of a yearly birthday on 1 January, as dates.
+    private val birthdayOccurrence = ExpandedEvent(
+        id = "bd__2038-01-01",
+        summary = "Anniversaire",
+        allDay = true,
+        startDate = LocalDate.of(2038, 1, 1),
+        endDate = LocalDate.of(2038, 1, 1),
+        isVirtualOccurrence = true,
+        masterEventId = "bd",
+        masterRrule = "FREQ=YEARLY",
+        masterStartAt = "2037-01-01T00:00:00+00:00",
+        originalStartAt = "2038-01-01T00:00:00+00:00",
+    )
+
+    // The form moves it to the 3rd and makes it two days long.
+    private fun movedToThe3rd(): JsonObject = EventFormState(
+        allDay = true,
+        start = LocalDate.of(2038, 1, 3).atStartOfDay(),
+        end = LocalDate.of(2038, 1, 4).atStartOfDay(),
+    ).patch(ZoneId.of("Europe/Paris"))
+
+    @Test
+    fun `this all-day occurrence creates an exception on dates, keyed by its date`() = runTest {
+        editor.edit(birthdayOccurrence, RecurrenceAction.THIS, movedToThe3rd())
+
+        val request = slot<EventCreateRequest>()
+        coVerify(exactly = 1) { repository.createEvent(capture(request)) }
+        assertEquals("/api/events/bd", request.captured.recurringEvent)
+        assertEquals("2038-01-01T00:00:00+00:00", request.captured.originalStartAt)
+        assertEquals(true, request.captured.allDay)
+        assertEquals("2038-01-03", request.captured.startDate)
+        assertEquals("2038-01-04", request.captured.endDate)
+        assertNull(request.captured.startAt)
+        assertNull(request.captured.endAt)
+    }
+
+    @Test
+    fun `this and following all-day occurrences ends the series the day before`() = runTest {
+        editor.edit(birthdayOccurrence, RecurrenceAction.THIS_AND_FOLLOWING, movedToThe3rd())
+
+        val patch = slot<JsonObject>()
+        val request = slot<EventCreateRequest>()
+        coVerifyOrder {
+            repository.updateEvent("bd", capture(patch))
+            repository.createEvent(capture(request))
+        }
+        assertEquals(JsonPrimitive("FREQ=YEARLY;UNTIL=20371231T235959Z"), patch.captured["rrule"])
+        assertEquals("2038-01-03", request.captured.startDate)
+        assertEquals("2038-01-04", request.captured.endDate)
+        assertNull(request.captured.startAt)
+    }
+
+    @Test
+    fun `all all-day occurrences move the master by whole days`() = runTest {
+        editor.edit(birthdayOccurrence, RecurrenceAction.ALL, movedToThe3rd())
+
+        val patch = slot<JsonObject>()
+        coVerify(exactly = 1) { repository.updateEvent("bd", capture(patch)) }
+        // +2 days on the master (2037-01-01), two days long
+        assertEquals(JsonPrimitive("2037-01-03"), patch.captured["startDate"])
+        assertEquals(JsonPrimitive("2037-01-04"), patch.captured["endDate"])
+        assertEquals(JsonNull, patch.captured["startAt"])
+        assertEquals(JsonNull, patch.captured["endAt"])
+    }
+
+    @Test
+    fun `cancelling one all-day occurrence sends its dates and its date key`() {
+        val request = cancelledOccurrence(birthdayOccurrence, "bd")
+
+        assertEquals("cancelled", request.status)
+        assertEquals("/api/events/bd", request.recurringEvent)
+        assertEquals("2038-01-01T00:00:00+00:00", request.originalStartAt)
+        assertEquals("2038-01-01", request.startDate)
+        assertEquals("2038-01-01", request.endDate)
+        assertNull(request.startAt)
+        assertNull(request.endAt)
+    }
+
+    @Test
+    fun `cancelling one timed occurrence sends its instant`() {
+        val request = cancelledOccurrence(occurrence, "master1")
+
+        assertEquals("2026-10-12T10:00:00Z", request.originalStartAt)
+        assertEquals("2026-10-12T10:00:00Z", request.startAt)
+        assertNull(request.startDate)
     }
 }

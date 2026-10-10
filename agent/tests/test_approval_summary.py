@@ -48,7 +48,7 @@ class TestDeletingAnEvent:
 
     async def test_an_all_day_event_has_no_hour_and_a_year_that_is_not_this_one_is_said(self, mcp):
         mcp.call_tool.return_value = reply(
-            {"event": {"summary": "Vacances", "allDay": True, "startAt": "2099-12-24T00:00:00+01:00"}}
+            {"event": {"summary": "Vacances", "allDay": True, "startAt": None, "startDate": "2099-12-24"}}
         )
 
         summary = await build_summary("delete_event", {"id": ULID}, "user-1")

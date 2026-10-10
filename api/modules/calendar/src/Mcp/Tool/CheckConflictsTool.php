@@ -57,8 +57,8 @@ class CheckConflictsTool
         $result = array_map(fn ($event) => [
             'id' => (string) $event->getId(),
             'summary' => $event->getSummary(),
-            'startAt' => $event->getStartAt()->format('c'),
-            'endAt' => $event->getEndAt()->format('c'),
+            'startAt' => $event->getStartInstant()->format('c'),
+            'endAt' => $event->getEndInstant()->format('c'),
             'agenda' => $event->getAgenda()->getName(),
         ], $conflicts);
 

@@ -89,9 +89,9 @@ const TIMEZONE_CALL = {
 const HOLIDAY = {
   question: 'Ajoute les vacances du 22 décembre 2099 au 3 janvier 2100',
   title: "Vacances d'hiver",
-  // Midnight in Paris (UTC+1 in winter): the first day, and the midnight after the last one.
-  startsAt: '2099-12-21T23:00:00.000Z',
-  endsAt: '2100-01-03T23:00:00.000Z',
+  // A day is a date (MAG-382): the first one and the last one, included — no instant.
+  firstDay: '2099-12-22',
+  lastDay: '2100-01-03',
 }
 
 /**
@@ -347,7 +347,9 @@ test('a stretch of days asked for is one whole-day event, not a series', async (
   expect(calledTools(events)).not.toContain('update_event')
   expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
 
-  const booked = await waitForIndexed<SeededEvent & { allDay?: boolean; endAt?: string; rrule?: string | null }>(
+  const booked = await waitForIndexed<
+    SeededEvent & { allDay?: boolean; startDate?: string | null; endDate?: string | null; rrule?: string | null }
+  >(
     api,
     APPOINTMENTS_URL,
     (event) => event.summary === HOLIDAY.title,
@@ -355,8 +357,9 @@ test('a stretch of days asked for is one whole-day event, not a series', async (
   )
   expect(booked.allDay).toBe(true)
   expect(booked.rrule ?? null).toBeNull()
-  expect(new Date(String(booked.startAt)).toISOString()).toBe(HOLIDAY.startsAt)
-  expect(new Date(String(booked.endAt)).toISOString()).toBe(HOLIDAY.endsAt)
+  expect(booked.startDate).toBe(HOLIDAY.firstDay)
+  expect(booked.endDate).toBe(HOLIDAY.lastDay)
+  expect(booked.startAt ?? null).toBeNull()
 
   // Only one row: a daily series, or thirteen events, would be found here.
   const sameTitle = (await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).filter(

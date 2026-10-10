@@ -11,6 +11,7 @@ import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined
 import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import Chip from '@mui/material/Chip'
+import { parseDay } from '../../dates'
 import { rruleToFrenchText } from './recurrenceUtils'
 import { remindersToFrenchText } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
@@ -19,7 +20,9 @@ import type { EventStatus } from './eventStatus'
 export interface PopoverEvent {
   id: string
   title: string
+  /** An instant (ISO 8601), or for an all-day event its first date, `YYYY-MM-DD`. */
   start: string
+  /** An instant (ISO 8601), or for an all-day event its last date, included (MAG-382). */
   end: string
   allDay: boolean
   color: string
@@ -42,10 +45,9 @@ interface EventDetailPopoverProps {
   onDelete: (eventId: string) => void
 }
 
-const formatDateTime = (start: string, end: string, allDay: boolean): string => {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
+const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
 
+const formatDateTime = (start: string, end: string, allDay: boolean): string => {
   const dateOpts: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     day: 'numeric',
@@ -54,20 +56,25 @@ const formatDateTime = (start: string, end: string, allDay: boolean): string => 
   }
 
   if (allDay) {
-    const startStr = startDate.toLocaleDateString('fr-FR', dateOpts)
-    if (startDate.toDateString() === endDate.toDateString()) {
-      return startStr.charAt(0).toUpperCase() + startStr.slice(1)
+    // Two dates, the last one included: shown as they are, never through an instant
+    // that a time zone could move to the day before or after (MAG-358, MAG-382).
+    const firstDay = start.slice(0, 10)
+    const lastDay = (end || start).slice(0, 10)
+    const startStr = parseDay(firstDay).toLocaleDateString('fr-FR', dateOpts)
+    if (lastDay <= firstDay) {
+      return capitalize(startStr)
     }
-    const endStr = endDate.toLocaleDateString('fr-FR', dateOpts)
-    return `${startStr.charAt(0).toUpperCase() + startStr.slice(1)} – ${endStr}`
+    return `${capitalize(startStr)} – ${parseDay(lastDay).toLocaleDateString('fr-FR', dateOpts)}`
   }
 
+  const startDate = new Date(start)
+  const endDate = new Date(end)
   const dateStr = startDate.toLocaleDateString('fr-FR', dateOpts)
   const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: false }
   const startTime = startDate.toLocaleTimeString('fr-FR', timeOpts)
   const endTime = endDate.toLocaleTimeString('fr-FR', timeOpts)
 
-  return `${dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}, ${startTime} – ${endTime}`
+  return `${capitalize(dateStr)}, ${startTime} – ${endTime}`
 }
 
 export const EventDetailPopover = ({

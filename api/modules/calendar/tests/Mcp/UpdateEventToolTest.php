@@ -55,10 +55,20 @@ class UpdateEventToolTest extends KernelTestCase
         return json_decode(($this->tool())($this->id($fixture), ...$args), true, 512, JSON_THROW_ON_ERROR);
     }
 
-    /** The event as the owner reads it: its own zone, not the database's. */
+    /**
+     * The event as the owner reads it: its own zone, not the database's — and
+     * an all-day event as its days, the last included, with no instant (MAG-382).
+     */
     private function span(string $fixture): string
     {
         $event = $this->reload($fixture);
+        if ($event->isAllDay()) {
+            self::assertNull($event->getStartAt(), 'An all-day event has no instant');
+            self::assertNull($event->getEndAt(), 'An all-day event has no instant');
+
+            return $event->getStartDate()?->format('Y-m-d').' … '.$event->getEndDate()?->format('Y-m-d');
+        }
+        self::assertNull($event->getStartDate(), 'A timed event has no day');
         $zone = new \DateTimeZone($event->getTimeZone());
 
         return $event->getStartAt()->setTimezone($zone)->format('Y-m-d H:i').' → '.$event->getEndAt()->setTimezone($zone)->format('Y-m-d H:i');
@@ -155,7 +165,7 @@ class UpdateEventToolTest extends KernelTestCase
         self::assertTrue($data['success']);
         $event = $this->reload('event_evening');
         self::assertTrue($event->isAllDay());
-        self::assertSame('2026-10-08 00:00 → 2026-10-09 00:00', $this->span('event_evening'));
+        self::assertSame('2026-10-08 … 2026-10-08', $this->span('event_evening'));
         self::assertTrue($data['event']['allDay']);
         self::assertSame('2026-10-08', $data['event']['startDate']);
         self::assertSame('2026-10-08', $data['event']['endDate'], 'The last day included, so that Maggie does not announce the day after');
@@ -181,7 +191,7 @@ class UpdateEventToolTest extends KernelTestCase
         self::assertSame('2026-12-22', $data['event']['startDate']);
         self::assertSame('2027-01-03', $data['event']['endDate']);
         self::assertTrue($this->reload('event_evening')->isAllDay());
-        self::assertSame('2026-12-22 00:00 → 2027-01-04 00:00', $this->span('event_evening'));
+        self::assertSame('2026-12-22 … 2027-01-03', $this->span('event_evening'));
         $this->assertMercureUpdatePublished('/events/');
         $this->assertElasticsearchIndexDispatched(Event::class);
     }
@@ -205,14 +215,14 @@ class UpdateEventToolTest extends KernelTestCase
 
         self::assertTrue($data['success']);
         self::assertTrue($this->reload('event_all_day')->isAllDay());
-        self::assertSame('2026-10-11 00:00 → 2026-10-12 00:00', $this->span('event_all_day'));
+        self::assertSame('2026-10-11 … 2026-10-11', $this->span('event_all_day'));
     }
 
     public function testAMultiDayAllDayEventEndsOnItsLastDayIncluded(): void
     {
         $data = $this->call('event_all_day', all_day: true, start_date: '2026-10-10', end_date: '2026-10-12');
 
-        self::assertSame('2026-10-10 00:00 → 2026-10-13 00:00', $this->span('event_all_day'));
+        self::assertSame('2026-10-10 … 2026-10-12', $this->span('event_all_day'));
         self::assertSame('2026-10-12', $data['event']['endDate']);
     }
 

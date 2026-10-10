@@ -39,8 +39,10 @@ class GetEventsByDateTool
             'description' => $event->getDescription(),
             'location' => $event->getLocation(),
             'allDay' => $event->isAllDay(),
-            'startAt' => $event->getStartAt()->format('c'),
-            'endAt' => $event->getEndAt()->format('c'),
+            'startAt' => $event->getStartAt()?->format('c'),
+            'endAt' => $event->getEndAt()?->format('c'),
+            'startDate' => $event->getStartDate()?->format('Y-m-d'),
+            'endDate' => $event->getEndDate()?->format('Y-m-d'),
             'status' => $event->getStatus()->value,
             'agenda' => $event->getAgenda()->getName(),
         ], $expanded);

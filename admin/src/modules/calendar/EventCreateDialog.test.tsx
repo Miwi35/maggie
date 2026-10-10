@@ -124,27 +124,64 @@ describe('EventCreateDialog', () => {
     expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
   })
 
-  // An all-day event is a calendar day, not an instant: it is stored as that day in
-  // UTC (what Google sync does), with the zone written out (MAG-168).
-  test('an all-day event is posted as whole days', async () => {
+  // An all-day event is a pair of dates, the last one included, and no instant at all (MAG-382).
+  test('an all-day event is posted as its dates, without startAt or endAt', async () => {
     await open()
 
     fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Anniversaire' } })
     await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    const { data } = mockCreate.mock.calls[0][1] as { data: Record<string, unknown> }
+    expect(data).toMatchObject({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-05' })
+    expect(data).not.toHaveProperty('startAt')
+    expect(data).not.toHaveProperty('endAt')
+  })
+
+  test('a selection of three days on the grid is posted with its last day included', async () => {
+    // FullCalendar's selection end is exclusive: 26 → 29 is the 26th, 27th and 28th.
+    render(
+      <EventCreateDialog
+        open
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        defaultStart={new Date(2037, 0, 26)}
+        defaultEnd={new Date(2037, 0, 29)}
+        defaultAllDay
+      />,
+    )
+    await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object)))
+
+    expect(screen.getByLabelText(/Fin/)).toHaveValue('2037-01-28')
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Stage' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         'events',
         expect.objectContaining({
-          data: expect.objectContaining({
-            allDay: true,
-            startAt: '2026-10-05T00:00:00Z',
-            endAt: '2026-10-05T23:59:59Z',
-          }),
+          data: expect.objectContaining({ allDay: true, startDate: '2037-01-26', endDate: '2037-01-28' }),
         }),
       ),
     )
+  })
+
+  test('a refused all-day event says why and keeps the dialog open', async () => {
+    const onClose = vi.fn()
+    mockCreate.mockRejectedValue(new Error('endDate: la fin précède le début'))
+    render(
+      <EventCreateDialog open onClose={onClose} onCreated={vi.fn()} defaultStart={new Date(2037, 0, 1)} defaultAllDay />,
+    )
+    await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object)))
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Nouvel an' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockNotify).toHaveBeenCalledWith('Erreur: endDate: la fin précède le début', { type: 'error' }),
+    )
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   /**

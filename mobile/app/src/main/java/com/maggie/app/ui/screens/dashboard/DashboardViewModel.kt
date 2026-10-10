@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.ZoneId
 
 data class DashboardUiState(
     val todayEvents: List<ExpandedEvent> = emptyList(),
@@ -95,9 +96,9 @@ class DashboardViewModel(
             val todayExpanded = EventExpander.expandForRange(allEvents, ranges.today.start, ranges.today.end, agendaMap)
             val tomorrowExpanded = EventExpander.expandForRange(allEvents, ranges.tomorrow.start, ranges.tomorrow.end, agendaMap)
             val weekExpanded = EventExpander.expandForRange(allEvents, ranges.week.start, ranges.week.end, agendaMap)
-                .filter { !isInRange(it.startAt, ranges.today) && !isInRange(it.startAt, ranges.tomorrow) }
+                .filter { !startsIn(it, ranges.today) && !startsIn(it, ranges.tomorrow) }
             val monthExpanded = EventExpander.expandForRange(allEvents, ranges.month.start, ranges.month.end, agendaMap)
-                .filter { !isInRange(it.startAt, ranges.week) && !isInRange(it.startAt, ranges.tomorrow) }
+                .filter { !startsIn(it, ranges.week) && !startsIn(it, ranges.tomorrow) }
 
             // Fetch tasks
             val rawTasks = taskRepository.getUndoneTasks(ranges.month.end.toString())
@@ -157,6 +158,16 @@ class DashboardViewModel(
         }
     }
 
+    /** An all-day event starts on its date, read against the days of [range] in Paris (MAG-382). */
+    private fun startsIn(event: ExpandedEvent, range: com.maggie.app.util.DateRange): Boolean {
+        val firstDay = event.startDate
+        if (event.allDay && firstDay != null) {
+            return firstDay >= range.start.atZone(PARIS).toLocalDate() &&
+                firstDay < range.end.atZone(PARIS).toLocalDate()
+        }
+        return event.startAt?.let { isInRange(it, range) } ?: false
+    }
+
     private fun isInRange(dateStr: String, range: com.maggie.app.util.DateRange): Boolean {
         val d = Instant.parse(dateStr)
         return d >= range.start && d < range.end
@@ -175,5 +186,9 @@ class DashboardViewModel(
                 .coalescedAndRechecked()
                 .collect { refresh() }
         }
+    }
+
+    private companion object {
+        val PARIS: ZoneId = ZoneId.of("Europe/Paris")
     }
 }

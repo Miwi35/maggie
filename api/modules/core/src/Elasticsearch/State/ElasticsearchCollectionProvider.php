@@ -64,14 +64,14 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     }
 
     /**
-     * @param array{index: string, module: ?string, fields: array<string, mixed>, relations: array<string, mixed>} $meta
-     * @param array<string, mixed>                                                                                 $context
+     * @param array{index: string, module: ?string, fields: array<string, mixed>, relations: array<string, mixed>, dayFields?: array<string, string>} $meta
+     * @param array<string, mixed>                                                                                                                    $context
      */
     private function doProvide(array $meta, string $entityClass, Operation $operation, array $context): ElasticsearchPaginator
     {
         $userId = $this->getCurrentUserId();
         $filters = $context['filters'] ?? [];
-        $translated = $this->filterTranslator->translate($filters, $meta['fields'], $meta['relations']);
+        $translated = $this->filterTranslator->translate($filters, $meta['fields'], $meta['relations'], $meta['dayFields'] ?? []);
 
         // Pagination
         $page = (int) ($filters['page'] ?? 1);

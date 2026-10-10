@@ -36,9 +36,10 @@ async function createMultiDayEvent(api: APIRequestContext, summary: string, agen
     headers: JSON_LD,
     data: {
       summary,
+      // A day is a pair of dates, the last one included (MAG-382): yesterday to tomorrow.
       allDay: true,
-      startAt: `${seedDate(-1)}T00:00:00+00:00`,
-      endAt: `${seedDate(2)}T00:00:00+00:00`,
+      startDate: seedDate(-1),
+      endDate: seedDate(1),
       agenda: `/api/agendas/${agenda.id}`,
     },
   })

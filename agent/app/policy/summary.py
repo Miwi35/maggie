@@ -118,7 +118,9 @@ def _find_title(node: object, wanted: str) -> str | None:
 
 
 def _when(event: dict) -> str | None:
-    start = event.get("startAt")
+    # An all-day event is a date and has no startAt (MAG-382): its day is read as it is.
+    all_day = bool(event.get("allDay"))
+    start = event.get("startDate") if all_day else event.get("startAt")
     if not isinstance(start, str):
         return None
     try:
@@ -128,7 +130,7 @@ def _when(event: dict) -> str | None:
     day = f"le {moment.day} {_MONTHS[moment.month - 1]}"
     if moment.year != datetime.now(moment.tzinfo).year:
         day += f" {moment.year}"
-    return day if event.get("allDay") else f"{day} à {moment:%H:%M}"
+    return day if all_day else f"{day} à {moment:%H:%M}"
 
 
 async def _read(tool_name: str, arguments: dict, user_id: str) -> object:

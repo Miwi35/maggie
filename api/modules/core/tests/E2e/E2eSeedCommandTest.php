@@ -97,9 +97,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // between two agendas, and « Boulot » and « Concerts » are what the
         // journeys watch an event be filed into.
         self::assertSame(5, $this->rowsOf(Agenda::class));
-        // Events include the meals, which extend Event: 14 events + 2 meals. Four
-        // of the fourteen are the habits the deduction reads (MAG-150).
-        self::assertSame(16, $this->rowsOf(Event::class));
+        // Events include the meals, which extend Event: 15 events + 2 meals. Four
+        // of the fifteen are the habits the deduction reads (MAG-150), one the
+        // day on the 1st of the month (MAG-382).
+        self::assertSame(17, $this->rowsOf(Event::class));
         self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));

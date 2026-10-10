@@ -50,7 +50,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
@@ -138,6 +137,8 @@ import com.maggie.app.ui.screens.shared.EventEditScreen
 import com.maggie.app.ui.screens.shared.RecurrenceAction
 import com.maggie.app.ui.screens.shared.RecurrenceConfirmDialog
 import com.maggie.app.ui.screens.shared.RecurringEventEditor
+import com.maggie.app.ui.screens.shared.cancelledOccurrence
+import com.maggie.app.ui.screens.shared.occurrenceStartKey
 import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
@@ -1341,24 +1342,12 @@ fun NavGraph() {
                     val masterId = event.masterEventId ?: event.id
                     when {
                         isDelete && action == RecurrenceAction.THIS -> {
-                            eventRepository.createEvent(
-                                EventCreateRequest(
-                                    summary = event.summary,
-                                    startAt = event.originalStartAt ?: event.startAt,
-                                    endAt = event.originalStartAt ?: event.startAt,
-                                    allDay = event.allDay,
-                                    timeZone = event.timeZone,
-                                    agenda = event.agendaIri,
-                                    recurringEvent = "/api/events/$masterId",
-                                    originalStartAt = event.originalStartAt ?: event.startAt,
-                                    status = "cancelled",
-                                ),
-                            )
+                            eventRepository.createEvent(cancelledOccurrence(event, masterId))
                         }
                         isDelete && action == RecurrenceAction.THIS_AND_FOLLOWING -> {
                             val newRrule = RruleUtils.addUntilToRrule(
                                 event.masterRrule!!,
-                                Instant.parse(event.originalStartAt ?: event.startAt),
+                                Instant.parse(occurrenceStartKey(event)),
                             )
                             eventRepository.updateEvent(masterId, buildJsonObject { put("rrule", newRrule) })
                         }

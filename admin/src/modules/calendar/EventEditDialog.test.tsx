@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EventEditDialog } from './EventEditDialog'
 
@@ -36,6 +36,8 @@ describe('EventEditDialog', () => {
       summary: 'Dentiste (contrôle)',
       startAt: event.start,
       endAt: event.end,
+      startDate: null,
+      endDate: null,
       allDay: false,
       description: 'Contrôle annuel',
       location: 'Cabinet',
@@ -116,40 +118,72 @@ describe('EventEditDialog', () => {
     expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
   })
 
-  test('shows an all-day event on its included days', () => {
-    render(
-      <EventEditDialog
-        open
-        event={{
-          ...event,
-          allDay: true,
-          start: new Date(2026, 9, 5).toISOString(),
-          end: new Date(2026, 9, 7).toISOString(),
-        }}
-        onClose={vi.fn()}
-        onSubmit={vi.fn()}
-      />,
-    )
+  // An all-day event is a pair of dates, the last one included (MAG-382).
+  const birthday = { ...event, allDay: true, start: '2037-01-26', end: '2037-01-28' }
 
-    expect(screen.getByLabelText(/Début/)).toHaveValue('2026-10-05')
-    expect(screen.getByLabelText(/Fin/)).toHaveValue('2026-10-06')
+  test('shows an all-day event on its dates, the last one as it is', () => {
+    render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={vi.fn()} />)
+
+    expect(screen.getByLabelText(/Début/)).toHaveValue('2037-01-26')
+    expect(screen.getByLabelText(/Fin/)).toHaveValue('2037-01-28')
   })
 
-  test('submits an all-day event as whole days in UTC (MAG-168)', async () => {
+  test('submits an all-day event as its dates, and clears the instants (MAG-382)', async () => {
+    const onSubmit = vi.fn()
+    render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={onSubmit} />)
+
+    fireEvent.change(screen.getByLabelText(/Fin/), { target: { value: '2037-01-29' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allDay: true,
+        startDate: '2037-01-26',
+        endDate: '2037-01-29',
+        startAt: null,
+        endAt: null,
+      }),
+    )
+  })
+
+  test('a one-day event keeps one date at each end', async () => {
     const onSubmit = vi.fn()
     render(
-      <EventEditDialog
-        open
-        event={{ ...event, allDay: true, start: new Date(2026, 9, 5).toISOString(), end: new Date(2026, 9, 7).toISOString() }}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-      />,
+      <EventEditDialog open event={{ ...birthday, start: '2037-01-01', end: '2037-01-01' }} onClose={vi.fn()} onSubmit={onSubmit} />,
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startDate: '2037-01-01', endDate: '2037-01-01' }))
+  })
+
+  test('switching a timed event to all-day sends dates and nulls the instants', async () => {
+    const onSubmit = vi.fn()
+    render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={onSubmit} />)
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ allDay: true, startAt: '2026-10-05T00:00:00Z', endAt: '2026-10-06T23:59:59Z' }),
+      expect.objectContaining({ allDay: true, startDate: '2026-10-05', endDate: '2026-10-05', startAt: null, endAt: null }),
+    )
+  })
+
+  test('switching an all-day event to timed sends instants and nulls the dates', async () => {
+    const onSubmit = vi.fn()
+    render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={onSubmit} />)
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allDay: false,
+        startAt: new Date(2037, 0, 26, 9, 0).toISOString(),
+        endAt: new Date(2037, 0, 28, 10, 0).toISOString(),
+        startDate: null,
+        endDate: null,
+      }),
     )
   })
 

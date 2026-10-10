@@ -41,6 +41,26 @@ import java.util.Locale
 private val dateFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH)
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
 
+/**
+ * When the event takes place, as the detail shows it. An all-day event shows its
+ * dates as they are, the last one included (« Du … au … »), never through a zone
+ * (MAG-382); a timed one its day and hours in its own zone.
+ */
+internal fun eventDateLabel(event: ExpandedEvent): String {
+    fun capitalised(text: String) = text.replaceFirstChar { it.uppercase() }
+    val firstDay = event.startDate
+    if (event.allDay && firstDay != null) {
+        val lastDay = event.endDate ?: firstDay
+        if (lastDay <= firstDay) return capitalised(firstDay.format(dateFormatter))
+        return "Du ${firstDay.format(dateFormatter)} au ${lastDay.format(dateFormatter)}"
+    }
+    val zone = ZoneId.of(event.timeZone)
+    val start = Instant.parse(event.startAt ?: return "").atZone(zone)
+    val end = event.endAt?.let { Instant.parse(it).atZone(zone) } ?: start
+    if (event.allDay) return capitalised(start.format(dateFormatter))
+    return "${capitalised(start.format(dateFormatter))}, ${start.format(timeFormatter)} - ${end.format(timeFormatter)}"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailSheet(
@@ -66,9 +86,6 @@ fun EventDetailContent(
     modifier: Modifier = Modifier,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
-    val zone = ZoneId.of(event.timeZone)
-    val startZdt = Instant.parse(event.startAt).atZone(zone)
-    val endZdt = Instant.parse(event.endAt).atZone(zone)
     val agendaColor = event.agendaColor?.let { parseColor(it) }
 
     frame {
@@ -100,11 +117,7 @@ fun EventDetailContent(
                 Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = if (event.allDay) {
-                        startZdt.format(dateFormatter).replaceFirstChar { it.uppercase() }
-                    } else {
-                        "${startZdt.format(dateFormatter).replaceFirstChar { it.uppercase() }}, ${startZdt.format(timeFormatter)} - ${endZdt.format(timeFormatter)}"
-                    },
+                    text = eventDateLabel(event),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

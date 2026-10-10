@@ -110,9 +110,8 @@ fun EventEditScreen(
                 onClick = {
                     onConfirm(buildJsonObject {
                         put("summary", summary)
-                        put("startAt", dates.startAt(zone))
-                        put("endAt", dates.endAt(zone))
-                        put("allDay", dates.allDay)
+                        // Both pairs of bounds, the unused one null (MAG-382).
+                        dates.patch(zone).forEach { (key, value) -> put(key, value) }
                         put("description", description.ifBlank { null })
                         put("location", location.ifBlank { null })
                         put("agenda", selectedAgendaIri)

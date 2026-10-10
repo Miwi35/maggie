@@ -253,11 +253,14 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('2026-08-03', $data['event']['startDate']);
         self::assertSame('2026-08-07', $data['event']['endDate']);
 
+        // MAG-382: dates in the database, the last day included, and no instant.
         $stored = $this->stored('Vacances');
-        $zone = new \DateTimeZone('Europe/Paris');
         self::assertTrue($stored->isAllDay());
-        self::assertSame('2026-08-03 00:00', $stored->getStartAt()->setTimezone($zone)->format('Y-m-d H:i'));
-        self::assertSame('2026-08-08 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        self::assertSame('2026-08-03', $stored->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-08-07', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertNull($stored->getStartAt());
+        self::assertNull($stored->getEndAt());
+        self::assertNull($data['event']['startAt']);
     }
 
     /** MAG-317: « du 22 décembre au 3 janvier » ended as a single day, then as a daily series. */
@@ -285,12 +288,12 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM event'));
 
         $stored = $this->stored('Vacances de Noël');
-        $zone = new \DateTimeZone('Europe/Paris');
         self::assertTrue($stored->isAllDay());
         self::assertNull($stored->getRrule());
-        self::assertSame('2026-12-22 00:00', $stored->getStartAt()->setTimezone($zone)->format('Y-m-d H:i'));
-        self::assertSame('2027-01-04 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
-        self::assertSame(13, (int) $stored->getStartAt()->setTimezone($zone)->diff($stored->getEndAt()->setTimezone($zone))->days);
+        self::assertSame('2026-12-22', $stored->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2027-01-03', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertSame(12, (int) $stored->getStartDate()?->diff($stored->getEndDate() ?? $stored->getStartDate())->days);
+        self::assertNull($stored->getStartAt());
         $this->assertMercureUpdatePublished('/events/');
         $this->assertElasticsearchIndexDispatched(Event::class);
     }

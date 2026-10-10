@@ -8,19 +8,37 @@ import DateRangeIcon from '@mui/icons-material/DateRange'
 import { DailyDigestRow } from './DailyDigestRow'
 import { DigestSection } from './DigestSection'
 import { getThisMonth, getThisWeek, getToday, getTomorrow } from './dateUtils'
-import { expandRrule } from '../calendar/recurrenceUtils'
+import { addDays, daysBetween, localDay, parseDay } from '../../dates'
+import { expandRrule, expandRruleDays } from '../calendar/recurrenceUtils'
 import type { DashboardEvent } from './EventListWidget'
 import type { DashboardTask } from './TaskListWidget'
 
 const DASHBOARD_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
+
+/** The timing fields of a row, as the widget reads them. */
+const timingOf = (e: RawEvent): Pick<DashboardEvent, 'startAt' | 'endAt' | 'startDate' | 'endDate' | 'allDay'> =>
+  e.allDay
+    ? { allDay: true, startAt: null, endAt: null, startDate: e.startDate ?? null, endDate: e.endDate ?? e.startDate ?? null }
+    : { allDay: false, startAt: e.startAt, endAt: e.endAt, startDate: null, endDate: null }
+
+/**
+ * When an event begins, to place it in a section: a timed one at its instant, an
+ * all-day one at the local midnight of its first date — a date has no instant of
+ * its own, and its UTC midnight would be the eve in any zone west of Greenwich.
+ */
+const beginningOf = (e: Pick<DashboardEvent, 'allDay' | 'startAt' | 'startDate'>): Date =>
+  e.allDay && e.startDate ? parseDay(e.startDate) : new Date(e.startAt ?? '')
 
 interface RawEvent {
   id: string
   summary: string
   description?: string
   location?: string
-  startAt: string
-  endAt: string
+  startAt: string | null
+  endAt: string | null
+  /** `YYYY-MM-DD` on an all-day event, the end included (MAG-382). */
+  startDate?: string | null
+  endDate?: string | null
   allDay: boolean
   agenda: string
   timeZone?: string
@@ -130,9 +148,32 @@ export const Dashboard = () => {
         // Skip exception instances — handled during master expansion
         if (e.recurringEvent) continue
 
-        if (e.rrule) {
-          const dtstart = new Date(e.startAt)
-          const duration = new Date(e.endAt).getTime() - dtstart.getTime()
+        if (e.rrule && e.allDay && e.startDate) {
+          // An all-day series is expanded on its dates (MAG-382); an occurrence is
+          // keyed, against its exceptions, by its date at midnight UTC.
+          const length = daysBetween(e.startDate, e.endDate ?? e.startDate)
+          const exceptions = exceptionMap.get(`/api/events/${e.id}`)
+          for (const day of expandRruleDays(e.rrule, e.startDate, 0, localDay(start), localDay(end))) {
+            const exception = exceptions?.get(new Date(`${day}T00:00:00Z`).getTime())
+            if (exception) {
+              if (exception.status === 'cancelled') continue
+              result.push({ id: exception.id, summary: exception.summary, ...timingOf(exception), location: exception.location })
+            } else {
+              result.push({
+                id: `${e.id}__${day}`,
+                summary: e.summary,
+                allDay: true,
+                startAt: null,
+                endAt: null,
+                startDate: day,
+                endDate: addDays(day, length),
+                location: e.location,
+              })
+            }
+          }
+        } else if (e.rrule) {
+          const dtstart = new Date(e.startAt ?? '')
+          const duration = new Date(e.endAt ?? '').getTime() - dtstart.getTime()
           const occurrences = expandRrule(e.rrule, dtstart, start, end, e.timeZone)
           const eventIri = `/api/events/${e.id}`
           const exceptions = exceptionMap.get(eventIri)
@@ -146,9 +187,7 @@ export const Dashboard = () => {
               result.push({
                 id: exception.id,
                 summary: exception.summary,
-                startAt: exception.startAt,
-                endAt: exception.endAt,
-                allDay: exception.allDay,
+                ...timingOf(exception),
                 location: exception.location,
               })
             } else {
@@ -158,21 +197,21 @@ export const Dashboard = () => {
                 summary: e.summary,
                 startAt: occ.toISOString(),
                 endAt: occEnd.toISOString(),
-                allDay: e.allDay,
+                startDate: null,
+                endDate: null,
+                allDay: false,
                 location: e.location,
               })
             }
           }
         } else {
-          // Non-recurring: include if startAt falls within range
-          const eventStart = new Date(e.startAt)
+          // Non-recurring: include if it begins within range
+          const eventStart = beginningOf({ allDay: e.allDay, startAt: e.startAt, startDate: e.startDate ?? null })
           if (eventStart >= start && eventStart < end) {
             result.push({
               id: e.id,
               summary: e.summary,
-              startAt: e.startAt,
-              endAt: e.endAt,
-              allDay: e.allDay,
+              ...timingOf(e),
               location: e.location,
             })
           }
@@ -181,7 +220,9 @@ export const Dashboard = () => {
 
       result.sort((a, b) => {
         if (a.allDay !== b.allDay) return a.allDay ? -1 : 1
-        return a.startAt.localeCompare(b.startAt)
+        return a.allDay
+          ? (a.startDate ?? '').localeCompare(b.startDate ?? '')
+          : (a.startAt ?? '').localeCompare(b.startAt ?? '')
       })
 
       return result
@@ -190,8 +231,8 @@ export const Dashboard = () => {
   )
 
   // Check if a date falls within a range
-  const isInRange = (dateStr: string, rangeStart: string, rangeEnd: string): boolean => {
-    const d = new Date(dateStr).getTime()
+  const isInRange = (e: DashboardEvent, rangeStart: string, rangeEnd: string): boolean => {
+    const d = beginningOf(e).getTime()
     return d >= new Date(rangeStart).getTime() && d < new Date(rangeEnd).getTime()
   }
 
@@ -231,16 +272,16 @@ export const Dashboard = () => {
     const all = expandEventsForRange(ranges.week.start, ranges.week.end)
     return all.filter(
       (e) =>
-        !isInRange(e.startAt, ranges.today.start, ranges.today.end) &&
-        !isInRange(e.startAt, ranges.tomorrow.start, ranges.tomorrow.end),
+        !isInRange(e, ranges.today.start, ranges.today.end) &&
+        !isInRange(e, ranges.tomorrow.start, ranges.tomorrow.end),
     )
   }, [expandEventsForRange, ranges])
   const monthEvents = useMemo(() => {
     const all = expandEventsForRange(ranges.month.start, ranges.month.end)
     return all.filter(
       (e) =>
-        !isInRange(e.startAt, ranges.week.start, ranges.week.end) &&
-        !isInRange(e.startAt, ranges.tomorrow.start, ranges.tomorrow.end),
+        !isInRange(e, ranges.week.start, ranges.week.end) &&
+        !isInRange(e, ranges.tomorrow.start, ranges.tomorrow.end),
     )
   }, [expandEventsForRange, ranges])
 

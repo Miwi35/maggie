@@ -117,6 +117,8 @@ fun EventCreateScreen(
                             summary = summary,
                             startAt = dates.startAt(zone),
                             endAt = dates.endAt(zone),
+                            startDate = dates.allDayStartDate,
+                            endDate = dates.allDayEndDate,
                             allDay = dates.allDay,
                             description = description.ifBlank { null },
                             location = location.ifBlank { null },

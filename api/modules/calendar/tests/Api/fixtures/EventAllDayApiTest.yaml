@@ -1,0 +1,34 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  test_agenda:
+    name: Test Agenda
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  # The owner's case: a birthday on the 1st, one day.
+  first_of_january:
+    summary: Anniversaire
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    agenda: '@test_agenda'
+
+  # Three days, the last one included.
+  three_days:
+    summary: Séminaire
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2037-01-26"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-28"))>'
+    agenda: '@test_agenda'
+
+  timed:
+    summary: Dentiste
+    startAt: '<(new \DateTimeImmutable("2037-01-02T09:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-01-02T10:00:00+01:00"))>'
+    agenda: '@test_agenda'

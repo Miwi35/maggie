@@ -78,8 +78,8 @@ class MealToolsTest extends KernelTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         $stored = $em->find(Meal::class, $created['meal']['id']);
-        // Stored in UTC; the meal is planned in the Paris time zone.
-        self::assertSame('2026-03-21', $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+        // A day, with no instant (MAG-382).
+        self::assertSame('2026-03-21', $stored->getStartDate()?->format('Y-m-d'));
 
         $this->assertMercureUpdatePublished('/meals/');
     }
@@ -179,7 +179,7 @@ class MealToolsTest extends KernelTestCase
         $em->clear();
         $stored = $em->find(Meal::class, $created['meal']['id']);
         self::assertCount(0, $stored->getRecipes());
-        self::assertSame('2026-03-20', $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+        self::assertSame('2026-03-20', $stored->getStartDate()?->format('Y-m-d'));
 
         $this->assertMercureUpdatePublished('/meals/');
         $this->assertElasticsearchIndexDispatched(Meal::class);

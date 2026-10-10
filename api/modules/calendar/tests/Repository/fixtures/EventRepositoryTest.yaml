@@ -56,3 +56,11 @@ Maggie\Calendar\Entity\Event:
     startAt: '<(new \DateTimeImmutable("+60 days 10:00"))>'
     endAt: '<(new \DateTimeImmutable("+60 days 11:00"))>'
     agenda: '@test_agenda'
+
+  # MAG-382: a day is a date, the last one included.
+  first_of_january:
+    summary: Anniversaire
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    endDate: '<(new \DateTimeImmutable("2037-01-01"))>'
+    agenda: '@test_agenda'

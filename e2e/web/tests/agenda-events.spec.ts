@@ -30,8 +30,11 @@ import { CalendarPage } from '../pages/CalendarPage.js'
 interface StoredEvent {
   id?: string
   summary?: string
-  startAt?: string
-  endAt?: string
+  startAt?: string | null
+  endAt?: string | null
+  /** `YYYY-MM-DD` on an all-day event, the last one included (MAG-382). */
+  startDate?: string | null
+  endDate?: string | null
   agenda?: string
   allDay?: boolean
   status?: string
@@ -263,6 +266,62 @@ test('a night-train event is on the day it starts and on the day it ends', async
 
   await calendar.goForward()
   await expect(calendar.chip(summary), 'missing on the morning it arrives').toHaveCount(1)
+})
+
+/**
+ * A day is a date, and an all-day event of the 1st fills the 1st alone (MAG-382).
+ *
+ * It was stored as two instants — 00:00Z to the next 00:00Z from Google, 00:00Z to
+ * 23:59:59Z from this admin — and read in Paris that ended on the 2nd, so a one-day
+ * event spilled onto the next day. It is now two dates, the last one included, and
+ * FullCalendar's exclusive end is computed on the date itself. The seeded event is
+ * on the 1st of the anchor's month, the very day an offset pushes into the previous
+ * month or the next day.
+ *
+ * Measured, not counted, in the month view: FullCalendar draws a bar of several days
+ * as one element laid across its cells, so a chip count per cell would pass on the
+ * bug. The day view then walks to the 2nd, where it must be gone.
+ */
+test('an all-day event of the 1st fills one cell of the month, and only the 1st', async ({ page, api }) => {
+  const calendar = new CalendarPage(page)
+  const summary = 'Journée du 1er MAG-382'
+  const id = seedId('e2e_event_all_day_first')
+  const first = `${DAY.slice(0, 7)}-01`
+
+  const response = await api.get(`/api/events/${id}`)
+  expect(response.ok()).toBe(true)
+  const stored = (await response.json()) as StoredEvent
+  expect(stored).toMatchObject({ allDay: true, startDate: first, endDate: first })
+  expect(stored.startAt ?? null).toBeNull()
+
+  await calendar.goToEventDate(id, summary)
+  await calendar.chooseView('Mois')
+  await expect(calendar.monthCell(first).getByText(summary, { exact: true })).toHaveCount(1)
+  expect(await calendar.monthCellsSpanned(summary, first), 'the bar runs past the 1st').toBe(1)
+
+  // And the card says the 1st, the only day it covers.
+  await calendar.openChip(summary)
+  await expect(calendar.popover).not.toContainText(' – ')
+
+  await calendar.closePopover()
+  await calendar.chooseView('Jour')
+  await expect(calendar.chip(summary), 'missing on the 1st').toHaveCount(1)
+  await calendar.goForward()
+  await expect(calendar.chip(summary), 'still there on the 2nd').toHaveCount(0)
+})
+
+/** An all-day event created from the dialog is stored as its two dates, with no instant (MAG-382). */
+test('an all-day event created from the dialog is stored as its dates', async ({ page, api }) => {
+  const { summary } = slot('Journée de formation')
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+
+  await calendar.createEvent({ summary, start: DAY, end: DAY, allDay: true, agenda: 'Perso' })
+
+  const stored = await storedEvent(api, summary)
+  expect(stored).toMatchObject({ allDay: true, startDate: DAY, endDate: DAY })
+  expect(stored.startAt ?? null).toBeNull()
+  expect(stored.endAt ?? null).toBeNull()
 })
 
 /**

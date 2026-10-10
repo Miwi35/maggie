@@ -19,7 +19,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 8: events carry their reminders (MAG-121). The database is a cache of the
     // API and the builder falls back to a destructive migration, so a bump is all
     // a new column needs.
-    version = 8,
+    // 9: an all-day event is a pair of dates, its instants null (MAG-382).
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -14,3 +14,32 @@ export function localDay(d: Date): string {
   const day = `${d.getDate()}`.padStart(2, '0')
   return `${d.getFullYear()}-${month}-${day}`
 }
+
+/*
+ * An all-day event is a pair of dates, `YYYY-MM-DD`, the end included (MAG-382).
+ * The helpers below do arithmetic on the date itself — through `Date.UTC`, which
+ * has no offset and no daylight saving — so no time zone can move a day.
+ */
+
+const DAY_MS = 86_400_000
+
+const utcOf = (day: string): number => {
+  const [y, m, d] = day.split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
+/** `day` moved by `n` days (negative goes back). */
+export function addDays(day: string, n: number): string {
+  return new Date(utcOf(day) + n * DAY_MS).toISOString().slice(0, 10)
+}
+
+/** How many days from `from` to `to` (`to` − `from`). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((utcOf(to) - utcOf(from)) / DAY_MS)
+}
+
+/** Local midnight of `day` — for a widget that only takes a `Date`, never for storage. */
+export function parseDay(day: string): Date {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}

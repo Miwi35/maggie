@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Core\Elasticsearch\Query;
 
 use Maggie\Core\Identifier\ResourceIdentifier;
+use Maggie\Core\Time\DayBound;
 
 final class ElasticsearchFilterTranslator
 {
@@ -18,10 +19,13 @@ final class ElasticsearchFilterTranslator
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
      *                                                                                   source. Filtering on one needs
      *                                                                                   it — see relationClause().
+     * @param array<string, string>                                           $dayFields an instant field → the day field a
+     *                                                                                   document holds instead when it
+     *                                                                                   has no instant — see dayAwareDateFilter()
      *
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
-    public function translate(array $filters, array $fields = [], array $relations = []): array
+    public function translate(array $filters, array $fields = [], array $relations = [], array $dayFields = []): array
     {
         $must = [];
         $filter = [];
@@ -76,7 +80,9 @@ final class ElasticsearchFilterTranslator
             if (\is_array($value)) {
                 foreach ($value as $operator => $operand) {
                     if (\in_array($operator, ['after', 'before', 'strictly_after', 'strictly_before'], true)) {
-                        $filter[] = $this->buildDateFilter($key, $operator, $operand);
+                        $filter[] = isset($dayFields[$key])
+                            ? $this->dayAwareDateFilter($key, $dayFields[$key], $operator, (string) $operand)
+                            : $this->buildDateFilter($key, $operator, $operand);
                     }
                 }
                 continue;
@@ -177,6 +183,34 @@ final class ElasticsearchFilterTranslator
         };
 
         return ['range' => [$field => [$esOp => $value]]];
+    }
+
+    /**
+     * A bound on an instant that also holds, by its day, for a document with
+     * no instant — an all-day event, which has `startDate` and no `startAt`
+     * (MAG-382). The clients keep asking `startAt[before]=…` and get both
+     * kinds of event; the day of the bound is {@see DayBound}'s, the one
+     * the Doctrine filter and the repository use too.
+     *
+     * @return array<string, mixed>
+     */
+    private function dayAwareDateFilter(string $field, string $dayField, string $operator, string $value): array
+    {
+        $bound = DayBound::forOperator($operator, $value);
+        if (null === $bound) {
+            return $this->buildDateFilter($field, $operator, $value);
+        }
+
+        return ['bool' => [
+            'should' => [
+                $this->buildDateFilter($field, $operator, $value),
+                ['bool' => [
+                    'must_not' => [['exists' => ['field' => $field]]],
+                    'filter' => [['range' => [$dayField => [$bound[0] => $bound[1]->format('Y-m-d')]]]],
+                ]],
+            ],
+            'minimum_should_match' => 1,
+        ]];
     }
 
     /**

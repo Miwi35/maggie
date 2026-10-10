@@ -33,13 +33,29 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
 private val dateTimeFormatter = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.FRENCH)
 private val dateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH)
 
+/**
+ * The time column of a dashboard row. An all-day event shows its first date as it
+ * is — no zone moves a date (MAG-382) — or « Journée » when the section is its day.
+ */
+internal fun dashboardEventTime(event: ExpandedEvent, showDate: Boolean): String {
+    if (event.allDay) {
+        if (!showDate) return "Journée"
+        event.startDate?.let { return it.format(dateFormatter) }
+    }
+    val start = Instant.parse(event.startAt ?: return "").atZone(ZoneId.of(event.timeZone))
+    return when {
+        event.allDay -> start.format(dateFormatter)
+        showDate -> start.format(dateTimeFormatter)
+        else -> start.format(timeFormatter)
+    }
+}
+
 @Composable
 fun DashboardEventItem(
     event: ExpandedEvent,
     showDate: Boolean = false,
     onClick: () -> Unit = {},
 ) {
-    val zone = ZoneId.of(event.timeZone)
     val agendaColor = event.agendaColor?.let { parseColor(it) }
 
     Row(
@@ -63,21 +79,7 @@ fun DashboardEventItem(
 
         // Time
         Text(
-            text = when {
-                event.allDay && showDate -> {
-                    val zdt = Instant.parse(event.startAt).atZone(zone)
-                    zdt.format(dateFormatter)
-                }
-                event.allDay -> "Journée"
-                showDate -> {
-                    val zdt = Instant.parse(event.startAt).atZone(zone)
-                    zdt.format(dateTimeFormatter)
-                }
-                else -> {
-                    val zdt = Instant.parse(event.startAt).atZone(zone)
-                    zdt.format(timeFormatter)
-                }
-            },
+            text = dashboardEventTime(event, showDate),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(if (showDate) 80.dp else 48.dp),

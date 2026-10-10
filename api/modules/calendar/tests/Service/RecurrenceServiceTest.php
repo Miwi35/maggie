@@ -155,10 +155,8 @@ class RecurrenceServiceTest extends TestCase
     {
         $event = new Event();
         $event->setSummary('Journée entière');
-        $event->setAllDay(true);
         $event->setTimeZone('Europe/Paris');
-        $event->setStartAt(new \DateTimeImmutable($start));
-        $event->setEndAt(new \DateTimeImmutable($start)->modify('+1 day'));
+        $event->scheduleAllDay(new \DateTimeImmutable($start));
         $event->setRrule($rrule);
         $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
 
@@ -170,8 +168,92 @@ class RecurrenceServiceTest extends TestCase
 
         self::assertSame(
             $expectedDays,
-            array_map(fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d'), $result),
+            array_map(fn (Event $occurrence) => $occurrence->getStartDate()?->format('Y-m-d'), $result),
         );
+    }
+
+    /** A yearly birthday on the 1st, expanded on its days (MAG-382). */
+    private function birthdayOnTheFirst(string $first = '2030-01-01', string $last = '2030-01-01'): Event
+    {
+        $event = new Event();
+        $event->setSummary('Anniversaire');
+        $event->setTimeZone('Europe/Paris');
+        $event->scheduleAllDay(new \DateTimeImmutable($first), new \DateTimeImmutable($last));
+        $event->setRrule('FREQ=YEARLY');
+
+        return $event;
+    }
+
+    /**
+     * The owner's report: the birthday showed on the 1st and the 2nd. Each
+     * occurrence is the 1st alone — a date, the last day included, no instant.
+     */
+    public function testAnAllDaySeriesExpandsOnItsDaysWithNoInstant(): void
+    {
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $this->birthdayOnTheFirst(),
+            new \DateTimeImmutable('2036-12-01T00:00:00+01:00'),
+            new \DateTimeImmutable('2037-02-01T00:00:00+01:00'),
+        );
+
+        self::assertCount(1, $result);
+        self::assertSame('2037-01-01', $result[0]->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2037-01-01', $result[0]->getEndDate()?->format('Y-m-d'));
+        self::assertNull($result[0]->getStartAt());
+    }
+
+    /**
+     * The range is read in Paris, by its days: the day of the 2nd, asked in
+     * UTC as `[1st 23:00Z, 2nd 23:00Z)`, does not hold the 1st.
+     */
+    public function testTheDayAfterAnAllDayOccurrenceDoesNotHoldIt(): void
+    {
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        self::assertSame([], $this->recurrenceService->expandOccurrences(
+            $this->birthdayOnTheFirst(),
+            new \DateTimeImmutable('2037-01-01T23:00:00Z'),
+            new \DateTimeImmutable('2037-01-02T23:00:00Z'),
+        ));
+        self::assertCount(1, $this->recurrenceService->expandOccurrences(
+            $this->birthdayOnTheFirst(),
+            new \DateTimeImmutable('2036-12-31T23:00:00Z'),
+            new \DateTimeImmutable('2037-01-01T23:00:00Z'),
+        ));
+    }
+
+    public function testEachOccurrenceKeepsTheLengthOfTheSeriesInDays(): void
+    {
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $this->birthdayOnTheFirst('2030-01-26', '2030-01-28'),
+            new \DateTimeImmutable('2037-01-28T00:00:00+01:00'),
+            new \DateTimeImmutable('2037-01-29T00:00:00+01:00'),
+        );
+
+        self::assertCount(1, $result, 'The last day of an occurrence is in it');
+        self::assertSame(['2037-01-26', '2037-01-28'], [$result[0]->getStartDate()?->format('Y-m-d'), $result[0]->getEndDate()?->format('Y-m-d')]);
+    }
+
+    /** An all-day occurrence is known to its exception by the midnight UTC of its day. */
+    public function testAnExceptionReplacesTheAllDayOccurrenceOfItsDay(): void
+    {
+        $moved = new Event();
+        $moved->setSummary('Anniversaire, fêté le 3');
+        $moved->scheduleAllDay(new \DateTimeImmutable('2037-01-03'));
+        $moved->setOriginalStartAt(new \DateTimeImmutable('2037-01-01T00:00:00+00:00'));
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([$moved]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $this->birthdayOnTheFirst(),
+            new \DateTimeImmutable('2036-12-01T00:00:00+01:00'),
+            new \DateTimeImmutable('2037-02-01T00:00:00+01:00'),
+        );
+
+        self::assertSame([$moved], $result);
     }
 
     public function testCancelledExceptionOnTheDayClocksGoBackRemovesThatOccurrence(): void

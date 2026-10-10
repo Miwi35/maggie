@@ -33,6 +33,8 @@ class CreateEventProcessor implements ProcessorInterface
             originalStartAt: $data->getOriginalStartAt(),
             status: $data->getStatus()->value,
             reminders: $data->getReminders(),
+            startDate: $data->getStartDate(),
+            endDate: $data->getEndDate(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

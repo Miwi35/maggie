@@ -21,6 +21,6 @@ Maggie\Calendar\Entity\Event:
     summary: Vacances
     allDay: true
     timeZone: Europe/Paris
-    startAt: '<(new \DateTimeImmutable("2026-12-23 23:00:00", new \DateTimeZone("UTC")))>'
-    endAt: '<(new \DateTimeImmutable("2026-12-24 23:00:00", new \DateTimeZone("UTC")))>'
+    startDate: '<(new \DateTimeImmutable("2026-12-24"))>'
+    endDate: '<(new \DateTimeImmutable("2026-12-24"))>'
     agenda: '@own_agenda'

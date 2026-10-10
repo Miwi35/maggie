@@ -37,10 +37,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 // A meal is a day and a slot — never an instant (MAG-251).
 //
-// It stays an `Event` so the agenda can show it, but the inherited `startAt`
-// and `endAt` are **derived** from `date`: the whole day, in the meal's own
-// time zone. No client sends them any more — the two write operations drop
-// them from the body.
+// It stays an `Event` so the agenda can show it, as an all-day one: the
+// inherited `startDate` and `endDate` are **derived** from `date`, and its
+// `startAt` and `endAt` are null like any all-day event's (MAG-382). No client
+// sends them any more — the two write operations drop them from the body.
 //
 // The owner's decision is that the time does not count, and a derived instant
 // cannot drift from the day the way a client-supplied one did: the week view
@@ -77,7 +77,7 @@ class Meal extends Event implements MercurePublishable
      *
      * @var array<string, list<string>>
      */
-    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'originalStartAt', 'agenda']];
+    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'startDate', 'endDate', 'originalStartAt', 'agenda']];
 
     /** What `Event::$timeZone` defaults to, and what an unresolvable one falls back on. */
     private const DEFAULT_TIME_ZONE = 'Europe/Paris';
@@ -197,31 +197,26 @@ class Meal extends Event implements MercurePublishable
     }
 
     /**
-     * Sets the day, and with it the instants the agenda reads.
+     * Sets the day, and with it the days the agenda reads: the meal is an
+     * all-day event on that one day, with no instant (MAG-382).
      *
-     * The whole day in the meal's time zone is the simplest shape that keeps a
-     * meal showing as an all-day entry in the agenda: the slot already says
-     * lunch or dinner, so an hour would add nothing and bring the drift back.
-     *
-     * Only the day of `$date` is read, and what is stored carries no offset of
-     * its own — a `DATE` column holds a day, and an instant handed in here
-     * cannot push the meal onto another one.
+     * Only the day of `$date` is read: a `DATE` column holds a day, and an
+     * instant handed in here cannot push the meal onto another one.
      */
     public function setDate(\DateTimeImmutable $date): static
     {
-        $day = $date->format('Y-m-d');
+        $this->date = new \DateTimeImmutable($date->format('Y-m-d'), new \DateTimeZone('UTC'));
 
-        $this->date = new \DateTimeImmutable($day, new \DateTimeZone('UTC'));
-
-        $wholeDay = new \DateTimeImmutable($day.' 00:00:00', $this->zone());
-        parent::setStartAt($wholeDay);
-        parent::setEndAt($wholeDay->setTime(23, 59, 59));
-        $this->setAllDay(true);
+        parent::setStartAt(null);
+        parent::setEndAt(null);
+        parent::setStartDate($this->date);
+        parent::setEndDate($this->date);
+        parent::setAllDay(true);
 
         return $this;
     }
 
-    public function setStartAt(\DateTimeImmutable $startAt): static
+    public function setStartAt(?\DateTimeImmutable $startAt): static
     {
         // An instant handed to a meal names a day, and moves it to that day.
         //
@@ -229,46 +224,52 @@ class Meal extends Event implements MercurePublishable
         // reaches a meal: `EventRepository::find()` returns one for a meal's
         // id, and `findByDateRange()` hands Maggie a meal among the events, id
         // and all. The `update_event` tool and `PATCH /api/events/{id}` then
-        // call this. Left inherited, they would move the instants and leave
-        // `date` — the field the API, Elasticsearch, Mercure and every week
-        // view read — behind, so Maggie would answer "c'est décalé" and the
-        // meal would not move anywhere the owner can see.
+        // call this. Left inherited, they would set an instant on what is a
+        // day, and leave `date` — the field the API, Elasticsearch, Mercure
+        // and every week view read — behind.
         //
-        // The day is read in the meal's own time zone, as the migration reads
-        // the rows the old clients wrote: an instant at 23:00 UTC is the next
-        // day in Paris, and that is the day the writer meant.
+        // The day is read in the meal's own time zone: an instant at 23:00 UTC
+        // is the next day in Paris, and that is the day the writer meant.
         //
         // Comments, not a docblock: API Platform publishes a setter's docblock
         // as the description of the property it writes.
+        if (null === $startAt) {
+            return parent::setStartAt(null);
+        }
+
         return $this->setDate($startAt->setTimezone($this->zone()));
     }
 
-    public function setEndAt(\DateTimeImmutable $endAt): static
+    public function setEndAt(?\DateTimeImmutable $endAt): static
     {
-        // A meal ends when its day does, so there is no end to set — only the
-        // day's bounds to re-derive.
-        //
-        // Deliberately not a move: `UpdateEventHandler` sets `startAt` and then
-        // `endAt`, and a span whose two ends fall on different days would
-        // otherwise leave the meal on the last one. `setStartAt()` above is the
-        // one that names the day.
-        if (null === $this->date) {
-            // No day to derive from yet. Taking the instant keeps the typed
-            // property initialised — `getEndAt()` on an `Event` whose end was
-            // never set is an `Error`, not a null — and `setDate()` overwrites
-            // it as soon as the day arrives.
-            return parent::setEndAt($endAt);
+        // A meal ends when its day does, so there is no end to set. Not a move
+        // either: `scheduleTimed()` sets `startAt` and then `endAt`, and a span
+        // whose two ends fall on different days would otherwise leave the meal
+        // on the last one. `setStartAt()` above is the one that names the day.
+        return parent::setEndAt(null);
+    }
+
+    public function setStartDate(?\DateTimeImmutable $startDate): static
+    {
+        // The `Event` door's way of naming the day: it moves the meal. A null
+        // is the other schedule clearing the days, and the meal keeps its own.
+        if (null === $startDate) {
+            return null === $this->date ? parent::setStartDate(null) : $this;
         }
 
-        return $this->setDate($this->date);
+        return $this->setDate($startDate);
+    }
+
+    public function setEndDate(?\DateTimeImmutable $endDate): static
+    {
+        // A meal is one day: its last day is its first.
+        return parent::setEndDate($this->date);
     }
 
     public function setAllDay(bool $allDay): static
     {
-        // A meal covers its day, always. `UpdateEventHandler` sets `allDay`
-        // *after* the instants, so without this `update_event allDay=false` on
-        // a meal would leave the flag off next to 00:00–23:59:59 — the last
-        // derived field the `Event` door could still knock out of step.
+        // A meal covers its day, always — `update_event allDay=false` on a
+        // meal would otherwise leave the flag off next to a day and no hour.
         //
         // Comments, not a docblock: API Platform publishes a setter's docblock
         // as the description of the property it writes.
@@ -276,16 +277,8 @@ class Meal extends Event implements MercurePublishable
     }
 
     /**
-     * The meal's time zone, falling back on the column's default.
-     *
-     * `Event::$timeZone` is a free string with no constraint behind it, and the
-     * `Event` write path above can set it: an unknown name would otherwise
-     * throw out of a setter during denormalization and answer 500, where the
-     * worst case here is a meal placed in the default zone's day.
-     *
-     * `Event` now refuses an unknown name (`Assert\Timezone`) and
-     * `RecurrenceService` guards its reads; this fallback stays as a second
-     * net for a row written before that (MAG-256).
+     * The meal's time zone, falling back on the column's default — only to
+     * read the day an instant handed to {@see setStartAt()} falls on.
      */
     private function zone(): \DateTimeZone
     {
@@ -294,21 +287,6 @@ class Meal extends Event implements MercurePublishable
         } catch (\Exception) {
             return new \DateTimeZone(self::DEFAULT_TIME_ZONE);
         }
-    }
-
-    public function setTimeZone(string $timeZone): static
-    {
-        // Re-derives the instants: moving the time zone moves the day's
-        // bounds, and never the day itself. A comment, not a docblock — API
-        // Platform would publish it as the description of the inherited
-        // `timeZone` property.
-        parent::setTimeZone($timeZone);
-
-        if (null !== $this->date) {
-            $this->setDate($this->date);
-        }
-
-        return $this;
     }
 
     public function getSlot(): MealSlot

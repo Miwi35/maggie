@@ -235,6 +235,36 @@ export class CalendarPage extends AdminShell {
     return this.grid.locator(`td[data-date="${isoDate}"]`).getByText(title, { exact: true })
   }
 
+  /**
+   * The bar FullCalendar draws for `title` — the `<a>` around the chip's text,
+   * whose width is how many days it covers in the month view.
+   */
+  eventBar(title: string): Locator {
+    return this.grid.locator('.fc-event').filter({ has: this.page.getByText(title, { exact: true }) })
+  }
+
+  /** One day's cell in the month view. */
+  monthCell(isoDate: string): Locator {
+    return this.grid.locator(`td.fc-daygrid-day[data-date="${isoDate}"]`)
+  }
+
+  /**
+   * How many month-view cells the bar of `title` spans, measured on screen.
+   *
+   * FullCalendar draws a bar of several days as one element laid across the cells,
+   * so counting chips per day says nothing: the width is the answer. Rounded,
+   * because the bar sits a couple of pixels inside its cells.
+   */
+  async monthCellsSpanned(title: string, isoDate: string): Promise<number> {
+    const bar = await this.eventBar(title).first().boundingBox()
+    const cell = await this.monthCell(isoDate).boundingBox()
+    if (!bar || !cell) {
+      throw new Error(`"${title}" or the cell of ${isoDate} is not on screen`)
+    }
+
+    return Math.round(bar.width / cell.width)
+  }
+
   /** Clicks a chip to open its detail card. `index` picks an occurrence of a series. */
   async openChip(title: string, index = 0): Promise<void> {
     await this.chip(title).nth(index).click()

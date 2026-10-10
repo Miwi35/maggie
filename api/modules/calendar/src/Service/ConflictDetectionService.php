@@ -46,7 +46,7 @@ class ConflictDetectionService
             }
 
             // Check overlap: event starts before our end AND event ends after our start
-            if ($event->getStartAt() < $end && $event->getEndAt() > $start) {
+            if ($event->getStartInstant() < $end && $event->getEndInstant() > $start) {
                 $conflicts[] = $event;
             }
         }
