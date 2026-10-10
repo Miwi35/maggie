@@ -62,6 +62,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * The data layer a screen test runs against (MAG-242).
@@ -474,14 +477,25 @@ class FakeLoadedFinanceDashboard(private val dashboard: FinanceDashboard) {
  * return it — [created] is the request half of an assertion, the list on screen
  * is the other.
  */
-class FakeCategories(initial: List<Category> = Seed.financeCategories) {
+class FakeCategories(
+    initial: List<Category> = Seed.financeCategories,
+    private val transactionsOf: Map<String, Int> = emptyMap(),
+    private val rulesCount: Int = 0,
+) {
     private val stored = initial.toMutableList()
 
     /** What the fake server was asked to create, in order. */
     val created = mutableListOf<CategoryCreateRequest>()
 
+    /** The merge-patches the fake server received, in order, with the category they were for. */
+    val patched = mutableListOf<Pair<String, JsonObject>>()
+
+    /** The identifiers the fake server was asked to delete. */
+    val deleted = mutableListOf<String>()
+
     val viewModel: CategoryViewModel by lazy {
         val repository = mockk<CategoryRepository>()
+        val (auth, mercure) = signedIn()
         coEvery { repository.getCategories() } answers { Result.success(stored.toList()) }
         coEvery { repository.createCategory(any()) } answers {
             val request = firstArg<CategoryCreateRequest>()
@@ -491,11 +505,37 @@ class FakeCategories(initial: List<Category> = Seed.financeCategories) {
                 name = request.name,
                 obligation = request.obligation,
                 passiveIncome = request.passiveIncome,
+                parent = request.parent,
+                color = request.color,
+                icon = request.icon,
             )
             stored += category
             Result.success(category)
         }
-        CategoryViewModel(repository)
+        coEvery { repository.updateCategory(any(), any()) } answers {
+            val id = firstArg<String>()
+            val changes = secondArg<JsonObject>()
+            patched += id to changes
+            val before = stored.first { it.id == id }
+            val after = before.copy(
+                name = changes["name"]?.jsonPrimitive?.content ?: before.name,
+                obligation = changes["obligation"]?.jsonPrimitive?.content ?: before.obligation,
+                passiveIncome = changes["passiveIncome"]?.jsonPrimitive?.boolean ?: before.passiveIncome,
+            )
+            stored[stored.indexOf(before)] = after
+            Result.success(after)
+        }
+        coEvery { repository.countTransactions(any()) } answers {
+            Result.success(transactionsOf[firstArg()] ?: 0)
+        }
+        coEvery { repository.deleteCategory(any()) } answers {
+            val id = firstArg<String>()
+            deleted += id
+            stored.removeAll { it.id == id }
+            Result.success(Unit)
+        }
+        coEvery { repository.countRules(any()) } returns Result.success(rulesCount)
+        CategoryViewModel(repository, mercure, auth)
     }
 }
 

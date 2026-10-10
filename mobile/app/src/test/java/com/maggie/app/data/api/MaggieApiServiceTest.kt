@@ -523,4 +523,116 @@ class MaggieApiServiceTest {
         assertEquals("""{"ingredients":[{"ingredientId":"veg"}]}""", capturedBody)
         assertNotNull(preview.groceryChoiceMadeAt)
     }
+
+    private fun categoryClient(onRequest: suspend (io.ktor.client.request.HttpRequestData) -> String): HttpClient =
+        HttpClient(
+            MockEngine { request ->
+                respond(
+                    content = ByteReadChannel(onRequest(request)),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, "application/ld+json"),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+    @Test
+    fun `updateCategory sends a merge-patch with the changed fields alone`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var contentType: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                contentType = request.body.contentType?.toString()
+                body = String(request.body.toByteArray())
+                """{"id":"cat-1","name":"Courses alimentaires","obligation":"mandatory"}"""
+            },
+        )
+
+        val updated = service.updateCategory(
+            "cat-1",
+            kotlinx.serialization.json.JsonObject(mapOf("name" to kotlinx.serialization.json.JsonPrimitive("Courses alimentaires"))),
+        )
+
+        assertEquals("Courses alimentaires", updated.name)
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/categories/cat-1"))
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        assertEquals("""{"name":"Courses alimentaires"}""", body)
+    }
+
+    @Test
+    fun `updateCategory sends an emptied field as an explicit null`() = runBlocking {
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                body = String(request.body.toByteArray())
+                """{"id":"cat-1","name":"Courses"}"""
+            },
+        )
+
+        service.updateCategory(
+            "cat-1",
+            kotlinx.serialization.json.JsonObject(mapOf("parent" to kotlinx.serialization.json.JsonNull)),
+        )
+
+        assertEquals("""{"parent":null}""", body)
+    }
+
+    @Test
+    fun `countTransactionsOfCategory reads totalItems of a page of one`() = runBlocking {
+        var url: io.ktor.http.Url? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url
+                """{"member":[],"totalItems":42}"""
+            },
+        )
+
+        val count = service.countTransactionsOfCategory("cat-1")
+
+        assertEquals(42, count)
+        assertEquals("/api/categories/cat-1", url!!.parameters["category"])
+        assertEquals("1", url!!.parameters["itemsPerPage"])
+        assertTrue(url!!.encodedPath.endsWith("/api/transactions"))
+    }
+
+    @Test
+    fun `countTransactionsOfCategory falls back to the page when there is no total`() = runBlocking {
+        val service = MaggieApiService(categoryClient { """{"member":[]}""" })
+
+        assertEquals(0, service.countTransactionsOfCategory("cat-1"))
+    }
+    @Test
+    fun `countCategorizationRulesOf reads the category as the API spells it, an IRI`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"member":[
+                    {"id":"r1","labelPattern":"LECLERC","category":"/api/categories/cat-1"},
+                    {"id":"r2","labelPattern":"NETFLIX","category":"/api/categories/cat-2"},
+                    {"id":"r3","labelPattern":"CARREFOUR","category":"/api/categories/cat-3"}
+                ],"totalItems":3}"""
+            },
+        )
+
+        assertEquals(2, service.countCategorizationRulesOf(setOf("cat-1", "cat-3")))
+        assertEquals(0, service.countCategorizationRulesOf(setOf("cat-9")))
+    }
+
+    @Test
+    fun `countCategorizationRulesOf gives no number when the page is not the whole list`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"member":[{"id":"r1","labelPattern":"LECLERC","category":"/api/categories/cat-1"}],"totalItems":31}"""
+            },
+        )
+
+        assertNull(service.countCategorizationRulesOf(setOf("cat-1")))
+    }
 }

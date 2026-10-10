@@ -94,8 +94,14 @@ object UiTags {
     /** The conversation kept on screen beside the content on a wide window (MAG-35). */
     const val CHAT_PANEL = "chat_panel"
 
-    /** Category dialog — the « Rente » switch, there only on a Recette (MAG-257). */
+    /** Category screen — the « Rente » switch, there only on a Recette (MAG-257). */
     const val CATEGORY_PASSIVE_INCOME = "category_passive_income"
+
+    /** Category screen — the parent field, the search it opens, and the deletion at the bottom (MAG-353). */
+    const val CATEGORY_NAME = "category_name"
+    const val CATEGORY_PARENT = "category_parent"
+    const val CATEGORY_PARENT_SEARCH = "category_parent_search"
+    const val CATEGORY_DELETE = "category_delete"
 
     /** The list and the detail of a screen drawn side by side on a wide window (MAG-263). */
     const val LIST_PANE = "list_pane"

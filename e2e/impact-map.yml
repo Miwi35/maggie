@@ -443,3 +443,5 @@ mobile:
     areas: [calendar, cookbook]
   e2e/mobile/flows/14-rotation.yaml:
     areas: [cookbook]
+  e2e/mobile/flows/13-finance-category-edit.yaml:
+    areas: [finance]

@@ -30,6 +30,7 @@ import com.maggie.app.data.model.BankConnectionsResponse
 import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.targetsCategory
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
@@ -93,7 +94,7 @@ data class PlannedMealRef(val date: String, val slot: String)
 data class RecipeDeletionImpact(val mealCount: Int = 0, val meals: List<PlannedMealRef> = emptyList())
 
 @Serializable
-data class ApiCollection<T>(val member: List<T> = emptyList())
+data class ApiCollection<T>(val member: List<T> = emptyList(), val totalItems: Int? = null)
 
 @Serializable
 data class EventCreateRequest(
@@ -978,8 +979,26 @@ class MaggieApiService(
         }.body()
     }
 
+    suspend fun updateCategory(id: String, data: JsonObject): Category {
+        return client.patch("$baseUrl/api/categories/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
     suspend fun deleteCategory(id: String) {
         client.delete("$baseUrl/api/categories/$id")
+    }
+
+    // One row asked for: the page is not wanted, only the collection's total.
+    suspend fun countTransactionsOfCategory(categoryId: String): Int {
+        val page = client.get("$baseUrl/api/transactions") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("category", "/api/categories/$categoryId")
+            url.parameters.append("itemsPerPage", "1")
+        }.body<ApiCollection<Transaction>>()
+        return page.totalItems ?: page.member.size
     }
 
     // Finance — Transactions
@@ -1122,6 +1141,18 @@ class MaggieApiService(
         return client.get("$baseUrl/api/categorization_rules") {
             accept(ContentType("application", "ld+json"))
         }.body<ApiCollection<CategorizationRule>>().member
+    }
+
+    /**
+     * How many rules file under any of [categoryIds], or `null` when the first page does
+     * not hold them all — a wrong number in a deletion's warning is worse than none.
+     */
+    suspend fun countCategorizationRulesOf(categoryIds: Set<String>): Int? {
+        val page = client.get("$baseUrl/api/categorization_rules") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<CategorizationRule>>()
+        if ((page.totalItems ?: page.member.size) > page.member.size) return null
+        return page.member.count { rule -> categoryIds.any(rule::targetsCategory) }
     }
 
     suspend fun createCategorizationRule(request: CategorizationRuleCreateRequest): CategorizationRule {
