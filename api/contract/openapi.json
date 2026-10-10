@@ -7619,6 +7619,33 @@
                         "style": "form",
                         "explode": false,
                         "example": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
+                        "name": "transferKind",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "transferKind[]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
                     }
                 ]
             },

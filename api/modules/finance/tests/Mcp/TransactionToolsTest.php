@@ -781,6 +781,47 @@ class TransactionToolsTest extends KernelTestCase
         self::assertSame('2026-07-05', $data['transactions'][0]['bookedAt']);
     }
 
+    public function testListLeavesTheRejectedPaymentsOutUnlessAskedFor(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $account = $this->getFixture('checking');
+        $user = $this->getFixture('test_user');
+        $make = static fn (int $cents, string $label): Transaction => (new Transaction())
+            ->setUser($user)
+            ->setAccount($account)
+            ->setAmountCents($cents)
+            ->setCurrency('EUR')
+            ->setBookedAt(new \DateTimeImmutable('2026-07-06'))
+            ->setLabel($label)
+            ->setStatus(TransactionStatus::Spent);
+        $debit = $make(-20600, 'PRELEVEMENT EDF');
+        $credit = $make(20600, 'REJET PRLV ELECTRICITE DE FRANCE');
+        $debit->markAsRejection($credit, TransferSource::Auto);
+        $em->persist($debit);
+        $em->persist($credit);
+        $this->flushWithoutTransactionEffects($em);
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $default = $this->listed($tool);
+        self::assertNotContains('PRELEVEMENT EDF', array_column($default['transactions'], 'label'));
+        self::assertNotContains('REJET PRLV ELECTRICITE DE FRANCE', array_column($default['transactions'], 'label'));
+        self::assertSame(2, $default['total']);
+
+        $rejected = $this->listed($tool, transferKind: 'rejected');
+        self::assertSame(2, $rejected['total']);
+        self::assertEqualsCanonicalizing(
+            ['PRELEVEMENT EDF', 'REJET PRLV ELECTRICITE DE FRANCE'],
+            array_column($rejected['transactions'], 'label'),
+        );
+
+        self::assertSame(2, $this->listed($tool, transferKind: 'none')['total']);
+        self::assertArrayHasKey('error', $this->listed($tool, transferKind: 'sideways'));
+    }
+
     public function testListLimitIsHonouredAndCappedAtOneHundred(): void
     {
         $this->loadFixtures('transaction.yaml');

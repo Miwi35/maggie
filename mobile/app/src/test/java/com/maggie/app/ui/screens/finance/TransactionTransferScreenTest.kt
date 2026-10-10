@@ -91,36 +91,63 @@ class TransactionTransferScreenTest {
         transactions = listOf(Seed.rejectedDebit, Seed.rejectedCredit, Seed.groceries),
     )
 
-    @Test
-    fun `a rejected payment reads Rejeté, the credit that gave it back Rejet`() {
-        show(rejections())
-
-        compose.onNodeWithText("Rejeté").assertIsDisplayed()
-        compose.onNodeWithText("Rejet").assertIsDisplayed()
-        compose.onAllNodesWithTag(UiTags.REJECTION_BADGE).assertCountEquals(2)
-        compose.onAllNodesWithTag(UiTags.TRANSFER_BADGE).assertCountEquals(0)
+    private fun openIncidents() {
+        compose.onNodeWithTag(UiTags.INCIDENTS_TAB).performClick()
+        compose.waitForIdle()
     }
 
     @Test
-    fun `the detail of the credit names the rejected payment, and releasing frees both lines`() {
+    fun `a rejected payment and its credit leave the list and make one incident`() {
+        show(rejections())
+
+        compose.onNodeWithText("Supermarché").assertIsDisplayed()
+        compose.onNodeWithText("PRELEVEMENT EDF").assertDoesNotExist()
+        compose.onNodeWithText("REJET PRLV SEPA").assertDoesNotExist()
+        compose.onAllNodesWithTag(UiTags.REJECTION_BADGE).assertCountEquals(0)
+        compose.onNodeWithText("Incidents (1)").assertIsDisplayed()
+
+        openIncidents()
+
+        compose.onAllNodesWithTag(UiTags.INCIDENT_ROW).assertCountEquals(1)
+        compose.onNodeWithText("EDF").assertIsDisplayed()
+        compose.onNodeWithText("2026-09-15 · Prélèvement rejeté").assertIsDisplayed()
+        compose.onNodeWithText("62.40 EUR").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an account with no rejection says so on the incidents tab`() {
+        show(FakeTransactionTransfers())
+
+        compose.onNodeWithText("Incidents (0)").assertIsDisplayed()
+        openIncidents()
+
+        compose.onNodeWithText("Aucun incident sur ce compte").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the detail of an incident names the credit that gave the payment back, and releasing puts both lines back in the list`() {
         val server = rejections()
         show(server)
 
-        compose.onNodeWithText("REJET PRLV SEPA").performClick()
+        openIncidents()
+        compose.onNodeWithTag(UiTags.INCIDENT_ROW).performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Rejet de PRELEVEMENT EDF").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.TRANSFER_TOGGLE).assertCountEquals(0)
+        compose.onNodeWithText("Recrédité par : Livret · 2026-09-17 · REJET PRLV SEPA", substring = true).assertIsDisplayed()
 
         compose.onNodeWithTag(UiTags.REJECTION_RELEASE).performClick()
         compose.waitForIdle()
 
-        assertEquals(listOf("tx-rej"), server.released)
-        compose.onAllNodesWithTag(UiTags.REJECTION_BADGE).assertCountEquals(0)
-        compose.onNodeWithText("C'est un virement interne").assertIsDisplayed()
+        assertEquals(listOf("tx-edf"), server.released)
 
         compose.onNodeWithContentDescription("Retour").performClick()
         compose.waitForIdle()
-        compose.onAllNodesWithTag(UiTags.REJECTION_BADGE).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.TRANSACTIONS_TAB).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("PRELEVEMENT EDF").assertIsDisplayed()
+        compose.onNodeWithText("REJET PRLV SEPA").assertIsDisplayed()
+        compose.onNodeWithText("Incidents (0)").assertIsDisplayed()
     }
 }

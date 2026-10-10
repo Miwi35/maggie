@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\RejectedPaymentKind;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -69,6 +70,32 @@ class DetectRejections
     public static function isRejectionLabel(string $label): bool
     {
         return 1 === preg_match(self::REJECTION_LABEL, self::fold($label));
+    }
+
+    /**
+     * Whether the rejected payment was a direct debit or a transfer, read from
+     * the original debit's wording first and the credit's if it says nothing.
+     * A payment the bank rejects of its own accord is a direct debit, so that
+     * is what a label with neither word is taken for.
+     */
+    public static function paymentKind(?Transaction $debit, ?Transaction $credit): RejectedPaymentKind
+    {
+        foreach ([$debit, $credit] as $line) {
+            if (null === $line) {
+                continue;
+            }
+
+            $label = self::fold($line->getLabel());
+
+            if (1 === preg_match('/\b(PRLV|PRELEVEMENT)\b/', $label)) {
+                return RejectedPaymentKind::DirectDebit;
+            }
+            if (1 === preg_match('/\b(VIR|VIREMENT)\b/', $label)) {
+                return RejectedPaymentKind::Transfer;
+            }
+        }
+
+        return RejectedPaymentKind::DirectDebit;
     }
 
     /** « 6 oct. », as the notification says it. */

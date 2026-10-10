@@ -64,6 +64,14 @@ final class ElasticsearchFilterTranslator
                 continue;
             }
 
+            // A list of values on a field name → any of them
+            // (`transferKind[]=none&transferKind[]=internal`), the shape
+            // SearchFilter accepts on the Doctrine side.
+            if (\is_array($value) && [] !== $value && array_is_list($value) && [] === array_filter($value, static fn (mixed $v) => !\is_string($v) || '' === $v)) {
+                $filter[] = ['terms' => [$key => $value]];
+                continue;
+            }
+
             // Nested array on a field name → date filter operators
             if (\is_array($value)) {
                 foreach ($value as $operator => $operand) {
