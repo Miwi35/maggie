@@ -214,6 +214,16 @@ export class ChatPanel {
     return this.panel.getByTestId('mind-context-summary')
   }
 
+  /** Every validation card in the thread — `data-status` carries where it stands (MAG-6). */
+  get approvalCards(): Locator {
+    return this.panel.getByTestId('approval-card')
+  }
+
+  /** The validation card showing `text` — a tool name, or one of its arguments. */
+  approvalCard(text: string): Locator {
+    return this.approvalCards.filter({ hasText: text })
+  }
+
   /** A tool call in the Mind panel, by name. `data-status` carries its outcome. */
   toolCall(name: string): Locator {
     return this.panel.getByTestId('mind-tool-call').filter({ hasText: name })

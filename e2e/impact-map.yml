@@ -290,6 +290,8 @@ web:
     areas: [chat, dashboard]
   e2e/web/tests/chat-send-failed.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/chat-approvals.spec.ts:
+    areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:
     areas: [chat, interruptions, notification, realtime, dashboard]
   e2e/web/tests/responsive.spec.ts:

@@ -20,8 +20,10 @@ interface Options {
  * action; none is ever shown twice.
  *
  * An open chat already shows a proaction's answer, so that one is neither shown
- * nor queued behind it. Nothing else is in the chat: a notification or a
- * question interrupts over it too.
+ * nor queued behind it. It also shows the actions waiting for an answer, as cards
+ * (MAG-6): those wait in the queue while it is open, and interrupt if it closes
+ * with the question still unanswered. Nothing else is in the chat: a notification
+ * interrupts over it too.
  */
 export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   const [queue, setQueue] = useState<Interruption[]>([])
@@ -107,7 +109,7 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
 
   useEffect(() => () => clearTimers(), [clearTimers])
 
-  const current = queue[0] ?? null
+  const current = queue.find((item) => !(chatOpen && item.source === 'approval')) ?? null
 
   const dismiss = useCallback(
     (later: boolean) => {
