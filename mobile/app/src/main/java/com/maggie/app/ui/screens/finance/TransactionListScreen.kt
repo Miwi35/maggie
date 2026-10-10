@@ -61,6 +61,7 @@ import com.maggie.app.data.model.transactionStatusCodes
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -357,5 +358,6 @@ private fun TransactionCreateDialog(
                 Text("Annuler")
             }
         },
+        modifier = Modifier.uiTagRoot(),
     )
 }
