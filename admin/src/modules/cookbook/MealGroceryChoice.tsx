@@ -77,6 +77,23 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/** The server answered, with a status that is not a success: no point asking again. */
+class PreviewRefused extends Error {}
+
+/** A request that never got an answer (connection reset, request dropped by the browser) is asked once more; an answer, good or bad, is final. */
+async function fetchPreview(mealIri: string, signal: AbortSignal): Promise<Preview> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await fetch(`${mealIri}/grocery_preview`, { headers: { Accept: 'application/json', ...authHeaders() }, signal })
+      if (!response.ok) throw new PreviewRefused(`grocery_preview answered ${response.status}`)
+
+      return (await response.json()) as Preview
+    } catch (error) {
+      if (signal.aborted || error instanceof PreviewRefused || attempt >= 2) throw error
+    }
+  }
+}
+
 async function refusalOf(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { error?: unknown }
@@ -104,6 +121,7 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
   const [notAdded, setNotAdded] = useState<string | null>(null)
 
   const mounted = useRef(true)
+  const loading = useRef<AbortController | null>(null)
 
   useEffect(() => {
     mounted.current = true
@@ -114,12 +132,14 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
   }, [])
 
   const load = useCallback(async () => {
+    loading.current?.abort()
+    const controller = new AbortController()
+    loading.current = controller
     setLoadFailed(false)
     try {
-      const response = await fetch(`${mealIri}/grocery_preview`, { headers: { Accept: 'application/json', ...authHeaders() } })
-      if (!response.ok) throw new Error(`grocery_preview answered ${response.status}`)
-      const loaded = rowsOf(((await response.json()) as Preview).ingredients)
-      if (!mounted.current) return
+      const loaded = rowsOf((await fetchPreview(mealIri, controller.signal)).ingredients)
+      // Aborted — unmounted, or replaced by a newer load — is not a failure: say nothing.
+      if (controller.signal.aborted) return
 
       if (loaded.length === 0) {
         onDone()
@@ -128,12 +148,14 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
       setRows(loaded)
       setTicked(new Set(loaded.filter((row) => row.suggested).map((row) => row.ingredientId)))
     } catch {
-      setLoadFailed(true)
+      if (!controller.signal.aborted) setLoadFailed(true)
     }
   }, [mealIri, onDone])
 
   useEffect(() => {
     load()
+
+    return () => loading.current?.abort()
   }, [load])
 
   const toggle = (ingredientId: string) =>

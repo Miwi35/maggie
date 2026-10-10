@@ -262,6 +262,9 @@ test.describe('Choosing the ingredients of a new meal', () => {
       await expect(riceRow).toContainText('1 paquet (500 g)')
       await expect(riceRow).toContainText('Rupture')
       await expect(dialog.getByRole('listitem').filter({ hasText: vegetablesName })).toContainText('1 bocal')
+      // The list of meals reloading beside it must not turn the box into an error — MAG-373.
+      await expect(dialog.getByRole('alert')).toHaveCount(0)
+      await expect(dialog.getByText('n’a pas pu être chargée')).toHaveCount(0)
 
       // When I validate « Ajouter aux courses »…
       await expectRealtimeSync(
