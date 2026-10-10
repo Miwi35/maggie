@@ -83,7 +83,7 @@ fun NotificationScreen(
                     items(uiState.notifications, key = { it.id }) { notification ->
                         NotificationCard(
                             notification = notification,
-                            onTap = { viewModel.markRead(notification.id) },
+                            onTap = { viewModel.open(notification) },
                             onDelete = { viewModel.delete(notification.id) },
                         )
                     }

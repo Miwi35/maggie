@@ -1,0 +1,22 @@
+# Maggie raises a notification on her own while the app is open (MAG-314).
+#
+# The journey `14-interruption.yaml` sends this message over HTTP; the scripted model
+# creates the notification through the real `manage_notifications` tool, and the API
+# publishes it on Mercure, where the open app turns it into an interruption. A `finance`
+# type pointing at `/finance/accounts` gives the toaster its « Ouvrir les finances » action.
+name: interruption-finance
+description: Create a finance notification that opens the accounts, to be said as an interruption.
+
+match:
+  user_contains: "MAG-314 interruption"
+
+turns:
+  - tools:
+      - name: manage_notifications
+        input:
+          action: create
+          type: finance
+          title: "Un point sur tes comptes ?"
+          body: "Ton budget courses a bougé cette semaine."
+          relatedEntityIri: /finance/accounts
+  - text: "C'est envoyé : je te préviens dans l'application."

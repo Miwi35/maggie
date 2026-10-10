@@ -41,7 +41,7 @@ class PushNotifier(private val context: Context) {
             .setContentText(note ?: payload.text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(note ?: payload.text))
             .setAutoCancel(true)
-            .setContentIntent(openIntent(payload))
+            .setContentIntent(openIntent(payload, toLink = false))
 
         if (withActions) {
             payload.actions().forEach { builder.addAction(action(it, payload)) }
@@ -75,7 +75,7 @@ class PushNotifier(private val context: Context) {
 
     private fun action(kind: PushActionKind, payload: PushPayload): NotificationCompat.Action {
         if (kind == PushActionKind.GO) {
-            return NotificationCompat.Action.Builder(0, kind.label, openIntent(payload)).build()
+            return NotificationCompat.Action.Builder(0, kind.label, openIntent(payload, toLink = true)).build()
         }
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
@@ -102,10 +102,10 @@ class PushNotifier(private val context: Context) {
     private fun broadcast(action: String, payload: PushPayload): Intent =
         Intent(action).setComponent(ComponentName(context, PushActionReceiver::class.java)).also { PushIntents.put(it, payload) }
 
-    private fun openIntent(payload: PushPayload): PendingIntent = PendingIntent.getActivity(
+    private fun openIntent(payload: PushPayload, toLink: Boolean): PendingIntent = PendingIntent.getActivity(
         context,
-        requestCode(payload, "open"),
-        PushIntents.open(context, payload),
+        requestCode(payload, if (toLink) "go" else "open"),
+        PushIntents.open(context, payload, toLink),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
@@ -152,31 +152,28 @@ object PushIntents {
     /** The app link a push points at: only the app's own scheme, whoever sent the message. */
     fun linkOf(raw: String?): Uri? = raw?.let(Uri::parse)?.takeIf { it.scheme == DeepLinks.SCHEME }
 
-    /** Opens the app on the link, or on its home when the push has none. */
-    fun open(context: Context, payload: PushPayload): Intent {
-        val link = linkOf(payload.link)
+    /**
+     * The tap on a notification opens the app on what Maggie said: the interruption, with its
+     * action. Only « Y aller » ([toLink]) goes straight to the link, the app's home when the push has none.
+     */
+    fun open(context: Context, payload: PushPayload, toLink: Boolean = false): Intent {
+        val link = if (toLink) linkOf(payload.link) else null
         return Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (link != null) {
                 action = Intent.ACTION_VIEW
                 data = link
             }
-            putExtra(EXTRA_NOTIFICATION_ID, payload.notificationId)
+            put(this, payload)
         }
     }
 
     /**
+     * What a tap on a notification's body asks the app to say again, null for any other way in.
      * The intent the system's own notification fires carries the message's `data` as extras and
-     * no data URI, so the navigation graph cannot see the link. This gives it one.
+     * no data URI, like the one [open] builds; a link opened on purpose has a data URI.
      */
-    fun withLink(intent: Intent): Intent {
-        if (intent.data != null) return intent
-        val link = linkOf(intent.getStringExtra(EXTRA_LINK)) ?: return intent
-        return Intent(intent).apply {
-            action = Intent.ACTION_VIEW
-            data = link
-        }
-    }
+    fun interruptionOf(intent: Intent): PushPayload? = if (intent.data == null) payloadOf(intent) else null
 
     /** Opening the app from a notification is answering it: the system's own stays in the tray otherwise. */
     fun closeNotificationOf(context: Context, intent: Intent) {

@@ -49,5 +49,11 @@ above is irrelevant to it.
   `MainActivity` does not reach it and its tags have no resource id at all.
   `task e2e:mobile:lint` fails on both halves: an id a flow uses that is not
   declared, and a tagged window with no `uiTagRoot()`.
+- **The interruption window** (`InterruptionHost`, MAG-314) is a `Dialog`, so it
+  declares its own `uiTagRoot()`; the journey `14-interruption.yaml` drives it
+  through `interruption`, `interruption_action` and `interruption_later`. Its
+  other behaviours (queue, dedupe, 30 s, reduced animations) are JVM tests.
+- **A clipped layer swallows taps under Robolectric**: do not `clip` a container
+  that holds buttons in a screen test — give the shape to `background(color, shape)`.
 
 Full guide: [e2e/mobile/README.md](../../../e2e/mobile/README.md).

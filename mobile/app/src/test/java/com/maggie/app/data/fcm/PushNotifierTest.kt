@@ -105,14 +105,18 @@ class PushNotifierTest {
     }
 
     @Test
-    fun `a message with a link opens it on a tap and offers Y aller`() {
+    fun `a message with a link offers Y aller, and a tap on its body opens the interruption instead`() {
         val link = "${BuildConfig.DEEP_LINK_SCHEME}://finance/banks"
         notifier.show(payload("finance", link = link))
 
         assertEquals(listOf("Y aller", "Plus tard"), buttons())
         val tap = shadowOf(shown().contentIntent).savedIntent
-        assertEquals(Intent.ACTION_VIEW, tap.action)
-        assertEquals(link, tap.dataString)
+        assertNull(tap.data)
+        assertEquals("n-1", tap.getStringExtra(PushIntents.EXTRA_NOTIFICATION_ID))
+
+        val go = shadowOf(shown().actions.first().actionIntent).savedIntent
+        assertEquals(Intent.ACTION_VIEW, go.action)
+        assertEquals(link, go.dataString)
     }
 
     @Test

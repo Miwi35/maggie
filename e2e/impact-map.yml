@@ -439,3 +439,9 @@ mobile:
     paths: [e2e/mobile/scripts/chat-api.js]
   e2e/mobile/flows/13-meals-planning.yaml:
     areas: [calendar, cookbook]
+  e2e/mobile/flows/14-interruption.yaml:
+    areas: [interruptions, notification, realtime]
+    paths:
+      - e2e/mobile/scripts/interruption-api.js
+      - mobile/app/src/main/java/com/maggie/app/data/{fcm,interruption}/**
+      - mobile/app/src/main/java/com/maggie/app/ui/interruption/**

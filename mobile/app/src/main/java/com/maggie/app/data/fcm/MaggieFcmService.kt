@@ -1,7 +1,5 @@
 package com.maggie.app.data.fcm
 
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +11,7 @@ import org.koin.android.ext.android.inject
 class MaggieFcmService : FirebaseMessagingService() {
 
     private val registrar: PushTokenRegistrar by inject()
+    private val delivery: PushDelivery by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onNewToken(token: String) {
@@ -20,11 +19,6 @@ class MaggieFcmService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        // Foreground is MAG-314's: the interruption is raised inside the app, not by the system.
-        val isForegrounded = ProcessLifecycleOwner.get().lifecycle.currentState
-            .isAtLeast(Lifecycle.State.STARTED)
-        if (isForegrounded) return
-
         val payload = PushPayload.from(
             data = message.data,
             notificationTitle = message.notification?.title,
@@ -32,6 +26,8 @@ class MaggieFcmService : FirebaseMessagingService() {
             notificationChannel = message.notification?.channelId,
         ) ?: return
 
-        PushNotifier(this).show(payload)
+        // Android calls this in the foreground only (a message with a `notification` block is
+        // shown by the system otherwise): the delivery raises the interruption, not a notification.
+        delivery.deliver(payload)
     }
 }

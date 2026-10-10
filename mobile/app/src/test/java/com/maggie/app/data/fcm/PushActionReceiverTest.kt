@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.os.Bundle
 import androidx.core.app.RemoteInput
+import com.maggie.app.data.interruption.InterruptionCenter
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.coEvery
@@ -29,11 +30,20 @@ class PushActionReceiverTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val manager = app.getSystemService(NotificationManager::class.java)
     private val handler = mockk<PushActionHandler>()
+    private val center = InterruptionCenter()
+    private var foreground = false
 
     @Before
     fun setUp() {
         stopKoin()
-        startKoin { modules(module { single { handler } }) }
+        startKoin {
+            modules(
+                module {
+                    single { handler }
+                    single { PushDelivery(center, { PushNotifier(app) }, isForeground = { foreground }) }
+                },
+            )
+        }
         PushChannels.create(app)
         shadowOf(manager).setNotificationsEnabled(true)
     }
@@ -130,5 +140,30 @@ class PushActionReceiverTest {
 
         assertNull(shown())
         assertEquals(1, alarms.scheduledAlarms.size)
+    }
+
+    private fun comeBack() {
+        val intent = Intent(app, PushActionReceiver::class.java).setAction(PushActionReceiver.ACTION_RESHOW)
+        PushIntents.put(intent, payload("task_due"))
+        app.sendBroadcast(intent)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+    }
+
+    @Test
+    fun `a postponed notification comes back as a notification when the app is closed`() {
+        comeBack()
+
+        assertNotNull(shown())
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `a postponed notification comes back as an interruption when the app is open`() {
+        foreground = true
+
+        comeBack()
+
+        assertNull(shown())
+        assertEquals("n-1", center.current.value?.notificationId)
     }
 }

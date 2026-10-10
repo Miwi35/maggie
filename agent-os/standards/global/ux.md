@@ -166,6 +166,17 @@ Playwright projects 1440 / 834 / 393). No fixed width in dp or px for content.
 - **When Maggie speaks on her own**, one component per platform (the
   interruption, MAG-311 on the admin, MAG-314 on the phone): her avatar, one
   message, the proposed action and « Plus tard ».
+  - **App open → interruption, app closed → system push, never both.** On the
+    phone `PushDelivery` decides; the veil, the « MAGGIE · maintenant » bubble,
+    a chime and a vibration (a switch in Settings > Notifications turns the sound
+    off) announce her.
+  - **One at a time, validations first**, deduplicated by notification (FCM,
+    Mercure and approvals say the same thing once). After 30 s it goes away and
+    the notification stays unread; tapping it in the Notifications screen, or the
+    push with the app closed, brings it back.
+  - **The buttons are the push's buttons**: the same answers, carried out by the
+    same handler. « Plus tard » is local (10 min) until the server can be told.
+  - **With reduced animations** (system setting) it fades instead of moving.
 - What Maggie did shows up as an action chip under her reply
   (« Courses · parmesan ajouté »), which opens the thing changed.
 

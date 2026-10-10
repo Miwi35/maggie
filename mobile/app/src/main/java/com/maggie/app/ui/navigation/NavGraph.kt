@@ -66,7 +66,9 @@ import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatPanel
 import com.maggie.app.ui.components.ChatRailActions
+import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.ChatSheet
+import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
@@ -1293,6 +1295,14 @@ fun NavGraph() {
                 }
             },
             onDismiss = { recurrenceConfirm = null },
+        )
+    }
+
+    // Maggie speaking on her own (MAG-314), over whatever screen is open — never behind the lock.
+    if (linkReady) {
+        InterruptionHost(
+            onOpenLink = { navController.handleDeepLink(PushIntents.open(context, it, toLink = true)) },
+            onOpenChat = { showChatSheet = true },
         )
     }
 
