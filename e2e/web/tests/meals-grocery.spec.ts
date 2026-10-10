@@ -80,7 +80,7 @@ async function aRecipeToPlan(api: APIRequestContext, what: string): Promise<Plan
 }
 
 async function agendas(api: APIRequestContext): Promise<StoredAgenda[]> {
-  return getCollection<StoredAgenda>(api, '/api/agendas')
+  return getCollection<StoredAgenda>(api, '/api/agendas?module=cookbook')
 }
 
 async function plannedMeal(api: APIRequestContext, name: string): Promise<StoredMeal | undefined> {
@@ -159,7 +159,9 @@ test('the Repas agenda is in the sidebar after a reload — MAG-176', async ({ o
   // On the screen that shows them, after a fresh load — not through the API
   // again.
   // Signed in as the second account, whose own agenda is not called "Perso".
+  // The module's agenda is not among the owner's: the filters carry one « Repas » line (MAG-354).
   const calendar = new CalendarPage(otherUser.page, 'Agenda du voisin')
   await calendar.open()
-  await expect(calendar.agendaRow('Repas')).toBeVisible()
+  await expect(calendar.content.getByText('Repas', { exact: true })).toHaveCount(1)
+  await expect(calendar.agendaRow('Repas')).toHaveCount(0)
 })

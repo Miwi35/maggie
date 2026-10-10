@@ -1,6 +1,7 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
+import { CalendarView } from '../calendar'
 import { MealsWeekView } from './MealsWeekView'
 import { IngredientCreate } from './IngredientCreate'
 import { IngredientEdit } from './IngredientEdit'
@@ -13,6 +14,7 @@ export const cookbookResources = (
   <>
     <CustomRoutes>
       <Route path="/meals" element={<MealsWeekView />} />
+      <Route path="/meals/calendar" element={<CalendarView moduleKey="cookbook" />} />
     </CustomRoutes>
     <ResourceGuesser
       name="ingredients"

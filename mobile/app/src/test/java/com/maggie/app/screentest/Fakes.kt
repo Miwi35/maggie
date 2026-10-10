@@ -213,7 +213,9 @@ class FakeCalendar(private val events: List<Event>) {
         val userPreferenceRepository = mockk<UserPreferenceRepository>()
         every { userPreferenceRepository.preference } returns MutableStateFlow(null)
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))
-        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository)
+        val mealRepository = mockk<MealRepository>()
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository)
     }
 }
 

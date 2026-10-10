@@ -6,10 +6,13 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
@@ -44,6 +47,7 @@ class CalendarViewModelTest {
     private lateinit var eventRepository: EventRepository
     private lateinit var taskRepository: TaskRepository
     private lateinit var agendaRepository: AgendaRepository
+    private lateinit var mealRepository: MealRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var userPreferenceRepository: UserPreferenceRepository
@@ -55,6 +59,8 @@ class CalendarViewModelTest {
         eventRepository = mockk()
         taskRepository = mockk()
         agendaRepository = mockk()
+        mealRepository = mockk()
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
         every { authRepository.token } returns flowOf("test-jwt")
@@ -65,13 +71,15 @@ class CalendarViewModelTest {
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(RuntimeException("offline"))
     }
 
-    private fun createViewModel() = FullCalendarViewModel(
+    private fun createViewModel(module: String? = null) = FullCalendarViewModel(
         eventRepository,
         taskRepository,
         agendaRepository,
         mercureService,
         authRepository,
         userPreferenceRepository,
+        mealRepository,
+        module,
     )
 
     @After
@@ -152,7 +160,7 @@ class CalendarViewModelTest {
         token.value = "jwt"
         advanceUntilIdle()
 
-        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).forEach { collection ->
+        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS, MercureTopics.MEALS).forEach { collection ->
             verify(exactly = 1) { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) }
         }
     }
@@ -285,6 +293,144 @@ class CalendarViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
+    }
+
+    private val dinner = Meal(id = "01MEAL", summary = "Gratin", date = "2026-06-15", slot = MealSlot.DINNER)
+    private val event = Event(id = "01RDV", summary = "Dentiste", startAt = "2026-06-15T10:00:00Z", endAt = "2026-06-15T11:00:00Z")
+
+    @Test
+    fun `the general calendar draws the meals on their day, under one Repas line`() = runTest {
+        stubRepositories(events = listOf(event))
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(dinner))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        val titles = viewModel.uiState.value.expandedEvents.map { it.summary }
+        assertTrue("Dentiste" in titles)
+        assertTrue("Dîner: Gratin" in titles)
+        assertEquals(listOf("__meals__"), viewModel.uiState.value.expandedEvents.mapNotNull { it.agendaIri }.distinct())
+        assertTrue(viewModel.uiState.value.agendas.none { it.name == "Repas" })
+    }
+
+    @Test
+    fun `unticking Repas hides the meals and leaves the events`() = runTest {
+        stubRepositories(events = listOf(event))
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(dinner))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        viewModel.toggleMeals()
+
+        assertFalse(viewModel.uiState.value.mealsEnabled)
+        assertEquals(listOf("Dentiste"), viewModel.uiState.value.expandedEvents.map { it.summary })
+
+        viewModel.toggleMeals()
+
+        assertTrue(viewModel.uiState.value.mealsEnabled)
+        assertEquals(2, viewModel.uiState.value.expandedEvents.size)
+    }
+
+    @Test
+    fun `moving to another range fetches the meals of that range`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        coVerify { mealRepository.getMeals("2026-06-01", "2026-06-30") }
+
+        viewModel.setViewType(CalendarViewType.WEEK)
+        advanceUntilIdle()
+
+        coVerify { mealRepository.getMeals("2026-06-15", "2026-06-21") }
+    }
+
+    @Test
+    fun `a module view shows its meals only and reads nothing of the user's calendar`() = runTest {
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(dinner))
+
+        val viewModel = createViewModel(module = "cookbook")
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Dîner: Gratin"), viewModel.uiState.value.expandedEvents.map { it.summary })
+        assertTrue(viewModel.uiState.value.agendas.isEmpty())
+        coVerify(exactly = 0) { agendaRepository.refreshAgendas() }
+        coVerify(exactly = 0) { eventRepository.refreshEvents() }
+        coVerify(exactly = 0) { taskRepository.refreshTasks() }
+    }
+
+    @Test
+    fun `a meals failure is reported and keeps the calendar`() = runTest {
+        stubRepositories(events = listOf(event))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.failure(RuntimeException("meals down"))
+
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        assertEquals("meals down", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a meals failure on refresh keeps the agendas and the events of the user`() = runTest {
+        stubRepositories(events = listOf(event), agendas = listOf(Agenda(id = "01WORK", name = "Work", color = "#FF0000")))
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.failure(RuntimeException("meals down"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Work"), state.agendas.map { it.name })
+        assertFalse(state.isLoading)
+        assertEquals("meals down", state.error)
+    }
+
+    @Test
+    fun `a slow reply for a range the user has left does not replace the meals on screen`() = runTest {
+        val june = Meal(id = "01JUNE", summary = "Juin", date = "2026-06-15", slot = MealSlot.DINNER)
+        val july = Meal(id = "01JULY", summary = "Juillet", date = "2026-07-15", slot = MealSlot.DINNER)
+        val juneReplies = CompletableDeferred<Unit>()
+        coEvery { mealRepository.getMeals("2026-06-01", "2026-06-30") } coAnswers {
+            juneReplies.await()
+            Result.success(listOf(june))
+        }
+        coEvery { mealRepository.getMeals("2026-07-01", "2026-07-31") } returns Result.success(listOf(july))
+        val viewModel = createViewModel(module = "cookbook")
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 7, 15))
+        advanceUntilIdle()
+        juneReplies.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Dîner: Juillet"), viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `a module view fetches the meals of the range it moves to`() = runTest {
+        val viewModel = createViewModel(module = "cookbook")
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.WEEK)
+        advanceUntilIdle()
+
+        coVerify { mealRepository.getMeals("2026-06-01", "2026-06-30") }
+        coVerify { mealRepository.getMeals("2026-06-15", "2026-06-21") }
+        coVerify(exactly = 0) { eventRepository.refreshEvents() }
     }
 
     private val work = Agenda(id = "01WORK", name = "Work", color = "#FF0000")

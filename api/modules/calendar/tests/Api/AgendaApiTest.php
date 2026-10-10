@@ -112,4 +112,86 @@ class AgendaApiTest extends WebTestCase
         $body = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($body['default']);
     }
+
+    /** @return list<string> the names of the agendas the collection answers with */
+    private function listedNames(string $query = ''): array
+    {
+        $this->client->request('GET', '/api/agendas'.$query, [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $body = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        return array_map(static fn (array $agenda) => $agenda['name'], $body['member']);
+    }
+
+    public function testCollectionRequiresAuthentication(): void
+    {
+        $this->load();
+
+        $this->client->request('GET', '/api/agendas', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testCollectionLeavesTheModuleAgendasOut(): void
+    {
+        $this->load();
+
+        $names = $this->listedNames();
+
+        self::assertEqualsCanonicalizing(['Test Agenda', 'Second Agenda'], $names);
+    }
+
+    public function testCollectionWithTheModuleParameterAnswersWithThatModulesAgenda(): void
+    {
+        $this->load();
+
+        self::assertSame(['Repas'], $this->listedNames('?module=cookbook'));
+    }
+
+    public function testAModuleAgendaCarriesItsModuleOnTheWire(): void
+    {
+        $this->load();
+
+        $this->client->request('GET', '/api/agendas?module=cookbook', [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        $body = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('cookbook', $body['member'][0]['module'] ?? null);
+    }
+
+    public function testCollectionWithAnotherModuleAnswersWithNothing(): void
+    {
+        $this->load();
+
+        self::assertSame([], $this->listedNames('?module=maggie'));
+    }
+
+    public function testCollectionAskingForEveryModuleAgendaListsThemAll(): void
+    {
+        $this->load();
+
+        self::assertSame(['Repas'], $this->listedNames('?exists[module]=true'));
+    }
+
+    public function testAnEmptyModuleParameterDoesNotLetTheModuleAgendasIn(): void
+    {
+        $this->load();
+
+        self::assertNotContains('Repas', $this->listedNames('?module='));
+    }
+
+    public function testAModuleAgendaStaysReadableByIdForTheEventsThatPointToIt(): void
+    {
+        $this->load();
+        $meals = $this->getFixture('meals_agenda');
+
+        $this->client->request('GET', '/api/agendas/'.$meals->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+    }
 }

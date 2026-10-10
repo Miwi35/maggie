@@ -17,17 +17,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekScreen
+import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
+import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import kotlinx.coroutines.launch
 
-private val TABS = listOf("Recettes", "Repas")
+private val TABS = listOf("Recettes", "Repas", "Planning")
 
 @Composable
 fun CookbookScreen(
     recipeListViewModel: RecipeListViewModel,
     mealsWeekViewModel: MealsWeekViewModel,
+    mealsCalendarViewModel: FullCalendarViewModel,
     onRecipeClick: (String) -> Unit,
     onCreateRecipe: () -> Unit,
     onCreateMeal: (day: String, slot: String) -> Unit,
@@ -69,6 +72,10 @@ fun CookbookScreen(
                     1 -> MealsWeekScreen(
                         viewModel = mealsWeekViewModel,
                         onCreateMeal = onCreateMeal,
+                    )
+                    2 -> FullCalendarScreen(
+                        viewModel = mealsCalendarViewModel,
+                        moduleTitle = "Planning des repas",
                     )
                 }
             }

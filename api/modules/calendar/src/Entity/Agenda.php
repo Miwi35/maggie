@@ -2,7 +2,9 @@
 
 namespace Maggie\Calendar\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
@@ -16,6 +18,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Calendar\State\AgendaCollectionProvider;
 use Maggie\Calendar\State\CreateAgendaProcessor;
 use Maggie\Calendar\State\DeleteAgendaProcessor;
 use Maggie\Calendar\State\UpdateAgendaProcessor;
@@ -26,7 +29,6 @@ use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
-use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
@@ -46,9 +48,12 @@ use Symfony\Component\Validator\Constraints as Assert;
 // « Repas » (MAG-324). NULLs count as distinct, so ordinary agendas are unaffected.
 #[ORM\UniqueConstraint(name: 'uniq_agenda_user_module', columns: ['user_id', 'module'])]
 #[ApiFilter(OrderFilter::class, properties: ['id', 'name'])]
+// The list leaves the module agendas out unless `module` names one (AgendaCollectionProvider).
+#[ApiFilter(SearchFilter::class, properties: ['module' => 'exact'])]
+#[ApiFilter(ExistsFilter::class, properties: ['module'])]
 #[Indexed(index: 'agendas', module: 'calendar')]
 #[ApiResource(operations: [
-    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new GetCollection(provider: AgendaCollectionProvider::class),
     new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateAgendaProcessor::class),
     new Patch(processor: UpdateAgendaProcessor::class),

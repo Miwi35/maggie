@@ -12,10 +12,13 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.GoogleCalendar
+import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
@@ -51,7 +54,13 @@ data class FullCalendarUiState(
     val error: String? = null,
     val googleCalendars: List<GoogleCalendar> = emptyList(),
     val isLoadingGoogle: Boolean = false,
+    // The « Repas » line of the filters: the meals are not an agenda of the user's (MAG-354).
+    val mealsEnabled: Boolean = true,
 )
+
+/** The id of the one « Repas » line, and of the meals' [ExpandedEvent.agendaIri]. */
+const val MEALS_FILTER_ID = "__meals__"
+const val MEALS_COLOR = "#FF6B35"
 
 class FullCalendarViewModel(
     private val eventRepository: EventRepository,
@@ -60,12 +69,17 @@ class FullCalendarViewModel(
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val userPreferenceRepository: UserPreferenceRepository,
+    private val mealRepository: MealRepository,
+    // A module's own view (MAG-354): only what that module files, nothing of the user's
+    // agendas, events or tasks. `null` is the general calendar.
+    private val module: String? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FullCalendarUiState())
     val uiState: StateFlow<FullCalendarUiState> = _uiState
 
     private var allEvents: List<Event> = emptyList()
+    private var meals: List<Meal> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
     private val loader = SingleFlight(viewModelScope) { load() }
 
@@ -138,7 +152,7 @@ class FullCalendarViewModel(
     fun setViewType(type: CalendarViewType) {
         viewSettled = true
         _uiState.value = _uiState.value.copy(viewType = type)
-        expandForCurrentRange()
+        onRangeChanged()
     }
 
     fun navigateForward() {
@@ -149,7 +163,7 @@ class FullCalendarViewModel(
             CalendarViewType.DAY -> current.plusDays(1)
         }
         _uiState.value = _uiState.value.copy(currentDate = newDate)
-        expandForCurrentRange()
+        onRangeChanged()
     }
 
     fun navigateBackward() {
@@ -160,16 +174,21 @@ class FullCalendarViewModel(
             CalendarViewType.DAY -> current.minusDays(1)
         }
         _uiState.value = _uiState.value.copy(currentDate = newDate)
-        expandForCurrentRange()
+        onRangeChanged()
     }
 
     fun goToToday() {
         _uiState.value = _uiState.value.copy(currentDate = DateRanges.todayDate())
-        expandForCurrentRange()
+        onRangeChanged()
     }
 
     fun navigateToDate(date: LocalDate) {
         _uiState.value = _uiState.value.copy(currentDate = date)
+        onRangeChanged()
+    }
+
+    fun toggleMeals() {
+        _uiState.value = _uiState.value.copy(mealsEnabled = !_uiState.value.mealsEnabled)
         expandForCurrentRange()
     }
 
@@ -186,6 +205,12 @@ class FullCalendarViewModel(
     private suspend fun load() {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         try {
+            if (module != null) {
+                val mealsFailure = loadMeals()
+                _uiState.value = _uiState.value.copy(isLoading = false, error = mealsFailure?.message)
+                expandForCurrentRange()
+                return
+            }
             val agendas = agendaRepository.refreshAgendas().getOrThrow()
             agendaMap = agendas.associateBy { it.id }
 
@@ -198,6 +223,8 @@ class FullCalendarViewModel(
 
             taskRepository.refreshTasks()
             val tasks = taskRepository.getUndoneTasks()
+            // Best effort: the meals failing must not blank the user's own calendar.
+            val mealsFailure = loadMeals()
 
             // Auto-enable new agendas
             val previousEnabled = _uiState.value.enabledAgendas
@@ -210,6 +237,7 @@ class FullCalendarViewModel(
                 enabledAgendas = enabledAgendas,
                 tasks = tasks,
                 isLoading = false,
+                error = mealsFailure?.message,
             )
             agendasLoaded = true
             applyAgendaPreference()
@@ -252,6 +280,55 @@ class FullCalendarViewModel(
         }
     }
 
+    private fun visibleDays(): ClosedRange<LocalDate> {
+        val date = _uiState.value.currentDate
+        return when (_uiState.value.viewType) {
+            CalendarViewType.MONTH -> date.withDayOfMonth(1)..date.withDayOfMonth(1).plusMonths(1).minusDays(1)
+            CalendarViewType.WEEK -> date.with(DayOfWeek.MONDAY)..date.with(DayOfWeek.MONDAY).plusDays(6)
+            CalendarViewType.DAY -> date..date
+        }
+    }
+
+    // A meal is a day and a slot (MAG-251): both ends of the range are included. A reply that
+    // lands after the user has moved to another range is dropped, so a slow answer never
+    // replaces the meals of the range now on screen. Returns the failure, if any.
+    private suspend fun loadMeals(): Throwable? {
+        val days = visibleDays()
+        val result = mealRepository.getMeals(fromDay = days.start.toString(), toDay = days.endInclusive.toString())
+        result.onSuccess { if (visibleDays() == days) meals = it }
+        return result.exceptionOrNull()
+    }
+
+    private fun onRangeChanged() {
+        expandForCurrentRange()
+        viewModelScope.launch {
+            val failure = loadMeals()
+            if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
+            expandForCurrentRange()
+        }
+    }
+
+    private fun mealEvents(): List<ExpandedEvent> {
+        if (module == null && !_uiState.value.mealsEnabled) return emptyList()
+        val days = visibleDays()
+        return meals
+            .filter { LocalDate.parse(it.date) in days }
+            .sortedWith(compareBy<Meal>({ it.date }, { it.slot }))
+            .map { meal ->
+                val day = LocalDate.parse(meal.date)
+                ExpandedEvent(
+                    id = meal.id,
+                    summary = "${if (meal.slot == MealSlot.LUNCH) "Déj" else "Dîner"}: ${meal.summary}",
+                    allDay = true,
+                    startAt = day.atStartOfDay(PARIS).toInstant().toString(),
+                    endAt = day.plusDays(1).atStartOfDay(PARIS).toInstant().toString(),
+                    agendaIri = MEALS_FILTER_ID,
+                    agendaColor = MEALS_COLOR,
+                    agendaName = "Repas",
+                )
+            }
+    }
+
     private fun expandForCurrentRange() {
         val range = getVisibleRange()
         val enabledAgendas = _uiState.value.enabledAgendas
@@ -262,7 +339,7 @@ class FullCalendarViewModel(
                 val agendaId = event.agendaIri?.removePrefix("/api/agendas/")
                 agendaId == null || agendaId in enabledAgendas
             }
-        _uiState.value = _uiState.value.copy(expandedEvents = expanded)
+        _uiState.value = _uiState.value.copy(expandedEvents = expanded + mealEvents())
     }
 
     fun createAgenda(name: String, color: String?, description: String?) {
@@ -318,7 +395,7 @@ class FullCalendarViewModel(
                     if (!authenticated) return@collectLatest
                     val userId = authRepository.getUserId() ?: return@collectLatest
                     merge(
-                        *listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).map { topic ->
+                        *listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS, MercureTopics.MEALS).map { topic ->
                             mercureService.subscribe(MercureTopics.userScoped(userId, topic))
                                 .catch { /* SSE reconnects automatically */ }
                         }.toTypedArray(),
@@ -327,5 +404,9 @@ class FullCalendarViewModel(
                         .collect { refresh() }
                 }
         }
+    }
+
+    private companion object {
+        val PARIS: ZoneId = ZoneId.of("Europe/Paris")
     }
 }

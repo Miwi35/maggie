@@ -64,6 +64,8 @@ fun FullCalendarScreen(
     onCreateEvent: () -> Unit = {},
     onCreateTask: () -> Unit = {},
     onEventClick: (ExpandedEvent) -> Unit = {},
+    // A module's own view (MAG-354): its title replaces the agenda drawer, and nothing is created here.
+    moduleTitle: String? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var fabExpanded by remember { mutableStateOf(false) }
@@ -76,6 +78,7 @@ fun FullCalendarScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = moduleTitle == null,
         drawerContent = {
             ModalDrawerSheet {
                 Text(
@@ -85,6 +88,33 @@ fun FullCalendarScreen(
                 )
 
                 LazyColumn(modifier = Modifier.weight(1f)) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(UiTags.CALENDAR_MEALS_FILTER)
+                                .clickable { viewModel.toggleMeals() }
+                                .padding(horizontal = 12.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = uiState.mealsEnabled,
+                                onCheckedChange = { viewModel.toggleMeals() },
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(android.graphics.Color.parseColor(MEALS_COLOR))),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Repas",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     items(uiState.agendas) { agenda ->
                         val color = try {
                             Color(android.graphics.Color.parseColor(agenda.color))
@@ -182,7 +212,7 @@ fun FullCalendarScreen(
     ) {
         Scaffold(
             floatingActionButton = {
-                Column {
+                if (moduleTitle == null) Column {
                     DropdownMenu(
                         expanded = fabExpanded,
                         onDismissRequest = { fabExpanded = false },
@@ -221,6 +251,15 @@ fun FullCalendarScreen(
                     .padding(padding),
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    if (moduleTitle != null) {
+                        Text(
+                            text = moduleTitle,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .testTag(UiTags.CALENDAR_MODULE_TITLE),
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -235,7 +274,7 @@ fun FullCalendarScreen(
                                 onGoToToday = { viewModel.goToToday() },
                             )
                         }
-                        Box {
+                        if (moduleTitle == null) Box {
                             IconButton(
                                 onClick = { moreMenuExpanded = true },
                                 modifier = Modifier.testTag(UiTags.CALENDAR_OPTIONS),

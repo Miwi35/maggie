@@ -45,6 +45,7 @@ object MercureTopics {
     const val AGENDAS = "agendas"
     const val EVENTS = "events"
     const val GROCERY_LISTS = "grocery_lists"
+    const val MEALS = "meals"
     const val NOTIFICATIONS = "notifications"
     const val RECIPES = "recipes"
     const val TASKS = "tasks"

@@ -403,6 +403,20 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `meals are asked for a whole month in one page, oldest first`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(body = """{"member":[]}""", seen = seen)
+
+        MaggieApiService(client).getMeals("2026-06-01", "2026-06-30")
+
+        val url = seen.single().second
+        assertTrue(url, url.contains("itemsPerPage=100"))
+        assertTrue(url, url.contains("order%5Bdate%5D=asc") || url.contains("order[date]=asc"))
+        assertTrue(url, url.contains("date%5Bafter%5D=2026-06-01") || url.contains("date[after]=2026-06-01"))
+        assertTrue(url, url.contains("date%5Bbefore%5D=2026-06-30") || url.contains("date[before]=2026-06-30"))
+    }
+
+    @Test
     fun `the deletion impact of a recipe is read from its own endpoint`() = runBlocking {
         var capturedUrl: String? = null
         var capturedMethod: HttpMethod? = null
