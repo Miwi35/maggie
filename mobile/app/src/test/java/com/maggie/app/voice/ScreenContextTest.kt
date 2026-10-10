@@ -36,21 +36,60 @@ class ScreenContextTest {
     }
 
     @Test
-    fun `a screenshot alone is still a context, so Maggie can say she cannot read it`() {
-        val screen = ScreenContext(hasScreenshot = true)
+    fun `with a screenshot the block names the app and the domain, and leaves the content to the image`() {
+        val screen = ScreenContext(
+            appPackage = "com.example.shop",
+            appLabel = "Boutique",
+            webUri = "https://www.boutique.example/cafe?ref=42",
+            texts = listOf("Café moulu 250 g", "4,90 €"),
+            hasScreenshot = true,
+        )
 
-        assertFalse(screen.isEmpty)
-        val block = screen.toPromptBlock()!!
-        assertTrue(block.contains("seule une image est disponible"))
-        assertTrue(block.contains("Ne devine pas"))
+        assertEquals(
+            """
+            [Contexte de l'écran]
+            Application : Boutique (com.example.shop)
+            Page : boutique.example
+            L'image jointe est une capture de cet écran.
+            """.trimIndent(),
+            screen.toPromptBlock(imageAttached = true),
+        )
+    }
+
+    /** A file that could not be read is not announced: the model gets the texts instead. */
+    @Test
+    fun `a screenshot that could not be attached falls back to the texts`() {
+        val screen = ScreenContext(
+            appLabel = "Boutique",
+            webUri = "https://boutique.example/cafe",
+            texts = listOf("Café moulu 250 g"),
+            hasScreenshot = true,
+        )
+
+        assertEquals(
+            """
+            [Contexte de l'écran]
+            Application : Boutique
+            Page : https://boutique.example/cafe
+            Texte à l'écran :
+            - Café moulu 250 g
+            """.trimIndent(),
+            screen.toPromptBlock(imageAttached = false),
+        )
     }
 
     @Test
-    fun `the screenshot warning disappears as soon as there is text to read`() {
-        val screen = ScreenContext(texts = listOf("Café moulu 250 g"), hasScreenshot = true)
+    fun `a screenshot alone that could not be attached says nothing`() {
+        assertNull(ScreenContext(hasScreenshot = true).toPromptBlock(imageAttached = false))
+    }
 
-        val block = screen.toPromptBlock()!!
-        assertTrue(block.contains("- Café moulu 250 g"))
+    @Test
+    fun `a screenshot alone is still a context, and nothing says Maggie cannot read it`() {
+        val screen = ScreenContext(hasScreenshot = true)
+
+        assertFalse(screen.isEmpty)
+        val block = screen.toPromptBlock(imageAttached = true)!!
+        assertFalse(block.contains("je ne sais pas"))
         assertFalse(block.contains("seule une image"))
     }
 
@@ -133,7 +172,7 @@ class ScreenContextTest {
         val intent = mockk<Intent>()
         every { intent.getStringExtra(any()) } returns null
         every { intent.getStringArrayListExtra(any()) } returns null
-        every { intent.getBooleanExtra(any(), any()) } returns false
+        every { intent.getBooleanExtra(any(), false) } returns false
 
         assertNull(ScreenContext.fromIntent(intent))
     }

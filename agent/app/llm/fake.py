@@ -119,21 +119,28 @@ class Scenario:
     system_contains: tuple[str, ...] = ()
     history_contains: tuple[str, ...] = ()
     history_matches: str | None = None
+    # The question came with a picture (MAG-214) — the model sees it, a journey cannot.
+    user_has_image: bool = False
     is_default: bool = False
     source: str = ""
 
-    def matches(self, user_text: str, system_text: str, history: str = "") -> bool:
+    def matches(self, user_text: str, system_text: str, history: str = "", *, has_image: bool = False) -> bool:
         """Every declared condition has to hold. A scenario declaring none matches nothing."""
         if self.is_default:
             return True
-        conditions = bool(
-            self.user_contains
-            or self.user_matches
-            or self.system_contains
-            or self.history_contains
-            or self.history_matches
+        conditions = (
+            bool(
+                self.user_contains
+                or self.user_matches
+                or self.system_contains
+                or self.history_contains
+                or self.history_matches
+            )
+            or self.user_has_image
         )
         if not conditions:
+            return False
+        if self.user_has_image and not has_image:
             return False
         lowered_user = user_text.lower()
         lowered_system = system_text.lower()
@@ -257,6 +264,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         system_contains=_as_tuple(match.get("system_contains")),
         history_contains=_as_tuple(match.get("history_contains")),
         history_matches=str(history_matches) if history_matches is not None else None,
+        user_has_image=bool(match.get("user_has_image")),
         is_default=bool(raw.get("default")),
         source=source,
     )
@@ -322,10 +330,12 @@ class ScenarioLibrary:
         if contents != self._contents:
             self._load_from(contents)
 
-    def resolve(self, user_text: str, system_text: str, history: str = "") -> Scenario | None:
+    def resolve(
+        self, user_text: str, system_text: str, history: str = "", *, has_image: bool = False
+    ) -> Scenario | None:
         self.ensure_loaded()
         for scenario in self.scenarios:
-            if scenario.matches(user_text, system_text, history):
+            if scenario.matches(user_text, system_text, history, has_image=has_image):
                 return scenario
         return None
 
@@ -350,15 +360,59 @@ def system_text(system: Any) -> str:
     return "\n".join(parts)
 
 
-def last_user_text(messages: list[dict] | None) -> str:
-    """The last thing the user actually said — tool result batches are not it."""
+def _is_loop_round(content: Any) -> bool:
+    """A list is a round of the loop (tool results, a guard's relaunch) unless it carries a picture.
+
+    The user's question is a string, or a list when it came with an image (MAG-214).
+    """
+    return isinstance(content, list) and not any(_block_type(block) == "image" for block in content)
+
+
+def _block_type(block: Any) -> str | None:
+    return block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+
+
+def _last_question(messages: list[dict] | None) -> Any:
+    """The content of the last user turn that is not a batch of tool results."""
     for message in reversed(messages or []):
-        if message.get("role") != "user":
-            continue
-        content = message.get("content")
-        if isinstance(content, str):
-            return content
+        if message.get("role") == "user" and not _is_loop_round(message.get("content")):
+            return message.get("content")
+    return None
+
+
+def last_user_text(messages: list[dict] | None) -> str:
+    """The last thing the user actually said — tool result batches are not it.
+
+    A turn that came with a picture is a list, the image then the text (MAG-214).
+    """
+    content = _last_question(messages)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(block["text"] for block in content if _block_type(block) == "text")
     return ""
+
+
+def last_user_has_image(messages: list[dict] | None) -> bool:
+    content = _last_question(messages)
+    return isinstance(content, list) and any(_block_type(block) == "image" for block in content)
+
+
+_images_received = 0
+
+
+def images_received() -> int:
+    """How many questions came to the fake model with a picture, since the last reset.
+
+    The voice journey's proof that the screenshot really crossed the agent (MAG-214): the
+    model is the one reader of it, and no screen shows what the model was sent.
+    """
+    return _images_received
+
+
+def reset_images_received() -> None:
+    global _images_received
+    _images_received = 0
 
 
 def history_text(messages: list[dict] | None) -> str:
@@ -376,8 +430,15 @@ def history_text(messages: list[dict] | None) -> str:
     parts = []
     for message in (messages or [])[:-1]:
         content = message.get("content")
-        parts.append(content if isinstance(content, str) else str(content))
+        parts.append(content if isinstance(content, str) else str(_without_image_data(content)))
     return "\n".join(parts)
+
+
+def _without_image_data(content: Any) -> Any:
+    """A list content with its pictures reduced to their type: the bytes are not text to match or count."""
+    if not isinstance(content, list):
+        return content
+    return [{"type": "image"} if _block_type(block) == "image" else block for block in content]
 
 
 def turn_index(messages: list[dict] | None) -> int:
@@ -391,13 +452,13 @@ def turn_index(messages: list[dict] | None) -> int:
     history replays the rounds of the thread's last turns, which are batches too. Counting
     those as well would have the fake answering with turn 3 of a scenario on the first
     call of a run — `[fake-llm] le scénario … n'a pas de tour 3`, on a scenario that is
-    perfectly fine.
+    perfectly fine. A question with a picture is a list too (MAG-214), and is not a batch.
     """
     rounds = 0
     for message in reversed(messages or []):
         if message.get("role") != "user":
             continue
-        if isinstance(message.get("content"), str):
+        if not _is_loop_round(message.get("content")):
             break
         rounds += 1
     return rounds
@@ -410,7 +471,7 @@ def _tokens(text: str) -> int:
 def _request_tokens(system: Any, messages: list[dict] | None) -> int:
     size = len(system_text(system))
     for message in messages or []:
-        size += len(str(message.get("content", "")))
+        size += len(str(_without_image_data(message.get("content", ""))))
     return max(1, size // 4)
 
 
@@ -504,9 +565,13 @@ class FakeMessages:
         user_text = last_user_text(messages)
         prompt = system_text(system)
         index = turn_index(messages)
+        has_image = last_user_has_image(messages)
+        if has_image and index == 0:
+            global _images_received
+            _images_received += 1
 
         history = history_text(messages)
-        scenario = self._library.resolve(user_text, prompt, history)
+        scenario = self._library.resolve(user_text, prompt, history, has_image=has_image)
         if scenario is None:
             logger.error(f"[fake-llm] no scenario for {user_text!r} — add one under {self._library.directory}")
             turn = Turn(text=no_scenario_message(user_text))

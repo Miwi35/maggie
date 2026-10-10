@@ -47,6 +47,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
+from app.llm.image import GONE_MARKER, ChatImage, with_image
 from app.llm.screen_context import attach
 from app.llm.tool_blocks import replay
 from app.personality.engine import TZ_PARIS, french_date
@@ -123,6 +124,7 @@ async def build_history(
     current_message_id: str | None = None,
     screen_context: str | None = None,
     tz: ZoneInfo | None = None,
+    image: ChatImage | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -152,6 +154,10 @@ async def build_history(
 
     `tz` is the user's timezone: a user message written on another day than today's opens
     with that day's date (MAG-349), counted in it. Paris when not given.
+
+    `image` is the picture that came with the message (MAG-214), and it goes on the same
+    turn, last of all: the merges above concatenate strings, and an image turn is a list.
+    It is not stored, so an earlier turn that had one reads as [GONE_MARKER] instead.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -177,6 +183,8 @@ async def build_history(
     # screen has to come with it: without this the one turn the model gets is blind.
     if not turns and fallback_message:
         _append_user(turns, attach(fallback_message, screen_context))
+    if image and turns and turns[-1]["role"] == "user":
+        turns[-1]["content"] = with_image(turns[-1]["content"], image)
 
     # The number of turns no longer matches the number of messages once blocks are
     # replayed, so both are logged: a thread whose history suddenly doubles in turns is a
@@ -268,7 +276,12 @@ def _turns(
         if _is_orphan(row, current_message_id):
             continue
 
+        is_current = current_message_id is not None and str(row.id) == str(current_message_id)
         content = row.content
+        # The picture is gone after its turn (MAG-214). Unmarked, the question that came
+        # with it — « c'est quoi ce produit ? » — reads as a question about nothing.
+        if row.has_image and not is_current:
+            content = f"{GONE_MARKER} {content}"
         # Only the user's side is labelled. Maggie's own answers, labelled, read to her as
         # the way she writes — and she wrote « [fil « … »] » at the head of hers (MAG-341).
         # The question just before an answer already says which thread the exchange was in.
@@ -276,7 +289,7 @@ def _turns(
             content = _prefix(labels.get(str(row.context_id))) + content
         # Only the turn being answered: the screen was there when that one was dictated,
         # and the follow-up question is about the answer, not about the page.
-        if screen_context and current_message_id is not None and str(row.id) == str(current_message_id):
+        if screen_context and is_current:
             content = attach(content, screen_context)
         # Only the user's side again: an answer opening on « — le mardi 6 octobre — » would
         # be copied the way the thread label was. The question that opens the day dates it.

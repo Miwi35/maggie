@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ApprovalDecisionException
+import com.maggie.app.data.api.ChatImage
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
@@ -68,6 +69,12 @@ data class ChatUiState(
     val pendingApprovals: List<ApprovalItem> = emptyList(),
     /** Why the last question got no answer: shown in the thread, never left as a silence. */
     val failure: String? = null,
+    /**
+     * The screenshots sent from this device, as JPEG bytes, by message id (MAG-214).
+     * Memory only: the image is stored nowhere, so after a reload a bubble only
+     * has [ChatMessage.hasImage] to go on.
+     */
+    val thumbnails: Map<String, ByteArray> = emptyMap(),
 )
 
 @OptIn(FlowPreview::class)
@@ -148,6 +155,12 @@ class ChatViewModel(
 
     private fun List<ChatMessage>.asSaid(): List<ChatMessage> = map { it.asSaid() }
 
+    /** The pending bubble's thumbnail follows it when it takes its stored id. */
+    private fun Map<String, ByteArray>.rekeyed(from: String, to: String?): Map<String, ByteArray> {
+        val bytes = this[from] ?: return this
+        return if (to == null) this - from else this - from + (to to bytes)
+    }
+
     private fun resolveUnreadFromId(messages: List<ChatMessage>, lastReadId: String?): String? {
         if (lastReadId == null) return null
         val lastReadIndex = messages.indexOfFirst { it.id == lastReadId }
@@ -191,8 +204,11 @@ class ChatViewModel(
      * glued to it, it was what the agent stored, and the conversation then
      * showed the page instead of the question — on reload, through Mercure and
      * in the web chat alike. The model still gets it; nobody reads it.
+     *
+     * [image] is the screenshot that goes with it, as JPEG bytes (MAG-214): sent for
+     * this turn, and kept here only to draw the bubble's thumbnail.
      */
-    fun sendMessage(text: String, screenContext: String? = null) {
+    fun sendMessage(text: String, screenContext: String? = null, image: ByteArray? = null) {
         if (text.isBlank()) return
         awaitingReply = true
 
@@ -203,11 +219,17 @@ class ChatViewModel(
                 role = "user",
                 content = text,
                 createdAt = java.time.Instant.now().toString(),
+                hasImage = image != null,
             )
             val anchor = _uiState.value.messages.lastOrNull { !it.id.startsWith(PENDING_PREFIX) }?.createdAt
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages + userMessage,
                 failure = null,
+                thumbnails = if (image != null) {
+                    _uiState.value.thumbnails + (userMessage.id to image)
+                } else {
+                    _uiState.value.thumbnails
+                },
                 isLoading = true,
                 streamingText = "",
                 streamingMessageId = null,
@@ -217,10 +239,11 @@ class ChatViewModel(
             scrollToBottom(animate = true)
 
             val screen = screenContext?.takeIf { it.isNotBlank() }
+            val attached = image?.let { ChatImage.jpeg(it) }
 
             try {
                 var streamError: String? = null
-                repository.sendMessageStream(text, screen)
+                repository.sendMessageStream(text, screen, attached)
                     .collect { event ->
                         if (event is AgUiEvent.Error) streamError = event.message
                         handleStreamEvent(event)
@@ -235,12 +258,16 @@ class ChatViewModel(
                 Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
                 // Fallback to non-streaming
                 try {
-                    val newMessages = repository.sendMessage(text, screen).asSaid()
+                    val newMessages = repository.sendMessage(text, screen, attached).asSaid()
                     if (newMessages.isNotEmpty()) {
                         // Replace optimistic user message with server response
                         val current = _uiState.value.messages.dropLast(1)
                         _uiState.value = _uiState.value.copy(
                             messages = current + newMessages,
+                            thumbnails = _uiState.value.thumbnails.rekeyed(
+                                userMessage.id,
+                                newMessages.firstOrNull { it.role == "user" }?.id,
+                            ),
                             streamingText = "",
                             streamingMessageId = null,
                         )
@@ -289,6 +316,7 @@ class ChatViewModel(
 
     private fun mergeStored(stored: List<ChatMessage>) {
         var messages = _uiState.value.messages
+        var thumbnails = _uiState.value.thumbnails
         for (message in stored) {
             if (messages.any { it.id == message.id }) continue
             val pendingIndex = if (message.role == "user") {
@@ -297,12 +325,13 @@ class ChatViewModel(
                 -1
             }
             messages = if (pendingIndex >= 0) {
+                thumbnails = thumbnails.rekeyed(messages[pendingIndex].id, message.id)
                 messages.mapIndexed { i, m -> if (i == pendingIndex) message else m }
             } else {
                 messages + message
             }
         }
-        _uiState.value = _uiState.value.copy(messages = messages)
+        _uiState.value = _uiState.value.copy(messages = messages, thumbnails = thumbnails)
         rebuildDisplayItems()
     }
 
@@ -565,6 +594,7 @@ class ChatViewModel(
                 ChatListItem.MessageItem(
                     message = msg,
                     isHighlighted = highlightedId == msg.id,
+                    thumbnail = state.thumbnails[msg.id],
                 ),
             )
         }
@@ -721,6 +751,11 @@ class ChatViewModel(
                                     current.mapIndexed { i, m -> if (i == pendingIndex) m.copy(id = message.id) else m }
                                 } else {
                                     current + message
+                                },
+                                thumbnails = if (pendingIndex >= 0) {
+                                    _uiState.value.thumbnails.rekeyed(current[pendingIndex].id, message.id)
+                                } else {
+                                    _uiState.value.thumbnails
                                 },
                             )
                             rebuildDisplayItems()

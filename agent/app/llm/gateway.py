@@ -9,6 +9,7 @@ from app.llm.contexts import active_contexts_section, resolve_context, route_mes
 from app.llm.directives import behavior_directives_section
 from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history, strip_thread_label
+from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -178,13 +179,15 @@ class LLMGateway:
         source: str = "chat",
         exclude_message_id: str | None = None,
         screen_context: str | None = None,
+        image: ChatImage | None = None,
     ) -> dict:
         """Process a chat message through Claude with MCP tool support.
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It reaches the model through the history, on the turn being answered, and
         never through `message`: what is stored is what every client displays. The routing
-        reads `message` alone — a thread named after a shop page is not a thread.
+        reads `message` alone — a thread named after a shop page is not a thread. `image`,
+        the screenshot (MAG-214), takes the same road and is never stored either.
 
         `exclude_message_id` is the user's message when the caller has already stored it.
         It decides two things at once: that the « last conversation » line must skip it
@@ -228,6 +231,7 @@ class LLMGateway:
             current_message_id=exclude_message_id,
             screen_context=screen_context,
             tz=await resolve_user_timezone(user_id),
+            image=image,
         )
 
         # Get all tools including proaction tools (so user can schedule reminders from chat);

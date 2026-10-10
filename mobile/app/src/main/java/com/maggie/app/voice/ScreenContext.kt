@@ -17,10 +17,12 @@ import android.content.Intent
  * Mercure echo, the web chat. The bubble shows what was said; the model reads
  * the screen.
  *
- * [hasScreenshot] is deliberately a flag and not the image: nothing in the API
- * or the agent accepts one today, and telling the model « the screen is an image
- * I cannot read » is what keeps it from inventing the content of a screen whose
- * view tree carried no text.
+ * [hasScreenshot] says the session left a JPEG at [ScreenshotEncoder.file]: the
+ * image does not fit in an intent (extras cap out around 1 MB), and its path does
+ * not travel either. The overlay is exported for `ACTION_ASSIST`, so any app can
+ * start it with any extras — a path read from them would have had Maggie send and
+ * delete any of her own files. The overlay sends the image with the next sentence
+ * and deletes it ([PendingScreenshot], MAG-214).
  */
 data class ScreenContext(
     val appPackage: String? = null,
@@ -47,8 +49,16 @@ data class ScreenContext(
             ?: webUri?.let { host(it) }
             ?: appPackage?.takeIf { it.isNotBlank() }
 
-    /** The block prefixed to the first message of the session, or null if empty. */
-    fun toPromptBlock(): String? {
+    /**
+     * The block sent beside the first sentence, or null if there is nothing to say.
+     *
+     * With an image attached, the image carries the content: the block names the
+     * app and the page's domain, never the texts nor the full address (MAG-214, the
+     * owner's decision). Without one, the texts are all the model gets.
+     * [imageAttached] is whether bytes actually go with the sentence, not
+     * [hasScreenshot]: a file that could not be read must not be announced.
+     */
+    fun toPromptBlock(imageAttached: Boolean = false): String? {
         if (isEmpty) return null
 
         val lines = mutableListOf(PROMPT_HEADER)
@@ -57,16 +67,20 @@ data class ScreenContext(
             appPackage?.takeIf { it.isNotBlank() }?.let { "($it)" },
         ).joinToString(" ")
         if (app.isNotEmpty()) lines += "Application : $app"
-        webUri?.takeIf { it.isNotBlank() }?.let { lines += "Page : $it" }
 
-        if (texts.isNotEmpty()) {
-            lines += "Texte à l'écran :"
-            texts.forEach { lines += "- $it" }
-        } else if (hasScreenshot) {
-            lines += "Le contenu de l'écran n'est pas lisible : seule une image est disponible, " +
-                "et je ne sais pas encore la regarder. Ne devine pas ce qu'elle montre."
+        if (imageAttached) {
+            webUri?.let { host(it) }?.let { lines += "Page : $it" }
+            lines += "L'image jointe est une capture de cet écran."
+        } else {
+            webUri?.takeIf { it.isNotBlank() }?.let { lines += "Page : $it" }
+            if (texts.isNotEmpty()) {
+                lines += "Texte à l'écran :"
+                texts.forEach { lines += "- $it" }
+            }
         }
 
+        // A screenshot that was not attached, and nothing else: no block.
+        if (lines.size == 1) return null
         return lines.joinToString("\n")
     }
 

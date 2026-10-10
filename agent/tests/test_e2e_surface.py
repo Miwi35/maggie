@@ -12,12 +12,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.e2e import setup_e2e
+from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.transcription import WhisperTranscript, reset_cleanup_requests
 from app.tts.synthesis import reset_fake_synthesis_requests, synthesize_speech
 
 TOKEN = "token-for-the-test"
 URL = "/e2e/tts/syntheses"
 CLEANUPS_URL = "/e2e/transcription/cleanups"
+IMAGES_URL = "/e2e/llm/images"
 
 
 def _client_saying(text: str) -> AsyncMock:
@@ -51,7 +53,7 @@ def fresh_counter():
 
 class TestAbsenceOutsideE2e:
     @pytest.mark.parametrize("provider", ["edge", ""])
-    @pytest.mark.parametrize("url", [URL, CLEANUPS_URL])
+    @pytest.mark.parametrize("url", [URL, CLEANUPS_URL, IMAGES_URL])
     def test_no_e2e_route_is_mounted(self, monkeypatch, provider, url):
         app = app_for(monkeypatch, provider)
 
@@ -67,7 +69,7 @@ class TestAbsenceOutsideE2e:
 
 
 class TestOnTheE2eStack:
-    @pytest.mark.parametrize("url", [URL, CLEANUPS_URL])
+    @pytest.mark.parametrize("url", [URL, CLEANUPS_URL, IMAGES_URL])
     def test_requires_the_token(self, monkeypatch, url):
         with TestClient(app_for(monkeypatch, "fake")) as client:
             assert client.get(url).status_code == 401
@@ -155,3 +157,19 @@ class TestOnTheE2eStack:
 
         with TestClient(app_for(monkeypatch, "fake")) as client:
             assert client.get(URL, headers=headers).json() == {"count": 1}
+
+    async def test_counts_every_question_with_a_picture_and_resets(self, monkeypatch):
+        """The voice journey's proof that the screenshot crossed the agent to the model (MAG-214)."""
+        headers = {"X-E2E-Token": TOKEN}
+        picture = {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "/9j/"}}
+        model = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        with TestClient(app_for(monkeypatch, "fake")) as client:
+            assert client.delete(IMAGES_URL, headers=headers).json() == {"count": 0}
+
+            await model.messages.create(
+                messages=[{"role": "user", "content": [picture, {"type": "text", "text": "c'est quoi ?"}]}]
+            )
+            assert client.get(IMAGES_URL, headers=headers).json() == {"count": 1}
+
+            assert client.delete(IMAGES_URL, headers=headers).json() == {"count": 0}

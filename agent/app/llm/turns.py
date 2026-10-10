@@ -21,6 +21,7 @@ from app.config import settings
 from app.db.message_repository import message_repo
 from app.db.models import TURN_RUNNING, Message
 from app.error_tracking import UNANSWERED_MESSAGE, capture_error, capture_signal
+from app.llm.image import ChatImage
 from app.llm.streaming import StreamingGateway, answer_message_id
 
 logger = logging.getLogger(__name__)
@@ -61,11 +62,12 @@ class TurnRunner:
         message_id: str,
         message: str,
         screen_context: str | None = None,
+        image: ChatImage | None = None,
         follow: bool = True,
     ) -> AsyncGenerator[dict, None] | None:
         """Launch the turn answering `message_id`; the events come back to whoever follows it."""
         queue: asyncio.Queue | None = asyncio.Queue() if follow else None
-        task = asyncio.create_task(self._run(gateway, user_id, message_id, message, screen_context, queue))
+        task = asyncio.create_task(self._run(gateway, user_id, message_id, message, screen_context, image, queue))
         self._tasks[message_id] = task
         task.add_done_callback(lambda _: self._tasks.pop(message_id, None))
         return _events(queue) if queue is not None else None
@@ -77,11 +79,14 @@ class TurnRunner:
         message_id: str,
         message: str,
         screen_context: str | None,
+        image: ChatImage | None,
         queue: asyncio.Queue | None,
     ) -> None:
         heartbeat = asyncio.create_task(self._renew_lease(message_id))
         try:
-            async for event in gateway.chat_stream(message, user_id, message_id, screen_context=screen_context):
+            async for event in gateway.chat_stream(
+                message, user_id, message_id, screen_context=screen_context, image=image
+            ):
                 if queue is not None:
                     queue.put_nowait(event)
             await self._settle(message_id)
@@ -161,6 +166,8 @@ class TurnRunner:
                 user_id=message.user_id,
                 message_id=message.id,
                 message=message.content,
+                # The screenshot is gone with the process that held it (MAG-214): the
+                # history tells the model there was one.
                 screen_context=message.turn_screen_context,
                 follow=False,
             )

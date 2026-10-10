@@ -46,6 +46,9 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   createdAt: string
+  // A screenshot came with the question (MAG-214). It lived for that turn only and is
+  // never stored, so the web can say it was there, not show it.
+  hasImage?: boolean
 }
 
 const MESSAGES_URL = '/agent/messages'
@@ -990,6 +993,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             animate={msg.id !== streamedId}
                             onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
                           >
+                            {msg.hasImage && (
+                              <Typography variant="caption" component="div" sx={{ opacity: 0.8, fontStyle: 'italic' }}>
+                                Capture d'écran (non conservée)
+                              </Typography>
+                            )}
                             {saidInMessage(msg.content)}
                           </ChatBubble>
                         </Fragment>

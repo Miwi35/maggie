@@ -29,6 +29,10 @@ class ContextRepository:
             # can read them. Nullable: every message written before this column existed
             # keeps its text and simply has no blocks to replay.
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS blocks JSONB"))
+            # MAG-214 — a picture came with the message; the picture itself is never stored.
+            await conn.execute(
+                text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS has_image BOOLEAN NOT NULL DEFAULT FALSE")
+            )
             # MAG-11 — the thread's summary, and where it stops.
             await conn.execute(text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary TEXT"))
             await conn.execute(

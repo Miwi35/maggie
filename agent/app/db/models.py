@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, false
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.proaction_model import AgentBase
@@ -31,6 +31,9 @@ class Message(AgentBase):
     # alone, which is why it is absent from `to_dict()` below.
     blocks = Column(JSONB, nullable=True)
     context_id = Column(String(32), nullable=True)
+    # A picture came with the message (MAG-214). The flag, never the picture: it lived for
+    # the turn and is gone, and this is how a reader of the history knows it was there.
+    has_image = Column(Boolean, nullable=False, default=False, server_default=false())
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     # The client's idempotency key: the same key from the same user is the same message.
     client_key = Column(String(64), nullable=True)
@@ -55,5 +58,6 @@ class Message(AgentBase):
             "role": self.role,
             "content": self.content,
             "contextId": self.context_id,
+            "hasImage": bool(self.has_image),
             "createdAt": self.created_at.isoformat() if self.created_at else "",
         }

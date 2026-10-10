@@ -28,6 +28,7 @@ from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
+from app.llm.image import ChatImage
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import StreamingGateway
@@ -61,6 +62,10 @@ class ChatRequest(BaseModel):
     # that failed on the way back may have been received, and sending it again must not
     # make a second message — or a second answer.
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
+
+    # The screenshot the assistant was summoned over (MAG-214): read by the model on this
+    # turn, never stored — `app/llm/image.py` holds the policy.
+    image: ChatImage | None = None
 
 
 class ChatResponse(BaseModel):
@@ -104,11 +109,15 @@ async def health():
 async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
     """Send a message to the AI agent and get a response."""
     said, screen = split_screen_context(request.message, request.screen_context)
-    logger.info(f"Chat request from user {user_id}: {said[:100]}")
+    logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=said)
+    user_msg = await message_repo.create(
+        user_id=user_id, role="user", content=said, has_image=request.image is not None
+    )
 
-    result = await llm_gateway.chat(said, user_id, exclude_message_id=user_msg.id, screen_context=screen)
+    result = await llm_gateway.chat(
+        said, user_id, exclude_message_id=user_msg.id, screen_context=screen, image=request.image
+    )
 
     # Both halves in the thread the question was routed into (MAG-13), and the thread
     # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
@@ -147,7 +156,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     # The screen the assistant was summoned from reaches the model, not the message that
     # is stored and published — this is the route the overlay streams on (MAG-30).
     said, screen = split_screen_context(request.message, request.screen_context)
-    logger.info(f"Stream chat request from user {user_id}: {said[:100]}")
+    logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key
     received = await message_repo.find_by_client_key(user_id, key) if key else None
@@ -160,6 +169,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 client_key=key,
                 turn_lease_until=lease_deadline(),
                 turn_screen_context=screen,
+                has_image=request.image is not None,
             )
         except IntegrityError:
             # The same key, twice at once: the other request won, and owns the turn.
@@ -168,7 +178,12 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 raise
         else:
             events = turn_runner.start(
-                streaming_gateway, user_id=user_id, message_id=user_msg.id, message=said, screen_context=screen
+                streaming_gateway,
+                user_id=user_id,
+                message_id=user_msg.id,
+                message=said,
+                screen_context=screen,
+                image=request.image,
             )
     if received is not None:
         logger.info(f"Message {received.id} already received under key {key}: not answered twice")
@@ -183,6 +198,10 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _image_note(image: ChatImage | None) -> str:
+    return f" [image: {image.describe()}]" if image else ""
 
 
 @router.delete("/smoke/history")

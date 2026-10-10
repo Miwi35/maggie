@@ -42,9 +42,10 @@ def say(chat_db):
         user: str = OWNER,
         message_id: str | None = None,
         blocks: list[dict] | None = None,
+        has_image: bool = False,
     ):
         message = await message_repo.create(
-            user_id=user, role=role, content=content, context_id=context, blocks=blocks
+            user_id=user, role=role, content=content, context_id=context, blocks=blocks, has_image=has_image
         )
         # `created_at` defaults to "now", and every message of a test would then share a
         # timestamp at SQLite's resolution — which is exactly the tie the ordering has to
@@ -722,3 +723,50 @@ class TestEveryPastDayIsDated:
         turns = await build_history(OWNER, pending_message="Et maintenant ?")
 
         assert turns[-1]["content"].endswith("— aujourd'hui, jeudi 8 octobre —\nEt maintenant ?")
+
+
+class TestThePictureTheQuestionCameWith:
+    """The screenshot is read on its turn and kept nowhere (MAG-214)."""
+
+    @pytest.fixture()
+    def image(self):
+        from app.llm.image import ChatImage
+
+        return ChatImage(media_type="image/jpeg", data="/9j/AAAA")
+
+    async def test_it_goes_on_the_turn_being_answered_before_the_question(self, say, thread, image):
+        boutique = await thread("Boutique")
+        asked = await say("user", "C'est quoi ce produit ?", context=boutique.id, has_image=True)
+
+        turns = await build_history(
+            OWNER, context_id=boutique.id, current_message_id=asked.id, screen_context=SCREEN, image=image
+        )
+
+        assert turns == [
+            {
+                "role": "user",
+                "content": [image.block(), {"type": "text", "text": f"{SCREEN}\n\nC'est quoi ce produit ?"}],
+            }
+        ]
+
+    async def test_an_earlier_turn_that_had_one_says_it_is_gone(self, say, thread):
+        from app.llm.image import GONE_MARKER
+
+        boutique = await thread("Boutique")
+        await say("user", "C'est quoi ce produit ?", context=boutique.id, has_image=True)
+        await say("assistant", "Une cafetière italienne.", context=boutique.id, minutes=1)
+        asked = await say("user", "Et son prix ?", context=boutique.id, minutes=2)
+
+        turns = await build_history(OWNER, context_id=boutique.id, current_message_id=asked.id)
+
+        assert turns[0]["content"] == f"{GONE_MARKER} C'est quoi ce produit ?"
+        assert turns[2]["content"] == "Et son prix ?"
+
+    async def test_a_history_that_would_not_load_still_sends_it(self, image):
+        with patch("app.llm.history.message_repo") as repo:
+            repo.find_by_context = AsyncMock(return_value=[])
+            repo.find_recent = AsyncMock(side_effect=RuntimeError("no database"))
+
+            turns = await build_history(OWNER, context_id="ctx-1", fallback_message="C'est quoi ?", image=image)
+
+        assert turns == [{"role": "user", "content": [image.block(), {"type": "text", "text": "C'est quoi ?"}]}]

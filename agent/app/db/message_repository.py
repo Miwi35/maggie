@@ -40,6 +40,7 @@ class MessageRepository:
         turn_lease_until: datetime | None = None,
         turn_screen_context: str | None = None,
         blocks: list[dict] | None = None,
+        has_image: bool = False,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -64,6 +65,7 @@ class MessageRepository:
                 # `None` rather than `[]` for a turn that called nothing: the column then
                 # says « no round », not « a round that is empty ».
                 blocks=blocks or None,
+                has_image=has_image,
             )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING
