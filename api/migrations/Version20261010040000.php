@@ -26,7 +26,9 @@ use Doctrine\Migrations\AbstractMigration;
  * instant.
  *
  * Dry run first: `doctrine:migrations:migrate --dry-run` prints the count per
- * convention and a few rows of each, without writing. The conversion only takes
+ * convention and a few rows of each, without writing. The exceptions of an
+ * all-day series get their occurrence key re-read the same way: the midnight
+ * UTC of the day they replace. The conversion only takes
  * the all-day rows with no date yet, and the schema statements are guarded, so
  * running it again changes nothing.
  */
@@ -64,6 +66,20 @@ final class Version20261010040000 extends AbstractMigration
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_event_days ON event (start_date, end_date)');
 
         $this->reportConventions();
+
+        // The exceptions of an all-day series first, while their series still
+        // has its instants to classify: an occurrence is known to its
+        // exception by the midnight UTC of its day now, and a series the
+        // mobile wrote keyed it at midnight in Paris — 23:00Z the day before,
+        // which would cancel or replace the wrong day.
+        $this->addSql(sprintf(<<<'SQL'
+            WITH classified AS (%s)
+            UPDATE event SET original_start_at = (
+                (event.original_start_at AT TIME ZONE CASE WHEN c.convention IN ('google', 'admin') THEN 'UTC' ELSE 'Europe/Paris' END)::date
+            )::timestamp AT TIME ZONE 'UTC'
+            FROM classified c
+            WHERE event.recurring_event_id = c.id AND event.original_start_at IS NOT NULL
+            SQL, self::CLASSIFIED));
 
         $this->addSql(sprintf(<<<'SQL'
             WITH classified AS (%s), zoned AS (

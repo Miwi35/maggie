@@ -134,10 +134,6 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
 
-  # An all-day weekly series ended by a *date* UNTIL (MAG-288). lib-recur on the phone
-  # refused it against the absolute start it was given, and the exception took the
-  # calendar screen down. Starts today so it is always in the week the journey opens;
-  # UNTIL is two weeks out and read in Paris: its day is the last occurrence.
   # A day is a date (MAG-382): one day, the 1st of the anchor's month, with no
   # instant. Read as an instant in Paris, the old 00:00Z → 00:00Z of the next
   # day ended at 01:00 on the 2nd and the mobile showed it on two days. The
@@ -151,6 +147,10 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
 
+  # An all-day weekly series ended by a *date* UNTIL (MAG-288). lib-recur on the phone
+  # refused it against the absolute start it was given, and the exception took the
+  # calendar screen down. Starts today so it is always in the week the journey opens;
+  # UNTIL is two weeks out and read in Paris: its day is the last occurrence.
   e2e_event_all_day_series:
     summary: Stage de voile MAG-288
     allDay: true

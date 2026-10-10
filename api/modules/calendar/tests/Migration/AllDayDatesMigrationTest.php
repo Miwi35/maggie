@@ -78,6 +78,41 @@ class AllDayDatesMigrationTest extends KernelTestCase
         self::assertContains("  {$convention}: 1", $this->report);
     }
 
+    /**
+     * A weekly series the mobile wrote at midnight in Paris, its occurrence of
+     * the 5th cancelled: the exception keyed it at 23:00Z on the 4th. Re-keyed
+     * at midnight UTC of the 5th, it still cancels the 5th and nothing else.
+     */
+    public function testTheExceptionOfAnAllDaySeriesIsReKeyedOnItsDay(): void
+    {
+        $em = $this->freshEntityManager();
+        $agenda = $this->anAgenda($em);
+        $series = (new Event())->setSummary('Piscine')->setAgenda($agenda)->setRrule('FREQ=WEEKLY')
+            ->scheduleTimed(new \DateTimeImmutable('2036-12-28T23:00:00Z'), new \DateTimeImmutable('2036-12-29T23:00:00Z'));
+        $cancelled = (new Event())->setSummary('Piscine')->setAgenda($agenda)->setRecurringEvent($series)
+            ->setOriginalStartAt(new \DateTimeImmutable('2037-01-04T23:00:00Z'))
+            ->setStatus(\Maggie\Calendar\Enum\EventStatus::Cancelled)
+            ->scheduleTimed(new \DateTimeImmutable('2037-01-04T23:00:00Z'), new \DateTimeImmutable('2037-01-05T23:00:00Z'));
+        $em->persist($series);
+        $em->persist($cancelled);
+        $em->flush();
+        [$seriesId, $exceptionId] = [$series->getId()->toRfc4122(), $cancelled->getId()->toRfc4122()];
+        $em->clear();
+        $this->runMigration('down');
+        $this->connection->executeStatement('UPDATE event SET all_day = true WHERE id IN (:a, :b)', ['a' => $seriesId, 'b' => $exceptionId]);
+
+        $this->runMigration('up');
+
+        self::assertSame('2036-12-29', $this->connection->fetchOne('SELECT start_date FROM event WHERE id = :id', ['id' => $seriesId]));
+        self::assertSame(
+            '2037-01-05 00:00',
+            $this->connection->fetchOne(
+                "SELECT to_char(original_start_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') FROM event WHERE id = :id",
+                ['id' => $exceptionId],
+            ),
+        );
+    }
+
     public function testAMealIsItsOwnDay(): void
     {
         $id = $this->aMealOn('2037-01-01');
