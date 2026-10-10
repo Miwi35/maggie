@@ -1427,7 +1427,7 @@ class ChatViewModelTest {
     fun `an approval question spoken after a reply is what the mic cuts, not the reply`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream("Raconte") } returns streamedAnswer("resp-1", "Il était une fois un roi.")
+        every { repository.sendMessageStream("Raconte", any(), any()) } returns streamedAnswer("resp-1", "Il était une fois un roi.")
         coEvery { repository.persistMessage(any()) } returns Unit
         viewModel.sendMessage("Raconte")
         advanceUntilIdle()
