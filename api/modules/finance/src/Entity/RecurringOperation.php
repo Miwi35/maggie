@@ -388,15 +388,19 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     /**
      * Whether an amount is one this series expects: the same sign as the
      * reference, and within the tolerance of it. Integer arithmetic only.
+     *
+     * @param int|null $referenceCents another reference than the stored one — a recalibration not yet written
      */
-    public function acceptsAmount(int $amountCents): bool
+    public function acceptsAmount(int $amountCents, ?int $referenceCents = null): bool
     {
-        if (0 === $amountCents || ($amountCents > 0) !== ($this->referenceAmountCents > 0)) {
+        $referenceCents ??= $this->referenceAmountCents;
+
+        if (0 === $amountCents || ($amountCents > 0) !== ($referenceCents > 0)) {
             return false;
         }
 
-        return abs($amountCents - $this->referenceAmountCents) * 100
-            <= abs($this->referenceAmountCents) * $this->amountTolerancePercent;
+        return abs($amountCents - $referenceCents) * 100
+            <= abs($referenceCents) * $this->amountTolerancePercent;
     }
 
     /** What the series costs (negative) or brings in (positive) a month, in cents. */

@@ -8,6 +8,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\DetectRejectionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\DetectRejections;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ class DetectRejectionHandler
     public function __construct(
         private readonly DetectRejections $detectRejections,
         private readonly UpdateTransaction $updateTransaction,
+        private readonly AttachRecurringTransactions $attachRecurring,
         private readonly TransactionRepository $transactionRepository,
     ) {
     }
@@ -32,6 +34,11 @@ class DetectRejectionHandler
         }
 
         $debit->markAsRejection($credit, TransferSource::Auto);
+
+        // Both legs settle no occurrence any more: the payment presented
+        // again takes it, and the series recalibrates without them.
+        $this->attachRecurring->releaseNeutral($debit);
+        $this->attachRecurring->releaseNeutral($credit);
         $this->updateTransaction->execute($credit);
         $this->detectRejections->notify($debit, $credit);
 

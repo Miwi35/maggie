@@ -6,6 +6,7 @@ namespace Maggie\Finance\EventSubscriber;
 
 use Maggie\Finance\Event\TransactionChanged;
 use Maggie\Finance\Event\TransactionRecorded;
+use Maggie\Finance\Message\AttachRecurringTransactionCommand;
 use Maggie\Finance\Message\CategorizeTransactionCommand;
 use Maggie\Finance\Message\DetectInternalTransferCommand;
 use Maggie\Finance\Message\DetectRejectionCommand;
@@ -14,9 +15,10 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * Turns the fact into the three commands, in the order they depend on each
+ * Turns the fact into the four commands, in the order they depend on each
  * other: a line is a transfer, or a rejection, or else it is filed under a
- * category. The rule of each lives in its use case.
+ * category, then under the series it settles, whose category wins over the
+ * rule's. The rule of each lives in its use case.
  */
 final class DetectAndCategorizeTransaction
 {
@@ -43,5 +45,6 @@ final class DetectAndCategorizeTransaction
         $this->commandBus->dispatch(new DetectInternalTransferCommand($transactionId));
         $this->commandBus->dispatch(new DetectRejectionCommand($transactionId));
         $this->commandBus->dispatch(new CategorizeTransactionCommand($transactionId));
+        $this->commandBus->dispatch(new AttachRecurringTransactionCommand($transactionId));
     }
 }

@@ -12,7 +12,8 @@ use Maggie\Finance\Specification\TransactionMatchesRule;
 
 /**
  * Files a transaction under the category of the first rule that claims it.
- * A category set by hand is never overwritten.
+ * A category set by hand, or inherited from the series the line settles, is
+ * never overwritten.
  */
 class CategorizeTransaction
 {
@@ -58,6 +59,11 @@ class CategorizeTransaction
     public function apply(Transaction $transaction): bool
     {
         if (CategorySource::Manual === $transaction->getCategorySource()) {
+            return false;
+        }
+
+        // The category of the series a line settles wins over any rule.
+        if (CategorySource::Series === $transaction->getCategorySource() && null !== $transaction->getRecurringOperation()) {
             return false;
         }
 

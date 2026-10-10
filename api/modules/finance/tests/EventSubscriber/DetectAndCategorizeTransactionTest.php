@@ -7,6 +7,7 @@ use Maggie\Finance\Event\TransactionRecorded;
 use Maggie\Finance\Event\TransactionRemoved;
 use Maggie\Finance\EventSubscriber\DetectAndCategorizeTransaction;
 use Maggie\Finance\EventSubscriber\ReleaseCounterpartOnTransactionRemoved;
+use Maggie\Finance\Message\AttachRecurringTransactionCommand;
 use Maggie\Finance\Message\CategorizeTransactionCommand;
 use Maggie\Finance\Message\DetectInternalTransferCommand;
 use Maggie\Finance\Message\DetectRejectionCommand;
@@ -32,7 +33,7 @@ class DetectAndCategorizeTransactionTest extends TestCase
         };
     }
 
-    public function testARecordedTransactionIsDetectedAsTransferThenRejectionThenCategorized(): void
+    public function testARecordedTransactionIsDetectedAsTransferThenRejectionThenCategorizedThenAttached(): void
     {
         $bus = $this->bus();
 
@@ -42,10 +43,11 @@ class DetectAndCategorizeTransactionTest extends TestCase
             new DetectInternalTransferCommand('01J0TX'),
             new DetectRejectionCommand('01J0TX'),
             new CategorizeTransactionCommand('01J0TX'),
+            new AttachRecurringTransactionCommand('01J0TX'),
         ], $bus->sent);
     }
 
-    public function testAChangedTransactionGoesThroughTheSameThreeStepsInTheSameOrder(): void
+    public function testAChangedTransactionGoesThroughTheSameStepsInTheSameOrder(): void
     {
         $bus = $this->bus();
 
@@ -55,6 +57,7 @@ class DetectAndCategorizeTransactionTest extends TestCase
             new DetectInternalTransferCommand('01J0TX'),
             new DetectRejectionCommand('01J0TX'),
             new CategorizeTransactionCommand('01J0TX'),
+            new AttachRecurringTransactionCommand('01J0TX'),
         ], $bus->sent);
     }
 

@@ -15867,7 +15867,8 @@
                         "enum": [
                             "none",
                             "manual",
-                            "rule"
+                            "rule",
+                            "series"
                         ]
                     },
                     "categorizedAt": {
@@ -15908,6 +15909,33 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "recurringOperation": {
+                        "description": "The recurring operation this line is one occurrence of. Written over\nREST by a PATCH that names it with `recurringOccurrenceOn`, which the\nprocessor turns into a manual attachment: the setters below only exist\nfor the deserializer, the domain goes through `attachToRecurring()`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "recurringOccurrenceOn": {
+                        "description": "The due date of the occurrence this line settles, not its booking day.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "recurringSource": {
+                        "readOnly": true,
+                        "description": "Who attached or detached it: the automatic attachment leaves `manual` alone for good.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -15926,7 +15954,8 @@
                     "retrospect",
                     "categorySource",
                     "transferKind",
-                    "transferSource"
+                    "transferSource",
+                    "recurringSource"
                 ]
             },
             "Transaction.html": {
@@ -16024,7 +16053,8 @@
                         "enum": [
                             "none",
                             "manual",
-                            "rule"
+                            "rule",
+                            "series"
                         ]
                     },
                     "categorizedAt": {
@@ -16065,6 +16095,33 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "recurringOperation": {
+                        "description": "The recurring operation this line is one occurrence of. Written over\nREST by a PATCH that names it with `recurringOccurrenceOn`, which the\nprocessor turns into a manual attachment: the setters below only exist\nfor the deserializer, the domain goes through `attachToRecurring()`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "recurringOccurrenceOn": {
+                        "description": "The due date of the occurrence this line settles, not its booking day.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "recurringSource": {
+                        "readOnly": true,
+                        "description": "Who attached or detached it: the automatic attachment leaves `manual` alone for good.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -16083,7 +16140,8 @@
                     "retrospect",
                     "categorySource",
                     "transferKind",
-                    "transferSource"
+                    "transferSource",
+                    "recurringSource"
                 ]
             },
             "Transaction.jsonMergePatch": {
@@ -16181,7 +16239,8 @@
                         "enum": [
                             "none",
                             "manual",
-                            "rule"
+                            "rule",
+                            "series"
                         ]
                     },
                     "categorizedAt": {
@@ -16221,6 +16280,33 @@
                         ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "recurringOperation": {
+                        "description": "The recurring operation this line is one occurrence of. Written over\nREST by a PATCH that names it with `recurringOccurrenceOn`, which the\nprocessor turns into a manual attachment: the setters below only exist\nfor the deserializer, the domain goes through `attachToRecurring()`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "recurringOccurrenceOn": {
+                        "description": "The due date of the occurrence this line settles, not its booking day.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "recurringSource": {
+                        "readOnly": true,
+                        "description": "Who attached or detached it: the automatic attachment leaves `manual` alone for good.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -16332,7 +16418,8 @@
                                 "enum": [
                                     "none",
                                     "manual",
-                                    "rule"
+                                    "rule",
+                                    "series"
                                 ]
                             },
                             "categorizedAt": {
@@ -16373,6 +16460,33 @@
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
                             },
+                            "recurringOperation": {
+                                "description": "The recurring operation this line is one occurrence of. Written over\nREST by a PATCH that names it with `recurringOccurrenceOn`, which the\nprocessor turns into a manual attachment: the setters below only exist\nfor the deserializer, the domain goes through `attachToRecurring()`.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "recurringOccurrenceOn": {
+                                "description": "The due date of the occurrence this line settles, not its booking day.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "recurringSource": {
+                                "readOnly": true,
+                                "description": "Who attached or detached it: the automatic attachment leaves `manual` alone for good.",
+                                "default": "auto",
+                                "type": "string",
+                                "enum": [
+                                    "auto",
+                                    "manual"
+                                ]
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
@@ -16391,7 +16505,8 @@
                             "retrospect",
                             "categorySource",
                             "transferKind",
-                            "transferSource"
+                            "transferSource",
+                            "recurringSource"
                         ]
                     }
                 ]

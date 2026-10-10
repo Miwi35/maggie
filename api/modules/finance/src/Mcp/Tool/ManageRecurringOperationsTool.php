@@ -7,9 +7,11 @@ namespace Maggie\Finance\Mcp\Tool;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\RecurringOperation;
+use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Message\CreateRecurringOperationCommand;
 use Maggie\Finance\Message\DeleteRecurringOperationCommand;
 use Maggie\Finance\Message\UpdateRecurringOperationCommand;
+use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Service\RecurrenceSchedule;
 use Mcp\Capability\Attribute\McpTool;
@@ -17,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_recurring_operations', description: 'List, create, update or delete the recurring operations: the series the user expects to see again (rent on the 5th, a subscription on the 12th, a salary), as opposed to the transactions, the real lines of the statement. Occurrences are computed, never stored. A series has a label, a categoryId and an accountId (its currency is the account\'s), the counterpartyName it is paid to or received from (the main way to recognise its transactions: copy the counterpartyName of one of them, as the bank spells it) and/or a labelPattern read in the label when there is no counterparty, a period (weekly, monthly, quarterly, yearly), anchorOn (ISO date of the first occurrence; every other one is counted from it), a dayRule (fixed_day: the anchor\'s day, clamped to short months; last_day_of_month), referenceAmountCents (signed integer cents, never 0: negative = expense, positive = income; the category must match: an income category only on a positive amount), referenceSource (measured: follows the attached transactions, the default; declared: stays as typed), amountTolerancePercent (0-100, 20 by default), dateToleranceDays (0-31, 5 by default) and endsOn (ISO date, optional, not before anchorOn). List gives each series with its monthlyCostCents, yearlyCostCents and nextOccurrenceOn (after today). On update, only provided fields change; to remove counterpartyName, labelPattern or endsOn, list it in clear.')]
+#[McpTool(name: 'manage_recurring_operations', description: 'List, create, update or delete the recurring operations, and attach or detach their transactions. A recurring operation is the series the user expects to see again (rent on the 5th, a subscription on the 12th, a salary), as opposed to the transactions, the real lines of the statement. Occurrences are computed, never stored. A series has a label, a categoryId and an accountId (its currency is the account\'s), the counterpartyName it is paid to or received from (the main way to recognise its transactions: copy the counterpartyName of one of them, as the bank spells it) and/or a labelPattern read in the label when there is no counterparty, a period (weekly, monthly, quarterly, yearly), anchorOn (ISO date of the first occurrence; every other one is counted from it), a dayRule (fixed_day: the anchor\'s day, clamped to short months; last_day_of_month), referenceAmountCents (signed integer cents, never 0: negative = expense, positive = income; the category must match: an income category only on a positive amount), referenceSource (measured: follows the attached transactions, the default; declared: stays as typed), amountTolerancePercent (0-100, 20 by default), dateToleranceDays (0-31, 5 by default) and endsOn (ISO date, optional, not before anchorOn). List gives each series with its monthlyCostCents, yearlyCostCents and nextOccurrenceOn (after today). On update, only provided fields change; to remove counterpartyName, labelPattern or endsOn, list it in clear; a new categoryId reaches every transaction attached to the series, except those the user categorised by hand. attach makes the transaction transactionId an occurrence of the series recurringOperationId, by hand: at recurringOccurrenceOn (ISO date, a due date of the series), or at the due date nearest its bookedAt; it is how the user confirms a proposed attachment (late, early, amount_up for a price rise, amount_down, ambiguous). It is refused when the occurrence is already settled by another transaction (detach that one first), or when the account, the currency or the sign differ. detach takes transactionId out of its series for good. Both are recorded as the user\'s own decision, which the automatic attachment never overwrites; a measured reference amount follows the latest attachments.')]
 class ManageRecurringOperationsTool
 {
     public function __construct(
@@ -46,6 +48,8 @@ class ManageRecurringOperationsTool
         ?int $dateToleranceDays = null,
         ?string $endsOn = null,
         ?array $clear = null,
+        ?string $transactionId = null,
+        ?string $recurringOccurrenceOn = null,
     ): string {
         try {
             return match ($action) {
@@ -53,7 +57,9 @@ class ManageRecurringOperationsTool
                 'create' => $this->create($label, $categoryId, $accountId, $referenceAmountCents, $anchorOn, $counterpartyName, $labelPattern, $period, $dayRule, $referenceSource, $amountTolerancePercent, $dateToleranceDays, $endsOn),
                 'update' => $this->update($recurringOperationId, $label, $categoryId, $accountId, $referenceAmountCents, $anchorOn, $counterpartyName, $labelPattern, $period, $dayRule, $referenceSource, $amountTolerancePercent, $dateToleranceDays, $endsOn, $clear),
                 'delete' => $this->delete($recurringOperationId),
-                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
+                'attach' => $this->attach($recurringOperationId, $transactionId, $recurringOccurrenceOn),
+                'detach' => $this->detach($transactionId),
+                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, delete, attach, or detach."], JSON_THROW_ON_ERROR),
             };
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -159,6 +165,58 @@ class ManageRecurringOperationsTool
         ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
+    }
+
+    private function attach(?string $recurringOperationId, ?string $transactionId, ?string $recurringOccurrenceOn): string
+    {
+        if (null === $recurringOperationId || null === $transactionId) {
+            return json_encode(['error' => 'recurringOperationId and transactionId are required for attach.'], JSON_THROW_ON_ERROR);
+        }
+
+        // The same door as a PATCH of the line: one place checks the
+        // occurrence, seals the gesture `manual` and publishes both sides.
+        return $this->updateTransaction(new UpdateTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            transactionId: $transactionId,
+            recurringOperationId: $recurringOperationId,
+            recurringOccurrenceOn: $recurringOccurrenceOn,
+        ));
+    }
+
+    private function detach(?string $transactionId): string
+    {
+        if (null === $transactionId) {
+            return json_encode(['error' => 'transactionId is required for detach.'], JSON_THROW_ON_ERROR);
+        }
+
+        return $this->updateTransaction(new UpdateTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            transactionId: $transactionId,
+            clearFields: ['recurringOperation'],
+        ));
+    }
+
+    private function updateTransaction(UpdateTransactionCommand $command): string
+    {
+        /** @var Transaction $transaction */
+        $transaction = $this->bus->dispatch($command)->last(HandledStamp::class)->getResult();
+        $operation = $transaction->getRecurringOperation();
+
+        return json_encode([
+            'success' => true,
+            'transaction' => [
+                'id' => (string) $transaction->getId(),
+                'label' => $transaction->getLabel(),
+                'amountCents' => $transaction->getAmountCents(),
+                'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
+                'categoryId' => null !== $transaction->getCategory() ? (string) $transaction->getCategory()->getId() : null,
+                'categorySource' => $transaction->getCategorySource()->value,
+                'recurringOperationId' => null !== $operation ? (string) $operation->getId() : null,
+                'recurringOccurrenceOn' => $transaction->getRecurringOccurrenceOn()?->format('Y-m-d'),
+                'recurringSource' => $transaction->getRecurringSource()->value,
+            ],
+            'recurringOperation' => null !== $operation ? $this->serialize($operation) : null,
+        ], JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
