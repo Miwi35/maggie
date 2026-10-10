@@ -15,6 +15,7 @@
 #   e2e/images.sh env      print E2E_IMAGE_<SERVICE>=<ref> lines (>> $GITHUB_ENV)
 #   e2e/images.sh hash <svc>  the hash alone (wt/image.sh tags its php image with it)
 #   e2e/images.sh ref <svc>   the full registry reference for that hash
+#   e2e/images.sh pull     pull the third-party images, one at a time, retried
 #   e2e/images.sh ensure   pull or build+push each image, and pull the third-party
 #                          ones meanwhile; needs `docker login ghcr.io` to push
 #
@@ -136,8 +137,10 @@ ensure_one() {
 # answers `toomanyrequests: Rate exceeded` beyond: the images are pulled one
 # service at a time, and a failed pull is retried after a pause.
 pull_third_party() {
-  local svc attempt
-  for svc in $(docker compose -f "$COMPOSE_FILE" config --services); do
+  local svc attempt services
+  services="$(docker compose -f "$COMPOSE_FILE" config --services)"
+  [ -n "$services" ] || { echo "::error::no service in $COMPOSE_FILE" >&2; return 1; }
+  for svc in $services; do
     for attempt in 1 2 3 4; do
       docker compose -f "$COMPOSE_FILE" pull --ignore-buildable --quiet "$svc" && break
       if [ "$attempt" -eq 4 ]; then
@@ -186,5 +189,6 @@ case "${1:-}" in
   ensure) ensure ;;
   hash)   hash_of "${2:?service}" ;;
   ref)    ref_of "${2:?service}" ;;
-  *)      echo "usage: $0 env|ensure|hash <svc>|ref <svc>" >&2; exit 2 ;;
+  pull)   pull_third_party ;;
+  *)      echo "usage: $0 env|ensure|pull|hash <svc>|ref <svc>" >&2; exit 2 ;;
 esac

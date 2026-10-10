@@ -70,6 +70,10 @@ tasks:
       # `e2e:install` then cannot write to (MAG-287). A leftover root-owned
       # directory stops here with the command to remove it.
       - '{{.ROOT_DIR}}/wt/mountpoints.sh api/vendor api/var admin/node_modules ciqual/db .e2e-cache/uv'
+      # The third-party images one at a time, retried: ECR Public refuses more
+      # than one anonymous pull per second, and the `up` below pulls several at
+      # once (10 Oct.). CI has pulled them in e2e/images.sh already.
+      - '{{if .E2E_PREBUILT}}true{{else}}{{.ROOT_DIR}}/e2e/images.sh pull{{end}}'
       # Traefik first and alone: its published port is what every other
       # service's public URLs are built from, and Docker only assigns it once
       # the container exists.

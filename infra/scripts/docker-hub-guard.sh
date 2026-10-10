@@ -41,7 +41,12 @@ ALLOWLIST=.github/docker-hub-allowlist.txt
 dockerfiles=()
 while IFS= read -r f; do
   [[ -f "$f" ]] && dockerfiles+=("$f")
-done < <(git ls-files --cached --others --exclude-standard -- '*Dockerfile' '*Dockerfile.*' '*.Dockerfile' 2>/dev/null | sort -u)
+done < <(git ls-files --cached --others --exclude-standard -- '*Dockerfile' '*Dockerfile.*' '*.Dockerfile' | sort -u)
+# An unreadable repository would list nothing and pass: no Dockerfile is red.
+if [[ ${#dockerfiles[@]} -eq 0 ]]; then
+  echo "no Dockerfile found under $ROOT — is it a git checkout?" >&2
+  exit 1
+fi
 
 composes=()
 for f in "${COMPOSE_FILES[@]}"; do
