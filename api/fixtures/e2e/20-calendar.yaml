@@ -138,11 +138,13 @@ Maggie\Calendar\Entity\Event:
   # instant, its end excluded as Google stores it (the 2nd). Read as an instant in Paris, the old 00:00Z → 00:00Z of the next
   # day ended at 01:00 on the 2nd and the mobile showed it on two days. The
   # journeys check it fills the 1st alone, in the month and in the day views.
+  # Two modifiers for the 2nd: PHP applies `first day of` after any `+1 day` of
+  # the same modifier, so "first day of this month +1 day" is still the 1st.
   e2e_event_all_day_first:
     summary: Journée du 1er MAG-382
     allDay: true
     startDate: '<e2eDate("first day of this month")>'
-    endDate: '<e2eDate("first day of this month +1 day")>'
+    endDate: '<e2eDate("first day of this month", "+1 day")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'

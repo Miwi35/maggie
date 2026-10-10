@@ -71,6 +71,15 @@ final class E2eDateProviderTest extends TestCase
         self::assertSame('2026-02-01', $provider->e2eDateString('first day of last month'));
     }
 
+    public function testModifiersAreAppliedOneAfterTheOther(): void
+    {
+        $provider = $this->anchoredAt('2026-03-15T00:00:00+00:00');
+
+        // In one modifier, PHP applies `first day of` last: still the 1st.
+        self::assertSame('2026-03-01', $provider->e2eDateString('first day of this month +1 day'));
+        self::assertSame('2026-03-02', $provider->e2eDate('first day of this month', '+1 day')->format('Y-m-d'));
+    }
+
     public function testNoModifierReturnsTheAnchorItself(): void
     {
         $provider = $this->anchoredAt('2026-03-15T00:00:00+00:00');

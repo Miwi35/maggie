@@ -308,6 +308,19 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2026, $envelope->getYear());
     }
 
+    public function testTheAllDayEventOfTheFirstEndsOnTheSecondExcluded(): void
+    {
+        // PHP applies `first day of` after every other relative part of a
+        // modifier: "first day of this month +1 day" is still the 1st, and the
+        // event ended where it started (MAG-382).
+        $this->seed(['--now' => '2026-03-15T12:00:00+01:00']);
+
+        $first = $this->repository(Event::class)->findOneBy(['summary' => 'Journée du 1er MAG-382']);
+        self::assertNotNull($first);
+        self::assertSame('2026-03-01', $first->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-03-02', $first->getEndDate()?->format('Y-m-d'));
+    }
+
     public function testTheDayOfTheSeedIsTheDayInParisNotInUtc(): void
     {
         // 23:30 UTC on 14 July is 01:30 on the 15th in Paris. The user of the
