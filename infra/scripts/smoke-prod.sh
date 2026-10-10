@@ -23,6 +23,8 @@
 #                   pod). Skipped when unset.
 #   SMOKE_ATTEMPTS  Tries for the availability checks, to ride out the
 #                   seconds an ingress needs after a rollout. Default 12.
+#   SMOKE_FETCH_ATTEMPTS  Tries for an authenticated request that timed out or
+#                   got a 5xx — a cold pod's first ones. Default 4 (20 s each).
 #   SMOKE_DELAY     Seconds between two tries. Default 5.
 
 set -uo pipefail
@@ -33,6 +35,9 @@ TOKEN="${SMOKE_TOKEN:?SMOKE_TOKEN is required — mint it with 'bin/console app:
 SMOKE_EMAIL="${SMOKE_EMAIL:-smoke@maggieai.fr}"
 ATTEMPTS="${SMOKE_ATTEMPTS:-12}"
 DELAY="${SMOKE_DELAY:-5}"
+# Fewer than ATTEMPTS: each try may wait its full 20 s, and a database that is
+# really down must still be reported well within the job's timeout.
+FETCH_ATTEMPTS="${SMOKE_FETCH_ATTEMPTS:-4}"
 ORIGIN="$BASE_URL"
 
 passed=0
@@ -63,6 +68,21 @@ expect_status() {
   done
   fail "$what — expected HTTP $expected, got $got"
   return 1
+}
+
+# fetch <curl args…> — the body on stdout, retried while production does not
+# answer (timeout, 5xx). A rollout restarts the php pod cold: its first requests
+# took more than 15 s once and rolled a healthy release back (MAG-383). An
+# answer, even a wrong one, is returned at once for the check to judge.
+fetch() {
+  local attempt status
+  for ((attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++)); do
+    rm -f "$tmp/body"
+    status="$(curl -sS -o "$tmp/body" --max-time 20 -w '%{http_code}' "$@" 2>/dev/null || true)"
+    case "$status" in 000 | 5??) ;; *) break ;; esac
+    [ "$attempt" -lt "$FETCH_ATTEMPTS" ] && sleep "$DELAY"
+  done
+  cat "$tmp/body" 2>/dev/null || true
 }
 
 AUTH=(-H "Authorization: Bearer $TOKEN")
@@ -126,7 +146,7 @@ step "3. The technical account is accepted by the API"
 # ---------------------------------------------------------------------------
 # Proves the JWT keys are mounted, signature and claims agree between pods, and
 # the database answers — the only database read the public URL gives us.
-me="$(curl -sS --max-time 15 "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/users/me" 2>/dev/null || true)"
+me="$(fetch "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/users/me")"
 if [ "$(printf '%s' "$me" | jq -r '.email // empty' 2>/dev/null)" = "$SMOKE_EMAIL" ]; then
   pass "GET /api/users/me returns the technical account"
 else
@@ -141,20 +161,20 @@ step "4. MCP lists the tools of every module"
 # stateful — tools/list before initialize reads like an empty list.
 mcp_headers=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
 
-curl -sS -D "$tmp/mcp-headers" -o /dev/null --max-time 20 -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+fetch -D "$tmp/mcp-headers" -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"prod-smoke","version":"1.0.0"}}}' \
-  "$BASE_URL/_mcp" 2>/dev/null || true
+  "$BASE_URL/_mcp" >/dev/null
 
 mcp_session="$(grep -i '^Mcp-Session-Id:' "$tmp/mcp-headers" 2>/dev/null | tr -d '\r' | cut -d' ' -f2)"
 if [ -n "$mcp_session" ]; then
   pass "the MCP handshake returns a session id"
   mcp_headers+=(-H "Mcp-Session-Id: $mcp_session")
 
-  curl -sS -o /dev/null --max-time 20 -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
-    -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$BASE_URL/_mcp" 2>/dev/null || true
+  fetch -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+    -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$BASE_URL/_mcp" >/dev/null
 
-  tools="$(curl -sS --max-time 20 -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
-    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' "$BASE_URL/_mcp" 2>/dev/null)"
+  tools="$(fetch -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' "$BASE_URL/_mcp")"
   # The streamable transport may answer as server-sent events: keep the JSON
   # of the last `data:` line, whatever `event:` or `id:` lines surround it.
   if printf '%s' "$tools" | grep -q '^data:'; then

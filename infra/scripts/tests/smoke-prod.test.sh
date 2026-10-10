@@ -64,6 +64,16 @@ else
   failures=$((failures + 1))
 fi
 
+# A rollout restarts the php pod cold: its first requests may time out. That is
+# no regression, and once rolled production back for nothing (MAG-383).
+run_smoke "cold_start" SMOKE_FETCH_ATTEMPTS=2
+if [ "$STATUS" -eq 0 ]; then
+  printf '  \033[32m✓\033[0m a pod that times out on its first requests is waited for\n'
+else
+  printf '  \033[31m✗\033[0m a cold pod must not fail the suite — exit %d\n%s\n' "$STATUS" "$OUTPUT"
+  failures=$((failures + 1))
+fi
+
 printf '\n\033[1mEach regression turns it red\033[0m\n'
 expect_red "a degraded agent"                       agent_health        "the agent health body is not status ok"
 expect_red "an admin that 404s"                     admin_missing       "GET /admin is served without a redirect"

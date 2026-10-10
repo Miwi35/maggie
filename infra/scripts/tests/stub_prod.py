@@ -22,6 +22,17 @@ SESSION = "stub-session"
 # the real model stop calling the tool (MAG-253).
 STATE = {"agendas": {}, "events": [], "history": 100 if "imitates_history" in BREAK else 0}
 
+# `cold_start`: a pod fresh from a rollout times out on its first request to each of
+# these, behind an ingress that answers 504 (MAG-383). Healthy from the second one on.
+COLD = {"/api/users/me", "initialize", "tools/list"} if "cold_start" in BREAK else set()
+
+
+def still_cold(what):
+    if what in COLD:
+        COLD.discard(what)
+        return True
+    return False
+
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
@@ -60,7 +71,9 @@ class Handler(BaseHTTPRequestHandler):
             location = "http://stub.invalid/admin" if "admin_http_redirect" in BREAK else "/admin"
             self.send(302, headers={"Location": location})
         elif path == "/api/users/me":
-            if self.authorized():
+            if still_cold(path):
+                self.send(504)
+            elif self.authorized():
                 self.json(200, {"email": "smoke@maggieai.fr"})
             else:
                 self.json(401, {"message": "Invalid JWT Token"})
@@ -121,7 +134,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send(404)
 
     def mcp(self, payload):
-        if not self.authorized():
+        if still_cold(payload.get("method")):
+            self.send(504)
+        elif not self.authorized():
             self.json(401, {"error": {"message": "Invalid bearer token."}})
         elif payload.get("method") == "initialize":
             headers = {} if "mcp_no_session" in BREAK else {"Mcp-Session-Id": SESSION}
