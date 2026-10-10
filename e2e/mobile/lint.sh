@@ -34,6 +34,9 @@
 #   7. every `retry` starts with `evalScript: ${0}`. Maestro counts a wait from the
 #      last interaction and a failed attempt is not one, so without it the retries
 #      run on a budget of zero: four « attempts » that are one (MAG-346).
+#   8. every `launchApp` of a flow passes `e2e_journey: <the flow's own path>`, and
+#      no subflow launches: the app sends it as X-E2E-Journey, which is how the
+#      nightly's coverage knows which flow ran which line.
 
 set -euo pipefail
 
@@ -300,6 +303,44 @@ for file in "${flows[@]}"; do
     pass "${file#"$REPO_ROOT"/}"
   else
     fail "${file#"$REPO_ROOT"/}: retry at line $offenders does not start with 'evalScript: \${0}' — its attempts after the first would run on a budget of zero"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m8. Every launch names its journey\033[0m\n'
+# ---------------------------------------------------------------------------
+# « Sélection e2e par couverture »: every request of the app carries the flow that made
+# it (X-E2E-Journey), which the app reads off the launch — `arguments: { e2e_journey:
+# <this file's path> }` on every `launchApp`, the ones after a `stopApp` included: a new
+# process knows nothing of the last. A copied flow keeps the original's id and files its
+# coverage under the wrong journey, so the value must be the file's own path. Subflows are
+# shared and cannot name one journey: they never launch.
+for file in "${flows[@]}"; do
+  rel="${file#"$REPO_ROOT"/}"
+  case "$rel" in
+    e2e/mobile/subflows/*)
+      if grep -qE '^[[:space:]]*- launchApp' "$file"; then
+        fail "$rel launches the app: a subflow cannot name the journey, launch from the flow"
+      else
+        pass "$rel"
+      fi
+      continue
+      ;;
+  esac
+  offenders="$(awk -v want="$rel" '
+    function close_block() {
+      if (open && journey != want) print line " (e2e_journey: " (journey == "" ? "missing" : journey) ")"
+      open = 0
+    }
+    /^- launchApp/ { close_block(); open = 1; journey = ""; line = NR; next }
+    open && /^[^[:space:]#]/ { close_block() }
+    open && /^[[:space:]]+e2e_journey:/ { journey = $2 }
+    END { close_block() }
+  ' "$file")"
+  if [ -z "$offenders" ]; then
+    pass "$rel"
+  else
+    fail "$rel: launchApp without its own journey id at line(s) $(echo "$offenders" | tr '\n' ' ')— add arguments: { e2e_journey: $rel }"
   fi
 done
 

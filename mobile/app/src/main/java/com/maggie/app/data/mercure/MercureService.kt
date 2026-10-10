@@ -2,6 +2,7 @@ package com.maggie.app.data.mercure
 
 import android.util.Log
 import com.maggie.app.BuildConfig
+import com.maggie.app.data.api.installJourneyHeader
 import com.maggie.app.data.auth.AuthRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -111,6 +112,8 @@ class MercureService(
             install(SSE) {
                 reconnectionTime = Duration.parse("3s")
             }
+            // The Mercure streams carry the e2e journey too; nothing in dev and prod.
+            installJourneyHeader()
         }
 
         private val PLACEHOLDER = Regex("\\{(\\w+)\\}")

@@ -21,6 +21,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/12-event-date-picker.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 

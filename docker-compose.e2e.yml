@@ -54,6 +54,9 @@ x-playwright: &playwright
     # write anything back into the repository.
     - ./api/var/e2e:/seed:ro
     - ./design:/design:ro
+    # Where the admin coverage of each spec goes, under E2E_COVERAGE=1
+    # (e2e/web/fixtures/coverage.ts). Nothing is written there otherwise.
+    - ./e2e/coverage:/coverage
   environment: &playwright-environment
     E2E_BASE_URL: http://traefik
     E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
@@ -62,6 +65,10 @@ x-playwright: &playwright
     E2E_NOW: ${E2E_NOW:-}
     # Retries, the GitHub reporter and `forbidOnly` all key off this.
     CI: ${CI:-}
+    # The nightly's coverage (scripts/e2e/coverage/README.md): 1 records the
+    # admin's JS coverage per spec into /coverage. Empty = off, the default.
+    E2E_COVERAGE: ${E2E_COVERAGE:-}
+    E2E_COVERAGE_DIR: /coverage
     # The container runs as the host's uid, which has no entry in the image's
     # passwd — HOME would resolve to / and npm could not write its cache.
     HOME: /tmp
@@ -273,6 +280,8 @@ services:
       # below it the build is OOM-killed instead of garbage-collected.
       NODE_OPTIONS: --max-old-space-size=1024
       E2E_ADMIN_PREBUILT: ${E2E_ADMIN_PREBUILT:-}
+      # 1 = emit source maps, which the nightly's coverage needs (admin/vite.config.ts).
+      E2E_COVERAGE: ${E2E_COVERAGE:-}
     command:
       - sh
       - -c
@@ -281,7 +290,10 @@ services:
         # CI restores a bundle built from this exact source (MAG-180): the
         # build is the longest step of the start-up and nothing else waits on
         # less than it.
-        if [ -n "$$E2E_ADMIN_PREBUILT" ] && [ -f dist/index.html ]; then
+        # Under E2E_COVERAGE=1 the restored bundle must carry its source maps:
+        # one built without them would leave the admin coverage empty.
+        if [ -n "$$E2E_ADMIN_PREBUILT" ] && [ -f dist/index.html ] \
+          && { [ "$$E2E_COVERAGE" != 1 ] || ls dist/assets/*.js.map >/dev/null 2>&1; }; then
           echo "admin bundle restored from cache, build skipped"
           exit 0
         fi
