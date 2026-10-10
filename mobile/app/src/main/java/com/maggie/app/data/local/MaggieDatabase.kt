@@ -19,7 +19,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 8: events carry their reminders (MAG-121). The database is a cache of the
     // API and the builder falls back to a destructive migration, so a bump is all
     // a new column needs.
-    version = 8,
+    // 9: messages carry their thread (contextId, MAG-342), to drop a deleted thread's messages.
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

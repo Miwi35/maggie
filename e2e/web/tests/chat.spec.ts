@@ -381,7 +381,7 @@ test('changing the subject opens a second context', async ({ page }) => {
   expect(contextAction(events), 'the change of subject joined the context already open').toBe('created')
   expect(contextLabel(events)).toBe('Budget e2e')
 
-  await chat.openMind()
+  await chat.openThreads()
 
   // Two, exactly. "More than one" would pass just as happily on the failure
   // 10-context-router-existing.yaml exists to prevent — a router that opens a
@@ -391,10 +391,12 @@ test('changing the subject opens a second context', async ({ page }) => {
   await expect(chat.contextItems).toHaveCount(2)
   await expect(chat.context('Budget e2e')).toBeVisible()
 
-  // And the first thread is still open beside it. `GET /agent/contexts` only
-  // returns active and dormant ones, so a context that had been closed would
-  // simply be missing — which is the same absence as never having existed.
+  // And the first thread is still open beside it. The list carries the closed
+  // threads too (MAG-342), so « active or dormant » is what says it was not one.
   await expect(chat.context('Conversation e2e')).toHaveAttribute('data-status', /active|dormant/)
+
+  // The dialog is modal: the next test starts from a chat that can be typed in.
+  await chat.closeThreads()
 })
 
 test('a thread is still there after a reload, and only once', async ({ page }) => {
@@ -671,12 +673,11 @@ test('a long thread is summarized, and the summary reaches Maggie and the Mind p
   await dashboard.open()
 
   const chat = new ChatPanel(page)
-  await chat.openMind()
+  await chat.openThreads()
   await expect(chat.contextSummaries.first()).toHaveText(THREAD_SUMMARY)
 
-  // Back to the conversation first: the Mind tab has no input, and `send()` would
-  // reach for the AppBar button, which closes the panel rather than switching tab.
-  await chat.openChat()
+  // Back to the conversation first: the dialog is modal, and the input is behind it.
+  await chat.closeThreads()
 
   // And the step that proves the injection. This scenario declares the summary's
   // own text as `system_contains`, so it is unreachable unless
@@ -1406,4 +1407,75 @@ test('three linked messages stay in one thread, and the third is answered from t
 
   expect(isUnscripted(answer), `the first message never reached the third answer — Maggie said: ${answer}`).toBe(false)
   expect(answer).toBe(ONE_DISCUSSION.recall)
+})
+
+/**
+ * MAG-342: the conversation is one, its threads are internal filing the owner can consult and
+ * clean without cluttering the chat.
+ *
+ * Last in the file, after the birthday discussion above: that is the second thread this test
+ * needs beside « Budget e2e » and « Conversation e2e », and it is the one deleted — so the
+ * counts and the twenty reloaded messages of the tests above are never touched. A reload at
+ * the start makes the chat come from `GET /agent/messages`, which is what carries each
+ * message's thread.
+ *
+ * Three steps: the thread leaves the list and its messages leave the chat at once; the request
+ * only leaves once « Annuler » has run out (~6 s) and the server then really lost them; and a
+ * reload does not bring them back.
+ */
+test('a thread is deleted from the icon next to the search, with its messages', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(1)
+  await expect(chat.bubbles(ONE_DISCUSSION.recall)).toHaveCount(1)
+
+  // The icon is right beside the search, and the threads are in its dialog — not in the Mind tab.
+  await chat.open()
+  const search = chat.panel.getByRole('button', { name: 'Rechercher dans la conversation' })
+  await expect(chat.threadsButton).toBeVisible()
+  await expect(chat.threadsButton.locator('xpath=following-sibling::*[1]')).toHaveAccessibleName(
+    'Rechercher dans la conversation',
+  )
+  await expect(search).toBeVisible()
+
+  await chat.openThreads()
+  await expect(chat.context(ONE_DISCUSSION.thread)).toBeVisible()
+  await expect(chat.context('Budget e2e')).toBeVisible()
+  const before = await chat.contextItems.count()
+  expect(before, 'the journey needs a second thread to keep').toBeGreaterThanOrEqual(2)
+
+  const deletion = chat.deleteThread(ONE_DISCUSSION.thread)
+
+  // At once: gone from the list, its messages gone from the chat, the other thread untouched.
+  await expect(chat.context(ONE_DISCUSSION.thread)).toHaveCount(0)
+  await expect(chat.contextItems).toHaveCount(before - 1)
+  await expect(chat.context('Budget e2e')).toBeVisible()
+  await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(0)
+  await expect(chat.bubbles(ONE_DISCUSSION.recall)).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText('Fil supprimé')
+  await expect(page.getByRole('alert').getByRole('button', { name: 'Annuler' })).toBeVisible()
+
+  // The server only hears of it when the delay is over, and then it is really gone.
+  const response = await deletion
+  expect(response.status(), 'the thread was refused its deletion').toBe(200)
+  expect(((await response.json()) as { deletedMessages: number }).deletedMessages).toBeGreaterThanOrEqual(2)
+
+  const contexts = await api.get('/agent/contexts?includeClosed=true')
+  expect(contexts.status(), 'the contexts endpoint refused the journey').toBe(200)
+  const labels = ((await contexts.json()) as Array<{ label: string }>).map((context) => context.label)
+  expect(labels).not.toContain(ONE_DISCUSSION.thread)
+  expect(labels).toContain('Budget e2e')
+
+  await chat.closeThreads()
+
+  // And it stays that way from a fresh tab.
+  await page.reload()
+  await dashboard.expectReady()
+  await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(0)
+  await chat.openThreads()
+  await expect(chat.context(ONE_DISCUSSION.thread)).toHaveCount(0)
+  await expect(chat.context('Budget e2e')).toBeVisible()
+  await chat.closeThreads()
 })

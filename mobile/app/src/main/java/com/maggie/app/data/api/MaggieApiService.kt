@@ -667,8 +667,22 @@ class MaggieApiService(
     }
 
     // Contexts — agent endpoint
-    suspend fun getContexts(): List<Context> {
-        return client.get("$baseUrl/agent/contexts").body()
+    suspend fun getContexts(includeClosed: Boolean = false): List<Context> {
+        return client.get("$baseUrl/agent/contexts") {
+            if (includeClosed) url.parameters.append("includeClosed", "true")
+        }.body()
+    }
+
+    // The client does not `expectSuccess`: a 404 or a 401 must read as a failure, or a
+    // deletion that did not happen would look done (MAG-342).
+    suspend fun deleteContext(id: String) {
+        val response = client.delete("$baseUrl/agent/contexts/$id")
+        if (!response.status.isSuccess()) throw IllegalStateException("DELETE context $id: HTTP ${response.status.value}")
+    }
+
+    suspend fun deleteMessage(id: String) {
+        val response = client.delete("$baseUrl/agent/messages/$id")
+        if (!response.status.isSuccess()) throw IllegalStateException("DELETE message $id: HTTP ${response.status.value}")
     }
 
     // Chat streaming — AG-UI SSE endpoint

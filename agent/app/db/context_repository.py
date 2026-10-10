@@ -5,6 +5,7 @@ from sqlalchemy import delete, select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.context_model import ContextStatus, ConversationContext
+from app.db.models import Message
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
@@ -225,6 +226,51 @@ class ContextRepository:
             result = await session.execute(delete(ConversationContext).where(ConversationContext.user_id == user_id))
             await session.commit()
             return result.rowcount
+
+    async def delete_with_messages(self, context_id: str, user_id: str) -> int | None:
+        """Remove one of the user's threads and every message in it, and return how many messages went (MAG-342).
+
+        `None` when the thread does not exist or is somebody else's: the caller answers 404 for
+        both, so nobody learns which ids exist. Thread and messages go in one transaction, so a
+        thread is never left empty, nor its messages orphaned.
+
+        Both streams are told: the Mind panel drops the thread, and the chat drops its messages.
+        A client that does not know the `deleted` flag ignores both events (no label, no content).
+        """
+        async with agent_session() as session:
+            ctx = (
+                await session.execute(
+                    select(ConversationContext).where(
+                        ConversationContext.id == context_id, ConversationContext.user_id == user_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if ctx is None:
+                return None
+
+            message_ids = list(
+                (
+                    await session.execute(
+                        select(Message.id).where(Message.context_id == context_id, Message.user_id == user_id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            await session.execute(delete(Message).where(Message.context_id == context_id, Message.user_id == user_id))
+            await session.execute(delete(ConversationContext).where(ConversationContext.id == context_id))
+            await session.commit()
+
+        try:
+            await self.publisher.publish(topics.for_user(topics.CONTEXTS, user_id), {"id": context_id, "deleted": True})
+            await self.publisher.publish(
+                topics.for_user(topics.CHAT, user_id),
+                {"deleted": True, "contextId": context_id, "messageIds": message_ids},
+            )
+        except Exception as e:
+            logger.warning(f"Failed to publish thread deletion to Mercure: {e}")
+
+        return len(message_ids)
 
     async def get(self, context_id: str) -> ConversationContext | None:
         async with agent_session() as session:

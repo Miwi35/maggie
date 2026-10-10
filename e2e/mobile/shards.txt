@@ -28,10 +28,10 @@
 # Greedy balance, every lot holding at least one flow outside quarantine (a lot of
 # quarantined flows alone would be folded into the last one, see impacted.sh):
 # 02 + 12-recipe = 162 s, 08 + 11 = 162 s, 01 + 05 + 12-rente = 140 s,
-# 09 + 12-event = 113 s, 04 + 13 = 109 s, plus 10-meal-ingredient-choice and 13-meals-planning (new, not measured yet). When a flow is added, re-read the
+# 09 + 12-event = 113 s, 04 + 13 = 109 s, plus 10-meal-ingredient-choice, 13-meals-planning and 12-thread-deletion (new, not measured yet). When a flow is added, re-read the
 # figures from the latest run and move it where the sum is lowest.
 1: 02-voice-overlay 12-recipe-realtime
 2: 08-grocery-realtime 11-calendar-all-day-series
-3: 09-finance-banks 12-event-date-picker
+3: 09-finance-banks 12-event-date-picker 12-thread-deletion
 4: 04-calendar-import 10-meal-ingredient-choice 13-chat-opens-on-latest 13-meals-planning
 5: 01-login-chat 05-deep-links 12-finance-rente

@@ -14,6 +14,7 @@ import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.ui.components.approvalQuestion
+import com.maggie.app.ui.screens.contexts.ThreadEvent
 import com.maggie.app.util.ChatDateFormatter
 import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.SpokenApprovalAnswer
@@ -29,6 +30,11 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 enum class ScrollBehavior { NONE, ANIMATE_TO_BOTTOM, INSTANT_TO_INDEX }
 
@@ -71,6 +77,10 @@ data class ChatUiState(
      * (MAG-363) — information about the message, never a bubble of Maggie's, and never stored.
      */
     val failure: String? = null,
+    /** A message gone from the chat that « Annuler » still brings back; nothing was sent yet (MAG-342). */
+    val undoableMessageDeletion: ChatMessage? = null,
+    /** The server did not delete it: the message is back, say so once. */
+    val messageDeleteFailed: Boolean = false,
 )
 
 @OptIn(FlowPreview::class)
@@ -105,7 +115,32 @@ class ChatViewModel(
 
     private var unanswered: Attempt? = null
 
+    /** A confirmed message deletion waiting out its « Annuler » window. At most one at a time. */
+    private class PendingDeletion(val message: ChatMessage, val index: Int) {
+        var timer: Job? = null
+        var committing = false
+    }
+
+    private var pendingDeletion: PendingDeletion? = null
+
+    /**
+     * Threads the owner deleted and may still take back: their messages are kept but not
+     * shown (MAG-342). The conversation is one list, the threads are only how it is filed.
+     */
+    private val hiddenContextIds = mutableSetOf<String>()
+
+    /**
+     * The thread the router chose for the run in flight, and the messages of that run
+     * (MAG-342). The agent files them under it, but the stream carries no thread on a
+     * message: without this, the current exchange has no `contextId` until a reload and
+     * deleting its thread would neither hide it nor bring it back with « Annuler ».
+     */
+    private var runContextId: String? = null
+    private val runMessageIds = mutableSetOf<String>()
+
     companion object {
+        /** How long « Message supprimé · Annuler » stays, and so how long the server hears nothing. */
+        const val UNDO_WINDOW_MS = 6_000L
         private const val PAGE_SIZE = 20
         private const val TAG = "ChatViewModel"
         private const val PENDING_PREFIX = "pending_"
@@ -214,6 +249,9 @@ class ChatViewModel(
                 createdAt = java.time.Instant.now().toString(),
             )
             val anchor = _uiState.value.messages.lastOrNull { !it.id.startsWith(PENDING_PREFIX) }?.createdAt
+            runContextId = null
+            runMessageIds.clear()
+            runMessageIds += userMessage.id
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages + userMessage,
                 failure = null,
@@ -376,7 +414,9 @@ class ChatViewModel(
                     role = "assistant",
                     content = finalText,
                     createdAt = java.time.Instant.now().toString(),
+                    contextId = runContextId,
                 )
+                runMessageIds += messageId
                 // Persist to Room
                 repository.persistMessage(assistantMessage)
                 // The agent stores the answer under the id it streamed it with, so its
@@ -395,6 +435,7 @@ class ChatViewModel(
             }
             is AgUiEvent.ContextUpdate -> {
                 _contextUpdates.tryEmit(event)
+                fileRunUnder(event.id)
             }
             is AgUiEvent.Error -> {
                 // Not the end of the request: the answer may be stored, see [recoverReply].
@@ -407,6 +448,25 @@ class ChatViewModel(
                 // Acknowledged but no UI action in v1
             }
         }
+    }
+
+    /**
+     * The router filed this run under [contextId]: the question and the answer already
+     * on screen, and those still to come, belong to it. The local copy is told too, so a
+     * restart does not forget it.
+     */
+    private suspend fun fileRunUnder(contextId: String) {
+        runContextId = contextId
+        val filed = _uiState.value.messages.filter { it.id in runMessageIds && it.contextId == null }
+        if (filed.isEmpty()) return
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages.map {
+                if (it.id in runMessageIds && it.contextId == null) it.copy(contextId = contextId) else it
+            },
+        )
+        rebuildDisplayItems()
+        filed.filterNot { it.id.startsWith(PENDING_PREFIX) }
+            .forEach { repository.persistMessage(it.copy(contextId = contextId)) }
     }
 
     /** The request is over: its answer, if any, is now the thing to read aloud. */
@@ -570,7 +630,11 @@ class ChatViewModel(
     fun rebuildDisplayItems() {
         val state = _uiState.value
         val items = mutableListOf<ChatListItem>()
-        val messages = state.messages
+        val messages = if (hiddenContextIds.isEmpty()) {
+            state.messages
+        } else {
+            state.messages.filterNot { it.contextId != null && it.contextId in hiddenContextIds }
+        }
         val tappedId = state.tappedMessageId
         val highlightedId = state.highlightedMessageId
         val unreadFromId = state.unreadFromId
@@ -734,6 +798,136 @@ class ChatViewModel(
         }
     }
 
+    /**
+     * Delete a message: it leaves the chat at once, but the server hears nothing until
+     * [UNDO_WINDOW_MS] has passed, so « Annuler » costs nothing (MAG-342).
+     */
+    fun deleteMessage(id: String) {
+        // A bubble still waiting for its stored id is not on the server: nothing to delete.
+        if (id.startsWith(PENDING_PREFIX)) return
+        val messages = _uiState.value.messages
+        val index = messages.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val message = messages[index]
+
+        pendingDeletion?.let { previous ->
+            if (!previous.committing) {
+                previous.timer?.cancel()
+                viewModelScope.launch { commitDeletion(previous) }
+            }
+        }
+
+        val deletion = PendingDeletion(message, index)
+        pendingDeletion = deletion
+        _uiState.value = _uiState.value.copy(
+            messages = messages.filterNot { it.id == id },
+            searchResults = _uiState.value.searchResults.filterNot { it.id == id },
+            undoableMessageDeletion = message,
+            messageDeleteFailed = false,
+        )
+        rebuildDisplayItems()
+        deletion.timer = viewModelScope.launch {
+            delay(UNDO_WINDOW_MS)
+            commitDeletion(deletion)
+        }
+    }
+
+    /** « Annuler »: the message is back where it was, and the server never knew. */
+    fun undoMessageDeletion() {
+        val deletion = pendingDeletion?.takeIf { !it.committing } ?: return
+        deletion.timer?.cancel()
+        pendingDeletion = null
+        _uiState.value = _uiState.value.copy(undoableMessageDeletion = null)
+        restore(deletion)
+    }
+
+    fun consumeMessageDeleteFailed() {
+        _uiState.value = _uiState.value.copy(messageDeleteFailed = false)
+    }
+
+    private suspend fun commitDeletion(deletion: PendingDeletion) {
+        deletion.committing = true
+        if (pendingDeletion === deletion) {
+            pendingDeletion = null
+            _uiState.value = _uiState.value.copy(undoableMessageDeletion = null)
+        }
+        repository.deleteMessage(deletion.message.id).onFailure { e ->
+            Log.w(TAG, "Message ${deletion.message.id} not deleted: ${e.message}")
+            restore(deletion)
+            _uiState.value = _uiState.value.copy(messageDeleteFailed = true)
+        }
+    }
+
+    private fun restore(deletion: PendingDeletion) {
+        val current = _uiState.value.messages
+        if (current.none { it.id == deletion.message.id }) {
+            val restored = current.toMutableList()
+            restored.add(deletion.index.coerceAtMost(restored.size), deletion.message)
+            _uiState.value = _uiState.value.copy(messages = restored)
+            rebuildDisplayItems()
+        }
+    }
+
+    /** The chat follows the thread list: a thread being deleted takes its messages off the screen. */
+    fun onThreadEvent(event: ThreadEvent) {
+        when (event) {
+            is ThreadEvent.Hidden -> {
+                hiddenContextIds += event.contextId
+                rebuildDisplayItems()
+            }
+            is ThreadEvent.Restored -> {
+                hiddenContextIds -= event.contextId
+                rebuildDisplayItems()
+            }
+            is ThreadEvent.Deleted -> removeMessages(emptySet(), event.contextId)
+        }
+    }
+
+    /**
+     * Drops what the server says it deleted: [ids], and the messages of [contextId]. Idempotent
+     * with the optimistic removal done here first — the echo of our own deletion finds nothing.
+     */
+    private fun removeMessages(ids: Set<String>, contextId: String?) {
+        val gone = { m: ChatMessage -> m.id in ids || (contextId != null && m.contextId == contextId) }
+        val state = _uiState.value
+        if (contextId != null) hiddenContextIds += contextId
+        // What the owner could still take back is gone for good: no « Annuler » for nothing.
+        pendingDeletion?.takeIf { it.message.id in ids || (contextId != null && it.message.contextId == contextId) }
+            ?.let {
+                it.timer?.cancel()
+                pendingDeletion = null
+            }
+        _uiState.value = state.copy(
+            messages = state.messages.filterNot(gone),
+            searchResults = state.searchResults.filterNot(gone),
+            undoableMessageDeletion = if (pendingDeletion == null) null else state.undoableMessageDeletion,
+        )
+        rebuildDisplayItems()
+        viewModelScope.launch {
+            try {
+                repository.forgetMessages(ids.toList(), contextId)
+            } catch (e: Exception) {
+                Log.w(TAG, "Local copy of deleted messages not cleaned: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * `{"deleted": true, "contextId": …, "messageIds": […]}` on the chat stream. Returns whether
+     * [data] was one, so that it is never read as a message.
+     */
+    private fun applyDeletionEvent(data: String): Boolean {
+        val payload = runCatching { json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return false
+        if (payload["deleted"]?.jsonPrimitive?.booleanOrNull != true) return false
+        val ids = (payload["messageIds"] as? JsonArray)
+            ?.mapNotNull { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+            ?.toSet()
+            .orEmpty()
+        val contextId = runCatching { payload["contextId"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        removeMessages(ids, contextId)
+        return true
+    }
+
     private fun subscribeToChatUpdates() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
@@ -741,11 +935,14 @@ class ChatViewModel(
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { event ->
                     try {
+                        // A deletion has no role and no content: it is not a message to show.
+                        if (applyDeletionEvent(event.data)) return@collect
                         val message = json.decodeFromString<ChatMessage>(event.data).asSaid()
                         repository.handleMercureMessage(message)
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages
-                        if (current.none { it.id == message.id }) {
+                        val known = current.firstOrNull { it.id == message.id }
+                        if (known == null) {
                             // The question this device just sent comes back with its stored id:
                             // it is that bubble, not a new one.
                             val pendingIndex = if (message.role == "user") {
@@ -755,10 +952,20 @@ class ChatViewModel(
                             }
                             _uiState.value = _uiState.value.copy(
                                 messages = if (pendingIndex >= 0) {
-                                    current.mapIndexed { i, m -> if (i == pendingIndex) m.copy(id = message.id) else m }
+                                    if (current[pendingIndex].id in runMessageIds) runMessageIds += message.id
+                                    current.mapIndexed { i, m ->
+                                        // The echo's thread wins; the run's is what the bubble had.
+                                        if (i == pendingIndex) m.copy(id = message.id, contextId = message.contextId ?: m.contextId) else m
+                                    }
                                 } else {
                                     current + message
                                 },
+                            )
+                            rebuildDisplayItems()
+                        } else if (message.contextId != null && known.contextId != message.contextId) {
+                            // Streamed without a thread, echoed with one.
+                            _uiState.value = _uiState.value.copy(
+                                messages = current.map { if (it.id == message.id) it.copy(contextId = message.contextId) else it },
                             )
                             rebuildDisplayItems()
                         }

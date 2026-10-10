@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +34,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,6 +69,7 @@ fun ChatSheet(
     viewModel: ChatViewModel,
     onDismiss: () -> Unit,
     voiceManager: VoiceManager? = null,
+    onOpenThreads: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberChatListState(viewModel)
@@ -84,13 +90,15 @@ fun ChatSheet(
             // `uiTagRoot()` goes here too (MAG-98): without it `voice_state` and
             // `chat_close` are invisible to Maestro.
             Column(modifier = Modifier.fillMaxWidth().uiTagRoot()) {
-                ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch)
+                ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
                 ChatHistory(
                     viewModel = viewModel,
                     listState = listState,
                     modifier = Modifier.weight(1f),
                 )
+
+                ChatSnackbarHost(viewModel)
 
                 if (voiceState == VoiceState.TRANSCRIBING) {
                     Text(
@@ -151,13 +159,15 @@ fun ChatSheet(
                     tonalElevation = BottomSheetDefaults.Elevation,
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch)
+                        ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
                         ChatHistory(
                             viewModel = viewModel,
                             listState = listState,
                             modifier = Modifier.weight(1f),
                         )
+
+                        ChatSnackbarHost(viewModel)
 
                         ChatInputRow(
                             viewModel = viewModel,
@@ -178,16 +188,15 @@ fun ChatSheet(
  *
  * The same conversation as [ChatSheet]: same header, same history, same input. What
  * it does not have is anything to dismiss — it is the layout, not an overlay — and
- * what it gains is the two buttons the collapsed [ChatBottomBar] carried, which is
- * the bar the panel replaces. The mic still opens the sheet in voice mode: a
+ * what it gains is the mic the collapsed [ChatBottomBar] carried, which is
+ * the bar the panel replaces. The threads are one icon of the header, as in the sheet (MAG-342). The mic still opens the sheet in voice mode: a
  * push-to-talk session wants `VoiceControlBar`'s big state line, not a text field.
  */
 @Composable
 fun ChatPanel(
     viewModel: ChatViewModel,
     onMicClick: () -> Unit = {},
-    onBrainClick: () -> Unit = {},
-    activeContextCount: Int = 0,
+    onOpenThreads: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -212,7 +221,7 @@ fun ChatPanel(
                     WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End),
                 ),
         ) {
-            ChatHeader(onClose = null, onSearch = viewModel::openSearch)
+            ChatHeader(onClose = null, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
             ChatHistory(
                 viewModel = viewModel,
@@ -220,13 +229,12 @@ fun ChatPanel(
                 modifier = Modifier.weight(1f),
             )
 
+            ChatSnackbarHost(viewModel)
+
             ChatInputRow(
                 viewModel = viewModel,
                 isSending = uiState.isLoading,
-                leading = {
-                    ChatContextsButton(onBrainClick, activeContextCount)
-                    ChatMicButton(onMicClick)
-                },
+                leading = { ChatMicButton(onMicClick) },
             )
         }
     }
@@ -252,12 +260,46 @@ private fun ChatHistory(
         onApprove = viewModel::approve,
         onDeny = viewModel::deny,
         onDismissApproval = viewModel::dismissApproval,
+        onDeleteMessage = viewModel::deleteMessage,
     )
+}
+
+/**
+ * « Message supprimé · Annuler » and the failure of a deletion, above the input field.
+ *
+ * The undo snackbar has no timer of its own: the ViewModel owns the window, and clears
+ * [ChatUiState.undoableMessageDeletion] when it closes, which ends the effect and with it the
+ * snackbar. Inside each surface and not on the screen's scaffold: the sheet is a window of its
+ * own, drawn over the scaffold's host.
+ */
+@Composable
+private fun ChatSnackbarHost(viewModel: ChatViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    val hostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.undoableMessageDeletion?.id) {
+        if (uiState.undoableMessageDeletion == null) return@LaunchedEffect
+        val result = hostState.showSnackbar(
+            message = "Message supprimé",
+            actionLabel = "Annuler",
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoMessageDeletion()
+    }
+
+    ErrorSnackbar(
+        error = "delete".takeIf { uiState.messageDeleteFailed },
+        snackbarHostState = hostState,
+        onDismiss = viewModel::consumeMessageDeleteFailed,
+        message = "La suppression a échoué. Réessayez.",
+    )
+
+    SnackbarHost(hostState)
 }
 
 /** @param onClose `null` in the permanent panel, which is not an overlay to dismiss. */
 @Composable
-private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit) {
+private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit, onThreads: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -269,6 +311,11 @@ private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit) {
             modifier = Modifier.align(Alignment.CenterStart),
         )
         Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+            // The threads are how the one conversation is filed: a discreet icon beside the
+            // search, which is the other way of finding something in it (MAG-342).
+            IconButton(onClick = onThreads, modifier = Modifier.testTag(UiTags.CHAT_THREADS)) {
+                Icon(Icons.Outlined.Forum, contentDescription = "Fils de discussion")
+            }
             IconButton(onClick = onSearch) {
                 Icon(Icons.Default.Search, contentDescription = "Rechercher")
             }
@@ -281,7 +328,7 @@ private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit) {
     }
 }
 
-/** @param leading what sits left of the field — the panel puts the contexts and the mic there. */
+/** @param leading what sits left of the field — the panel puts the mic there. */
 @Composable
 private fun ChatInputRow(
     viewModel: ChatViewModel,

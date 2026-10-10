@@ -195,10 +195,25 @@ async def reset_smoke_history(smoke_user_id: str = Depends(get_smoke_account_id)
 
 
 @router.get("/contexts")
-async def get_contexts(user_id: str = Depends(get_current_user_id)):
-    """Get active and dormant contexts for the Mind Panel."""
-    contexts = await context_repo.find_active(user_id)
-    return [c.to_dict() for c in contexts]
+async def get_contexts(
+    user_id: str = Depends(get_current_user_id),
+    include_closed: bool = Query(
+        default=False, alias="includeClosed", description="Also the closed threads, which a clean-up needs to reach"
+    ),
+):
+    """Get the threads, each with how many messages it holds (what deleting it takes away)."""
+    contexts = await (context_repo.find_by_user(user_id) if include_closed else context_repo.find_active(user_id))
+    counts = await message_repo.count_by_user_contexts(user_id)
+    return [{**c.to_dict(), "messageCount": counts.get(c.id, 0)} for c in contexts]
+
+
+@router.delete("/contexts/{context_id}")
+async def delete_context(context_id: str, user_id: str = Depends(get_current_user_id)):
+    """Delete one of the caller's threads and its messages (MAG-342). 404 for another user's, like an unknown one."""
+    deleted_messages = await context_repo.delete_with_messages(context_id, user_id)
+    if deleted_messages is None:
+        raise HTTPException(status_code=404, detail="Context not found")
+    return {"deletedMessages": deleted_messages}
 
 
 @router.post("/proaction", response_model=ChatResponse)
@@ -378,6 +393,13 @@ async def get_messages(
         messages = await message_repo.find_recent(user_id, limit=limit)
 
     return [msg.to_dict() for msg in messages]
+
+
+@router.delete("/messages/{message_id}", status_code=204)
+async def delete_message(message_id: str, user_id: str = Depends(get_current_user_id)):
+    """Delete one of the caller's messages (MAG-342). 404 for another user's, like an unknown one."""
+    if not await message_repo.delete_for_user(message_id, user_id):
+        raise HTTPException(status_code=404, detail="Message not found")
 
 
 @router.get("/messages/search")

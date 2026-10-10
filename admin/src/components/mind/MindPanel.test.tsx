@@ -1,5 +1,6 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ContextList } from './ContextList'
 import { ToolCallList } from './ToolCallList'
 import type { ContextState, ToolCallState } from './types'
@@ -7,7 +8,7 @@ import type { ContextState, ToolCallState } from './types'
 describe('ContextList', () => {
   test('shows empty state when no contexts', () => {
     render(<ContextList contexts={[]} />)
-    expect(screen.getByText('Aucun contexte actif')).toBeInTheDocument()
+    expect(screen.getByText('Aucun fil de discussion')).toBeInTheDocument()
   })
 
   test('renders contexts', () => {
@@ -51,6 +52,28 @@ describe('ContextList', () => {
     rerender(<ContextList contexts={[{ id: '1', label: 'Budget e2e', status: 'dormant' }]} />)
     expect(screen.getByTestId('mind-contexts')).toBeInTheDocument()
     expect(screen.getByTestId('mind-context')).toHaveAttribute('data-status', 'dormant')
+  })
+})
+
+describe('ContextList deletion', () => {
+  test('offers no delete button unless the caller can delete', () => {
+    render(<ContextList contexts={[{ id: '1', label: 'Budget', status: 'active' }]} />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  test('puts a named delete button at the end of each row, and hands the thread over', async () => {
+    const onDelete = vi.fn()
+    const contexts: ContextState[] = [
+      { id: '1', label: 'Budget', status: 'active' },
+      { id: '2', label: 'Agenda semaine', status: 'closed' },
+    ]
+    render(<ContextList contexts={contexts} onDelete={onDelete} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Supprimer le fil « Agenda semaine »' }))
+
+    expect(onDelete).toHaveBeenCalledWith(contexts[1])
+    expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 })
 

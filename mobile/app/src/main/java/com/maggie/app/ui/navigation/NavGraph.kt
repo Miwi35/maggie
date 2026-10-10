@@ -375,6 +375,12 @@ fun NavGraph() {
         }
     }
 
+    // The chat follows the thread list: a thread being deleted takes its messages off the
+    // screen, « Annuler » brings them back (MAG-342).
+    LaunchedEffect(Unit) {
+        contextViewModel.threadEvents.collect { chatViewModel.onThreadEvent(it) }
+    }
+
     // Sheet states (kept as overlays)
     var selectedEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
     var selectedTask by remember { mutableStateOf<Task?>(null) }
@@ -578,8 +584,6 @@ fun NavGraph() {
                             ChatRailActions(
                                 onOpenChat = { showChatSheet = true },
                                 onMicClick = ::startVoiceMode,
-                                onBrainClick = { showContextSheet = true },
-                                activeContextCount = contextUiState.activeCount,
                             )
                         }
                     } else {
@@ -595,8 +599,7 @@ fun NavGraph() {
                 ChatPanel(
                     viewModel = chatViewModel,
                     onMicClick = ::startVoiceMode,
-                    onBrainClick = { showContextSheet = true },
-                    activeContextCount = contextUiState.activeCount,
+                    onOpenThreads = { showContextSheet = true },
                 )
             }
         } else {
@@ -633,8 +636,6 @@ fun NavGraph() {
                     ChatBottomBar(
                         onOpenChat = { showChatSheet = true },
                         onMicClick = ::startVoiceMode,
-                        onBrainClick = { showContextSheet = true },
-                        activeContextCount = contextUiState.activeCount,
                     )
                 }
             },
@@ -1213,15 +1214,22 @@ fun NavGraph() {
                 refreshAll()
             },
             voiceManager = if (voiceModeActive) voiceManager else null,
+            onOpenThreads = { showContextSheet = true },
         )
     }
 
-    // Context sheet
+    // Threads sheet — opened from the chat header's icon (MAG-342)
     if (showContextSheet) {
         ContextListSheet(
             sheetState = contextSheetState,
             uiState = contextUiState,
             onDismiss = { showContextSheet = false },
+            onRequestDelete = contextViewModel::requestDeletion,
+            onConfirmDelete = contextViewModel::confirmDeletion,
+            onCancelDelete = contextViewModel::cancelDeletionRequest,
+            onUndoDelete = contextViewModel::undoDeletion,
+            onDeleteFailedShown = contextViewModel::consumeDeleteFailed,
+            onOpened = contextViewModel::refresh,
         )
     }
 

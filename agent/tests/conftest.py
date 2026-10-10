@@ -92,10 +92,14 @@ class _SyncSessionAsAsync:
 
 @dataclass
 class ChatDb:
-    """What a chat_db test needs: a session factory, and the Mercure publication to assert."""
+    """What a chat_db test needs: a session factory, and the Mercure publications to assert.
+
+    `published` is what the context repository publishes; `chat_published` what the message repository does.
+    """
 
     session: Callable[[], Any]
     published: AsyncMock
+    chat_published: AsyncMock
 
 
 @compiles(JSONB, "sqlite")
@@ -132,13 +136,14 @@ def chat_db():
         return _SyncSessionAsAsync(factory())
 
     published = AsyncMock()
+    chat_published = AsyncMock()
     with (
         patch("app.db.context_repository.agent_session", open_session),
         patch("app.db.message_repository.agent_session", open_session),
         patch("app.db.context_repository.context_repo.publisher.publish", new=published),
-        patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
+        patch("app.db.message_repository.message_repo.publisher.publish", new=chat_published),
     ):
-        yield ChatDb(session=open_session, published=published)
+        yield ChatDb(session=open_session, published=published, chat_published=chat_published)
     engine.dispose()
 
 

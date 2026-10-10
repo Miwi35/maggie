@@ -12,6 +12,7 @@ import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.ui.screens.contexts.ThreadEvent
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -1041,6 +1042,276 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals("Je supprime l'événement Test validation ?", viewModel.questionFor(held))
+    }
+
+    // --- MAG-342: delete a message, and follow the deletion of a thread ---
+
+    private val threadMessages = listOf(
+        ChatMessage(id = "m-1", role = "user", content = "Les courses", createdAt = "2026-02-15T10:00:00Z", contextId = "ctx-a"),
+        ChatMessage(id = "m-2", role = "assistant", content = "Noté", createdAt = "2026-02-15T10:00:05Z", contextId = "ctx-a"),
+        ChatMessage(id = "m-3", role = "user", content = "Le budget", createdAt = "2026-02-15T10:01:00Z", contextId = "ctx-b"),
+        ChatMessage(id = "m-4", role = "assistant", content = "Tient", createdAt = "2026-02-15T10:01:05Z", contextId = "ctx-b"),
+    )
+
+    private fun shownIds() =
+        viewModel.uiState.value.displayItems.filterIsInstance<ChatListItem.MessageItem>().map { it.message.id }
+
+    private fun threadViewModel(): ChatViewModel {
+        coEvery { repository.loadRecentMessages(any()) } returns threadMessages
+        coEvery { repository.deleteMessage(any()) } returns Result.success(Unit)
+        coEvery { repository.forgetMessages(any(), any()) } returns Unit
+        return createViewModel().also { viewModel = it }
+    }
+
+    @Test
+    fun `deleting a message removes it at once, offers the undo, and tells the server nothing yet`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteMessage("m-2")
+
+        assertEquals(listOf("m-1", "m-3", "m-4"), shownIds())
+        assertEquals("m-2", viewModel.uiState.value.undoableMessageDeletion?.id)
+        coVerify(exactly = 0) { repository.deleteMessage(any()) }
+    }
+
+    @Test
+    fun `undoing a message deletion puts it back in place and the server never hears of it`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteMessage("m-2")
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS - 1_000)
+        viewModel.undoMessageDeletion()
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS)
+        runCurrent()
+
+        assertEquals(listOf("m-1", "m-2", "m-3", "m-4"), shownIds())
+        assertNull(viewModel.uiState.value.undoableMessageDeletion)
+        coVerify(exactly = 0) { repository.deleteMessage(any()) }
+    }
+
+    @Test
+    fun `a message deletion is sent when the undo window closes`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteMessage("m-2")
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS - 1)
+        runCurrent()
+        coVerify(exactly = 0) { repository.deleteMessage(any()) }
+
+        advanceTimeBy(2)
+        runCurrent()
+
+        coVerify(exactly = 1) { repository.deleteMessage("m-2") }
+        assertEquals(listOf("m-1", "m-3", "m-4"), shownIds())
+        assertNull(viewModel.uiState.value.undoableMessageDeletion)
+        assertFalse(viewModel.uiState.value.messageDeleteFailed)
+    }
+
+    @Test
+    fun `a failed message deletion brings the message back and says so`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+        coEvery { repository.deleteMessage("m-2") } returns Result.failure(RuntimeException("HTTP 500"))
+
+        viewModel.deleteMessage("m-2")
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS + 1)
+        runCurrent()
+
+        assertEquals(listOf("m-1", "m-2", "m-3", "m-4"), shownIds())
+        assertTrue(viewModel.uiState.value.messageDeleteFailed)
+
+        viewModel.consumeMessageDeleteFailed()
+        assertFalse(viewModel.uiState.value.messageDeleteFailed)
+    }
+
+    @Test
+    fun `a bubble still waiting for its stored id cannot be deleted`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns MutableSharedFlow<AgUiEvent>()
+        viewModel.sendMessage("Bonjour")
+        runCurrent()
+        val pending = viewModel.uiState.value.messages.last()
+
+        viewModel.deleteMessage(pending.id)
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS + 1)
+        runCurrent()
+
+        assertNull(viewModel.uiState.value.undoableMessageDeletion)
+        assertTrue(viewModel.uiState.value.messages.any { it.id == pending.id })
+        coVerify(exactly = 0) { repository.deleteMessage(any()) }
+    }
+
+    @Test
+    fun `confirming a thread deletion hides its messages, the chat keeps what remains`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.onThreadEvent(ThreadEvent.Hidden("ctx-a"))
+
+        assertEquals(listOf("m-3", "m-4"), shownIds())
+        // Hidden, not forgotten: « Annuler » must be able to bring them back.
+        assertEquals(4, viewModel.uiState.value.messages.size)
+    }
+
+    @Test
+    fun `undoing a thread deletion shows its messages again`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.onThreadEvent(ThreadEvent.Hidden("ctx-a"))
+        viewModel.onThreadEvent(ThreadEvent.Restored("ctx-a"))
+
+        assertEquals(listOf("m-1", "m-2", "m-3", "m-4"), shownIds())
+    }
+
+    @Test
+    fun `a deleted thread takes its messages out of the chat for good, and the local copy with them`() = runTest {
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.onThreadEvent(ThreadEvent.Hidden("ctx-b"))
+        viewModel.onThreadEvent(ThreadEvent.Deleted("ctx-b"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("m-1", "m-2"), shownIds())
+        assertEquals(listOf("m-1", "m-2"), viewModel.uiState.value.messages.map { it.id })
+        coVerify { repository.forgetMessages(emptyList(), "ctx-b") }
+    }
+
+    private fun echoIn(id: String, role: String, content: String, contextId: String) = MercureEvent(
+        data = """{"id":"$id","role":"$role","content":"$content","createdAt":"2026-02-15T11:00:00Z","contextId":"$contextId"}""",
+    )
+
+    @Test
+    fun `the messages of the current run, by the stream and by the echo, leave and come back with their thread`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            emit(AgUiEvent.ContextUpdate(id = "ctx-1", label = "Courses", status = "active", action = "created"))
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Salut !"))
+            emit(AgUiEvent.TextMessageEnd(messageId = "resp-1"))
+            // The echoes come last: the question's carries no thread, the answer's does, and
+            // the answer is already there, streamed without one.
+            topic.tryEmit(echo("u-9", "user", "Bonjour"))
+            topic.tryEmit(echoIn("resp-1", "assistant", "Salut !", "ctx-1"))
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        val run = setOf("u-9", "resp-1")
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+        assertEquals(listOf("u-9", "resp-1"), shownIds().filter { it in run })
+
+        viewModel.onThreadEvent(ThreadEvent.Hidden("ctx-1"))
+        assertTrue(shownIds().none { it in run })
+        // Hidden, not forgotten: « Annuler » needs them.
+        assertTrue(viewModel.uiState.value.messages.map { it.id }.containsAll(run))
+
+        viewModel.onThreadEvent(ThreadEvent.Restored("ctx-1"))
+        assertEquals(listOf("u-9", "resp-1"), shownIds().filter { it in run })
+    }
+
+    @Test
+    fun `the echo of the question brings its thread to the pending bubble it replaces`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            topic.tryEmit(echoIn("u-9", "user", "Bonjour", "ctx-1"))
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        assertEquals("ctx-1", viewModel.uiState.value.messages.single { it.id == "u-9" }.contextId)
+    }
+
+    @Test
+    fun `deleting the only thread leaves the empty chat`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns threadMessages.take(2)
+        coEvery { repository.forgetMessages(any(), any()) } returns Unit
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onThreadEvent(ThreadEvent.Deleted("ctx-a"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+        assertTrue(viewModel.uiState.value.displayItems.none { it is ChatListItem.MessageItem })
+    }
+
+    @Test
+    fun `a deletion published on the chat stream removes those messages and is never shown as one`() = runTest {
+        val topic = chatTopic()
+        threadViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        topic.emit(MercureEvent(data = """{"deleted":true,"contextId":null,"messageIds":["m-2","m-9"]}"""))
+        advanceUntilIdle()
+
+        assertEquals(listOf("m-1", "m-3", "m-4"), shownIds())
+        // No bubble was built out of it.
+        assertTrue(viewModel.uiState.value.messages.none { it.content.isEmpty() })
+        coVerify(exactly = 0) { repository.handleMercureMessage(any()) }
+        coVerify { repository.forgetMessages(match { it.toSet() == setOf("m-2", "m-9") }, null) }
+    }
+
+    @Test
+    fun `a thread deletion published on the chat stream removes the thread's messages`() = runTest {
+        val topic = chatTopic()
+        threadViewModel()
+        advanceUntilIdle()
+
+        topic.emit(MercureEvent(data = """{"deleted":true,"contextId":"ctx-a","messageIds":["m-1","m-2"]}"""))
+        advanceUntilIdle()
+
+        assertEquals(listOf("m-3", "m-4"), shownIds())
+    }
+
+    @Test
+    fun `the echo of a message this device already deleted changes nothing`() = runTest {
+        val topic = chatTopic()
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteMessage("m-2")
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS + 1)
+        runCurrent()
+        topic.emit(MercureEvent(data = """{"deleted":true,"contextId":null,"messageIds":["m-2"]}"""))
+        advanceUntilIdle()
+
+        assertEquals(listOf("m-1", "m-3", "m-4"), shownIds())
+        assertFalse(viewModel.uiState.value.messageDeleteFailed)
+    }
+
+    @Test
+    fun `a message deleted elsewhere while its undo is on screen ends the undo`() = runTest {
+        val topic = chatTopic()
+        threadViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteMessage("m-2")
+        topic.emit(MercureEvent(data = """{"deleted":true,"contextId":null,"messageIds":["m-2"]}"""))
+        advanceTimeBy(ChatViewModel.UNDO_WINDOW_MS + 1)
+        runCurrent()
+
+        assertNull(viewModel.uiState.value.undoableMessageDeletion)
+        coVerify(exactly = 0) { repository.deleteMessage(any()) }
     }
 
     // --- MAG-319: an answer that is slow or lost by the call still reaches the screen ---
