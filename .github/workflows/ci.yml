@@ -1556,7 +1556,7 @@ jobs:
       # journey forgotten there would only ever play on the nightly run.
       - name: The e2e impact map covers every journey
         run: scripts/e2e/impacted.sh check
-      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift, the migration order, the agent guard rails and the Docker Hub guard
+      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the nightly alert, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift, the migration order, the agent guard rails and the Docker Hub guard
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1564,6 +1564,7 @@ jobs:
           bash infra/scripts/tests/migrate-k3s.test.sh
           bash infra/scripts/tests/deploy-tickets.test.sh
           bash infra/scripts/tests/report-failed-deploy.test.sh
+          bash infra/scripts/tests/alert-ticket.test.sh
           bash infra/scripts/tests/release-emergency.test.sh
           bash infra/scripts/tests/incident-gate.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
