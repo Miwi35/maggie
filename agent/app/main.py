@@ -20,6 +20,7 @@ from app.db.proaction_repository import proaction_repo
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
+from app.e2e_coverage import setup_journey_coverage
 from app.error_tracking import init_error_tracking
 from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
@@ -120,6 +121,8 @@ app = FastAPI(
 app.include_router(router)
 setup_a2a(app)
 setup_e2e(app)
+# The nightly's coverage per journey (E2E_COVERAGE=1 only): nothing is installed otherwise.
+setup_journey_coverage(app)
 
 
 @app.get("/metrics", include_in_schema=False)

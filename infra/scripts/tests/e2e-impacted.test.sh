@@ -268,6 +268,27 @@ STATUS=$?
 [ "$STATUS" -eq 0 ] && jq -e '.journeys | length == 6' "$work/complete.json" >/dev/null \
   && ok "every lot complete: the map, the marks read as no journey" || bad "complete night: exit $STATUS"
 
+# The nightly downloads each lot's artifact into its own directory: a spec split
+# over two web shards leaves a raw file of the same name in each, and the lines of
+# both belong to it. The marks are read in each lot's directory.
+lots="$work/lots"
+mkdir -p "$lots/e2e-coverage-raw-web-1/admin" "$lots/e2e-coverage-raw-web-1/_lots" \
+  "$lots/e2e-coverage-raw-web-2/admin" "$lots/e2e-coverage-raw-web-2/_lots"
+slug=e2e_web_tests_recipes_spec_ts
+printf '{"journey":"e2e/web/tests/recipes.spec.ts","files":{"%s":[20,21,22]}}' "$RECIPE_EDIT" >"$lots/e2e-coverage-raw-web-1/admin/$slug.json"
+printf '{"journey":"e2e/web/tests/recipes.spec.ts","files":{"%s":[22,23,40]}}' "$RECIPE_EDIT" >"$lots/e2e-coverage-raw-web-2/admin/$slug.json"
+: >"$lots/e2e-coverage-raw-web-1/_lots/web-1.ok"
+: >"$lots/e2e-coverage-raw-web-2/_lots/web-2.ok"
+"$BUILD_MAP" --raw "$lots" --out "$work/lots.json" --expect web-1 web-2 >/dev/null 2>"$work/build.err"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && jq -e --arg f "$RECIPE_EDIT" '.journeys == ["e2e/web/tests/recipes.spec.ts"] and .files[$f] == [[20,23,"1"],[40,40,"1"]]' "$work/lots.json" >/dev/null \
+  && ok "one journey split over two lots: its raw files of the same name are unioned, each lot's mark found" \
+  || bad "split journey: exit $STATUS — $(jq -c . "$work/lots.json" 2>/dev/null) $(cat "$work/build.err")"
+rm "$lots/e2e-coverage-raw-web-2/_lots/web-2.ok"
+"$BUILD_MAP" --raw "$lots" --out "$work/lots-partial.json" --expect web-1 web-2 >/dev/null 2>&1
+STATUS=$?
+[ "$STATUS" -eq 4 ] && [ ! -e "$work/lots-partial.json" ] && ok "a lot directory without its mark: exit 4, no map" || bad "lot without mark: exit $STATUS"
+
 printf '\n\033[1mThe collection hook\033[0m\n'
 COLLECT="$REPO/scripts/e2e/coverage/collect-lot.sh"
 croot="$work/collect"
@@ -287,6 +308,52 @@ STATUS=$?
 rm -rf "$croot/raw/api" "$croot/hooks/20-ko.sh"
 out="$(E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" web-4 2>&1)"
 [ ! -e "$croot/raw/_lots/web-4.ok" ] && grep -q 'no raw file' <<<"$out" && ok "no raw file: a warning, no mark" || bad "no raw: $out"
+
+printf '#!/bin/sh\necho "$1" >"%s/hook-arg"\n' "$croot" >"$croot/hooks/30-arg.sh"
+chmod +x "$croot/hooks/30-arg.sh"
+E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" mobile-phone-2 >/dev/null 2>&1
+[ "$(cat "$croot/hook-arg" 2>/dev/null)" = mobile-phone-2 ] && ok "a hook is given the lot's name" || bad "hook argument: $(cat "$croot/hook-arg" 2>/dev/null)"
+
+printf '\n\033[1mThe admin and mobile hooks\033[0m\n'
+ADMIN_HOOK="$REPO/scripts/e2e/coverage/collect.d/40-admin.sh"
+MOBILE_HOOK="$REPO/scripts/e2e/coverage/collect.d/50-mobile.sh"
+cov="$work/cov"
+mkdir -p "$cov/raw/api"
+E2E_ROOT="$work" E2E_COVERAGE_DIR="$cov" "$ADMIN_HOOK" mobile-phone-1 >/dev/null 2>&1 && ok "admin hook: nothing asked of a mobile lot" || bad "admin hook on a mobile lot failed"
+E2E_ROOT="$work" E2E_COVERAGE_DIR="$cov" "$ADMIN_HOOK" web-1 >/dev/null 2>&1 && bad "admin hook: a web lot without admin raw file passed" || ok "admin hook: a web lot without admin raw file fails"
+mkdir -p "$cov/raw/admin" && printf '{"journey":"e2e/web/tests/a.spec.ts","files":{}}' >"$cov/raw/admin/a.json"
+E2E_ROOT="$work" E2E_COVERAGE_DIR="$cov" "$ADMIN_HOOK" web-1 >/dev/null 2>&1 && ok "admin hook: a web lot with its admin raw files passes" || bad "admin hook with raw files failed"
+
+# A stand-in for mobile.sh: one raw file per <slug>.ec, its lines from the .ec's content.
+fake_mobile="$work/fake-mobile.sh"
+cat >"$fake_mobile" <<'SH'
+#!/usr/bin/env bash
+mkdir -p "$E2E_COVERAGE_DIR/raw/mobile"
+for ec in "$1"/*.ec; do
+  slug="$(basename "$ec" .ec)"
+  [ "$(cat "$ec")" = skip ] && continue
+  printf '{"journey":"%s","files":%s}' "$(cat "$1/$slug.journey")" "$(cat "$ec")" >"$E2E_COVERAGE_DIR/raw/mobile/$slug.json"
+done
+SH
+chmod +x "$fake_mobile"
+mobile_hook() { E2E_ROOT="$work" E2E_COVERAGE_DIR="$cov" E2E_COVERAGE_MOBILE_SH="$fake_mobile" "$MOBILE_HOOK" "$@" 2>"$work/hook.err"; }
+mobile_hook web-1 && ok "mobile hook: nothing asked of a web lot" || bad "mobile hook on a web lot failed: $(cat "$work/hook.err")"
+mobile_hook mobile-phone-1 && bad "mobile hook: a mobile lot without data passed" || ok "mobile hook: a mobile lot without JaCoCo data fails"
+exec_dir="$cov/exec/mobile"
+mkdir -p "$exec_dir"
+printf '{"mobile/app/src/main/java/A.kt":[1,2]}' >"$exec_dir/e2e_mobile_flows_01_yaml.ec"
+echo e2e/mobile/flows/01.yaml >"$exec_dir/e2e_mobile_flows_01_yaml.journey"
+mobile_hook mobile-phone-1 && [ -s "$cov/raw/mobile/e2e_mobile_flows_01_yaml.json" ] \
+  && ok "mobile hook: converts the lot's data" || bad "mobile hook conversion: $(cat "$work/hook.err")"
+echo e2e/mobile/flows/02.yaml >"$exec_dir/e2e_mobile_flows_02_yaml.missing"
+mobile_hook mobile-phone-1 && bad "mobile hook: a flow without data passed" || { grep -q 'flows/02.yaml left no JaCoCo data' "$work/hook.err" && ok "mobile hook: a flow without data fails the lot" || bad "missing flow: $(cat "$work/hook.err")"; }
+rm "$exec_dir/e2e_mobile_flows_02_yaml.missing"
+printf '{}' >"$exec_dir/e2e_mobile_flows_03_yaml.ec"
+echo e2e/mobile/flows/03.yaml >"$exec_dir/e2e_mobile_flows_03_yaml.journey"
+mobile_hook mobile-phone-1 && bad "mobile hook: a flow with no line passed" || { grep -q 'ran no line of the app' "$work/hook.err" && ok "mobile hook: a flow that matched no class fails the lot" || bad "empty flow: $(cat "$work/hook.err")"; }
+echo skip >"$exec_dir/e2e_mobile_flows_03_yaml.ec"
+rm -f "$cov/raw/mobile/e2e_mobile_flows_03_yaml.json"
+mobile_hook mobile-phone-1 && bad "mobile hook: an unconverted flow passed" || { grep -q 'was not converted' "$work/hook.err" && ok "mobile hook: a flow the converter skipped fails the lot" || bad "unconverted: $(cat "$work/hook.err")"; }
 
 mkdir -p "$work/raw-empty"
 "$BUILD_MAP" --raw "$work/raw-empty" --out "$work/none.json" >/dev/null 2>&1

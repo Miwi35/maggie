@@ -78,6 +78,8 @@ What `wt/gradle.sh` does:
 - **Only `:app:testProdDebugUnitTest`.** Arguments are options (`--tests`,
   `--rerun`, `--info`); a bare word — a Gradle task — is refused (exit 64).
   Without arguments it runs every unit test: allowed, but name a class.
+  `WT_MOBILE_VARIANT=e2e` runs `:app:testE2eDebugUnitTest` instead — the
+  e2e flavor's own tests (`src/testE2e/`), which the prod task never compiles.
 - **A machine-wide lock**: `flock` on `$XDG_RUNTIME_DIR/maggie-gradle.lock`,
   every worktree included. The second caller prints « Gradle occupé par un autre
   build, attente… » and waits up to `WT_GRADLE_LOCK_WAIT_MINUTES` (30), then
