@@ -8,7 +8,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'get_event', description: 'Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too.')]
+#[McpTool(name: 'get_event', description: 'Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google\'s API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu\'au » endDate.')]
 class GetEventTool
 {
     public function __construct(

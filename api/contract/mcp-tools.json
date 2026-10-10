@@ -425,7 +425,7 @@
                 "id"
             ]
         },
-        "description": "Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too."
+        "description": "Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate."
     },
     "get_events_by_date": {
         "name": "get_events_by_date",
@@ -440,7 +440,7 @@
                 "date"
             ]
         },
-        "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events."
+        "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate."
     },
     "get_finance_dashboard": {
         "name": "get_finance_dashboard",
@@ -532,7 +532,7 @@
                 }
             }
         },
-        "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events."
+        "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate."
     },
     "get_user_timezone": {
         "name": "get_user_timezone",
