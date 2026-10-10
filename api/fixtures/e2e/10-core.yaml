@@ -88,7 +88,8 @@ Maggie\Core\Entity\User:
     # chat history: on the owner's account that pushes `chat.spec.ts` off its
     # twenty-message page, and on the shopper's it lands inside the windows
     # `grocery-errand.spec.ts` asserts the first Mercure message of. So this
-    # account is for that journey alone.
+    # account is for that journey and the last-salary question (MAG-364), whose
+    # data are its own.
     e2e_stock_user:
         email: 'e2e-stock@maggie.local'
         googleId: 'e2e-stock-google-id'

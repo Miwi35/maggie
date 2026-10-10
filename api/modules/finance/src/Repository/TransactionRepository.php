@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
@@ -46,10 +47,11 @@ class TransactionRepository extends ServiceEntityRepository
      * the rejected payments are out unless `$transferKind` asks for them, as
      * the REST list does (MAG-375).
      *
-     * @param \DateTimeImmutable|null $from      first booking day included
-     * @param \DateTimeImmutable|null $to        last booking day included
-     * @param string|null             $text      matched against the label and the counterparty, wildcards taken literally
-     * @param string|null             $direction `expense` (debits) or `income` (credits)
+     * @param \DateTimeImmutable|null $from        first booking day included
+     * @param \DateTimeImmutable|null $to          last booking day included
+     * @param string|null             $text        matched against the label and the counterparty, wildcards taken literally
+     * @param string|null             $direction   `expense` (debits) or `income` (credits)
+     * @param list<Ulid>|null         $categoryIds keeps the lines of these categories (a category and its sub-categories)
      *
      * @return array{transactions: Transaction[], total: int}
      */
@@ -62,6 +64,7 @@ class TransactionRepository extends ServiceEntityRepository
         ?string $text = null,
         ?string $direction = null,
         ?TransferKind $transferKind = null,
+        ?array $categoryIds = null,
     ): array {
         $qb = $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
@@ -85,6 +88,9 @@ class TransactionRepository extends ServiceEntityRepository
         if (null !== $text && '' !== trim($text)) {
             $qb->andWhere('LOWER(t.label) LIKE :text OR LOWER(t.counterpartyName) LIKE :text')
                 ->setParameter('text', '%'.addcslashes(mb_strtolower(trim($text)), '\\%_').'%');
+        }
+        if (null !== $categoryIds) {
+            $qb->andWhere('t.category IN (:categories)')->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING);
         }
         if ('expense' === $direction) {
             $qb->andWhere('t.amountCents < 0');
