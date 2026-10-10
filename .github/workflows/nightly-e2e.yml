@@ -15,6 +15,11 @@ name: Nightly e2e
 # an issue labelled `nightly-e2e-failure`, or comments on the one already open —
 # GitHub notifies the owner, as `nightly.yml` does for the rest of the CI. A
 # green night writes its summary and nothing else.
+#
+# The journeys run with coverage (`coverage: true`, spec « Sélection e2e par
+# couverture »): `coverage-map` turns what each journey executed into the line
+# map (artifact `e2e-coverage-map`, 7 days) that pull requests select their
+# journeys with. It never changes the night's verdict.
 
 run-name: >-
   ${{ github.event_name == 'schedule' && 'Nuit · e2e complets' || 'Nuit · e2e complets · manuel' }}
@@ -72,6 +77,7 @@ jobs:
     with:
       suite: e2e
       retry_failed_journeys: true
+      coverage: true
     permissions:
       contents: read
       packages: write
@@ -130,3 +136,62 @@ jobs:
         run: |
           echo "::error::The nightly e2e suite is red — see the summary."
           exit 1
+
+  # The line map (spec « Sélection e2e par couverture »): which journeys executed
+  # each line tonight, from the raw coverage every lot uploaded — only when every
+  # lot's coverage is complete. `Detect changes` in ci.yml downloads it from the
+  # latest successful nightly that holds one and selects a pull
+  # request's journeys by the lines it changes. Never part of the verdict: every
+  # step only warns, and a night without a map leaves the pull requests on the
+  # zones of e2e/impact-map.yml.
+  coverage-map:
+    name: E2E line map
+    needs: [when, e2e]
+    if: always() && needs.when.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: e2e-coverage-raw-*
+          merge-multiple: true
+          path: e2e/coverage/raw
+
+      - name: Build the map
+        id: build
+        continue-on-error: true
+        run: |
+          # The lots tonight played, as ci.yml's `Detect changes` chose them on
+          # this commit: every web lot, the phone's mobile lots. A lot that left
+          # no complete coverage (a hook failed, a job skipped) means no map: a
+          # partial one would play too few journeys on a pull request.
+          expected="$(scripts/e2e/impacted.sh select --all </dev/null \
+            | jq -r '(.web_lots[] | "web-\(.)"), (.mobile_lots[] | "mobile-phone-\(.index)")')"
+          [ -n "$expected" ] || { echo "::warning::the lots of tonight are unknown: no e2e line map"; exit 0; }
+          status=0
+          # shellcheck disable=SC2086 # one argument per lot
+          python3 scripts/e2e/coverage/build-map.py --raw e2e/coverage/raw --out e2e-coverage-map.json \
+            --commit "$GITHUB_SHA" --expect $expected || status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::no e2e line map tonight (build-map exit $status): pull requests keep the zones of e2e/impact-map.yml"
+            exit 0
+          fi
+          jq -r '"### E2E line map\n\n\(.journeys | length) journeys, \(.files | length) files, commit \(.commit[:7]), \(.generatedAt)."' \
+            e2e-coverage-map.json >> "$GITHUB_STEP_SUMMARY"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Line map
+        if: steps.build.outputs.built == 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-map
+          path: e2e-coverage-map.json
+          retention-days: 7
+          if-no-files-found: ignore

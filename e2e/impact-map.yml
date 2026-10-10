@@ -143,6 +143,24 @@ unmapped:
     - mobile/**
     - e2e/mobile/**
 
+# The line map (spec « Sélection e2e par couverture »): every night the whole
+# suite runs with coverage, and `scripts/e2e/coverage/build-map.py` records which
+# journeys executed each line. On a pull request, a changed file matching `sees`
+# whose every hunk touches a line some journey executed plays those journeys
+# (and the core) instead of the rules above — transversal ones included: a
+# method of `MaggieApiService.kt` only plays the journeys that call it, a line
+# every journey runs plays everything. A hunk no journey executed, a file
+# outside `sees` (config, migrations, lockfiles, resources, layouts, the e2e
+# journeys, the fake-LLM scenarios…), a new file or no map from the last three
+# nights: the rules above, unchanged. `ignored` still comes first.
+coverage:
+  sees:
+    - 'api/src/**/*.php'
+    - 'api/modules/*/src/**/*.php'
+    - 'agent/app/**/*.py'
+    - 'admin/src/**/*.{ts,tsx}'
+    - 'mobile/app/src/main/java/**/*.kt'
+
 areas:
   # Anything the stack runs: the smoke journey stands for it.
   stack:

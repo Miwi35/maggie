@@ -139,6 +139,10 @@ e2e/web/test-results/
 e2e/web/results/
 # The verdicts of the e2e lots (scripts/e2e/verdict.sh), uploaded by CI.
 e2e/verdicts/
+# The nightly's raw coverage per journey and the line map built from it
+# (scripts/e2e/coverage/), uploaded by CI, never committed.
+e2e/coverage/raw/
+e2e-coverage-map.json
 # The Maestro harness (MAG-98): the JUnit report and the screenshots of a failed
 # flow. CI uploads them too; the CLI itself lives under .e2e-cache/ below.
 e2e/mobile/report/
