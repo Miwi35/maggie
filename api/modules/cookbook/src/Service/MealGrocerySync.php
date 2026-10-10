@@ -24,8 +24,8 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  *
  * Every line a meal touches is recorded as a {@see MealGroceryContribution}.
  * `sync()` makes the list say what the meal needs *now* — adding, adjusting in
- * place and taking back — and `revoke()` takes back everything. Both are
- * idempotent, which is what makes re-generating a list safe.
+ * place and taking back — and `revoke()` takes back what a removed meal had
+ * put on. `sync()` is idempotent, which is what makes re-generating a list safe.
  *
  * `syncChoice()` is the third way in (MAG-295): the owner chose which
  * ingredients to buy, in packagings. It runs the very same reconciliation as
@@ -42,9 +42,10 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  * asymmetry is deliberate. `sync()` must, because it asks the database which
  * other meals hold a line and the generation loop syncs one meal after another
  * — an unflushed contribution would make the next meal believe a line is free
- * to delete. `revoke()` must not, so that deleting a meal takes its ingredients
- * off the list and removes the meal in a single transaction: a delete that
- * fails must not leave the shopping already gone. `syncChoice()` must not
+ * to delete. `revoke()` runs once the meal is already gone (MAG-368), on the
+ * shares its removal event carries: its use case flushes, and a failure there
+ * leaves the shopping on the list, logged, rather than taking it off a meal
+ * still planned. `syncChoice()` must not
  * either, so that the chosen lines and the meal's choice marker commit
  * together: lines committed without the marker would be taken back by the next
  * `sync()`, which would still take the derived path. A single pass needs no
@@ -259,28 +260,34 @@ class MealGrocerySync
     }
 
     /**
-     * Takes back everything the meal put on the list.
+     * Takes back what a removed meal had put on the list.
      *
-     * Returns the list it touched, or null when the meal never contributed —
-     * there is then nothing to broadcast. Does not flush: the caller commits,
-     * so that removing the meal and its shopping is one transaction.
+     * The meal and its contributions are already gone — the database cascade
+     * erased them with it — so what it had put on each line is given: the line
+     * and the quantity, as {@see MealRemoved} carries them.
+     *
+     * Returns the list it touched, or null when there was nothing to take back
+     * — there is then nothing to broadcast. Does not flush: the caller commits.
+     *
+     * @param list<array{groceryItemId: string, quantity: float}> $released
      */
-    public function revoke(Meal $meal): ?GroceryList
+    public function revoke(array $released): ?GroceryList
     {
-        $contributions = $this->contributionRepository->findByMeal($meal);
-
-        if ([] === $contributions) {
-            return null;
-        }
-
         $list = null;
 
-        foreach ($contributions as $contribution) {
-            $list ??= $contribution->getGroceryItem()->getGroceryList();
-            $this->takeBack($contribution);
+        foreach ($released as $share) {
+            $item = $this->em->getRepository(GroceryItem::class)->find($share['groceryItemId']);
+
+            // Already taken off by hand since: nothing left to subtract from.
+            if (null === $item) {
+                continue;
+            }
+
+            $list ??= $item->getGroceryList();
+            $this->takeBackShare($item, $share['quantity'], null);
         }
 
-        $list->setUpdatedAt(new \DateTimeImmutable());
+        $list?->setUpdatedAt(new \DateTimeImmutable());
 
         return $list;
     }
@@ -288,17 +295,25 @@ class MealGrocerySync
     /** Drops one contribution and subtracts its share from the line it held. */
     private function takeBack(MealGroceryContribution $contribution): void
     {
-        $item = $contribution->getGroceryItem();
         $this->em->remove($contribution);
+        $this->takeBackShare($contribution->getGroceryItem(), $contribution->getQuantity(), $contribution);
+    }
 
+    /**
+     * Subtracts a meal's share from the line. `$own` is the meal's contribution
+     * when it still exists, null when it is already gone: every contribution
+     * left on the line is then another meal's.
+     */
+    private function takeBackShare(GroceryItem $item, float $quantity, ?MealGroceryContribution $own): void
+    {
         // Already bought: the shopper carried it home, so the line stays as it
         // is — only the link to the meal goes.
         if ($item->isChecked()) {
             return;
         }
 
-        $remaining = ($item->getQuantity() ?? 0.0) - $contribution->getQuantity();
-        $heldByAnotherMeal = $this->isHeldByAnotherMeal($item, $contribution);
+        $remaining = ($item->getQuantity() ?? 0.0) - $quantity;
+        $heldByAnotherMeal = $this->isHeldByAnotherMeal($item, $own);
 
         if ($remaining > self::EPSILON) {
             $item->setQuantity($remaining);
@@ -416,10 +431,10 @@ class MealGrocerySync
         return null;
     }
 
-    private function isHeldByAnotherMeal(GroceryItem $item, MealGroceryContribution $own): bool
+    private function isHeldByAnotherMeal(GroceryItem $item, ?MealGroceryContribution $own): bool
     {
         foreach ($this->contributionRepository->findByGroceryItem($item) as $other) {
-            if ((string) $other->getId() !== (string) $own->getId()) {
+            if (null === $own || (string) $other->getId() !== (string) $own->getId()) {
                 return true;
             }
         }

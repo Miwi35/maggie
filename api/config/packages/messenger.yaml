@@ -55,6 +55,10 @@ framework:
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
             'Maggie\Cookbook\Message\ChooseMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
+            'Maggie\Cookbook\Message\RevokeMealGroceriesCommand': sync
+            'Maggie\Cookbook\Message\SyncMealGroceriesCommand': sync
+            'Maggie\Cookbook\Event\MealRemoved': sync
+            'Maggie\Cookbook\Event\MealRescheduled': sync
             'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync

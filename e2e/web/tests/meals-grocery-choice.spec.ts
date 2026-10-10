@@ -1,8 +1,9 @@
-import { test, expect, seedDate } from '../fixtures/index.js'
+import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { CalendarPage } from '../pages/CalendarPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ROUTES } from '../pages/routes.js'
 
@@ -335,4 +336,67 @@ test.describe('Choosing the ingredients of a new meal', () => {
       for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
     }
   })
+})
+
+/**
+ * A meal removed from the agenda takes its ingredients off the list — MAG-368.
+ *
+ * The agenda's own bin knows nothing of the grocery list: the meal went, the
+ * « Riz — 1 paquet » it had put there stayed to buy. The list now follows the
+ * meal whichever door removes it (`MealLeavesTheAgendaTest` holds the other
+ * doors and the arithmetic); this is the owner's one, seen from a second window
+ * that never reloads.
+ */
+test('a meal deleted from the agenda takes its ingredients off the list, without a reload — MAG-368', async ({ twoWindows, api }) => {
+  const { actor, observer } = twoWindows
+  const calendar = new CalendarPage(actor)
+  const watching = new GroceryListPage(observer)
+  const { recipeName, riceName, vegetablesName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-368')
+  const summary = `Dîner : ${recipeName}`
+  const cleanup: string[] = []
+
+  try {
+    // Given a meal whose rice is on the list, and the list open in a second window.
+    const meal = await created(api, '/api/meals', {
+      summary: 'Dîner',
+      date: seedDate(20),
+      slot: 'dinner',
+      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+      recipes: [recipe['@id']],
+    })
+    cleanup.push(meal['@id'])
+    const chosen = await api.post(`/api/meals/${meal.id}/grocery_items`, {
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      data: { ingredients: [{ ingredientId: rice.id }] },
+    })
+    expect(chosen.ok(), `POST grocery_items answered ${chosen.status()}: ${await chosen.text()}`).toBeTruthy()
+    await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => isOnePack(list, riceName), {
+      what: 'A single « Riz — 1 paquet » line',
+    })
+    await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => m.summary === summary, { what: 'The planned meal' })
+    await openSubscribed(observer, () => watching.open())
+    await expect(watching.line(riceName)).toHaveCount(1)
+
+    // When I delete the meal from the agenda…
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await calendar.openEvent(meal.id, summary)
+        await calendar.deleteFromPopover()
+        await expect(calendar.detailTitle(summary)).toBeHidden()
+      },
+      // …then its ingredients disappear from the open list, no reload.
+      async () => {
+        await expect(watching.line(riceName)).toHaveCount(0)
+      },
+    )
+
+    // And the stored list agrees.
+    const after = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => 0 === linesOf(list, riceName).length, {
+      what: 'The list without the rice',
+    })
+    expect(linesOf(after, vegetablesName)).toHaveLength(0)
+  } finally {
+    for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
+  }
 })

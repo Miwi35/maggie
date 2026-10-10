@@ -59,9 +59,11 @@ class UpdateMealHandler
 
         $meal = $this->updateMeal->execute($meal);
 
-        // Swapping a recipe or moving the meal changes what has to be bought,
-        // and when: the old ingredients come off the list, the new ones go on.
-        $this->mealGrocerySync->sync($meal);
+        // Moving the meal is the `MealRescheduled` event's business, from whichever door.
+        // A recipe swap is no event: the old ingredients come off the list, the new ones go on.
+        if (null !== $command->recipeIds) {
+            $this->mealGrocerySync->sync($meal);
+        }
 
         return $meal;
     }
