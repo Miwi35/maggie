@@ -50,8 +50,11 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
 {
     use MercurePayloadFilterTrait;
 
+    // The admin sends a record back with `id` set to its IRI; the id is never
+    // writable, so it must not be parsed as a Ulid on the way in.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255)]
