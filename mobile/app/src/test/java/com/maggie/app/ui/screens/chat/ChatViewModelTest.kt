@@ -1131,7 +1131,7 @@ class ChatViewModelTest {
     fun `a bubble still waiting for its stored id cannot be deleted`() = runTest {
         threadViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any()) } returns MutableSharedFlow<AgUiEvent>()
+        every { repository.sendMessageStream(any(), any(), any()) } returns MutableSharedFlow<AgUiEvent>()
         viewModel.sendMessage("Bonjour")
         runCurrent()
         val pending = viewModel.uiState.value.messages.last()
@@ -1191,7 +1191,7 @@ class ChatViewModelTest {
         val topic = chatTopic()
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any()) } returns flow {
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
             emit(AgUiEvent.RunStarted(runId = "run-1"))
             emit(AgUiEvent.ContextUpdate(id = "ctx-1", label = "Courses", status = "active", action = "created"))
             emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
@@ -1226,7 +1226,7 @@ class ChatViewModelTest {
         val topic = chatTopic()
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any()) } returns flow {
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
             emit(AgUiEvent.RunStarted(runId = "run-1"))
             topic.tryEmit(echoIn("u-9", "user", "Bonjour", "ctx-1"))
             yield()
