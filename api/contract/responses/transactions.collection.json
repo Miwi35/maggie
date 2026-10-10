@@ -26,7 +26,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/transactions{?order[bookedAt],account,transferKind,transferKind[]}",
+        "template": "/api/transactions{?order[bookedAt],account,category,transferKind,transferKind[]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -39,6 +39,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "account",
                 "property": "account",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "category",
+                "property": "category",
                 "required": false
             },
             {

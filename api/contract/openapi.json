@@ -7621,6 +7621,19 @@
                         "example": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                     },
                     {
+                        "name": "category",
+                        "in": "query",
+                        "description": "Restrict to one category, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/categorys/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
                         "name": "transferKind",
                         "in": "query",
                         "description": "",
