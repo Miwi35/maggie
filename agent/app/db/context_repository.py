@@ -34,6 +34,10 @@ class ContextRepository:
             await conn.execute(
                 text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary_updated_at TIMESTAMPTZ")
             )
+            # MAG-223 — an answer the user cut short.
+            await conn.execute(
+                text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS interrupted BOOLEAN NOT NULL DEFAULT FALSE")
+            )
             # MAG-22 — what a directive is for. Everything stored before this column
             # existed was written as a planning rule, which is what the default says.
             await conn.execute(

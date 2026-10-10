@@ -23,6 +23,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
@@ -1304,5 +1306,232 @@ class ChatViewModelTest {
 
         assertNull(viewModel.uiState.value.failure)
         verify(exactly = 1) { repository.sendMessageStream("Hello", any(), any()) }
+    }
+
+    // --- Cutting Maggie off (MAG-223) ---
+
+    private fun answerInProgress(vararg events: AgUiEvent): Channel<AgUiEvent> {
+        val channel = Channel<AgUiEvent>(Channel.UNLIMITED)
+        events.forEach { channel.trySend(it) }
+        every { repository.sendMessageStream(any(), any(), any()) } returns channel.receiveAsFlow()
+        return channel
+    }
+
+    private fun halfWrittenStory() = answerInProgress(
+        AgUiEvent.RunStarted(runId = "run-1"),
+        AgUiEvent.TextMessageStart(messageId = "resp-1"),
+        AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Il était une fois"),
+    )
+
+    private fun interruptedAs(content: String) =
+        ChatMessage(id = "resp-1", role = "assistant", content = content, createdAt = "2026-02-15T11:00:00Z")
+
+    @Test
+    fun `interrupting an answer being written keeps what was shown and stops the stream`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        halfWrittenStory()
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("Il était une fois")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat("resp-1", "Il était une fois") }
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertEquals("", state.streamingText)
+        assertNull(state.streamingMessageId)
+        assertEquals("Il était une fois", state.messages.last().content)
+        assertEquals("assistant", state.messages.last().role)
+    }
+
+    @Test
+    fun `what the stream says after the interruption never shows nor gets read`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val stream = halfWrittenStory()
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("Il était une fois")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        stream.trySend(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = " un roi. FIN"))
+        stream.trySend(AgUiEvent.TextMessageEnd(messageId = "resp-1"))
+        stream.trySend(AgUiEvent.RunFinished(runId = "run-1"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.replyToSpeak)
+        assertEquals("", state.streamingText)
+        assertTrue(state.messages.none { it.content.contains("FIN") })
+        assertEquals(1, state.messages.count { it.role == "assistant" && it.content == "Il était une fois" })
+    }
+
+    @Test
+    fun `an answer whose text is not on screen is reported as saying nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        halfWrittenStory()
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("…")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+
+        viewModel.interrupt(heard = null, streamingIsShown = false)
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat("resp-1", "") }
+    }
+
+    @Test
+    fun `interrupting before the first word has no message id yet`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        answerInProgress(AgUiEvent.RunStarted(runId = "run-1"))
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("…")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat(null, "") }
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `interrupting a reply being read aloud shortens it to what was heard`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Raconte", any(), any()) } returns streamedAnswer("resp-1", "Il était une fois un roi.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("Il était une fois")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        viewModel.onReplySpoken()
+
+        viewModel.interrupt(heard = "Il était une fois")
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat("resp-1", "Il était une fois") }
+        assertEquals(
+            listOf("Il était une fois"),
+            viewModel.uiState.value.messages.filter { it.id == "resp-1" }.map { it.content },
+        )
+    }
+
+    @Test
+    fun `an approval question spoken after a reply is what the mic cuts, not the reply`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Raconte", any(), any()) } returns streamedAnswer("resp-1", "Il était une fois un roi.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        viewModel.onReplySpoken()
+
+        viewModel.markApprovalAsked("ap-1")
+        viewModel.interrupt(heard = "Tu veux")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.interruptChat(any(), any()) }
+        assertEquals(
+            listOf("Il était une fois un roi."),
+            viewModel.uiState.value.messages.filter { it.id == "resp-1" }.map { it.content },
+        )
+    }
+
+    @Test
+    fun `a reply not yet started when the mic is pressed is reported as saying nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Raconte", any(), any()) } returns streamedAnswer("resp-1", "Il était une fois un roi.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("…")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        assertEquals("resp-1", viewModel.uiState.value.replyToSpeak?.id)
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat("resp-1", "") }
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `interrupting when nothing is going on reports nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.interruptChat(any(), any()) }
+    }
+
+    @Test
+    fun `the next request waits for the interruption to be recorded`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        halfWrittenStory()
+        val recorded = CompletableDeferred<ChatMessage>()
+        coEvery { repository.interruptChat(any(), any()) } coAnswers { recorded.await() }
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        viewModel.interrupt()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Plutôt une blague", any(), any()) } returns streamedAnswer("resp-2", "Toc toc.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Plutôt une blague")
+        advanceUntilIdle()
+        verify(exactly = 0) { repository.sendMessageStream("Plutôt une blague", any(), any()) }
+
+        recorded.complete(interruptedAs("Il était une fois"))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { repository.sendMessageStream("Plutôt une blague", any(), any()) }
+        assertEquals("resp-2", viewModel.uiState.value.replyToSpeak?.id)
+    }
+
+    @Test
+    fun `an interruption the server could not record leaves the chat usable`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        halfWrittenStory()
+        coEvery { repository.interruptChat(any(), any()) } throws RuntimeException("offline")
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Salut", any(), any()) } returns streamedAnswer("resp-2", "Toc toc.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Salut")
+        advanceUntilIdle()
+
+        assertEquals("resp-2", viewModel.uiState.value.replyToSpeak?.id)
+    }
+
+    @Test
+    fun `the echo of an answer cut short replaces the whole one already shown`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        topic.tryEmit(echo("a-9", "assistant", "Il était une fois un roi."))
+        advanceUntilIdle()
+
+        topic.tryEmit(echo("a-9", "assistant", "Il était une fois"))
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Il était une fois"),
+            viewModel.uiState.value.messages.filter { it.id == "a-9" }.map { it.content },
+        )
     }
 }

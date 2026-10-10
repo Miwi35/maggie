@@ -71,6 +71,18 @@ is the honest trade — judging whether Maggie could have worked out which shop
 **Editing.** The files are re-read whenever one of them changes on disk, so a
 fixture fixed mid-session takes effect on the next message — no agent restart.
 
+**Slow answers.** `stream_delay_ms: 600` at the top level of a scenario makes the
+stream wait that long between two text deltas, so a journey can act on an answer
+that is still being written (MAG-223: cutting Maggie off). Default `0`; a negative
+or non-integer value is refused at load. `41-dictated-long-story.yaml` uses it, and
+`41-dictated-interrupted-known.yaml` — `history_contains: coupé la parole` — proves
+the turn after an interruption was told about it.
+
+**Answers that wait.** `stall_after_deltas: 4` makes the stream pause for 90 seconds
+after its fourth delta, so the answer cannot finish before a journey acts on it, however
+slow the emulator: a pace alone is a race. Default `0` (never); a negative or non-integer
+value is refused at load.
+
 ## Beyond chat
 
 Four calls in the agent are not a conversation, and each has its scenario here

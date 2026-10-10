@@ -46,7 +46,7 @@ from zoneinfo import ZoneInfo
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
+from app.db.models import NOTHING_SAID, TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.screen_context import attach
 from app.llm.tool_blocks import replay
 from app.personality.engine import TZ_PARIS, french_date
@@ -65,6 +65,28 @@ _LEADING_LABELS = re.compile(r"^\s*(?:\[(?:fil «[^»\]\n]*»|autre fil)\]\s*)+"
 # The longest a leading label can be before it is closed — a thread label is a few words.
 # A streamed answer that starts with « [ » is held back this long at most.
 MAX_LABEL_CHARS = 120
+
+
+# What Maggie reads after an answer the user cut short (MAG-223). The row holds only what was
+# said or shown; without this she would take it for the whole of what she meant to say, or —
+# worse, when the full text is gone — not know she was interrupted at all.
+INTERRUPTION_AFTER_WORDS = (
+    "\n[Interruption : l'utilisateur t'a coupé la parole ici. Tu n'as pas pu dire la suite : il ne l'a ni "
+    "entendue ni lue. Ne reprends pas ce que tu disais ; tiens compte de ce qu'il dit maintenant.]"
+)
+INTERRUPTION_BEFORE_WORDS = (
+    "[Interruption : l'utilisateur t'a coupé la parole avant que tu aies dit quoi que ce soit. Ne reprends pas "
+    "ce que tu préparais ; tiens compte de ce qu'il dit maintenant.]"
+)
+
+
+def _spoken(row: Message) -> str:
+    """The row's text, with the interruption it ended on spelled out for the model."""
+    if not row.interrupted:
+        return row.content
+    if row.content == NOTHING_SAID:
+        return INTERRUPTION_BEFORE_WORDS
+    return row.content + INTERRUPTION_AFTER_WORDS
 
 
 def _prefix(label: str | None) -> str:
@@ -268,7 +290,7 @@ def _turns(
         if _is_orphan(row, current_message_id):
             continue
 
-        content = row.content
+        content = _spoken(row)
         # Only the user's side is labelled. Maggie's own answers, labelled, read to her as
         # the way she writes — and she wrote « [fil « … »] » at the head of hers (MAG-341).
         # The question just before an answer already says which thread the exchange was in.

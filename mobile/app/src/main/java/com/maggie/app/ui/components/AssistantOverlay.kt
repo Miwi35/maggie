@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,6 +56,16 @@ fun AssistantOverlay(
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
+    DisposableEffect(voiceManager, viewModel) {
+        // The answer being written is not shown here, only "Maggie réfléchit…": until
+        // she speaks, nothing of it was seen either (MAG-223).
+        val release = voiceManager.addInterruptListener { heard ->
+            viewModel.interrupt(heard, streamingIsShown = false)
+        }
+        // Handed back on the way out: the manager is a singleton, and a lambda
+        // left behind pins this activity's view model for the life of the process.
+        onDispose { release() }
+    }
 
     SpokenReplies(viewModel, voiceManager)
     SpokenApprovals(viewModel, voiceManager, onListen)

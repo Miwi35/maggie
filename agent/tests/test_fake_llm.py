@@ -183,6 +183,73 @@ class TestParsing:
         with pytest.raises(ValueError, match="not a valid regex"):
             parse_scenario({"match": {"user_matches": "ajoute("}, "turns": [{"text": "ok"}]}, source="x.yaml")
 
+    def test_stream_delay_defaults_to_none(self):
+        assert parse_scenario({"turns": [{"text": "ok"}]}, source="x.yaml").stream_delay_ms == 0
+
+    def test_stream_delay_is_read_from_the_scenario(self):
+        scenario = parse_scenario({"stream_delay_ms": 600, "turns": [{"text": "ok"}]}, source="x.yaml")
+
+        assert scenario.stream_delay_ms == 600
+
+    @pytest.mark.parametrize("value", [-1, "600", 1.5, True, None])
+    def test_a_bad_stream_delay_is_refused_at_load(self, value):
+        with pytest.raises(ValueError, match="stream_delay_ms"):
+            parse_scenario({"stream_delay_ms": value, "turns": [{"text": "ok"}]}, source="x.yaml")
+
+    async def test_a_stream_delay_spaces_the_text_deltas_out(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "20-slow.yaml",
+            {"match": {"user_contains": "histoire"}, "stream_delay_ms": 250, "turns": [{"text": "x" * 60}]},
+        )
+        write_scenario(fixtures_dir, "30-fast.yaml", {"match": {"user_contains": "salut"}, "turns": [{"text": "x" * 60}]})
+        client = build_client(fixtures_dir)
+
+        async def waits(question: str) -> list[float]:
+            sleeps = AsyncMock()
+            with patch.object(fake_module.asyncio, "sleep", sleeps):
+                async with client.messages.stream(
+                    model="fake", max_tokens=1024, system="", messages=[{"role": "user", "content": question}]
+                ) as stream:
+                    deltas = [e.delta.text async for e in stream if e.type == "content_block_delta"]
+            assert "".join(deltas) == "x" * 60
+            return [call.args[0] for call in sleeps.await_args_list]
+
+        slow = await waits("une histoire")
+        assert len(slow) > 1
+        assert set(slow) == {0.25}
+        assert await waits("salut") == []
+
+    def test_stall_defaults_to_never(self):
+        assert parse_scenario({"turns": [{"text": "ok"}]}, source="x.yaml").stall_after_deltas == 0
+
+    @pytest.mark.parametrize("value", [-1, "3", 1.5, True, None])
+    def test_a_bad_stall_is_refused_at_load(self, value):
+        with pytest.raises(ValueError, match="stall_after_deltas"):
+            parse_scenario({"stall_after_deltas": value, "turns": [{"text": "ok"}]}, source="x.yaml")
+
+    async def test_a_stalled_stream_waits_after_its_deltas_and_before_its_end(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "20-stalled.yaml",
+            {"match": {"user_contains": "histoire"}, "stall_after_deltas": 2, "turns": [{"text": "x" * 72}]},
+        )
+        client = build_client(fixtures_dir)
+        seen: list[str] = []
+
+        async def record_sleep(seconds):
+            seen.append(f"sleep {seconds}")
+
+        with patch.object(fake_module.asyncio, "sleep", record_sleep):
+            async with client.messages.stream(
+                model="fake", max_tokens=1024, system="", messages=[{"role": "user", "content": "une histoire"}]
+            ) as stream:
+                async for event in stream:
+                    if event.type == "content_block_delta":
+                        seen.append("delta")
+
+        assert seen == ["delta", "delta", f"sleep {fake_module.STALL_SECONDS}", "delta"]
+
     def test_a_broken_file_is_skipped_not_fatal(self, fixtures_dir):
         (fixtures_dir / "10-broken.yaml").write_text("turns: []\n")
         write_scenario(fixtures_dir, "20-fine.yaml", {"match": {"user_contains": "salut"}, "turns": [{"text": "ok"}]})
@@ -1055,6 +1122,40 @@ class TestTheShippedFixtures:
             ],
         )
         assert "je reprends le fil" in text_of(aware)
+
+    async def test_an_interrupted_dictation_is_acknowledged_not_repeated(self):
+        """MAG-223: the 41 trio, in order — only the history differs, so only the history may decide."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        sentence = "Ajoute des tomates à la liste de courses"
+        first_answer = [
+            {"role": "user", "content": sentence},
+            {"role": "assistant", "content": "C'est ajouté : quatre tomates, au primeur du marché."},
+        ]
+        cut = [
+            *first_answer,
+            {"role": "user", "content": sentence},
+            {
+                "role": "assistant",
+                "content": "Il était une fois\n\n(Le user t'a coupé la parole : ne reprends pas ton histoire.)",
+            },
+        ]
+
+        assert (await ask(client, sentence)).stop_reason == "tool_use"
+        assert "FIN DE L'HISTOIRE" in text_of(await ask(client, sentence, history=first_answer))
+        acknowledged = text_of(await ask(client, sentence, history=cut))
+        assert "je ne reprends pas" in acknowledged
+        assert "FIN DE L'HISTOIRE" not in acknowledged
+
+    def test_the_long_story_stalls_before_its_end(self):
+        library = ScenarioLibrary(directory=DEFAULT_FIXTURES_DIR)
+        library.load()
+
+        story = next(s for s in library.scenarios if s.name == "dictated-long-story")
+        text = story.turns[0].text
+
+        # A pace is a race against the CI emulator, which lost twice (main, 6985e58 and 31a3bcb):
+        # the story has to wait for the mic whatever the journey's speed.
+        assert 0 < story.stall_after_deltas < len(text) / 24, "the story must stall before its last words"
 
     async def test_the_voice_path_cleans_the_stubbed_whisper_sentence(self):
         client = build_client(DEFAULT_FIXTURES_DIR)

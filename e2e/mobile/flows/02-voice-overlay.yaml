@@ -261,6 +261,37 @@ tags:
 - assertTrue: "${output.cleanups == 0}"
 
 # ---------------------------------------------------------------------------
+# Cutting Maggie off (MAG-223): a tap on the mic stops her wherever she is, and what
+# she had not said yet never shows up afterwards.
+#
+# The same sentence is dictated a second time. Its history now holds the first answer
+# ("quatre tomates"), which is what `41-dictated-long-story.yaml` waits for: a story
+# that stalls after its first words (`stall_after_deltas`) and cannot end by itself —
+# a pace was a race against the CI emulator, lost twice. The flow waits for its
+# first words, then holds the mic again: the press itself interrupts — the stream is
+# closed, the voice would be stopped, what was written is kept — and the dictation that
+# follows is the third.
+#
+# What the third turn answers is the proof that the next turn knows. Its history holds
+# the cut story followed by « Le user t'a coupé la parole… », which is what
+# `41-dictated-interrupted-known.yaml` is unreachable without; without the marker the
+# scenario that matches is the long story again, and the flow fails on its text.
+#
+# And the story's last words are asserted absent: the stream was closed, not waited out.
+# ---------------------------------------------------------------------------
+- longPressOn:
+    id: "voice_mic"
+- extendedWaitUntil:
+    visible: ".*Il était une fois.*"
+    timeout: 60000
+
+- longPressOn:
+    id: "voice_mic"
+- extendedWaitUntil:
+    visible: ".*je ne reprends pas mon histoire.*"
+    timeout: 60000
+- assertNotVisible: ".*FIN DE L'HISTOIRE.*"
+
 # Held actions in the overlay (MAG-310). A deletion Maggie asks permission for shows
 # up as a card in the overlay — the one she is asked about in the chat, and the one
 # the overlay used to ignore, leaving the owner to open the app to answer. The
