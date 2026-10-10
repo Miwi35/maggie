@@ -19,6 +19,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,6 +42,7 @@ fun ChatMessageList(
     onLoadMore: () -> Unit,
     onMessageTapped: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onRetry: () -> Unit = {},
     approvals: List<ApprovalItem> = emptyList(),
     onApprove: (String) -> Unit = {},
     onDeny: (String) -> Unit = {},
@@ -171,14 +173,7 @@ fun ChatMessageList(
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                         }
-                        is ChatListItem.Failure -> {
-                            Text(
-                                text = item.text,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
+                        is ChatListItem.Failure -> ChatFailureNotice(item.text, onRetry)
                     }
                 }
             }
@@ -214,6 +209,27 @@ fun ChatMessageList(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * What the thread says when a question got no answer: a line of state under the question, with
+ * the way to send it again. Not a message of Maggie's (MAG-363).
+ */
+@Composable
+fun ChatFailureNotice(text: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        TextButton(onClick = onRetry, modifier = Modifier.testTag(UiTags.CHAT_RETRY)) {
+            Text("Réessayer")
         }
     }
 }

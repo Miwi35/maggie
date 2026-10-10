@@ -429,7 +429,7 @@ class FakeChat(
             outgoing += firstArg<String>()
             emptyList()
         }
-        every { repository.sendMessageStream(any()) } answers {
+        every { repository.sendMessageStream(any(), any(), any()) } answers {
             outgoing += firstArg<String>()
             reply
         }

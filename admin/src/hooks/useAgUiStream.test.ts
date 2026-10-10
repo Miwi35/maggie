@@ -178,4 +178,22 @@ describe('useAgUiStream', () => {
     expect(keys[0]).toBeTruthy()
     expect(keys[0]).not.toBe(keys[1])
   })
+
+  test('a key passed to send is the one on the wire, so a retry is the same message', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => createMockResponse([{ type: 'RUN_FINISHED', runId: 'r1' }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useAgUiStream({}))
+
+    await act(async () => {
+      await result.current.send('un', 'k-1')
+      await result.current.send('un', 'k-1')
+    })
+
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body))
+    expect(bodies).toEqual([
+      { message: 'un', idempotency_key: 'k-1' },
+      { message: 'un', idempotency_key: 'k-1' },
+    ])
+  })
 })

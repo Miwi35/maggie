@@ -66,7 +66,10 @@ data class ChatUiState(
     val replyToSpeak: ChatMessage? = null,
     /** Actions Maggie holds until the user answers, oldest first (MAG-4). */
     val pendingApprovals: List<ApprovalItem> = emptyList(),
-    /** Why the last question got no answer: shown in the thread, never left as a silence. */
+    /**
+     * Why the last question got no answer: a mention under the question with a « Réessayer »
+     * (MAG-363) — information about the message, never a bubble of Maggie's, and never stored.
+     */
     val failure: String? = null,
 )
 
@@ -97,13 +100,18 @@ class ChatViewModel(
      */
     private var awaitingReply = false
 
+    /** What [retry] sends again: the same text, the same key, so the agent answers a message once. */
+    private data class Attempt(val text: String, val screenContext: String?, val key: String, val anchor: String?)
+
+    private var unanswered: Attempt? = null
+
     companion object {
         private const val PAGE_SIZE = 20
         private const val TAG = "ChatViewModel"
         private const val PENDING_PREFIX = "pending_"
         private const val RECOVERY_WINDOW_MS = 60_000L
         private const val RECOVERY_POLL_MS = 3_000L
-        private const val NO_ANSWER = "Maggie n'a pas pu répondre. Vérifiez votre connexion et réessayez."
+        private const val NO_ANSWER = "Maggie n'a pas pu répondre."
     }
 
     init {
@@ -195,6 +203,7 @@ class ChatViewModel(
     fun sendMessage(text: String, screenContext: String? = null) {
         if (text.isBlank()) return
         awaitingReply = true
+        val key = java.util.UUID.randomUUID().toString()
 
         viewModelScope.launch {
             // Add optimistic user message
@@ -216,46 +225,73 @@ class ChatViewModel(
             rebuildDisplayItems()
             scrollToBottom(animate = true)
 
-            val screen = screenContext?.takeIf { it.isNotBlank() }
+            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor))
+        }
+    }
 
+    /**
+     * « Réessayer » under a question left without an answer: the same text under the same key,
+     * and no new bubble — the question is already on screen.
+     */
+    fun retry() {
+        val attempt = unanswered ?: return
+        if (_uiState.value.failure == null) return
+        awaitingReply = true
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                failure = null,
+                isLoading = true,
+                streamingText = "",
+                streamingMessageId = null,
+                replyToSpeak = null,
+            )
+            rebuildDisplayItems()
+            scrollToBottom(animate = true)
+            deliver(attempt)
+        }
+    }
+
+    private suspend fun deliver(attempt: Attempt) {
+        unanswered = attempt
+        val (text, screen, key, anchor) = attempt
+        try {
+            var streamError: String? = null
+            repository.sendMessageStream(text, screen, key)
+                .collect { event ->
+                    if (event is AgUiEvent.Error) streamError = event.message
+                    handleStreamEvent(event)
+                }
+            if (awaitingReply) {
+                val answered = _uiState.value.messages.lastOrNull()?.role == "assistant"
+                if (answered && streamError == null) finishRequest() else recoverReply(anchor, RECOVERY_WINDOW_MS)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
+            // Fallback to non-streaming
             try {
-                var streamError: String? = null
-                repository.sendMessageStream(text, screen)
-                    .collect { event ->
-                        if (event is AgUiEvent.Error) streamError = event.message
-                        handleStreamEvent(event)
-                    }
-                if (awaitingReply) {
-                    val answered = _uiState.value.messages.lastOrNull()?.role == "assistant"
-                    if (answered && streamError == null) finishRequest() else recoverReply(anchor, RECOVERY_WINDOW_MS)
+                val newMessages = repository.sendMessage(text, screen).asSaid()
+                if (newMessages.isNotEmpty()) {
+                    // Replace optimistic user message with server response
+                    val current = _uiState.value.messages.dropLast(1)
+                    _uiState.value = _uiState.value.copy(
+                        messages = current + newMessages,
+                        streamingText = "",
+                        streamingMessageId = null,
+                    )
+                    finishRequest()
+                    rebuildDisplayItems()
+                } else {
+                    fail()
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
-                // Fallback to non-streaming
-                try {
-                    val newMessages = repository.sendMessage(text, screen).asSaid()
-                    if (newMessages.isNotEmpty()) {
-                        // Replace optimistic user message with server response
-                        val current = _uiState.value.messages.dropLast(1)
-                        _uiState.value = _uiState.value.copy(
-                            messages = current + newMessages,
-                            streamingText = "",
-                            streamingMessageId = null,
-                        )
-                        finishRequest()
-                        rebuildDisplayItems()
-                    } else {
-                        fail()
-                    }
-                } catch (e2: CancellationException) {
-                    throw e2
-                } catch (e2: Exception) {
-                    Log.w(TAG, "Non-streaming send failed: ${e2::class.simpleName}: ${e2.message}")
-                    // The call may have been cut after the agent stored its answer: look once before giving up.
-                    recoverReply(anchor, 0)
-                }
+            } catch (e2: CancellationException) {
+                throw e2
+            } catch (e2: Exception) {
+                Log.w(TAG, "Non-streaming send failed: ${e2::class.simpleName}: ${e2.message}")
+                // The call may have been cut after the agent stored its answer: look once before giving up.
+                recoverReply(anchor, 0)
             }
         }
     }
@@ -377,6 +413,7 @@ class ChatViewModel(
     private fun finishRequest() {
         val reply = if (awaitingReply) _uiState.value.messages.lastOrNull()?.takeIf { it.role == "assistant" } else null
         awaitingReply = false
+        unanswered = null
         _uiState.value = _uiState.value.copy(isLoading = false, replyToSpeak = reply)
     }
 
@@ -727,6 +764,7 @@ class ChatViewModel(
                         }
                         // Clear loading when we receive an assistant/system message
                         if (message.role != "user") {
+                            unanswered = null
                             _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()
                         }

@@ -58,6 +58,9 @@ object UiTags {
     const val CHAT_MESSAGES = "chat_messages"
     const val CHAT_JUMP_TO_LATEST = "chat_jump_to_latest"
 
+    /** « Réessayer », under a question that got no answer (MAG-363). */
+    const val CHAT_RETRY = "chat_retry"
+
     /** The voice bar's state line — « Maggie parle... » and friends. */
     const val VOICE_STATE = "voice_state"
 
