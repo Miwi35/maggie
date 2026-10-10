@@ -2,7 +2,6 @@
 
 namespace Maggie\Calendar\Entity;
 
-use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
@@ -16,6 +15,7 @@ use ApiPlatform\Metadata\Post;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Calendar\Filter\EventPeriodFilter;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\State\CreateEventProcessor;
 use Maggie\Calendar\State\DeleteEventProcessor;
@@ -30,18 +30,23 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Core\Serializer\StrictDayNormalizer;
+use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Ignore;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\InheritanceType('JOINED')]
 #[ORM\DiscriminatorColumn(name: 'dtype', type: 'string', length: 20)]
 #[ORM\DiscriminatorMap(['event' => Event::class])]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
+#[ORM\Index(columns: ['start_date', 'end_date'], name: 'idx_event_days')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
 #[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
-#[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
+#[ApiFilter(EventPeriodFilter::class, properties: ['startAt', 'endAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
 #[ApiFilter(OrderFilter::class, properties: ['id', 'startAt'])]
 #[Indexed(index: 'events', module: 'calendar')]
@@ -92,15 +97,54 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     #[IndexedField(type: 'boolean')]
     private bool $allDay = false;
 
-    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
-    #[Assert\NotNull]
-    #[IndexedField(type: 'date')]
-    private \DateTimeImmutable $startAt;
+    // A timed event has instants, an all-day one has days — never both (MAG-382).
+    //
+    // An all-day event is a pair of dates, the end excluded, exactly as Google's
+    // API stores `start.date` and `end.date`: the 1st of January alone is
+    // `startDate = 2037-01-01`, `endDate = 2037-01-02`. The clients show and
+    // take the last day included, as Google Agenda does, and convert at their
+    // edge only (MAG-382, the owner's final decision). No time, no zone,
+    // so no reader can push it onto the day next door the way an instant at
+    // midnight did — read in Paris, the old `00:00Z → 00:00Z` of the next day
+    // ended at 01:00 on the 2nd and showed on two days. `startAt` and `endAt`
+    // are null on one, `startDate` and `endDate` null on a timed event, and
+    // `validateSchedule()` refuses a mix.
+    //
+    // Comments and not docblocks: API Platform publishes a property's docblock
+    // as its description.
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date', dayField: 'startDate')]
+    #[ApiProperty(description: 'When a timed event starts. Null on an all-day event, which has startDate instead.')]
+    private ?\DateTimeImmutable $startAt = null;
 
-    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
-    #[Assert\NotNull]
-    #[IndexedField(type: 'date')]
-    private \DateTimeImmutable $endAt;
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date', dayField: 'endDate', dayFieldIsExclusiveEnd: true)]
+    #[ApiProperty(description: 'When a timed event ends. Null on an all-day event, which has endDate instead.')]
+    private ?\DateTimeImmutable $endAt = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date', format: 'yyyy-MM-dd')]
+    #[ApiProperty(
+        description: 'The first day of an all-day event, YYYY-MM-DD. Null on a timed event.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
+    )]
+    #[Context(
+        normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'],
+        denormalizationContext: [DateTimeNormalizer::FORMAT_KEY => StrictDayNormalizer::DAY_FORMAT],
+    )]
+    private ?\DateTimeImmutable $startDate = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date', format: 'yyyy-MM-dd')]
+    #[ApiProperty(
+        description: 'The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google\'s end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-02'],
+    )]
+    #[Context(
+        normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'],
+        denormalizationContext: [DateTimeNormalizer::FORMAT_KEY => StrictDayNormalizer::DAY_FORMAT],
+    )]
+    private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\Column(length: 50, options: ['default' => self::FALLBACK_TIME_ZONE])]
     #[Assert\Timezone]
@@ -231,28 +275,158 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         return $this;
     }
 
-    public function getStartAt(): \DateTimeImmutable
+    public function getStartAt(): ?\DateTimeImmutable
     {
         return $this->startAt;
     }
 
-    public function setStartAt(\DateTimeImmutable $startAt): static
+    public function setStartAt(?\DateTimeImmutable $startAt): static
     {
         $this->startAt = $startAt;
 
         return $this;
     }
 
-    public function getEndAt(): \DateTimeImmutable
+    public function getEndAt(): ?\DateTimeImmutable
     {
         return $this->endAt;
     }
 
-    public function setEndAt(\DateTimeImmutable $endAt): static
+    public function setEndAt(?\DateTimeImmutable $endAt): static
     {
         $this->endAt = $endAt;
 
         return $this;
+    }
+
+    public function getStartDate(): ?\DateTimeImmutable
+    {
+        return $this->startDate;
+    }
+
+    public function setStartDate(?\DateTimeImmutable $startDate): static
+    {
+        $this->startDate = self::bareDay($startDate);
+
+        return $this;
+    }
+
+    public function getEndDate(): ?\DateTimeImmutable
+    {
+        return $this->endDate;
+    }
+
+    public function setEndDate(?\DateTimeImmutable $endDate): static
+    {
+        $this->endDate = self::bareDay($endDate);
+
+        return $this;
+    }
+
+    /**
+     * Makes the event an all-day one, from its first day to its end, excluded.
+     *
+     * The instants go: an all-day event has none. No end is one day long.
+     */
+    public function scheduleAllDay(\DateTimeImmutable $startDate, ?\DateTimeImmutable $endDate = null): static
+    {
+        $this->setStartAt(null);
+        $this->setEndAt(null);
+        $this->setStartDate($startDate);
+        $this->setEndDate($endDate ?? self::bareDay($startDate)?->modify('+1 day'));
+
+        return $this->setAllDay(true);
+    }
+
+    /** Makes the event a timed one; the days go. */
+    public function scheduleTimed(\DateTimeImmutable $startAt, \DateTimeImmutable $endAt): static
+    {
+        $this->setStartDate(null);
+        $this->setEndDate(null);
+        $this->setStartAt($startAt);
+        $this->setEndAt($endAt);
+
+        return $this->setAllDay(false);
+    }
+
+    /**
+     * The instant the event starts, where one cannot be avoided: a reminder
+     * fires at one, and a list mixing both kinds is sorted by one.
+     *
+     * An all-day event starts at midnight of its first day in its own zone.
+     * Never stored, never sent: the event itself is a day.
+     */
+    #[Ignore]
+    public function getStartInstant(): \DateTimeImmutable
+    {
+        if (null !== $this->startAt) {
+            return $this->startAt;
+        }
+
+        return new \DateTimeImmutable(($this->startDate ?? new \DateTimeImmutable('today'))->format('Y-m-d'), $this->zone());
+    }
+
+    /** Same as {@see getStartInstant()}: an all-day event ends at midnight of its end date. */
+    #[Ignore]
+    public function getEndInstant(): \DateTimeImmutable
+    {
+        if (null !== $this->endAt) {
+            return $this->endAt;
+        }
+        if (null !== $this->endDate) {
+            return new \DateTimeImmutable($this->endDate->format('Y-m-d'), $this->zone());
+        }
+
+        return $this->getStartInstant()->modify('+1 day');
+    }
+
+    /** One schedule or the other, whole — a 400 otherwise (MAG-382). */
+    #[Assert\Callback]
+    public function validateSchedule(ExecutionContextInterface $context): void
+    {
+        if ($this->allDay) {
+            if (null === $this->startDate) {
+                $context->buildViolation('An all-day event needs a startDate (YYYY-MM-DD).')->atPath('startDate')->addViolation();
+            }
+            foreach (['startAt' => $this->startAt, 'endAt' => $this->endAt] as $path => $instant) {
+                if (null !== $instant) {
+                    $context->buildViolation('An all-day event has no {{ field }}: send startDate and endDate, and {{ field }} null.')
+                        ->setParameter('{{ field }}', $path)->atPath($path)->addViolation();
+                }
+            }
+            if (null !== $this->startDate && null !== $this->endDate && $this->endDate <= $this->startDate) {
+                $context->buildViolation('endDate is the day after the last one, excluded, as Google\'s end.date: it must be after startDate.')->atPath('endDate')->addViolation();
+            }
+
+            return;
+        }
+
+        foreach (['startAt' => $this->startAt, 'endAt' => $this->endAt] as $path => $instant) {
+            if (null === $instant) {
+                $context->buildViolation('A timed event needs {{ field }}.')->setParameter('{{ field }}', $path)->atPath($path)->addViolation();
+            }
+        }
+        foreach (['startDate' => $this->startDate, 'endDate' => $this->endDate] as $path => $day) {
+            if (null !== $day) {
+                $context->buildViolation('A timed event has no {{ field }}: send allDay true for a day, or {{ field }} null.')
+                    ->setParameter('{{ field }}', $path)->atPath($path)->addViolation();
+            }
+        }
+    }
+
+    /** A day carries no time and no zone: whatever came in, only its date is kept. */
+    private static function bareDay(?\DateTimeImmutable $day): ?\DateTimeImmutable
+    {
+        return null === $day ? null : new \DateTimeImmutable($day->format('Y-m-d'), new \DateTimeZone('UTC'));
+    }
+
+    private function zone(): \DateTimeZone
+    {
+        try {
+            return new \DateTimeZone($this->timeZone);
+        } catch (\Exception) {
+            return new \DateTimeZone(self::FALLBACK_TIME_ZONE);
+        }
     }
 
     public function getTimeZone(): string
@@ -366,8 +540,10 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
             'description' => $this->description,
             'location' => $this->location,
             'allDay' => $this->allDay,
-            'startAt' => $this->startAt->format('c'),
-            'endAt' => $this->endAt->format('c'),
+            'startAt' => $this->startAt?->format('c'),
+            'endAt' => $this->endAt?->format('c'),
+            'startDate' => $this->startDate?->format('Y-m-d'),
+            'endDate' => $this->endDate?->format('Y-m-d'),
             'timeZone' => $this->timeZone,
             'rrule' => $this->rrule,
             'recurringEventId' => null !== $this->recurringEvent ? (string) $this->recurringEvent->getId() : null,
@@ -383,8 +559,11 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     {
         return self::filterPayload([
             'summary' => $this->summary,
-            'startAt' => $this->startAt->format('c'),
-            'endAt' => $this->endAt->format('c'),
+            'allDay' => $this->allDay,
+            'startAt' => $this->startAt?->format('c'),
+            'endAt' => $this->endAt?->format('c'),
+            'startDate' => $this->startDate?->format('Y-m-d'),
+            'endDate' => $this->endDate?->format('Y-m-d'),
         ], $changedProperties);
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
 import com.maggie.app.util.DateRanges
@@ -43,6 +44,7 @@ fun DayTimelineView(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .testTag(UiTags.calendarDayView(currentDate))
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -60,6 +62,7 @@ fun DayTimelineView(
         // All-day events
         AllDayRow(
             events = allDayEvents,
+            tag = UiTags.calendarAllDay(currentDate),
             onEventClick = onEventClick,
         )
 

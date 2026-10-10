@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import { criticalityColor, SOURCE_COLORS } from '../../design/tokens'
-import { localDay } from '../../dates'
+import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
 import Button from '@mui/material/Button'
@@ -63,7 +63,7 @@ import type { EventStatus } from './eventStatus'
 import type { EventReminders } from './ReminderPicker'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
-import { addUntilToRrule, expandRrule } from './recurrenceUtils'
+import { addUntilToRrule, expandRrule, expandRruleDays } from './recurrenceUtils'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -142,8 +142,12 @@ interface CalendarEvent {
   summary: string
   description?: string
   location?: string
-  startAt: string
-  endAt: string
+  /** An instant on a timed event; null on an all-day one (MAG-382). */
+  startAt: string | null
+  endAt: string | null
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google; null on a timed one. */
+  startDate?: string | null
+  endDate?: string | null
   allDay: boolean
   agenda: string
   timeZone?: string
@@ -227,6 +231,72 @@ interface CalendarData {
   /** Set on the agenda a module keeps for itself: it has its own line and its own view. */
   module?: string | null
 }
+
+// ---------------------------------------------------------------------------
+// All-day events are pairs of dates (MAG-382)
+// ---------------------------------------------------------------------------
+
+/**
+ * Start and end date of an all-day event, the end excluded as the API and Google
+ * store it (MAG-382). Nothing in this file shows the last day: the card and the
+ * dialogs do, through `lastDayOf`/`endDateOf`.
+ */
+const eventDays = (e: CalendarEvent): { start: string; end: string } => {
+  const start = e.startDate ?? (e.startAt ?? '').slice(0, 10)
+  return { start, end: e.endDate ?? addDays(start, 1) }
+}
+
+/** The event as FullCalendar wants it. Its all-day end is exclusive, like ours: passed as it is. */
+const toFullCalendarTiming = (e: CalendarEvent): Pick<EventInput, 'start' | 'end' | 'allDay'> => {
+  if (!e.allDay) return { start: e.startAt ?? undefined, end: e.endAt ?? undefined, allDay: false }
+  const { start, end } = eventDays(e)
+  return { start, end, allDay: true }
+}
+
+/**
+ * Start and end of a FullCalendar event: dates, the end excluded, when all-day —
+ * FullCalendar's own convention, so taken as it is — and instants otherwise.
+ */
+const fromFullCalendar = (
+  start: Date | null,
+  end: Date | null,
+  allDay: boolean,
+): { start: string; end: string } => {
+  if (allDay) {
+    const first = start ? localDay(start) : ''
+    return { start: first, end: end ? localDay(end) : first && addDays(first, 1) }
+  }
+  const startIso = start?.toISOString() || ''
+  return { start: startIso, end: end?.toISOString() || startIso }
+}
+
+/** An occurrence of an all-day series is keyed by its date at midnight UTC — a key, not a time. */
+const occurrenceKey = (occurrenceStart: string): string =>
+  occurrenceStart.length === 10 ? `${occurrenceStart}T00:00:00+00:00` : occurrenceStart
+
+/** The local day an occurrence falls on, for the UNTIL that ends a series before it. */
+const occurrenceDay = (occurrenceStart: string): Date =>
+  occurrenceStart.length === 10 ? parseDay(occurrenceStart) : new Date(occurrenceStart)
+
+/**
+ * The timing fields of a write. All-day: dates only; timed: instants only. A PATCH
+ * also nulls the other pair, or switching kinds is refused (MAG-382).
+ */
+const timingFields = (allDay: boolean, start: string, end: string, patch: boolean) =>
+  allDay
+    ? {
+        allDay: true,
+        startDate: start.slice(0, 10),
+        // Exclusive: an end missing, or not after the start, is the day after the start.
+        endDate: end && end.slice(0, 10) > start.slice(0, 10) ? end.slice(0, 10) : addDays(start.slice(0, 10), 1),
+        ...(patch ? { startAt: null, endAt: null } : {}),
+      }
+    : {
+        allDay: false,
+        startAt: start,
+        endAt: end || start,
+        ...(patch ? { startDate: null, endDate: null } : {}),
+      }
 
 // ---------------------------------------------------------------------------
 // Mini Calendar
@@ -808,14 +878,30 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       const masterIri = eventIri(e.id)
 
       if (e.rrule && rangeStart && rangeEnd) {
-        const dtstart = new Date(e.startAt)
-        const duration = new Date(e.endAt).getTime() - dtstart.getTime()
-        const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd, e.timeZone)
+        // An all-day series is expanded on its dates, a timed one on instants (MAG-382).
+        // Each occurrence: its key against the exceptions, its id, its FullCalendar timing.
+        let occurrences: { key: number; isoDate: string; timing: Pick<EventInput, 'start' | 'end' | 'allDay'> }[]
+        if (e.allDay) {
+          const { start, end } = eventDays(e)
+          const length = daysBetween(start, end)
+          occurrences = expandRruleDays(e.rrule, start, length, localDay(rangeStart), localDay(rangeEnd)).map((day) => ({
+            key: new Date(occurrenceKey(day)).getTime(),
+            isoDate: day,
+            timing: { start: day, end: addDays(day, length), allDay: true },
+          }))
+        } else {
+          const dtstart = new Date(e.startAt ?? '')
+          const duration = new Date(e.endAt ?? '').getTime() - dtstart.getTime()
+          occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd, e.timeZone).map((occ) => ({
+            key: occ.getTime(),
+            isoDate: occ.toISOString().slice(0, 10),
+            timing: { start: occ.toISOString(), end: new Date(occ.getTime() + duration).toISOString(), allDay: false },
+          }))
+        }
         const exceptions = exceptionMap.get(masterIri)
 
         for (const occ of occurrences) {
-          const occTime = occ.getTime()
-          const exception = exceptions?.get(occTime)
+          const exception = exceptions?.get(occ.key)
 
           if (exception) {
             if (exception.status === 'cancelled') {
@@ -828,9 +914,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             result.push({
               id: exception.id,
               title: exception.summary,
-              start: exception.startAt,
-              end: exception.endAt,
-              allDay: exception.allDay,
+              ...toFullCalendarTiming(exception),
               calendarId: excCalId,
               backgroundColor: excColor,
               borderColor: excColor,
@@ -849,14 +933,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             })
           } else {
             // No exception → render as virtual occurrence
-            const occEnd = new Date(occTime + duration)
-            const isoDate = occ.toISOString().slice(0, 10)
             result.push({
-              id: `${e.id}__${isoDate}`,
+              id: `${e.id}__${occ.isoDate}`,
               title: e.summary,
-              start: occ.toISOString(),
-              end: occEnd.toISOString(),
-              allDay: e.allDay,
+              ...occ.timing,
               calendarId: calId,
               backgroundColor: color,
               borderColor: color,
@@ -885,9 +965,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         result.push({
           id: e.id,
           title: e.summary,
-          start: e.startAt,
-          end: e.endAt,
-          allDay: e.allDay,
+          ...toFullCalendarTiming(e),
           calendarId: calId,
           backgroundColor: color,
           borderColor: color,
@@ -1018,12 +1096,13 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       const fcEvent = arg.event
       const calId = fcEvent.extendedProps.calendarId || ''
       const color = calendarColorMap.get(calId) || theme.palette.primary.main
+      const { start, end } = fromFullCalendar(fcEvent.start, fcEvent.end, fcEvent.allDay)
 
       setPopoverEvent({
         id: fcEvent.id,
         title: fcEvent.title,
-        start: fcEvent.start?.toISOString() || '',
-        end: fcEvent.end?.toISOString() || fcEvent.start?.toISOString() || '',
+        start,
+        end,
         allDay: fcEvent.allDay,
         color,
         calendarName: calendarNameMap.get(calId) || '',
@@ -1114,7 +1193,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           type: 'delete',
           eventId,
           masterEventId: eventId,
-          occurrenceStart: rawEvent.startAt,
+          occurrenceStart: rawEvent.allDay ? eventDays(rawEvent).start : rawEvent.startAt ?? '',
           calendarIri: rawEvent.agenda,
           summary: rawEvent.summary,
           rrule: rawEvent.rrule,
@@ -1201,8 +1280,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           rrule,
           allDay: values.allDay,
           timeZone: 'Europe/Paris',
-          newStart: values.startAt,
-          newEnd: values.endAt,
+          newStart: (values.allDay ? values.startDate : values.startAt) ?? '',
+          newEnd: (values.allDay ? values.endDate : values.endAt) ?? '',
           newAllDay: values.allDay,
           edit: {
             summary: values.summary,
@@ -1239,10 +1318,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
       if (isVirtual) {
         // Revert the visual drag, then open the confirmation dialog
-        const newStart = event.start?.toISOString() || ''
-        const newEnd = event.end?.toISOString() || newStart
+        const { start: newStart, end: newEnd } = fromFullCalendar(event.start, event.end, event.allDay)
         const newAllDay = event.allDay
-        const oldStart = 'oldEvent' in arg ? (arg as EventDropArg).oldEvent.start?.toISOString() || '' : ''
+        const oldEvent = 'oldEvent' in arg ? (arg as EventDropArg).oldEvent : null
+        const oldStart = oldEvent ? fromFullCalendar(oldEvent.start, oldEvent.end, oldEvent.allDay).start : ''
         arg.revert()
 
         const masterEventId = event.extendedProps.masterEventId || event.id.split('__')[0]
@@ -1264,12 +1343,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         return
       }
 
-      const startAt = event.start?.toISOString()
-      const endAt = event.end?.toISOString() || startAt
+      const { start, end } = fromFullCalendar(event.start, event.end, event.allDay)
       dataProvider
         .update('events', {
           id: event.id,
-          data: { startAt, endAt, allDay: event.allDay },
+          data: timingFields(event.allDay, start, end, true),
           previousData: { id: event.id },
         })
         .then(() => {
@@ -1295,20 +1373,18 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           await dataProvider.create('events', {
             data: {
               summary,
-              startAt: occurrenceStart,
-              endAt: occurrenceStart,
-              allDay,
-              timeZone,
+              ...timingFields(allDay, occurrenceStart, occurrenceStart, false),
+              ...(allDay ? {} : { timeZone }),
               agenda: calendarIri,
               recurringEvent: eventIri(masterEventId),
-              originalStartAt: occurrenceStart,
+              originalStartAt: occurrenceKey(occurrenceStart),
               status: 'cancelled',
             },
           })
           notify('Occurrence supprimée', { type: 'success' })
         } else if (action === 'thisAndFollowing') {
           // Truncate master rrule with UNTIL before this occurrence
-          const newRrule = addUntilToRrule(rrule, new Date(occurrenceStart))
+          const newRrule = addUntilToRrule(rrule, occurrenceDay(occurrenceStart))
           await dataProvider.update('events', {
             id: masterEventId,
             data: { rrule: newRrule },
@@ -1335,16 +1411,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
         if (action === 'this') {
           // Create exception instance with new times
+          const exceptionAllDay = newAllDay ?? allDay
           await dataProvider.create('events', {
             data: {
               summary,
-              startAt: newStart,
-              endAt: newEnd,
-              allDay: newAllDay ?? allDay,
-              timeZone,
+              ...timingFields(exceptionAllDay, newStart ?? '', newEnd ?? '', false),
+              ...(exceptionAllDay ? {} : { timeZone }),
               agenda: calendarIri,
               recurringEvent: eventIri(masterEventId),
-              originalStartAt: occurrenceStart,
+              originalStartAt: occurrenceKey(occurrenceStart),
               status: masterStatus,
               ...editFields,
             },
@@ -1352,20 +1427,19 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           notify('Occurrence modifiée', { type: 'success' })
         } else if (action === 'thisAndFollowing') {
           // Truncate master rrule, then create a new recurring event from this point
-          const newRrule = addUntilToRrule(rrule, new Date(occurrenceStart))
+          const newRrule = addUntilToRrule(rrule, occurrenceDay(occurrenceStart))
           await dataProvider.update('events', {
             id: masterEventId,
             data: { rrule: newRrule },
             previousData: { id: masterEventId },
           })
           // Create new recurring event starting at the new time
+          const seriesAllDay = newAllDay ?? allDay
           await dataProvider.create('events', {
             data: {
               summary,
-              startAt: newStart,
-              endAt: newEnd,
-              allDay: newAllDay ?? allDay,
-              timeZone,
+              ...timingFields(seriesAllDay, newStart ?? '', newEnd ?? '', false),
+              ...(seriesAllDay ? {} : { timeZone }),
               agenda: calendarIri,
               rrule,
               status: masterStatus,
@@ -1377,21 +1451,29 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           // Shift the master by the amount the occurrence moved, so every
           // occurrence moves with it (not just land on the edited one's date)
           const master = rawEvents.find((e) => e.id === masterEventId)
-          let startAt = newStart
-          let endAt = newEnd
-          if (master && newStart && newEnd && occurrenceStart) {
-            const shift = new Date(newStart).getTime() - new Date(occurrenceStart).getTime()
-            const duration = new Date(newEnd).getTime() - new Date(newStart).getTime()
-            const masterStart = new Date(master.startAt).getTime() + shift
-            startAt = new Date(masterStart).toISOString()
-            endAt = new Date(masterStart + duration).toISOString()
+          const seriesAllDay = newAllDay ?? allDay
+          let start = newStart ?? ''
+          let end = newEnd ?? ''
+          // Only when the kind stays the same: a series switched between all-day and
+          // timed lands on the edited occurrence's dates, there is no delta to apply.
+          if (master && newStart && newEnd && occurrenceStart && master.allDay === seriesAllDay) {
+            if (seriesAllDay) {
+              // Days, not milliseconds: an all-day series moves by whole dates.
+              const masterStart = addDays(eventDays(master).start, daysBetween(occurrenceStart.slice(0, 10), newStart))
+              start = masterStart
+              end = addDays(masterStart, daysBetween(newStart, newEnd))
+            } else {
+              const shift = new Date(newStart).getTime() - new Date(occurrenceStart).getTime()
+              const duration = new Date(newEnd).getTime() - new Date(newStart).getTime()
+              const masterStart = new Date(master.startAt ?? '').getTime() + shift
+              start = new Date(masterStart).toISOString()
+              end = new Date(masterStart + duration).toISOString()
+            }
           }
           await dataProvider.update('events', {
             id: masterEventId,
             data: {
-              startAt,
-              endAt,
-              allDay: newAllDay ?? allDay,
+              ...timingFields(seriesAllDay, start, end, true),
               ...(edit ? { summary: edit.summary, ...editFields } : {}),
             },
             previousData: { id: masterEventId },
@@ -1479,9 +1561,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     request
       .then(({ data }) => {
         const api = calendarRef.current?.getApi()
-        const startAt = (data as { startAt?: string }).startAt
-        if (api && startAt) {
-          api.gotoDate(startAt)
+        // An all-day event has no instant: its first date is where to go (MAG-382).
+        const { startAt, startDate } = data as { startAt?: string | null; startDate?: string | null }
+        const target = startDate ?? startAt
+        if (api && target) {
+          api.gotoDate(target)
         }
 
         if (unmounted.current) return
@@ -1494,8 +1578,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             setPopoverEvent({
               id: event.id,
               title: event.summary,
-              start: event.startAt,
-              end: event.endAt,
+              start: (event.allDay ? eventDays(event).start : event.startAt) ?? '',
+              end: (event.allDay ? eventDays(event).end : event.endAt) ?? '',
               allDay: event.allDay,
               color,
               calendarName: calendarNameMap.get(calId) || '',
@@ -1513,7 +1597,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               id: `meal-${meal.id}`,
               title: mealTitle(meal),
               start: meal.date,
-              end: meal.date,
+              // A meal is one day: the same exclusive end as an all-day event.
+              end: addDays(meal.date, 1),
               allDay: true,
               color: MEAL_COLOR,
               calendarName: '',

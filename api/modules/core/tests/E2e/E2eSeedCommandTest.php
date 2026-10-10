@@ -97,9 +97,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // between two agendas, and « Boulot » and « Concerts » are what the
         // journeys watch an event be filed into.
         self::assertSame(5, $this->rowsOf(Agenda::class));
-        // Events include the meals, which extend Event: 14 events + 2 meals. Four
-        // of the fourteen are the habits the deduction reads (MAG-150).
-        self::assertSame(16, $this->rowsOf(Event::class));
+        // Events include the meals, which extend Event: 15 events + 2 meals. Four
+        // of the fifteen are the habits the deduction reads (MAG-150), one the
+        // day on the 1st of the month (MAG-382).
+        self::assertSame(17, $this->rowsOf(Event::class));
         self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
@@ -305,6 +306,19 @@ final class E2eSeedCommandTest extends KernelTestCase
         $envelope = $this->repository(Envelope::class)->findOneBy(['month' => 3]);
         self::assertNotNull($envelope);
         self::assertSame(2026, $envelope->getYear());
+    }
+
+    public function testTheAllDayEventOfTheFirstEndsOnTheSecondExcluded(): void
+    {
+        // PHP applies `first day of` after every other relative part of a
+        // modifier: "first day of this month +1 day" is still the 1st, and the
+        // event ended where it started (MAG-382).
+        $this->seed(['--now' => '2026-03-15T12:00:00+01:00']);
+
+        $first = $this->repository(Event::class)->findOneBy(['summary' => 'Journée du 1er MAG-382']);
+        self::assertNotNull($first);
+        self::assertSame('2026-03-01', $first->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-03-02', $first->getEndDate()?->format('Y-m-d'));
     }
 
     public function testTheDayOfTheSeedIsTheDayInParisNotInUtc(): void

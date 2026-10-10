@@ -58,6 +58,30 @@ export const expandRrule = (
     .filter((instant) => instant >= rangeStart && instant <= rangeEnd)
 }
 
+/**
+ * Expand the RRULE of an all-day series on dates, never on instants (MAG-382).
+ *
+ * Each date is fed to rrule.js as its UTC midnight — a label, not an instant — so
+ * an annual birthday stays on its day whatever the zone and the clocks. Returns the
+ * first date of every occurrence that covers part of `[firstDay, endDay)`, given
+ * that an occurrence covers `lengthDays` days (`endDate − startDate`, 1 for one day).
+ */
+export const expandRruleDays = (
+  rruleString: string,
+  startDate: string,
+  lengthDays: number,
+  firstDay: string,
+  endDay: string,
+): string[] => {
+  const asUtc = (day: string) => new Date(`${day}T00:00:00Z`)
+  const from = new Date(asUtc(firstDay).getTime() - (Math.max(lengthDays, 1) - 1) * DAY_MS)
+
+  return rrulestr(rruleString, { dtstart: asUtc(startDate) })
+    .between(from, asUtc(endDay), true)
+    .map((occurrence) => occurrence.toISOString().slice(0, 10))
+    .filter((day) => day < endDay)
+}
+
 const FREQ_LABELS: Record<number, { singular: string; plural: string }> = {
   [RRule.DAILY]: { singular: 'jour', plural: 'jours' },
   [RRule.WEEKLY]: { singular: 'semaine', plural: 'semaines' },

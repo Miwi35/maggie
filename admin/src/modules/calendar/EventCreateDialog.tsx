@@ -10,6 +10,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import { endDateOf, lastDayOf, localDay, parseDay } from '../../dates'
 import { RecurrencePicker } from './RecurrencePicker'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
@@ -88,10 +89,8 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
     }
     if (defaultEnd) {
       if (isAllDay) {
-        // FullCalendar end is exclusive for all-day; show the last included day
-        const lastDay = new Date(defaultEnd)
-        lastDay.setDate(lastDay.getDate() - 1)
-        setEndAt(toLocalDate(lastDay))
+        // FullCalendar's all-day end is exclusive, like the API's; the field shows the last day
+        setEndAt(lastDayOf(localDay(defaultEnd)))
       } else {
         setEndAt(toLocalDatetime(defaultEnd))
       }
@@ -127,17 +126,17 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
     setSubmitting(true)
 
     // A timed event is an instant: the browser's wall-clock time, made explicit.
-    // An all-day event is a calendar day, stored as that day in UTC (as Google sync does).
-    const startDate = allDay ? `${startAt}T00:00:00Z` : new Date(startAt).toISOString()
-    const endDate = allDay ? `${endAt}T23:59:59Z` : new Date(endAt).toISOString()
+    // An all-day event is a pair of dates, the end excluded as in Google, and nothing
+    // else (MAG-382): the field holds the last day, the API wants the day after.
+    const timing = allDay
+      ? { allDay: true, startDate: startAt, endDate: endDateOf(endAt || startAt) }
+      : { allDay: false, startAt: new Date(startAt).toISOString(), endAt: new Date(endAt).toISOString() }
 
     dataProvider
       .create('events', {
         data: {
           summary: summary.trim(),
-          startAt: startDate,
-          endAt: endDate,
-          allDay,
+          ...timing,
           agenda: calendarId,
           status,
           ...(rrule ? { rrule } : {}),
@@ -202,7 +201,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
           <RecurrencePicker
             value={rrule}
             onChange={setRrule}
-            eventStartDate={startAt ? new Date(startAt) : null}
+            eventStartDate={startAt ? (allDay ? parseDay(startAt) : new Date(startAt)) : null}
           />
           <ReminderPicker value={reminders} onChange={setReminders} />
           <TextField

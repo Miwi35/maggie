@@ -16,6 +16,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
+import com.maggie.app.data.model.endDateAfter
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
@@ -38,7 +39,6 @@ import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -320,8 +320,8 @@ class FullCalendarViewModel(
                     id = meal.id,
                     summary = "${if (meal.slot == MealSlot.LUNCH) "Déj" else "Dîner"}: ${meal.summary}",
                     allDay = true,
-                    startAt = day.atStartOfDay(PARIS).toInstant().toString(),
-                    endAt = day.plusDays(1).atStartOfDay(PARIS).toInstant().toString(),
+                    startDate = day,
+                    endDate = endDateAfter(day),
                     agendaIri = MEALS_FILTER_ID,
                     agendaColor = MEALS_COLOR,
                     agendaName = "Repas",
@@ -404,9 +404,5 @@ class FullCalendarViewModel(
                         .collect { refresh() }
                 }
         }
-    }
-
-    private companion object {
-        val PARIS: ZoneId = ZoneId.of("Europe/Paris")
     }
 }

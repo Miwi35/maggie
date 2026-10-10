@@ -142,9 +142,9 @@ class MealLeavesTheAgendaTest extends WebTestCase
         self::assertSame($this->day('+8 days'), $this->item('Cabillaud')->getBuyAfter()?->format('Y-m-d'));
         $this->resetMercure();
 
-        $moved = $this->day('+13 days');
+        // A whole day ends, excluded, the day after (MAG-382).
         $data = json_decode(
-            self::getContainer()->get(UpdateEventTool::class)(id: $mealId, start_date: $moved, end_date: $moved, all_day: true),
+            self::getContainer()->get(UpdateEventTool::class)(id: $mealId, start_date: $this->day('+13 days'), end_date: $this->day('+14 days'), all_day: true),
             true,
             512,
             JSON_THROW_ON_ERROR,

@@ -11,16 +11,16 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface EventDao {
 
-    @Query("SELECT * FROM events ORDER BY startAt ASC")
+    @Query("SELECT * FROM events ORDER BY COALESCE(startAt, startDate) ASC")
     fun observeAll(): Flow<List<EventEntity>>
 
-    @Query("SELECT * FROM events WHERE startAt >= :start AND startAt < :end ORDER BY startAt ASC")
+    @Query("SELECT * FROM events WHERE COALESCE(startAt, startDate) >= :start AND COALESCE(startAt, startDate) < :end ORDER BY COALESCE(startAt, startDate) ASC")
     fun observeInRange(start: String, end: String): Flow<List<EventEntity>>
 
-    @Query("SELECT * FROM events ORDER BY startAt ASC")
+    @Query("SELECT * FROM events ORDER BY COALESCE(startAt, startDate) ASC")
     suspend fun getAll(): List<EventEntity>
 
-    @Query("SELECT * FROM events WHERE rrule IS NOT NULL AND startAt < :before ORDER BY startAt ASC")
+    @Query("SELECT * FROM events WHERE rrule IS NOT NULL AND COALESCE(startAt, startDate) < :before ORDER BY COALESCE(startAt, startDate) ASC")
     suspend fun getRecurringBefore(before: String): List<EventEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

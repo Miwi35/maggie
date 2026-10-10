@@ -54,21 +54,27 @@ final class E2eDateProvider
     /**
      * @param string $modifier anything `DateTimeImmutable::modify()` accepts,
      *                         e.g. "+1 day 09:00", "first day of this month"
+     * @param string ...$then  more modifiers, applied one after the other: PHP
+     *                         applies `first day of` after every other part of
+     *                         one modifier, so the 2nd of the month is
+     *                         ("first day of this month", "+1 day")
      */
-    public function e2eDate(string $modifier = ''): \DateTimeImmutable
+    public function e2eDate(string $modifier = '', string ...$then): \DateTimeImmutable
     {
-        if ('' === $modifier) {
-            return $this->anchor;
+        $date = $this->anchor;
+
+        foreach (array_filter([$modifier, ...$then], static fn (string $m): bool => '' !== $m) as $step) {
+            try {
+                // A typo in a fixture file has to stop the seed here, rather than
+                // quietly hand back the anchor and leave a journey asserting the
+                // wrong day.
+                $date = $date->modify($step);
+            } catch (\Throwable $e) {
+                throw new \InvalidArgumentException(sprintf('Cannot apply "%s" to the e2e anchor.', $step), 0, $e);
+            }
         }
 
-        try {
-            // A typo in a fixture file has to stop the seed here, rather than
-            // quietly hand back the anchor and leave a journey asserting the
-            // wrong day.
-            return $this->anchor->modify($modifier);
-        } catch (\Throwable $e) {
-            throw new \InvalidArgumentException(sprintf('Cannot apply "%s" to the e2e anchor.', $modifier), 0, $e);
-        }
+        return $date;
     }
 
     public function e2eDateString(string $modifier = '', string $format = 'Y-m-d'): string

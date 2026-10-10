@@ -49,6 +49,28 @@ object RruleUtils {
         return results
     }
 
+    /**
+     * The start dates of a series of all-day events whose first occurrence starts on
+     * [firstDate], from [from] to [to] included (MAG-382). Dates, never instants of a
+     * zone: the rule runs in UTC from midnight, where every day lasts 24 hours, and
+     * each occurrence is read back as its UTC date. A date UNTIL covers its whole day.
+     */
+    fun expandRruleDates(
+        rruleString: String,
+        firstDate: LocalDate,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<LocalDate> {
+        val utc = ZoneId.of("UTC")
+        return expandRrule(
+            rruleString,
+            firstDate.atStartOfDay(utc).toInstant(),
+            from.atStartOfDay(utc).toInstant(),
+            to.plusDays(1).atStartOfDay(utc).toInstant(),
+            "UTC",
+        ).map { it.atZone(utc).toLocalDate() }
+    }
+
     private fun resolveZone(timeZone: String): ZoneId =
         try {
             ZoneId.of(timeZone)

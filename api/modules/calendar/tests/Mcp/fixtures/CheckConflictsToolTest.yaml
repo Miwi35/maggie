@@ -40,7 +40,7 @@ Maggie\Calendar\Entity\Event:
   winter_birthday:
     summary: Anniversaire
     allDay: true
-    startAt: '<(new \DateTimeImmutable("2026-11-10 00:00", new \DateTimeZone("Europe/Paris")))>'
-    endAt: '<(new \DateTimeImmutable("2026-11-11 00:00", new \DateTimeZone("Europe/Paris")))>'
+    startDate: '<(new \DateTimeImmutable("2026-11-10"))>'
+    endDate: '<(new \DateTimeImmutable("2026-11-11"))>'
     timeZone: 'Europe/Paris'
     agenda: '@own_agenda'

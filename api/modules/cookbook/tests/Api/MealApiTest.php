@@ -221,7 +221,7 @@ class MealApiTest extends WebTestCase
         self::assertSame($to, $stored->getDate()->format('Y-m-d'));
         self::assertSame('dinner', $stored->getSlot()->value);
         // The agenda's own reading of the meal follows the day.
-        self::assertSame($to, $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+        self::assertSame($to, $stored->getStartDate()?->format('Y-m-d'));
         self::assertSame(
             [(string) $recipe->getId()],
             $stored->getRecipes()->map(static fn ($r) => (string) $r->getId())->getValues(),
@@ -306,9 +306,11 @@ class MealApiTest extends WebTestCase
         $em->clear();
         /** @var Meal $stored */
         $stored = $em->getRepository(Meal::class)->find($data['id']);
-        $paris = new \DateTimeZone('Europe/Paris');
-        self::assertSame('2026-10-07 00:00:00', $stored->getStartAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
-        self::assertSame('2026-10-07 23:59:59', $stored->getEndAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
+        // An all-day event on that one day, with no instant (MAG-382).
+        self::assertSame('2026-10-07', $stored->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-08', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertNull($stored->getStartAt());
+        self::assertNull($stored->getEndAt());
     }
 
     /**
@@ -345,10 +347,11 @@ class MealApiTest extends WebTestCase
         $stored = $em->getRepository(Meal::class)->find($created['id']);
 
         self::assertSame('2026-10-08', $stored->getDate()->format('Y-m-d'), 'the day did not follow the instant');
-        // And the instants are the whole of that day again, not the hour sent.
-        $paris = new \DateTimeZone('Europe/Paris');
-        self::assertSame('2026-10-08 00:00:00', $stored->getStartAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
-        self::assertSame('2026-10-08 23:59:59', $stored->getEndAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
+        // And it is that day again, with no instant — not the hour sent (MAG-382).
+        self::assertSame('2026-10-08', $stored->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-09', $stored->getEndDate()?->format('Y-m-d'));
+        self::assertNull($stored->getStartAt());
+        self::assertNull($stored->getEndAt());
     }
 
     /**

@@ -9,13 +9,16 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
+import { endDateOf, lastDayOf } from '../../dates'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
 import type { EventStatus } from './eventStatus'
 
 export interface EditableEvent {
   summary: string
+  /** An instant (ISO 8601), or for an all-day event its first date, `YYYY-MM-DD`. */
   start: string
+  /** An instant (ISO 8601), or for an all-day event its end date, excluded as stored (MAG-382). */
   end: string
   allDay: boolean
   description?: string
@@ -24,10 +27,18 @@ export interface EditableEvent {
   status?: EventStatus
 }
 
+/**
+ * One pair is set, the other is null: a PATCH that switches between the two kinds
+ * has to clear the pair it leaves, or the API refuses it (MAG-382).
+ */
 export interface EventEditValues {
   summary: string
-  startAt: string
-  endAt: string
+  startAt: string | null
+  endAt: string | null
+  /** `YYYY-MM-DD`, set on an all-day event only. */
+  startDate: string | null
+  /** `YYYY-MM-DD`, excluded as the API stores it, set on an all-day event only. */
+  endDate: string | null
   allDay: boolean
   description: string | null
   location: string | null
@@ -61,19 +72,17 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
 
   useEffect(() => {
     if (!open || !event) return
-    const start = new Date(event.start)
-    const end = new Date(event.end)
     setSummary(event.summary)
     setAllDay(event.allDay)
     if (event.allDay) {
-      // FullCalendar's all-day end is exclusive: show the last included day
-      const lastDay = new Date(end)
-      if (lastDay.getTime() > start.getTime()) lastDay.setDate(lastDay.getDate() - 1)
-      setStartAt(toLocalDate(start))
-      setEndAt(toLocalDate(lastDay))
+      // The owner types and reads the last day included, as in Google Agenda; the
+      // event carries the exclusive end. Dates both: no time zone to cross.
+      const first = event.start.slice(0, 10)
+      setStartAt(first)
+      setEndAt(event.end ? lastDayOf(event.end.slice(0, 10)) : first)
     } else {
-      setStartAt(toLocalDatetime(start))
-      setEndAt(toLocalDatetime(end))
+      setStartAt(toLocalDatetime(new Date(event.start)))
+      setEndAt(toLocalDatetime(new Date(event.end)))
     }
     setLocation(event.location ?? '')
     setDescription(event.description ?? '')
@@ -100,8 +109,9 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     }
     onSubmit({
       summary: summary.trim(),
-      startAt: allDay ? `${startAt}T00:00:00Z` : new Date(startAt).toISOString(),
-      endAt: allDay ? `${endAt}T23:59:59Z` : new Date(endAt).toISOString(),
+      ...(allDay
+        ? { startDate: startAt, endDate: endDateOf(endAt || startAt), startAt: null, endAt: null }
+        : { startAt: new Date(startAt).toISOString(), endAt: new Date(endAt).toISOString(), startDate: null, endDate: null }),
       allDay,
       description: description.trim() || null,
       location: location.trim() || null,

@@ -71,7 +71,11 @@ fun CalendarToolbar(
             )
             options.forEachIndexed { index, (type, label) ->
                 SegmentedButton(
-                    modifier = if (type == CalendarViewType.WEEK) Modifier.testTag(UiTags.CALENDAR_VIEW_WEEK) else Modifier,
+                    modifier = when (type) {
+                        CalendarViewType.WEEK -> Modifier.testTag(UiTags.CALENDAR_VIEW_WEEK)
+                        CalendarViewType.MONTH -> Modifier.testTag(UiTags.CALENDAR_VIEW_MONTH)
+                        CalendarViewType.DAY -> Modifier
+                    },
                     selected = viewType == type,
                     onClick = { onViewTypeChange(type) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),

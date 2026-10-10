@@ -10,6 +10,7 @@ use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Time\DayBound;
 
 /**
  * @extends ServiceEntityRepository<Event>
@@ -74,20 +75,30 @@ class EventRepository extends ServiceEntityRepository
         return $this->findByDateRange($user, $start, $end);
     }
 
+    /**
+     * The events of `[start, end)`: a timed one by its instants, an all-day one
+     * by its days, `[startDate, endDate)` (MAG-382) — the days of the range are
+     * {@see DayBound}'s, as for the API's filters.
+     */
     private function dateRangeQueryBuilder(\DateTimeImmutable $start, \DateTimeImmutable $end): QueryBuilder
     {
         return $this->createQueryBuilder('e')
             ->where('e.status != :cancelled')
             ->andWhere(
-                // Non-recurring events that overlap with the range
-                '(e.rrule IS NULL AND e.startAt < :end AND e.endAt > :start)'
+                // Non-recurring timed events that overlap with the range
+                '(e.rrule IS NULL AND e.startAt IS NOT NULL AND e.startAt < :end AND e.endAt > :start)'
+                // Non-recurring all-day events whose days meet the range's
+                .' OR (e.rrule IS NULL AND e.startAt IS NULL AND e.startDate <= :lastDay AND e.endDate > :firstDay)'
                 // OR recurring event masters (they need expansion)
                 .' OR (e.rrule IS NOT NULL)'
             )
             ->setParameter('cancelled', EventStatus::Cancelled)
             ->setParameter('start', $start, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('end', $end, Types::DATETIMETZ_IMMUTABLE)
-            ->orderBy('e.startAt', 'ASC');
+            ->setParameter('firstDay', DayBound::firstDay($start), Types::DATE_IMMUTABLE)
+            ->setParameter('lastDay', DayBound::lastDay($end), Types::DATE_IMMUTABLE)
+            ->orderBy('e.startAt', 'ASC')
+            ->addOrderBy('e.startDate', 'ASC');
     }
 
     /**
@@ -143,14 +154,17 @@ class EventRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('e')
             ->addSelect('a')
+            // An all-day event has a day and no instant: both kinds in one order.
+            ->addSelect('COALESCE(e.startAt, e.startDate) AS HIDDEN startedOn')
             ->join('e.agenda', 'a')
             ->where('a.user = :user')
             ->andWhere('e.status != :cancelled')
-            ->andWhere('e.startAt < :before')
+            ->andWhere('e.startAt < :before OR e.startDate <= :lastDay')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('cancelled', EventStatus::Cancelled)
             ->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
-            ->orderBy('e.startAt', 'DESC')
+            ->setParameter('lastDay', DayBound::lastDay($before), Types::DATE_IMMUTABLE)
+            ->orderBy('startedOn', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

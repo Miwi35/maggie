@@ -1,6 +1,11 @@
 package com.maggie.app.ui.screens.shared
 
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.endDateAfter
+import com.maggie.app.data.model.lastDayOf
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -12,7 +17,8 @@ import java.time.ZoneId
  * The dates of the event form: a start and an end, never a typed duration.
  * Moving the start moves the end by as much, so the duration the owner set
  * survives (19:00–00:00 stays five hours on another day). For an all-day event
- * [end] is the last day shown, the form's side of the API's exclusive end.
+ * only the dates count, and [end] is the last day shown — included, as in Google
+ * Agenda; the API's exclusive end is the day after (MAG-382).
  */
 data class EventFormState(
     val allDay: Boolean,
@@ -54,13 +60,29 @@ data class EventFormState(
     private fun withStart(newStart: LocalDateTime) =
         copy(start = newStart, end = newStart.plus(Duration.between(start, end)))
 
-    /** The API's `startAt`, an instant in the event's zone. */
-    fun startAt(zone: ZoneId): String =
-        (if (allDay) startDate.atStartOfDay(zone) else start.atZone(zone)).toInstant().toString()
+    /** The API's `startAt`, an instant in the event's zone; null for an all-day event. */
+    fun startAt(zone: ZoneId): String? = if (allDay) null else start.atZone(zone).toInstant().toString()
 
-    /** The API's `endAt`: the day after the last one for an all-day event. */
-    fun endAt(zone: ZoneId): String =
-        (if (allDay) endDate.plusDays(1).atStartOfDay(zone) else end.atZone(zone)).toInstant().toString()
+    /** The API's `endAt`; null for an all-day event. */
+    fun endAt(zone: ZoneId): String? = if (allDay) null else end.atZone(zone).toInstant().toString()
+
+    /** The API's `startDate` (`YYYY-MM-DD`) of an all-day event; null for a timed one. */
+    val allDayStartDate: String? get() = if (allDay) startDate.toString() else null
+
+    /** The API's `endDate`, exclusive: the day after the last one shown; null for a timed one. */
+    val allDayEndDate: String? get() = if (allDay) endDateAfter(endDate).toString() else null
+
+    /**
+     * The dates of a PATCH: both pairs, the unused one as an explicit null, so an event
+     * switching between all-day and timed loses the bounds it no longer has.
+     */
+    fun patch(zone: ZoneId): JsonObject = buildJsonObject {
+        put("allDay", allDay)
+        put("startAt", startAt(zone))
+        put("endAt", endAt(zone))
+        put("startDate", allDayStartDate)
+        put("endDate", allDayEndDate)
+    }
 
     companion object {
         /** A new event on [date]: 09:00–10:00. */
@@ -71,13 +93,21 @@ data class EventFormState(
         )
 
         fun fromEvent(event: ExpandedEvent): EventFormState {
+            if (event.allDay && event.startDate != null) {
+                val last = event.endDate?.let(::lastDayOf) ?: event.startDate
+                return EventFormState(
+                    allDay = true,
+                    start = event.startDate.atStartOfDay(),
+                    end = last.atStartOfDay(),
+                )
+            }
             val zone = ZoneId.of(event.timeZone)
             val start = LocalDateTime.ofInstant(Instant.parse(event.startAt), zone)
-            val end = LocalDateTime.ofInstant(Instant.parse(event.endAt), zone)
+            val end = event.endAt?.let { LocalDateTime.ofInstant(Instant.parse(it), zone) } ?: start
             return EventFormState(
                 allDay = event.allDay,
                 start = start,
-                // The API ends an all-day event at the next midnight; the form shows its last day.
+                // An all-day event served as instants (before MAG-382) ended at the next midnight.
                 end = if (event.allDay) end.minusDays(1) else end,
             )
         }

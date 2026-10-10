@@ -11,7 +11,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 final class IndexMetadataReader
 {
     /**
-     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>}|null
+     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>, dayFields: array<string, array{field: string, exclusiveEnd: bool}>}|null
      */
     public function read(string $className): ?array
     {
@@ -26,6 +26,7 @@ final class IndexMetadataReader
         $fields = [];
         $relations = [];
         $boosts = [];
+        $dayFields = [];
 
         foreach ($ref->getProperties() as $prop) {
             foreach ($prop->getAttributes(IndexedField::class) as $fieldAttr) {
@@ -38,6 +39,9 @@ final class IndexMetadataReader
                 }
 
                 $fields[$fieldName] = self::mappingOf($field);
+                if (null !== $field->dayField) {
+                    $dayFields[$fieldName] = ['field' => $field->dayField, 'exclusiveEnd' => $field->dayFieldIsExclusiveEnd];
+                }
             }
 
             foreach ($prop->getAttributes(IndexedRelation::class) as $relAttr) {
@@ -61,6 +65,9 @@ final class IndexMetadataReader
                             $boosts[$fieldName] = $field->boost;
                         }
                         $fields[$fieldName] = self::mappingOf($field);
+                        if (null !== $field->dayField) {
+                            $dayFields[$fieldName] = ['field' => $field->dayField, 'exclusiveEnd' => $field->dayFieldIsExclusiveEnd];
+                        }
                     }
                 }
 
@@ -83,6 +90,7 @@ final class IndexMetadataReader
             'fields' => $fields,
             'relations' => $relations,
             'boosts' => $boosts,
+            'dayFields' => $dayFields,
         ];
     }
 

@@ -3,12 +3,18 @@ package com.maggie.app.util
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.occurrenceKey
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.logging.Level
 import java.util.logging.Logger
 
 object EventExpander {
     private val logger = Logger.getLogger("EventExpander")
+
+    private val PARIS: ZoneId = ZoneId.of("Europe/Paris")
 
     /**
      * The event as stored, not one of its occurrences: a master keeps its own start, an exception
@@ -19,39 +25,33 @@ object EventExpander {
         val agendaIri = event.agenda ?: master?.agenda
         val agenda = agendaIri?.let { agendaMap[it.removePrefix("/api/agendas/")] }
         val isException = event.recurringEvent != null && master != null
-        return ExpandedEvent(
-            id = event.id,
-            summary = event.summary,
-            description = event.description,
-            location = event.location,
-            allDay = event.allDay,
-            startAt = event.startAt,
-            endAt = event.endAt,
-            timeZone = event.timeZone,
-            status = event.status,
+        return expanded(event, agendaIri, agenda).copy(
             masterEventId = if (isException) master?.id else event.id.takeIf { event.rrule != null },
             masterRrule = if (isException) master?.rrule else event.rrule,
-            masterStartAt = if (isException) master?.startAt else event.startAt.takeIf { event.rrule != null },
+            masterStartAt = if (isException) master?.startKey else event.startKey.takeIf { event.rrule != null },
             originalStartAt = if (isException) event.originalStartAt else null,
-            reminders = event.reminders,
-            agendaIri = agendaIri,
-            agendaColor = agenda?.color,
-            agendaName = agenda?.name,
         )
     }
 
     /**
      * Expand events (including RRULE recurring) for a given range.
      * Applies exception instances (cancelled = skip, modified = replace).
-     * Returns sorted list (all-day first, then by startAt).
+     * Returns sorted list (all-day first, then by start).
+     *
+     * An all-day event is matched by its dates against the days of the range in [zone]
+     * — the zone the range was cut in — and a series of all-day events is expanded on
+     * dates, never on instants (MAG-382).
      */
     fun expandForRange(
         events: List<Event>,
         rangeStart: Instant,
         rangeEnd: Instant,
         agendaMap: Map<String, Agenda>,
+        zone: ZoneId = PARIS,
     ): List<ExpandedEvent> {
         val result = mutableListOf<ExpandedEvent>()
+        val firstDay = rangeStart.atZone(zone).toLocalDate()
+        val lastDay = rangeEnd.minusNanos(1).atZone(zone).toLocalDate()
 
         // Build exception map: masterIRI -> originalStartAt(epoch ms) -> exception event
         val exceptionMap = mutableMapOf<String, MutableMap<Long, Event>>()
@@ -70,12 +70,17 @@ object EventExpander {
                 val id = iri.removePrefix("/api/agendas/")
                 agendaMap[id]
             }
+            val dated = e.allDay && e.firstDate != null
 
             // One unreadable rule must never take the whole calendar down: that event is shown
             // once, at its start, and flagged.
-            val occurrences = if (e.rrule != null) {
+            val occurrences: List<Occurrence>? = if (e.rrule != null) {
                 try {
-                    RruleUtils.expandRrule(e.rrule, Instant.parse(e.startAt), rangeStart, rangeEnd, e.timeZone)
+                    if (dated) {
+                        dateOccurrences(e, firstDay, lastDay)
+                    } else {
+                        timedOccurrences(e, rangeStart, rangeEnd)
+                    }
                 } catch (ex: Exception) {
                     logger.log(Level.WARNING, "recurrence_unreadable eventId=${e.id} rrule=${e.rrule}", ex)
                     null
@@ -85,95 +90,113 @@ object EventExpander {
             }
 
             if (e.rrule != null && occurrences != null) {
-                val dtstart = Instant.parse(e.startAt)
-                val durationMs = Instant.parse(e.endAt).toEpochMilli() - dtstart.toEpochMilli()
-                val eventIri = "/api/events/${e.id}"
-                val exceptions = exceptionMap[eventIri]
+                val exceptions = exceptionMap["/api/events/${e.id}"]
 
                 for (occ in occurrences) {
-                    val occMs = occ.toEpochMilli()
-                    val exception = exceptions?.get(occMs)
+                    val exception = exceptions?.get(Instant.parse(occ.key).toEpochMilli())
 
                     if (exception != null) {
                         if (exception.status == "cancelled") continue
                         result.add(
-                            ExpandedEvent(
-                                id = exception.id,
-                                summary = exception.summary,
-                                description = exception.description,
-                                location = exception.location,
-                                allDay = exception.allDay,
-                                startAt = exception.startAt,
-                                endAt = exception.endAt,
-                                timeZone = exception.timeZone,
-                                status = exception.status,
-                                isVirtualOccurrence = false,
+                            expanded(exception, e.agenda, agenda).copy(
                                 masterEventId = e.id,
                                 masterRrule = e.rrule,
-                                masterStartAt = e.startAt,
+                                masterStartAt = e.startKey,
                                 originalStartAt = exception.originalStartAt,
-                                reminders = exception.reminders,
-                                agendaIri = e.agenda,
-                                agendaColor = agenda?.color,
-                                agendaName = agenda?.name,
                             ),
                         )
                     } else {
-                        val occEnd = Instant.ofEpochMilli(occMs + durationMs)
-                        val occDate = occ.toString().substring(0, 10)
                         result.add(
-                            ExpandedEvent(
-                                id = "${e.id}__$occDate",
-                                summary = e.summary,
-                                description = e.description,
-                                location = e.location,
-                                allDay = e.allDay,
-                                startAt = occ.toString(),
-                                endAt = occEnd.toString(),
-                                timeZone = e.timeZone,
-                                status = e.status,
+                            expanded(e, e.agenda, agenda).copy(
+                                id = "${e.id}__${occ.idDate}",
+                                startAt = occ.startAt,
+                                endAt = occ.endAt,
+                                startDate = occ.startDate,
+                                endDate = occ.endDate,
                                 isVirtualOccurrence = true,
                                 masterEventId = e.id,
                                 masterRrule = e.rrule,
-                                masterStartAt = e.startAt,
-                                originalStartAt = occ.toString(),
-                                // A virtual occurrence has no row of its own: the reminders are the series'.
-                                reminders = e.reminders,
-                                agendaIri = e.agenda,
-                                agendaColor = agenda?.color,
-                                agendaName = agenda?.name,
+                                masterStartAt = e.startKey,
+                                originalStartAt = occ.key,
                             ),
                         )
                     }
                 }
             } else {
                 // Non-recurring: include if event overlaps the range
-                val eventStart = Instant.parse(e.startAt)
-                val eventEnd = Instant.parse(e.endAt)
-                if (eventStart < rangeEnd && eventEnd > rangeStart) {
-                    result.add(
-                        ExpandedEvent(
-                            id = e.id,
-                            summary = e.summary,
-                            description = e.description,
-                            location = e.location,
-                            allDay = e.allDay,
-                            startAt = e.startAt,
-                            endAt = e.endAt,
-                            timeZone = e.timeZone,
-                            status = e.status,
-                            reminders = e.reminders,
-                            agendaIri = e.agenda,
-                            agendaColor = agenda?.color,
-                            agendaName = agenda?.name,
-                            recurrenceUnreadable = e.rrule != null,
-                        ),
-                    )
+                val overlaps = if (dated) {
+                    e.firstDate!! <= lastDay && e.endDateExclusive!! > firstDay
+                } else if (e.startAt != null && e.endAt != null) {
+                    Instant.parse(e.startAt) < rangeEnd && Instant.parse(e.endAt) > rangeStart
+                } else {
+                    false
+                }
+                if (overlaps) {
+                    result.add(expanded(e, e.agenda, agenda).copy(recurrenceUnreadable = e.rrule != null))
                 }
             }
         }
 
-        result.sortWith(compareBy<ExpandedEvent> { !it.allDay }.thenBy { it.startAt })
+        result.sortWith(compareBy<ExpandedEvent> { !it.allDay }.thenBy { it.sortKey })
         return result
     }
+
+    /** One occurrence of a series: its key for the exceptions, and its bounds. */
+    private data class Occurrence(
+        val key: String,
+        val idDate: String,
+        val startAt: String? = null,
+        val endAt: String? = null,
+        val startDate: LocalDate? = null,
+        val endDate: LocalDate? = null,
+    )
+
+    private fun timedOccurrences(e: Event, rangeStart: Instant, rangeEnd: Instant): List<Occurrence> {
+        val dtstart = Instant.parse(e.startAt)
+        val durationMs = Instant.parse(e.endAt).toEpochMilli() - dtstart.toEpochMilli()
+        return RruleUtils.expandRrule(e.rrule!!, dtstart, rangeStart, rangeEnd, e.timeZone).map { occ ->
+            Occurrence(
+                key = occ.toString(),
+                idDate = occ.toString().substring(0, 10),
+                startAt = occ.toString(),
+                endAt = Instant.ofEpochMilli(occ.toEpochMilli() + durationMs).toString(),
+            )
+        }
+    }
+
+    /**
+     * Occurrence k starts and ends k days (or weeks, months…) after the first, both dates
+     * moved by as many days; its length is endDate − startDate days (at least one). An
+     * occurrence that began before the range but still covers its first day is kept.
+     */
+    private fun dateOccurrences(e: Event, firstDay: LocalDate, lastDay: LocalDate): List<Occurrence> {
+        val first = e.firstDate!!
+        val lengthDays = ChronoUnit.DAYS.between(first, e.endDateExclusive!!).coerceAtLeast(1)
+        return RruleUtils.expandRruleDates(e.rrule!!, first, firstDay.minusDays(lengthDays - 1), lastDay).map { start ->
+            Occurrence(
+                key = occurrenceKey(start),
+                idDate = start.toString(),
+                startDate = start,
+                endDate = start.plusDays(lengthDays),
+            )
+        }
+    }
+
+    private fun expanded(e: Event, agendaIri: String?, agenda: Agenda?) = ExpandedEvent(
+        id = e.id,
+        summary = e.summary,
+        description = e.description,
+        location = e.location,
+        allDay = e.allDay,
+        startAt = e.startAt.takeUnless { e.allDay && e.firstDate != null },
+        endAt = e.endAt.takeUnless { e.allDay && e.firstDate != null },
+        startDate = e.firstDate.takeIf { e.allDay },
+        endDate = e.endDateExclusive.takeIf { e.allDay },
+        timeZone = e.timeZone,
+        status = e.status,
+        reminders = e.reminders,
+        agendaIri = agendaIri,
+        agendaColor = agenda?.color,
+        agendaName = agenda?.name,
+    )
 }

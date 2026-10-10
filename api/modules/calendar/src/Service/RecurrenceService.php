@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Service;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Time\DayBound;
 use Psr\Log\LoggerInterface;
 use Recurr\Rule;
 use Recurr\Transformer\ArrayTransformer;
@@ -36,10 +37,14 @@ class RecurrenceService
             return [$event];
         }
 
+        if (null !== $event->getStartDate()) {
+            return $this->expandDays($event, $rangeStart, $rangeEnd);
+        }
+
         // Expand on the event's own wall clock: in UTC a weekly 18:00 Paris series
         // would drift an hour when the clocks change.
         $timeZone = $this->resolveTimeZone($event);
-        $start = $event->getStartAt()->setTimezone($timeZone);
+        $start = $event->getStartInstant()->setTimezone($timeZone);
 
         $rule = new Rule($event->getRrule(), $start, null, $timeZone->getName());
 
@@ -54,7 +59,7 @@ class RecurrenceService
             }
         }
 
-        $duration = $event->getStartAt()->diff($event->getEndAt());
+        $duration = $event->getStartInstant()->diff($event->getEndInstant());
         $occurrences = [];
 
         foreach ($recurrences as $recurrence) {
@@ -63,7 +68,7 @@ class RecurrenceService
                 ? \DateTimeImmutable::createFromMutable($start)
                 : \DateTimeImmutable::createFromInterface($start);
             // Same instant, same offset notation as the master: callers see no change of shape.
-            $occurrenceStart = $occurrenceStart->setTimezone($event->getStartAt()->getTimezone());
+            $occurrenceStart = $occurrenceStart->setTimezone($event->getStartInstant()->getTimezone());
 
             // Skip occurrences outside range
             if ($occurrenceStart >= $rangeEnd) {
@@ -88,6 +93,60 @@ class RecurrenceService
             $occurrence = clone $event;
             $occurrence->setStartAt($occurrenceStart);
             $occurrence->setEndAt($occurrenceEnd);
+            $occurrences[] = $occurrence;
+        }
+
+        return $occurrences;
+    }
+
+    /**
+     * An all-day series, expanded on its days (MAG-382): no zone, so no
+     * occurrence can slip to the day next door. Each occurrence keeps the
+     * master's length in days, `[startDate, endDate)`.
+     *
+     * An occurrence is known to its exceptions by the midnight UTC of its day:
+     * `originalStartAt` is an instant, and that one names a day without
+     * reading it anywhere.
+     *
+     * @return Event[]
+     */
+    private function expandDays(Event $event, \DateTimeImmutable $rangeStart, \DateTimeImmutable $rangeEnd): array
+    {
+        $utc = new \DateTimeZone('UTC');
+        $first = new \DateTimeImmutable((string) $event->getStartDate()?->format('Y-m-d'), $utc);
+        $lengthInDays = max(1, (int) $first->diff($event->getEndDate() ?? $first)->format('%r%a'));
+        $firstDay = DayBound::firstDay($rangeStart);
+        $lastDay = DayBound::lastDay($rangeEnd);
+
+        $exceptionDays = [];
+        foreach ($this->eventRepository->findExceptionsForRecurringEvent($event) as $exception) {
+            if (null !== $exception->getOriginalStartAt()) {
+                $exceptionDays[$exception->getOriginalStartAt()->setTimezone($utc)->format('Y-m-d')] = $exception;
+            }
+        }
+
+        $occurrences = [];
+        foreach ($this->transformer->transform(new Rule($event->getRrule(), $first, null, 'UTC')) as $recurrence) {
+            $day = new \DateTimeImmutable($recurrence->getStart()->format('Y-m-d'), $utc);
+            if ($day > $lastDay) {
+                break;
+            }
+            $endOfOccurrence = $day->modify("+{$lengthInDays} days");
+            if ($endOfOccurrence <= $firstDay) {
+                continue;
+            }
+
+            $exception = $exceptionDays[$day->format('Y-m-d')] ?? null;
+            if (null !== $exception) {
+                if (EventStatus::Cancelled !== $exception->getStatus()) {
+                    $occurrences[] = $exception;
+                }
+                continue;
+            }
+
+            $occurrence = clone $event;
+            $occurrence->setStartDate($day);
+            $occurrence->setEndDate($endOfOccurrence);
             $occurrences[] = $occurrence;
         }
 
@@ -141,7 +200,7 @@ class RecurrenceService
         }
 
         // Sort by start time
-        usort($expanded, fn (Event $a, Event $b) => $a->getStartAt() <=> $b->getStartAt());
+        usort($expanded, fn (Event $a, Event $b) => $a->getStartInstant() <=> $b->getStartInstant());
 
         return $expanded;
     }

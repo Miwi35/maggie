@@ -45,25 +45,28 @@ final class MealDayTest extends TestCase
         return $meal;
     }
 
-    /** @return iterable<string, array{string, string, string}> */
+    /** @return iterable<string, array{string}> */
     public static function days(): iterable
     {
-        // [the day, start in UTC, end in UTC] — Paris is +02:00 in October,
-        // +01:00 in December, and the last of those opens at +02:00 and closes
-        // at +01:00.
-        yield 'summer time' => ['2026-10-07', '2026-10-06T22:00:00+00:00', '2026-10-07T21:59:59+00:00'];
-        yield 'winter time' => ['2026-12-07', '2026-12-06T23:00:00+00:00', '2026-12-07T22:59:59+00:00'];
-        yield 'the day the clocks go back' => ['2026-10-25', '2026-10-24T22:00:00+00:00', '2026-10-25T22:59:59+00:00'];
+        yield 'summer time' => ['2026-10-07'];
+        yield 'winter time' => ['2026-12-07'];
+        yield 'the day the clocks go back' => ['2026-10-25'];
     }
 
+    /**
+     * A meal is an all-day event on its one day, as a date: no instant, so no
+     * zone to read it in and no clock change to move it (MAG-382).
+     */
     #[DataProvider('days')]
-    public function testTheInstantsAreTheWholeDayInTheMealsTimeZone(string $day, string $start, string $end): void
+    public function testAMealIsAnAllDayEventOnItsDayWithNoInstant(string $day): void
     {
         $meal = $this->aMeal($day);
 
         self::assertSame($day, $meal->getDate()?->format('Y-m-d'));
-        self::assertSame($start, $meal->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('c'));
-        self::assertSame($end, $meal->getEndAt()->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+        self::assertSame($day, $meal->getStartDate()?->format('Y-m-d'));
+        self::assertSame((new \DateTimeImmutable($day))->modify('+1 day')->format('Y-m-d'), $meal->getEndDate()?->format('Y-m-d'), 'Excluded, as Google stores it');
+        self::assertNull($meal->getStartAt());
+        self::assertNull($meal->getEndAt());
         self::assertTrue($meal->isAllDay());
     }
 
@@ -74,24 +77,37 @@ final class MealDayTest extends TestCase
         $meal->setDate(new \DateTimeImmutable('2026-10-09 19:30:00', new \DateTimeZone(self::PARIS)));
 
         self::assertSame('2026-10-09', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame('00:00:00', $meal->getStartAt()->setTimezone(new \DateTimeZone(self::PARIS))->format('H:i:s'));
+        self::assertSame('2026-10-09', $meal->getStartDate()?->format('Y-m-d'));
+        self::assertNull($meal->getStartAt());
     }
 
     /**
-     * The `Event` door: `UpdateEventHandler` sets `startAt` and then `endAt` on
+     * The `Event` door: `scheduleTimed()` sets `startAt` and then `endAt` on
      * whatever event it found, and a meal is one of them.
      */
     public function testAnInstantSetThroughTheEventSetterMovesTheDay(): void
     {
         $meal = $this->aMeal();
 
-        $meal->setStartAt(new \DateTimeImmutable('2026-10-09T19:30:00+02:00'));
-        $meal->setEndAt(new \DateTimeImmutable('2026-10-09T20:30:00+02:00'));
+        $meal->scheduleTimed(new \DateTimeImmutable('2026-10-09T19:30:00+02:00'), new \DateTimeImmutable('2026-10-09T20:30:00+02:00'));
 
         self::assertSame('2026-10-09', $meal->getDate()?->format('Y-m-d'));
-        $paris = new \DateTimeZone(self::PARIS);
-        self::assertSame('2026-10-09 00:00:00', $meal->getStartAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
-        self::assertSame('2026-10-09 23:59:59', $meal->getEndAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
+        self::assertSame('2026-10-09', $meal->getStartDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-10', $meal->getEndDate()?->format('Y-m-d'));
+        self::assertNull($meal->getStartAt());
+        self::assertNull($meal->getEndAt());
+        self::assertTrue($meal->isAllDay());
+    }
+
+    /** The `Event` door's all-day schedule names the day by its first one. */
+    public function testAnAllDayScheduleThroughTheEventDoorMovesTheDayAndKeepsItOneDay(): void
+    {
+        $meal = $this->aMeal();
+
+        $meal->scheduleAllDay(new \DateTimeImmutable('2026-10-12'), new \DateTimeImmutable('2026-10-14'));
+
+        self::assertSame('2026-10-12', $meal->getDate()?->format('Y-m-d'));
+        self::assertSame('2026-10-13', $meal->getEndDate()?->format('Y-m-d'));
     }
 
     /** The day is the one the writer meant, which is the day in the meal's zone. */
@@ -111,39 +127,36 @@ final class MealDayTest extends TestCase
         $meal = $this->aMeal('2026-10-07');
 
         $meal->setEndAt(new \DateTimeImmutable('2026-11-30T20:30:00+01:00'));
+        $meal->setEndDate(new \DateTimeImmutable('2026-11-30'));
 
         self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-07 23:59:59', $meal->getEndAt()->setTimezone(new \DateTimeZone(self::PARIS))->format('Y-m-d H:i:s'));
+        self::assertSame('2026-10-08', $meal->getEndDate()?->format('Y-m-d'));
+        self::assertNull($meal->getEndAt());
     }
 
-    public function testMovingTheTimeZoneMovesTheDaysBoundsAndNotTheDay(): void
+    public function testMovingTheTimeZoneDoesNotMoveTheDay(): void
     {
         $meal = $this->aMeal('2026-10-07');
 
         $meal->setTimeZone('Pacific/Auckland');
 
         self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame(
-            '2026-10-07 00:00:00',
-            $meal->getStartAt()->setTimezone(new \DateTimeZone('Pacific/Auckland'))->format('Y-m-d H:i:s'),
-        );
+        self::assertSame('2026-10-07', $meal->getStartDate()?->format('Y-m-d'));
     }
 
     /**
-     * A time zone nobody can resolve must not be a 500 on the operation this
-     * ticket touches: `Event::$timeZone` is a free string with no constraint
-     * behind it, and the `Event` write path can set it. The fallback is the
-     * column's default, Europe/Paris — there is no per-user time zone in the
-     * model to fall back on.
+     * A time zone nobody can resolve must not be a 500: `Event::$timeZone` is
+     * a free string on an old row. An instant handed in is then read in the
+     * default zone, Europe/Paris.
      */
-    public function testAnUnknownTimeZoneFallsBackOnTheDefaultAndKeepsTheDay(): void
+    public function testAnUnknownTimeZoneFallsBackOnTheDefaultToReadAnInstant(): void
     {
         $meal = $this->aMeal('2026-10-07');
 
         $meal->setTimeZone('Mars/Olympus');
+        $meal->setStartAt(new \DateTimeImmutable('2026-10-09T22:30:00+00:00'));
 
-        self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
-        self::assertSame('2026-10-06T22:00:00+00:00', $meal->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+        self::assertSame('2026-10-10', $meal->getDate()?->format('Y-m-d'));
     }
 
     /** @return iterable<string, array{string}> */
@@ -228,17 +241,13 @@ final class MealDayTest extends TestCase
         self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
     }
 
-    /**
-     * Before a day is known there is nothing to derive, and `Event::$endAt` is
-     * typed non-nullable with no default: leaving it untouched would make
-     * `getEndAt()` an `Error` rather than a null.
-     */
+    /** Before a day is known an end is nothing to keep: a meal never has an instant. */
     public function testAnEndSetBeforeAnyDayLeavesTheEntityReadable(): void
     {
         $meal = new Meal();
         $meal->setEndAt(new \DateTimeImmutable('2026-10-07T20:30:00+02:00'));
 
-        self::assertSame('2026-10-07T20:30:00+02:00', $meal->getEndAt()->format('c'));
+        self::assertNull($meal->getEndAt());
         self::assertNull($meal->getDate());
     }
 

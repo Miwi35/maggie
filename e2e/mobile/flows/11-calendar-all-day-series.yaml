@@ -13,6 +13,15 @@ tags:
 # an all-day weekly series that starts today, so one of its occurrences is in the
 # week `open-calendar` leaves on screen. The bar is matched by its title, not by
 # its dates: which days it covers is the JVM's business (`RruleUtilsExpandTest`).
+#
+# Then a one-day event shows on its day and not the next (MAG-382). « Journée du
+# 1er MAG-382 » is all-day on the 1st of the anchor's month: startDate the 1st,
+# endDate the 2nd, exclusive as in Google.
+# Stored as midnight UTC, Paris's offset pushed its end to 01:00 on the 2nd and the
+# app drew it on both days; it is now a pair of dates, read with no zone. The flow
+# finds it in the month, opens the 1st by its number, then steps to the 2nd and
+# waits for that day to be drawn before asking that the event is not there. Which
+# days a longer event covers is the JVM's business (`AllDayEventDaysTest`).
 
 - launchApp:
     clearState: true
@@ -30,3 +39,36 @@ tags:
     timeout: 30000
 
 - assertNotVisible: ".*using floating start times.*"
+
+- evalScript: ${output.first = TODAY.substring(0, 8) + '01'}
+- evalScript: ${output.second = TODAY.substring(0, 8) + '02'}
+
+- tapOn:
+    id: "calendar_view_month"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_month_slot_${output.first}_.*"
+      text: ".*Journée du 1er MAG-382.*"
+    timeout: 20000
+
+- tapOn:
+    id: "calendar_month_date_${output.first}"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_all_day_${output.first}"
+      text: ".*Journée du 1er MAG-382.*"
+    timeout: 20000
+
+- tapOn:
+    id: "calendar_next"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_view_${output.second}"
+    timeout: 20000
+
+- assertNotVisible:
+    id: "calendar_all_day_${output.second}"
+    text: ".*Journée du 1er MAG-382.*"

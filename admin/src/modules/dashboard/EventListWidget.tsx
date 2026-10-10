@@ -8,13 +8,18 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
+import { parseDay } from '../../dates'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 
 export interface DashboardEvent {
   id: string
   summary: string
-  startAt: string
-  endAt: string
+  /** An instant on a timed event; null on an all-day one (MAG-382). */
+  startAt: string | null
+  endAt: string | null
+  /** `YYYY-MM-DD` on an all-day event, the end excluded as in Google; null on a timed one. */
+  startDate: string | null
+  endDate: string | null
   allDay: boolean
   location?: string
 }
@@ -103,8 +108,9 @@ export const EventListWidget = ({ events, loading, showDate = false }: EventList
                         sx={{ minWidth: showDate ? 80 : 48, fontVariantNumeric: 'tabular-nums' }}
                       >
                         {event.allDay
-                          ? (showDate ? dateFormatter.format(new Date(event.startAt)) : 'Journée')
-                          : (showDate ? dateTimeFormatter : timeFormatter).format(new Date(event.startAt))}
+                          // The date itself, read as a local day: no UTC midnight to fall on the eve.
+                          ? (showDate && event.startDate ? dateFormatter.format(parseDay(event.startDate)) : 'Journée')
+                          : (showDate ? dateTimeFormatter : timeFormatter).format(new Date(event.startAt ?? ''))}
                       </Typography>
                       <Typography variant="body2" noWrap>
                         {event.summary}

@@ -135,9 +135,10 @@ object UiTags {
     /** The « OK » of the date and time pickers — a window of their own. */
     const val PICKER_CONFIRM = "picker_confirm"
 
-    /** Calendar toolbar — the « next » arrow and the Semaine switch. */
+    /** Calendar toolbar — the « next » arrow and the Mois / Semaine switches. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"
+    const val CALENDAR_VIEW_MONTH = "calendar_view_month"
 
     /** Calendar — the options menu and its Google import entry. */
     const val CALENDAR_OPTIONS = "calendar_options"
@@ -164,12 +165,23 @@ object UiTags {
     const val CALENDAR_EVENT_PREFIX = "calendar_event_"
 
     /**
+     * Day view — the view itself and one all-day event of its top row, suffixed by the
+     * ISO date of the day shown (MAG-382). The view's tag says which day is drawn, so a
+     * flow can wait on it before asking whether an event is absent from that day.
+     */
+    const val CALENDAR_DAY_VIEW_PREFIX = "calendar_day_view_"
+    const val CALENDAR_ALL_DAY_PREFIX = "calendar_all_day_"
+
+    /**
      * Month view — a day's cell, one slot of its column (a bar or the blank that keeps
      * the bars of its neighbours aligned) and its « +N » counter, suffixed by the ISO
      * date (and `_<slot>` for a slot). Read by screen tests only: the position of the
      * same slot in two columns is what makes a multi-day bar look continuous (MAG-335).
      */
     const val CALENDAR_MONTH_DAY_PREFIX = "calendar_month_day_"
+
+    /** Month view — the number at the top of a day's cell: tapping it opens that day, never an event of the cell. */
+    const val CALENDAR_MONTH_DATE_PREFIX = "calendar_month_date_"
     const val CALENDAR_MONTH_SLOT_PREFIX = "calendar_month_slot_"
     const val CALENDAR_MONTH_MORE_PREFIX = "calendar_month_more_"
 
@@ -205,6 +217,12 @@ object UiTags {
     fun calendarEvent(date: LocalDate) = CALENDAR_EVENT_PREFIX + date
 
     fun calendarMonthDay(date: LocalDate) = CALENDAR_MONTH_DAY_PREFIX + date
+
+    fun calendarMonthDate(date: LocalDate) = CALENDAR_MONTH_DATE_PREFIX + date
+
+    fun calendarDayView(date: LocalDate) = CALENDAR_DAY_VIEW_PREFIX + date
+
+    fun calendarAllDay(date: LocalDate) = CALENDAR_ALL_DAY_PREFIX + date
 
     fun calendarMonthSlot(date: LocalDate, slot: Int) = "$CALENDAR_MONTH_SLOT_PREFIX${date}_$slot"
 

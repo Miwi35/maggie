@@ -9,17 +9,24 @@ use Maggie\Calendar\Entity\Event;
  * an end, never a duration, in one of two complete forms.
  *
  * - timed: `start_date` + `start_time` + `end_date` + `end_time`;
- * - all day: `all_day: true` + `start_date` + `end_date`, the last day included.
+ * - all day: `all_day: true` + `start_date` + `end_date`, the end excluded as in Google's API
+ *   (the 1st alone ends on the 2nd — MAG-382).
  *
  * Nothing is deduced from the event or from "now": a part left out is refused, so that what
  * Maggie announces is what she asked for.
  */
 final readonly class EventSchedule
 {
+    /**
+     * A timed schedule has the two instants, an all-day one the two days, the end
+     * excluded — never both (MAG-382).
+     */
     private function __construct(
-        public \DateTimeImmutable $startAt,
-        public \DateTimeImmutable $endAt,
         public bool $allDay,
+        public ?\DateTimeImmutable $startAt = null,
+        public ?\DateTimeImmutable $endAt = null,
+        public ?\DateTimeImmutable $startDate = null,
+        public ?\DateTimeImmutable $endDate = null,
     ) {
     }
 
@@ -52,15 +59,15 @@ final readonly class EventSchedule
             }
             self::requireParts(['start_date' => $startDate, 'end_date' => $endDate]);
 
-            $first = self::day($startDate, 'start_date', $zone);
-            $last = self::day($endDate, 'end_date', $zone);
-            if ($last < $first) {
-                throw new \DomainException("The last day must be on or after start_date, got {$startDate} → {$endDate}. Nothing was saved.");
+            // A day has no zone: read as it is written.
+            $utc = new \DateTimeZone('UTC');
+            $first = self::day($startDate, 'start_date', $utc);
+            $until = self::day($endDate, 'end_date', $utc);
+            if ($until <= $first) {
+                throw new \DomainException("end_date is excluded, the day after the last day: it must be after start_date, got {$startDate} → {$endDate} (a single day on {$startDate} ends on {$first->modify('+1 day')->format('Y-m-d')}). Nothing was saved.");
             }
 
-            // The end of an all-day event is the midnight after its last day, as the calendar
-            // views and Google read it.
-            return new self($first, $last->modify('+1 day'), true);
+            return new self(allDay: true, startDate: $first, endDate: $until);
         }
 
         self::requireParts([
@@ -76,7 +83,7 @@ final readonly class EventSchedule
             throw new \DomainException(sprintf('The end must be after the start, got %s → %s. Nothing was saved.', $startAt->format('Y-m-d H:i'), $endAt->format('Y-m-d H:i')));
         }
 
-        return new self($startAt, $endAt, false);
+        return new self(allDay: false, startAt: $startAt, endAt: $endAt);
     }
 
     /**
@@ -109,23 +116,22 @@ final readonly class EventSchedule
     public static function describe(Event $event): array
     {
         $zone = self::zoneOf($event);
-        $startAt = $event->getStartAt()->setTimezone($zone);
-        $endAt = $event->getEndAt()->setTimezone($zone);
 
         $described = [
             'allDay' => $event->isAllDay(),
-            'startAt' => $startAt->format('c'),
-            'endAt' => $endAt->format('c'),
-            'timeZone' => $zone->getName(),
+            'startAt' => $event->getStartAt()?->setTimezone($zone)->format('c'),
+            'endAt' => $event->getEndAt()?->setTimezone($zone)->format('c'),
         ];
 
-        if ($event->isAllDay()) {
-            // `endAt` is the midnight after the last day: the day to announce is the one before.
-            $described['startDate'] = $startAt->format('Y-m-d');
-            $described['endDate'] = ($endAt > $startAt ? $endAt->modify('-1 day') : $endAt)->format('Y-m-d');
+        if (null !== $event->getStartDate()) {
+            // The days as stored, the end excluded, and the last day to announce.
+            $until = $event->getEndDate() ?? $event->getStartDate()->modify('+1 day');
+            $described['startDate'] = $event->getStartDate()->format('Y-m-d');
+            $described['endDate'] = $until->format('Y-m-d');
+            $described['lastDay'] = $until->modify('-1 day')->format('Y-m-d');
         }
 
-        return $described;
+        return $described + ['timeZone' => $zone->getName()];
     }
 
     /** The zone the event is read in: its own, or the default one when the row holds a name nobody can resolve. */
@@ -146,7 +152,7 @@ final readonly class EventSchedule
             return;
         }
 
-        throw new \DomainException(sprintf('The schedule is incomplete, missing: %s. Give a start and an end — start_date, start_time, end_date and end_time, or all_day true with start_date and end_date (the last day included) — never a duration. Nothing was saved.', implode(', ', $missing)));
+        throw new \DomainException(sprintf('The schedule is incomplete, missing: %s. Give a start and an end — start_date, start_time, end_date and end_time, or all_day true with start_date and end_date (excluded, the day after the last) — never a duration. Nothing was saved.', implode(', ', $missing)));
     }
 
     private static function day(string $value, string $name, \DateTimeZone $zone): \DateTimeImmutable

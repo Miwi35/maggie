@@ -1,8 +1,11 @@
 package com.maggie.app.ui.screens.shared
 
 import com.maggie.app.data.model.ExpandedEvent
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -87,29 +90,91 @@ class EventFormStateTest {
     }
 
     @Test
-    fun `an all-day event is sent from midnight to the midnight after its last day`() {
-        val form = evening.withAllDay(true).withEndDate(LocalDate.of(2026, 10, 7))
+    fun `an all-day event entered up to the 9th is sent with the 10th as its exclusive end, and no instant`() {
+        val form = evening.withAllDay(true).withEndDate(LocalDate.of(2026, 10, 9))
 
-        assertEquals("2026-10-06T22:00:00Z", form.startAt(paris))
-        assertEquals("2026-10-07T22:00:00Z", form.endAt(paris))
+        assertEquals(LocalDate.of(2026, 10, 9), form.endDate)
+        assertEquals("2026-10-07", form.allDayStartDate)
+        assertEquals("2026-10-10", form.allDayEndDate)
+        assertNull(form.startAt(paris))
+        assertNull(form.endAt(paris))
     }
 
     @Test
-    fun `an all-day event opens on its last day, not on the exclusive end the API stores`() {
+    fun `a one-day all-day event, entered from the 7th to the 7th, ends on the 8th`() {
+        val form = evening.withAllDay(true)
+
+        assertEquals("2026-10-07", form.allDayStartDate)
+        assertEquals("2026-10-08", form.allDayEndDate)
+    }
+
+    @Test
+    fun `a timed event is sent with no dates`() {
+        assertNull(evening.allDayStartDate)
+        assertNull(evening.allDayEndDate)
+    }
+
+    @Test
+    fun `a patch to all-day clears the instants, a patch to timed clears the dates`() {
+        val toAllDay = evening.withAllDay(true).patch(paris)
+        assertEquals(JsonPrimitive(true), toAllDay["allDay"])
+        assertEquals(JsonPrimitive("2026-10-07"), toAllDay["startDate"])
+        assertEquals(JsonPrimitive("2026-10-08"), toAllDay["endDate"])
+        assertEquals(JsonNull, toAllDay["startAt"])
+        assertEquals(JsonNull, toAllDay["endAt"])
+
+        val toTimed = evening.patch(paris)
+        assertEquals(JsonPrimitive(false), toTimed["allDay"])
+        assertEquals(JsonPrimitive("2026-10-07T17:00:00Z"), toTimed["startAt"])
+        assertEquals(JsonPrimitive("2026-10-07T22:00:00Z"), toTimed["endAt"])
+        assertEquals(JsonNull, toTimed["startDate"])
+        assertEquals(JsonNull, toTimed["endDate"])
+    }
+
+    @Test
+    fun `an all-day event opens on its dates, whatever the zone`() {
         val form = EventFormState.fromEvent(
             ExpandedEvent(
                 id = "e1",
                 summary = "Anniversaire",
                 allDay = true,
-                startAt = "2026-10-15T22:00:00Z",
-                endAt = "2026-10-16T22:00:00Z",
+                startDate = LocalDate.of(2037, 1, 1),
+                endDate = LocalDate.of(2037, 1, 2),
                 timeZone = "Europe/Paris",
             ),
         )
 
-        assertEquals(LocalDate.of(2026, 10, 16), form.startDate)
-        assertEquals(LocalDate.of(2026, 10, 16), form.endDate)
-        assertEquals("2026-10-16T22:00:00Z", form.endAt(paris))
+        // Shown « du 1er au 1er », as Google Agenda does, and sent back unchanged.
+        assertTrue(form.allDay)
+        assertEquals(LocalDate.of(2037, 1, 1), form.startDate)
+        assertEquals(LocalDate.of(2037, 1, 1), form.endDate)
+        assertEquals("2037-01-02", form.allDayEndDate)
+    }
+
+    @Test
+    fun `a three-day all-day event opens on its last day`() {
+        val form = EventFormState.fromEvent(
+            ExpandedEvent(
+                id = "e1",
+                summary = "Séjour",
+                allDay = true,
+                startDate = LocalDate.of(2037, 1, 26),
+                endDate = LocalDate.of(2037, 1, 29),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2037, 1, 26), form.startDate)
+        assertEquals(LocalDate.of(2037, 1, 28), form.endDate)
+    }
+
+    @Test
+    fun `an all-day event opened then switched to timed gets an hour on its first day`() {
+        val form = EventFormState.fromEvent(
+            ExpandedEvent(id = "e1", summary = "Anniversaire", allDay = true, startDate = LocalDate.of(2037, 1, 1), endDate = LocalDate.of(2037, 1, 2)),
+        ).withAllDay(false)
+
+        assertEquals(LocalDateTime.of(2037, 1, 1, 9, 0), form.start)
+        assertEquals(LocalDateTime.of(2037, 1, 1, 10, 0), form.end)
     }
 
     @Test

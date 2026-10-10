@@ -4,6 +4,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.model.Event
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
@@ -142,6 +143,28 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 2) { agendaRepository.getAgendas() }
+    }
+
+    /** MAG-382: today's all-day event is today's, and yesterday's does not come back as today's at 01:00. */
+    @Test
+    fun `an all-day event is listed on its date, not the day after`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        coEvery { eventRepository.refreshEvents() } returns Result.success(
+            listOf(
+                Event(id = "today", summary = "Anniversaire", allDay = true, startDate = "$today", endDate = "${today.plusDays(1)}"),
+                Event(id = "yesterday", summary = "Veille", allDay = true, startDate = "${today.minusDays(1)}", endDate = "$today"),
+                Event(id = "in3", summary = "Plus tard", allDay = true, startDate = "${today.plusDays(3)}", endDate = "${today.plusDays(4)}"),
+            ),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("today"), state.todayEvents.map { it.id })
+        assertEquals(emptyList<String>(), state.tomorrowEvents.map { it.id })
+        assertEquals(listOf("in3"), state.weekEvents.map { it.id })
+        assertEquals(emptyList<String>(), state.monthEvents.map { it.id })
     }
 
     @Test

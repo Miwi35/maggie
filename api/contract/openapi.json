@@ -2252,7 +2252,7 @@
                     {
                         "name": "startAt[before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2264,7 +2264,7 @@
                     {
                         "name": "startAt[strictly_before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2276,7 +2276,7 @@
                     {
                         "name": "startAt[after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2288,7 +2288,7 @@
                     {
                         "name": "startAt[strictly_after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2300,7 +2300,7 @@
                     {
                         "name": "endAt[before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2312,7 +2312,7 @@
                     {
                         "name": "endAt[strictly_before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2324,7 +2324,7 @@
                     {
                         "name": "endAt[after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -2336,7 +2336,7 @@
                     {
                         "name": "endAt[strictly_after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3899,7 +3899,7 @@
                     {
                         "name": "startAt[before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3911,7 +3911,7 @@
                     {
                         "name": "startAt[strictly_before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3923,7 +3923,7 @@
                     {
                         "name": "startAt[after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3935,7 +3935,7 @@
                     {
                         "name": "startAt[strictly_after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3947,7 +3947,7 @@
                     {
                         "name": "endAt[before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3959,7 +3959,7 @@
                     {
                         "name": "endAt[strictly_before]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3971,7 +3971,7 @@
                     {
                         "name": "endAt[after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -3983,7 +3983,7 @@
                     {
                         "name": "endAt[strictly_after]",
                         "in": "query",
-                        "description": "",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -10389,12 +10389,38 @@
                         "type": "boolean"
                     },
                     "startAt": {
-                        "type": "string",
+                        "description": "When a timed event starts. Null on an all-day event, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "description": "When a timed event ends. Null on an all-day event, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day event, YYYY-MM-DD. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10483,9 +10509,7 @@
                     }
                 },
                 "required": [
-                    "summary",
-                    "startAt",
-                    "endAt"
+                    "summary"
                 ]
             },
             "Event.html": {
@@ -10516,12 +10540,38 @@
                         "type": "boolean"
                     },
                     "startAt": {
-                        "type": "string",
+                        "description": "When a timed event starts. Null on an all-day event, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "description": "When a timed event ends. Null on an all-day event, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day event, YYYY-MM-DD. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10610,9 +10660,7 @@
                     }
                 },
                 "required": [
-                    "summary",
-                    "startAt",
-                    "endAt"
+                    "summary"
                 ]
             },
             "Event.jsonMergePatch": {
@@ -10643,12 +10691,38 @@
                         "type": "boolean"
                     },
                     "startAt": {
-                        "type": "string",
+                        "description": "When a timed event starts. Null on an all-day event, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "description": "When a timed event ends. Null on an all-day event, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day event, YYYY-MM-DD. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
                     },
                     "timeZone": {
                         "default": "Europe/Paris",
@@ -10770,12 +10844,38 @@
                                 "type": "boolean"
                             },
                             "startAt": {
-                                "type": "string",
+                                "description": "When a timed event starts. Null on an all-day event, which has startDate instead.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             },
                             "endAt": {
-                                "type": "string",
+                                "description": "When a timed event ends. Null on an all-day event, which has endDate instead.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
+                            },
+                            "startDate": {
+                                "description": "The first day of an all-day event, YYYY-MM-DD. Null on a timed event.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-01"
+                            },
+                            "endDate": {
+                                "description": "The day after the last day of an all-day event, YYYY-MM-DD, excluded — as Google's end.date: a one-day event on 2037-01-01 has endDate 2037-01-02, which is what an absent endDate becomes. Null on a timed event.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-02"
                             },
                             "timeZone": {
                                 "default": "Europe/Paris",
@@ -10864,9 +10964,7 @@
                             }
                         },
                         "required": [
-                            "summary",
-                            "startAt",
-                            "endAt"
+                            "summary"
                         ]
                     }
                 ]
@@ -12341,8 +12439,6 @@
                 "type": "object",
                 "required": [
                     "date",
-                    "startAt",
-                    "endAt",
                     "summary"
                 ],
                 "properties": {
@@ -12376,18 +12472,35 @@
                         "format": "date-time"
                     },
                     "startAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -12408,6 +12521,9 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -12488,8 +12604,6 @@
                 "type": "object",
                 "required": [
                     "date",
-                    "startAt",
-                    "endAt",
                     "summary"
                 ],
                 "properties": {
@@ -12523,18 +12637,35 @@
                         "format": "date-time"
                     },
                     "startAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -12555,6 +12686,9 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -12664,18 +12798,35 @@
                         "format": "date-time"
                     },
                     "startAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "endAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -12696,6 +12847,9 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -12781,8 +12935,6 @@
                         "type": "object",
                         "required": [
                             "date",
-                            "startAt",
-                            "endAt",
                             "summary"
                         ],
                         "properties": {
@@ -12816,18 +12968,35 @@
                                 "format": "date-time"
                             },
                             "startAt": {
-                                "type": "string",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             },
                             "endAt": {
-                                "type": "string",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "startDate": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "endDate": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             },
                             "allDay": {
                                 "type": "boolean"
-                            },
-                            "timeZone": {
-                                "type": "string"
                             },
                             "id": {
                                 "readOnly": true,
@@ -12848,6 +13017,9 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "timeZone": {
+                                "type": "string"
                             },
                             "rrule": {
                                 "type": [

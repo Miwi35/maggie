@@ -4,11 +4,16 @@ namespace Maggie\Calendar\Message;
 
 final readonly class CreateEventCommand
 {
-    /** @param array<string, mixed>|null $reminders Google's shape: {useDefault, overrides: [{method, minutes}]} */
+    /**
+     * A timed event carries `startAt` and `endAt`; an all-day one `startDate` and
+     * `endDate`, the end excluded as Google stores it, one day when absent (MAG-382).
+     *
+     * @param array<string, mixed>|null $reminders Google's shape: {useDefault, overrides: [{method, minutes}]}
+     */
     public function __construct(
         public string $summary,
-        public \DateTimeImmutable $startAt,
-        public \DateTimeImmutable $endAt,
+        public ?\DateTimeImmutable $startAt,
+        public ?\DateTimeImmutable $endAt,
         public ?string $agendaId = null,
         public ?string $description = null,
         public ?string $location = null,
@@ -20,6 +25,8 @@ final readonly class CreateEventCommand
         public ?string $status = null,
         public ?array $reminders = null,
         public ?string $userId = null,
+        public ?\DateTimeImmutable $startDate = null,
+        public ?\DateTimeImmutable $endDate = null,
     ) {
     }
 }

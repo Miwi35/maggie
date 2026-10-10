@@ -47,9 +47,7 @@ class CalendarFixtures extends Fixture
         $nextMonday = new \DateTimeImmutable('next monday', new \DateTimeZone('Europe/Paris'));
         $holiday = new Event();
         $holiday->setSummary('Day off');
-        $holiday->setAllDay(true);
-        $holiday->setStartAt($nextMonday->setTime(0, 0));
-        $holiday->setEndAt($nextMonday->setTime(23, 59, 59));
+        $holiday->scheduleAllDay($nextMonday);
         $holiday->setTimeZone('Europe/Paris');
         $holiday->setAgenda($agenda);
         $manager->persist($holiday);

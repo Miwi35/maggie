@@ -37,10 +37,8 @@ import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
@@ -67,9 +65,8 @@ fun WeekTimelineView(
     val (spanningEvents, timedOnlyEvents) = remember(events) {
         events.partition { event ->
             if (event.allDay) return@partition true
-            val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-            val endDate = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone).toLocalDate()
-            endDate > startDate
+            val days = event.days(zone) ?: return@partition false
+            days.endInclusive > days.start
         }
     }
 
@@ -81,10 +78,7 @@ fun WeekTimelineView(
     // Timed events per day (only single-day non-all-day events)
     val timedByDay = remember(timedOnlyEvents, days) {
         days.associateWith { date ->
-            timedOnlyEvents.filter { event ->
-                val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-                startDate == date
-            }
+            timedOnlyEvents.filter { event -> event.firstDay(zone) == date }
         }
     }
 
@@ -208,7 +202,7 @@ fun WeekTimelineView(
 // Spanning event slot computation
 // ---------------------------------------------------------------------------
 
-private data class SpanSlot(
+internal data class SpanSlot(
     val event: ExpandedEvent,
     val startDayIndex: Int,
     val endDayIndex: Int,
@@ -217,7 +211,7 @@ private data class SpanSlot(
     val slot: Int,
 )
 
-private fun computeWeekSpanSlots(
+internal fun computeWeekSpanSlots(
     events: List<ExpandedEvent>,
     days: List<LocalDate>,
     zone: ZoneId,
@@ -231,14 +225,9 @@ private fun computeWeekSpanSlots(
     )
 
     val ranges = events.mapNotNull { event ->
-        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
-        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
-            endZoned.toLocalDate().minusDays(1)
-        } else {
-            endZoned.toLocalDate()
-        }
-        val actualEnd = maxOf(startDate, endDate)
+        val eventDays = event.days(zone) ?: return@mapNotNull null
+        val startDate = eventDays.start
+        val actualEnd = eventDays.endInclusive
 
         val startIdx = days.indexOfFirst { it >= startDate }.let { if (it == -1) return@mapNotNull null else it }
         val endIdx = days.indexOfLast { it <= actualEnd }.let { if (it == -1) return@mapNotNull null else it }
@@ -248,7 +237,7 @@ private fun computeWeekSpanSlots(
     }.sortedWith(
         compareByDescending<EventDayRange> { it.endIdx - it.startIdx }
             .thenBy { it.startIdx }
-            .thenBy { it.event.startAt }
+            .thenBy { it.event.sortKey }
     )
 
     if (ranges.isEmpty()) return emptyList()

@@ -42,11 +42,9 @@ import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
@@ -58,7 +56,7 @@ private val DAY_NUMBER_TOP_PADDING = 1.dp
 private val COUNTER_LINE_HEIGHT = 10.sp
 
 /** Pre-computed position for one event on one day. */
-private data class EventSlot(
+internal data class EventSlot(
     val event: ExpandedEvent,
     val isStart: Boolean,
     val isEnd: Boolean,
@@ -131,19 +129,13 @@ private data class EventRange(
     val endDate: LocalDate,
 )
 
-private fun computeSlots(
+internal fun computeSlots(
     events: List<ExpandedEvent>,
     zone: ZoneId,
 ): Map<LocalDate, List<EventSlot>> {
-    val ranges = events.map { event ->
-        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
-        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
-            endZoned.toLocalDate().minusDays(1)
-        } else {
-            endZoned.toLocalDate()
-        }
-        EventRange(event, startDate, maxOf(startDate, endDate))
+    val ranges = events.mapNotNull { event ->
+        val days = event.days(zone) ?: return@mapNotNull null
+        EventRange(event, days.start, days.endInclusive)
     }
 
     if (ranges.isEmpty()) return emptyMap()
@@ -182,7 +174,7 @@ private fun computeSlots(
                 }
                 // Both single-day: all-day first, then by start time
                 if (a.event.allDay != b.event.allDay) return@Comparator if (a.event.allDay) -1 else 1
-                a.event.startAt.compareTo(b.event.startAt)
+                a.event.sortKey.compareTo(b.event.sortKey)
             })
 
         // Track occupied slots: day → slot → true
@@ -277,10 +269,13 @@ private fun FullMonthDayCell(
         val counterHeight = with(LocalDensity.current) { COUNTER_LINE_HEIGHT.toDp() }
 
         Column(modifier = Modifier.fillMaxSize()) {
+            // The number is a target of its own: a tap on the cell's centre may land on an event.
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(top = DAY_NUMBER_TOP_PADDING)
+                    .testTag(UiTags.calendarMonthDate(day.date))
+                    .clickable(enabled = isCurrentMonth) { onDayClick() }
                     .height(DAY_NUMBER_HEIGHT)
                     .then(
                         if (isToday) Modifier

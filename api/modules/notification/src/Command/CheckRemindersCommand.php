@@ -54,7 +54,7 @@ class CheckRemindersCommand extends Command
             // own IRI: the owner opens the event, and the occurrence is what the
             // notification carries beside it.
             $eventIri = '/api/events/'.$occurrence->getId();
-            $occurrenceStart = $occurrence->getStartAt();
+            $occurrenceStart = $occurrence->getStartInstant();
 
             foreach ($overrides as $override) {
                 $minutes = \is_array($override) ? (int) ($override['minutes'] ?? 0) : 0;
@@ -128,13 +128,13 @@ class CheckRemindersCommand extends Command
                 : [$event];
 
             foreach ($occurrences as $occurrence) {
-                if ($occurrence->getStartAt() <= $now || $occurrence->getStartAt() >= $horizon) {
+                if ($occurrence->getStartInstant() <= $now || $occurrence->getStartInstant() >= $horizon) {
                     continue;
                 }
 
                 // An overridden occurrence is reached twice — as the row it is, and
                 // through the series it belongs to. Keyed so it is looked at once.
-                $candidates[$occurrence->getId().'@'.$occurrence->getStartAt()->getTimestamp()] = $occurrence;
+                $candidates[$occurrence->getId().'@'.$occurrence->getStartInstant()->getTimestamp()] = $occurrence;
             }
         }
 

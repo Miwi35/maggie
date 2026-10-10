@@ -48,8 +48,8 @@ Maggie\Calendar\Entity\Event:
     summary: Randonnée
     allDay: true
     timeZone: Europe/Paris
-    startAt: '<(new \DateTimeImmutable("2026-10-10 00:00", new \DateTimeZone("Europe/Paris")))>'
-    endAt: '<(new \DateTimeImmutable("2026-10-11 00:00", new \DateTimeZone("Europe/Paris")))>'
+    startDate: '<(new \DateTimeImmutable("2026-10-10"))>'
+    endDate: '<(new \DateTimeImmutable("2026-10-11"))>'
     agenda: '@test_agenda'
 
   event_foreign:

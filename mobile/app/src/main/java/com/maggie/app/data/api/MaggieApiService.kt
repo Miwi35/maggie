@@ -96,11 +96,18 @@ data class RecipeDeletionImpact(val mealCount: Int = 0, val meals: List<PlannedM
 @Serializable
 data class ApiCollection<T>(val member: List<T> = emptyList())
 
+/**
+ * A timed event sends [startAt]/[endAt], an all-day one [startDate]/[endDate]
+ * (`YYYY-MM-DD`, the end exclusive as in Google) and no instant (MAG-382). Null fields are left
+ * out of the body: the client's JSON does not encode defaults.
+ */
 @Serializable
 data class EventCreateRequest(
     val summary: String,
-    val startAt: String,
-    val endAt: String,
+    val startAt: String? = null,
+    val endAt: String? = null,
+    val startDate: String? = null,
+    val endDate: String? = null,
     val allDay: Boolean = false,
     val description: String? = null,
     val location: String? = null,
