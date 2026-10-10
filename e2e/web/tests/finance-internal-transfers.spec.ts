@@ -279,7 +279,7 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   for (const label of [debit, credit]) {
     await waitForIndexed<StoredTransaction>(
       api,
-      '/api/transactions?itemsPerPage=100',
+      '/api/transactions?transferKind=rejected&itemsPerPage=100',
       (candidate) => candidate.label === label && candidate.transferKind === 'rejected',
       { what: `The line "${label}", recognised as a rejection` },
     )
