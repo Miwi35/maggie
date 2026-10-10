@@ -1,6 +1,6 @@
 ARG NODE_VERSION=20
 
-FROM node:${NODE_VERSION}-alpine
+FROM public.ecr.aws/docker/library/node:${NODE_VERSION}-alpine
 
 # Install system dependencies
 RUN apk add --no-cache git

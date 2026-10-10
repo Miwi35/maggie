@@ -391,7 +391,7 @@ here because they are properties of the *stack*, not of Playwright:
   script still covers dictation over HTTP, without a browser.
 - **Three widths.** `desktop` (1440), `tablet` (834), `phone` (393). Only tests
   tagged `@responsive` run on all three.
-- **The Mercure image is pinned by tag and digest, never untagged** (`dunglas/mercure:v1.0.2@sha256:…`).
+- **The Mercure image is pinned by tag and digest, never untagged** (`ghcr.io/miwi35/mirror/mercure:v1.0.2@sha256:…`, the copy of `dunglas/mercure`).
   An untagged image follows `latest`: the 0.x to 1.0 move renamed the subscribe
   parameter and the token format, and every subscription answered `400`. CI
   pulls fresh, so it broke there first while every local stack stayed green on a

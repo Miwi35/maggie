@@ -15,7 +15,7 @@
 
 services:
   database:
-    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION:-17}-alpine
     environment:
       POSTGRES_USER: maggie
       POSTGRES_PASSWORD: maggie

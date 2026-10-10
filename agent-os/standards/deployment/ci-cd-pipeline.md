@@ -285,6 +285,10 @@ Repository variables: `FIREBASE_ANDROID_APP_ID`, `FIREBASE_TESTERS` / `FIREBASE_
 - `:<full-git-sha>` — Unique per commit, used for deployment
 - `:latest` — Always points to most recent build
 
+### Third-party images: never from Docker Hub in CI (owner's decision, 10 Oct.)
+
+GitHub runners share their IPs: Docker Hub's anonymous pull limit (`toomanyrequests`) took every e2e job, API test and image build down for hours, twice (9–10 Oct.). So every Dockerfile `FROM`/`COPY --from`, every compose file CI or the e2e stack starts, and every workflow pull from **`public.ecr.aws/docker/library/<name>:<tag>`** for a Docker Hub official image (same tags, same digests) and from **`ghcr.io/miwi35/mirror/<name>:<tag>`** for any other one (wiremock, mercure, BuildKit — every `docker/setup-buildx-action` sets `driver-opts: image=ghcr.io/miwi35/mirror/buildkit:buildx-stable-1`); CI tools come from their GitHub releases, pinned by sha256. **Adding an image:** an official one, use its ECR path; another, add a line to `.github/mirror-images.txt`, run `Mirror images` (`.github/workflows/mirror-images.yml`, also weekly), make the new package public, then reference the copy. `infra/scripts/docker-hub-guard.sh` (job `Infra scripts and workflows`) is red on any implicit Docker Hub pull; a justified exception goes in `.github/docker-hub-allowlist.txt` with its reason. Production manifests (`infra/k8s/`) still pull from Docker Hub — a separate decision.
+
 ---
 
 ## Build Caching
