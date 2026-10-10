@@ -40,6 +40,7 @@ class ProjectionArchitectureTest extends TestCase
         'modules/finance/src/UseCase/ImportStatement.php',
         'modules/finance/src/UseCase/InstallStandardCategories.php',
         'modules/finance/src/UseCase/MergeDuplicateAccounts.php',
+        'modules/finance/src/UseCase/RepairAccountCurrencies.php',
         'modules/finance/src/UseCase/SuggestCategorizationRules.php',
         'modules/finance/src/UseCase/SyncBankAccounts.php',
     ];
