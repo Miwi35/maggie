@@ -110,7 +110,7 @@ class TestTheToolBlocksOfATurn:
             user_id="user-1", role="assistant", content="La voilà.", blocks=self._blocks()
         )
 
-        assert set(message.to_dict()) == {"id", "role", "content", "contextId", "createdAt"}
+        assert set(message.to_dict()) == {"id", "role", "content", "contextId", "createdAt", "interrupted"}
 
     async def test_the_published_payload_does_not_change_either(self, chat_db):
         """A phone parsing the Mercure echo must not meet a field it has never seen."""
