@@ -92,8 +92,8 @@ done
 
 printf '\n\033[1mA mobile finance screen plays the finance flows and the core, quarantine last\033[0m\n'
 select_files mobile/app/src/main/java/com/maggie/app/ui/screens/finance/BudgetScreen.kt
-[ "$(names mobile)" = "01-login-chat.yaml 05-deep-links.yaml 09-finance-banks.yaml 12-finance-rente.yaml" ] \
-  && ok "01, 05, 09 and 12-finance-rente" || bad "flows: $(names mobile)"
+[ "$(names mobile)" = "01-login-chat.yaml 05-deep-links.yaml 09-finance-banks.yaml 12-finance-rente.yaml 13-finance-category-edit.yaml" ] \
+  && ok "01, 05, 09, 12-finance-rente and 13-finance-category-edit" || bad "flows: $(names mobile)"
 [ "$(count web)" -eq 0 ] && ok "no web journey" || bad "web: $(names web)"
 lot_of_05="$(jq -r '.mobile_lots[] | select(.flows | contains("05-deep-links")) | .flows' <<<"$SEL")"
 [[ "$lot_of_05" == *"05-deep-links.yaml" ]] && ok "05-deep-links, in quarantine, ends its lot ($lot_of_05)" || bad "lot of 05: $lot_of_05"
