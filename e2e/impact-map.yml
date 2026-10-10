@@ -358,6 +358,8 @@ web:
     areas: [finance]
   e2e/web/tests/finance-annual-plan.spec.ts:
     areas: [finance, chat, dashboard]
+  e2e/web/tests/finance-category-chat.spec.ts:
+    areas: [finance, chat]
   e2e/web/tests/finance-bank.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-budget.spec.ts:
