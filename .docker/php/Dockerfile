@@ -134,6 +134,13 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN apk add --no-cache libfaketime \
     && ln -s "$(find /usr/lib -name 'libfaketime.so.1' | head -n 1)" /usr/local/lib/libfaketime.so.1
 
+# pcov, for the nightly's coverage per journey (spec « Sélection e2e par
+# couverture »). Built here and deliberately not enabled: its ini sits outside
+# conf.d, and only `E2E_COVERAGE=1` adds that directory to PHP_INI_SCAN_DIR
+# (docker-compose.e2e.yml). Without it the extension is never loaded.
+RUN pecl install pcov
+COPY --link .docker/php/coverage.d/pcov.ini $PHP_INI_DIR/coverage.d/pcov.ini
+
 USER app
 
 EXPOSE 9000

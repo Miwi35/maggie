@@ -181,7 +181,13 @@ services:
       # The whole point of a per-worktree stack: this is the branch's code,
       # not the main checkout the dev stack mounts.
       - ./api:/var/www/api:cached
-    environment: *php-environment
+    environment:
+      <<: *php-environment
+      # Coverage per journey, for the nightly only (spec « Sélection e2e par
+      # couverture »): E2E_COVERAGE=1 loads pcov (.docker/php/coverage.d) and
+      # turns on JourneyCoverageListener. Unset: pcov is not even loaded.
+      E2E_COVERAGE: ${E2E_COVERAGE:-}
+      PHP_INI_SCAN_DIR: /usr/local/etc/php/conf.d${E2E_COVERAGE:+:/usr/local/etc/php/coverage.d}
     depends_on:
       database:
         condition: service_healthy
@@ -542,14 +548,27 @@ services:
       # in the history because that thread's own messages were loaded. Raise it and the
       # journey still passes for the wrong reason.
       RECENT_HISTORY_MESSAGES: "2"
+      # Coverage per journey, for the nightly only (spec « Sélection e2e par
+      # couverture »). Unset: the agent runs exactly as before.
+      E2E_COVERAGE: ${E2E_COVERAGE:-}
     command:
       - sh
       - -c
-      - >-
-        uv pip install --system -e '.[dev]' &&
-        exec env LD_PRELOAD="$$E2E_AGENT_LD_PRELOAD" FAKETIME="$$E2E_AGENT_FAKETIME"
-        FAKETIME_DONT_FAKE_MONOTONIC=1 FAKETIME_NO_CACHE=1
-        uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+      - |
+        set -e
+        uv pip install --system -e '.[dev]'
+        # E2E_COVERAGE=1: under coverage.py, one context per journey
+        # (agent/app/e2e_coverage), and without --reload, whose worker process
+        # coverage would not follow. `task e2e:coverage:collect` reads the data.
+        if [ "$$E2E_COVERAGE" = 1 ]; then
+          mkdir -p .e2e-coverage
+          set -- env COVERAGE_CORE=ctrace python -m coverage run --rcfile=app/e2e_coverage/coveragerc \
+            -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+        else
+          set -- uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+        fi
+        exec env LD_PRELOAD="$$E2E_AGENT_LD_PRELOAD" FAKETIME="$$E2E_AGENT_FAKETIME" \
+          FAKETIME_DONT_FAKE_MONOTONIC=1 FAKETIME_NO_CACHE=1 "$$@"
     depends_on:
       database:
         condition: service_healthy

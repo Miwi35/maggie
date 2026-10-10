@@ -68,6 +68,10 @@ when@test:
 # The only place the e2e-only services exist. Everything under src/E2e/ is
 # excluded above; this block is the single reason any of it is ever built.
 when@e2e:
+    parameters:
+        # Coverage per journey, nightly only (E2E_COVERAGE=1, JourneyCoverageListener).
+        env(E2E_COVERAGE): ''
+
     services:
         _defaults:
             autowire: true
@@ -77,6 +81,8 @@ when@e2e:
                 string $environment: '%kernel.environment%'
                 string $e2eLoginToken: '%env(E2E_LOGIN_TOKEN)%'
                 string $projectDir: '%kernel.project_dir%'
+                bool $coverageEnabled: '%env(bool:E2E_COVERAGE)%'
+                string $coverageDir: '%kernel.project_dir%/var/e2e/coverage'
 
         Maggie\Core\E2e\:
             resource: '../src/E2e/'
