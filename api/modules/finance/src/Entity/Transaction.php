@@ -48,7 +48,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 // handlers say so first (422) so this is never what the user meets.
 #[ORM\UniqueConstraint(name: 'uniq_transaction_recurring_occurrence', columns: ['recurring_operation_id', 'recurring_occurrence_on'])]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
-#[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
+#[ApiFilter(UlidRelationFilter::class, properties: ['account', 'category'])]
 // The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
 #[ApiFilter(SearchFilter::class, properties: ['transferKind' => 'exact'])]
 #[Indexed(index: 'transactions', module: 'finance')]

@@ -1,0 +1,16 @@
+# « Montre-moi mon dernier salaire » (MAG-364): the latest line of the Salaire
+# category, through `manage_transactions` `list` with `categoryId` and `limit: 1`.
+#
+# The category id differs on every run and the fake cannot read a tool result,
+# so the journey says it and the capture group carries it into the real call.
+name: last-salary
+description: Read the latest transaction of a category through MCP.
+
+match:
+  user_matches: "dernier salaire.*cat[ée]gorie ([0-9A-HJKMNP-TV-Z]{26})"
+
+turns:
+  - tools:
+      - name: manage_transactions
+        input: {action: list, categoryId: '\1', limit: 1}
+  - text: "Voici votre dernier salaire, avec sa contrepartie."

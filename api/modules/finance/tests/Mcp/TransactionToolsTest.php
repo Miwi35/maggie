@@ -905,4 +905,60 @@ class TransactionToolsTest extends KernelTestCase
             $this->listed($tool, accountId: (string) $this->getFixture('other_checking')->getId())['total'],
         );
     }
+
+    public function testListFiltersByCategoryAndTakesItsSubCategoriesAlong(): void
+    {
+        $this->loadFixtures('category_filter.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $salary = $this->listed($tool, categoryId: (string) $this->getFixture('salary_category')->getId());
+        self::assertSame(3, $salary['total']);
+        self::assertSame(
+            ['VIR SALAIRE SEPTEMBRE', 'VIR SALAIRE AOUT', 'VIR PRIME'],
+            array_column($salary['transactions'], 'label'),
+        );
+
+        $bonus = $this->listed($tool, categoryId: (string) $this->getFixture('bonus_category')->getId());
+        self::assertSame(['VIR PRIME'], array_column($bonus['transactions'], 'label'));
+
+        $food = $this->listed($tool, categoryId: (string) $this->getFixture('food_category')->getId());
+        self::assertSame(['Supermarché'], array_column($food['transactions'], 'label'));
+    }
+
+    public function testListByCategoryWithLimitOneReturnsTheMostRecent(): void
+    {
+        $this->loadFixtures('category_filter.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $latest = $this->listed($tool, limit: 1, categoryId: (string) $this->getFixture('salary_category')->getId());
+
+        self::assertSame(3, $latest['total']);
+        self::assertSame(['VIR SALAIRE SEPTEMBRE'], array_column($latest['transactions'], 'label'));
+    }
+
+    public function testListByCategoryCombinesWithTheOtherFilters(): void
+    {
+        $this->loadFixtures('category_filter.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $data = $this->listed($tool, categoryId: (string) $this->getFixture('salary_category')->getId(), fromDate: '2026-08-01', direction: 'income');
+
+        self::assertSame(2, $data['total']);
+    }
+
+    public function testListByAnUnknownOrForeignCategoryIsAnErrorNotAnEmptyList(): void
+    {
+        $this->loadFixtures('category_filter.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        foreach (['01ARZ3NDEKTSV4RRFFQ69G5FAV', 'not-a-ulid', (string) $this->getFixture('other_salary_category')->getId()] as $categoryId) {
+            $data = $this->listed($tool, categoryId: $categoryId);
+            self::assertArrayHasKey('error', $data, $categoryId);
+            self::assertArrayNotHasKey('transactions', $data, $categoryId);
+        }
+    }
 }
