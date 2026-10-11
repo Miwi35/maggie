@@ -73,6 +73,7 @@ for dir in "$RAW"/*/; do
   summary="$summary $(basename "$dir")=$n"
 done
 
+# collect.sh always writes under e2e/coverage/raw: keep E2E_COVERAGE_RAW there.
 count() { find "$RAW/$1" -name '*.json' -type f 2>/dev/null | wc -l; }
 if $server_expected && [ "$total" -gt 0 ]; then
   if [ "$(count api)" -eq 0 ]; then
