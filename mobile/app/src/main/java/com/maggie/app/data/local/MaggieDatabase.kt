@@ -20,7 +20,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // API and the builder falls back to a destructive migration, so a bump is all
     // a new column needs.
     // 9: an all-day event is a pair of dates, its instants null (MAG-382).
-    version = 9,
+    // 10: chat messages say whether a screenshot went with them (MAG-214).
+    version = 10,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -407,3 +407,4 @@ class TestStreamRoute:
         mock_msg_repo.create.assert_called_once()
         stored = mock_msg_repo.create.call_args.kwargs
         assert (stored["user_id"], stored["role"], stored["content"]) == ("test-user", "user", "Test message")
+        assert stored["has_image"] is False

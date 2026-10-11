@@ -50,7 +50,7 @@ class AssistLaunchCoordinatorTest {
         coordinator.onAssist("com.example.shop", "Boutique", null, listOf("Café"))
         assertTrue("the screenshot has not arrived yet", launches.isEmpty())
 
-        coordinator.onScreenshot(available = true)
+        coordinator.onScreenshot(kept = true)
         assertEquals(1, launches.size)
         assertTrue(launches.single().hasScreenshot)
     }
@@ -59,7 +59,7 @@ class AssistLaunchCoordinatorTest {
     fun `a refused screenshot ends the wait all the same`() {
         coordinator.onShow(withAssist = false, withScreenshot = true)
 
-        coordinator.onScreenshot(available = false)
+        coordinator.onScreenshot(kept = false)
 
         assertEquals(1, launches.size)
         assertFalse(launches.single().hasScreenshot)
@@ -68,7 +68,7 @@ class AssistLaunchCoordinatorTest {
     @Test
     fun `the timeout opens the overlay with whatever arrived`() {
         coordinator.onShow(withAssist = true, withScreenshot = true)
-        coordinator.onScreenshot(available = true)
+        coordinator.onScreenshot(kept = true)
 
         coordinator.onTimeout()
 
@@ -89,6 +89,16 @@ class AssistLaunchCoordinatorTest {
         assertNull(launches.single().appLabel)
     }
 
+    /** Nothing will send a screenshot taken after the launch: the session deletes it. */
+    @Test
+    fun `a screenshot arriving after the launch is refused, so its file can go`() {
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        assertFalse(coordinator.onScreenshot(kept = true))
+        assertFalse(launches.single().hasScreenshot)
+    }
+
     @Test
     fun `a second show does not open a second overlay`() {
         coordinator.onShow(withAssist = false, withScreenshot = false)
@@ -103,7 +113,7 @@ class AssistLaunchCoordinatorTest {
 
         coordinator.onAssist("com.example.shop", "Boutique", "https://boutique.example", listOf("Café"))
         coordinator.onAssist("com.example.other", "Autre", "https://autre.example", listOf("Autre chose"))
-        coordinator.onScreenshot(available = false)
+        coordinator.onScreenshot(kept = false)
 
         val screen = launches.single()
         assertEquals("com.example.shop", screen.appPackage)
@@ -131,7 +141,7 @@ class AssistLaunchCoordinatorTest {
         // either a stray delivery or one that arrived after a dismissal. Keeping
         // it would open the *next* invocation at once, with the wrong screen.
         coordinator.onAssist("com.example.shop", "Boutique", null, listOf("Café"))
-        coordinator.onScreenshot(available = true)
+        coordinator.onScreenshot(kept = true)
         coordinator.onTimeout()
         assertTrue(launches.isEmpty())
 
