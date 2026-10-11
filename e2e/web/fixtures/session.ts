@@ -54,6 +54,13 @@ export const INTERRUPTED_USER_EMAIL = 'e2e-interrupt@maggie.local'
  */
 export const STOCK_USER_EMAIL = 'e2e-stock@maggie.local'
 
+/**
+ * The fifth seeded account, for the approval cards journey (MAG-6): it talks to
+ * Maggie and answers a held deletion, which neither the owner's chat history nor
+ * the interruptions account can take.
+ */
+export const APPROVALS_USER_EMAIL = 'e2e-approvals@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

@@ -94,6 +94,17 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-stock-google-id'
         name: 'Camille Garde-Manger'
 
+    # The approval cards journey (MAG-6). It sends one message to Maggie and
+    # answers the held deletion, which adds to the chat history — on the owner's
+    # account that is a context and a thread `chat.spec.ts` expects to be the
+    # first of its run — and the approvals it leaves or raises are shown as
+    # cards (and interruptions) to every window of the user. So this account is
+    # for that journey alone, with an agenda of its own to delete an event from.
+    e2e_approvals_user:
+        email: 'e2e-approvals@maggie.local'
+        googleId: 'e2e-approvals-google-id'
+        name: 'Robin Validation'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -125,6 +136,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_stock_user_preference:
         user: '@e2e_stock_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_approvals_user_preference:
+        user: '@e2e_approvals_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

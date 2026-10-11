@@ -394,12 +394,52 @@ describe('useMaggieInterruption', () => {
       })
     })
 
-    test('interrupts over an open chat, which has no card for it', () => {
+    test('does not interrupt over an open chat: it has the card for it (MAG-6)', () => {
       const { result } = setup(true)
 
       stream().emit(approval())
 
-      expect(result.current.current?.source).toBe('approval')
+      expect(result.current.current).toBeNull()
+    })
+
+    test('a notification is not held back by an approval the open chat shows', () => {
+      const { result } = setup(true)
+
+      stream().emit(approval())
+      stream().emit(notification())
+
+      expect(result.current.current?.source).toBe('notification')
+    })
+
+    test('interrupts if the chat closes with the question still unanswered', () => {
+      const { result, rerender } = setup(true)
+      stream().emit(approval())
+
+      rerender({ chatOpen: false })
+
+      expect(result.current.current?.id).toBe('approval:a1')
+    })
+
+    test('the chat opening hides the one being asked, without answering it', () => {
+      const { result, rerender } = setup()
+      stream().emit(approval())
+      expect(result.current.current?.id).toBe('approval:a1')
+
+      rerender({ chatOpen: true })
+      expect(result.current.current).toBeNull()
+
+      rerender({ chatOpen: false })
+      expect(result.current.current?.id).toBe('approval:a1')
+    })
+
+    test('an approval answered in the chat does not interrupt when it closes', () => {
+      const { result, rerender } = setup(true)
+      stream().emit(approval())
+      stream().emit(approval({ status: 'approved' }))
+
+      rerender({ chatOpen: false })
+
+      expect(result.current.current).toBeNull()
     })
 
     test('an expired one stays quiet', () => {
