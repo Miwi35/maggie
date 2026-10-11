@@ -676,7 +676,7 @@ class ChatViewModelTest {
     fun `the screenshot is sent with the message as base64 JPEG`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+        every { repository.sendMessageStream(any(), any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
 
         viewModel.sendMessage("c'est quoi ce produit ?", "[Contexte de l'écran]", jpeg)
         advanceUntilIdle()
@@ -685,6 +685,7 @@ class ChatViewModelTest {
             repository.sendMessageStream(
                 "c'est quoi ce produit ?",
                 "[Contexte de l'écran]",
+                any(),
                 ChatImage("image/jpeg", java.util.Base64.getEncoder().encodeToString(jpeg)),
             )
         }
@@ -697,7 +698,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
         coEvery { repository.handleMercureMessage(any()) } returns Unit
         var pendingThumbnail: ByteArray? = null
-        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+        every { repository.sendMessageStream(any(), any(), any(), any()) } returns flow {
             val pending = viewModel.uiState.value.messages.last()
             pendingThumbnail = viewModel.uiState.value.thumbnails[pending.id]
             topic.tryEmit(
@@ -726,7 +727,7 @@ class ChatViewModelTest {
     fun `the fallback's stored question takes the thumbnail too`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any(), any(), any()) } returns flow { throw RuntimeException("Stream failed") }
+        every { repository.sendMessageStream(any(), any(), any(), any()) } returns flow { throw RuntimeException("Stream failed") }
         coEvery { repository.sendMessage(any(), any(), any()) } returns listOf(
             ChatMessage(id = "u-1", role = "user", content = "c'est quoi ?", hasImage = true),
             ChatMessage(id = "a-1", role = "assistant", content = "Une cafetière."),
@@ -756,12 +757,12 @@ class ChatViewModelTest {
     fun `a message without a screenshot sends no image`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-        every { repository.sendMessageStream(any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+        every { repository.sendMessageStream(any(), any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
 
         viewModel.sendMessage("bonjour")
         advanceUntilIdle()
 
-        verify { repository.sendMessageStream("bonjour", null, null) }
+        verify { repository.sendMessageStream("bonjour", null, any(), null) }
         assertFalse(viewModel.uiState.value.messages.last().hasImage)
         assertTrue(viewModel.uiState.value.thumbnails.isEmpty())
     }
@@ -1350,6 +1351,27 @@ class ChatViewModelTest {
         assertEquals(1, state.messages.count { it.content == "Quel temps demain ?" })
         assertEquals("Grand soleil.", state.messages.last().content)
         assertTrue(state.displayItems.none { it is ChatListItem.Failure })
+    }
+
+    @Test
+    fun `retry sends the screenshot again with the question it came with`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val images = mutableListOf<ChatImage?>()
+        var calls = 0
+        every { repository.sendMessageStream("c'est quoi ?", any(), any(), captureNullable(images)) } answers {
+            if (++calls == 1) flowOf(AgUiEvent.Error("HTTP 502")) else streamedAnswer("resp-1", "Une cafetière.")
+        }
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("c'est quoi ?", null, jpeg)
+        advanceUntilIdle()
+        viewModel.retry()
+        advanceUntilIdle()
+
+        val expected = ChatImage.jpeg(jpeg)
+        assertEquals(listOf(expected, expected), images)
     }
 
     @Test
