@@ -22,6 +22,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-category-edit.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 
