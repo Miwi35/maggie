@@ -83,9 +83,15 @@ Maggie\Finance\Entity\Account:
     currency: EUR
     user: '@filter_user'
 
+Maggie\Finance\Entity\Category:
+  filter_category:
+    name: Category A
+    user: '@filter_user'
+
 Maggie\Finance\Entity\Transaction:
   filter_transaction_a:
     account: '@filter_account'
+    category: '@filter_category'
     amountCents: -1000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-03-01"))>'

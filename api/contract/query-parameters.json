@@ -29,6 +29,7 @@
     },
     "/api/transactions": {
         "account": "mobile getTransactions, narrowing to one account",
+        "category": "mobile countTransactionsOfCategory, the weight of a deletion",
         "order[bookedAt]": "mobile getTransactions"
     },
     "/api/grocery_lists": {
