@@ -8,6 +8,8 @@ import com.maggie.app.data.repository.ApprovalRepository
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
@@ -21,6 +23,12 @@ class InterruptionFeed(
     private val approvals: ApprovalRepository,
     private val auth: AuthRepository,
 ) {
+
+    // The sign-in flow re-emits `true` on every token refresh: without the dedupe each refresh
+    // would cancel the feeds and resubscribe, dropping what Mercure publishes in the gap.
+    suspend fun runWhileSignedIn(signedIn: Flow<Boolean>) {
+        signedIn.distinctUntilChanged().collectLatest { if (it) run() }
+    }
 
     suspend fun run() {
         val userId = auth.getUserId() ?: return

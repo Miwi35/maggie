@@ -104,7 +104,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -344,7 +343,7 @@ class MaggieApp : Application() {
         }
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                auth.isAuthenticated.collectLatest { signedIn -> if (signedIn) feed.run() }
+                feed.runWhileSignedIn(auth.isAuthenticated)
             }
         }
     }

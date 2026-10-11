@@ -9,8 +9,10 @@ import com.maggie.app.data.repository.ApprovalRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -121,5 +123,35 @@ class InterruptionFeedTest {
         start()
 
         assertNull(center.current.value)
+    }
+
+    @Test
+    fun `a sign-in state repeated by a token refresh does not restart the subscriptions`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        val signedIn = MutableSharedFlow<Boolean>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            InterruptionFeed(center, mercure, approvals, auth).runWhileSignedIn(signedIn)
+        }
+
+        signedIn.emit(true)
+        signedIn.emit(true)
+        signedIn.emit(true)
+
+        verify(exactly = 1) { mercure.subscribe(MercureTopics.userScoped("u-1", MercureTopics.NOTIFICATIONS)) }
+        notifications.emit(notification("n-1"))
+        assertEquals("n-1", center.current.value?.notificationId)
+    }
+
+    @Test
+    fun `signing out stops the feeds and signing in again restarts them`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        val signedIn = MutableStateFlow(true)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            InterruptionFeed(center, mercure, approvals, auth).runWhileSignedIn(signedIn)
+        }
+        signedIn.value = false
+        signedIn.value = true
+
+        verify(exactly = 2) { mercure.subscribe(MercureTopics.userScoped("u-1", MercureTopics.NOTIFICATIONS)) }
     }
 }
