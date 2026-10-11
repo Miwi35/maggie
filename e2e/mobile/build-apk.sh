@@ -13,6 +13,9 @@
 # The APK is built against a fixed port on the device's loopback, which `adb
 # reverse` bridges onto the stack (see run.sh): the same file works against any
 # stack, on any emulator.
+#
+# E2E_COVERAGE=1 (the nightly) builds it JaCoCo-instrumented and leaves the classes
+# the counts are read against in e2e/mobile/apk/classes (scripts/e2e/coverage/README.md).
 
 set -euo pipefail
 
@@ -36,6 +39,10 @@ gradle_args=(
   "-PE2E_LOGIN_TOKEN=$LOGIN_TOKEN"
   "-PE2E_LOGIN_EMAIL=$SEED_EMAIL"
 )
+# The nightly's coverage (scripts/e2e/coverage/README.md): JaCoCo-instrumented classes,
+# its runtime in the APK. Every other build is the plain one.
+COVERAGE="${E2E_COVERAGE:-}"
+[ "$COVERAGE" != 1 ] || gradle_args+=("-Pe2eCoverage=true")
 # `mobile/gradle.properties` pins `org.gradle.java.home` to the JDK bundled with
 # the owner's Android Studio. That path does not exist on a CI runner, so the
 # build dies before it starts — override it there, and only there, with whatever
@@ -55,3 +62,20 @@ built="$(find "$REPO_ROOT/mobile/app/build/outputs/apk/e2e/debug" -name '*.apk' 
 mkdir -p "$APK_DIR"
 cp "$built" "$APK_DIR/maggie-e2e.apk"
 echo "APK: ${APK_DIR#"$REPO_ROOT"/}/maggie-e2e.apk"
+
+# The classes JaCoCo reads the counts against, as this very build compiled them —
+# before instrumentation: it matches them by checksum. Next to the APK, so whatever
+# carries the APK to the emulator's job carries them too (scripts/e2e/coverage/mobile.sh).
+rm -rf "$APK_DIR/classes"
+if [ "$COVERAGE" = 1 ]; then
+  mkdir -p "$APK_DIR/classes"
+  build_dir="$REPO_ROOT/mobile/app/build"
+  copied=0
+  for classes in "$build_dir/tmp/kotlin-classes/e2eDebug" "$build_dir"/intermediates/javac/e2eDebug/*/classes; do
+    [ -d "$classes" ] || continue
+    cp -R "$classes/." "$APK_DIR/classes/"
+    copied=1
+  done
+  [ "$copied" = 1 ] || { echo "No e2eDebug classes under mobile/app/build after assembleE2eDebug: the coverage could not be read." >&2; exit 1; }
+  echo "Classes for the coverage: ${APK_DIR#"$REPO_ROOT"/}/classes"
+fi

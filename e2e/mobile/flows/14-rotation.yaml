@@ -18,6 +18,8 @@ onFlowComplete:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/14-rotation.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 

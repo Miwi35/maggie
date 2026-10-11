@@ -14,9 +14,10 @@
 #      there). It restarts the agent, so it must run in the job that started
 #      the stack, with the same Compose variables (E2E_IMAGE_*, E2E_NOW →
 #      E2E_FAKETIME): ci.yml keeps them in $GITHUB_ENV;
-#   2. every executable `scripts/e2e/coverage/collect.d/*.sh`, in name order —
-#      a converter that needs nothing of the stack (the mobile JaCoCo data, say).
-# Playwright writes the admin's raw files itself, during the journeys.
+#   2. every executable `scripts/e2e/coverage/collect.d/*.sh`, in name order,
+#      given the lot's name — what needs nothing of the stack: `40-admin.sh`
+#      checks the raw files Playwright wrote itself (global-teardown.ts), and
+#      `50-mobile.sh` turns the app's JaCoCo data into raw files.
 #
 # A lot whose hooks all succeeded and that left raw files is marked
 # complete: e2e/coverage/raw/_lots/<lot>.ok. The nightly builds no map unless
@@ -44,7 +45,7 @@ fi
 if [ -d "$HOOKS" ]; then
   for hook in "$HOOKS"/*.sh; do
     [ -x "$hook" ] || continue
-    "$hook" || { failed=$((failed + 1)); echo "::warning::coverage of $lot: $(basename "$hook") failed"; }
+    "$hook" "$lot" || { failed=$((failed + 1)); echo "::warning::coverage of $lot: $(basename "$hook") failed"; }
   done
 fi
 

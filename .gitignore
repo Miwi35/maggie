@@ -139,13 +139,18 @@ e2e/web/test-results/
 e2e/web/results/
 # The verdicts of the e2e lots (scripts/e2e/verdict.sh), uploaded by CI.
 e2e/verdicts/
-# The nightly's raw coverage per journey and the line map built from it
-# (scripts/e2e/coverage/), uploaded by CI, never committed.
-e2e/coverage/raw/
+# The nightly's per-journey coverage and the line map built from it
+# (scripts/e2e/coverage/README.md), uploaded by CI, never committed.
+e2e/coverage/
 e2e-coverage-map.json
 # The Maestro harness (MAG-98): the JUnit report and the screenshots of a failed
 # flow. CI uploads them too; the CLI itself lives under .e2e-cache/ below.
 e2e/mobile/report/
+# Coverage per journey (nightly, E2E_COVERAGE=1): what the agent's coverage.py
+# writes under its mounted directory, and the raw files `task
+# e2e:coverage:collect` makes of it — a nightly artifact, never committed.
+agent/.e2e-coverage/
+e2e/coverage/raw/
 
 # E2E stack caches (MAG-135)
 .e2e-cache/

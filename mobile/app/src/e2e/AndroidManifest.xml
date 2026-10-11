@@ -15,5 +15,24 @@
                 <data android:scheme="maggie-e2e-assist" />
             </intent-filter>
         </activity>
+
+        <!--
+            « Sélection e2e par couverture »: reads the flow's journey id off every launch
+            (`launchApp.arguments.e2e_journey`) so each request carries X-E2E-Journey. A
+            provider because it is created before the Application: no shared code calls it.
+        -->
+        <provider
+            android:name=".e2e.E2eHooks"
+            android:authorities="${applicationId}.e2e-hooks"
+            android:exported="false" />
+
+        <!--
+            The nightly's coverage: `run.sh` asks for the JaCoCo counts after each flow
+            (`am broadcast -n …/com.maggie.app.e2e.CoverageDumpReceiver`). Exported because
+            the shell sends it; it only writes into the app's own files.
+        -->
+        <receiver
+            android:name=".e2e.CoverageDumpReceiver"
+            android:exported="true" />
     </application>
 </manifest>

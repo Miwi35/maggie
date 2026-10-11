@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.installApiTimeouts
+import com.maggie.app.data.api.installJourneyHeader
 import com.maggie.app.data.auth.AuthManager
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
@@ -164,6 +165,9 @@ class MaggieApp : Application() {
                 val apiHost = Url(BuildConfig.API_BASE_URL).host
                 HttpClient(OkHttp) {
                     installApiTimeouts()
+                    // `X-E2E-Journey` on every request of the e2e flavor; nothing in dev
+                    // and prod (src/e2e/ and src/google/ data/api/JourneyHeader.kt).
+                    installJourneyHeader()
                     install(ContentNegotiation) {
                         json(Json {
                             ignoreUnknownKeys = true

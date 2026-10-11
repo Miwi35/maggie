@@ -594,6 +594,13 @@ jobs:
         with:
           lfs: true
 
+      # Nothing a previous run recorded may be counted as this lot's: the admin
+      # fold merges into a raw file already there, and the API and agent data
+      # live in bind mounts that outlive a stack.
+      - name: Start the coverage from nothing
+        if: env.E2E_COVERAGE == '1'
+        run: rm -rf e2e/coverage agent/.e2e-coverage api/var/e2e/coverage
+
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
@@ -615,9 +622,12 @@ jobs:
           # start-up). Keyed on its sources, listed one by one: an `admin/**` glob
           # walks node_modules, 5 s at restore and again at save. Bump v1 if the
           # build env in the Compose file changes. A PR that does not touch the
-          # admin restores main's.
+          # admin restores main's. The nightly's coverage builds it with source
+          # maps (E2E_COVERAGE=1, admin/vite.config.ts): a key of its own, so a
+          # pull request never restores that bundle nor the nightly a bundle
+          # without them, which the stack would build again.
           path: admin/dist
-          key: e2e-admin-dist-v1-${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
+          key: e2e-admin-dist-v1-${{ inputs.coverage && 'maps-' || '' }}${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
 
       - name: Skip the admin build when its bundle was restored
         if: steps.admin-dist.outputs.cache-hit == 'true'
@@ -926,6 +936,19 @@ jobs:
           # A re-run of all jobs is a new attempt of the same run: the name exists.
           overwrite: true
 
+      # The classes the instrumented APK was compiled from, which the phone's lots
+      # read their JaCoCo counts against (scripts/e2e/coverage/collect.d/50-mobile.sh).
+      # Their own artifact, the nightly only: a pull request's APK job is untouched.
+      - name: APK classes
+        if: inputs.coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: maggie-e2e-apk-classes
+          path: e2e/mobile/apk/classes
+          retention-days: 1
+          if-no-files-found: error
+          overwrite: true
+
   # The e2e flavor's unit tests, beside the shards rather than before them:
   # the `mobile-unit` job runs the prod variant, where `src/e2e/` does not exist, so
   # `E2eSignInTest` only ever runs here. Cheap, and it is the test that says the
@@ -1036,6 +1059,13 @@ jobs:
         with:
           lfs: true
 
+      # Nothing a previous run recorded may be counted as this lot's: the admin
+      # fold merges into a raw file already there, and the API and agent data
+      # live in bind mounts that outlive a stack.
+      - name: Start the coverage from nothing
+        if: env.E2E_COVERAGE == '1'
+        run: rm -rf e2e/coverage agent/.e2e-coverage api/var/e2e/coverage
+
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
@@ -1067,7 +1097,7 @@ jobs:
           # file changes); a PR that does not
           # touch the admin restores main's.
           path: admin/dist
-          key: e2e-admin-dist-v1-${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
+          key: e2e-admin-dist-v1-${{ (inputs.coverage && matrix.device.name == 'phone') && 'maps-' || '' }}${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
 
       - name: Skip the admin build when its bundle was restored
         if: steps.admin-dist.outputs.cache-hit == 'true'
@@ -1141,6 +1171,14 @@ jobs:
         with:
           name: maggie-e2e-apk
           path: e2e/mobile/apk
+
+      # Where the coverage hook looks for them (scripts/e2e/coverage/collect.d/50-mobile.sh).
+      - name: Download the APK's classes
+        if: env.E2E_COVERAGE == '1'
+        uses: actions/download-artifact@v4
+        with:
+          name: maggie-e2e-apk-classes
+          path: e2e/mobile/apk/classes
 
       # The booted emulator, saved as a snapshot (MAG-233): a cold boot is a minute
       # on a runner, a snapshot load a few seconds. One per device profile; the
@@ -1550,7 +1588,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh \
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh scripts/e2e/coverage/collect.d/*.sh \
             e2e/*.sh e2e/mobile/*.sh
       # Every journey of e2e/ is in e2e/impact-map.yml, and the map is sound: a
       # journey forgotten there would only ever play on the nightly run.

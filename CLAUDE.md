@@ -128,7 +128,7 @@ Symfony console: `task api:console -- <args>`.
 | `task wt:lint:admin`, `task wt:test:admin` | ESLint + tsc, Vitest |
 | `task wt:lint:agent`, `task wt:test:agent` | Ruff, pytest |
 | `task wt:lint:ciqual`, `task wt:test:ciqual` | Ruff, pytest |
-| `task wt:test:mobile -- --tests …` | the mobile JVM unit tests (`testProdDebugUnitTest`), one Gradle build at a time on the machine (a lock; the second waits), bounded warm daemons, shared build cache; a fresh worktree is seeded from the warmest checkout |
+| `task wt:test:mobile -- --tests …` | the mobile JVM unit tests (`testProdDebugUnitTest`; `WT_MOBILE_VARIANT=e2e` for the e2e flavor's `src/testE2e/`), one Gradle build at a time on the machine (a lock; the second waits), bounded warm daemons, shared build cache; a fresh worktree is seeded from the warmest checkout |
 
 **Mobile, locally: `task wt:test:mobile -- --tests …` and nothing else** (8 Oct.: parallel Gradle builds and their daemons got Cyrus killed by `systemd-oomd` eight times in a day). Never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator — except `task e2e:mobile` to write or debug a journey. CI builds the APK, lints and runs the journeys on every PR.
 
