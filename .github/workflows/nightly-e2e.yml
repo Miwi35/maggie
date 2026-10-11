@@ -12,8 +12,8 @@ name: Nightly e2e
 #
 # `report` then reads the verdict of every lot and says, for a red journey, its
 # area in the map and the last commit that touched that area. A red night opens
-# an issue labelled `nightly-e2e-failure`, or comments on the one already open —
-# GitHub notifies the owner, as `nightly.yml` does for the rest of the CI. A
+# a Linear `Bug` labelled `nightly-e2e-failure`, or comments on the one already
+# open (`infra/scripts/alert-ticket.sh`, as `nightly.yml` does for the rest of the CI). A
 # green night writes its summary and nothing else.
 #
 # The journeys run with coverage (`coverage: true`, spec « Sélection e2e par
@@ -93,10 +93,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-      issues: write
     env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       E2E_RESULT: ${{ needs.e2e.result }}
     steps:
@@ -119,17 +116,16 @@ jobs:
           cat report.md >> "$GITHUB_STEP_SUMMARY"
           echo "red=$([ "$status" -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
 
-      - name: Open or update the nightly e2e issue
+      - name: Open or update the nightly e2e ticket
         if: steps.report.outputs.red == 'true'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          ALERT_LABEL: nightly-e2e-failure
+          ALERT_TITLE: "Nightly : les parcours e2e de nuit ont échoué"
         run: |
-          gh label create nightly-e2e-failure --color B60205 --description "The nightly e2e suite failed" 2>/dev/null || true
-          { cat report.md; printf '\nRun: %s\n' "$RUN_URL"; } > body.md
-          open="$(gh issue list --label nightly-e2e-failure --state open --json number --jq '.[0].number // empty')"
-          if [ -n "$open" ]; then
-            gh issue comment "$open" --body-file body.md
-          else
-            gh issue create --label nightly-e2e-failure --title "Nightly e2e failed" --body-file body.md
-          fi
+          ALERT_BODY="$({ cat report.md; printf '\nRun: %s\n' "$RUN_URL"; })"
+          export ALERT_BODY
+          bash infra/scripts/alert-ticket.sh
 
       - name: Red
         if: steps.report.outputs.red == 'true'

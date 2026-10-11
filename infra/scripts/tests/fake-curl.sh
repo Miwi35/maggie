@@ -3,6 +3,7 @@
 # Authorization header and the JSON body of every request to $FAKE_CURL_DIR, and
 # answers from the same directory depending on the GraphQL operation:
 #   issueCreate           create-response
+#   issueLabelCreate      label-create-response (success when absent)
 #   issueUpdate           update-response    (success when absent)
 #   commentCreate         comment-response   (success when absent)
 #   issueRelationCreate   relation-response  (success when absent)
@@ -31,6 +32,7 @@ answer() { if [ -f "$dir/$1" ]; then cat "$dir/$1"; else printf '%s' "$2"; fi; }
 query=$(jq -r .query <<<"$body")
 case "$query" in
   *issueCreate*) cat "$dir/create-response" ;;
+  *issueLabelCreate*) answer label-create-response '{"data":{"issueLabelCreate":{"success":true,"issueLabel":{"id":"label-new"}}}}' ;;
   *issueUpdate*) answer update-response '{"data":{"issueUpdate":{"success":true}}}' ;;
   *commentCreate*) answer comment-response '{"data":{"commentCreate":{"success":true}}}' ;;
   *issueRelationCreate*) answer relation-response '{"data":{"issueRelationCreate":{"success":true}}}' ;;
