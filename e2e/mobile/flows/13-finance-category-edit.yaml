@@ -57,7 +57,9 @@ tags:
 
 # Stopped, then started on the stored session: the list is read from the server again.
 - stopApp
-- launchApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-category-edit.yaml
 # The link waits for the session to be restored: opened on a cold start it is lost to
 # the dashboard (the failed run of 8 Oct. ended there).
 - extendedWaitUntil:
