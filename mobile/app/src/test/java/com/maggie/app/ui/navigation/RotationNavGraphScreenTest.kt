@@ -87,7 +87,10 @@ class RotationNavGraphScreenTest {
             every { uiState } returns state(ChatUiState())
             every { contextUpdates } returns MutableSharedFlow()
         }
-        val ctx = mockk<ContextViewModel>(relaxed = true) { every { uiState } returns state(ContextUiState()) }
+        val ctx = mockk<ContextViewModel>(relaxed = true) {
+            every { uiState } returns state(ContextUiState())
+            every { threadEvents } returns MutableSharedFlow()
+        }
         val dash = mockk<DashboardViewModel>(relaxed = true) { every { uiState } returns state(DashboardUiState()) }
         val cal = mockk<FullCalendarViewModel>(relaxed = true) { every { uiState } returns state(FullCalendarUiState()) }
         val notif = mockk<NotificationViewModel>(relaxed = true) { every { uiState } returns state(NotificationUiState()) }
