@@ -256,6 +256,8 @@ jq -e --arg f "$API_SERVICE" '.files[$f] == [[100,100,"15"],[101,110,"5"],[200,2
   && ok "consecutive lines with the same journeys are one range, a bitmask in hex" || bad "ranges: $(jq -c --arg f "$API_SERVICE" '.files[$f]' "$work/map.json")"
 jq -e --arg f "$FINANCE_PHP" '.files[$f] == [[10,12,"a"]]' "$work/map.json" >/dev/null \
   && ok "one path from two components, ./ dropped, merged" || bad "finance: $(jq -c --arg f "$FINANCE_PHP" '.files[$f]' "$work/map.json")"
+grep -q '3 files (api=1 agent=0 admin=1 mobile=1)' "$work/build.out" \
+  && ok "the files per component, a missing one at 0" || bad "components: $(cat "$work/build.out")"
 mkdir -p "$raw/_lots"
 : >"$raw/_lots/web-1.ok"
 "$BUILD_MAP" --raw "$raw" --out "$work/partial.json" --expect web-1 mobile-phone-1 >/dev/null 2>"$work/build.err"
@@ -291,6 +293,8 @@ STATUS=$?
 
 printf '\n\033[1mThe collection hook\033[0m\n'
 COLLECT="$REPO/scripts/e2e/coverage/collect-lot.sh"
+# The cases below are a run without coverage; E2E_COVERAGE=1 has its own.
+unset E2E_COVERAGE
 croot="$work/collect"
 mkdir -p "$croot/raw/api" "$croot/hooks"
 printf '{"journey":"j","files":{}}' >"$croot/raw/api/j.json"
@@ -313,6 +317,47 @@ printf '#!/bin/sh\necho "$1" >"%s/hook-arg"\n' "$croot" >"$croot/hooks/30-arg.sh
 chmod +x "$croot/hooks/30-arg.sh"
 E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" mobile-phone-2 >/dev/null 2>&1
 [ "$(cat "$croot/hook-arg" 2>/dev/null)" = mobile-phone-2 ] && ok "a hook is given the lot's name" || bad "hook argument: $(cat "$croot/hook-arg" 2>/dev/null)"
+
+printf '\n\033[1mThe servers'"'"' coverage, under E2E_COVERAGE=1\033[0m\n'
+# A stand-in for Task: lists the collection the way v3.54 does under CI=true (in
+# colour — what the night of 11 Oct. missed), answers --summary, and on
+# `e2e:coverage:collect` writes the server raw files FAKE_TASK_WRITES names.
+sroot="$work/server"
+mkdir -p "$sroot/bin" "$sroot/hooks"
+cat >"$sroot/bin/task" <<'SH'
+#!/bin/sh
+case "$1" in
+  --list-all) printf '\033[33m* \033[0m\033[32me2e:coverage:collect\033[0m\033[0m:  Write the coverage\n' ;;
+  --summary) [ "$2" = e2e:coverage:collect ] ;;
+  e2e:coverage:collect)
+    echo called >>"$E2E_ROOT/task-calls"
+    for c in $FAKE_TASK_WRITES; do
+      mkdir -p "$E2E_COVERAGE_RAW/$c" && printf '{"journey":"j","files":{}}' >"$E2E_COVERAGE_RAW/$c/j.json"
+    done ;;
+  *) exit 2 ;;
+esac
+SH
+chmod +x "$sroot/bin/task"
+# server_lot <lot> <components the task writes> [PATH]: one lot with an admin raw file already there.
+server_lot() {
+  rm -rf "$sroot/raw" "$sroot/task-calls"
+  mkdir -p "$sroot/raw/admin" && printf '{"journey":"j","files":{}}' >"$sroot/raw/admin/j.json"
+  out="$(E2E_COVERAGE=1 FAKE_TASK_WRITES="$2" E2E_ROOT="$sroot" E2E_COVERAGE_RAW="$sroot/raw" E2E_COVERAGE_HOOKS="$sroot/hooks" \
+    PATH="${3:-$sroot/bin:/usr/bin:/bin}" "$COLLECT" "$1" 2>&1)"
+  STATUS=$?
+}
+server_lot web-1 'api agent'
+[ "$STATUS" -eq 0 ] && [ -s "$sroot/task-calls" ] && [ -f "$sroot/raw/_lots/web-1.ok" ] && grep -q 'api=1' <<<"$out" \
+  && ok "a coloured task listing: the collection still runs, api and agent raw files, marked complete" || bad "collect not run or no mark: exit $STATUS — $out"
+server_lot web-2 'agent'
+[ "$STATUS" -eq 0 ] && [ ! -e "$sroot/raw/_lots/web-2.ok" ] && grep -q 'no API raw file' <<<"$out" \
+  && ok "no API raw file: exit 0, a warning, no mark — never a client-only map" || bad "no api: exit $STATUS — $out"
+server_lot mobile-phone-3 'api'
+[ -f "$sroot/raw/_lots/mobile-phone-3.ok" ] && grep -q 'no agent raw file' <<<"$out" \
+  && ok "no agent raw file: said, the lot still complete" || bad "no agent: $out"
+server_lot web-3 'api agent' /usr/bin:/bin
+[ "$STATUS" -eq 0 ] && [ ! -e "$sroot/raw/_lots/web-3.ok" ] && grep -q 'no task e2e:coverage:collect' <<<"$out" \
+  && ok "no task to collect with: exit 0, a warning, no mark" || bad "no task: exit $STATUS — $out"
 
 printf '\n\033[1mThe admin and mobile hooks\033[0m\n'
 ADMIN_HOOK="$REPO/scripts/e2e/coverage/collect.d/40-admin.sh"

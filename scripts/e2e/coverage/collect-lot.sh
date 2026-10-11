@@ -19,6 +19,12 @@
 #      checks the raw files Playwright wrote itself (global-teardown.ts), and
 #      `50-mobile.sh` turns the app's JaCoCo data into raw files.
 #
+# Under E2E_COVERAGE=1 the servers' coverage is expected: a task that cannot be
+# found, or a lot that left no API raw file (every journey goes through the
+# API), makes the lot incomplete instead of quietly giving a client-only map.
+# The agent is not required per lot — a lot of two flows may never reach it —
+# but its absence is said.
+#
 # A lot whose hooks all succeeded and that left raw files is marked
 # complete: e2e/coverage/raw/_lots/<lot>.ok. The nightly builds no map unless
 # every lot it played is (`build-map.py --expect`): a lot missing would leave
@@ -37,9 +43,17 @@ lot="${1:-unnamed}"
 
 cd "$ROOT" || exit 0
 
+server_expected=false
+[ "${E2E_COVERAGE:-}" = 1 ] && server_expected=true
+
 failed=0
-if command -v task >/dev/null 2>&1 && task --list-all 2>/dev/null | grep -qE '^\* e2e:coverage:collect(:|[[:space:]]|$)'; then
+# `--summary`'s exit status, not a grep of `--list-all`: under CI=true Task
+# colours that listing (v3.54), and the grep missed it every night.
+if command -v task >/dev/null 2>&1 && task --summary e2e:coverage:collect >/dev/null 2>&1; then
   task e2e:coverage:collect || { failed=$((failed + 1)); echo "::warning::coverage of $lot: task e2e:coverage:collect failed"; }
+elif $server_expected; then
+  failed=$((failed + 1))
+  echo "::warning::coverage of $lot: E2E_COVERAGE=1 but no task e2e:coverage:collect to run — no API nor agent coverage"
 fi
 
 if [ -d "$HOOKS" ]; then
@@ -58,6 +72,16 @@ for dir in "$RAW"/*/; do
   total=$((total + n))
   summary="$summary $(basename "$dir")=$n"
 done
+
+# collect.sh always writes under e2e/coverage/raw: keep E2E_COVERAGE_RAW there.
+count() { find "$RAW/$1" -name '*.json' -type f 2>/dev/null | wc -l; }
+if $server_expected && [ "$total" -gt 0 ]; then
+  if [ "$(count api)" -eq 0 ]; then
+    failed=$((failed + 1))
+    echo "::warning::coverage of $lot: no API raw file — did the stack start with E2E_COVERAGE=1, and the requests carry X-E2E-Journey?"
+  fi
+  [ "$(count agent)" -gt 0 ] || echo "coverage of $lot: no agent raw file (no journey of this lot reached the agent?)"
+fi
 
 if [ "$total" -eq 0 ]; then
   echo "::warning::coverage of $lot: no raw file under ${RAW#"$ROOT"/}"

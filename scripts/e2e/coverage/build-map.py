@@ -84,6 +84,17 @@ def read_raw(raw_dir):
     return lines_by_journey
 
 
+def components(files):
+    """`api=12 agent=3 admin=173 mobile=185`: the map's files per top directory."""
+    counts = {}
+    for path in files:
+        top = path.split("/", 1)[0]
+        counts[top] = counts.get(top, 0) + 1
+    order = ["api", "agent", "admin", "mobile"]
+    names = order + sorted(set(counts) - set(order))
+    return " ".join(f"{name}={counts.get(name, 0)}" for name in names)
+
+
 def build(lines_by_journey, commit, generated_at):
     journeys = sorted(lines_by_journey)
     masks = {}  # path -> {line: mask}
@@ -161,7 +172,8 @@ def main():
         handle.write("\n")
     ranges = sum(len(r) for r in coverage_map["files"].values())
     print(
-        f"{args.out}: {len(coverage_map['journeys'])} journeys, {len(coverage_map['files'])} files, "
+        f"{args.out}: {len(coverage_map['journeys'])} journeys, {len(coverage_map['files'])} files "
+        f"({components(coverage_map['files'])}), "
         f"{ranges} ranges, {os.path.getsize(args.out) // 1024} KB, commit {commit[:12]}"
     )
     return 0

@@ -191,4 +191,10 @@ No emulator ran here, so the nightly proves the Android half:
 | `E2E Mobile journeys` phone lot *n* | the same for the stack, `run.sh` one flow at a time, the classes downloaded beside the APK; `collect-lot.sh mobile-phone-<n>` (`task e2e:coverage:collect`, `50-mobile.sh`); artifact `e2e-coverage-raw-mobile-phone-<n>` (`api/`, `agent/`, `mobile/`, `_lots/…`). Foldable and tablet: no coverage |
 | `E2E line map` | every `e2e-coverage-raw-*` in a directory of its own under `e2e/coverage/lots/`, then `build-map.py --expect web-1… mobile-phone-1…` (the lots `impacted.sh select --all` plays): raw files are unioned by their `journey`, so a spec two shards split counts once with the lines of both |
 
+A lot is marked complete (`_lots/<lot>.ok`) only when every hook succeeded and, under
+`E2E_COVERAGE=1`, `task e2e:coverage:collect` ran and left API raw files: a server side that
+records nothing means no map that night, never a client-only one. The agent may be absent from a
+lot (`no agent raw file`, a log line). `build-map.py` prints the map's files per component
+(`api=… agent=… admin=… mobile=…`).
+
 PR runs set none of this: no `E2E_COVERAGE`, the plain APK, no coverage artifact.
