@@ -6,7 +6,7 @@ import { AdminShell } from '../pages/AdminShell.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
-import { ROUTES } from '../pages/routes.js'
+import { ROUTES, accountTransactionsRoute } from '../pages/routes.js'
 
 /**
  * The admin, drawn for the window it is in (MAG-38).
@@ -318,13 +318,71 @@ test.describe('Responsive @responsive', () => {
       const title = page.locator('#react-admin-title')
       await expect(title).toHaveText('Courses')
       const room = await title.evaluate((node) => {
+        // The title's inner box is a block as wide as its slot: measure the text itself.
         const text = document.createRange()
-        text.selectNodeContents(node)
+        text.selectNode(document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode()!)
         return node.clientWidth - text.getBoundingClientRect().width
       })
       expect(room, 'the page title has no room to spare in the app bar').toBeGreaterThanOrEqual(20)
     } finally {
       await grocery.deleteLine(label)
+    }
+  })
+
+  test('a long page title ends in an ellipsis inside the bar, never on a half glyph — MAG-387', async ({
+    otherUser,
+  }) => {
+    // The recette refused the first fix: « Transactions — <long name> » still ran
+    // under the search icon, clipped mid-glyph, because react-admin boxes a title
+    // in an inline-block that is cut but never ellipsised. Written as the
+    // neighbour: the account is the second user's and goes with its owner.
+    const { api, page } = otherUser
+    const account = await api.post('/api/accounts', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: {
+        name: 'Compte courant avec un nom vraiment très long pour la barre MAG-387',
+        type: 'checking',
+        currency: 'EUR',
+        balanceCents: 0,
+      },
+    })
+    expect(account.status(), await account.text()).toBe(201)
+    const accountId = ((await account.json()) as { id: string }).id
+
+    try {
+      await new AdminShell(page).goto(accountTransactionsRoute(accountId))
+
+      const title = page.locator('#react-admin-title')
+      await expect(title).toContainText('Transactions — Compte courant avec un nom')
+
+      const box = await title.evaluate((node) => {
+        const bar = node.getBoundingClientRect()
+        const inner = node.firstElementChild!.getBoundingClientRect()
+        const innerStyle = getComputedStyle(node.firstElementChild!)
+        const toolbarStart = Math.min(
+          ...Array.from(node.parentElement!.children)
+            .map((child) => child.getBoundingClientRect().left)
+            .filter((left) => left > bar.left),
+        )
+        return {
+          barRight: bar.right,
+          innerRight: inner.right,
+          toolbarStart,
+          display: innerStyle.display,
+          textOverflow: innerStyle.textOverflow,
+          clipped: node.firstElementChild!.scrollWidth > node.firstElementChild!.clientWidth,
+        }
+      })
+
+      expect(box.display, 'the title sits in a box that cannot ellipsise').not.toBe('inline-block')
+      expect(box.textOverflow).toBe('ellipsis')
+      expect(box.innerRight, 'the title runs out of its slot').toBeLessThanOrEqual(box.barRight + 1)
+      expect(box.barRight, 'the title runs under the app bar controls').toBeLessThanOrEqual(box.toolbarStart + 1)
+      if (shapeOf(page).compact) {
+        expect(box.clipped, 'a long title on a phone should be cut by an ellipsis').toBe(true)
+      }
+    } finally {
+      await api.delete(`/api/accounts/${accountId}`)
     }
   })
 
