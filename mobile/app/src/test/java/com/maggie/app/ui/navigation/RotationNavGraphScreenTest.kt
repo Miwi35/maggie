@@ -32,6 +32,8 @@ import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryUiState
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekUiState
+import com.maggie.app.ui.screens.cookbook.meals.MealCreateUiState
+import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailUiState
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
@@ -101,6 +103,7 @@ class RotationNavGraphScreenTest {
             every { uiState } returns state(RecipeListUiState(recipes = listOf(Recipe(id = "r1", name = "Chili"), Recipe(id = "r2", name = "Risotto"))))
         }
         val meals = mockk<MealsWeekViewModel>(relaxed = true) { every { uiState } returns state(MealsWeekUiState()) }
+        val mealCreate = mockk<MealCreateViewModel>(relaxed = true) { every { uiState } returns state(MealCreateUiState()) }
         val grocery = mockk<GroceryViewModel>(relaxed = true) { every { uiState } returns state(GroceryUiState()) }
         val interruption = mockk<InterruptionViewModel>(relaxed = true) {
             every { uiState } returns state(InterruptionUiState())
@@ -131,6 +134,7 @@ class RotationNavGraphScreenTest {
                     viewModel { notif }
                     viewModel { recipes }
                     viewModel { meals }
+                    viewModel { mealCreate }
                     viewModel { grocery }
                     viewModel { detail }
                     viewModel { interruption }

@@ -13,6 +13,7 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\Service\MealGrocerySync;
+use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Enum\Unit;
@@ -66,6 +67,14 @@ class UpdateRecipeHandler
         }
 
         $recipe->setUpdatedAt(new \DateTimeImmutable());
+
+        // A meal is titled after its recipes: a renamed recipe renames its meals,
+        // in the same flush as the recipe (MAG-378).
+        if (null !== $command->name) {
+            foreach ($this->mealRepository->findByRecipe($recipe) as $meal) {
+                $meal->setSummary(MealTitle::of($meal));
+            }
+        }
 
         $recipe = $this->updateRecipe->execute($recipe);
 

@@ -10,6 +10,7 @@ use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
+use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\UpdateMeal;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -49,13 +50,7 @@ class UpdateMealHandler
             }
         }
 
-        // Regenerate summary
-        $recipeNames = $meal->getRecipes()->map(fn ($r) => $r->getName())->toArray();
-        $slotLabel = MealSlot::Lunch === $meal->getSlot() ? 'Déjeuner' : 'Dîner';
-        $summary = [] !== $recipeNames
-            ? $slotLabel.' : '.implode(', ', $recipeNames)
-            : $slotLabel;
-        $meal->setSummary($summary);
+        $meal->setSummary(MealTitle::of($meal));
 
         $meal = $this->updateMeal->execute($meal);
 

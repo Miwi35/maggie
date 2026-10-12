@@ -100,6 +100,16 @@ class MealRepository extends ServiceEntityRepository
     }
 
     /**
+     * Every meal that serves the recipe, past or to come.
+     *
+     * @return Meal[]
+     */
+    public function findByRecipe(Recipe $recipe): array
+    {
+        return $this->byRecipe($recipe)->getQuery()->getResult();
+    }
+
+    /**
      * The meals still to be eaten — today included — that serve the recipe.
      *
      * @return Meal[]

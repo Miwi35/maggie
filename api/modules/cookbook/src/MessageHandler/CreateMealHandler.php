@@ -11,6 +11,7 @@ use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
+use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\CreateMeal;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -45,20 +46,13 @@ class CreateMealHandler
         // agenda shows it on (MAG-251).
         $meal->setDate(Meal::dayFromString($command->date));
 
-        // Add recipes and build summary
-        $recipeNames = [];
         foreach ($command->recipeIds as $recipeId) {
             $recipe = $this->recipeRepository->findOneForUser($recipeId, $agenda->getUser())
                 ?? throw new \DomainException("Recipe not found: {$recipeId}");
             $meal->addRecipe($recipe);
-            $recipeNames[] = $recipe->getName();
         }
 
-        $slotLabel = MealSlot::Lunch === $slot ? 'Déjeuner' : 'Dîner';
-        $summary = [] !== $recipeNames
-            ? $slotLabel.' : '.implode(', ', $recipeNames)
-            : $slotLabel;
-        $meal->setSummary($summary);
+        $meal->setSummary(MealTitle::of($meal));
 
         $meal = $this->createMeal->execute($meal);
 

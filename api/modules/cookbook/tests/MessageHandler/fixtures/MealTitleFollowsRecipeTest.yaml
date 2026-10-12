@@ -1,0 +1,15 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-title@example.com
+    googleId: google-meal-title
+    name: Meal Title User
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes
+    servings: 4
+    user: '@test_user'
+  salad:
+    name: Salade verte
+    servings: 2
+    user: '@test_user'

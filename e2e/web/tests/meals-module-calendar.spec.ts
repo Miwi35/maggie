@@ -62,7 +62,7 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
 
 test('the general agenda shows the meal and the event with « Repas » once, the meals planning only the meal — MAG-354', async ({ page, api }) => {
   const { recipe, event } = await plan(api)
-  // The list carries the recipe's name inside the meal's summary (« Dîner : <recette> »); anchored at the
+  // The list carries the recipe's name as the meal's summary; anchored at the
   // end so a retry does not also match the first attempt's meal.
   const mealChip = new RegExp(`${recipe}$`)
 

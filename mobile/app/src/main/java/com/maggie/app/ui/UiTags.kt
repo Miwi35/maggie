@@ -323,4 +323,22 @@ object UiTags {
 
     /** Settings > Notifications — the switch of the chime and the vibration that announce her. */
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
+
+    /**
+     * The meal being planned (MAG-378): the « Menu » field that opens the recipe search, the
+     * recipes chosen under it and their remove buttons, and « Créer ».
+     */
+    const val MEAL_MENU_FIELD = "meal_menu_field"
+    const val MEAL_MENU_RECIPE = "meal_menu_recipe"
+    const val MEAL_MENU_RECIPE_REMOVE = "meal_menu_recipe_remove"
+    const val MEAL_CREATE_SUBMIT = "meal_create_submit"
+
+    /** The recipe search a menu is chosen in — a window of its own: its field, one result, and « Terminer ». */
+    const val MEAL_RECIPE_SEARCH_FIELD = "meal_recipe_search_field"
+    const val MEAL_RECIPE_RESULT = "meal_recipe_result"
+    const val MEAL_RECIPE_SEARCH_DONE = "meal_recipe_search_done"
+
+    /** The week view's meal (a long press asks to delete it) and the « Supprimer » of the confirmation. */
+    const val MEAL_ROW = "meal_row"
+    const val MEAL_DELETE_CONFIRM = "meal_delete_confirm"
 }

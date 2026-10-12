@@ -2,11 +2,17 @@ package com.maggie.app.ui.screens.cookbook.meals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.repository.MealRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.temporal.WeekFields
@@ -17,10 +23,16 @@ data class MealsWeekUiState(
     val mealsByDaySlot: Map<LocalDate, Map<MealSlot, List<Meal>>> = emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** The meal whose deletion is in flight: asked once, never twice. */
+    val deletingMealId: String? = null,
+    /** Why a meal could not be deleted; the meal is still there. */
+    val deleteError: String? = null,
 )
 
 class MealsWeekViewModel(
     private val mealRepository: MealRepository,
+    private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MealsWeekUiState())
@@ -28,23 +40,65 @@ class MealsWeekViewModel(
 
     init {
         refresh()
+        subscribeToMercure()
     }
 
     fun previousWeek() {
-        _uiState.value = _uiState.value.copy(weekStart = _uiState.value.weekStart.minusWeeks(1))
+        _uiState.update { it.copy(weekStart = it.weekStart.minusWeeks(1)) }
         refresh()
     }
 
     fun nextWeek() {
-        _uiState.value = _uiState.value.copy(weekStart = _uiState.value.weekStart.plusWeeks(1))
+        _uiState.update { it.copy(weekStart = it.weekStart.plusWeeks(1)) }
         refresh()
     }
 
-    fun refresh() {
+    fun refresh() = load(quiet = false)
+
+    /**
+     * Deletes the meal; it leaves the week at once on success. On failure it stays, and
+     * [MealsWeekUiState.deleteError] says why.
+     */
+    fun deleteMeal(meal: Meal) {
+        var alreadyDeleting = false
+        _uiState.update { state ->
+            alreadyDeleting = state.deletingMealId != null
+            if (alreadyDeleting) state else state.copy(deletingMealId = meal.id, deleteError = null)
+        }
+        if (alreadyDeleting) return
+
+        viewModelScope.launch {
+            mealRepository.deleteMeal(meal.id)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(
+                            mealsByDaySlot = state.mealsByDaySlot.without(meal.id),
+                            deletingMealId = null,
+                        )
+                    }
+                }
+                .onFailure { failure ->
+                    _uiState.update {
+                        it.copy(
+                            deletingMealId = null,
+                            deleteError = failure.message ?: "Le repas n'a pas pu être supprimé.",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun dismissDeleteError() {
+        _uiState.update { it.copy(deleteError = null) }
+    }
+
+    // A quiet load (a change announced elsewhere) swaps the meals in place: the spinner would
+    // replace the grid and send it back to the top.
+    private fun load(quiet: Boolean) {
         viewModelScope.launch {
             val weekStart = _uiState.value.weekStart
             val weekEnd = weekStart.plusDays(6)
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            if (!quiet) _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 // Days, both ends included. A meal is a day and a slot
                 // (MAG-251): there is no instant to convert, so there is no
@@ -61,13 +115,26 @@ class MealsWeekViewModel(
                     dayMeals.groupBy { it.slot }
                 }
 
-                _uiState.value = _uiState.value.copy(
-                    mealsByDaySlot = grouped,
-                    isLoading = false,
-                )
+                _uiState.update { it.copy(mealsByDaySlot = grouped, isLoading = false) }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+                if (quiet) return@launch
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
         }
     }
+
+    private fun subscribeToMercure() {
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.MEALS))
+                .coalescedAndRechecked()
+                .catch { /* SSE reconnects automatically */ }
+                .collect { load(quiet = true) }
+        }
+    }
+
+    private fun Map<LocalDate, Map<MealSlot, List<Meal>>>.without(
+        mealId: String,
+    ): Map<LocalDate, Map<MealSlot, List<Meal>>> =
+        mapValues { (_, slots) -> slots.mapValues { (_, meals) -> meals.filterNot { it.id == mealId } } }
 }

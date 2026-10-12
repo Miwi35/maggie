@@ -17,3 +17,7 @@ Maggie\Cookbook\Entity\Recipe:
     name: Pâtes à la tomate
     servings: 4
     user: '@test_user'
+  salad:
+    name: Salade verte
+    servings: 2
+    user: '@test_user'

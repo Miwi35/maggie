@@ -290,13 +290,10 @@ export const MealsWeekView = () => {
         data: {
           // The day and the slot, and nothing that looks like a time: the API
           // derives the instants the agenda shows (MAG-251). No agenda either:
-          // the API files a meal in the « Repas » module agenda (MAG-324).
+          // the API files a meal in the « Repas » module agenda (MAG-324), and
+          // titles it with its recipes' names (MAG-378).
           date: dialogDate,
           slot: dialogSlot,
-          summary:
-            (dialogSlot === 'lunch' ? 'Déjeuner' : 'Dîner') +
-            ' : ' +
-            selectedRecipes.map((r) => r.name).join(', '),
           recipes: recipeIris,
         },
       })
@@ -576,7 +573,7 @@ export const MealsWeekView = () => {
                   getOptionLabel={(option) => option.name}
                   value={selectedRecipes}
                   onChange={(_, value) => setSelectedRecipes(value)}
-                  renderInput={(params) => <TextField {...params} label="Recettes" placeholder="Chercher..." />}
+                  renderInput={(params) => <TextField {...params} label="Menu" placeholder="Chercher..." />}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                 />
               </Box>

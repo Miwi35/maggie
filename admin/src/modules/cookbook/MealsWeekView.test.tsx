@@ -79,7 +79,7 @@ const createEmptyMeal = async (cell = 'meal-cell-lunch-0') => {
   const user = setupUser()
   const dialog = await openDialogOnCell(user, cell)
 
-  await user.click(dialog.getByLabelText('Recettes'))
+  await user.click(dialog.getByLabelText('Menu'))
   await user.click(await screen.findByRole('option', { name: gratin.name }))
   await user.click(dialog.getByRole('button', { name: 'Créer' }))
 }
@@ -117,6 +117,13 @@ describe('MealsWeekView', () => {
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
     expect(mockCreate.mock.calls[0][1].data.recipes).toEqual([gratin['@id']])
     expect(mockNotify).toHaveBeenCalledWith('Repas créé', { type: 'success' })
+  })
+
+  test('sends no title: the API names the meal after its recipes (MAG-378)', async () => {
+    await createFirstEmptyMeal()
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('summary')
   })
 
   test('refuses a meal with no recipe and keeps the dialog open', async () => {
@@ -163,7 +170,7 @@ describe('MealsWeekView — choosing the ingredients', () => {
   const planTheGratin = async () => {
     const user = setupUser()
     const dialog = await openDialogOnCell(user)
-    await user.click(dialog.getByLabelText('Recettes'))
+    await user.click(dialog.getByLabelText('Menu'))
     await user.click(await screen.findByRole('option', { name: gratin.name }))
     await user.click(dialog.getByRole('button', { name: 'Créer' }))
 
@@ -195,7 +202,7 @@ describe('MealsWeekView — choosing the ingredients', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith('/api/meals/01NEW/grocery_preview', expect.anything())
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    expect(screen.queryByLabelText('Recettes')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Menu')).not.toBeInTheDocument()
     expect(mockNotify).toHaveBeenCalledWith('Repas créé', { type: 'success' })
   })
 
@@ -238,7 +245,7 @@ describe('MealsWeekView — choosing the ingredients', () => {
 
     await user.click(screen.getByTestId('meal-cell-lunch-1'))
 
-    expect(await screen.findByLabelText('Recettes')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Menu')).toBeInTheDocument()
   })
 
   test('keeps the choice and asks for the preview once when the list reloads meanwhile (MAG-373)', async () => {

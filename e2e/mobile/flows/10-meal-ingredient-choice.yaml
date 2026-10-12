@@ -18,6 +18,10 @@ tags:
 # the owner unticked must be gone, not just absent. The real-time side of the list
 # is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
 #
+# The Menu is chosen in a full-screen search, « Créer » is tapped twice in a row and
+# makes one meal, named by the API after its recipe (MAG-378); at the end the owner
+# deletes the meal from the week with a long press, and it leaves the week.
+#
 # Everything is the journey's own and deleted at the end, the meal and its lines with it.
 
 - launchApp:
@@ -35,7 +39,8 @@ tags:
       ACTION: create
 
 # When I plan the meal from the week: Sunday lunch (never a day gone: a past meal
-# adds nothing to the list, MAG-400), the recipe, « Créer ».
+# adds nothing to the list, MAG-400), the « Menu » field opens a full-screen search,
+# I pick the recipe and come back, then « Créer » twice in a row.
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
@@ -47,15 +52,38 @@ tags:
 - tapOn:
     id: "meal_slot_lunch_6"
 - extendedWaitUntil:
+    visible:
+      id: "meal_menu_field"
+    timeout: 20000
+- tapOn:
+    id: "meal_menu_field"
+- extendedWaitUntil:
+    visible:
+      id: "meal_recipe_search_field"
+    timeout: 20000
+- inputText: "Riz au curry"
+- extendedWaitUntil:
     visible: "Riz au curry MAG-297"
     timeout: 20000
 - tapOn: "Riz au curry MAG-297"
-- tapOn: "Créer"
+- tapOn:
+    id: "meal_recipe_search_done"
+- extendedWaitUntil:
+    visible:
+      id: "meal_menu_recipe"
+    timeout: 10000
+- doubleTapOn:
+    id: "meal_create_submit"
 
-# Then the choice opens, not a dialog: only the rice, out of stock, is ticked.
+# Then the choice opens, not a dialog: only the rice, out of stock, is ticked. The
+# double tap made one meal, titled with the recipe alone (no « Déjeuner : » prefix).
 - extendedWaitUntil:
     visible: "Ingrédients du repas"
     timeout: 30000
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: expect-single
 - extendedWaitUntil:
     visible: "Riz MAG-297.*"
     timeout: 20000
@@ -99,6 +127,33 @@ tags:
 - extendedWaitUntil:
     notVisible: ".*Riz MAG-297.*"
     timeout: 30000
+
+# I delete the meal from the week: a long press asks, « Supprimer » confirms, and it
+# leaves the week without a reload; the API no longer has it.
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_cookbook"
+- tapOn: "Repas"
+- extendedWaitUntil:
+    visible:
+      id: "meal_row"
+    timeout: 20000
+- longPressOn:
+    id: "meal_row"
+- extendedWaitUntil:
+    visible:
+      id: "meal_delete_confirm"
+    timeout: 10000
+- tapOn:
+    id: "meal_delete_confirm"
+- extendedWaitUntil:
+    notVisible: "Riz au curry MAG-297"
+    timeout: 20000
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: expect-deleted
 
 # Left as found.
 - runScript:

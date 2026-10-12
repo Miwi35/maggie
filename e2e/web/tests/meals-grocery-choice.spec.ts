@@ -226,7 +226,7 @@ async function planRecipe(shell: AdminShell, cell: string, recipeName: string): 
   await shell.goto(ROUTES.meals)
   await shell.content.getByTestId(cell).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Recettes').click()
+  await dialog.getByLabel('Menu').click()
   await page.getByRole('option', { name: recipeName }).click()
   await dialog.getByRole('button', { name: 'Créer' }).click()
 }
@@ -356,7 +356,7 @@ test('a meal deleted from the agenda takes its ingredients off the list, without
   const calendar = new CalendarPage(actor)
   const watching = new GroceryListPage(observer)
   const { recipeName, riceName, vegetablesName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-368')
-  const summary = `Dîner : ${recipeName}`
+  const summary = recipeName
   const cleanup: string[] = []
 
   try {
