@@ -13,6 +13,7 @@ import { CushionPage } from './CushionPage'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { LoanCreate } from './LoanCreate'
 import { MonthlyReviewPage } from './MonthlyReviewPage'
+import { RecurringOperationsPage } from './RecurringOperationsPage'
 import { StatementImportPage } from './StatementImportPage'
 import { LoanEdit } from './LoanEdit'
 import { LoanList } from './LoanList'
@@ -35,6 +36,7 @@ export const financeResources = (
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
+      <Route path="/finance/recurring-operations" element={<RecurringOperationsPage />} />
     </CustomRoutes>
     <ResourceGuesser
       name="accounts"
