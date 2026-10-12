@@ -3,21 +3,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 /**
- * One chat run at a time, across the workers of a shard.
+ * One run at a time of what holds a named lock, across the workers of a shard.
  *
- * Journeys that talk to Maggie share the second account, and the agent builds
+ * The chat lock: journeys that talk to Maggie share the second account, and the agent builds
  * the history from the user's stored messages: a message sent while another
  * run of that account is still open lands in the same turn ("J'ai terminé mes
  * courses\nPlanifie la recette…"), and the fake LLM answers the older scenario.
  * Two workers sending at once is all it takes.
  */
-const LOCK = join(tmpdir(), 'maggie-e2e-chat.lock')
+const lockPath = (name: string): string => join(tmpdir(), `maggie-e2e-${name}.lock`)
 const STALE_MS = 90_000
 const GIVE_UP_MS = 150_000
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function acquire(): Promise<void> {
+async function acquire(LOCK: string): Promise<void> {
   const giveUpAt = Date.now() + GIVE_UP_MS
 
   for (;;) {
@@ -40,11 +40,14 @@ async function acquire(): Promise<void> {
   }
 }
 
-export async function withChatLock<T>(run: () => Promise<T>): Promise<T> {
-  await acquire()
+export async function withLock<T>(name: string, run: () => Promise<T>): Promise<T> {
+  const lock = lockPath(name)
+  await acquire(lock)
   try {
     return await run()
   } finally {
-    await rm(LOCK, { recursive: true, force: true })
+    await rm(lock, { recursive: true, force: true })
   }
 }
+
+export const withChatLock = <T>(run: () => Promise<T>): Promise<T> => withLock('chat', run)
