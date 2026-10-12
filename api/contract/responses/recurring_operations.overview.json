@@ -1,0 +1,87 @@
+{
+    "operations": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Loyer",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "period": "monthly",
+            "dayRule": "fixed_day",
+            "referenceAmountCents": -90000,
+            "referenceSource": "declared",
+            "currency": "EUR",
+            "monthlyCostCents": -90000,
+            "yearlyCostCents": -1080000,
+            "endsOn": "2026-12-31",
+            "nextOccurrenceOn": "2026-05-05",
+            "lastAttachedOn": "2026-03-05",
+            "attachmentCount": 3,
+            "lastOccurrence": {
+                "transactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "occurrenceOn": "2026-03-05",
+                "bookedAt": "2026-03-05",
+                "amountCents": -120000,
+                "dateGapDays": 0,
+                "expectedAmountCents": -90000,
+                "deviations": [
+                    "amount_up"
+                ]
+            },
+            "missedOccurrence": null,
+            "priceChange": {
+                "previousCents": -90000,
+                "currentCents": -120000,
+                "percent": 33,
+                "since": "2026-03-05"
+            }
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Salle de sport",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "period": "monthly",
+            "dayRule": "fixed_day",
+            "referenceAmountCents": -3000,
+            "referenceSource": "measured",
+            "currency": "EUR",
+            "monthlyCostCents": -3000,
+            "yearlyCostCents": -36000,
+            "endsOn": null,
+            "nextOccurrenceOn": "2026-05-20",
+            "lastAttachedOn": null,
+            "attachmentCount": 0,
+            "lastOccurrence": null,
+            "missedOccurrence": {
+                "occurrenceOn": "2026-03-20",
+                "daysOverdue": 33
+            },
+            "priceChange": null
+        }
+    ],
+    "proposals": [
+        {
+            "transactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "LOYER SCI VERDA",
+            "bookedAt": "2026-04-12",
+            "amountCents": -90000,
+            "reason": "late",
+            "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "recurringOperationLabel": "Loyer",
+            "occurrenceOn": "2026-04-05",
+            "dateGapDays": 7,
+            "referenceAmountCents": -90000,
+            "amountChangePercent": 0
+        }
+    ],
+    "totals": {
+        "monthlyCostCents": -93000,
+        "yearlyCostCents": -1116000,
+        "monthlyIncomeCents": 0,
+        "activeCount": 2
+    }
+}

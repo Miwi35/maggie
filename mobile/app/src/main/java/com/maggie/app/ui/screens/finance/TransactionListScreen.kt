@@ -59,6 +59,7 @@ import com.maggie.app.ui.components.CategorySearchScreen
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
@@ -80,6 +81,7 @@ fun TransactionListScreen(
     viewModel: TransactionViewModel,
     accountName: String,
     onBack: (() -> Unit)?,
+    onMakeRecurring: ((Transaction) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -129,6 +131,7 @@ fun TransactionListScreen(
                 onRelease = viewModel::releaseTransfer,
                 categoryPath = tree.pathOf(detail.transaction.categoryId),
                 onPickCategory = { searchingCategory = true },
+                onMakeRecurring = onMakeRecurring?.let { open -> { open(detail.transaction) } },
             )
         }
         return

@@ -76,6 +76,7 @@ fun TransactionDetailScreen(
     onRelease: () -> Unit,
     categoryPath: String? = null,
     onPickCategory: (() -> Unit)? = null,
+    onMakeRecurring: (() -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
     val transaction = state.transaction
@@ -163,6 +164,20 @@ fun TransactionDetailScreen(
                     enabled = !state.isSaving,
                     modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
                 ) { Text("C'est un virement interne") }
+            }
+
+            if (transaction.isAttachedToRecurring) {
+                Text(
+                    text = "Rattachée à une opération récurrente",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag(UiTags.RECURRING_ATTACHED),
+                )
+            } else if (onMakeRecurring != null && !transaction.isInternalTransfer && !transaction.isRejected) {
+                OutlinedButton(
+                    onClick = onMakeRecurring,
+                    enabled = !state.isSaving,
+                    modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_FROM_TRANSACTION),
+                ) { Text("En faire une opération récurrente") }
             }
 
             state.error?.let {

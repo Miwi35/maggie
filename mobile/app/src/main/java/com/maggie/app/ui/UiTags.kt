@@ -141,6 +141,30 @@ object UiTags {
      */
     const val SUGGESTION_ACCEPT = "suggestion_accept"
 
+    /**
+     * Opérations récurrentes (MAG-309) — the two badges of a series, the yes of a proposal and
+     * of a suggestion, the « + », and the fields of the form. Tagged because the journey asserts
+     * that a badge is there, not what it says.
+     */
+    const val RECURRING_NEW = "recurring_new"
+    const val RECURRING_MISSED_BADGE = "recurring_missed_badge"
+    const val RECURRING_PRICE_BADGE = "recurring_price_badge"
+    const val RECURRING_PROPOSAL_ACCEPT = "recurring_proposal_accept"
+    const val RECURRING_SUGGESTION_ACCEPT = "recurring_suggestion_accept"
+    const val RECURRING_LABEL = "recurring_label"
+    const val RECURRING_COUNTERPARTY = "recurring_counterparty"
+    const val RECURRING_AMOUNT = "recurring_amount"
+    const val RECURRING_ACCOUNT = "recurring_account"
+    const val RECURRING_CATEGORY = "recurring_category"
+    const val RECURRING_PICK_SEARCH = "recurring_pick_search"
+    const val RECURRING_SAVE = "recurring_save"
+    const val RECURRING_DELETE = "recurring_delete"
+    const val RECURRING_ATTACH_CONFIRM = "recurring_attach_confirm"
+
+    /** The transaction detail's « En faire une opération récurrente ». */
+    const val RECURRING_FROM_TRANSACTION = "recurring_from_transaction"
+    const val RECURRING_ATTACHED = "recurring_attached"
+
     /** Calendar — the « + » button and its « Événement » entry. */
     const val CALENDAR_CREATE = "calendar_create"
     const val CALENDAR_CREATE_EVENT = "calendar_create_event"

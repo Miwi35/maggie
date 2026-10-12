@@ -1,0 +1,25 @@
+{
+    "suggestions": [
+        {
+            "label": "NETFLIX",
+            "counterpartyName": "NETFLIX",
+            "counterpartyKey": "netflix",
+            "labelPattern": null,
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "period": "monthly",
+            "anchorOn": "2026-01-14",
+            "dayRule": "fixed_day",
+            "referenceAmountCents": -1349,
+            "amountSpreadPercent": 0,
+            "occurrences": 3,
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "samples": [
+                "NETFLIX.COM",
+                "NETFLIX.COM",
+                "NETFLIX.COM"
+            ]
+        }
+    ]
+}

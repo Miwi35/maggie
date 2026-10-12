@@ -208,9 +208,117 @@ Maggie\Finance\Entity\Transaction:
     isExceptional: true
     user: '@recorded_user'
 
-# The reference salary the finance reads are judged on: a 4 950 € series
-# running since 2025, so the mark is the same on whatever day this runs.
+  # The rent of a flat, attached for three months — the last at a higher price,
+  # so the overview records a price change — and an April line that came late.
+  recorded_rent_january:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-05"))>'
+    label: LOYER SCI VERDA
+    counterpartyName: LOYER SCI VERDA
+    recurringOperation: '@recorded_rent'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2026-01-05"))>'
+    user: '@recorded_user'
+
+  recorded_rent_february:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-05"))>'
+    label: LOYER SCI VERDA
+    counterpartyName: LOYER SCI VERDA
+    recurringOperation: '@recorded_rent'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2026-02-05"))>'
+    user: '@recorded_user'
+
+  recorded_rent_march:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -120000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-05"))>'
+    label: LOYER SCI VERDA
+    counterpartyName: LOYER SCI VERDA
+    recurringOperation: '@recorded_rent'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2026-03-05"))>'
+    user: '@recorded_user'
+
+  recorded_rent_april:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-04-12"))>'
+    label: LOYER SCI VERDA
+    counterpartyName: LOYER SCI VERDA
+    user: '@recorded_user'
+
+  # A streaming subscription nobody declared: the statement implies it, so the suggestions record it.
+  recorded_streaming_january:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-14"))>'
+    label: NETFLIX.COM
+    counterpartyName: NETFLIX
+    user: '@recorded_user'
+
+  recorded_streaming_february:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-14"))>'
+    label: NETFLIX.COM
+    counterpartyName: NETFLIX
+    user: '@recorded_user'
+
+  recorded_streaming_march:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-14"))>'
+    label: NETFLIX.COM
+    counterpartyName: NETFLIX
+    user: '@recorded_user'
+
 Maggie\Finance\Entity\RecurringOperation:
+  recorded_rent:
+    label: Loyer
+    counterpartyName: LOYER SCI VERDA
+    labelPattern: SCI VERDA
+    category: '@recorded_category'
+    account: '@recorded_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-05"))>'
+    dayRule: '<(Maggie\Finance\Enum\DayRule::FixedDay)>'
+    referenceAmountCents: -90000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    amountTolerancePercent: 20
+    dateToleranceDays: 5
+    endsOn: '<(new \DateTimeImmutable("2026-12-31"))>'
+    user: '@recorded_user'
+
+  # No line ever came: the overview records a missed occurrence.
+  recorded_gym:
+    label: Salle de sport
+    counterpartyName: SALLE FORME
+    category: '@recorded_category'
+    account: '@recorded_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-20"))>'
+    dayRule: '<(Maggie\Finance\Enum\DayRule::FixedDay)>'
+    referenceAmountCents: -3000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Measured)>'
+    user: '@recorded_user'
+
+  # The reference salary the finance reads are judged on: a 4 950 € series
+  # running since 2025, so the mark is the same on whatever day this runs.
   recorded_salary_series:
     label: Recorded salary
     counterpartyName: RECORDED EMPLOYER

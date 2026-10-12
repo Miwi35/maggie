@@ -46,6 +46,10 @@ class DtoContractTest {
         "Event" to setOf("recurringEvent", "originalStartAt"),
         // Filled by the agent's profile endpoint, not by /api/users/me.
         "User" to setOf("avatar", "googleTaskListId"),
+        // Only an `ambiguous` proposal (two series claim one line) carries its candidates, and the
+        // recorded world has none: the reading of a candidate is the ProposalClaim half of the
+        // proposal, whose fields the recorded proposal does carry.
+        "RecurringProposal" to setOf("candidates"),
     )
 
     @Test
@@ -101,6 +105,51 @@ class DtoContractTest {
         assertCollectionContract("transactions", serializer<Transaction>(), "Transaction")
 
     @Test
+    fun `recurring operations deserialise from the recorded response`() =
+        assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
+
+    @Test
+    fun `recurring operation suggestions deserialise from the recorded response`() {
+        val body = readRecording("recurring_operations.suggestions")
+
+        json.decodeFromJsonElement(serializer<RecurringSuggestionsResponse>(), body)
+
+        assertDeclaredFieldsExist(
+            "RecurringSuggestion", serializer<RecurringSuggestion>(), keysOf(body, "suggestions"), "recurring_operations.suggestions",
+        )
+    }
+
+    @Test
+    fun `the recurring operations overview deserialises from the recorded response`() {
+        val body = readRecording("recurring_operations.overview")
+
+        json.decodeFromJsonElement(serializer<RecurringOperationsOverview>(), body)
+
+        assertDeclaredFieldsExist(
+            "RecurringOperationsOverview", serializer<RecurringOperationsOverview>(), body.keys, "recurring_operations.overview",
+        )
+        assertDeclaredFieldsExist(
+            "RecurringSeries", serializer<RecurringSeries>(), keysOf(body, "operations"), "recurring_operations.overview",
+        )
+        assertDeclaredFieldsExist(
+            "RecurringProposal", serializer<RecurringProposal>(), keysOf(body, "proposals"), "recurring_operations.overview",
+        )
+        assertDeclaredFieldsExist(
+            "RecurringTotals", serializer<RecurringTotals>(), body["totals"]!!.jsonObject.keys, "recurring_operations.overview",
+        )
+        // The nested objects are present on at least one recorded series, so their names are proved too.
+        assertDeclaredFieldsExist(
+            "LastOccurrence", serializer<LastOccurrence>(), nestedKeys(body, "lastOccurrence"), "recurring_operations.overview",
+        )
+        assertDeclaredFieldsExist(
+            "MissedOccurrence", serializer<MissedOccurrence>(), nestedKeys(body, "missedOccurrence"), "recurring_operations.overview",
+        )
+        assertDeclaredFieldsExist(
+            "PriceChange", serializer<PriceChange>(), nestedKeys(body, "priceChange"), "recurring_operations.overview",
+        )
+    }
+
+    @Test
     fun `the current user deserialises from the recorded response`() =
         assertItemContract("users.me", serializer<User>(), "User")
 
@@ -128,6 +177,16 @@ class DtoContractTest {
             source = "$name.collection",
         )
     }
+
+    private fun keysOf(body: JsonObject, key: String): Set<String> =
+        body[key]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet()
+
+    private fun nestedKeys(body: JsonObject, key: String): Set<String> =
+        body["operations"]!!.jsonArray
+            .mapNotNull { it.jsonObject[key] as? JsonObject }
+            .flatMap { it.keys }
+            .toSet()
+            .also { assertTrue("No recorded series carries \"$key\": the recording proves nothing about it.", it.isNotEmpty()) }
 
     private fun <T> assertItemContract(name: String, serializer: KSerializer<T>, dtoName: String) {
         val body = readRecording(name)

@@ -20,10 +20,17 @@ data class Transaction(
     // Anything but "none" is neutral: neither an expense nor an income.
     val transferKind: String = "none",
     val transferSource: String = "auto",
-    // An IRI ("/api/categories/01H…"), null while the line is not filed.
+    // IRIs, as API Platform hands relations back ("/api/categories/01H…"); category is null while the line is not filed.
+    val account: String? = null,
     val category: String? = null,
+    val counterpartyName: String? = null,
+    val recurringOperation: String? = null,
+    val recurringOccurrenceOn: String? = null,
+    val recurringSource: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
+
+    val isAttachedToRecurring: Boolean get() = recurringOperation != null
 
     val isInternalTransfer: Boolean get() = transferKind != "none" && transferKind != "rejected"
 

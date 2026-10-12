@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import com.maggie.app.data.model.RecurringSuggestion
 
 class MaggieApiServiceTest {
 
@@ -743,5 +744,219 @@ class MaggieApiServiceTest {
         assertTrue(url!!.endsWith("/api/transactions/tx-1"))
         assertEquals("""{"category":"/api/categories/cat-9"}""", bodies[0])
         assertEquals("""{"category":null}""", bodies[1])
+    }
+
+    private val rentRequest = RecurringOperationWriteRequest(
+        label = "Loyer",
+        counterpartyName = "SCI VERDA",
+        labelPattern = null,
+        account = "/api/accounts/acc-1",
+        category = "/api/categories/cat-1",
+        period = "monthly",
+        dayRule = "fixed_day",
+        anchorOn = "2026-04-05",
+        referenceAmountCents = -90000,
+        referenceSource = "declared",
+        amountTolerancePercent = 20,
+        dateToleranceDays = 5,
+        endsOn = null,
+    )
+
+    @Test
+    fun `getRecurringOperationsOverview reads the series, the proposals and the totals`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                """{"operations":[{"id":"s1","label":"Loyer","monthlyCostCents":-90000,"yearlyCostCents":-1080000,
+                    "missedOccurrence":{"occurrenceOn":"2026-04-05","daysOverdue":17}}],
+                    "proposals":[{"transactionId":"t1","label":"LOYER","reason":"late","recurringOperationId":"s1"}],
+                    "totals":{"monthlyCostCents":90000,"yearlyCostCents":1080000,"monthlyIncomeCents":0,"activeCount":1}}"""
+            },
+        )
+
+        val overview = service.getRecurringOperationsOverview()
+
+        assertTrue(url!!.endsWith("/api/finance/recurring-operations/overview"))
+        assertEquals(-90000, overview.operations.single().monthlyCostCents)
+        assertEquals(17, overview.operations.single().missedOccurrence?.daysOverdue)
+        assertEquals("late", overview.proposals.single().reason)
+        assertEquals(1, overview.totals.activeCount)
+    }
+
+    @Test
+    fun `getRecurringOperationSuggestions unwraps the suggestions`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"suggestions":[{"label":"Netflix","accountId":"acc-1","period":"monthly",
+                    "anchorOn":"2026-03-14","dayRule":"fixed_day","referenceAmountCents":-1349}]}"""
+            },
+        )
+
+        assertEquals("Netflix", service.getRecurringOperationSuggestions().single().label)
+    }
+
+    @Test
+    fun `acceptRecurringOperationSuggestions posts the suggestions with the fields accept requires`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                body = String(request.body.toByteArray())
+                """{"created":1,"labels":["Netflix"],"attached":3,"proposed":0}"""
+            },
+        )
+
+        val result = service.acceptRecurringOperationSuggestions(
+            listOf(
+                RecurringSuggestion(
+                    label = "Netflix",
+                    accountId = "acc-1",
+                    period = "monthly",
+                    anchorOn = "2026-03-14",
+                    dayRule = "fixed_day",
+                    referenceAmountCents = -1349,
+                    categoryId = "cat-1",
+                ),
+            ),
+        )
+
+        assertEquals(HttpMethod.Post, method)
+        assertTrue(url!!.endsWith("/api/finance/recurring-operations/suggestions/accept"))
+        assertTrue(body!!.startsWith("""{"suggestions":[{"label":"Netflix""""))
+        assertTrue(body!!.contains(""""period":"monthly""""))
+        assertTrue(body!!.contains(""""dayRule":"fixed_day""""))
+        assertTrue(body!!.contains(""""categoryId":"cat-1""""))
+        assertEquals(3, result.attached)
+    }
+
+    @Test
+    fun `attachRecurringOperations sends dryRun even when it is false`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        val service = MaggieApiService(
+            categoryClient { request ->
+                bodies += String(request.body.toByteArray())
+                """{"dryRun":true,"scanned":12,"attached":3,"proposed":1,"attachments":[],"proposals":[]}"""
+            },
+        )
+
+        val report = service.attachRecurringOperations(dryRun = true)
+        service.attachRecurringOperations(dryRun = false)
+
+        assertEquals(listOf("""{"dryRun":true}""", """{"dryRun":false}"""), bodies.map { it.replace(" ", "") })
+        assertEquals(3, report.attached)
+    }
+
+    @Test
+    fun `createRecurringOperation posts the whole series, nulls included`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                body = String(request.body.toByteArray())
+                """{"id":"s1","label":"Loyer","referenceAmountCents":-90000}"""
+            },
+        )
+
+        val created = service.createRecurringOperation(rentRequest)
+
+        assertEquals("s1", created.id)
+        assertEquals(HttpMethod.Post, method)
+        assertTrue(url!!.endsWith("/api/recurring_operations"))
+        assertTrue(body!!.contains(""""account":"/api/accounts/acc-1""""))
+        assertTrue(body!!.contains(""""category":"/api/categories/cat-1""""))
+        assertTrue(body!!.contains(""""referenceAmountCents":-90000"""))
+        assertTrue(body!!.contains(""""referenceSource":"declared""""))
+        assertTrue(body!!.contains(""""amountTolerancePercent":20"""))
+        assertTrue(body!!.contains(""""dateToleranceDays":5"""))
+        assertTrue(body!!.contains(""""endsOn":null"""))
+    }
+
+    @Test
+    fun `updateRecurringOperation sends a merge-patch that can clear a field`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var contentType: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                contentType = request.body.contentType?.toString()
+                body = String(request.body.toByteArray())
+                """{"id":"s1","label":"Loyer"}"""
+            },
+        )
+
+        service.updateRecurringOperation("s1", rentRequest.copy(endsOn = null, labelPattern = null))
+
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/recurring_operations/s1"))
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        assertTrue(body!!.contains(""""labelPattern":null"""))
+        assertTrue(body!!.contains(""""endsOn":null"""))
+    }
+
+    @Test
+    fun `deleteRecurringOperation deletes the series by id`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                ""
+            },
+        )
+
+        service.deleteRecurringOperation("s1")
+
+        assertEquals(HttpMethod.Delete, method)
+        assertTrue(url!!.endsWith("/api/recurring_operations/s1"))
+    }
+
+    @Test
+    fun `setTransactionRecurrence attaches with the series IRI and the due date`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var contentType: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                contentType = request.body.contentType?.toString()
+                body = String(request.body.toByteArray())
+                "{}"
+            },
+        )
+
+        service.setTransactionRecurrence("t1", "s1", "2026-04-05")
+
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/transactions/t1"))
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        assertEquals("""{"recurringOperation":"/api/recurring_operations/s1","recurringOccurrenceOn":"2026-04-05"}""", body)
+    }
+
+    @Test
+    fun `setTransactionRecurrence detaches with two explicit nulls`() = runBlocking {
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                body = String(request.body.toByteArray())
+                "{}"
+            },
+        )
+
+        service.setTransactionRecurrence("t1", null, null)
+
+        assertEquals("""{"recurringOperation":null,"recurringOccurrenceOn":null}""", body)
     }
 }

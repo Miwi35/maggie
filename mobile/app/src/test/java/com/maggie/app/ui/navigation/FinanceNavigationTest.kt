@@ -27,6 +27,7 @@ class FinanceNavigationTest {
         assertTrue(routes.containsAll(legacyDrawerRoutes))
         assertTrue(Screen.CategorizationRuleList.route in routes)
         assertTrue(Screen.BankConnectionList.route in routes)
+        assertTrue(Screen.RecurringOperations.route in routes)
         assertEquals(routes.size, routes.toSet().size)
     }
 
@@ -47,7 +48,7 @@ class FinanceNavigationTest {
             financeAccessesBy(FinanceFrequency.DAILY).map { it.route },
         )
         assertEquals(
-            listOf(Screen.MonthlyReview.route, Screen.Cushion.route),
+            listOf(Screen.RecurringOperations.route, Screen.MonthlyReview.route, Screen.Cushion.route),
             financeAccessesBy(FinanceFrequency.MONTHLY).map { it.route },
         )
         assertEquals(
@@ -73,6 +74,13 @@ class FinanceNavigationTest {
         // Suggestions are opened from the rules screen, which is where back goes.
         assertEquals(FinanceBack.POP, financeBackAction(Screen.CategorizationRuleList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.RuleSuggestions.route))
+    }
+
+    @Test
+    fun `back from the recurring operations goes to the dashboard, or to the account its transaction came from`() {
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.FinanceDashboard.route))
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.AccountTransactions.route))
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.AccountList.route))
     }
 
     @Test

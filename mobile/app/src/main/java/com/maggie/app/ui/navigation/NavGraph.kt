@@ -55,6 +55,7 @@ import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
@@ -91,6 +92,8 @@ import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
+import com.maggie.app.ui.screens.finance.RecurringOperationListScreen
+import com.maggie.app.ui.screens.finance.RecurringOperationViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionListScreen
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
@@ -185,6 +188,7 @@ sealed class Screen(val route: String, val label: String) {
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object RuleSuggestions : Screen("rule_suggestions", "Suggestions")
+    data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
     data object LoanList : Screen("loans", "Prêts")
@@ -442,12 +446,18 @@ fun NavGraph() {
 
     // Cookbook transient state
     var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
+    // The transaction « En faire une opération récurrente » was tapped on: the form opens filled from it (MAG-309).
+    var recurringSeed by rememberSavedSelection<Transaction>()
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
     // Read through a State: the NavHost graph is rebuilt when the builder's captures change.
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
     val paneFits by rememberUpdatedState(layout.detailPaneFits)
+    val openRecurringFrom: (Transaction) -> Unit = { transaction ->
+        recurringSeed = transaction
+        navController.navigate(Screen.RecurringOperations.route) { launchSingleTop = true }
+    }
     var editRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var mealCreateState by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1095,7 +1105,7 @@ fun NavGraph() {
                                 },
                             )
                         },
-                        detail = account?.let { { AccountTransactions(it, onBack = null) } },
+                        detail = account?.let { { AccountTransactions(it, onBack = null, onMakeRecurring = openRecurringFrom) } },
                         placeholder = "Touchez un compte pour voir ses transactions ici.",
                     )
                 }
@@ -1136,6 +1146,16 @@ fun NavGraph() {
                     RuleSuggestionListScreen(
                         viewModel = suggestionViewModel,
                         onBack = { navController.backInFinance() },
+                    )
+                }
+                composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
+                    val recurringViewModel: RecurringOperationViewModel = koinViewModel()
+                    RecurringOperationListScreen(
+                        viewModel = recurringViewModel,
+                        onBack = { navController.backInFinance() },
+                        seed = recurringSeed,
+                        onSeedConsumed = { recurringSeed = null },
+                        onBackToTransaction = { navController.popBackStack() },
                     )
                 }
                 composable(Screen.BankConnectionList.route, deepLinks = DeepLinks.forRoute(Screen.BankConnectionList.route)) {
@@ -1184,7 +1204,7 @@ fun NavGraph() {
                     }
                     BackHandler(onBack = leave)
                     if (account != null) {
-                        AccountTransactions(account, onBack = leave)
+                        AccountTransactions(account, onBack = leave, onMakeRecurring = openRecurringFrom)
                     }
                 }
                 composable(Screen.RecipeDetail.route) { entry ->
@@ -1397,12 +1417,17 @@ fun NavGraph() {
 
 // One account's transactions: the route of its own on a narrow window, the detail pane beside the accounts on a wide one.
 @Composable
-private fun AccountTransactions(account: Pair<String, String>, onBack: (() -> Unit)?) {
+private fun AccountTransactions(
+    account: Pair<String, String>,
+    onBack: (() -> Unit)?,
+    onMakeRecurring: (Transaction) -> Unit,
+) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
     TransactionListScreen(
         viewModel = transactionViewModel,
         accountName = account.second,
         onBack = onBack,
+        onMakeRecurring = onMakeRecurring,
     )
 }
