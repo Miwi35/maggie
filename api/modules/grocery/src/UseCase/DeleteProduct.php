@@ -8,16 +8,24 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 class DeleteProduct
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        /** @var iterable<ProductDeletionGuard> */
+        #[AutowireIterator(ProductDeletionGuard::TAG)]
+        private readonly iterable $guards = [],
     ) {
     }
 
     public function execute(Product $product): void
     {
+        foreach ($this->guards as $guard) {
+            $guard->assertDeletable($product);
+        }
+
         // The items outlive the product: the reference is detached and the product name
         // becomes their label, so the list reads the same.
         $items = $this->em->getRepository(GroceryItem::class)->findBy(['product' => $product]);

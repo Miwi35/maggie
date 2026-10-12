@@ -191,4 +191,18 @@ class IngredientApiTest extends WebTestCase
         self::assertStringContainsString('Pesto', (string) $this->client->getResponse()->getContent());
         self::assertNotNull($this->reload($basil), 'The ingredient is still there');
     }
+
+    public function testDeleteThroughTheProductRouteRefusesAnIngredientARecipeStillUses(): void
+    {
+        $this->loadTomato();
+        $basil = $this->getFixture('basil');
+
+        $this->client->request('DELETE', '/api/products/'.$basil->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('Pesto', (string) $this->client->getResponse()->getContent());
+        self::assertNotNull($this->reload($basil));
+    }
 }

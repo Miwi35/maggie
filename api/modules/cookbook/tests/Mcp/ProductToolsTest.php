@@ -9,6 +9,7 @@ use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Mcp\Tool\ManageIngredientsTool;
 use Maggie\Cookbook\Mcp\Tool\SearchIngredientsTool;
+use Maggie\Grocery\Mcp\Tool\ManageProductsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class ProductToolsTest extends KernelTestCase
@@ -108,6 +109,24 @@ class ProductToolsTest extends KernelTestCase
         $tomato = $this->getFixture('tomato');
 
         $data = json_decode(($this->manageIngredients())('delete', ingredientId: (string) $tomato->getId()), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Pâtes à la tomate', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->find(Ingredient::class, $tomato->getId()));
+    }
+
+    public function testDeleteThroughTheProductToolRefusesAnIngredientARecipeUses(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $tomato = $this->getFixture('tomato');
+
+        $tool = self::getContainer()->get(ManageProductsTool::class);
+        $data = json_decode($tool('delete', productId: (string) $tomato->getId()), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
         self::assertStringContainsString('Pâtes à la tomate', $data['error']);
