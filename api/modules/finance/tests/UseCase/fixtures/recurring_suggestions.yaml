@@ -1,0 +1,288 @@
+# What the statement implies as recurring operations (MAG-47). Shared by the
+# use case, the REST and the MCP tests, so they argue about the same world.
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-suggest-test@example.com
+    googleId: google-recurring-suggest-test
+    name: Recurring Suggest Test User
+  other_user:
+    email: recurring-suggest-other@example.com
+    googleId: google-recurring-suggest-other
+    name: Recurring Suggest Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+# Already a series: its payee is never proposed again.
+Maggie\Finance\Entity\RecurringOperation:
+  car_insurance:
+    label: Assurance auto
+    counterpartyName: Assurance Auto
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-07-20"))>'
+    referenceAmountCents: -6000
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  line (template):
+    currency: EUR
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+
+  # Three Flixo debits on the 12th, with the counterparty the bank gives.
+  flixo_jul (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 FLIXO 12/07'
+    counterpartyName: Flixo
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    category: '@subscriptions'
+  flixo_aug (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 FLIXO 12/08'
+    counterpartyName: Flixo
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    category: '@subscriptions'
+  flixo_sep (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 FLIXO 12/09'
+    counterpartyName: Flixo
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    category: '@subscriptions'
+
+  # The rent: no counterparty on the statement, the label is all there is.
+  rent_jul (extends line):
+    label: 'PRELEVEMENT LOYER SCI VERDA'
+    amountCents: -90000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-05"))>'
+  rent_aug (extends line):
+    label: 'PRELEVEMENT LOYER SCI VERDA'
+    amountCents: -90000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-05"))>'
+  rent_sep (extends line):
+    label: 'PRELEVEMENT LOYER SCI VERDA'
+    amountCents: -90000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+
+  # A month skipped (March): the gaps are 31, 59 and 30 days, the median 31.
+  gym_jan (extends line):
+    label: 'PRELEVEMENT CLUB FORME'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2026-01-01"))>'
+  gym_feb (extends line):
+    label: 'PRELEVEMENT CLUB FORME'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2026-02-01"))>'
+  gym_apr (extends line):
+    label: 'PRELEVEMENT CLUB FORME'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2026-04-01"))>'
+  gym_may (extends line):
+    label: 'PRELEVEMENT CLUB FORME'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2026-05-01"))>'
+
+  # Every three months.
+  home_insurance_jan (extends line):
+    label: 'PRELEVEMENT ASSURANCE HABITATION'
+    amountCents: -4500
+    bookedAt: '<(new \DateTimeImmutable("2026-01-15"))>'
+  home_insurance_apr (extends line):
+    label: 'PRELEVEMENT ASSURANCE HABITATION'
+    amountCents: -4500
+    bookedAt: '<(new \DateTimeImmutable("2026-04-15"))>'
+  home_insurance_jul (extends line):
+    label: 'PRELEVEMENT ASSURANCE HABITATION'
+    amountCents: -4500
+    bookedAt: '<(new \DateTimeImmutable("2026-07-15"))>'
+
+  # Once a year.
+  union_2024 (extends line):
+    label: 'PRELEVEMENT COTISATION SYNDICAT'
+    amountCents: -36000
+    bookedAt: '<(new \DateTimeImmutable("2024-03-10"))>'
+  union_2025 (extends line):
+    label: 'PRELEVEMENT COTISATION SYNDICAT'
+    amountCents: -36000
+    bookedAt: '<(new \DateTimeImmutable("2025-03-10"))>'
+  union_2026 (extends line):
+    label: 'PRELEVEMENT COTISATION SYNDICAT'
+    amountCents: -36000
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+
+  # Paid on the last day of the month, whatever its length.
+  salary_jul (extends line):
+    label: 'VIREMENT EN VOTRE FAVEUR ACME INDUSTRIE'
+    amountCents: 250000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-31"))>'
+  salary_aug (extends line):
+    label: 'VIREMENT EN VOTRE FAVEUR ACME INDUSTRIE'
+    amountCents: 250000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-31"))>'
+  salary_sep (extends line):
+    label: 'VIREMENT EN VOTRE FAVEUR ACME INDUSTRIE'
+    amountCents: 250000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-30"))>'
+
+  # Gaps of 5, 40 and 12 days: a shop one goes to, not a series.
+  bakery_1 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 BOULANGERIE DU COIN 01/07'
+    amountCents: -450
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+  bakery_2 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 BOULANGERIE DU COIN 06/07'
+    amountCents: -450
+    bookedAt: '<(new \DateTimeImmutable("2026-07-06"))>'
+  bakery_3 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 BOULANGERIE DU COIN 15/08'
+    amountCents: -450
+    bookedAt: '<(new \DateTimeImmutable("2026-08-15"))>'
+  bakery_4 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 BOULANGERIE DU COIN 27/08'
+    amountCents: -450
+    bookedAt: '<(new \DateTimeImmutable("2026-08-27"))>'
+
+  # Every month, but from 20 € to 200 €: a habitual merchant, not a series.
+  garage_1 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 GARAGE MARTIN 12/07'
+    amountCents: -2000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+  garage_2 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 GARAGE MARTIN 12/08'
+    amountCents: -10000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+  garage_3 (extends line):
+    label: 'PAIEMENT PAR CARTE X1234 GARAGE MARTIN 12/09'
+    amountCents: -20000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+
+  # Two occurrences: one gap is not a period.
+  climbing_aug (extends line):
+    label: 'PRELEVEMENT SALLE ESCALADE'
+    amountCents: -2500
+    bookedAt: '<(new \DateTimeImmutable("2026-08-03"))>'
+  climbing_sep (extends line):
+    label: 'PRELEVEMENT SALLE ESCALADE'
+    amountCents: -2500
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+
+  # Loan instalments stay in Loan.
+  loan_jul (extends line):
+    label: 'REMBOURSEMENT DE PRET 0123456'
+    amountCents: -80000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+  loan_aug (extends line):
+    label: 'REMBOURSEMENT DE PRET 0123456'
+    amountCents: -80000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-03"))>'
+  loan_sep (extends line):
+    label: 'REMBOURSEMENT DE PRET 0123456'
+    amountCents: -80000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+
+  # The monthly top-up of the savings account: money moved, not spent.
+  topup_jul (extends line):
+    label: 'VIREMENT EMIS VERS LIVRET'
+    amountCents: -20000
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-07-02"))>'
+  topup_aug (extends line):
+    label: 'VIREMENT EMIS VERS LIVRET'
+    amountCents: -20000
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-08-02"))>'
+  topup_sep (extends line):
+    label: 'VIREMENT EMIS VERS LIVRET'
+    amountCents: -20000
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-02"))>'
+
+  # Waiting for the owner to arbitrate: not history yet.
+  canteen_jul (extends line):
+    label: 'PRELEVEMENT CANTINE ECOLE'
+    amountCents: -5000
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-07-08"))>'
+  canteen_aug (extends line):
+    label: 'PRELEVEMENT CANTINE ECOLE'
+    amountCents: -5000
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-08-08"))>'
+  canteen_sep (extends line):
+    label: 'PRELEVEMENT CANTINE ECOLE'
+    amountCents: -5000
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-08"))>'
+
+  # The payee of an existing series.
+  car_insurance_jul (extends line):
+    label: 'PRELEVEMENT ASSURANCE AUTO'
+    amountCents: -6000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-20"))>'
+  car_insurance_aug (extends line):
+    label: 'PRELEVEMENT ASSURANCE AUTO'
+    amountCents: -6000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-20"))>'
+  car_insurance_sep (extends line):
+    label: 'PRELEVEMENT ASSURANCE AUTO'
+    amountCents: -6000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+
+  # Somebody else's Flixo: never in this user's suggestions.
+  other_flixo_jul (extends line):
+    label: 'PAIEMENT PAR CARTE X9999 FLIXO 03/07'
+    counterpartyName: Flixo
+    amountCents: -999
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+    account: '@other_checking'
+    user: '@other_user'
+  other_flixo_aug (extends line):
+    label: 'PAIEMENT PAR CARTE X9999 FLIXO 03/08'
+    counterpartyName: Flixo
+    amountCents: -999
+    bookedAt: '<(new \DateTimeImmutable("2026-08-03"))>'
+    account: '@other_checking'
+    user: '@other_user'
+  other_flixo_sep (extends line):
+    label: 'PAIEMENT PAR CARTE X9999 FLIXO 03/09'
+    counterpartyName: Flixo
+    amountCents: -999
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+    account: '@other_checking'
+    user: '@other_user'
