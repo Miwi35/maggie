@@ -68,8 +68,19 @@ export const CustomAppBar = () => {
       //
       // Under `sm` the title is 1rem: it has ~87px on a 393px phone and « Courses »
       // at 20px left 15 of them — a wider font cut it to « Cours » (MAG-387).
+      //
+      // `<Title>` portals its text inside a `Configurable` box that react-admin
+      // draws `inline-block`. An atomic inline box is clipped by the title's
+      // `overflow: hidden` but never gets the « … »: a long title ended on half a
+      // glyph. As a block that can shrink it truncates itself (MAG-387, recette).
       sx={{
         '& .RaAppBar-title': { minWidth: 0, [`@media ${COMPACT_QUERY}`]: { fontSize: '1rem' } },
+        '& .RaAppBar-title > *': {
+          display: 'block',
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        },
       }}
       toolbar={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
