@@ -1,0 +1,16 @@
+# « Combien me coûtent mes abonnements ? » (MAG-306): what the recurring
+# operations cost and when they fall due, through `get_recurring_operations`
+# (no action, no argument — a pure read). The fake does not read the result:
+# the journey asserts the tool ran and went through, and what it returns is
+# `GetRecurringOperationsToolTest`'s business.
+name: recurring-operations
+description: Read the cost of the recurring operations through MCP.
+
+match:
+  user_contains: "coûtent mes abonnements"
+
+turns:
+  - tools:
+      - name: get_recurring_operations
+        input: {}
+  - text: "Voici ce que coûtent vos abonnements chaque mois, avec la prochaine échéance de chacun."

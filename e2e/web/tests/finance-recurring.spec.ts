@@ -1,7 +1,10 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedId, parisDay } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { calledTools, toolResults } from '../helpers/agui.js'
 import { openMercureProbe, userTopic } from '../helpers/mercure.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
+import { DashboardPage } from '../pages/DashboardPage.js'
 
 /**
  * Recurring operations (MAG-102, opérations récurrentes).
@@ -32,6 +35,16 @@ import { openMercureProbe, userTopic } from '../helpers/mercure.js'
  *
  * The badge on the line and the « accepter » button come with the screens
  * (MAG-308); the journey goes through the API they will call.
+ *
+ * Third step, MAG-306: what is read of a series — its cost, its next due date —
+ * from the overview the screen and Maggie share:
+ *
+ *   Étant donné l'opération récurrente « Abonnement Flixo », 13,49 €, le 12 de chaque mois, son débit rattaché
+ *   Quand je consulte les opérations récurrentes
+ *   Alors « Abonnement Flixo » coûte 13,49 € par mois, 161,88 € par an
+ *     et sa prochaine échéance est le 12 du mois à venir
+ *   Quand je demande à Maggie « combien me coûtent mes abonnements ? »
+ *   Alors elle a lu les opérations récurrentes (`get_recurring_operations`)
  */
 
 interface StoredSeries {
@@ -251,4 +264,70 @@ test('a Flixo debit attaches to its occurrence, a price rise is proposed, and ac
   const after = await dryRun(api)
   expect(after.proposals.find((p) => p.transactionId === twice.id)).toBeUndefined()
   expect(after.attachments.find((a) => a.transactionId === twice.id)).toBeUndefined()
+})
+
+interface OverviewOperation {
+  id: string
+  label: string
+  monthlyCostCents: number
+  yearlyCostCents: number
+  nextOccurrenceOn: string | null
+  missedOccurrence: unknown
+  priceChange: unknown
+}
+
+test('the overview reads a subscription\'s cost and next due date, and Maggie reads it too', async ({ otherUser }) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-306, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryId = await created(api, '/api/categories', {
+    name: `Abonnements MAG-306, essai ${attempt}`,
+    obligation: 'optional',
+  })
+  createdCategoryIds.push(categoryId)
+
+  // Given the series, with this month's debit attached to the 12th.
+  const anchorOn = `${parisDay().slice(0, 7)}-12`
+  const seriesId = await created(api, '/api/recurring_operations', {
+    label: 'Abonnement Flixo',
+    counterpartyName: 'Flixo',
+    account: `/api/accounts/${accountId}`,
+    category: `/api/categories/${categoryId}`,
+    period: 'monthly',
+    anchorOn,
+    referenceAmountCents: -1349,
+  })
+  const debitLine = await debit(api, accountId, `PAIEMENT PAR CARTE FLIXO ${anchorOn.slice(8, 10)}/${anchorOn.slice(5, 7)}`, -1349, anchorOn)
+  expect(debitLine.recurringOperation).toBe(`/api/recurring_operations/${seriesId}`)
+
+  // When I read the overview.
+  const response = await api.get('/api/finance/recurring-operations/overview')
+  expect(response.status(), await response.text()).toBe(200)
+  const overview = (await response.json()) as { operations: OverviewOperation[] }
+  const flixo = overview.operations.find((operation) => operation.id === seriesId)
+
+  // Then 13,49 € a month, 161,88 € a year, next due the 12th of the coming month.
+  expect(flixo, 'the new series must be in the overview').toBeDefined()
+  expect(flixo?.monthlyCostCents).toBe(-1349)
+  expect(flixo?.yearlyCostCents).toBe(-16188)
+  expect(flixo?.nextOccurrenceOn).toBe(nextMonth(anchorOn))
+  expect(flixo?.missedOccurrence).toBeNull()
+  expect(flixo?.priceChange).toBeNull()
+
+  // When I ask Maggie what my subscriptions cost.
+  await new DashboardPage(page).open()
+  const events = await new ChatPanel(page).send('Combien me coûtent mes abonnements ?')
+
+  // Then she read the recurring operations, and it went through.
+  expect(calledTools(events)).toContain('get_recurring_operations')
+  expect(toolResults(events)).toEqual(
+    expect.arrayContaining([expect.objectContaining({ toolName: 'get_recurring_operations', status: 'success' })]),
+  )
 })

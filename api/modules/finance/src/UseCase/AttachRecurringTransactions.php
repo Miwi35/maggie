@@ -443,7 +443,7 @@ class AttachRecurringTransactions
      *
      * @param list<array{on: string, id: string, amount: int}> $rows
      */
-    private function recalibratedAmount(RecurringOperation $operation, array $rows): ?int
+    public function recalibratedAmount(RecurringOperation $operation, array $rows): ?int
     {
         if (ReferenceAmountSource::Measured !== $operation->getReferenceSource() || [] === $rows) {
             return null;
