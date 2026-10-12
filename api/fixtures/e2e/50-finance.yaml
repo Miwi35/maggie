@@ -71,6 +71,7 @@ Maggie\Finance\Entity\Category:
   e2e_category_income:
     name: Salaire
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
     color: '#1565c0'
     icon: 'wallet'
     user: '@e2e_user'

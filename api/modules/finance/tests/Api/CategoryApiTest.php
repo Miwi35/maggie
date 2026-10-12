@@ -194,6 +194,31 @@ class CategoryApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
+    /** The standard key is not a flag the owner edits: a rename keeps it, a PATCH cannot move it (MAG-273). */
+    public function testRenamingTheSalaryKeepsItsStandardKey(): void
+    {
+        $this->loadFixtures('category_income.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $salary = $this->getFixture('salary');
+
+        $this->patch((string) $salary->getId(), ['name' => 'Paie', 'standardKey' => 'bonus']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('salary', $data['standardKey']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Category::class, $salary->getId());
+        self::assertSame('Paie', $stored->getName());
+        self::assertSame('salary', $stored->getStandardKey());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
     /** Moving a rente to a spending obligation is the same contradiction. */
     public function testARenteCannotBeMovedToASpendingObligation(): void
     {

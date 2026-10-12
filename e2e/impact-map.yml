@@ -386,6 +386,8 @@ web:
     areas: [finance]
   e2e/web/tests/finance-recurring.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-reference-salary.spec.ts:
+    areas: [finance, chat]
   e2e/web/tests/finance-rules.spec.ts:
     areas: [finance]
 

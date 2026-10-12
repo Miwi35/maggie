@@ -854,6 +854,33 @@ class TransactionRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * What a series was really paid, latest occurrence first: its attached
+     * lines in the direction it expects, without the neutral movements
+     * (internal transfers, rejected payments) nor the lines flagged
+     * exceptional. What the reference salary averages.
+     *
+     * @return list<int> amounts in signed cents
+     */
+    public function findLastPaidAmounts(RecurringOperation $operation, int $limit): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.amountCents AS amountCents')
+            ->andWhere('t.recurringOperation = :operation')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.isExceptional = false')
+            ->andWhere($operation->getReferenceAmountCents() < 0 ? 't.amountCents < 0' : 't.amountCents > 0')
+            ->setParameter('operation', $operation->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->orderBy('t.recurringOccurrenceOn', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row) => (int) $row['amountCents'], $rows);
+    }
+
     /** @return Transaction[] every line attached to a series */
     public function findAttachedTo(RecurringOperation $operation): array
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -31,6 +32,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
+#[ORM\UniqueConstraint(name: 'uniq_category_user_standard_key', columns: ['user_id', 'standard_key'])]
 #[Indexed(index: 'categories', module: 'finance')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -76,6 +78,17 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[ORM\Column(name: 'is_passive_income', type: 'boolean', options: ['default' => false])]
     #[IndexedField(type: 'boolean')]
     private bool $passiveIncome = false;
+
+    /**
+     * Which standard category this is, if it is one (`StandardCategories::SALARY`,
+     * `StandardCategories::BONUS`). Laid down with the category, never written
+     * over REST, and kept whatever the owner renames it to: what reads "the
+     * salary" asks the key, never the name.
+     */
+    #[ORM\Column(length: 40, nullable: true)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'keyword')]
+    private ?string $standardKey = null;
 
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $color = null;
@@ -167,6 +180,24 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
+    public function getStandardKey(): ?string
+    {
+        return $this->standardKey;
+    }
+
+    public function setStandardKey(?string $standardKey): static
+    {
+        $this->standardKey = $standardKey;
+
+        return $this;
+    }
+
+    /** Whether this category, or the one it sits under, is the standard one with this key. */
+    public function isStandard(string $key): bool
+    {
+        return $key === $this->standardKey || $key === $this->parent?->getStandardKey();
+    }
+
     public function getColor(): ?string
     {
         return $this->color;
@@ -210,6 +241,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'name' => $this->name,
             'obligation' => $this->obligation->value,
             'passiveIncome' => $this->passiveIncome,
+            'standardKey' => $this->standardKey,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,
@@ -224,6 +256,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'name' => $this->name,
             'obligation' => $this->obligation->value,
             'passiveIncome' => $this->passiveIncome,
+            'standardKey' => $this->standardKey,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,

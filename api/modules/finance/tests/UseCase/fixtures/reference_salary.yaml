@@ -1,0 +1,152 @@
+# The reference salary's world (MAG-273), on the real clock: every series is
+# anchored a year back and runs on, so nothing here moves with the day the
+# suite runs. One user per source; the measured payments are written by the
+# tests, which need them dated against today.
+Maggie\Core\Entity\User:
+  test_user:
+    email: reference-salary-expected@example.com
+    googleId: google-reference-salary-expected
+    name: Reference Salary Expected User
+  measured_user:
+    email: reference-salary-measured@example.com
+    googleId: google-reference-salary-measured
+    name: Reference Salary Measured User
+  declared_user:
+    email: reference-salary-declared@example.com
+    googleId: google-reference-salary-declared
+    name: Reference Salary Declared User
+  empty_user:
+    email: reference-salary-empty@example.com
+    googleId: google-reference-salary-empty
+    name: Reference Salary Empty User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  measured_checking:
+    name: Courant mesuré
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@measured_user'
+  declared_checking:
+    name: Courant déclaré
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@declared_user'
+
+Maggie\Finance\Entity\Category:
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@test_user'
+  bonus:
+    name: Primes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: bonus
+    user: '@test_user'
+  rente:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@test_user'
+  measured_salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@measured_user'
+  declared_salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@declared_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  # 4 950 € expected on the 25th: the mark, as the owner stated it.
+  salary_op:
+    label: Salaire ACME
+    counterpartyName: ACME
+    category: '@salary'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("first day of this month -12 months +24 days"))>'
+    referenceAmountCents: 495000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@test_user'
+  # A yearly bonus is a recurring income too, but never the salary.
+  bonus_op:
+    label: Prime annuelle ACME
+    counterpartyName: ACME PRIME
+    category: '@bonus'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Yearly)>'
+    anchorOn: '<(new \DateTimeImmutable("first day of this month -12 months"))>'
+    referenceAmountCents: 200000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@test_user'
+  rente_op:
+    label: Loyer studio
+    counterpartyName: Locataire
+    category: '@rente'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("first day of this month -12 months"))>'
+    referenceAmountCents: 60000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@test_user'
+  # Measured: its reference follows the payments, written by the tests.
+  measured_op:
+    label: Salaire Globex
+    counterpartyName: GLOBEX
+    category: '@measured_salary'
+    account: '@measured_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("first day of this month -24 months +24 days"))>'
+    referenceAmountCents: 500000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Measured)>'
+    user: '@measured_user'
+  declared_op:
+    label: Salaire Initech
+    counterpartyName: INITECH
+    category: '@declared_salary'
+    account: '@declared_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("first day of this month -12 months"))>'
+    referenceAmountCents: 495000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@declared_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  declared_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 520000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@declared_user'
+  # A cushion with no salary declared on it declares nothing.
+  empty_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 0
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@empty_user'
+
+Maggie\Finance\Entity\Transaction:
+  # A 2 000 € bonus filed in « Primes », paid this month.
+  bonus_this_month:
+    account: '@checking'
+    amountCents: 200000
+    bookedAt: '<(new \DateTimeImmutable("first day of this month"))>'
+    label: VIR ACME PRIME
+    counterpartyName: ACME PRIME
+    category: '@bonus'
+    user: '@test_user'

@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\Controller;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Enum\ObligationFlag;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -83,6 +84,70 @@ class StandardCategoriesControllerTest extends WebTestCase
 
         // A wage filed as a mandatory expense would be a lie every report reads.
         self::assertSame(ObligationFlag::Income, $salary->getObligation());
+    }
+
+    public function testTheSalaryAndTheBonusesCarryTheirStandardKey(): void
+    {
+        $this->loadFixtures('bank_connection.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->install();
+
+        self::assertContains('Primes', $data['names']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $repository = $em->getRepository(Category::class);
+        self::assertSame(StandardCategories::SALARY, $repository->findOneBy(['name' => 'Salaire'])->getStandardKey());
+        $bonus = $repository->findOneBy(['name' => 'Primes']);
+        self::assertSame(StandardCategories::BONUS, $bonus->getStandardKey());
+        self::assertSame(ObligationFlag::Income, $bonus->getObligation());
+        self::assertNull($repository->findOneBy(['name' => 'Logement'])->getStandardKey());
+    }
+
+    /** A renamed « Salaire » is still the salary: installing again creates no second one. */
+    public function testInstallingAgainAfterARenameCreatesNoSecondSalary(): void
+    {
+        $this->loadFixtures('bank_connection.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $this->install();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $repository = $em->getRepository(Category::class);
+        $repository->findOneBy(['name' => 'Salaire'])->setName('Paie');
+        $repository->findOneBy(['name' => 'Primes'])->setName('Bonus');
+        $em->flush();
+
+        $data = $this->install();
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $data['created']);
+        $em->clear();
+        self::assertNull($repository->findOneBy(['name' => 'Salaire']));
+        self::assertCount(1, $repository->findBy(['standardKey' => StandardCategories::SALARY]));
+        self::assertSame('Paie', $repository->findOneBy(['standardKey' => StandardCategories::SALARY])->getName());
+    }
+
+    public function testAHandMadeSalaryReceivesTheKeyAndKeepsItsName(): void
+    {
+        $this->loadFixtures('bank_connection.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $theirs = new Category();
+        $theirs->setUser($this->getFixture('test_user'));
+        $theirs->setName('SALAIRE');
+        $theirs->setObligation(ObligationFlag::Income);
+        $em->persist($theirs);
+        $em->flush();
+
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $data = $this->install();
+
+        self::assertNotContains('Salaire', $data['names']);
+
+        $em->clear();
+        $refreshed = $em->find(Category::class, $theirs->getId());
+        self::assertSame('SALAIRE', $refreshed->getName());
+        self::assertSame(StandardCategories::SALARY, $refreshed->getStandardKey());
     }
 
     public function testSubscriptionsCarryTheUtilitiesUnderThem(): void

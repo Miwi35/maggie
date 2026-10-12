@@ -16,15 +16,23 @@ use Maggie\Finance\Enum\ObligationFlag;
  *
  * Only subscriptions carry children, because that is the one heading where the
  * total says nothing useful — knowing water from electricity is the point.
+ *
+ * A few carry a stable `key`, for what must recognise them without guessing
+ * from a name the owner may change: the salary the month is judged on, and the
+ * bonuses kept out of it.
  */
 final class StandardCategories
 {
+    public const string SALARY = 'salary';
+    public const string BONUS = 'bonus';
+
     /**
      * @return list<array{
      *     name: string,
      *     obligation: ObligationFlag,
      *     color: string,
      *     icon: string,
+     *     key?: string,
      *     children?: list<array{name: string, icon: string}>
      * }>
      */
@@ -94,6 +102,14 @@ final class StandardCategories
                 'obligation' => ObligationFlag::Income,
                 'color' => '#43A047',
                 'icon' => 'payments',
+                'key' => self::SALARY,
+            ],
+            [
+                'name' => 'Primes',
+                'obligation' => ObligationFlag::Income,
+                'color' => '#43A047',
+                'icon' => 'star',
+                'key' => self::BONUS,
             ],
             [
                 'name' => 'Aides & allocations',
@@ -114,5 +130,18 @@ final class StandardCategories
                 'icon' => 'redeem',
             ],
         ];
+    }
+
+    /** @return array<string, string> key => the name the standard category is laid down with */
+    public static function keyed(): array
+    {
+        $names = [];
+        foreach (self::all() as $definition) {
+            if (isset($definition['key'])) {
+                $names[$definition['key']] = $definition['name'];
+            }
+        }
+
+        return $names;
     }
 }
