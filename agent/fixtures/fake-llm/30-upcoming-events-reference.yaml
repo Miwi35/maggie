@@ -1,0 +1,18 @@
+# 30-upcoming-events.yaml for a question that carries a reference: « … prévu aujourd'hui ?
+# (réf abc123) ». Same tool round, and the answer repeats the reference.
+#
+# The first chat journey sends it from the seeded account, which every repeat shares
+# (MAG-394): with the reference, its exchange is its own and the bubbles it counts cannot be
+# another run's. Numbered before 30-upcoming-events.yaml (« - » sorts before « . »), which
+# keeps answering the bare question.
+name: upcoming-events-reference
+description: Read the agenda through MCP, then answer repeating the question's reference.
+
+match:
+  user_matches: 'pr(é|e)vu.*\(réf (\w+)\)'
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 7}
+  - text: "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine. (réf \\2)"

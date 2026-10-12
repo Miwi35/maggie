@@ -63,14 +63,18 @@ export class ChatPanel {
   /**
    * The panel opens with the shell above `md`; below it the app bar's button
    * is what brings it in (MAG-38). Idempotent.
+   *
+   * Returns once the history is in the list (MAG-394): it replaces the messages when it
+   * lands, so a message sent before that would vanish from the list, and a count of
+   * bubbles read before it would miss what the thread already holds.
    */
   async open(): Promise<void> {
-    if (await this.input.isVisible()) {
-      return
+    if (!(await this.input.isVisible())) {
+      await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
+      await expect(this.input).toBeVisible()
     }
 
-    await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
-    await expect(this.input).toBeVisible()
+    await expect(this.panel.locator('[data-history-loaded="true"]')).toBeAttached()
   }
 
   /**

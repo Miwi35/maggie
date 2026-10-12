@@ -522,6 +522,50 @@ class TestMatching:
         assert answer.content[0].name == "delete_event"
         assert answer.content[0].input == {"id": event_id}
 
+    async def test_the_approved_deletion_is_announced_with_its_event_id(self):
+        """74-delete-event-approved.yaml: the announcement is the one event's alone (MAG-394)."""
+        event_id = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(
+            client,
+            f'L\'utilisateur a validé delete_event({{"id": "{event_id}"}}). Résultat : {{"success": true}}. '
+            "Annonce-le brièvement.",
+        )
+
+        assert text_of(answer) == f"C'est fait : l'événement Test validation est supprimé ({event_id})."
+
+    async def test_a_greeting_with_a_reference_is_answered_with_that_reference(self):
+        """82-greeting-reference.yaml, before the bare greeting that would also match (MAG-394)."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        referenced = await ask(client, "Bonjour Maggie (réf 1a2b3c4d)")
+        bare = await ask(client, "Bonjour Maggie")
+
+        assert text_of(referenced) == "Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf 1a2b3c4d)"
+        assert text_of(bare) == "Bonjour ! Je suis là, dis-moi ce qu'il te faut."
+
+    async def test_an_agenda_question_with_a_reference_reads_the_agenda_then_repeats_it(self):
+        """30-upcoming-events-reference.yaml: the same tool round as the bare question (MAG-394)."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        question = "Qu'est-ce que j'ai de prévu aujourd'hui ? (réf 1a2b3c4d)"
+
+        first = await ask(client, question, tools=[{"name": "get_upcoming_events"}])
+        assert first.content[0].name == "get_upcoming_events"
+
+        second = await client.messages.create(
+            model="fake",
+            system="Tu es Maggie.",
+            messages=[
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": [{"type": "tool_use"}]},
+                {"role": "user", "content": [{"type": "tool_result", "content": "[]"}]},
+            ],
+        )
+        assert text_of(second) == (
+            "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine. (réf 1a2b3c4d)"
+        )
+
 
 class TestTurns:
     async def test_a_tool_turn_asks_for_its_tools(self, fixtures_dir):
