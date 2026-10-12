@@ -19,7 +19,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * Safe to run twice: a heading the user already has — under whatever spelling
  * or casing — is left exactly as it is, colour and obligation included. Someone
  * who renamed "Loisirs" or made it optional must not find their choice undone
- * by asking for the starting set again.
+ * by asking for the starting set again. The one thing it does give a heading
+ * already there is its standard key, through `TagStandardCategories`.
  */
 class InstallStandardCategories
 {
@@ -27,12 +28,15 @@ class InstallStandardCategories
         private readonly CategoryRepository $categoryRepository,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly TagStandardCategories $tagStandardCategories,
     ) {
     }
 
     /** @return array{created: int, kept: int, names: list<string>} */
     public function execute(User $user): array
     {
+        $tagged = array_values($this->tagStandardCategories->execute($user));
+
         $existing = [];
         foreach ($this->categoryRepository->findByUser($user) as $category) {
             $existing[self::key($category->getName())] = $category;
@@ -52,6 +56,7 @@ class InstallStandardCategories
                     $definition['color'],
                     $definition['icon'],
                 );
+                $parent->setStandardKey($definition['key'] ?? null);
                 $existing[self::key($definition['name'])] = $parent;
                 $created[] = $parent;
             } else {
@@ -80,7 +85,7 @@ class InstallStandardCategories
         $this->em->flush();
 
         // Written straight to the database, so nothing on the bus indexed them.
-        foreach ($created as $category) {
+        foreach ([...$created, ...$tagged] as $category) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Category::class,
                 entityId: (string) $category->getId(),

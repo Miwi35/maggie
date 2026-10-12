@@ -509,6 +509,14 @@
         },
         "description": "Read what the recurring operations (subscriptions, rent, salary, any series the user expects to see again) cost and bring in, in one call, without arguments. totals: monthlyCostCents and yearlyCostCents are the expenses (negative cents), monthlyIncomeCents the incomes (positive), activeCount the series that have not ended; an ended series (endsOn past) is listed but left out of the totals. Amounts are signed integer cents, divide by 100 to speak them: say \"38,47 € par mois\", never the raw cents. operations[]: id, label, category, account, period, dayRule, referenceAmountCents, monthlyCostCents, yearlyCostCents, currency, nextOccurrenceOn (the next due date not yet settled by a transaction, null once ended), lastAttachedOn, attachmentCount, and lastOccurrence (the latest transaction attached, with its dateGapDays and the deviations it carried: late, early, amount_up, amount_down). missedOccurrence is set when the latest due date is past its date tolerance with no transaction attached (\"the rent did not come this month\"), with occurrenceOn and daysOverdue; it is a fact to report, never a reason to alarm. priceChange (previousCents, currentCents, percent, since) is set when the amount the series is paid at moved from the one before by more than the series' amount tolerance. proposals[] are the attachments still waiting for the user's yes, each with its reason (late, early, amount_up, amount_down, ambiguous): confirm one with manage_recurring_operations attach. To create, change or delete a series use manage_recurring_operations."
     },
+    "get_reference_salary": {
+        "name": "get_reference_salary",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read the reference salary: the stable monthly salary the user's month is judged on, bonuses excluded, rather than what actually came in this month (a salary can arrive late, or two at once). No arguments. monthlyCents is positive integer cents, divide by 100 to speak it (\"4 950 € par mois\"); it is null when nothing is known, and then never say 0 €: say no salary is set yet, and that declaring it on the safety cushion or creating the recurring income operation \"Salaire\" fixes that. source says where it comes from, always say it: declared (the net salary the user declared on the safety cushion, it wins), expected (the expected amount of the recurring income operations in the \"Salaire\" category), measured (the average of their last 12 attached payments, for an operation whose amount is measured), unknown. operations[] lists the salary operations (id, label, categoryName, period, referenceAmountCents, monthlyCents brought to a month, source, paymentCount); two employers are two operations, added. To change the salary use manage_safety_cushion or manage_recurring_operations."
+    },
     "get_tasks": {
         "name": "get_tasks",
         "inputSchema": {

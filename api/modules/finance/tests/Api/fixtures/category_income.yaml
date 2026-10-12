@@ -10,3 +10,8 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
     passiveIncome: true
     user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@test_user'

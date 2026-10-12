@@ -1,0 +1,35 @@
+# Two accounts made before the standard key existed (MAG-273): one with a
+# hand-made « salaire » and « Primes », one whose salary already holds the key.
+Maggie\Core\Entity\User:
+  test_user:
+    email: tag-standard-test@example.com
+    googleId: google-tag-standard-test
+    name: Tag Standard Test User
+  tagged_user:
+    email: tag-standard-tagged@example.com
+    googleId: google-tag-standard-tagged
+    name: Tag Standard Tagged User
+
+Maggie\Finance\Entity\Category:
+  hand_salary:
+    name: ' salaire '
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    color: '#123456'
+    user: '@test_user'
+  hand_bonus:
+    name: Primes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  renamed_salary:
+    name: Paie
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@tagged_user'
+  second_salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@tagged_user'

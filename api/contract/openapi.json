@@ -9624,6 +9624,14 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "standardKey": {
+                        "readOnly": true,
+                        "description": "Which standard category this is, if it is one (`StandardCategories::SALARY`,\n`StandardCategories::BONUS`). Laid down with the category, never written\nover REST, and kept whatever the owner renames it to: what reads \"the\nsalary\" asks the key, never the name.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "color": {
                         "type": [
                             "string",
@@ -9682,6 +9690,14 @@
                         "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "standardKey": {
+                        "readOnly": true,
+                        "description": "Which standard category this is, if it is one (`StandardCategories::SALARY`,\n`StandardCategories::BONUS`). Laid down with the category, never written\nover REST, and kept whatever the owner renames it to: what reads \"the\nsalary\" asks the key, never the name.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "color": {
                         "type": [
@@ -9742,6 +9758,14 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "standardKey": {
+                        "readOnly": true,
+                        "description": "Which standard category this is, if it is one (`StandardCategories::SALARY`,\n`StandardCategories::BONUS`). Laid down with the category, never written\nover REST, and kept whatever the owner renames it to: what reads \"the\nsalary\" asks the key, never the name.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "color": {
                         "type": [
                             "string",
@@ -9801,6 +9825,14 @@
                                 "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
                                 "default": false,
                                 "type": "boolean"
+                            },
+                            "standardKey": {
+                                "readOnly": true,
+                                "description": "Which standard category this is, if it is one (`StandardCategories::SALARY`,\n`StandardCategories::BONUS`). Laid down with the category, never written\nover REST, and kept whatever the owner renames it to: what reads \"the\nsalary\" asks the key, never the name.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "color": {
                                 "type": [
