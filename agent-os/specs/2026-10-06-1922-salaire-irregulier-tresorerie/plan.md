@@ -67,40 +67,27 @@ Admin : colonne/badge « Virement interne » dans `AccountTransactionsView` et `
 
 Tests : Vitest (rendu avec et sans badge, bascule, erreur API) ; MockK sur `TransactionViewModel` (une transition d'état par cas : chargement, succès, erreur) ; test d'écran Compose pour le badge.
 
-## Tâche 4 — Salaire de référence : drapeau de catégorie, mesure et lecture (API + MCP) — MAG-273
+## Tâche 4 — Salaire de référence : le montant attendu de l'opération récurrente « Salaire » (API + MCP) — MAG-273
 
-**Bloquée par la tâche 2** : la mesure sur 12 mois lit des crédits, et un virement interne crédité sur le courant les fausserait.
+**Recadrée le 8 oct. (propriétaire)** : le salaire n'est pas un drapeau, c'est l'opération récurrente de recette dont la catégorie est « Salaire » (projet « Opérations récurrentes », MAG-304/305). Remplace la décision 8 de `shape.md`.
 
 ### Modèle
 
-`Category` reçoit `$salary` (colonne `is_salary`, accesseur `isSalary()`, décision 8), `IndexedField(type: 'boolean')`, dans la charge Mercure et le document ES, avec la validation symétrique de celle de `passiveIncome` : `Category::SALARY_WITHOUT_INCOME = 'Only an income category can be a salary.'`, `#[Assert\Callback]`, refus si `salary && ObligationFlag::Income !== $obligation`.
-
-`StandardCategories::all()` : clé `salary` sur la définition, `true` sur « Salaire », et une catégorie « Primes » nouvelle (`ObligationFlag::Income`, `salary` absent, icône `military-tech`, même vert que les autres recettes). Aucune migration de données (décision 9).
+`Category::$standardKey` (colonne `standard_key`, unique par utilisateur, lecture seule en REST, dans la charge Mercure et le document ES) : `salary` sur « Salaire », `bonus` sur « Primes », nouvelle catégorie standard de recette. Un renommage garde la clé. `app:finance:categories:tag-standard [email]` (idempotente, par le bus) pose la clé sur une catégorie racine du même nom faite à la main ; `InstallStandardCategories` le fait aussi.
 
 ### Lecture — `UseCase/GetReferenceSalary`
 
-```
-execute(User $user, ?\DateTimeImmutable $thisMonth = null): array
-```
+Opérations récurrentes actives aujourd'hui, de recette, dont la catégorie (ou son parent) a la clé `salary`, hors rente. Par opération : `declared` → son montant de référence (`expected`) ; `measured` → moyenne de ses 12 derniers versements rattachés, hors virements internes, rejets et crédits exceptionnels (`measured`), son montant de référence s'il n'en a aucun. Ramené au mois (`perYear / 12`), additionné. Le salaire net déclaré sur le matelas gagne s'il est > 0. Rien : `monthlyCents = null`, `source = unknown`, `isConfigured = false`.
 
-Fenêtre de mesure : 12 mois pleins avant le mois en cours, demi-ouverte, à minuit — même précaution que `MeasureMonthlyLifestyle::sampleWindow()` (`bookedAt` est une date à 00:00, une fenêtre ouverte à 16 h décale les deux bords d'un jour).
-
-Retour : `monthlyCents`, `source` (`declared` | `measured` | `unknown`), `declaredMonthlyCents`, `measuredMonthlyCents`, `measuredFrom`, `measuredUntil`, `sampleMonths` (12), `salaryCategories` (id, nom, total), `isConfigured`. Le déclaré gagne dès qu'il est > 0 (décision 7) ; sans déclaré ni mesure, `source = unknown`, `monthlyCents = 0`, `isConfigured = false` — et personne n'affiche 0 € comme un salaire.
-
-Dépôt : `sumSalaryIncomeByCategoryBetween(User, from, until)`, calquée sur `sumPassiveIncomeByCategoryBetween` : `innerJoin` sur la catégorie, `c.salary = true`, `t.amountCents > 0`, statuts consommés, `isExceptional = false`, virements internes exclus.
+Retour : `monthlyCents`, `source` (`declared` | `expected` | `measured` | `unknown`), `isConfigured`, `declaredMonthlyCents`, `operations[]` (id, label, categoryName, period, referenceAmountCents, monthlyCents, source, paymentCount).
 
 ### HTTP et MCP
 
-`GET /api/finance/reference-salary` (`Controller/ReferenceSalaryController`) — 401 hors session, pas de paramètre. Outil MCP `get_reference_salary`, sans action, qui rend le repère et dit d'où il vient.
+`GET /api/finance/reference-salary` — 401 hors session, pas de paramètre. Outil MCP `get_reference_salary`, sans argument.
 
 ### Tests
 
-- `tests/UseCase/GetReferenceSalaryTest.php` : déclaré seul ; mesuré seul ; déclaré qui gagne sur le mesuré ; **une prime hors catégorie salaire n'entre pas dans le repère** (cas du propriétaire 3) ; une rente (`passiveIncome`) n'y entre pas ; un crédit exceptionnel non plus ; un virement interne crédité non plus ; mois en cours exclu de la fenêtre ; ni déclaré ni mesuré → `unknown` ; isolation entre utilisateurs.
-- `tests/Entity/CategoryTest.php` ou `tests/Controller/CategoryTest.php` : une catégorie de dépense marquée salaire est refusée (422) ; une catégorie de recette l'accepte.
-- `tests/Controller/ReferenceSalaryControllerTest.php` : 401 ; happy path avec les deux sources ; `isConfigured` faux sur un compte vierge. *Exemptions écrites :* `N/A — état DB, Mercure et Elasticsearch` (lecture pure, rien n'est écrit, comme `MonthlyReviewControllerTest`) et `N/A — 400` (l'endpoint n'accepte aucun paramètre).
-- `tests/Mcp/GetReferenceSalaryToolTest.php` : le repère, **appel sans utilisateur lié**, isolation en lecture. *Exemption écrite :* `N/A — action inconnue et argument requis manquant` (l'outil n'a ni action ni paramètre).
-- `tests/UseCase/InstallStandardCategoriesTest.php` : « Primes » créée, « Salaire » créée avec `is_salary`, et une catégorie « Salaire » préexistante **laissée telle quelle**, drapeau non posé (décision 9).
-- Contrat : mise à jour (nouvel outil, nouveau champ de catégorie, nouvel endpoint).
+`GetReferenceSalaryTest` (chaque source, prime, deux versements le même jour, renommage, deux employeurs, trimestriel, série terminée, sous-catégorie, lecture pure), `ReferenceSalaryControllerTest`, `GetReferenceSalaryToolTest`, `TagStandardCategoriesCommandTest`, `StandardCategoriesControllerTest`, `CategoryApiTest`. *Exemptions écrites :* `N/A — état DB, Mercure et Elasticsearch` et `N/A — 400` pour l'endpoint et l'outil (lecture pure, aucun paramètre).
 
 ## Tâche 5 — Le salaire de référence dans la revue mensuelle, le score et le matelas (API) — MAG-274
 
@@ -282,9 +269,7 @@ Alors les deux le perdent, et le train de vie remonte à 3 080,00 €
 ### Salaire de référence — `e2e/web/tests/finance-reference-salary.spec.ts` (tâches 4 à 6)
 
 ```
-Étant donné la catégorie « Salaire » cochée « salaire » et la catégorie « Primes » qui ne l'est pas
-  et 12 crédits de 4 950,00 € dans « Salaire », un par mois
-  et un crédit de 2 000,00 € dans « Primes »
+Étant donné une opération récurrente « Salaire » attendue à 4 950,00 € par mois
   et aucun salaire net déclaré sur le matelas
 Quand j'ouvre le dashboard finance
 Alors le salaire de référence affiche 4 950,00 €, « mesuré sur 12 mois »
@@ -292,10 +277,10 @@ Alors le salaire de référence affiche 4 950,00 €, « mesuré sur 12 mois »
   et le matelas n'est plus « non configuré »
 Quand je demande à Maggie « sur quel salaire tu juges mon mois ? »
 Alors `get_reference_salary` a tourné et a réussi
-  et sa réponse cite 4 950,00 €
+  et le repère est 4 950,00 €, source « attendu » (MAG-273)
 ```
 
-Scénario `agent/fixtures/fake-llm/90-reference-salary.yaml`, `match: user_contains: "quel salaire"`.
+Scénario `agent/fixtures/fake-llm/95-reference-salary.yaml`, `match: user_contains: "quel salaire tu juges mon mois"`. L'écran (MAG-275) ajoute les étapes du dashboard.
 
 ### Trésorerie et avances — `e2e/web/tests/finance-treasury.spec.ts` (tâches 7 à 11)
 
