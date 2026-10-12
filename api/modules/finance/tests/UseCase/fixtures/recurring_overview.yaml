@@ -1,0 +1,226 @@
+# The recurring overview's world (MAG-306): "today" is 2027-05-20 and every
+# date below is fixed, so the figures never move with the calendar. One series
+# per periodicity, one per case the overview has to tell apart.
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-overview-test@example.com
+    googleId: google-recurring-overview-test
+    name: Recurring Overview Test User
+  other_user:
+    email: recurring-overview-other@example.com
+    googleId: google-recurring-overview-other
+    name: Recurring Overview Other User
+  empty_user:
+    email: recurring-overview-empty@example.com
+    googleId: google-recurring-overview-empty
+    name: Recurring Overview Empty User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  salary_category:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  # 13,49 € until March, 17,99 € since the April due date: a price rise.
+  flixo:
+    label: Abonnement Flixo
+    counterpartyName: Flixo
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-12"))>'
+    referenceAmountCents: -1799
+    user: '@test_user'
+  # Quarterly: 120 € on the 10th of February, May, August, November.
+  insurance:
+    label: Assurance habitation
+    counterpartyName: Assurex
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Quarterly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-02-10"))>'
+    referenceAmountCents: -12000
+    user: '@test_user'
+  # Yearly, and not started yet: already a commitment.
+  property_tax:
+    label: Taxe foncière
+    counterpartyName: Trésor public
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Yearly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-09-15"))>'
+    referenceAmountCents: -35000
+    user: '@test_user'
+  # Weekly, on Mondays: 52 occurrences a year.
+  newspaper:
+    label: Journal du lundi
+    counterpartyName: Kiosque
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Weekly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-04"))>'
+    referenceAmountCents: -500
+    user: '@test_user'
+  # The last day of every month; nothing attached to any of them.
+  rent:
+    label: Loyer
+    counterpartyName: Agence Foncia
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    dayRule: '<(Maggie\Finance\Enum\DayRule::LastDayOfMonth)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-31"))>'
+    referenceAmountCents: -90000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@test_user'
+  salary:
+    label: Salaire
+    counterpartyName: Employeur SA
+    category: '@salary_category'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: 250000
+    user: '@test_user'
+  # A price rise waiting as a proposal: May's debit is 39,90 € instead of 30 €.
+  gym:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@test_user'
+  # Declared 90 €; May's bill came 9 days late and 38 % above.
+  power:
+    label: Électricité
+    counterpartyName: Edelec
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-10"))>'
+    referenceAmountCents: -9000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@test_user'
+  # Ended on 31 March: listed, but not in the totals.
+  old_gym:
+    label: Ancienne salle
+    counterpartyName: Ancienne Salle
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-03"))>'
+    endsOn: '<(new \DateTimeImmutable("2027-03-31"))>'
+    referenceAmountCents: -2500
+    user: '@test_user'
+  other_flixo:
+    label: Abonnement secret
+    counterpartyName: Flixo
+    category: '@other_secret'
+    account: '@other_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-12"))>'
+    referenceAmountCents: -999
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  flixo_jan:
+    account: '@checking'
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2027-01-12"))>'
+    label: CB FLIXO 12/01
+    counterpartyName: Flixo
+    recurringOperation: '@flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-01-12"))>'
+    user: '@test_user'
+  flixo_feb:
+    account: '@checking'
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2027-02-13"))>'
+    label: CB FLIXO 13/02
+    counterpartyName: Flixo
+    recurringOperation: '@flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-02-12"))>'
+    user: '@test_user'
+  flixo_mar:
+    account: '@checking'
+    amountCents: -1349
+    bookedAt: '<(new \DateTimeImmutable("2027-03-12"))>'
+    label: CB FLIXO 12/03
+    counterpartyName: Flixo
+    recurringOperation: '@flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-03-12"))>'
+    user: '@test_user'
+  flixo_apr:
+    account: '@checking'
+    amountCents: -1799
+    bookedAt: '<(new \DateTimeImmutable("2027-04-12"))>'
+    label: CB FLIXO 12/04
+    counterpartyName: Flixo
+    recurringOperation: '@flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-04-12"))>'
+    user: '@test_user'
+  flixo_may:
+    account: '@checking'
+    amountCents: -1799
+    bookedAt: '<(new \DateTimeImmutable("2027-05-13"))>'
+    label: CB FLIXO 13/05
+    counterpartyName: Flixo
+    recurringOperation: '@flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-05-12"))>'
+    user: '@test_user'
+  gym_may_dearer:
+    account: '@checking'
+    amountCents: -3990
+    bookedAt: '<(new \DateTimeImmutable("2027-05-02"))>'
+    label: CB CLUB FORME 02/05
+    counterpartyName: Club Forme
+    user: '@test_user'
+  power_may:
+    account: '@checking'
+    amountCents: -12500
+    bookedAt: '<(new \DateTimeImmutable("2027-05-19"))>'
+    label: PRLV EDELEC MAI
+    counterpartyName: Edelec
+    recurringOperation: '@power'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-05-10"))>'
+    user: '@test_user'
+  other_flixo_may:
+    account: '@other_checking'
+    amountCents: -999
+    bookedAt: '<(new \DateTimeImmutable("2027-05-12"))>'
+    label: CB FLIXO SECRET
+    counterpartyName: Flixo
+    recurringOperation: '@other_flixo'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-05-12"))>'
+    user: '@other_user'

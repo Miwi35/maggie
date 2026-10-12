@@ -794,6 +794,35 @@ class TransactionRepository extends ServiceEntityRepository
         return $taken;
     }
 
+    /**
+     * Every line attached to one of a user's series, oldest occurrence first,
+     * as plain rows: what the recurring overview reads its history from, in
+     * one query instead of one per series.
+     *
+     * @return list<array{operationId: string, occurrenceOn: string, bookedAt: string, amountCents: int, transactionId: string}>
+     */
+    public function findAttachmentRows(User $user): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.recurringOperation) AS operationId', 't.recurringOccurrenceOn AS occurrenceOn', 't.bookedAt AS bookedAt', 't.amountCents AS amountCents', 't.id AS transactionId')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.recurringOperation IS NOT NULL')
+            ->andWhere('t.recurringOccurrenceOn IS NOT NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('t.recurringOccurrenceOn', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row) => [
+            'operationId' => self::ulid($row['operationId']),
+            'occurrenceOn' => $row['occurrenceOn']->format('Y-m-d'),
+            'bookedAt' => $row['bookedAt']->format('Y-m-d'),
+            'amountCents' => (int) $row['amountCents'],
+            'transactionId' => self::ulid($row['transactionId']),
+        ], $rows);
+    }
+
     /** The transaction that settles this occurrence, if one does. */
     public function findAttachedToOccurrence(RecurringOperation $operation, \DateTimeImmutable $occurrenceOn): ?Transaction
     {
