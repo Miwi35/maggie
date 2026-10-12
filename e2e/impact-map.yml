@@ -449,3 +449,5 @@ mobile:
     areas: [cookbook]
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
+  e2e/mobile/flows/12-thread-deletion.yaml:
+    areas: [chat, realtime]

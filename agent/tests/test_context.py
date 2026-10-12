@@ -300,9 +300,11 @@ class TestContextRouteAuth:
         response = client.get("/contexts")
         assert response.status_code in (401, 403)
 
+    @patch("app.api.routes.message_repo")
     @patch("app.api.routes.context_repo")
-    def test_contexts_returns_list(self, mock_repo, authed_client):
+    def test_contexts_returns_list(self, mock_repo, mock_messages, authed_client):
         ctx = MagicMock()
+        ctx.id = "ctx-1"
         ctx.to_dict.return_value = {
             "id": "ctx-1",
             "userId": "test-user",
@@ -314,17 +316,21 @@ class TestContextRouteAuth:
             "closedAt": None,
         }
         mock_repo.find_active = AsyncMock(return_value=[ctx])
+        mock_messages.count_by_user_contexts = AsyncMock(return_value={"ctx-1": 4})
 
         response = authed_client.get("/contexts")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["label"] == "Shopping"
+        assert data[0]["messageCount"] == 4
         mock_repo.find_active.assert_called_once_with("test-user")
 
+    @patch("app.api.routes.message_repo")
     @patch("app.api.routes.context_repo")
-    def test_contexts_empty(self, mock_repo, authed_client):
+    def test_contexts_empty(self, mock_repo, mock_messages, authed_client):
         mock_repo.find_active = AsyncMock(return_value=[])
+        mock_messages.count_by_user_contexts = AsyncMock(return_value={})
 
         response = authed_client.get("/contexts")
         assert response.status_code == 200

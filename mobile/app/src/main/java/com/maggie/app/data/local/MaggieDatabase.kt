@@ -21,7 +21,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // a new column needs.
     // 9: an all-day event is a pair of dates, its instants null (MAG-382).
     // 10: chat messages say whether a screenshot went with them (MAG-214).
-    version = 10,
+    // 11: messages carry their thread (contextId, MAG-342), to drop a deleted thread's messages.
+    version = 11,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

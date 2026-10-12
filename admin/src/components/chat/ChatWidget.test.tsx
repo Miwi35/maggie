@@ -402,6 +402,7 @@ describe('ChatWidget', () => {
               label: 'Courses de la semaine',
               status: 'active',
               summary: 'Deux kilos de farine à acheter.',
+              messageCount: 12,
             },
           ],
         }),
@@ -416,6 +417,7 @@ describe('ChatWidget', () => {
             label: 'Courses de la semaine',
             status: 'active',
             summary: 'Deux kilos de farine à acheter.',
+            messageCount: 12,
           },
         ])
       })

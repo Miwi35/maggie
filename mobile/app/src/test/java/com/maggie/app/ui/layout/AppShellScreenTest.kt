@@ -265,7 +265,7 @@ class AppShellScreenTest {
         assertEquals("1000 dp de fenêtre paie une top bar de 64 dp", 64, contentTopDp())
     }
 
-    /** The three buttons of the band are not lost with it: they move into the rail. */
+    /** The two buttons of the band are not lost with it: they move into the rail. */
     @Test
     @Config(qualifiers = "w891dp-h411dp-xhdpi")
     fun `a phone in landscape reaches the conversation from the rail`() {
@@ -274,14 +274,14 @@ class AppShellScreenTest {
         compose.onNodeWithTag(UiTags.NAV_RAIL).assertExists()
         compose.onNodeWithTag(UiTags.CHAT_OPEN).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.CHAT_MIC).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.CHAT_CONTEXTS).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_THREADS).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.CHAT_PANEL).assertDoesNotExist()
 
         // Inside the rail, not merely right of its left edge: the rail is the Row's
         // first child, so « x ≥ the rail's x » holds for the whole window.
         val rail = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode()
         val railRight = rail.positionInRoot.x + rail.size.width
-        listOf(UiTags.CHAT_OPEN, UiTags.CHAT_MIC, UiTags.CHAT_CONTEXTS).forEach { tag ->
+        listOf(UiTags.CHAT_OPEN, UiTags.CHAT_MIC).forEach { tag ->
             val x = compose.onNodeWithTag(tag).fetchSemanticsNode().positionInRoot.x
             assertTrue("$tag n'est pas dans le rail", x < railRight)
         }
