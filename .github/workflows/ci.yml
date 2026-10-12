@@ -202,9 +202,11 @@ jobs:
       # Finer when the nightly left a line map (spec « Sélection e2e par
       # couverture »): a changed line plays the journeys that executed it the
       # night before, and only what the map cannot judge keeps the zones. The
-      # map is the `e2e-coverage-map` artifact of one of the last successful
-      # nightly runs of main; impacted.sh ignores it past three days. Any failure
-      # here leaves no map — the zones, as before — and never a red check.
+      # map is the `e2e-coverage-map` artifact of one of the last completed
+      # nightly runs of main — red ones too: a journey failing on the foldable
+      # does not make the phone's and the web's coverage wrong, and the map is
+      # only built when every lot left its coverage. impacted.sh ignores it
+      # past three days. Any failure here leaves no map — the zones, as before — and never a red check.
       - name: Fetch the nightly's line map
         id: coverage
         if: contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name)
@@ -217,7 +219,7 @@ jobs:
         run: |
           dir="$RUNNER_TEMP/e2e-coverage"
           mkdir -p "$dir"
-          ids="$(gh run list --workflow nightly-e2e.yml --branch main --status success -L 8 --json databaseId --jq '.[].databaseId')" \
+          ids="$(gh run list --workflow nightly-e2e.yml --branch main --status completed -L 8 --json databaseId --jq '.[].databaseId')" \
             || { echo "::notice::no nightly run listed: journeys selected by zones"; exit 0; }
           for id in $ids; do
             rm -rf "$dir/map"
