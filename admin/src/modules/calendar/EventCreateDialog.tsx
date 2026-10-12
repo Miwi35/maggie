@@ -230,7 +230,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Annuler</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
+        <Button onClick={handleSubmit} variant="contained" disabled={submitting || !calendarId}>
           Créer
         </Button>
       </DialogActions>
