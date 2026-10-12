@@ -256,6 +256,21 @@ class MessageRepository:
             result = await session.execute(query.order_by(Message.created_at.desc()).limit(1))
             return result.scalars().first()
 
+    async def find_answer_to(self, user_id: str, question: Message) -> Message | None:
+        """The first answer stored after a question — `POST /chat` stores its answer under no fixed id."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(
+                    Message.user_id == user_id,
+                    Message.role == "assistant",
+                    Message.created_at >= question.created_at,
+                )
+                .order_by(Message.created_at.asc())
+                .limit(1)
+            )
+            return result.scalars().first()
+
     async def find_before(self, user_id: str, before_id: str, limit: int = 20) -> list[Message]:
         """Load messages older than the given message ID (cursor-based pagination)."""
         async with agent_session() as session:
