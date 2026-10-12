@@ -228,18 +228,62 @@ describe('RecurringOperationsPage — the list', () => {
     expect(within(loyer).getByText('mesuré')).toBeInTheDocument()
   })
 
-  test('re-reads the stored list when the search index trails the overview', async () => {
-    const late = STORED.filter((record) => !String(record.id).endsWith('01FLIXO'))
-    getList.mockImplementationOnce(async (resource: string) => ({ data: resource === 'recurring_operations' ? late : [], total: late.length }))
-    renderPage()
+  describe('when the search index trails the overview', () => {
+    const storedReads = () => getList.mock.calls.filter(([resource]) => resource === 'recurring_operations').length
+    const withoutFlixo = STORED.filter((record) => !String(record.id).endsWith('01FLIXO'))
+    const staleFor = (reads: number) => {
+      let served = 0
+      getList.mockImplementation(async (resource: string) => {
+        if (resource === 'recurring_operations') {
+          served += 1
 
-    const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
-    expect(within(flixo).getByText('Chaque mois')).toBeInTheDocument()
+          return served <= reads
+            ? { data: withoutFlixo, total: withoutFlixo.length }
+            : { data: STORED, total: STORED.length }
+        }
+        if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
 
-    await waitFor(() => expect(within(rowOf('Abonnement Flixo')).getByText('Le 12 de chaque mois')).toBeInTheDocument(), {
-      timeout: 5000,
+        return { data: [{ id: '/api/categories/01CAT', name: 'Abonnements', obligation: 'optional' }], total: 1 }
+      })
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
     })
-  }, 10000)
+
+    afterEach(() => {
+      vi.useRealTimers()
+      getList.mockImplementation(async (resource: string) => {
+        if (resource === 'recurring_operations') return { data: STORED, total: STORED.length }
+        if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
+
+        return { data: [{ id: '/api/categories/01CAT', name: 'Abonnements', obligation: 'optional' }], total: 1 }
+      })
+    })
+
+    test('re-reads the stored list until the series is there, however many reads that takes', async () => {
+      staleFor(3)
+      renderPage()
+
+      const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
+      expect(within(flixo).getByText('Chaque mois')).toBeInTheDocument()
+
+      await act(() => vi.advanceTimersByTimeAsync(10000))
+
+      await waitFor(() => expect(within(rowOf('Abonnement Flixo')).getByText('Le 12 de chaque mois')).toBeInTheDocument())
+      expect(storedReads()).toBe(4)
+    })
+
+    test('gives up after a few reads when the series never shows up in the stored list', async () => {
+      staleFor(Number.POSITIVE_INFINITY)
+      renderPage()
+      await waitFor(() => rowOf('Abonnement Flixo'))
+
+      await act(() => vi.advanceTimersByTimeAsync(60000))
+
+      expect(storedReads()).toBe(6)
+    })
+  })
 
   test('puts expenses and incomes apart in the totals header', async () => {
     renderPage()

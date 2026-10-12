@@ -115,6 +115,7 @@ const SeriesBadges = ({ series }: { series: RecurringSeries }) => (
 /** The stored list is served by the search index, which can trail the overview: re-read it a few times. */
 const DETAIL_RETRY_MS = 1500
 const DETAIL_MAX_RETRIES = 5
+const detailRetryDelay = (attempt: number) => DETAIL_RETRY_MS * (attempt + 1)
 
 /**
  * The recurring operations (MAG-308): what each series costs, when it falls
@@ -136,9 +137,11 @@ export const RecurringOperationsPage = () => {
   const [accepting, setAccepting] = useState(false)
 
   const detailRetries = useRef(0)
+  const [retryTick, setRetryTick] = useState(0)
 
   const reloadAll = () => {
     detailRetries.current = 0
+    setRetryTick((tick) => tick + 1)
     reload()
     reloadSuggestions()
     refetch()
@@ -161,10 +164,11 @@ export const RecurringOperationsPage = () => {
     const timer = setTimeout(() => {
       detailRetries.current += 1
       refetch()
-    }, DETAIL_RETRY_MS)
+      setRetryTick((tick) => tick + 1)
+    }, detailRetryDelay(detailRetries.current))
 
     return () => clearTimeout(timer)
-  }, [detailMissing, storedList, refetch])
+  }, [detailMissing, retryTick, refetch])
   const currencyOf = (seriesId: string | null) => operations.find((o) => o.id === seriesId)?.currency ?? 'EUR'
   const proposals = (overview?.proposals ?? []).filter((p) => !ignored.includes(p.transactionId))
 
