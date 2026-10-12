@@ -19,7 +19,9 @@
 #       --base. A file the map can judge (`coverage.sees` in the impact map)
 #       whose every hunk touches a line some journey executed plays those
 #       journeys (`why: coverage`); a hunk no journey executed adds the file's
-#       zone rule; any other file keeps the zone rules alone. A hunk is its
+#       zone rule; any other file keeps the zone rules alone. A journey the map
+#       does not list (dropped that night — a flow in quarantine that left no
+#       coverage — or newer than the map) keeps its zone rule everywhere. A hunk is its
 #       old-side lines — what was modified or deleted — or, for a pure addition,
 #       the lines on either side of it, looked up at the map's commit even when
 #       main has moved since (lines drift a little: acceptable, the night plays
@@ -248,6 +250,10 @@ cmd_select() {
 
     | res($map.coverage.sees) as $sees
     | ($js | map(.id)) as $known
+    # The journeys the line map does not know — dropped by their lot (a flow in
+    # quarantine that left no coverage), or newer than the map: their lines are
+    # unknown, so they keep the zone rule even in a file the map judges.
+    | [$js[] | select($cov != null and (.id as $i | ($cov.journeys // []) | index($i) | not))] as $unmapped
     # The zone rule of a file: the whole selection before the line map.
     | def zone($f): $f | if matches($all_re) then {file: $f, web: "all", mobile: "all", why: "transversal"}
           else
@@ -282,7 +288,11 @@ cmd_select() {
     [ $files[] | select(matches($ignored) | not) | . as $f
       | hunks($f) as $h
       | if $h != null and all($h[]; (.journeys | length) > 0) then
-          {file: $f, web: null, mobile: null, journeys: ([$h[].journeys[]] | unique), why: "coverage", lines: [$h[].lines]}
+          ([$h[].journeys[]] | unique) as $lj
+          | zone($f) as $z
+          | [$unmapped[] | select($z[.platform] == "all" or (.id as $i | ($z.journeys // []) | index($i))) | .id] as $by_zone
+          | {file: $f, web: null, mobile: null, journeys: ($lj + $by_zone | unique), why: "coverage", lines: [$h[].lines]}
+            + (if ($by_zone | length) > 0 then {line_journeys: $lj, unmapped: $by_zone} else {} end)
         else zone($f) as $z
           | if $h != null and any($h[]; (.journeys | length) > 0) then
               $z + {journeys: (($z.journeys // []) + [$h[].journeys[]] | unique),
@@ -383,7 +393,8 @@ write_github_output() {
           "<details><summary>Lines that chose journeys (coverage)</summary>\n",
           ($cov[:30][] | "- `\(.file)` lines \(.lines | map(if .[0] == .[1] then "\(.[0])" else "\(.[0])–\(.[1])" end) | join(", "))"
              + " → \((.line_journeys // .journeys) | map(split("/") | last) | join(", "))"
-             + (if (.uncovered // []) != [] then " · no journey ran lines \(.uncovered | map("\(.[0])–\(.[1])") | join(", ")): \(.why)" else "" end)),
+             + (if (.uncovered // []) != [] then " · no journey ran lines \(.uncovered | map("\(.[0])–\(.[1])") | join(", ")): \(.why)" else "" end)
+             + (if (.unmapped // []) != [] then " · not in the map, by zone: \(.unmapped | map(split("/") | last) | join(", "))" else "" end)),
           (if ($cov | length) > 30 then "- … and \($cov | length - 30) more" else empty end),
           "\n</details>\n"
         else empty end),

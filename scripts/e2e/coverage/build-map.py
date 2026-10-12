@@ -31,6 +31,12 @@ line: the selection falls back to e2e/impact-map.yml for its files.
 each must have left its completion mark (_lots/<lot>.ok anywhere under DIR,
 written by collect-lot.sh).
 
+A journey marked dropped (_lots/<slug>.dropped anywhere under DIR, its id on
+the first line — collect.d/50-mobile.sh, for a flow in quarantine that left no
+coverage) is left out of the map altogether, every component's lines included:
+a journey known by its server lines alone would look as if it ran no line of
+the app. Absent from the map, `impacted.sh select` picks it by its zones.
+
 Exit 0 with the map written; 3 when there is no usable raw file (no map is
 better than an empty one); 4 when an expected lot is not complete (nor is a
 partial one); 2 on a usage error. A malformed raw file is skipped
@@ -82,6 +88,21 @@ def read_raw(raw_dir):
                 n for n in lines if isinstance(n, int) and not isinstance(n, bool) and n > 0
             )
     return lines_by_journey
+
+
+def read_dropped(raw_dir):
+    """The journeys a lot dropped from the map (_lots/<slug>.dropped), sorted."""
+    dropped = set()
+    for name in glob.glob(os.path.join(raw_dir, "**", "_lots", "*.dropped"), recursive=True):
+        try:
+            with open(name, encoding="utf-8") as handle:
+                journey = handle.readline().strip()
+        except OSError as error:
+            warn(f"{name} skipped: {error}")
+            continue
+        if journey:
+            dropped.add(normalise(journey))
+    return sorted(dropped)
 
 
 def components(files):
@@ -161,6 +182,9 @@ def main():
     generated_at = args.now or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     lines_by_journey = read_raw(args.raw)
+    for journey in read_dropped(args.raw):
+        lines_by_journey.pop(journey, None)
+        print(f"build-map: {journey} left out of the map (dropped by its lot): selected by its zones")
     lines_by_journey = {j: f for j, f in lines_by_journey.items() if any(f.values())}
     if not lines_by_journey:
         warn(f"no executed line under {args.raw}: no map")

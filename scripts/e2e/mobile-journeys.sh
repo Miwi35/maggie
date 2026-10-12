@@ -48,7 +48,7 @@ VERDICTS="${E2E_VERDICT_DIR:-$SCRATCH/verdicts}"
 mkdir -p "$VERDICTS"
 SLUG="$(tr -c 'A-Za-z0-9_-' '-' <<<"$LABEL" | sed 's/-*$//')"
 
-quarantined="$(e2e_map_json 2>/dev/null | jq -c "$E2E_JQ_DEFS"'[journeys[] | select(.quarantine != null) | .id]' 2>/dev/null || echo '[]')"
+quarantined="$(e2e_quarantined_json)"
 blocking=()
 lenient=()
 for flow in "${flows[@]}"; do

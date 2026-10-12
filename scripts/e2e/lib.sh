@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034 # E2E_JQ_DEFS is read by the scripts that source this file
 #
-# Shared by impacted.sh, verdict.sh and mobile-journeys.sh: where the map is, how
-# it is read, and the glob syntax it is written in.
+# Shared by impacted.sh, verdict.sh, mobile-journeys.sh and the mobile coverage
+# hook (coverage/collect.d/50-mobile.sh): where the map is, how it is read, and
+# the glob syntax it is written in.
 
 E2E_ROOT="${E2E_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 E2E_MAP="${E2E_IMPACT_MAP:-$E2E_ROOT/e2e/impact-map.yml}"
@@ -48,6 +49,12 @@ def journeys:
   | map(.critical = (.critical == true) | .areas = (.areas // []) | .paths = (.paths // []));
 def globs_of($map): [.id] + .paths + [.areas[] as $a | ($map.areas[$a] // [])[]];
 '
+
+# The journeys in quarantine (`quarantine:` in the map), as a JSON array of ids —
+# `[]` when the map cannot be read: a journey is then treated as blocking.
+e2e_quarantined_json() {
+  e2e_map_json 2>/dev/null | jq -c "$E2E_JQ_DEFS"'[journeys[] | select(.quarantine != null) | .id]' 2>/dev/null || echo '[]'
+}
 
 # The journeys on disk, one repo-relative path per line.
 e2e_journeys_on_disk() {
