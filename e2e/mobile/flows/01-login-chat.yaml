@@ -44,8 +44,7 @@ tags:
 
 # The chat, from the bar every main screen carries. By id and not by its
 # placeholder: « Demander à Maggie... » is on screen twice once the sheet opens.
-- tapOn:
-    id: "chat_open"
+- runFlow: ../subflows/open-chat.yaml
 
 # Waited for rather than asserted: the sheet is a window being created, and the
 # `tapOn` below would wait on its own — but then a failure would read as "the tap

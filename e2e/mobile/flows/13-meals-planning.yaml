@@ -42,10 +42,10 @@ tags:
 - back
 
 # From the burger to Cuisine, then its « Planning » tab.
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_cookbook"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: cookbook
 - tapOn: "Planning"
 
 - extendedWaitUntil:

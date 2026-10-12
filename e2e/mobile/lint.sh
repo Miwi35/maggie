@@ -37,6 +37,11 @@
 #   8. every `launchApp` of a flow passes `e2e_journey: <the flow's own path>`, and
 #      no subflow launches: the app sends it as X-E2E-Journey, which is how the
 #      nightly's coverage knows which flow ran which line.
+#   9. no flow taps `nav_menu` or `chat_open`: the burger only exists under 600 dp and
+#      the chat button under 840 dp, so a journey that taps them is green on the
+#      phone and red on the foldable and the tablet (MAG-391). They go through
+#      `subflows/open-destination.yaml` and `subflows/open-chat.yaml`, the only
+#      files allowed to (`close-chat.yaml` does the same for the sheet's close).
 
 set -euo pipefail
 
@@ -341,6 +346,37 @@ for file in "${flows[@]}"; do
     pass "$rel"
   else
     fail "$rel: launchApp without its own journey id at line(s) $(echo "$offenders" | tr '\n' ' ')— add arguments: { e2e_journey: $rel }"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m9. No journey taps a control that only exists on some formats\033[0m\n'
+# ---------------------------------------------------------------------------
+# The nightly plays the phone, the foldable and the tablet (MAG-35): `nav_menu` is
+# absent from 600 dp wide, `chat_open` from 840 dp. Only the subflows that branch on
+# the window may tap them; a flow runs them. Reads a `tapOn` whose `id:` is on the
+# same line or on the next one.
+for file in "${flows[@]}"; do
+  rel="${file#"$REPO_ROOT"/}"
+  case "$rel" in
+    e2e/mobile/subflows/open-destination.yaml | e2e/mobile/subflows/open-chat.yaml)
+      pass "$rel (allowed to)"
+      continue
+      ;;
+  esac
+  offenders="$(awk '
+    /^[[:space:]]*#/ { next }
+    /tapOn:/ && /id:[[:space:]]*"?(nav_menu|chat_open)"?/ { print NR; pending = 0; next }
+    pending && /id:[[:space:]]*"?(nav_menu|chat_open)"?[[:space:]]*(#.*)?$/ { print NR; pending = 0; next }
+    /tapOn:[[:space:]]*$/ { pending = 1; next }
+    /^[[:space:]]*$/ { next }
+    pending && /^[[:space:]]+[a-zA-Z]+:/ { next }
+    { pending = 0 }
+  ' "$file" | tr '\n' ' ')"
+  if [ -z "$offenders" ]; then
+    pass "$rel"
+  else
+    fail "$rel taps nav_menu or chat_open at line(s) ${offenders}— absent on some formats: run subflows/open-destination.yaml (DEST: <route>) or subflows/open-chat.yaml"
   fi
 done
 

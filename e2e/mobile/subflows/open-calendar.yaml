@@ -1,17 +1,16 @@
 appId: com.maggie.app.e2e
 name: open the calendar in week view
 ---
-# From the dashboard to the week view, the way a person gets there: the burger
-# of the top bar, then « Calendrier » in the navigation drawer. Both are by id —
-# « Calendrier » is also the title of the screen once it is open, and « Menu » is
-# an icon's description rather than text anyone wrote for a flow to rely on.
+# From the dashboard to the week view, the way a person gets there: through the
+# navigation — the burger and its drawer under 600 dp, the rail beyond, which
+# `open-destination.yaml` chooses — then « Calendrier ». By id: « Calendrier » is
+# also the title of the screen once it is open.
 #
 # Expects the dashboard on screen, which is what `sign-in.yaml` leaves.
-- tapOn:
-    id: "nav_menu"
-
-- tapOn:
-    id: "drawer_calendar"
+- runFlow:
+    file: open-destination.yaml
+    env:
+      DEST: calendar
 
 # The week is pinned rather than assumed: it is a view type the screen is free to
 # default differently one day, and the day cells these journeys read only exist

@@ -84,8 +84,7 @@ tags:
     visible:
       id: "dashboard"
     timeout: 20000
-- tapOn:
-    id: "chat_open"
+- runFlow: ../subflows/open-chat.yaml
 - extendedWaitUntil:
     visible:
       id: "chat_input"
@@ -94,5 +93,4 @@ tags:
     visible: ".*Échange 10 MAG-348.*"
     timeout: 30000
 - assertNotVisible: ".*Échange 1 MAG-348.*"
-- tapOn:
-    id: "chat_close"
+- runFlow: ../subflows/close-chat.yaml
