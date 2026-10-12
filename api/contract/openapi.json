@@ -9344,9 +9344,6 @@
                         "description": "Asked on save, never stored: file the existing history under this rule too.",
                         "default": false,
                         "type": "boolean"
-                    },
-                    "active": {
-                        "readOnly": true
                     }
                 },
                 "required": [
@@ -9425,9 +9422,6 @@
                         "description": "Asked on save, never stored: file the existing history under this rule too.",
                         "default": false,
                         "type": "boolean"
-                    },
-                    "active": {
-                        "readOnly": true
                     }
                 },
                 "required": [
@@ -9506,9 +9500,6 @@
                         "description": "Asked on save, never stored: file the existing history under this rule too.",
                         "default": false,
                         "type": "boolean"
-                    },
-                    "active": {
-                        "readOnly": true
                     }
                 }
             },
@@ -9585,9 +9576,6 @@
                                 "description": "Asked on save, never stored: file the existing history under this rule too.",
                                 "default": false,
                                 "type": "boolean"
-                            },
-                            "active": {
-                                "readOnly": true
                             }
                         },
                         "required": [

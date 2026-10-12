@@ -195,6 +195,23 @@ class CategorizationRuleApiTest extends WebTestCase
         self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
     }
 
+    public function testTheActiveFlagIsReadUnderTheNameItIsWritten(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $rule = $this->getFixture('rule_carrefour');
+
+        $this->client->request('GET', '/api/categorization_rules/'.$rule->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        // The admin form binds its switch to `isActive`: reading `active` made an active rule open switched off.
+        self::assertTrue($data['isActive'] ?? null);
+        self::assertArrayNotHasKey('active', $data);
+    }
+
     public function testPatchRuleWithoutTheTickLeavesTheHistoryAlone(): void
     {
         $this->loadFixtures('categorization_rule.yaml');
