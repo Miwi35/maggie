@@ -441,7 +441,8 @@ else
     journey="${flow#"$REPO_ROOT"/}"
     slug="$(tr '/.' '__' <<<"$journey")"
     # Missing until the dump below succeeds — a flow cut short by the quarantine's
-    # time limit included: collect.d/50-mobile.sh then calls the lot incomplete.
+    # time limit included: collect.d/50-mobile.sh then calls the lot incomplete,
+    # or, for a flow in quarantine, leaves that flow out of the night's map.
     rm -f "$COVERAGE_EXEC/$slug.ec" "$COVERAGE_EXEC/$slug.journey"
     printf '%s\n' "$journey" >"$COVERAGE_EXEC/$slug.missing"
     flow_status=0

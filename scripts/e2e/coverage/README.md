@@ -156,7 +156,11 @@ CI, locally and in the nightly.
    instructions did, Kotlin files located under `mobile/app/src/{main,e2e}/java`.
    Needs `java` and `python3`. The hook fails — the lot is not complete, no map
    that night — on a mobile lot without data, a `.missing` flow, or a flow that
-   matched no class of the app.
+   matched no class of the app. A flow **in quarantine** (`e2e/impact-map.yml`)
+   in that state only warns: its raw file goes, `raw/_lots/<slug>.dropped` names
+   it, and `build-map.py` leaves the journey out of the map, its server lines
+   included. `impacted.sh select` gives a journey absent from the map its zone
+   rule, even in a file the map judges.
 
 What the counts miss: a flow that stops the app mid-way (`stopApp`) loses what
 ran before; the dump after it only sees the relaunch onwards.

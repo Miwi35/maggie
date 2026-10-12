@@ -400,10 +400,83 @@ echo skip >"$exec_dir/e2e_mobile_flows_03_yaml.ec"
 rm -f "$cov/raw/mobile/e2e_mobile_flows_03_yaml.json"
 mobile_hook mobile-phone-1 && bad "mobile hook: an unconverted flow passed" || { grep -q 'was not converted' "$work/hook.err" && ok "mobile hook: a flow the converter skipped fails the lot" || bad "unconverted: $(cat "$work/hook.err")"; }
 
+printf '\n\033[1mA flow in quarantine without coverage does not cost the night its map\033[0m\n'
+# 12 Oct.: 05-deep-links (in quarantine) was cut short in lot phone 5, left no
+# JaCoCo dump, and the whole night had no map.
+qroot="$work/quarantine"
+mkdir -p "$qroot/e2e" "$qroot/hooks" "$qroot/bin"
+# No Task: a run without server coverage, whatever the machine has installed.
+printf '#!/bin/sh\nexit 1\n' >"$qroot/bin/task"
+chmod +x "$qroot/bin/task"
+cat >"$qroot/e2e/impact-map.yml" <<'YAML'
+mobile:
+  e2e/mobile/flows/01-login-chat.yaml:
+    critical: true
+  e2e/mobile/flows/05-deep-links.yaml:
+    quarantine:
+      since: 2026-10-08
+      reason: flaky
+YAML
+# A hook for collect-lot.sh: the real mobile hook, on this test's directories.
+printf '#!/bin/sh\nexec env E2E_ROOT="%s" E2E_IMPACT_MAP="%s" E2E_COVERAGE_DIR="%s" E2E_COVERAGE_MOBILE_SH="%s" "%s" "$@"\n' \
+  "$qroot" "$qroot/e2e/impact-map.yml" "$qroot/cov" "$fake_mobile" "$MOBILE_HOOK" >"$qroot/hooks/50-mobile.sh"
+chmod +x "$qroot/hooks/50-mobile.sh"
+# quarantine_lot <lot> <flow left without data>: flow 01 dumped, the other did not.
+quarantine_lot() {
+  rm -rf "$qroot/cov"
+  mkdir -p "$qroot/cov/exec/mobile"
+  printf '{"mobile/app/src/main/java/A.kt":[1,2]}' >"$qroot/cov/exec/mobile/e2e_mobile_flows_01-login-chat_yaml.ec"
+  echo e2e/mobile/flows/01-login-chat.yaml >"$qroot/cov/exec/mobile/e2e_mobile_flows_01-login-chat_yaml.journey"
+  echo "$2" >"$qroot/cov/exec/mobile/$(tr '/.' '__' <<<"$2").missing"
+  out="$(E2E_ROOT="$qroot" E2E_COVERAGE_RAW="$qroot/cov/raw" E2E_COVERAGE_HOOKS="$qroot/hooks" PATH="$qroot/bin:$PATH" "$COLLECT" "$1" 2>&1)"
+  STATUS=$?
+}
+quarantine_lot mobile-phone-5 e2e/mobile/flows/05-deep-links.yaml
+[ "$STATUS" -eq 0 ] && [ -f "$qroot/cov/raw/_lots/mobile-phone-5.ok" ] \
+  && ok "a flow in quarantine without data: the lot is still complete" || bad "quarantined flow: exit $STATUS, no mark — $out"
+grep -q '::warning::mobile coverage of mobile-phone-5: e2e/mobile/flows/05-deep-links.yaml left no JaCoCo data .* in quarantine' <<<"$out" \
+  && ok "… with a warning that names it" || bad "no warning: $out"
+[ "$(cat "$qroot/cov/raw/_lots/e2e_mobile_flows_05-deep-links_yaml.dropped" 2>/dev/null)" = e2e/mobile/flows/05-deep-links.yaml ] \
+  && ok "… and a mark that drops it from the map" || bad "drop mark: $(ls "$qroot/cov/raw/_lots" 2>&1)"
+quarantine_lot mobile-phone-4 e2e/mobile/flows/04-calendar-import.yaml
+[ "$STATUS" -eq 0 ] && [ ! -e "$qroot/cov/raw/_lots/mobile-phone-4.ok" ] && grep -q '50-mobile.sh failed' <<<"$out" \
+  && [ -z "$(find "$qroot/cov/raw/_lots" -name '*.dropped' 2>/dev/null)" ] \
+  && ok "a flow outside quarantine without data: the lot is incomplete, nothing dropped" || bad "blocking flow: exit $STATUS — $out"
+# A flow in quarantine whose data matched no line: dropped too, its empty raw file removed.
+rm -rf "$qroot/cov"
+mkdir -p "$qroot/cov/exec/mobile"
+printf '{}' >"$qroot/cov/exec/mobile/q.ec"
+echo e2e/mobile/flows/05-deep-links.yaml >"$qroot/cov/exec/mobile/q.journey"
+printf '{"mobile/app/src/main/java/A.kt":[1]}' >"$qroot/cov/exec/mobile/b.ec"
+echo e2e/mobile/flows/01-login-chat.yaml >"$qroot/cov/exec/mobile/b.journey"
+"$qroot/hooks/50-mobile.sh" mobile-phone-5 >"$work/hook.out" 2>&1 && [ ! -e "$qroot/cov/raw/mobile/q.json" ] && [ -f "$qroot/cov/raw/_lots/q.dropped" ] \
+  && ok "a flow in quarantine that ran no line: dropped, its raw file removed" || bad "empty quarantined flow: $(cat "$work/hook.out")"
+
+# The night's map, with the dropped journey's lines of every component left out.
+nights="$work/nights"
+mkdir -p "$nights/lot-5/mobile" "$nights/lot-5/api" "$nights/lot-5/_lots"
+printf '{"journey":"e2e/mobile/flows/01-login-chat.yaml","files":{"%s":[1,2]}}' "$API_SERVICE" >"$nights/lot-5/mobile/01.json"
+printf '{"journey":"e2e/mobile/flows/05-deep-links.yaml","files":{"%s":[3]}}' "$FINANCE_PHP" >"$nights/lot-5/api/05.json"
+: >"$nights/lot-5/_lots/mobile-phone-5.ok"
+echo e2e/mobile/flows/05-deep-links.yaml >"$nights/lot-5/_lots/e2e_mobile_flows_05-deep-links_yaml.dropped"
+"$BUILD_MAP" --raw "$nights" --out "$work/dropped.json" --expect mobile-phone-5 >"$work/build.out" 2>&1
+STATUS=$?
+[ "$STATUS" -eq 0 ] && jq -e --arg f "$FINANCE_PHP" '.journeys == ["e2e/mobile/flows/01-login-chat.yaml"] and .files[$f] == null' "$work/dropped.json" >/dev/null \
+  && grep -q '05-deep-links.yaml left out of the map' "$work/build.out" \
+  && ok "build-map: a dropped journey is out of the map, its server lines too" || bad "dropped: exit $STATUS — $(cat "$work/build.out") $(jq -c . "$work/dropped.json" 2>/dev/null)"
+
 mkdir -p "$work/raw-empty"
 "$BUILD_MAP" --raw "$work/raw-empty" --out "$work/none.json" >/dev/null 2>&1
 STATUS=$?
 [ "$STATUS" -eq 3 ] && [ ! -e "$work/none.json" ] && ok "no raw file: exit 3, no map" || bad "no raw file: exit $STATUS"
+
+# A real night's map lists every journey it played, most with no line in the
+# files below: append the journeys on disk the raw files above did not name
+# (after the others, so the bitmasks keep their meaning). A journey the map does
+# not list keeps its zone rule — tested on its own further down.
+cp "$work/map.json" "$work/map-few.json"
+jq --argjson disk "$(cd "$REPO" && printf '%s\n' e2e/web/tests/*.spec.ts e2e/mobile/flows/*.yaml | jq -R . | jq -s .)" \
+  '.journeys += ($disk - .journeys)' "$work/map-few.json" >"$work/map.json"
 
 # select_diff <diff file> <file>… — the selection with the line map, in $SEL.
 NOW=$(jq -n '"2026-10-10T12:00:00Z" | fromdateiso8601')
@@ -477,6 +550,29 @@ select_diff "$work/d10" "$NEWFILE"
 [ "$(jq -c '{web, mobile}' <<<"$SEL")" = "$zone" ] && ok "a new file: its zone" || bad "new file: $(names web)"
 select_diff "$work/d1" admin/src/modules/cookbook/RecipeEdit.test.tsx
 [ "$(count web)" -eq 0 ] && [ "$(count mobile)" -eq 0 ] && ok "an ignored file still plays nothing" || bad "ignored: $(names web)"
+
+printf '\n\033[1mA journey the map does not list keeps its zone\033[0m\n'
+DEEP_LINKS=mobile/app/src/main/java/com/maggie/app/ui/navigation/DeepLinks.kt
+# Every journey on disk but 05-deep-links (dropped that night); 01, bit 0, ran lines 10–12.
+jq --arg f "$DEEP_LINKS" '
+  .journeys |= (["e2e/mobile/flows/01-login-chat.yaml"]
+                + [.[] | select(. != "e2e/mobile/flows/05-deep-links.yaml" and . != "e2e/mobile/flows/01-login-chat.yaml")])
+  | .files = {($f): [[10, 12, "1"]]}' "$work/map.json" >"$work/no05.json"
+hunk "$DEEP_LINKS" '@@ -11 +11 @@' >"$work/d11"
+SEL="$(printf '%s\n' "$DEEP_LINKS" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/no05.json" --diff "$work/d11" 2>"$work/stderr")"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && [ "$(names mobile)" = "01-login-chat.yaml 05-deep-links.yaml" ] \
+  && jq -e '.files[0].why == "coverage" and .files[0].line_journeys == ["e2e/mobile/flows/01-login-chat.yaml"] and .files[0].unmapped == ["e2e/mobile/flows/05-deep-links.yaml"]' >/dev/null <<<"$SEL" \
+  && ok "a line 01 ran, in a file 05 maps: 01, and 05 by its zone" || bad "unmapped journey: exit $STATUS — $(names mobile) $(jq -c .files <<<"$SEL") $(cat "$work/stderr")"
+jq '.journeys += ["e2e/mobile/flows/05-deep-links.yaml"]' "$work/no05.json" >"$work/with05.json"
+SEL="$(printf '%s\n' "$DEEP_LINKS" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/with05.json" --diff "$work/d11" 2>/dev/null)"
+[ "$(names mobile)" = "01-login-chat.yaml" ] && jq -e '.files[0].unmapped == null' >/dev/null <<<"$SEL" \
+  && ok "the same line, 05 in the map without it: 01 alone" || bad "mapped journey: $(names mobile)"
+: >"$work/summary"
+printf '%s\n' "$DEEP_LINKS" | E2E_COVERAGE_NOW="$NOW" GITHUB_OUTPUT="$work/output" GITHUB_STEP_SUMMARY="$work/summary" \
+  "$IMPACTED" select --coverage-map "$work/no05.json" --diff "$work/d11" --github-output >/dev/null 2>&1
+grep -q 'lines 11 → 01-login-chat.yaml · not in the map, by zone: 05-deep-links.yaml' "$work/summary" \
+  && ok "the summary says which journey its zone chose" || bad "summary: $(cat "$work/summary")"
 
 printf '\n\033[1mNo map, or a stale one: exactly today'"'"'s selection\033[0m\n'
 FILES_MIX=("$API_SERVICE" "$RECIPE_EDIT" "$MIGRATION")
