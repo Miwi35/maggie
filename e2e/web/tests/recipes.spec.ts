@@ -163,7 +163,7 @@ test.describe('Recipes and meals', () => {
 
     // The recipe list is the API's, and so is the planned meal: both come back
     // from Elasticsearch, which must already hold what was written a moment ago.
-    await dialog.getByLabel('Recettes').fill('Velouté MAG-117')
+    await dialog.getByLabel('Menu').fill('Velouté MAG-117')
     await page.getByRole('option', { name: recipeName }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
 
@@ -234,7 +234,7 @@ test.describe('Recipes and meals', () => {
     const dialog = page.getByRole('dialog')
     // The day the cell offers. This is the bug: it used to offer the day before.
     await expect(dialog.getByLabel('Date')).toHaveValue(tuesday)
-    await dialog.getByLabel('Recettes').fill('Blanquette')
+    await dialog.getByLabel('Menu').fill('Blanquette')
     await page.getByRole('option', { name }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
 
@@ -266,7 +266,7 @@ test.describe('Recipes and meals', () => {
     await cell.click()
 
     const dialog = page.getByRole('dialog')
-    await dialog.getByLabel('Recettes').fill('Gratin')
+    await dialog.getByLabel('Menu').fill('Gratin')
     await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
 
@@ -344,7 +344,6 @@ test.describe('Recipes and meals', () => {
       const meal = await api.post('/api/meals', {
         headers,
         data: {
-          summary: 'Déjeuner',
           date,
           slot: 'lunch',
           agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
@@ -414,7 +413,6 @@ test.describe('Recipes and meals', () => {
     const meal = await api.post('/api/meals', {
       headers,
       data: {
-        summary: 'Dîner',
         // A day and a slot, no instant (MAG-251).
         date: tomorrow,
         slot: 'dinner',

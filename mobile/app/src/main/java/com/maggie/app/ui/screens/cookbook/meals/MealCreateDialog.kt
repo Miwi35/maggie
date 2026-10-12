@@ -1,7 +1,7 @@
 package com.maggie.app.ui.screens.cookbook.meals
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -131,11 +131,9 @@ fun MealCreateDialog(
 @Composable
 private fun MenuField(onOpen: () -> Unit) {
     val interactions = remember { MutableInteractionSource() }
-    val pressed by interactions.collectIsPressedAsState()
-    var wasPressed by remember { mutableStateOf(false) }
-    LaunchedEffect(pressed) {
-        if (wasPressed && !pressed) onOpen()
-        wasPressed = pressed
+    // Each release opens it; a press dragged off the field ends in a cancel and does not.
+    LaunchedEffect(interactions) {
+        interactions.interactions.collect { if (it is PressInteraction.Release) onOpen() }
     }
 
     OutlinedTextField(

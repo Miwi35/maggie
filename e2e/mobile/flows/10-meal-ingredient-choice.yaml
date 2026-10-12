@@ -136,11 +136,9 @@ tags:
     id: "drawer_cookbook"
 - tapOn: "Repas"
 - extendedWaitUntil:
-    visible:
-      id: "meal_row"
+    visible: "Riz au curry MAG-297"
     timeout: 20000
-- longPressOn:
-    id: "meal_row"
+- longPressOn: "Riz au curry MAG-297"
 - extendedWaitUntil:
     visible:
       id: "meal_delete_confirm"
