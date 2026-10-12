@@ -6,7 +6,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
+use Maggie\Calendar\Exception\AgendaRenameRefusedException;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -45,7 +48,16 @@ class UpdateAgendaProcessor implements ProcessorInterface
         // unique index. The command carries every field, so start from the stored state.
         $this->em->refresh($data);
 
-        $envelope = $this->bus->dispatch($command);
+        try {
+            $envelope = $this->bus->dispatch($command);
+        } catch (HandlerFailedException $e) {
+            // Google did not take the new name and the agenda kept its own: say so, not a 500.
+            if ($e->getPrevious() instanceof AgendaRenameRefusedException) {
+                throw new UnprocessableEntityHttpException($e->getPrevious()->getMessage(), $e);
+            }
+
+            throw $e;
+        }
 
         return $envelope->last(HandledStamp::class)->getResult();
     }

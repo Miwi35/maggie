@@ -28,6 +28,8 @@ framework:
             'Maggie\Calendar\Message\UpdateTaskCommand': sync
             'Maggie\Calendar\Message\DeleteTaskCommand': sync
             'Maggie\Calendar\Message\PushEventToGoogleCommand': sync
+            'Maggie\Calendar\Message\PushAgendaNameToGoogleCommand': sync
+            'Maggie\Calendar\Event\ConnectedAgendaRenamed': sync
             'Maggie\Calendar\Message\DeleteEventFromGoogleCommand': sync
             'Maggie\Calendar\Message\PullFromGoogleCommand': async
             'Maggie\Calendar\Message\PushTaskToGoogleCommand': sync

@@ -85,6 +85,13 @@ The admin API is enabled, so a journey that needs a one-off answer can push a
 stub at runtime against `http://wiremock:8080/__admin/mappings` from inside the
 stack, and `DELETE /__admin/mappings` resets to what is on disk.
 
+A journey that needs a stub of its own (a second Google calendar, a stateful
+answer) registers it at runtime with `priority: 1` and removes it by id when it
+ends — `openWiremockJournal()` has `addStub`, `removeStub` and `resetScenarios`
+for that — rather than editing the list the other journeys read. The rename
+journey in `agenda-google.spec.ts` does so: its calendar answers the old name
+until it has been patched (a WireMock scenario), then the new one.
+
 ## Dates in these stubs
 
 They are fixed (`2026-03-…`) because WireMock has no access to the seed anchor.

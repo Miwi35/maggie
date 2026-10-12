@@ -1,0 +1,17 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+
+Maggie\Calendar\Entity\Agenda:
+  connected_agenda:
+    name: Garde Ael
+    googleCalendarId: garde-ael@group.calendar.google.com
+    user: '@test_user'
+  local_agenda:
+    name: Perso
+    user: '@test_user'

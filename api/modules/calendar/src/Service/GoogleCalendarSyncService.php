@@ -204,6 +204,7 @@ class GoogleCalendarSyncService
                 agendaId: (string) $agenda->getId(),
                 name: $name,
                 color: $color,
+                fromGoogle: true,
             ));
         } catch (\Throwable $e) {
             $this->logger->warning('Failed to sync the agenda from Google: {error}', [
