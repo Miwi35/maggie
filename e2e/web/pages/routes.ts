@@ -40,6 +40,7 @@ export const ROUTES = {
   financeImport: '/finance/import',
   financeCushion: '/finance/cushion',
   financeReview: '/finance/monthly-review',
+  financeRecurring: '/finance/recurring-operations',
 } as const
 
 /**

@@ -26,6 +26,8 @@
 #   SMOKE_FETCH_ATTEMPTS  Tries for an authenticated request that timed out or
 #                   got a 5xx — a cold pod's first ones. Default 4 (20 s each).
 #   SMOKE_DELAY     Seconds between two tries. Default 5.
+#   SMOKE_WRITE_TIMEOUT  Seconds a POST of the test data may take — never
+#                   retried, a timed-out one may have written. Default 45.
 
 set -uo pipefail
 
@@ -38,6 +40,7 @@ DELAY="${SMOKE_DELAY:-5}"
 # Fewer than ATTEMPTS: each try may wait its full 20 s, and a database that is
 # really down must still be reported well within the job's timeout.
 FETCH_ATTEMPTS="${SMOKE_FETCH_ATTEMPTS:-4}"
+WRITE_TIMEOUT="${SMOKE_WRITE_TIMEOUT:-45}"
 ORIGIN="$BASE_URL"
 
 passed=0
@@ -274,24 +277,32 @@ code="$RANDOM$RANDOM"
 title="Rendez-vous smoke $RANDOM$RANDOM"
 QUESTION="Appelle l'outil get_upcoming_events, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
 
-agenda="$(curl -sS --max-time 15 -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
+# A POST is not retried: a timed-out one may still have written. It gets
+# WRITE_TIMEOUT instead of 15 s — on a cold pod the event's took longer, and the
+# release was rolled back although the event existed and Maggie read it (MAG-386).
+agenda="$(curl -sS --max-time "$WRITE_TIMEOUT" -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
   -d "$(jq -nc --arg n "Smoke test $code" '{name: $n}')" "$BASE_URL/api/agendas" 2>/dev/null || true)"
 agenda_id="$(printf '%s' "$agenda" | jq -r '.id // empty' 2>/dev/null)"
 
-event_created=""
+event="" event_status=""
 if [ -n "$agenda_id" ]; then
-  event="$(curl -sS --max-time 15 -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
+  rm -f "$tmp/event"
+  event_status="$(curl -sS -o "$tmp/event" --max-time "$WRITE_TIMEOUT" -w '%{http_code}' -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
     -d "$(jq -nc --arg t "$title" --arg d "code $code" --arg a "/api/agendas/$agenda_id" \
       --arg s "$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       --arg e "$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       '{summary: $t, description: $d, agenda: $a, startAt: $s, endAt: $e}')" "$BASE_URL/api/events" 2>/dev/null || true)"
-  [ -n "$(printf '%s' "$event" | jq -r '.id // empty' 2>/dev/null)" ] && event_created=yes
+  event="$(cat "$tmp/event" 2>/dev/null || true)"
 fi
 
-if [ -z "$event_created" ]; then
-  fail "the test event could not be created for the technical account — agenda: $(excerpt "$agenda") event: $(excerpt "${event:-}")"
-else
+if [ -n "$(printf '%s' "$event" | jq -r '.id // empty' 2>/dev/null)" ]; then
   pass "an event with a title only the API knows exists for the technical account"
+elif [ "$event_status" = "000" ]; then
+  # No answer is not a refusal: the event may exist. Its title is known to the
+  # API alone, so the question below finds it — or fails on it.
+  printf '  - the event creation got no answer within %s s; the question below tells whether it exists\n' "$WRITE_TIMEOUT"
+else
+  fail "the test event could not be created for the technical account — agenda: $(excerpt "$agenda") event: $(excerpt "${event:-}")"
 fi
 
 chat_output=""

@@ -19,6 +19,7 @@ import { useMercure } from '../../hooks/useMercure'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
 import { DetectInternalTransfersButton } from './DetectInternalTransfersButton'
+import { RecurringCatchUpButton } from './RecurringCatchUp'
 import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
 
@@ -86,6 +87,7 @@ const RuleActions = () => (
   <TopToolbar>
     <ApplyRulesButton />
     <DetectInternalTransfersButton />
+    <RecurringCatchUpButton />
     <CreateButton />
   </TopToolbar>
 )

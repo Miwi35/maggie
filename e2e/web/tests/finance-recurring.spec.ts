@@ -1,10 +1,12 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedId, parisDay } from '../fixtures/index.js'
-import { waitForIndexed } from '../helpers/api.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
-import { openMercureProbe, userTopic } from '../helpers/mercure.js'
+import { expectRealtimeSync, openMercureProbe, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
+import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
 
 /**
  * Recurring operations (MAG-102, opérations récurrentes).
@@ -33,8 +35,9 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  *   Alors la ligne est rattachée et le montant de référence passe à 17,99 €
  *   Et un second débit Flixo le même mois reste ponctuel
  *
- * The badge on the line and the « accepter » button come with the screens
- * (MAG-308); the journey goes through the API they will call.
+ * MAG-308 puts that step on the screen: the proposal is read in « Rattachements
+ * proposés », « Rattacher » accepts it, and the other tab shows the new
+ * reference amount through Mercure.
  *
  * Third step, MAG-306: what is read of a series — its cost, its next due date —
  * from the overview the screen and Maggie share:
@@ -45,6 +48,18 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  *     et sa prochaine échéance est le 12 du mois à venir
  *   Quand je demande à Maggie « combien me coûtent mes abonnements ? »
  *   Alors elle a lu les opérations récurrentes (`get_recurring_operations`)
+ *
+ * Fourth step, MAG-308: the same series on the screen, and a series made from
+ * a transaction:
+ *
+ *   Étant donné trois débits « PRLV NETFLIX » de 13,99 € le 8, sur trois mois consécutifs
+ *   Quand, dans la liste du compte, j'en fais une opération récurrente
+ *   Alors le formulaire s'ouvre prérempli (contrepartie, montant, jour, compte)
+ *     et on me propose de rattacher « 3 transactions Netflix depuis … », avec leur aperçu
+ *   Quand je confirme
+ *   Alors les trois lignes portent le badge « Série · Netflix »
+ *   Quand je détache l'une d'elles
+ *   Alors elle perd son badge
  */
 
 interface StoredSeries {
@@ -115,6 +130,7 @@ test('a monthly subscription reads back with its monthly and yearly cost', async
 
 interface StoredTransaction {
   id?: string
+  label?: string
   recurringOperation?: string | null
   recurringOccurrenceOn?: string | null
   recurringSource?: string
@@ -230,7 +246,8 @@ test('a Flixo debit attaches to its occurrence, a price rise is proposed, and ac
 
   // 17,99 € on the next due date: a price rise, proposed, nothing written.
   const nextDue = nextMonth(anchorOn)
-  const dearer = await debit(api, accountId, `PAIEMENT PAR CARTE FLIXO 12/${nextDue.slice(5, 7)}`, -1799, nextDue)
+  const dearerLabel = `PAIEMENT PAR CARTE FLIXO 12/${nextDue.slice(5, 7)}`
+  const dearer = await debit(api, accountId, dearerLabel, -1799, nextDue)
   expect(dearer.recurringOperation ?? null).toBeNull()
 
   const proposal = (await dryRun(api)).proposals.find((p) => p.transactionId === dearer.id)
@@ -240,13 +257,35 @@ test('a Flixo debit attaches to its occurrence, a price rise is proposed, and ac
   expect(proposal?.referenceAmountCents).toBe(-1349)
   expect(proposal?.amountChangePercent).toBe(33)
 
-  // Accepted: attached by hand, and the reference follows the new price.
-  const accepted = await api.patch(`/api/transactions/${dearer.id}`, {
-    headers: { 'Content-Type': 'application/merge-patch+json' },
-    data: { recurringOperation: seriesIri },
-  })
-  expect(accepted.status(), await accepted.text()).toBe(200)
-  const acceptedLine = (await accepted.json()) as StoredTransaction
+  // The screen says it: the line, why it was only proposed, and the old reference.
+  const recurring = new FinanceRecurringPage(page)
+  const observer = new FinanceRecurringPage(await otherUser.secondWindow())
+  await openSubscribed(observer.page, () => observer.open())
+  await expect(observer.row(`Courant MAG-305, essai ${attempt}`)).toContainText('13,49')
+
+  await recurring.open()
+  await expect(recurring.proposals).toContainText(dearerLabel)
+  await expect(recurring.proposals).toContainText('hausse de prix 13,49 € → 17,99 €, +33 %')
+  await expect(recurring.row(`Courant MAG-305, essai ${attempt}`)).toContainText('mesuré')
+
+  // Accepted from the screen: the line is attached and the reference follows
+  // the new price — in the other tab too, without a reload.
+  await expectRealtimeSync(
+    observer.page,
+    async () => {
+      await recurring.accept(dearerLabel).click()
+      await expect(recurring.proposals).toHaveCount(0)
+    },
+    async (other) => {
+      await expect(new FinanceRecurringPage(other).row(`Courant MAG-305, essai ${attempt}`)).toContainText('17,99')
+    },
+  )
+  const acceptedLine = await waitForIndexed<StoredTransaction>(
+    api,
+    '/api/transactions?itemsPerPage=100',
+    (t) => t.id === dearer.id && t.recurringOperation === seriesIri,
+    { what: 'The accepted line, attached' },
+  )
   expect(acceptedLine.recurringOccurrenceOn?.slice(0, 10)).toBe(nextDue)
   expect(acceptedLine.recurringSource).toBe('manual')
 
@@ -321,6 +360,17 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
   expect(flixo?.missedOccurrence).toBeNull()
   expect(flixo?.priceChange).toBeNull()
 
+  // And the screen reads the same: cost, next due date, and no badge it was not given.
+  const recurring = new FinanceRecurringPage(page)
+  await recurring.open()
+  const dueDay = nextMonth(anchorOn).split('-').reverse().join('/')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('13,49 € / mois')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('161,88 € / an')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('Le 12 de chaque mois')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText(dueDay)
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).not.toContainText('Échéance manquée')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).not.toContainText('Hausse de prix')
+
   // When I ask Maggie what my subscriptions cost.
   await new DashboardPage(page).open()
   const events = await new ChatPanel(page).send('Combien me coûtent mes abonnements ?')
@@ -330,4 +380,81 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
   expect(toolResults(events)).toEqual(
     expect.arrayContaining([expect.objectContaining({ toolName: 'get_recurring_operations', status: 'success' })]),
   )
+})
+
+/** The month `back` months before `month` (YYYY-MM). */
+function monthBefore(month: string, back: number): string {
+  const [year, m] = month.split('-').map(Number)
+  const index = year * 12 + (m - 1) - back
+
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`
+}
+
+test('a debit becomes a recurring operation from the account list, its history is offered and it can be detached', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-308, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryName = `Abonnements MAG-308, essai ${attempt}`
+  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
+  createdCategoryIds.push(categoryId)
+
+  // Given three Netflix debits on the 8th, over the three months already past.
+  const thisMonth = parisDay().slice(0, 7)
+  const label = `PRLV NETFLIX MAG-308 ESSAI ${attempt}`
+  for (const back of [3, 2, 1]) {
+    await debit(api, accountId, label, -1399, `${monthBefore(thisMonth, back)}-08`)
+  }
+  await waitForIndexed<StoredTransaction>(api, '/api/transactions?itemsPerPage=100', (t) => t.label === label, {
+    what: 'The Netflix debits',
+  })
+  const netflixLines = async () =>
+    (await getCollection<StoredTransaction>(api, '/api/transactions?itemsPerPage=100')).filter((t) => t.label === label)
+
+  // When, in the account list (latest first), I make a series of the oldest one: a series runs from its anchor on.
+  const list = new FinanceAccountsPage(page)
+  await list.openTransactions(accountId)
+  const recurring = new FinanceRecurringPage(page)
+  await list.content.getByRole('button', { name: `En faire une opération récurrente : ${label}` }).last().click()
+
+  // Then the form opens filled from the line.
+  await expect(recurring.form.getByLabel(/Libellé/)).not.toHaveValue('')
+  await expect(recurring.form.getByLabel(/Montant de référence/)).toHaveValue('13.99')
+  await expect(recurring.form.getByLabel(/Date d’une échéance/)).toHaveValue(/^\d{4}-\d{2}-08$/)
+  await expect(recurring.form.getByLabel('Tolérance sur le montant (%)')).toHaveValue('20')
+  await expect(recurring.form.getByLabel('Tolérance sur la date (jours)')).toHaveValue('5')
+  await expect(recurring.form.getByRole('combobox', { name: /Compte/ })).toContainText(`Courant MAG-308, essai ${attempt}`)
+  await recurring.form.getByLabel(/Libellé/).fill('Netflix')
+  await expect(recurring.form.getByLabel('Contrepartie attendue')).not.toHaveValue('')
+  await recurring.choose(/Catégorie/, categoryName)
+  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
+
+  // And the history of the same payee is offered, rehearsed before it is written.
+  await expect(recurring.historyPreview).toContainText('transactions Netflix depuis')
+  await expect(recurring.historyPreview).toContainText(label)
+  expect((await netflixLines()).filter((t) => t.recurringOperation), 'the preview writes nothing').toHaveLength(0)
+
+  await recurring.historyPreview.getByRole('button', { name: /^Rattacher ces \d+ transaction/ }).click()
+
+  // Then the three lines wear the badge of the series.
+  await expect(recurring.historyPreview).toHaveCount(0)
+  await expect.poll(async () => (await netflixLines()).filter((t) => t.recurringOperation).length).toBe(3)
+  await list.openTransactions(accountId)
+  await expect(list.content.getByText('Série · Netflix')).toHaveCount(3)
+
+  // When I detach one, it loses its badge, and the others keep theirs.
+  const detaching = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/transactions/'))
+  await list.content.getByLabel(`Détacher ${label} de la série`).first().click()
+  expect((await detaching).status()).toBe(200)
+  await expect.poll(async () => (await netflixLines()).filter((t) => t.recurringOperation).length).toBe(2)
+  await list.openTransactions(accountId)
+  await expect(list.content.getByText('Série · Netflix')).toHaveCount(2)
 })

@@ -1,0 +1,16 @@
+# A slow answer to a request the owner sends twice (MAG-386): the first turn is still being
+# written when the same text arrives again, and the second must not run the tool a second time.
+# One read tool, so the journey can count its call in the stream without touching the account's data.
+name: double-send-slow
+description: Look at the agenda, then answer slowly, so the same message can be sent again meanwhile.
+
+match:
+  user_contains: "double envoi"
+
+stream_delay_ms: 400
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 7}
+  - text: "J'ai regardé ton agenda une seule fois pour répondre à ce message envoyé deux fois, sans rien refaire."

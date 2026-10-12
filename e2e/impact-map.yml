@@ -288,6 +288,8 @@ web:
 
   e2e/web/tests/chat-client-leaves.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/chat-double-send.spec.ts:
+    areas: [chat, dashboard]
   e2e/web/tests/chat-send-failed.spec.ts:
     areas: [chat, dashboard]
   e2e/web/tests/chat-approvals.spec.ts:
@@ -379,6 +381,8 @@ web:
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-review.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-recurring-detection.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-recurring.spec.ts:
     areas: [finance]

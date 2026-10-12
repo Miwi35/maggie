@@ -89,6 +89,29 @@ describe('EventCreateDialog', () => {
     )
   })
 
+  // The list of agendas arrives after the dialog opens: until it does, no agenda is chosen and "Créer" must wait (MAG-397).
+  test('does not post before the agendas are loaded, then posts the default one', async () => {
+    let resolveAgendas: (value: { data: typeof AGENDAS; total: number }) => void = () => {}
+    mockGetList.mockReturnValue(new Promise((resolve) => (resolveAgendas = resolve)))
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Concert' } })
+    expect(screen.getByRole('button', { name: 'Créer' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+    expect(mockCreate).not.toHaveBeenCalled()
+
+    resolveAgendas({ data: AGENDAS, total: AGENDAS.length })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Créer' })).toBeEnabled())
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({ data: expect.objectContaining({ agenda: '/api/agendas/01PERSO' }) }),
+      ),
+    )
+  })
+
   /**
    * A timed event is posted as an instant (MAG-168).
    *

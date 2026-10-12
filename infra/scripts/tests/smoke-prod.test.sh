@@ -74,6 +74,16 @@ else
   failures=$((failures + 1))
 fi
 
+# A POST that times out may still have written: the question, which only the
+# event's title answers, decides (MAG-386).
+run_smoke "event_answer_lost" SMOKE_WRITE_TIMEOUT=1
+if [ "$STATUS" -eq 0 ]; then
+  printf '  \033[32m✓\033[0m an event created after its POST timed out is found by the question\n'
+else
+  printf '  \033[31m✗\033[0m an event that exists must not fail the suite — exit %d\n%s\n' "$STATUS" "$OUTPUT"
+  failures=$((failures + 1))
+fi
+
 printf '\n\033[1mEach regression turns it red\033[0m\n'
 expect_red "a degraded agent"                       agent_health        "the agent health body is not status ok"
 expect_red "an admin that 404s"                     admin_missing       "GET /admin is served without a redirect"
@@ -88,6 +98,7 @@ expect_red "a tool that errors"                     agent_tool_error    "the too
 expect_red "Maggie apologising instead of answering" agent_apology      "the answer is an apology"
 expect_red "an answer that guesses the title"       agent_guesses       "the answer does not carry the title"
 expect_red "an event the account cannot create"     event_creation_fails "the test event could not be created"
+expect_red "an event POST that times out unwritten" event_post_hangs  "the answer does not carry the title" SMOKE_WRITE_TIMEOUT=1
 expect_red "a history reset the agent refuses"      history_reset_fails "DELETE /agent/smoke/history did not answer 200"
 expect_red "an agent that is down"                  agent_down          "Maggie did not answer through a tool"
 expect_red "Elasticsearch out of sync"              ""                  "app:elasticsearch:status --check failed" ES_CHECK_CMD="echo DRIFT; exit 1"

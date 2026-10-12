@@ -25,6 +25,7 @@ import { Amount } from './AmountField'
 import { TransferBadge, TransferCounterpart } from './TransferBadge'
 import { transactionIdOf } from './useTransactionTransfer'
 import { AccountIncidents } from './AccountIncidents'
+import { MakeRecurringButton, RecurringBadge } from './RecurringTransactionActions'
 import { useAccountIncidents } from './useAccountIncidents'
 import type { RaRecord } from 'react-admin'
 
@@ -46,6 +47,7 @@ const TransactionDatagrid = () => {
               transferKind={record.transferKind as string | undefined}
               amountCents={record.amountCents as number}
             />
+            <RecurringBadge record={record} />
             {(record.transferKind === 'internal' || record.transferKind === 'rejected') && (
               <TransferCounterpart
                 transactionId={transactionIdOf(record.id as string)}
@@ -75,6 +77,7 @@ const TransactionDatagrid = () => {
           statusLabel(record.status as string, record.amountCents as number)
         }
       />
+      <FunctionField render={(record: RaRecord) => <MakeRecurringButton record={record} />} />
       <EditButton />
       <DeleteButton />
     </Datagrid>
