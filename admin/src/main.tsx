@@ -4,6 +4,7 @@ import { handleAuthCallback } from './auth/authProvider'
 import { restoreSession } from './auth/session'
 import * as Sentry from '@sentry/react'
 import { initSentry } from './observability/sentry'
+import { loadWithReload } from './loadWithReload'
 
 // First, so an error during the session restore is reported too.
 initSentry()
@@ -14,7 +15,7 @@ initSentry()
 async function start() {
   handleAuthCallback()
   await restoreSession()
-  const { default: App } = await import('./App')
+  const { default: App } = await loadWithReload(() => import('./App'))
 
   // Render errors that an error boundary catches are reported too.
   createRoot(document.getElementById('root')!, {
