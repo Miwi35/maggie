@@ -29,6 +29,7 @@ use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\State\CreateCategorizationRuleProcessor;
 use Maggie\Finance\State\DeleteCategorizationRuleProcessor;
 use Maggie\Finance\State\UpdateCategorizationRuleProcessor;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -214,7 +215,14 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
         return $this;
     }
 
+    /** Symfony would serialise this as `active` while the field is written as `isActive`: see getIsActive(). */
+    #[Ignore]
     public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function getIsActive(): bool
     {
         return $this->isActive;
     }

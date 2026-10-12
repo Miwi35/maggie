@@ -33,16 +33,12 @@ interface StoredTransaction {
   categorySource?: string
 }
 
-/**
- * `active`, not `isActive`: Symfony drops the `is` prefix when it serialises
- * `isActive()`, and a client spelling it the getter's way reads its own
- * default in silence.
- */
+/** `isActive`: the entity reads and writes the flag under that name (MAG-370). */
 interface StoredRule {
   id?: string
   labelPattern?: string
   category?: string
-  active?: boolean
+  isActive?: boolean
   priority?: number
 }
 
@@ -190,7 +186,7 @@ test.describe('Filing the history', () => {
     )
 
     expect(created.category).toBe(`/api/categories/${seedId('e2e_category_groceries')}`)
-    expect(created.active).toBe(true)
+    expect(created.isActive).toBe(true)
     // Priority is the pattern's length, so a specific spelling is read before a
     // generic one.
     expect(created.priority).toBe('FROMAGERIE DES LICES'.length)
