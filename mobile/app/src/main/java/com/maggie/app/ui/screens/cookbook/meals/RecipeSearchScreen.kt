@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -60,7 +62,9 @@ fun RecipeSearchScreen(
         // the request is lost, so the first keys land on the back arrow.
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
         Surface(modifier = Modifier.fillMaxSize().uiTagRoot()) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            // Edge to edge: without the padding the back arrow sits under the status bar, which
+            // takes the tap, and the keyboard hides the last results.
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
