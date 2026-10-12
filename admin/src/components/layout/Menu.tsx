@@ -38,6 +38,7 @@ import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlin
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
+import EventRepeatIcon from '@mui/icons-material/EventRepeat'
 import { ModuleIcon } from './ModuleIcon'
 import type { ModuleName } from '../../theme'
 
@@ -193,6 +194,12 @@ export const CustomMenu = () => {
                 to="/loans"
                 primaryText="Prêts"
                 leftIcon={tinted('comptes', <CreditScoreIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/recurring-operations"
+                primaryText="Opérations récurrentes"
+                leftIcon={tinted('comptes', <EventRepeatIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

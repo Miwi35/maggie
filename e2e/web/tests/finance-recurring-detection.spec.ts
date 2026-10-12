@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, parisDay } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
 
 /**
  * Detection of recurring operations (MAG-47), extending the recurring
@@ -15,7 +16,16 @@ import { waitForIndexed } from '../helpers/api.js'
  *     et sa prochaine échéance est le 5 du mois suivant
  *
  * Suggesting writes nothing: the series appears only on the explicit accept.
- * The screens are out of scope; the journey goes through the API they will call.
+ * The first journey goes through the API; the second (MAG-308) goes through
+ * the « Suggestions » panel of the recurring operations screen:
+ *
+ *   Étant donné trois débits « PRELEVEMENT ASSURANCE HABITA » de 31,00 € le 9, sur trois mois consécutifs
+ *   Quand j'ouvre les opérations récurrentes
+ *   Alors « Suggestions » propose la série, avec sa périodicité en clair et trois exemples
+ *   Quand je clique « Créer la série » et je choisis la catégorie
+ *   Alors la série apparaît dans la liste et la suggestion disparaît
+ *   Quand je lance « Rattacher l'historique »
+ *   Alors l'aperçu montre les trois débits avant d'écrire, et après confirmation ils sont rattachés
  */
 
 interface Suggestion {
@@ -57,8 +67,16 @@ function monthBefore(month: string, back: number): string {
 }
 
 /** The month of the latest 5th already passed. */
-function lastBookedMonth(today: string): string {
-  return today.slice(8, 10) >= '05' ? today.slice(0, 7) : monthBefore(today.slice(0, 7), 1)
+function lastBookedMonth(today: string, day = '05'): string {
+  return today.slice(8, 10) >= day ? today.slice(0, 7) : monthBefore(today.slice(0, 7), 1)
+}
+
+/** How many transactions of the owner are attached to the series. */
+async function attachedCount(api: APIRequestContext, seriesIri: string): Promise<number> {
+  const response = await api.get('/api/transactions?itemsPerPage=100', { headers: { Accept: 'application/ld+json' } })
+  const members = ((await response.json()) as { member?: StoredTransaction[] }).member ?? []
+
+  return members.filter((t) => t.recurringOperation === seriesIri).length
 }
 
 async function created(api: APIRequestContext, path: string, data: Record<string, unknown>): Promise<string> {
@@ -180,4 +198,79 @@ test('three rent debits are proposed as a monthly series, and accepting it creat
 
   // And the payee is no longer proposed.
   expect((await suggestions(api)).find((s) => s.accountId === accountId)).toBeUndefined()
+})
+
+test('the suggestion is accepted from the screen, then the history is attached after its preview', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-308, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryName = `Assurances MAG-308, essai ${attempt}`
+  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'mandatory' })
+  createdCategoryIds.push(categoryId)
+
+  // Given three debits on the 9th, over three consecutive months already booked.
+  const today = parisDay()
+  const lastMonth = lastBookedMonth(today, '09')
+  const days = [2, 1, 0].map((back) => `${monthBefore(lastMonth, back)}-09`)
+  for (const day of days) {
+    await created(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: 'PRELEVEMENT ASSURANCE HABITA',
+      amountCents: -3100,
+      currency: 'EUR',
+      bookedAt: day,
+      status: 'spent',
+    })
+  }
+  const proposed = (await suggestions(api)).find((s) => s.accountId === accountId)
+  expect(proposed, 'the insurance must be proposed').toBeDefined()
+  const label = proposed?.label ?? ''
+
+  // When I open the recurring operations.
+  const recurring = new FinanceRecurringPage(page)
+  await recurring.open()
+
+  // Then the panel proposes it: why, how often, and three examples.
+  await expect(recurring.suggestions).toContainText(label)
+  await expect(recurring.suggestions).toContainText('3 transactions le 9 de chaque mois')
+  await expect(recurring.suggestions).toContainText('PRELEVEMENT ASSURANCE HABITA')
+  await expect(recurring.row(label)).toHaveCount(0)
+
+  // When I create the series, choosing the heading the history does not name.
+  await recurring.createSeries(label).click()
+  await expect(recurring.form.getByLabel(/Libellé/)).toHaveValue(label)
+  await recurring.choose(/Catégorie/, categoryName)
+  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
+
+  // Then the series is listed, and the suggestion is gone.
+  await expect(recurring.row(label)).toContainText('Le 9 de chaque mois')
+  await expect(recurring.row(label)).toContainText('31,00')
+  await expect(recurring.suggestions).toHaveCount(0)
+
+  // When I attach the history, the three debits are shown before anything is written.
+  await recurring.catchUp.click()
+  await expect(recurring.preview).toContainText('PRELEVEMENT ASSURANCE HABITA')
+  await expect(recurring.preview.getByRole('row').filter({ hasText: label })).toHaveCount(3)
+  const stored = await waitForIndexed<{ id: string; label?: string }>(
+    api,
+    '/api/recurring_operations',
+    (candidate) => candidate.label === label,
+    { what: 'The created series' },
+  )
+  const seriesIri = `/api/recurring_operations/${stored.id}`
+  expect(await attachedCount(api, seriesIri), 'the preview writes nothing').toBe(0)
+
+  // Then, confirmed, the three debits are attached.
+  await recurring.preview.getByRole('button', { name: /^Rattacher ces \d+ transaction/ }).click()
+  await expect(recurring.preview).toHaveCount(0)
+  await expect.poll(() => attachedCount(api, seriesIri)).toBe(3)
 })

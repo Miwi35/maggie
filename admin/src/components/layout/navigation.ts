@@ -66,6 +66,7 @@ export const NAVIGATION: NavModule[] = [
       resourcePart('Budgets', 'envelopes'),
       { label: 'Matelas', path: '/finance/cushion' },
       resourcePart('Prêts', 'loans'),
+      { label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
       { label: 'Revue mensuelle', path: '/finance/monthly-review' },
       resourcePart('Règles de catégorisation', 'categorization_rules'),
     ],

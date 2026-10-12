@@ -123,6 +123,13 @@ describe('Breadcrumbs', () => {
     expect(await screen.findByText('Détail')).toBeInTheDocument()
   })
 
+  test('the recurring operations page sits under Finance', () => {
+    renderAt('/finance/recurring-operations')
+
+    expect(labels()).toEqual(['Finance', 'Opérations récurrentes'])
+    expect(screen.getByText('Opérations récurrentes')).toHaveAttribute('aria-current', 'page')
+  })
+
   test('a page the table does not know has no breadcrumb', () => {
     renderAt('/nowhere')
 
