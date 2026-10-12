@@ -3,7 +3,7 @@ services:
   # Traefik (Edge router + monitoring dashboard)
   # ===========================================================================
   traefik:
-    image: public.ecr.aws/docker/library/traefik:v3.6
+    image: ghcr.io/miwi35/mirror/traefik:v3.6
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"
@@ -141,7 +141,7 @@ services:
   # PostgreSQL
   # ===========================================================================
   database:
-    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION}-alpine
+    image: ghcr.io/miwi35/mirror/postgres:${POSTGRES_VERSION:-17}-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -194,7 +194,7 @@ services:
   # RabbitMQ (Message Queue)
   # ===========================================================================
   rabbitmq:
-    image: public.ecr.aws/docker/library/rabbitmq:3-management-alpine
+    image: ghcr.io/miwi35/mirror/rabbitmq:3-management-alpine
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -301,7 +301,7 @@ services:
   # Elasticsearch (Full-text search)
   # ===========================================================================
   elasticsearch:
-    image: public.ecr.aws/docker/library/elasticsearch:8.17.0
+    image: ghcr.io/miwi35/mirror/elasticsearch:8.17.0
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false

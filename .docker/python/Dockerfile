@@ -3,7 +3,7 @@ ARG PYTHON_VERSION=3.12
 # =============================================================================
 # Base stage - shared configuration
 # =============================================================================
-FROM public.ecr.aws/docker/library/python:${PYTHON_VERSION}-slim AS base
+FROM ghcr.io/miwi35/mirror/python:${PYTHON_VERSION}-slim AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/miwi35/mirror/uv:latest /uv /usr/local/bin/uv
 
 # Set working directory
 WORKDIR /app

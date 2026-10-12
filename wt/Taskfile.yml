@@ -44,7 +44,7 @@ vars:
     # The fallback keeps `wt:down`, `wt:ps` and `wt:prune` working when Compose or
     # jq cannot compute the hash: stopping must not depend on the build inputs.
     sh: '{{.ROOT_DIR}}/wt/image.sh tag 2>/dev/null || echo maggie-wt-php:unknown'
-  NODE_IMAGE: 'public.ecr.aws/docker/library/node:{{.NODE_VERSION | default "22"}}-alpine'
+  NODE_IMAGE: 'ghcr.io/miwi35/mirror/node:{{.NODE_VERSION | default "22"}}-alpine'
   GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
   STACK: '{{.ROOT_DIR}}/wt/stack.sh'
   IMAGE_SH: '{{.ROOT_DIR}}/wt/image.sh'
@@ -445,7 +445,7 @@ tasks:
           -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" \
           -v "{{.ROOT_DIR}}/{{.DIR}}":/app \
           -v "$UV_CACHE":/cache \
-          -w /app ghcr.io/astral-sh/uv:python3.12-alpine \
+          -w /app ghcr.io/miwi35/mirror/uv:python3.12-alpine \
           sh -c '{{.COMMAND}}'
 
   # ===========================================================================

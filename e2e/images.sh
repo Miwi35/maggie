@@ -87,8 +87,8 @@ build_one() {
   local svc="$1" cache="$2" log
   log="$(mktemp)"
   local attempt
-  # The base images come from ECR Public, which turns away more than one
-  # anonymous pull per second and per IP: a build refused for that is retried.
+  # The base images are pulled anonymously from the GHCR mirror: a build refused
+  # for a registry's rate limit is retried.
   for attempt in 1 2 3; do
     if docker buildx bake -f "$COMPOSE_FILE" --load --progress=plain \
         --set "$svc.cache-from=type=registry,ref=$cache" \
@@ -132,10 +132,11 @@ ensure_one() {
   fi
 }
 
-# The third-party images come from ECR Public and the GHCR mirror, never Docker
-# Hub (10 Oct.). ECR Public allows one anonymous pull per second and per IP and
-# answers `toomanyrequests: Rate exceeded` beyond: the images are pulled one
-# service at a time, and a failed pull is retried after a pause.
+# The third-party images come from the GHCR mirror (ghcr.io/miwi35/mirror/…),
+# never Docker Hub (10 Oct.) nor ECR Public (12 Oct.), whose anonymous limits
+# took CI down. A registry may still refuse a burst of anonymous pulls
+# (`toomanyrequests`): the images are pulled one service at a time, and a
+# failed pull is retried after a pause.
 pull_third_party() {
   local svc attempt services
   services="$(docker compose -f "$COMPOSE_FILE" config --services)"

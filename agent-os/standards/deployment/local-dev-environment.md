@@ -43,13 +43,13 @@ task open          # opens http://maggie.local
 
 | Service | Image / Build | Port | Profile | Healthcheck |
 |---------|---------------|------|---------|-------------|
-| traefik | `public.ecr.aws/docker/library/traefik:v3.6` | 80, 8080 (dashboard) | default | — |
+| traefik | `ghcr.io/miwi35/mirror/traefik:v3.6` | 80, 8080 (dashboard) | default | — |
 | php | `.docker/php/Dockerfile` target: dev | 9000 (internal) | default | — |
 | nginx | `.docker/nginx/Dockerfile` target: dev | 80 (internal) | default | — |
 | node | `.docker/node/Dockerfile` | 5173 (internal) | **dev** | — |
-| database | `public.ecr.aws/docker/library/postgres:17-alpine` | 5432 | default | `pg_isready` |
+| database | `ghcr.io/miwi35/mirror/postgres:17-alpine` | 5432 | default | `pg_isready` |
 | mercure | `ghcr.io/miwi35/mirror/mercure:v1.0.2` (copy of `dunglas/mercure`, pinned by digest) | 80 (internal) | default | — |
-| rabbitmq | `public.ecr.aws/docker/library/rabbitmq:3-management-alpine` | 5672, 15672 (mgmt UI) | default | `rabbitmq-diagnostics ping` |
+| rabbitmq | `ghcr.io/miwi35/mirror/rabbitmq:3-management-alpine` | 5672, 15672 (mgmt UI) | default | `rabbitmq-diagnostics ping` |
 | agent | `.docker/python/Dockerfile` target: dev | 8001 (internal) | default | — |
 
 ### Dependencies
@@ -289,7 +289,7 @@ Base: `node:20-alpine`
 ### Agent Dev (`.docker/python/Dockerfile`, target: `dev`)
 
 Base: `python:3.12-slim`
-**Package manager:** `uv` (from `ghcr.io/astral-sh/uv:latest`)
+**Package manager:** `uv` (from `ghcr.io/miwi35/mirror/uv:latest`)
 **User:** `app` (non-root, site-packages writable)
 **Port:** 8001
 **Command:** `uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload`

@@ -151,7 +151,7 @@ services:
   # Traefik — the stack's single door, on one ephemeral host port
   # ===========================================================================
   traefik:
-    image: public.ecr.aws/docker/library/traefik:v3.6
+    image: ghcr.io/miwi35/mirror/traefik:v3.6
     command:
       - "--api.dashboard=false"
       - "--providers.docker=true"
@@ -267,7 +267,7 @@ services:
   # Vite dev server. A bug that only appears in a production build — and those
   # exist — would otherwise reach users unseen.
   admin-build:
-    image: public.ecr.aws/docker/library/node:${NODE_VERSION:-22}-alpine
+    image: ghcr.io/miwi35/mirror/node:${NODE_VERSION:-22}-alpine
     working_dir: /var/www/admin
     user: ${UID:-1000}:${GID:-1000}
     volumes:
@@ -357,7 +357,7 @@ services:
   # PostgreSQL — in memory, unpublished
   # ===========================================================================
   database:
-    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION:-17}-alpine
+    image: ghcr.io/miwi35/mirror/postgres:${POSTGRES_VERSION:-17}-alpine
     environment:
       POSTGRES_USER: maggie
       POSTGRES_PASSWORD: maggie
@@ -417,7 +417,7 @@ services:
   # RabbitMQ
   # ===========================================================================
   rabbitmq:
-    image: public.ecr.aws/docker/library/rabbitmq:3-alpine
+    image: ghcr.io/miwi35/mirror/rabbitmq:3-alpine
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -450,7 +450,7 @@ services:
   # A stale or missing index returns an empty list in silence, so search
   # journeys would pass for the wrong reason without it.
   elasticsearch:
-    image: public.ecr.aws/docker/library/elasticsearch:8.17.0
+    image: ghcr.io/miwi35/mirror/elasticsearch:8.17.0
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false

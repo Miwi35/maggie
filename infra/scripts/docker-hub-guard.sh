@@ -2,25 +2,30 @@
 set -euo pipefail
 
 # =============================================================================
-# No image from Docker Hub in CI
+# CI pulls its images from the project's mirror only
 # Usage: infra/scripts/docker-hub-guard.sh [repository root]
 #
 # CI pulled its third-party images anonymously from Docker Hub. GitHub runners
 # share their IPs, so Docker Hub's anonymous pull limit (`toomanyrequests`) took
 # every e2e job, API test and image build down for hours, twice (9–10 Oct.).
-# Official images now come from Amazon's public copy (public.ecr.aws/docker/
-# library/…), the others from the project's mirror on GHCR (ghcr.io/miwi35/
-# mirror/…, refreshed by .github/workflows/mirror-images.yml).
+# Amazon's public copy of the official images (public.ecr.aws) then hit its own
+# anonymous data limit (12 Oct.). Every third-party image now comes from the
+# project's mirror on GHCR (ghcr.io/miwi35/mirror/…, listed in
+# .github/mirror-images.txt, refreshed by .github/workflows/mirror-images.yml).
 #
 # Red when one of these pulls from Docker Hub — no registry host (`postgres:17`,
-# `wiremock/wiremock:3.9.1`) or `docker.io/…` — or from a registry not allowed
-# below:
+# `wiremock/wiremock:3.9.1`) or `docker.io/…` — from public.ecr.aws, or from
+# anywhere but the allowed prefixes below (the mirror, the project's own images
+# on ghcr.io/miwi35/, and mcr.microsoft.com, which has no anonymous limit):
 #   - every Dockerfile: `FROM` and `COPY --from=<image>` (not a stage name);
 #   - the compose files CI, the e2e stack and the worktree checks start
 #     (COMPOSE_FILES below): `image:`;
 #   - every workflow: `image:` (services, container) and every
 #     `docker/setup-buildx-action`, whose BuildKit image is `moby/buildkit` from
 #     Docker Hub unless `driver-opts: image=…` says otherwise.
+#
+# A mirror reference must name a target of .github/mirror-images.txt, or CI
+# would pull a copy nobody makes.
 #
 # `${VAR:-default}` resolves to its default, a Dockerfile `${ARG}` to the ARG's
 # default; an image left empty (`${VAR:?…}`, chosen by the caller) is skipped.
@@ -34,9 +39,10 @@ set -euo pipefail
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$ROOT"
 
-ALLOWED_HOSTS='public.ecr.aws ghcr.io mcr.microsoft.com'
+ALLOWED_PREFIXES='ghcr.io/miwi35/ mcr.microsoft.com/'
 COMPOSE_FILES=(docker-compose.yml docker-compose.e2e.yml wt/docker-compose.wt.yml)
 ALLOWLIST=.github/docker-hub-allowlist.txt
+MIRROR_LIST=.github/mirror-images.txt
 
 dockerfiles=()
 while IFS= read -r f; do
@@ -60,10 +66,12 @@ done
 
 allowlist=/dev/null
 [[ -f "$ALLOWLIST" ]] && allowlist="$ALLOWLIST"
+mirrorlist=/dev/null
+[[ -f "$MIRROR_LIST" ]] && mirrorlist="$MIRROR_LIST"
 
 # One awk program for the three kinds of file: `kind` is set before each group.
 # Each reference prints `ok` or `bad <file>:<line>: <message>`.
-awk -v allowed_hosts="$ALLOWED_HOSTS" -v allowlist_file="$ALLOWLIST" -v q="'" '
+awk -v allowed_prefixes="$ALLOWED_PREFIXES" -v allowlist_file="$ALLOWLIST" -v mirror_file="$MIRROR_LIST" -v q="'" '
 function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
 function unquote(s) { gsub("^[\"" q "]|[\"" q "]$", "", s); return s }
 function indent(s) { match(s, /^[ \t]*/); return RLENGTH }
@@ -98,7 +106,7 @@ function resolve(ref,    m, name, inner, op, val, guard) {
   return ref
 }
 
-function check(raw, where,    ref, first, host, n, h) {
+function check(raw, where,    ref, first, host, n, h, i, target) {
   raw = unquote(trim(raw))
   if (raw == "" || raw ~ /\$\{\{/) return   # empty or a workflow expression
   ref = resolve(raw)
@@ -106,18 +114,31 @@ function check(raw, where,    ref, first, host, n, h) {
   if (ref == "scratch") return
   checked++
   if (ref in allowed) return
+  if (index(ref, "ghcr.io/miwi35/mirror/") == 1) {
+    target = substr(ref, length("ghcr.io/miwi35/mirror/") + 1); sub(/@.*$/, "", target)
+    if (!(target in mirrored)) {
+      printf "%s: %s is not mirrored — add `%s <source>` to %s\n", where, ref, target, mirror_file
+      bad++
+    }
+    return
+  }
   first = ref; sub(/\/.*$/, "", first)
   if (index(ref, "/") && (first ~ /[.:]/ || first == "localhost")) host = first
   else host = ""
   if (host == "" && ref !~ /\// && ref ~ /^maggie/) return   # the project own local image
   if (host == "" || host == "docker.io" || host == "index.docker.io" || host == "registry-1.docker.io") {
-    printf "%s: %s pulls from Docker Hub — official image: public.ecr.aws/docker/library/<name>; other: ghcr.io/miwi35/mirror/<name> (.github/mirror-images.txt)\n", where, ref
+    printf "%s: %s pulls from Docker Hub — use ghcr.io/miwi35/mirror/<name>:<tag> (add it to .github/mirror-images.txt)\n", where, ref
     bad++
     return
   }
-  n = split(allowed_hosts, h, " ")
-  for (i = 1; i <= n; i++) if (host == h[i]) return
-  printf "%s: %s comes from %s, not an allowed registry (%s) — add it to %s with a reason if it must stay\n", where, ref, host, allowed_hosts, allowlist_file
+  if (host == "public.ecr.aws") {
+    printf "%s: %s pulls from public.ecr.aws, whose anonymous data limit took CI down (12 Oct.) — use ghcr.io/miwi35/mirror/<name>:<tag> (add it to .github/mirror-images.txt)\n", where, ref
+    bad++
+    return
+  }
+  n = split(allowed_prefixes, h, " ")
+  for (i = 1; i <= n; i++) if (index(ref, h[i]) == 1) return
+  printf "%s: %s is not on an allowed prefix (%s) — mirror it to ghcr.io/miwi35/mirror/ (.github/mirror-images.txt), or add it to %s with a reason if it must stay\n", where, ref, allowed_prefixes, allowlist_file
   bad++
 }
 
@@ -132,6 +153,14 @@ kind == "allowlist" {
   if (line == "" || line ~ /^#/) next
   if (NF < 2) { printf "%s:%d: %s has no reason\n", FILENAME, FNR, $1; bad++; next }
   allowed[$1] = 1
+  next
+}
+
+# The mirror list: `<target name:tag> <source>`.
+kind == "mirror" {
+  line = trim($0)
+  if (line == "" || line ~ /^#/) next
+  mirrored[$1] = 1
   next
 }
 
@@ -204,6 +233,7 @@ END {
   exit (bad > 0)
 }
 ' kind=allowlist "$allowlist" \
+  kind=mirror "$mirrorlist" \
   kind=dockerfile "${dockerfiles[@]}" \
   kind=compose "${composes[@]}" \
   kind=workflow "${workflows[@]}"
