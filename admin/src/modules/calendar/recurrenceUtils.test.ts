@@ -57,6 +57,20 @@ describe('expandRrule', () => {
       '2026-11-01T16:00:00.000Z',
     ])
   })
+
+  it('gives no occurrence, instead of throwing, for a series whose start is not a valid date (MAG-390)', () => {
+    const noStart = new Date(undefined as unknown as string)
+
+    expect(expandRrule('FREQ=WEEKLY;COUNT=3', noStart, RANGE_START, RANGE_END, 'Europe/Paris')).toEqual([])
+    expect(expandRrule('FREQ=WEEKLY;COUNT=3', noStart, RANGE_START, RANGE_END)).toEqual([])
+  })
+
+  it('gives no occurrence, instead of throwing, for a range that is not a valid date (MAG-390)', () => {
+    const invalid = new Date('')
+
+    expect(expandRrule('FREQ=WEEKLY;COUNT=3', DTSTART, invalid, RANGE_END, 'Europe/Paris')).toEqual([])
+    expect(expandRrule('FREQ=WEEKLY;COUNT=3', DTSTART, RANGE_START, invalid, 'Europe/Paris')).toEqual([])
+  })
 })
 
 describe('expandRruleDays', () => {

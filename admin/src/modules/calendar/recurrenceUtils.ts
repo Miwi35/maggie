@@ -39,6 +39,9 @@ export const expandRrule = (
   rangeEnd: Date,
   timeZone?: string,
 ): Date[] => {
+  // A series with no readable start has nothing to expand; throwing here takes down the whole page.
+  if ([dtstart, rangeStart, rangeEnd].some((date) => Number.isNaN(date.getTime()))) return []
+
   if (!timeZone) {
     return rrulestr(rruleString, { dtstart }).between(rangeStart, rangeEnd, true)
   }

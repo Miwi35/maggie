@@ -91,6 +91,21 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
     expect(screen.getAllByText('Anniversaire de Sacha')).toHaveLength(1)
   })
 
+  test('keeps showing the other events when a recurring one has no start (MAG-390)', async () => {
+    const broken = { id: '01CASSE', summary: 'Série sans début', allDay: false, rrule: 'FREQ=WEEKLY', timeZone: 'Europe/Paris', agenda: '/api/agendas/01PERSO' }
+    mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
+      if (resource === 'events' && params.filter['startAt[after]']) {
+        return Promise.resolve({ data: [broken, ...EVENTS], total: EVENTS.length + 1 })
+      }
+      return Promise.resolve({ data: [], total: 0 })
+    })
+    render(<Dashboard />)
+
+    expect(await screen.findByText('Congé posé')).toBeInTheDocument()
+    expect(screen.getByText('Dentiste')).toBeInTheDocument()
+    expect(screen.queryByText('Série sans début')).not.toBeInTheDocument()
+  })
+
   test('shows nothing to do when the events cannot be read', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockGetList.mockRejectedValue(new Error('500'))
