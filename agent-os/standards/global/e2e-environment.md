@@ -482,9 +482,9 @@ the worked example:
   that has nothing to do with the code. A flake has to read as a flake.
 
 The same reasoning covers the chat, and harder: an answer is published to the
-user, so it lands in every chat journey's panel signed in as that account, and
-`chat.spec.ts` owns the seeded owner's conversation (its first message opens the
-first thread). A journey that talks to Maggie and needs no seeded row signs in as
-`freshUser` — an account made for that test alone (MAG-394) — and makes what it
-reads (an agenda, a bank account) through the API. Its counts are then its own,
-under a retry or `--repeat-each` as much as beside another file.
+user, so it lands in every chat journey's panel signed in as that account. A journey
+that talks to Maggie and needs no seeded row signs in as `freshUser` — an account
+made for that test alone (MAG-394) — and makes what it reads (an agenda, a bank
+account) through the API. Its counts are then its own, under a retry or
+`--repeat-each` as much as beside another file. One that shares an account (the
+approvals account, the owner) looks only at what carries its own reference.

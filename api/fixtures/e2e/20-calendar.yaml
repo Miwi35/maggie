@@ -50,6 +50,15 @@ Maggie\Calendar\Entity\Agenda:
     timeZone: 'Europe/Paris'
     user: '@e2e_other_user'
 
+  # The approval cards journey's (MAG-6): the event a held deletion targets.
+  e2e_approvals_agenda:
+    name: Agenda de validation
+    description: Agenda de l'utilisateur des cartes de validation
+    isDefault: true
+    color: '#795548'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_approvals_user'
+
 Maggie\Calendar\Entity\Event:
   # Today, so a "what's on today" assertion always has something to find.
   e2e_event_today:

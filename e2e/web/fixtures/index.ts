@@ -9,6 +9,7 @@ import type {
 } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import {
+  APPROVALS_USER_EMAIL,
   FRESH_USER_DOMAIN,
   INTERRUPTED_USER_EMAIL,
   OTHER_USER_EMAIL,
@@ -28,6 +29,7 @@ export {
   OTHER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   STOCK_USER_EMAIL,
+  APPROVALS_USER_EMAIL,
   FRESH_USER_DOMAIN,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
@@ -115,6 +117,11 @@ export interface MaggieFixtures {
    * their own and read the API, never the chat history's length.
    */
   stockUser: OtherUser
+  /**
+   * The fifth seeded account, for the approval cards journey (MAG-6): the chat
+   * history, the held actions and their cards are that file's alone.
+   */
+  approvalsUser: OtherUser
   /**
    * An account made for this test alone, empty, signed in (MAG-394).
    *
@@ -318,6 +325,10 @@ export const test = base.extend<MaggieFixtures>({
 
   stockUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser((url) => sessionFor(url, STOCK_USER_EMAIL), { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  approvalsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser((url) => sessionFor(url, APPROVALS_USER_EMAIL), { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   // Not memoised: the point is an account nobody else has ever signed in as.
