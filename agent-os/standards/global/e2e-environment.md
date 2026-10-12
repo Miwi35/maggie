@@ -481,6 +481,10 @@ the worked example:
   reseeded, so a test starting from a seeded row fails on the retry for a reason
   that has nothing to do with the code. A flake has to read as a flake.
 
-The same reasoning covers the chat: `GET /agent/messages` is scoped to the user
-and returns the last twenty, and `chat.spec.ts` depends on that window. A journey
-adding exchanges as the signed-in user eats into it — use the second account.
+The same reasoning covers the chat, and harder: an answer is published to the
+user, so it lands in every chat journey's panel signed in as that account, and
+`chat.spec.ts` owns the seeded owner's conversation (its first message opens the
+first thread). A journey that talks to Maggie and needs no seeded row signs in as
+`freshUser` — an account made for that test alone (MAG-394) — and makes what it
+reads (an agenda, a bank account) through the API. Its counts are then its own,
+under a retry or `--repeat-each` as much as beside another file.

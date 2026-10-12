@@ -55,11 +55,10 @@ export const INTERRUPTED_USER_EMAIL = 'e2e-interrupt@maggie.local'
 export const STOCK_USER_EMAIL = 'e2e-stock@maggie.local'
 
 /**
- * The fifth seeded account, for the approval cards journey (MAG-6): it talks to
- * Maggie and answers a held deletion, which neither the owner's chat history nor
- * the interruptions account can take.
+ * Where the accounts made on the spot live (MAG-394): `fresh-<uuid>@` this.
+ * Never seeded, so one can never be taken for a seeded account.
  */
-export const APPROVALS_USER_EMAIL = 'e2e-approvals@maggie.local'
+export const FRESH_USER_DOMAIN = 'fresh.e2e.maggie.local'
 
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
@@ -89,14 +88,22 @@ export interface SessionStorageState {
  * `headers` are added to the login request: a journey that signs in on its own
  * (`pageWithOwnSession`) passes its `X-E2E-Journey`, so the login's lines are
  * filed under it. The worker's memoised logins are setup, and send none.
+ *
+ * `create` makes the account if the seed has none of that address — the
+ * `freshUser` fixture, and nothing else.
  */
-export async function signIn(baseURL: string, email: string, headers: Record<string, string> = {}): Promise<Session> {
+export async function signIn(
+  baseURL: string,
+  email: string,
+  headers: Record<string, string> = {},
+  create = false,
+): Promise<Session> {
   const context = await playwrightRequest.newContext({ baseURL, extraHTTPHeaders: headers })
 
   try {
     const response = await context.post('/api/auth/e2e/login', {
       headers: { 'X-E2E-Token': LOGIN_TOKEN, 'Content-Type': 'application/json' },
-      data: { email },
+      data: create ? { email, create } : { email },
     })
 
     if (!response.ok()) {

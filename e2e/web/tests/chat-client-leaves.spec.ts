@@ -13,12 +13,12 @@ import { DashboardPage } from '../pages/DashboardPage.js'
 const QUESTION = "Regarde ma semaine, je ferme l'app pendant que tu cherches"
 const ANSWER = "J'ai regardé ton agenda pendant que tu étais parti : rien d'urgent."
 
-// The second account: chat.spec.ts asserts that the seeded user's first message opens a
-// context, and a message sent here under that account would have opened it first.
+// An account of its own (MAG-394): the answer is counted, and on a shared account the
+// same question asked before — by a retry, `--repeat-each` — had already been answered.
 test('the answer is there when the chat is opened again, after the client dropped the stream', async ({
-  otherUser,
+  freshUser,
 }) => {
-  const { page, api, session } = otherUser
+  const { page, api, session } = freshUser
   await new DashboardPage(page).open()
 
   await withChatLock(async () => {

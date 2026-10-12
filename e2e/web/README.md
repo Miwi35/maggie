@@ -58,8 +58,9 @@ browser's `Date` to it. In a journey read "now" through `e2eNow()` (not
 | `tests/` | the journeys |
 
 Import from `fixtures/index.js` rather than `@playwright/test` — that is where
-`test` gains `session`, `api`, `otherUser`, `twoWindows`, `anonymousPage` and
-`pageWithToken`, and where every context is cut off from the internet.
+`test` gains `session`, `api`, `otherUser`, `freshUser` (an account made for the
+test alone), `twoWindows`, `anonymousPage` and `pageWithToken`, and where every
+context is cut off from the internet.
 
 ## Three widths
 

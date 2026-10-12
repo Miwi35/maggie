@@ -7,8 +7,9 @@ import type {
   Page,
   PlaywrightWorkerArgs,
 } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
 import {
-  APPROVALS_USER_EMAIL,
+  FRESH_USER_DOMAIN,
   INTERRUPTED_USER_EMAIL,
   OTHER_USER_EMAIL,
   SEED_USER_EMAIL,
@@ -27,7 +28,7 @@ export {
   OTHER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   STOCK_USER_EMAIL,
-  APPROVALS_USER_EMAIL,
+  FRESH_USER_DOMAIN,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -115,10 +116,16 @@ export interface MaggieFixtures {
    */
   stockUser: OtherUser
   /**
-   * The fifth seeded account, for the approval cards journey (MAG-6): the chat
-   * history, the held actions and their cards are that file's alone.
+   * An account made for this test alone, empty, signed in (MAG-394).
+   *
+   * For the chat journeys that count what their user holds — bubbles, threads,
+   * held actions: on an account anything else talks to Maggie as, another
+   * test's answer lands in this one's panel, published to the user, and a
+   * second copy of the test itself (`--repeat-each`, a retry) starts on what
+   * the first one left. A new account per test has none of that to share.
+   * It owns nothing — no agenda, no bank account: the test makes what it reads.
    */
-  approvalsUser: OtherUser
+  freshUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -194,12 +201,12 @@ interface UserDeps {
 }
 
 async function useSignedInUser(
-  email: string,
+  signedInAs: (url: string) => Promise<Session>,
   { playwright, browser, baseURL, contextOptions, journey, adminCoverage }: UserDeps,
   use: (user: OtherUser) => Promise<void>,
 ): Promise<void> {
   const url = requireBaseURL(baseURL)
-  const session = await sessionFor(url, email)
+  const session = await signedInAs(url)
 
   const signedIn = async (): Promise<BrowserContext> => {
     // `contextOptions` carries the project's own settings — viewport, device,
@@ -302,19 +309,24 @@ export const test = base.extend<MaggieFixtures>({
   },
 
   otherUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
-    await useSignedInUser(OTHER_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+    await useSignedInUser((url) => sessionFor(url, OTHER_USER_EMAIL), { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   interruptedUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
-    await useSignedInUser(INTERRUPTED_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+    await useSignedInUser((url) => sessionFor(url, INTERRUPTED_USER_EMAIL), { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   stockUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
-    await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+    await useSignedInUser((url) => sessionFor(url, STOCK_USER_EMAIL), { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
-  approvalsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
-    await useSignedInUser(APPROVALS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  // Not memoised: the point is an account nobody else has ever signed in as.
+  freshUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(
+      (url) => signIn(url, `fresh-${randomUUID()}@${FRESH_USER_DOMAIN}`, { [JOURNEY_HEADER]: journey }, true),
+      { playwright, browser, baseURL, contextOptions, journey, adminCoverage },
+      use,
+    )
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

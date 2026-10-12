@@ -1,4 +1,4 @@
-import { test, expect, seedId } from '../fixtures/index.js'
+import { test, expect } from '../fixtures/index.js'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
@@ -23,11 +23,12 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * be taken for one another.
  */
 
-// `retries: 0`, as `chat.spec.ts` does and for the same reason: the
-// conversation is stateful and nothing reseeds between attempts, so a replay
-// would find the first attempt's answer still in the panel and count two
-// bubbles where this one expects the answer exactly once.
-test.describe.configure({ retries: 0 })
+/*
+ * An account of its own (`freshUser`, MAG-394), with a bank account it makes. On
+ * the seeded owner's, this message opened the owner's first thread, and
+ * `chat.spec.ts` — which asserts its own first message opens one — read `matched`.
+ * Alone, a retry starts on an empty conversation too, so it may retry.
+ */
 
 const YEAR = 2033
 const SOURCE_YEAR = YEAR - 1
@@ -43,7 +44,8 @@ interface PlannedCategory {
   envelopeCents: number | null
 }
 
-test('asking Maggie to prepare the year reads what the year behind cost', async ({ page, api }) => {
+test('asking Maggie to prepare the year reads what the year behind cost', async ({ freshUser }) => {
+  const { page, api } = freshUser
   // A category of its own rather than a seeded one: the plan is read per
   // category, and sharing Loisirs would mean asserting a suggestion the rest
   // of the seed moves.
@@ -55,6 +57,13 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
   const categoryId = String(((await created.json()) as { id?: string }).id ?? '')
   expect(categoryId, 'the category the session looks at').not.toBe('')
 
+  const account = await api.post('/api/accounts', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: { name: 'Compte courant MAG-48', type: 'checking', currency: 'EUR', balanceCents: 0 },
+  })
+  expect(account.status(), await account.text()).toBe(201)
+  const accountIri = ((await account.json()) as { '@id': string })['@id']
+
   // Last year's big expense, and a small one the threshold has to leave out of
   // the candidate list while still counting it as consumed.
   for (const spend of [
@@ -64,7 +73,7 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
     const response = await api.post('/api/transactions', {
       headers: { 'Content-Type': 'application/ld+json' },
       data: {
-        account: `/api/accounts/${seedId('e2e_account_checking')}`,
+        account: accountIri,
         category: `/api/categories/${categoryId}`,
         label: spend.label,
         amountCents: spend.cents,

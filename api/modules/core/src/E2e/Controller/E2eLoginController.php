@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Core\E2e\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Core\Security\RefreshTokenCookieFactory;
@@ -15,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * Signs a seeded user in without Google.
@@ -32,11 +35,18 @@ use Symfony\Component\Routing\Attribute\Route;
  *    reachable host is not an open door to every account.
  *
  * Guarantee 1 is what E2eSurfaceAbsenceTest asserts, per MAG-94.
+ *
+ * `"create": true` signs in an account of its own, made on the spot (MAG-394):
+ * the chat journeys that count what their user holds — bubbles, threads, held
+ * actions — cannot share an account with anything running beside them, not
+ * even with a second copy of themselves under `--repeat-each`. It is made the
+ * way a first Google sign-in makes one: a bare user, nothing else.
  */
 final class E2eLoginController
 {
     public function __construct(
         private readonly UserRepository $userRepository,
+        private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
@@ -68,8 +78,12 @@ final class E2eLoginController
 
         $user = $this->userRepository->findOneBy(['email' => $email]);
 
+        if (!$user && true === ($data['create'] ?? false)) {
+            $user = $this->createUser($email);
+        }
+
         if (!$user) {
-            // Deliberately not "find or create": a journey that logs in as a
+            // Not "find or create" unless asked: a journey that logs in as a
             // user the seed never made is a broken journey, and inventing one
             // would hide that behind a green step.
             return new JsonResponse(['error' => 'Unknown user'], Response::HTTP_NOT_FOUND);
@@ -99,5 +113,17 @@ final class E2eLoginController
         $response->headers->setCookie($this->refreshTokenCookieFactory->create($refreshToken->getRefreshToken()));
 
         return $response;
+    }
+
+    private function createUser(string $email): User
+    {
+        $user = new User();
+        $user->setEmail($email);
+        $user->setGoogleId('e2e-created-'.new Ulid());
+        $user->setName(strstr($email, '@', true) ?: $email);
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $user;
     }
 }

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Tests\E2e;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -32,7 +34,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class E2eLoginControllerTest extends KernelTestCase
 {
+    use ElasticsearchAssertionTrait;
     use FixtureLoaderTrait;
+    use MercureAssertionTrait;
 
     private const TOKEN = 'the-e2e-login-token';
 
@@ -40,6 +44,8 @@ final class E2eLoginControllerTest extends KernelTestCase
     {
         self::bootKernel();
         $this->loadFixtures('user.yaml');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
     }
 
     public function testMissingTokenReturns401(): void
@@ -97,6 +103,49 @@ final class E2eLoginControllerTest extends KernelTestCase
             $this->entityManager()->getRepository(User::class)->count(['email' => 'nobody@maggie.local']),
             'The test login must never create the user it failed to find.',
         );
+    }
+
+    public function testCreateMakesTheAccountAndSignsItIn(): void
+    {
+        $response = $this->controller()($this->request(['email' => 'fresh-1@e2e.maggie.local', 'create' => true]));
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $users = $this->entityManager()->getRepository(User::class)->findBy(['email' => 'fresh-1@e2e.maggie.local']);
+        self::assertCount(1, $users);
+        self::assertSame((string) $users[0]->getId(), $payload['user']['id']);
+        self::assertSame('fresh-1', $payload['user']['name']);
+        self::assertStringStartsWith('e2e-created-', $users[0]->getGoogleId());
+
+        $jwtManager = self::getContainer()->get(JWTTokenManagerInterface::class);
+        self::assertSame('fresh-1@e2e.maggie.local', $jwtManager->parse($payload['token'])['username'] ?? null);
+
+        // Made as a first Google sign-in makes one (GoogleAuthController): a
+        // flush outside the bus, so nothing is published and nothing indexed.
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(User::class);
+    }
+
+    public function testCreateSignsAnExistingAccountInWithoutASecondOne(): void
+    {
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+
+        $response = $this->controller()($this->request(['email' => 'e2e@maggie.local', 'create' => true]));
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame((string) $user->getId(), $payload['user']['id']);
+        self::assertSame(1, $this->entityManager()->getRepository(User::class)->count(['email' => 'e2e@maggie.local']));
+    }
+
+    public function testCreateIsOnlyTakenFromALiteralTrue(): void
+    {
+        $response = $this->controller()($this->request(['email' => 'nobody@maggie.local', 'create' => 'yes']));
+
+        self::assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+        self::assertSame(0, $this->entityManager()->getRepository(User::class)->count(['email' => 'nobody@maggie.local']));
     }
 
     public function testOutsideE2eItIsNotFound(): void
@@ -196,6 +245,7 @@ final class E2eLoginControllerTest extends KernelTestCase
 
         return new E2eLoginController(
             $container->get(UserRepository::class),
+            $this->entityManager(),
             $container->get(JWTTokenManagerInterface::class),
             $container->get(RefreshTokenGeneratorInterface::class),
             $container->get(RefreshTokenManagerInterface::class),
