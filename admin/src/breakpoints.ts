@@ -25,3 +25,6 @@ export const BREAKPOINTS = { xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536 } as co
  * so that `up('md')` and `down('md')` cannot both match at exactly 900px.
  */
 export const NARROW_QUERY = `(max-width:${BREAKPOINTS.md - 5 / 100}px)`
+
+/** Under `sm` (600px): a phone held upright, where a list line takes two rows (MAG-387). */
+export const COMPACT_QUERY = `(max-width:${BREAKPOINTS.sm - 5 / 100}px)`

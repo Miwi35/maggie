@@ -1,8 +1,9 @@
 import { test, expect } from '../fixtures/index.js'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { waitForIndexed } from '../helpers/api.js'
 import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { ROUTES } from '../pages/routes.js'
@@ -32,12 +33,17 @@ const NARROW_BELOW = 900
 /** The chat panel's width as a column, from `ChatWidget`'s `SIDEBAR_WIDTH`. */
 const CHAT_COLUMN = 380
 
+/** Under `sm`: a phone upright, where a grocery line takes two rows. Mirrors `COMPACT_QUERY`. */
+const COMPACT_BELOW = 600
+
 /** WCAG 2.5.5, and what `admin/src/theme.ts` guarantees below `md`. */
 const TOUCH_TARGET = 44
 
 interface Shape {
   /** Below `md`: one column, menu and chat as drawers over the page. */
   narrow: boolean
+  /** Below `sm`: a list line takes two rows. */
+  compact: boolean
   width: number
   /** The chat once open — the whole window as a sheet, or a column beside the page. */
   chatWidth: number
@@ -53,6 +59,7 @@ function shapeOf(page: Page): Shape {
 
   return {
     narrow,
+    compact: width < COMPACT_BELOW,
     width,
     chatWidth: narrow ? width : CHAT_COLUMN,
     touchTarget: narrow ? TOUCH_TARGET : 0,
@@ -220,6 +227,104 @@ test.describe('Responsive @responsive', () => {
     } finally {
       await api.delete(`/api/meals/${meal.id}`)
       await api.delete(`/api/recipes/${planted.id}`)
+    }
+  })
+
+  test('a grocery line with a long name keeps its name, badge and quantity apart — MAG-387', async ({ page }) => {
+    // The owner's phone drew the source badge over the name and the quantity
+    // into it. Boxes are measured rather than looked at: that overlap is what
+    // is wrong, however the line is drawn.
+    const shape = shapeOf(page)
+    const grocery = new GroceryListPage(page)
+    const label = 'Pâtes sèches, standard, crues MAG-387'
+
+    await grocery.open()
+    await grocery.addItem(label, { quantity: 2 })
+
+    try {
+      for (const name of [label, 'Pile LR03']) {
+        const line = grocery.line(name)
+        await expect(line).toBeVisible()
+
+        const parts = {
+          name: line.getByText(name, { exact: true }),
+          badge: line.locator('.MuiChip-root'),
+          stepper: line.getByTestId('quantity-stepper'),
+          remove: line.getByRole('button', { name: `Supprimer ${name}` }),
+        }
+        const boxes = new Map<string, { x: number; y: number; width: number; height: number }>()
+        for (const [part, locator] of Object.entries(parts)) {
+          const box = await locator.boundingBox()
+          expect(box, `${name}: no box for the ${part}`).not.toBeNull()
+          boxes.set(part, box!)
+        }
+
+        const entries = [...boxes.entries()]
+        for (const [i, [a, boxA]] of entries.entries()) {
+          for (const [b, boxB] of entries.slice(i + 1)) {
+            const apartX = boxA.x + boxA.width <= boxB.x + 0.5 || boxB.x + boxB.width <= boxA.x + 0.5
+            const apartY = boxA.y + boxA.height <= boxB.y + 0.5 || boxB.y + boxB.height <= boxA.y + 0.5
+            expect(apartX || apartY, `${name}: the ${a} and the ${b} overlap`).toBe(true)
+          }
+        }
+
+        // One line of name, however the window is cut.
+        expect(boxes.get('name')!.height, `${name}: the name runs over several lines`).toBeLessThanOrEqual(32)
+
+        // Nothing leaves the line sideways.
+        const lineBox = (await line.boundingBox())!
+        for (const [part, box] of boxes) {
+          expect(box.x + box.width, `${name}: the ${part} leaves the line`).toBeLessThanOrEqual(lineBox.x + lineBox.width + 1)
+        }
+
+        // On a phone the badge and the quantity are the second row, under the name.
+        if (shape.compact) {
+          expect(boxes.get('badge')!.y, `${name}: the badge is not under the name`).toBeGreaterThanOrEqual(
+            boxes.get('name')!.y + boxes.get('name')!.height - 1,
+          )
+        }
+
+        // Handle, tick and name are one row: a name too wide for what is left of
+        // it must not push itself — and the controls — onto rows of their own.
+        if (shape.compact) {
+          const centreY = async (locator: Locator) => {
+            const box = (await locator.boundingBox())!
+            return box.y + box.height / 2
+          }
+          const nameY = await centreY(parts.name)
+          for (const first of [line.getByTestId('drag-handle'), line.getByRole('checkbox')]) {
+            expect(Math.abs((await centreY(first)) - nameY), `${name}: the first row is split`).toBeLessThanOrEqual(8)
+          }
+          expect((await line.boundingBox())!.height, `${name}: the line takes more than two rows`).toBeLessThanOrEqual(2 * TOUCH_TARGET + 24)
+        }
+
+        const targets = [
+          line.getByTestId('drag-handle'),
+          line.getByRole('checkbox'),
+          line.getByRole('button', { name: `Diminuer la quantité de ${name}` }),
+          line.getByRole('button', { name: `Modifier la quantité de ${name}` }),
+          line.getByRole('button', { name: `Augmenter la quantité de ${name}` }),
+          parts.remove,
+        ]
+        for (const control of targets) {
+          const box = (await control.boundingBox())!
+          expect(box.height, `${name}: a control is too short to tap`).toBeGreaterThanOrEqual(shape.touchTarget)
+          expect(box.width, `${name}: a control is too narrow to tap`).toBeGreaterThanOrEqual(shape.touchTarget)
+        }
+      }
+
+      // The app bar names the page in full, with room to spare for a wider
+      // font than this browser's: « Courses », not « Cours ».
+      const title = page.locator('#react-admin-title')
+      await expect(title).toHaveText('Courses')
+      const room = await title.evaluate((node) => {
+        const text = document.createRange()
+        text.selectNodeContents(node)
+        return node.clientWidth - text.getBoundingClientRect().width
+      })
+      expect(room, 'the page title has no room to spare in the app bar').toBeGreaterThanOrEqual(20)
+    } finally {
+      await grocery.deleteLine(label)
     }
   })
 

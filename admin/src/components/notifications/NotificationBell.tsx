@@ -228,12 +228,15 @@ export const NotificationBell = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              // On a 360px phone the actions wrap under the title (MAG-387).
+              flexWrap: 'wrap',
+              gap: 0.5,
             }}
           >
             <Typography variant="subtitle1" fontWeight={600}>
               Notifications
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', '& .MuiButton-root': { whiteSpace: 'nowrap' } }}>
               {unreadCount > 0 && (
                 <Button size="small" onClick={handleMarkAllRead}>
                   Tout marquer comme lu
