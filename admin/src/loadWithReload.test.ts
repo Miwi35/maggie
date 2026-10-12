@@ -65,6 +65,54 @@ describe('loadWithReload', () => {
     expect(reload).toHaveBeenCalledTimes(2)
   })
 
+  it.each([
+    'error loading dynamically imported module: https://maggieai.fr/admin/assets/App-x.js',
+    'Importing a module script failed.',
+  ])('recognises the other browsers\' message: %s', async (message) => {
+    const reload = vi.fn()
+    void loadWithReload(() => Promise.reject(new TypeError(message)), { storage: memoryStorage(), reload, now: () => 1000 })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('forgets the previous reload once the module loads', async () => {
+    const storage = memoryStorage({ 'maggie:chunk-reload-at': '1000' })
+
+    await loadWithReload(() => Promise.resolve('app'), { storage, reload: vi.fn(), now: () => 2000 })
+
+    expect(storage.data).toEqual({})
+  })
+
+  describe('when the storage is unavailable', () => {
+    const brokenStorage = {
+      getItem: () => {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+      setItem: () => {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+      removeItem: () => {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+    }
+
+    it('still returns the module', async () => {
+      await expect(
+        loadWithReload(() => Promise.resolve('app'), { storage: brokenStorage, reload: vi.fn(), now: () => 1000 }),
+      ).resolves.toBe('app')
+    })
+
+    it('rethrows the import error instead of reloading blind', async () => {
+      const reload = vi.fn()
+
+      await expect(
+        loadWithReload(() => Promise.reject(staleChunk()), { storage: brokenStorage, reload, now: () => 1000 }),
+      ).rejects.toThrow('Failed to fetch dynamically imported module')
+      expect(reload).not.toHaveBeenCalled()
+    })
+  })
+
   it('does not reload for an unrelated error', async () => {
     const reload = vi.fn()
     const storage = memoryStorage()
