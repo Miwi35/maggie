@@ -318,8 +318,9 @@ test.describe('Responsive @responsive', () => {
       const title = page.locator('#react-admin-title')
       await expect(title).toHaveText('Courses')
       const room = await title.evaluate((node) => {
+        // The title's inner box is a block as wide as its slot: measure the text itself.
         const text = document.createRange()
-        text.selectNodeContents(node)
+        text.selectNode(document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode()!)
         return node.clientWidth - text.getBoundingClientRect().width
       })
       expect(room, 'the page title has no room to spare in the app bar').toBeGreaterThanOrEqual(20)
@@ -359,7 +360,7 @@ test.describe('Responsive @responsive', () => {
         const inner = node.firstElementChild!.getBoundingClientRect()
         const innerStyle = getComputedStyle(node.firstElementChild!)
         const toolbarStart = Math.min(
-          ...[...node.parentElement!.children]
+          ...Array.from(node.parentElement!.children)
             .map((child) => child.getBoundingClientRect().left)
             .filter((left) => left > bar.left),
         )
