@@ -7,6 +7,8 @@ namespace Maggie\Cookbook\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\Ingredient;
+use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<Ingredient> */
@@ -39,5 +41,21 @@ class IngredientRepository extends ServiceEntityRepository
             ->orderBy('i.name', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** @return list<string> the names of the recipes that list the ingredient */
+    public function findRecipeNamesUsing(Ingredient $ingredient): array
+    {
+        $rows = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT r.name')
+            ->from(Recipe::class, 'r')
+            ->join(RecipeIngredient::class, 'ri', 'WITH', 'ri.recipe = r')
+            ->where('ri.ingredient = :ingredient')
+            ->setParameter('ingredient', $ingredient->getId(), 'ulid')
+            ->orderBy('r.name', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('strval', $rows));
     }
 }

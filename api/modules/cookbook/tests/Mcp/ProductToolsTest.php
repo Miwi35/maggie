@@ -100,6 +100,23 @@ class ProductToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/ingredients/');
     }
 
+    public function testDeleteIngredientARecipeUsesIsRefused(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $tomato = $this->getFixture('tomato');
+
+        $data = json_decode(($this->manageIngredients())('delete', ingredientId: (string) $tomato->getId()), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Pâtes à la tomate', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->find(Ingredient::class, $tomato->getId()));
+    }
+
     public function testCreateIngredientPersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');

@@ -15,3 +15,21 @@ Maggie\Cookbook\Entity\Ingredient:
     carbsPer100g: 2.8
     fatPer100g: 0.2
     user: '@test_user'
+
+  basil:
+    name: Basilic
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pesto:
+    name: Pesto
+    servings: 2
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  pesto_basil:
+    recipe: '@pesto'
+    ingredient: '@basil'
+    quantity: 50.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'

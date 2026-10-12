@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
+use Maggie\Cookbook\Exception\IngredientInUseException;
 use Maggie\Cookbook\Message\DeleteIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Grocery\UseCase\DeleteProduct;
@@ -22,6 +23,11 @@ class DeleteIngredientHandler
     {
         $ingredient = $this->ingredientRepository->find($command->ingredientId)
             ?? throw new \DomainException("Ingredient not found: {$command->ingredientId}");
+
+        $recipeNames = $this->ingredientRepository->findRecipeNamesUsing($ingredient);
+        if ([] !== $recipeNames) {
+            throw new IngredientInUseException($ingredient->getName(), $recipeNames);
+        }
 
         $this->deleteProduct->execute($ingredient);
     }
