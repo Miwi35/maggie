@@ -2,6 +2,10 @@ package com.maggie.app
 
 import android.app.Application
 import android.app.NotificationManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.installApiTimeouts
@@ -14,7 +18,14 @@ import com.maggie.app.data.fcm.FcmTokenSource
 import com.maggie.app.data.fcm.FirebaseTokenSource
 import com.maggie.app.data.fcm.PushActionHandler
 import com.maggie.app.data.fcm.PushChannels
+import com.maggie.app.data.fcm.PushDelivery
+import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushTokenRegistrar
+import com.maggie.app.data.interruption.AndroidInterruptionAlert
+import com.maggie.app.data.interruption.InterruptionAlert
+import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.InterruptionFeed
+import com.maggie.app.data.interruption.InterruptionPreferences
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
@@ -68,6 +79,7 @@ import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
+import com.maggie.app.ui.interruption.InterruptionViewModel
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
@@ -217,6 +229,13 @@ class MaggieApp : Application() {
             single { PushTokenRegistrar(get(), get()) }
             single { PushActionHandler(get()) }
 
+            // Interruption (MAG-314): Maggie speaks inside the app while it is open
+            single { InterruptionCenter() }
+            single { InterruptionPreferences(androidContext()) }
+            single<InterruptionAlert> { AndroidInterruptionAlert(androidContext(), get()) }
+            single { PushDelivery(get(), { PushNotifier(androidContext()) }) }
+            single { InterruptionFeed(get(), get(), get(), get()) }
+
             // Repositories
             single { EventRepository(get(), get()) }
             single { TaskRepository(get(), get()) }
@@ -264,7 +283,15 @@ class MaggieApp : Application() {
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
-            viewModel { NotificationViewModel(get(), get(), get()) }
+            viewModel { NotificationViewModel(get(), get(), get(), get()) }
+            viewModel {
+                InterruptionViewModel(
+                    get(),
+                    get(),
+                    postpone = { PushNotifier(androidContext()).postpone(it) },
+                    dismiss = { PushNotifier(androidContext()).close(it.notificationId) },
+                )
+            }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
             viewModel { RecipeListViewModel(get(), get(), get()) }
@@ -303,7 +330,22 @@ class MaggieApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             registrar.keepRegistered(authRepository.isAuthenticated)
         }
+        keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         removeListeningLeftovers()
+    }
+
+    // The feeds only run while the app is open: in the background the push is what speaks, and the
+    // held actions still waiting are picked up again when the app opens.
+    private fun keepInterruptionsFed(feed: InterruptionFeed, center: InterruptionCenter, auth: AuthRepository) {
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            // Whatever was said to one account is not said to the next.
+            auth.isAuthenticated.collect { signedIn -> if (!signedIn) center.clear() }
+        }
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                feed.runWhileSignedIn(auth.isAuthenticated)
+            }
+        }
     }
 
     // The listening service of earlier versions is gone with its class, so nothing
