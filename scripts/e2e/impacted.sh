@@ -251,8 +251,9 @@ cmd_select() {
     | res($map.coverage.sees) as $sees
     | ($js | map(.id)) as $known
     # The journeys the line map does not know — dropped by their lot (a flow in
-    # quarantine that left no coverage), or newer than the map: their lines are
-    # unknown, so they keep the zone rule even in a file the map judges.
+    # quarantine that left no coverage), newer than the map, or that ran no line:
+    # their lines are unknown, so they keep the zone rule even in a file the map
+    # judges.
     | [$js[] | select($cov != null and (.id as $i | ($cov.journeys // []) | index($i) | not))] as $unmapped
     # The zone rule of a file: the whole selection before the line map.
     | def zone($f): $f | if matches($all_re) then {file: $f, web: "all", mobile: "all", why: "transversal"}
