@@ -445,7 +445,7 @@ tasks:
           -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" \
           -v "{{.ROOT_DIR}}/{{.DIR}}":/app \
           -v "$UV_CACHE":/cache \
-          -w /app ghcr.io/miwi35/mirror/uv:python3.12-alpine \
+          -w /app ghcr.io/astral-sh/uv:python3.12-alpine \
           sh -c '{{.COMMAND}}'
 
   # ===========================================================================
