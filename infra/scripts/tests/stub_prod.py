@@ -9,6 +9,7 @@ port on stdout, then serves until killed.
 import json
 import os
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BREAK = set(filter(None, os.environ.get("STUB_BREAK", "").split(",")))
@@ -124,9 +125,17 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.json(401, {"message": "Invalid JWT Token"})
         elif path == "/api/events":
-            if self.authorized() and "event_creation_fails" not in BREAK:
+            # `event_post_hangs`: the POST times out and writes nothing.
+            if "event_post_hangs" in BREAK:
+                time.sleep(2)
+                self.json(504, {"detail": "Gateway Timeout"})
+            elif self.authorized() and "event_creation_fails" not in BREAK:
                 agenda_id = payload.get("agenda", "").removeprefix("/api/agendas/")
                 STATE["events"].append({**payload, "agenda": agenda_id})
+                # `event_answer_lost`: the event is written, but the answer comes after
+                # the client gave up — a cold pod once took more than 15 s (MAG-386).
+                if "event_answer_lost" in BREAK:
+                    time.sleep(2)
                 self.json(201, {"id": f"event-{len(STATE['events'])}"})
             else:
                 self.json(422, {"detail": "Unprocessable"})
