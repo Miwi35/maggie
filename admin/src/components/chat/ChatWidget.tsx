@@ -216,6 +216,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [input, setInput] = useState('')
     const [loadingHistory, setLoadingHistory] = useState(false)
+    // Set once the first page of history has been applied (or has failed): a message sent
+    // before that would be wiped from the list by the history replacing it.
+    const [historyLoaded, setHistoryLoaded] = useState(false)
     const [hasMore, setHasMore] = useState(true)
     const [highlightId, setHighlightId] = useState<string | null>(null)
     // « The list follows the latest message »: true until the user scrolls up on purpose.
@@ -450,6 +453,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           console.error('Failed to load chat history:', e)
         } finally {
           setLoadingHistory(false)
+          setHistoryLoaded(true)
         }
       }
       load()
@@ -1163,6 +1167,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   {/* Messages */}
                   <Box
                     ref={attachList}
+                    data-history-loaded={historyLoaded}
                     onScroll={handleScroll}
                     sx={{
                       flex: 1,

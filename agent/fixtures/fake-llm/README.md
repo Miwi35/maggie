@@ -159,6 +159,9 @@ proaction at all.
 
 `82-greeting.yaml` answers « Bonjour Maggie » and nothing else: the two-window chat
 journey sends it from one window to see the exchange reach the other (MAG-109).
+`82-greeting-reference.yaml` answers « Bonjour Maggie (réf abc123) » and repeats the
+reference, for the journeys whose account every repeat shares: the exchange is theirs
+alone (MAG-394).
 
 `83-reminder-forgotten-once.yaml` and `84-reminder-forgotten-twice.yaml` script a
 model announcing « je vous rappellerai » without calling `schedule_proaction`

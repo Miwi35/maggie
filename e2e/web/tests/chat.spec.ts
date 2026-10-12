@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { test, expect, parisDay, parisTime, seedId } from '../fixtures/index.js'
 import {
   assistantText,
@@ -55,8 +56,18 @@ import { adminUrl, ROUTES } from '../pages/routes.js'
 
 test.describe.configure({ mode: 'serial', retries: 0 })
 
-const AGENDA_QUESTION = "Qu'est-ce que j'ai de prévu aujourd'hui ?"
-const AGENDA_ANSWER = 'Vous avez un déjeuner avec Alex et votre cours de piano cette semaine.'
+/**
+ * 30-upcoming-events-reference.yaml — the agenda question carries a reference and the
+ * answer repeats it. The reference is the first test's own, drawn when it runs: the account
+ * and its thread are shared with every other run of it (repeats, other specs), so the
+ * bubbles it counts are the ones that carry its reference. The test that reloads the page
+ * reads the same one (the tests of this file run in order, in one worker).
+ */
+let agendaRef = ''
+const agendaExchange = (ref: string): { question: string; answer: string } => ({
+  question: `Qu'est-ce que j'ai de prévu aujourd'hui ? (réf ${ref})`,
+  answer: `Vous avez un déjeuner avec Alex et votre cours de piano cette semaine. (réf ${ref})`,
+})
 
 /** 35-create-event.yaml — a far-future literal, so it cannot mix with the seed. */
 const APPOINTMENT = { question: 'Note-moi un dentiste le 12 mars 2099 à 14h', title: 'Dentiste' }
@@ -181,11 +192,13 @@ const BEHAVIOR = {
 }
 
 test('a scripted question runs its tool and streams the answer back', async ({ page }) => {
+  agendaRef = randomUUID().slice(0, 8)
+  const agenda = agendaExchange(agendaRef)
   const dashboard = new DashboardPage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
-  const events = await chat.send(AGENDA_QUESTION)
+  const events = await chat.send(agenda.question)
 
   const answer = assistantText(events)
   expect(isUnscripted(answer), `no scenario matched — Maggie said: ${answer}`).toBe(false)
@@ -203,18 +216,18 @@ test('a scripted question runs its tool and streams the answer back', async ({ p
   expect(countEvents(events, 'TEXT_MESSAGE_START')).toBe(1)
   expect(countEvents(events, 'TEXT_MESSAGE_END')).toBe(1)
 
-  // And the context router opened a context, rather than finding one. It can
-  // be exact because `task e2e:web` reseeds first, which empties the agent's
-  // own database: this is the first thing anyone has said to her.
-  expect(contextAction(events)).toBe('created')
+  // And the context router placed it in a context: opened one on a fresh base, joined the
+  // open one when anything was said to her before — another spec's chat, an earlier repeat.
+  // Which of the two it was depends on what ran first, not on what is under test.
+  expect(['created', 'matched']).toContain(contextAction(events))
 
   await expect(chat.message(/déjeuner avec Alex/i)).toBeVisible()
 
   // The other half of 176c40c, on the screen this time: the user's message is
   // added optimistically *and* echoed back, and the panel has to recognise its
   // own echo. One bubble, not two.
-  await expect(chat.bubbles(AGENDA_QUESTION)).toHaveCount(1)
-  await expect(chat.bubbles(AGENDA_ANSWER)).toHaveCount(1)
+  await expect(chat.bubbles(agenda.question)).toHaveCount(1)
+  await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
 })
 
 test('an unscripted message says so rather than improvising', async ({ page }) => {
@@ -415,16 +428,17 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // the page and turn these counts into zero — with a failure message blaming
   // persistence. Paginate the history if the file grows that far.
   const chat = new ChatPanel(page)
-  await expect(chat.bubbles(AGENDA_QUESTION)).toHaveCount(1)
-  await expect(chat.bubbles(AGENDA_ANSWER)).toHaveCount(1)
+  const agenda = agendaExchange(agendaRef)
+  await expect(chat.bubbles(agenda.question)).toHaveCount(1)
+  await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
 
   // And again through a reload, because the third cause behind 176c40c was the
   // user's message stored twice: the stream path would look clean and the
   // history would come back doubled.
   await page.reload()
   await dashboard.expectReady()
-  await expect(chat.bubbles(AGENDA_QUESTION)).toHaveCount(1)
-  await expect(chat.bubbles(AGENDA_ANSWER)).toHaveCount(1)
+  await expect(chat.bubbles(agenda.question)).toHaveCount(1)
+  await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
 })
 
 test('a proaction reaches an open chat without anyone reloading', async ({ page, api, session }) => {

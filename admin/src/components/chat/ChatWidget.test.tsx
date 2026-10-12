@@ -464,6 +464,28 @@ describe('ChatWidget', () => {
     })
   })
 
+  test('flags the message list once the history is in', async () => {
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [{ id: 'msg-1', role: 'user', content: 'Hello', createdAt: '2026-01-01T10:00:00Z' }] }))
+
+    const { container } = renderWithTheme(<ChatWidget {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-history-loaded="true"]')).not.toBeNull()
+    })
+    expect(screen.getByText('Hello')).toBeInTheDocument()
+  })
+
+  test('flags the message list as loaded when the history fails too', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const { container } = renderWithTheme(<ChatWidget {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-history-loaded="true"]')).not.toBeNull()
+    })
+  })
+
   test('sends message via streaming', async () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
 

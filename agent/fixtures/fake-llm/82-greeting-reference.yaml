@@ -1,0 +1,14 @@
+# A greeting that carries a reference: « Bonjour Maggie (réf abc123) ».
+#
+# Maggie repeats the reference, so the exchange is the one test's alone. The journeys that
+# send a greeting from an account every repeat shares (MAG-394) could not tell their own
+# answer from another run's if it were worded the same each time. Numbered before
+# 82-greeting.yaml (« - » sorts before « . »), which keeps answering the bare greeting.
+name: greeting-reference
+description: Answer a greeting that carries a reference, repeating it.
+
+match:
+  user_matches: 'Bonjour Maggie \(réf (\w+)\)'
+
+turns:
+  - text: "Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf \\1)"
