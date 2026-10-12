@@ -38,15 +38,21 @@ class InstallStandardCategories
         $tagged = array_values($this->tagStandardCategories->execute($user));
 
         $existing = [];
+        $keyed = [];
         foreach ($this->categoryRepository->findByUser($user) as $category) {
             $existing[self::key($category->getName())] = $category;
+            if (null !== $category->getStandardKey()) {
+                $keyed[$category->getStandardKey()] = $category;
+            }
         }
 
         $created = [];
         $kept = 0;
 
         foreach (StandardCategories::all() as $definition) {
-            $parent = $existing[self::key($definition['name'])] ?? null;
+            // A keyed heading is found by its key first: renamed, it is still the same one.
+            $parent = (isset($definition['key']) ? $keyed[$definition['key']] ?? null : null)
+                ?? $existing[self::key($definition['name'])] ?? null;
 
             if (null === $parent) {
                 $parent = $this->create(

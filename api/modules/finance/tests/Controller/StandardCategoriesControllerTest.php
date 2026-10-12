@@ -104,6 +104,29 @@ class StandardCategoriesControllerTest extends WebTestCase
         self::assertNull($repository->findOneBy(['name' => 'Logement'])->getStandardKey());
     }
 
+    /** A renamed « Salaire » is still the salary: installing again creates no second one. */
+    public function testInstallingAgainAfterARenameCreatesNoSecondSalary(): void
+    {
+        $this->loadFixtures('bank_connection.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $this->install();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $repository = $em->getRepository(Category::class);
+        $repository->findOneBy(['name' => 'Salaire'])->setName('Paie');
+        $repository->findOneBy(['name' => 'Primes'])->setName('Bonus');
+        $em->flush();
+
+        $data = $this->install();
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $data['created']);
+        $em->clear();
+        self::assertNull($repository->findOneBy(['name' => 'Salaire']));
+        self::assertCount(1, $repository->findBy(['standardKey' => StandardCategories::SALARY]));
+        self::assertSame('Paie', $repository->findOneBy(['standardKey' => StandardCategories::SALARY])->getName());
+    }
+
     public function testAHandMadeSalaryReceivesTheKeyAndKeepsItsName(): void
     {
         $this->loadFixtures('bank_connection.yaml');
