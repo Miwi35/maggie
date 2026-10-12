@@ -100,10 +100,14 @@ test('the agenda marked as default receives the events created without a calenda
 
       // Handed back settled: the next run reads the default from the same index before it is told anything else.
       await expect
-        .poll(async () => (await agendas(api)).map((agenda) => `${agenda.name}:${isDefault(agenda)}`), {
-          message: 'the neighbour should be back to its own default agenda',
-        })
-        .toEqual([`${original.name}:true`])
+        .poll(
+          async () => {
+            const rows = await agendas(api)
+            return { defaults: rows.filter(isDefault).map((agenda) => agenda.name), deleted: !rows.some((agenda) => agenda.id === second.id) }
+          },
+          { message: 'the neighbour should be back to its own default agenda' },
+        )
+        .toEqual({ defaults: [original.name], deleted: true })
     }
   })
 })
