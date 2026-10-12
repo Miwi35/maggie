@@ -381,7 +381,7 @@ jobs:
         working-directory: api
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17
+        image: ghcr.io/miwi35/mirror/postgres:17
         env:
           POSTGRES_USER: maggie
           POSTGRES_PASSWORD: maggie

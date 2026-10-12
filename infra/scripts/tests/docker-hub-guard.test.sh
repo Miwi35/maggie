@@ -5,8 +5,10 @@
 #
 # Docker Hub's anonymous pull limit took CI down twice (9–10 Oct.): the guard
 # must be red on any image CI would pull from it — no registry host, docker.io,
-# a BuildKit left at its default — and green on the mirrors, the project's own
-# images and the allow-listed exceptions.
+# a BuildKit left at its default. public.ecr.aws, which replaced it for the
+# official images, hit its own anonymous data limit (12 Oct.): red too, as is
+# any registry but the mirror (ghcr.io/miwi35/mirror/…), the project's own
+# images and mcr.microsoft.com — green on those and the allow-listed exceptions.
 #
 # Usage: infra/scripts/tests/docker-hub-guard.test.sh
 
@@ -27,13 +29,23 @@ repo() {
   rm -rf "$WORK/repo"
   mkdir -p "$WORK/repo/.docker/php" "$WORK/repo/.github/workflows"
   cd "$WORK/repo" || exit 1
+  cat > .github/mirror-images.txt <<'EOF'
+# <target> <source>
+php:8.4-fpm-alpine          docker.io/library/php:8.4-fpm-alpine
+composer:latest             docker.io/library/composer:latest
+uv:latest                   ghcr.io/astral-sh/uv:latest
+postgres:17-alpine          docker.io/library/postgres:17-alpine
+postgres:17                 docker.io/library/postgres:17
+mercure:v1.0.2              docker.io/dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+buildkit:buildx-stable-1    docker.io/moby/buildkit:buildx-stable-1
+EOF
   git init -q .
   cat > .docker/php/Dockerfile <<'EOF'
 ARG PHP_VERSION=8.4
 ARG PHP_IMAGE=maggie-php:latest
-FROM public.ecr.aws/docker/library/php:${PHP_VERSION}-fpm-alpine AS base
-COPY --from=public.ecr.aws/docker/library/composer:latest /usr/bin/composer /usr/bin/composer
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+FROM ghcr.io/miwi35/mirror/php:${PHP_VERSION}-fpm-alpine AS base
+COPY --from=ghcr.io/miwi35/mirror/composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=ghcr.io/miwi35/mirror/uv:latest /uv /usr/local/bin/uv
 # FROM php:8.4 in a comment is not a pull
 FROM base AS dev
 COPY --from=base /app /app
@@ -46,7 +58,7 @@ services:
   php:
     image: ${E2E_IMAGE_PHP:-${COMPOSE_PROJECT_NAME:-maggie-e2e}-php}
   database:
-    image: public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION:-17}-alpine
+    image: ghcr.io/miwi35/mirror/postgres:${POSTGRES_VERSION:-17}-alpine
   mercure:
     image: "ghcr.io/miwi35/mirror/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7"
   playwright:
@@ -60,12 +72,12 @@ jobs:
   api-test:
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17
+        image: ghcr.io/miwi35/mirror/postgres:17
     steps:
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: image=ghcr.io/miwi35/mirror/buildkit:buildx-stable-1
-      - run: docker run --rm -v "$PWD":/app -w /app ghcr.io/astral-sh/uv:python3.12-alpine uv --version
+      - run: docker run --rm -v "$PWD":/app -w /app ghcr.io/miwi35/maggie-e2e-php:abc123 php --version
 EOF
 }
 
@@ -92,11 +104,11 @@ repo
 expect_green "mirrors, own images, stages, scratch and caller-chosen images pass"
 
 repo
-sed -i 's#^FROM public.ecr.aws/docker/library/php:#FROM php:#' .docker/php/Dockerfile
+sed -i 's#^FROM ghcr.io/miwi35/mirror/php:#FROM php:#' .docker/php/Dockerfile
 expect_red "an official image without a registry is red, its ARG resolved" ".docker/php/Dockerfile:3: php:8.4-fpm-alpine pulls from Docker Hub"
 
 repo
-sed -i 's#COPY --from=public.ecr.aws/docker/library/composer:latest#COPY --from=composer:latest#' .docker/php/Dockerfile
+sed -i 's#COPY --from=ghcr.io/miwi35/mirror/composer:latest#COPY --from=composer:latest#' .docker/php/Dockerfile
 expect_red "COPY --from an image on Docker Hub is red" "composer:latest pulls from Docker Hub"
 
 repo
@@ -104,7 +116,7 @@ printf 'FROM --platform=linux/amd64 docker.io/library/node:22-alpine\n' > .docke
 expect_red "an explicit docker.io in a *.Dockerfile is red, --platform skipped" "docker.io/library/node:22-alpine pulls from Docker Hub"
 
 repo
-sed -i 's#public.ecr.aws/docker/library/postgres:${POSTGRES_VERSION:-17}-alpine#postgres:${POSTGRES_VERSION:-17}-alpine#' docker-compose.e2e.yml
+sed -i 's#ghcr.io/miwi35/mirror/postgres:${POSTGRES_VERSION:-17}-alpine#postgres:${POSTGRES_VERSION:-17}-alpine#' docker-compose.e2e.yml
 expect_red "a compose image is red, its default resolved" "docker-compose.e2e.yml:5: postgres:17-alpine pulls from Docker Hub"
 
 repo
@@ -112,7 +124,7 @@ sed -i 's#"ghcr.io/miwi35/mirror/mercure:#"dunglas/mercure:#' docker-compose.e2e
 expect_red "a quoted non-official image is red" "dunglas/mercure:v1.0.2@sha256:"
 
 repo
-sed -i 's#image: public.ecr.aws/docker/library/postgres:17$#image: postgres:17#' .github/workflows/ci.yml
+sed -i 's#image: ghcr.io/miwi35/mirror/postgres:17$#image: postgres:17#' .github/workflows/ci.yml
 expect_red "a workflow service image is red" ".github/workflows/ci.yml:5: postgres:17 pulls from Docker Hub"
 
 repo
@@ -124,7 +136,7 @@ printf '      - uses: docker/setup-buildx-action@v3\n' >> .github/workflows/ci.y
 expect_red "setup-buildx-action as the last step of a file is red" "docker/setup-buildx-action without driver-opts"
 
 repo
-sed -i 's#ghcr.io/astral-sh/uv:python3.12-alpine uv#rhysd/actionlint:latest -color#' .github/workflows/ci.yml
+sed -i 's#ghcr.io/miwi35/maggie-e2e-php:abc123 php#rhysd/actionlint:latest -color#' .github/workflows/ci.yml
 expect_red "docker run of a Docker Hub image is red, options skipped" "rhysd/actionlint:latest pulls from Docker Hub"
 
 repo
@@ -132,8 +144,24 @@ printf '    container: node:22\n' >> .github/workflows/ci.yml
 expect_red "a job container on Docker Hub is red" "node:22 pulls from Docker Hub"
 
 repo
+sed -i 's#^FROM ghcr.io/miwi35/mirror/php:#FROM public.ecr.aws/docker/library/php:#' .docker/php/Dockerfile
+expect_red "an official image from public.ecr.aws is red" ".docker/php/Dockerfile:3: public.ecr.aws/docker/library/php:8.4-fpm-alpine pulls from public.ecr.aws"
+
+repo
+sed -i 's#image: ghcr.io/miwi35/mirror/postgres:17$#image: public.ecr.aws/docker/library/postgres:17#' .github/workflows/ci.yml
+expect_red "a workflow service image from public.ecr.aws is red" ".github/workflows/ci.yml:5: public.ecr.aws/docker/library/postgres:17 pulls from public.ecr.aws"
+
+repo
+sed -i 's#COPY --from=ghcr.io/miwi35/mirror/uv:latest#COPY --from=ghcr.io/astral-sh/uv:latest#' .docker/php/Dockerfile
+expect_red "an image from another GHCR namespace is red" "ghcr.io/astral-sh/uv:latest is not on an allowed prefix"
+
+repo
+sed -i '/^postgres:17 /d' .github/mirror-images.txt
+expect_red "a mirror reference missing from the mirror list is red" ".github/workflows/ci.yml:5: ghcr.io/miwi35/mirror/postgres:17 is not mirrored"
+
+repo
 sed -i 's#mcr.microsoft.com/playwright#quay.io/someone/playwright#' docker-compose.e2e.yml
-expect_red "a registry not allowed is red" "comes from quay.io, not an allowed registry"
+expect_red "a registry not allowed is red" "quay.io/someone/playwright:v1.63.0-noble is not on an allowed prefix"
 
 repo
 sed -i 's#mcr.microsoft.com/playwright#quay.io/someone/playwright#' docker-compose.e2e.yml

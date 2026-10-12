@@ -1,11 +1,13 @@
 name: Mirror images
 
-# Copies the third-party images of .github/mirror-images.txt from Docker Hub to
-# ghcr.io/miwi35/mirror/…, which CI and the e2e stack pull instead: GitHub
-# runners share their IPs, and Docker Hub's anonymous pull limit took every e2e
-# job, API test and image build down for hours, twice (9–10 Oct.). Weekly, so a
-# moving tag (buildx-stable-1) follows upstream; on demand after adding a line.
-# A pull limit hit here costs a stale copy for a week, not a red CI.
+# Copies the third-party images of .github/mirror-images.txt (Docker Hub, its
+# official images included, and GHCR) to ghcr.io/miwi35/mirror/…, which CI, the
+# e2e stack and the worktree checks pull instead: GitHub runners share their
+# IPs, and Docker Hub's anonymous pull limit took every e2e job, API test and
+# image build down for hours, twice (9–10 Oct.), then public.ecr.aws's anonymous
+# data limit an e2e job (12 Oct.). Weekly, so a moving tag (buildx-stable-1,
+# nginx:alpine, composer:latest) follows upstream; on demand after adding a
+# line. A pull limit hit here costs a stale copy for a week, not a red CI.
 
 run-name: Miroir des images tierces
 

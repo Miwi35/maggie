@@ -4,7 +4,7 @@ ARG PHP_IMAGE=maggie-php:latest
 # =============================================================================
 # Development stage (default)
 # =============================================================================
-FROM public.ecr.aws/docker/library/nginx:alpine AS dev
+FROM ghcr.io/miwi35/mirror/nginx:alpine AS dev
 
 # Remove default config
 RUN rm /etc/nginx/conf.d/default.conf
@@ -19,7 +19,7 @@ CMD ["nginx", "-g", "daemon off;"]
 # =============================================================================
 # Admin build stage — compile React SPA
 # =============================================================================
-FROM public.ecr.aws/docker/library/node:22-alpine AS admin-build
+FROM ghcr.io/miwi35/mirror/node:22-alpine AS admin-build
 
 WORKDIR /build
 
@@ -44,7 +44,7 @@ RUN npm run build
 # =============================================================================
 FROM ${PHP_IMAGE} AS php-source
 
-FROM public.ecr.aws/docker/library/nginx:alpine AS prod
+FROM ghcr.io/miwi35/mirror/nginx:alpine AS prod
 
 # Remove default config
 RUN rm /etc/nginx/conf.d/default.conf

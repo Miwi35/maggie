@@ -1,6 +1,6 @@
 ARG NODE_VERSION=20
 
-FROM public.ecr.aws/docker/library/node:${NODE_VERSION}-alpine
+FROM ghcr.io/miwi35/mirror/node:${NODE_VERSION}-alpine
 
 # Install system dependencies
 RUN apk add --no-cache git

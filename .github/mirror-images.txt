@@ -1,12 +1,29 @@
-# Third-party images that are not Docker Hub official images, copied to
-# ghcr.io/miwi35/mirror/<target> by .github/workflows/mirror-images.yml (weekly
-# and on demand). CI and the e2e stack pull the copy, never Docker Hub, whose
-# anonymous pull limit took CI down twice (9–10 Oct.). An official image needs no
-# line here: use public.ecr.aws/docker/library/<name>:<tag>.
+# Every third-party image CI, the e2e stack and the worktree checks pull, copied
+# to ghcr.io/miwi35/mirror/<target> by .github/workflows/mirror-images.yml
+# (weekly and on demand). They pull the copy, never the upstream registry:
+# Docker Hub's anonymous pull limit took CI down twice (9–10 Oct.), then
+# public.ecr.aws's anonymous data limit took an e2e job down (12 Oct.) — GitHub
+# runners share their IPs. A new package is private: make it public (package
+# settings) before anything references it.
 #
-# <target name:tag>          <source on Docker Hub>
+# <target name:tag>                 <source>
 # A source pinned by digest (@sha256:…) is copied at that digest, and the copy
 # must keep it: the references pin the same digest.
-wiremock:3.9.1               docker.io/wiremock/wiremock:3.9.1
-mercure:v1.0.2               docker.io/dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
-buildkit:buildx-stable-1     docker.io/moby/buildkit:buildx-stable-1
+wiremock:3.9.1                      docker.io/wiremock/wiremock:3.9.1
+mercure:v1.0.2                      docker.io/dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+buildkit:buildx-stable-1            docker.io/moby/buildkit:buildx-stable-1
+uv:latest                           ghcr.io/astral-sh/uv:latest
+
+# Docker Hub official images, one line per tag the repository uses.
+php:8.4-fpm-alpine                  docker.io/library/php:8.4-fpm-alpine
+composer:latest                     docker.io/library/composer:latest
+python:3.12-slim                    docker.io/library/python:3.12-slim
+node:22-alpine                      docker.io/library/node:22-alpine
+node:20-alpine                      docker.io/library/node:20-alpine
+nginx:alpine                        docker.io/library/nginx:alpine
+traefik:v3.6                        docker.io/library/traefik:v3.6
+postgres:17                         docker.io/library/postgres:17
+postgres:17-alpine                  docker.io/library/postgres:17-alpine
+rabbitmq:3-alpine                   docker.io/library/rabbitmq:3-alpine
+rabbitmq:3-management-alpine        docker.io/library/rabbitmq:3-management-alpine
+elasticsearch:8.17.0                docker.io/library/elasticsearch:8.17.0
