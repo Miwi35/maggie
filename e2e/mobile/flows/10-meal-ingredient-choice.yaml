@@ -61,6 +61,10 @@ tags:
     visible:
       id: "meal_recipe_search_field"
     timeout: 20000
+# Tapped before typing: on a slow emulator the keys reached the window before the field
+# had the focus, and the space bar « pressed » the back arrow.
+- tapOn:
+    id: "meal_recipe_search_field"
 - inputText: "Riz au curry"
 - extendedWaitUntil:
     visible: "Riz au curry MAG-297"
