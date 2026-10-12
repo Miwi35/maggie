@@ -288,9 +288,12 @@ test.describe('Choosing the ingredients of a new meal', () => {
         // …and the second window sees the line, and nothing for the vegetables,
         // without reloading.
         async () => {
-          await expect(watching.line(riceName).filter({ hasText: '300' })).toHaveCount(0)
+          // The quantity, not the whole line: the name ends with `Date.now()`,
+          // whose digits can hold « 300 » themselves.
           await expect(watching.line(riceName)).toHaveCount(1)
-          await expect(watching.line(riceName)).toContainText('1 paquet')
+          const quantity = watching.line(riceName).getByRole('button', { name: `Modifier la quantité de ${riceName}` })
+          await expect(quantity).toContainText('1 paquet')
+          await expect(quantity).not.toContainText('300')
           await expect(watching.line(vegetablesName)).toHaveCount(0)
         },
       )

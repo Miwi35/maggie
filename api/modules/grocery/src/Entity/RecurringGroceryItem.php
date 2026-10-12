@@ -177,16 +177,6 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
         return $this;
     }
 
-    /** True when the frequency has run out since the last time it was added. */
-    public function isDueOn(\DateTimeImmutable $day): bool
-    {
-        if (null === $this->lastAddedAt) {
-            return true;
-        }
-
-        return $this->lastAddedAt->add($this->frequency->interval()) <= $day;
-    }
-
     public function getUser(): User
     {
         return $this->user;
