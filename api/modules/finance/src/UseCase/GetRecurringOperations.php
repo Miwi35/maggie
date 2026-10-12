@@ -52,6 +52,7 @@ class GetRecurringOperations
             $taken[TransactionRepository::occurrenceKey($row['operationId'], new \DateTimeImmutable($row['occurrenceOn']))] = true;
         }
 
+        // A line the pass would attach on its own is in neither list until it runs.
         $proposals = $this->proposals($user);
         $proposed = self::proposedOccurrences($proposals);
 
@@ -99,7 +100,7 @@ class GetRecurringOperations
             'attachmentCount' => \count($attachments),
             'lastOccurrence' => null === $last ? null : $this->lastOccurrence($operation, $attachments),
             'missedOccurrence' => $ended ? null : $this->missedOccurrence($operation, $taken, $proposed, $today),
-            'priceChange' => self::priceChange($attachments),
+            'priceChange' => self::priceChange($operation, $attachments),
         ];
     }
 
@@ -201,15 +202,16 @@ class GetRecurringOperations
     /**
      * The price the series is paid at now, against the one before it: the run
      * of latest attachments at the same amount is the new price, `since` is
-     * where it began. Null while the amount has not moved, or moved by less
-     * than a whole percent. The percent is read on the absolute amounts: a
-     * dearer expense and a bigger income are both positive.
+     * where it began. Null while the amount has not moved, or moved within the
+     * series' amount tolerance — a variable bill is not a price change every
+     * month. The percent is read on the absolute amounts: a dearer expense and
+     * a bigger income are both positive.
      *
      * @param list<array{operationId: string, occurrenceOn: string, bookedAt: string, amountCents: int, transactionId: string}> $attachments
      *
      * @return array{previousCents: int, currentCents: int, percent: int, since: string}|null
      */
-    private static function priceChange(array $attachments): ?array
+    private static function priceChange(RecurringOperation $operation, array $attachments): ?array
     {
         $count = \count($attachments);
         if ($count < 2) {
@@ -227,10 +229,11 @@ class GetRecurringOperations
         }
 
         $previous = $attachments[$start - 1]['amountCents'];
-        $percent = intdiv((abs($current) - abs($previous)) * 100, abs($previous));
-        if (0 === $percent) {
+        if (0 === $previous || $operation->acceptsAmount($current, $previous)) {
             return null;
         }
+
+        $percent = intdiv((abs($current) - abs($previous)) * 100, abs($previous));
 
         return [
             'previousCents' => $previous,

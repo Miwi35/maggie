@@ -199,6 +199,25 @@ Maggie\Finance\Entity\Transaction:
     recurringOperation: '@flixo'
     recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-05-12"))>'
     user: '@test_user'
+  salary_apr:
+    account: '@checking'
+    amountCents: 250000
+    bookedAt: '<(new \DateTimeImmutable("2027-04-05"))>'
+    label: VIR EMPLOYEUR SA AVRIL
+    counterpartyName: Employeur SA
+    recurringOperation: '@salary'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-04-05"))>'
+    user: '@test_user'
+  # A 30 % raise: beyond the series' 20 % tolerance.
+  salary_may:
+    account: '@checking'
+    amountCents: 325000
+    bookedAt: '<(new \DateTimeImmutable("2027-05-05"))>'
+    label: VIR EMPLOYEUR SA MAI
+    counterpartyName: Employeur SA
+    recurringOperation: '@salary'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-05-05"))>'
+    user: '@test_user'
   gym_may_dearer:
     account: '@checking'
     amountCents: -3990

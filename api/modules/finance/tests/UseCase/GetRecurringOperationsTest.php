@@ -195,6 +195,45 @@ class GetRecurringOperationsTest extends KernelTestCase
         self::assertNull($this->operation('flixo')['priceChange']);
     }
 
+    public function testAPriceCutIsRenderedWithANegativePercent(): void
+    {
+        $this->getFixture('flixo_apr')->setAmountCents(-1000);
+        $this->getFixture('flixo_may')->setAmountCents(-1000);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $change = $this->operation('flixo')['priceChange'];
+
+        self::assertSame(-1349, $change['previousCents']);
+        self::assertSame(-1000, $change['currentCents']);
+        self::assertSame(-25, $change['percent']);
+    }
+
+    public function testARaiseOnAnIncomeIsAPositivePercent(): void
+    {
+        self::assertSame(
+            ['previousCents' => 250000, 'currentCents' => 325000, 'percent' => 30, 'since' => '2027-05-05'],
+            $this->operation('salary')['priceChange'],
+        );
+    }
+
+    public function testAMoveWithinTheAmountToleranceIsNotAPriceChange(): void
+    {
+        // 13,49 € to 15,99 €: +18 %, inside the 20 % the series expects.
+        $this->getFixture('flixo_apr')->setAmountCents(-1599);
+        $this->getFixture('flixo_may')->setAmountCents(-1599);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        self::assertNull($this->operation('flixo')['priceChange']);
+    }
+
+    public function testAZeroCentLineBeforeThePriceIsNotDividedBy(): void
+    {
+        $this->getFixture('flixo_mar')->setAmountCents(0);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        self::assertNull($this->operation('flixo')['priceChange']);
+    }
+
     public function testASingleAttachmentIsNotAPriceChange(): void
     {
         self::assertNull($this->operation('power')['priceChange']);
@@ -302,10 +341,8 @@ class GetRecurringOperationsTest extends KernelTestCase
     public function testReadingWritesNothing(): void
     {
         $snapshot = fn (): array => [
-            $this->em->getConnection()->fetchFirstColumn('SELECT COUNT(*) FROM recurring_operation'),
-            $this->em->getConnection()->fetchFirstColumn('SELECT COUNT(*) FROM transaction WHERE recurring_operation_id IS NOT NULL'),
-            $this->em->getConnection()->fetchFirstColumn('SELECT COUNT(*) FROM transaction'),
-            $this->em->getConnection()->fetchFirstColumn('SELECT SUM(reference_amount_cents) FROM recurring_operation'),
+            $this->em->getConnection()->fetchAllAssociative('SELECT * FROM recurring_operation ORDER BY id'),
+            $this->em->getConnection()->fetchAllAssociative('SELECT * FROM transaction ORDER BY id'),
         ];
         $before = $snapshot();
 
