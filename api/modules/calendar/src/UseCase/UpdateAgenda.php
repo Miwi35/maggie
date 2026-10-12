@@ -15,6 +15,7 @@ class UpdateAgenda
 
     public function execute(Agenda $agenda): Agenda
     {
+        $agenda->clearRenameRefusal();
         $this->em->flush();
 
         // The flush told Google about a rename of a connected agenda (ConnectedAgendaListener), and

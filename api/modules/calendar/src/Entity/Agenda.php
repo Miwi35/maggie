@@ -174,6 +174,11 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this;
     }
 
+    public function clearRenameRefusal(): void
+    {
+        $this->renameRefusal = null;
+    }
+
     #[Ignore]
     public function getRenameRefusal(): ?string
     {

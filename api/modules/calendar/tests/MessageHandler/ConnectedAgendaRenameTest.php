@@ -164,6 +164,8 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         self::assertTrue($data['success']);
         self::assertSame('Ael', $data['agenda']['name']);
         self::assertSame(['Ael'], $this->sentNames);
+        $this->assertMercureUpdatePublished('/agendas/');
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
     }
 
     public function testManageAgendasUpdateTellsMaggieWhenGoogleRefuses(): void
@@ -177,5 +179,19 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         self::assertStringContainsString('could not be renamed in Google', $data['error']);
         self::assertStringContainsString('Garde Ael', $data['error']);
         self::assertSame('Garde Ael', $this->stored('connected_agenda')->getName());
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
+    }
+
+    public function testARefusalIsNotRepeatedByALaterUpdateThatLeavesTheNameAlone(): void
+    {
+        $this->loginFixtureUser();
+        $this->googleRefuses = new \RuntimeException('403 forbidden');
+        $tool = self::getContainer()->get(ManageAgendasTool::class);
+        $id = (string) $this->getFixture('connected_agenda')->getId();
+        $tool('update', agendaId: $id, name: 'Ael');
+
+        $data = json_decode($tool('update', agendaId: $id, color: '#123456'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
     }
 }

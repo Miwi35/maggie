@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Tests\Api;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -16,6 +17,7 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
     use FixtureLoaderTrait;
     use AuthenticatedTestTrait;
     use ElasticsearchAssertionTrait;
+    use MercureAssertionTrait;
 
     private KernelBrowser $client;
     /** @var list<string> */
@@ -24,6 +26,7 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = self::createClient();
+        $this->resetMercure();
         $this->resetAsyncTransport();
         $this->sentNames = [];
         $this->loadFixtures(__DIR__.'/../MessageHandler/fixtures/ConnectedAgendaRenameTest.yaml');
@@ -68,6 +71,8 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['Ael'], $this->sentNames);
         self::assertSame('Ael', $this->storedName('connected_agenda'));
+        $this->assertMercureUpdatePublished('/agendas/');
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
     }
 
     public function testWhenGoogleRefusesTheAnswerIsAnErrorAndTheNameIsUnchanged(): void
@@ -79,6 +84,11 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('could not be renamed in Google', (string) $this->client->getResponse()->getContent());
         self::assertSame('Garde Ael', $this->storedName('connected_agenda'));
+        // What the other screens read is the reverted name, not the one that was refused.
+        $this->assertMercureUpdatePublished('/agendas/');
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
+        $published = $this->mercurePayloadsOn('/api/agendas/'.$this->getFixture('connected_agenda')->getId());
+        self::assertSame('Garde Ael', end($published)['name'] ?? null);
     }
 
     public function testRenamingAnAgendaNotConnectedToGoogleNeedsNoGoogle(): void
