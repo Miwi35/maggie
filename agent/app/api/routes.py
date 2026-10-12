@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import UTC, datetime
@@ -28,6 +29,7 @@ from app.db.proaction_repository import proaction_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
+from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
 from app.llm.runner import run_tool_loop
@@ -118,12 +120,53 @@ async def health():
     return {"status": "ok", "service": "maggie-agent-hub"}
 
 
+# The `/chat` calls being answered, by user and normalized text: a repeat of one shares its
+# result instead of opening a second turn (MAG-386).
+_chats_in_flight: dict[tuple[str, str], asyncio.Task] = {}
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
-    """Send a message to the AI agent and get a response."""
+    """Send a message to the AI agent and get a response.
+
+    The same text sent again while it is being answered, or less than a minute after, is the
+    same message: it gets that answer, and no second turn runs (MAG-386).
+    """
     said, screen = split_screen_context(request.message, request.screen_context)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
+    # A screenshot makes it another message, whatever the words say.
+    if request.image is not None:
+        return await _answer_chat(request, user_id, said, screen)
+
+    flight = (user_id, normalize(said))
+    running = _chats_in_flight.get(flight)
+    if running is not None:
+        logger.info(f"Chat request from user {user_id} repeats the one being answered: not answered twice")
+        return await asyncio.shield(running)
+
+    async with user_lock(user_id):
+        running = _chats_in_flight.get(flight)
+        if running is None:
+            settled = await find_settled_answer(user_id, said)
+            if settled is not None:
+                question, answer = settled
+                logger.info(f"Chat request from user {user_id} repeats {question.id}, answered: not answered twice")
+                return ChatResponse(response=answer.content, messages=[question.to_dict(), answer.to_dict()])
+            running = asyncio.create_task(_answer_chat(request, user_id, said, screen))
+            _chats_in_flight[flight] = running
+            running.add_done_callback(lambda task: _forget_chat(flight, task))
+    return await asyncio.shield(running)
+
+
+def _forget_chat(flight: tuple[str, str], task: asyncio.Task) -> None:
+    _chats_in_flight.pop(flight, None)
+    # Read here too: a call nobody awaits any more must not leave an « exception never retrieved ».
+    if not task.cancelled():
+        task.exception()
+
+
+async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: str | None) -> ChatResponse:
     user_msg = await message_repo.create(
         user_id=user_id, role="user", content=said, has_image=request.image is not None
     )
@@ -172,34 +215,42 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key
-    received = await message_repo.find_by_client_key(user_id, key) if key else None
-    if received is None:
-        try:
-            user_msg = await message_repo.create(
-                user_id=user_id,
-                role="user",
-                content=said,
-                client_key=key,
-                turn_lease_until=lease_deadline(),
-                turn_screen_context=screen,
-                has_image=request.image is not None,
-            )
-        except IntegrityError:
-            # The same key, twice at once: the other request won, and owns the turn.
-            received = await message_repo.find_by_client_key(user_id, key) if key else None
-            if received is None:
-                raise
-        else:
-            events = turn_runner.start(
-                streaming_gateway,
-                user_id=user_id,
-                message_id=user_msg.id,
-                message=said,
-                screen_context=screen,
-                image=request.image,
-            )
+    # Held until the message is stored: two requests at once cannot both pass the look-up.
+    async with user_lock(user_id):
+        received = await message_repo.find_by_client_key(user_id, key) if key else None
+        if received is not None:
+            logger.info(f"Message {received.id} already received under key {key}: not answered twice")
+        elif request.image is None and (received := await find_duplicated_turn(user_id, said)) is not None:
+            # No key in common, but the same words while that turn runs or just ended (MAG-386):
+            # not a second message, not a second turn — this response follows the first.
+            logger.info(f"Message {received.id} repeated without its key: not answered twice")
+        if received is None:
+            try:
+                user_msg = await message_repo.create(
+                    user_id=user_id,
+                    role="user",
+                    content=said,
+                    client_key=key,
+                    turn_lease_until=lease_deadline(),
+                    turn_screen_context=screen,
+                    has_image=request.image is not None,
+                )
+            except IntegrityError:
+                # The same key, twice at once: the other request won, and owns the turn.
+                received = await message_repo.find_by_client_key(user_id, key) if key else None
+                if received is None:
+                    raise
+                logger.info(f"Message {received.id} already received under key {key}: not answered twice")
+            else:
+                events = turn_runner.start(
+                    streaming_gateway,
+                    user_id=user_id,
+                    message_id=user_msg.id,
+                    message=said,
+                    screen_context=screen,
+                    image=request.image,
+                )
     if received is not None:
-        logger.info(f"Message {received.id} already received under key {key}: not answered twice")
         events = turn_runner.replay(user_id, received)
 
     async def generate():

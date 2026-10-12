@@ -713,7 +713,9 @@ test('asking Maggie to prepare the week puts the recurring items on the list, on
     // Asked twice, and the answer is the same list: generation is a top-up, not
     // an append. It used to double the shopping (MAG-116), and a shopper asking
     // again because Maggie was slow to answer is the normal case.
-    const again = await chat.send(`Prépare les courses du ${from} au ${to}`)
+    // Not the same words: the very same message within the minute is the same message (MAG-386),
+    // and would never reach the command a second time.
+    const again = await chat.send(`Prépare les courses du ${from} au ${to}, merci`)
     expect(calledTools(again)).toContain('generate_grocery_list')
 
     await expect

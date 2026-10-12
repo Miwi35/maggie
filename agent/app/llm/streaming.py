@@ -21,6 +21,7 @@ from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
 from app.llm.directives import behavior_directives_section
+from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
@@ -392,7 +393,7 @@ class StreamingGateway:
                 # an earlier step's text is not part of that.
                 yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                 text_started = True
-                answer = "Désolé, une erreur est survenue. Réessaie."
+                answer = API_ERROR_MESSAGE
                 yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
                 break
         else:

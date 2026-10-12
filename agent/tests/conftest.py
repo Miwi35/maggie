@@ -29,6 +29,26 @@ def no_last_exchange_lookup():
 
 
 @pytest.fixture(autouse=True)
+def no_duplicate_lookup(request):
+    """Keep the « same message again » look-up (MAG-386) off the database in tests that mock the repository.
+
+    Tests that run on `chat_db` keep the real rule; each gets fresh per-user locks, which bind
+    to the event loop of the test that contended for them.
+    """
+    from app.llm import duplicates
+
+    duplicates._locks.clear()
+    if "chat_db" in request.fixturenames:
+        yield
+        return
+    with (
+        patch("app.api.routes.find_duplicated_turn", AsyncMock(return_value=None)),
+        patch("app.api.routes.find_settled_answer", AsyncMock(return_value=None)),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def paris_user_timezone():
     """Keep the user's timezone lookup (MAG-161) off the MCP server in tests that only build a prompt."""
     paris = AsyncMock(return_value=ZoneInfo("Europe/Paris"))
