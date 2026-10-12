@@ -138,6 +138,9 @@ export const AccountTransactionsView = () => {
       <Box hidden={tab !== 0}>
         <List
           resource="transactions"
+          // The view's own <Title> names the account; the list's default one would be
+          // portalled next to it and break the app bar's ellipsis (MAG-387).
+          title={false}
           filter={{ account: accountIri }}
           empty={<AccountTransactionsEmpty accountIri={accountIri} />}
           actions={actions}

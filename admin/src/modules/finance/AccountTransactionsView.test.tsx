@@ -82,6 +82,23 @@ describe('AccountTransactionsView', () => {
     expect(location.state.record).toEqual({ account: ACCOUNT_IRI })
   })
 
+  test('the app bar carries one title, the account\'s, so a long one can end in an ellipsis (MAG-387)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
+        <AdminContext dataProvider={emptyProvider}>
+          <h6 id="react-admin-title" data-testid="app-bar-title" />
+          <Routes>
+            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+          </Routes>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Aucune transaction sur ce compte')
+    await waitFor(() => expect(screen.getByTestId('app-bar-title')).toHaveTextContent('Transactions — Compte joint'))
+    expect(screen.getByTestId('app-bar-title').textContent).toBe('Transactions — Compte joint')
+  })
+
   test('a recette reads Reçue or Attendue in the list, a dépense Dépensée — never the other way round', async () => {
     const rows = [
       { id: '/api/transactions/1', label: 'Salaire', amountCents: 235000, currency: 'EUR', status: 'spent', bookedAt: '2026-07-31' },

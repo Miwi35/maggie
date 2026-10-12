@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
+import { useCompactScreen } from '../../hooks/useCompactScreen'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
@@ -154,19 +155,22 @@ function SortableGroceryItem({
   }
 
   const label = item.label
+  const compact = useCompactScreen()
 
   return (
     // `data-testid` and `data-store`: MUI renders a store's ListSubheader as an
     // `<li>` too, so `getByRole('listitem')` matches the headings as well as
     // the lines. The e2e journeys (MAG-101) address a line by this id and read
     // the order of the shop's own aisles from `data-store`.
+    // Under 600px the line takes two rows (MAG-387): handle, tick and name, then
+    // badge, quantity and trash — all in the flow, nothing over the name.
     <ListItem
       ref={setNodeRef}
       style={style}
       disablePadding
       data-testid="grocery-item"
       data-store={item.store?.name ?? ''}
-      sx={transitionSx(item.id, addedIds, removingIds)}
+      sx={[{ flexWrap: compact ? 'wrap' : 'nowrap' }, transitionSx(item.id, addedIds, removingIds) ?? {}]}
     >
       <IconButton
         size="small"
@@ -178,7 +182,7 @@ function SortableGroceryItem({
       >
         <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
       </IconButton>
-      <ListItemButton onClick={isRemoving ? undefined : () => onViewDetail(item)} dense>
+      <ListItemButton onClick={isRemoving ? undefined : () => onViewDetail(item)} dense sx={{ minWidth: 0, ...(compact && { flex: '1 1 0' }) }}>
         <ListItemIcon>
           <Checkbox
             edge="start"
@@ -193,38 +197,49 @@ function SortableGroceryItem({
         </ListItemIcon>
         <ListItemText
           primary={label}
+          primaryTypographyProps={{ noWrap: compact, title: label }}
           sx={{
             textDecoration: item.checked ? 'line-through' : 'none',
             opacity: item.checked ? 0.5 : 1,
           }}
         />
+      </ListItemButton>
+      <Box
+        data-testid="grocery-item-controls"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+          ...(compact && { flexBasis: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }),
+        }}
+      >
         <Chip
           label={
             item.source === 'recipe' ? 'Recette' : item.source === 'recurring' ? 'Récurrent' : 'Manuel'
           }
           size="small"
           variant="outlined"
-          sx={{ ml: 1 }}
+          sx={{ flexShrink: 0, mr: 1 }}
         />
-      </ListItemButton>
-      <QuantityStepper
-        label={label}
-        quantity={item.quantity}
-        unit={lineUnit(item.unit, item.product)}
-        packaging={packagingContent(item.unit, item.product)}
-        disabled={isRemoving}
-        onChange={(quantity) => onQuantityChange(item, quantity)}
-        onInvalid={onQuantityInvalid}
-      />
-      <IconButton
-        size="small"
-        aria-label={`Supprimer ${label}`}
-        disabled={isRemoving}
-        onClick={() => onDelete(item)}
-        sx={{ mx: 0.5 }}
-      >
-        <DeleteOutlineIcon fontSize="small" />
-      </IconButton>
+        <QuantityStepper
+          label={label}
+          quantity={item.quantity}
+          unit={lineUnit(item.unit, item.product)}
+          packaging={packagingContent(item.unit, item.product)}
+          disabled={isRemoving}
+          onChange={(quantity) => onQuantityChange(item, quantity)}
+          onInvalid={onQuantityInvalid}
+        />
+        <IconButton
+          size="small"
+          aria-label={`Supprimer ${label}`}
+          disabled={isRemoving}
+          onClick={() => onDelete(item)}
+          sx={{ mx: 0.5 }}
+        >
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </Box>
     </ListItem>
   )
 }

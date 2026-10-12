@@ -8,6 +8,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology'
 import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 import CircularProgress from '@mui/material/CircularProgress'
+import { COMPACT_QUERY } from '../../breakpoints'
 import { TOKENS } from '../../design/tokens'
 import { NotificationBell } from '../notifications/NotificationBell'
 import { SearchBar } from '../../modules/search/SearchBar'
@@ -64,7 +65,12 @@ export const CustomAppBar = () => {
       // ellipsis or no ellipsis. The controls keep `min-width: auto` for the
       // same reason, the other way round: they are six fixed 44px targets and
       // there is nothing in them to give.
-      sx={{ '& .RaAppBar-title': { minWidth: 0 } }}
+      //
+      // Under `sm` the title is 1rem: it has ~87px on a 393px phone and « Courses »
+      // at 20px left 15 of them — a wider font cut it to « Cours » (MAG-387).
+      sx={{
+        '& .RaAppBar-title': { minWidth: 0, [`@media ${COMPACT_QUERY}`]: { fontSize: '1rem' } },
+      }}
       toolbar={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
           <SearchBar />

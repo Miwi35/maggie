@@ -5,6 +5,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
+import { NARROW_QUERY } from '../../breakpoints'
 import {
   canDecrease,
   decreaseQuantity,
@@ -68,6 +69,8 @@ export function QuantityStepper({ label, quantity, unit, packaging, disabled, on
             font: 'inherit',
             cursor: 'text',
             p: 0.5,
+            // A finger's target on a phone, like the − / + beside it.
+            [`@media ${NARROW_QUERY}`]: { minHeight: 44, minWidth: 64 },
           }}
         >
           {shown}
