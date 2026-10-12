@@ -16,9 +16,10 @@ from app.db.message_repository import message_repo
 from app.db.models import Message
 from app.llm import turns
 from app.llm.duplicates import normalize
+from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.image import ChatImage
 from app.llm.streaming import answer_message_id
-from app.llm.turns import TurnRunner
+from app.llm.turns import TurnRunner, lease_deadline
 
 TEXT = "inverse les libellés Laure et Meven sur les événements de l'agenda Garde Ael"
 
@@ -144,6 +145,48 @@ class TestTheSameTextOnceTheTurnIsOver:
             await send(TEXT)
 
         assert gateway.tool_calls == 2
+
+
+class TestAnAnswerThatDoesNotStand:
+    @pytest.mark.asyncio
+    async def test_a_cut_off_answer_of_a_turn_still_running_is_not_attached_to(self, chat_db):
+        """`chat_interrupt` stores the cut answer while the turn goes on, until it finds its row taken."""
+        question = await message_repo.create(
+            user_id="user-1", role="user", content=TEXT, turn_lease_until=lease_deadline()
+        )
+        await message_repo.create(
+            user_id="user-1",
+            role="assistant",
+            content="(rien dit)",
+            message_id=answer_message_id(question.id),
+            interrupted=True,
+        )
+        gateway = ToolGateway(duration=0)
+        with patch.object(routes, "streaming_gateway", gateway), patch.object(routes, "turn_runner", TurnRunner()):
+            await send(TEXT)
+
+        assert gateway.tool_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_the_apology_of_a_failed_turn_does_not_stop_the_owner_from_retrying(self, chat_db):
+        question = await message_repo.create(user_id="user-1", role="user", content=TEXT)
+        await message_repo.create(
+            user_id="user-1", role="assistant", content=API_ERROR_MESSAGE, message_id=answer_message_id(question.id)
+        )
+        gateway = ToolGateway(duration=0)
+        with patch.object(routes, "streaming_gateway", gateway), patch.object(routes, "turn_runner", TurnRunner()):
+            await send(TEXT)
+
+        assert gateway.tool_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_the_same_goes_for_the_non_streamed_route(self, chat_db):
+        chat = AsyncMock(return_value={"response": API_ERROR_MESSAGE, "error": True})
+        with patch.object(routes.llm_gateway, "chat", chat):
+            await routes.chat(routes.ChatRequest(message=TEXT), user_id="user-1")
+            await routes.chat(routes.ChatRequest(message=TEXT), user_id="user-1")
+
+        assert chat.await_count == 2
 
 
 class TestWhatIsNotTheSameMessage:

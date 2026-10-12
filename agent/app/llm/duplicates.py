@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.db.message_repository import message_repo
 from app.db.models import TURN_RUNNING, Message
+from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.streaming import answer_message_id
 
 # After the first turn ends, the same text this soon is still the same message; later, it is
@@ -42,21 +43,25 @@ async def _last_question_if_same(user_id: str, said: str) -> Message | None:
     return last
 
 
+def _stands(answer: Message | None) -> bool:
+    """An answer a repeat may be attached to: not cut off by the owner, not the apology of a failed turn."""
+    return answer is not None and not answer.interrupted and answer.content.strip() != API_ERROR_MESSAGE
+
+
 async def find_duplicated_turn(user_id: str, said: str) -> Message | None:
     """The user's last message when `said` repeats it while its turn runs or just ended, else `None`.
 
-    A turn that ended without an answer (it failed, it expired) or whose answer the owner cut
-    off is not a turn to attach to: sending the text again is how one tries once more.
+    A turn that ended without an answer, with the apology of a failure, or whose answer the
+    owner cut off is not a turn to attach to: sending the text again is how one tries once more.
+    The answer is read first — a cut-off turn keeps running until it finds its row taken.
     """
     last = await _last_question_if_same(user_id, said)
     if last is None:
         return None
-    if last.turn_status == TURN_RUNNING:
-        return last
     answer = await message_repo.get(answer_message_id(last.id))
-    if answer is not None and not answer.interrupted and _within_window(answer.created_at):
-        return last
-    return None
+    if answer is not None:
+        return last if _stands(answer) and _within_window(answer.created_at) else None
+    return last if last.turn_status == TURN_RUNNING else None
 
 
 async def find_settled_answer(user_id: str, said: str) -> tuple[Message, Message] | None:
@@ -65,6 +70,6 @@ async def find_settled_answer(user_id: str, said: str) -> tuple[Message, Message
     if last is None:
         return None
     answer = await message_repo.find_answer_to(user_id, last)
-    if answer is None or answer.interrupted or not _within_window(answer.created_at):
+    if not _stands(answer) or not _within_window(answer.created_at):
         return None
     return last, answer

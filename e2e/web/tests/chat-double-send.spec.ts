@@ -11,12 +11,13 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * the turn of the first runs, now follows that turn: one message stored, one tool call, one answer.
  */
 
-const QUESTION = 'Vérifie encore une fois, double envoi'
 const ANSWER =
   "J'ai regardé ton agenda une seule fois pour répondre à ce message envoyé deux fois, sans rien refaire."
 
 // The second account, for the same reason as chat-client-leaves.spec.ts.
 test('the same message sent twice while Maggie answers makes one turn and one answer', async ({ otherUser }) => {
+  // Unique per run: a retry of this journey inside the minute would otherwise attach to the first run's answer.
+  const QUESTION = `Vérifie encore une fois, double envoi ${Date.now()}`
   const { page, api, session } = otherUser
   await new DashboardPage(page).open()
 
