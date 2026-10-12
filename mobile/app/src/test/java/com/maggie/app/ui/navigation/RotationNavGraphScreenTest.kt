@@ -21,7 +21,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.interruption.InterruptionAlert
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.interruption.InterruptionUiState
+import com.maggie.app.ui.interruption.InterruptionViewModel
 import com.maggie.app.ui.screens.chat.ChatUiState
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextUiState
@@ -99,6 +102,10 @@ class RotationNavGraphScreenTest {
         }
         val meals = mockk<MealsWeekViewModel>(relaxed = true) { every { uiState } returns state(MealsWeekUiState()) }
         val grocery = mockk<GroceryViewModel>(relaxed = true) { every { uiState } returns state(GroceryUiState()) }
+        val interruption = mockk<InterruptionViewModel>(relaxed = true) {
+            every { uiState } returns state(InterruptionUiState())
+            every { events } returns kotlinx.coroutines.flow.emptyFlow()
+        }
         val detail = mockk<RecipeDetailViewModel>(relaxed = true) {
             every { uiState } returns state(RecipeDetailUiState(recipe = Recipe(id = "r1", name = "Chili"), isLoading = false))
         }
@@ -126,6 +133,8 @@ class RotationNavGraphScreenTest {
                     viewModel { meals }
                     viewModel { grocery }
                     viewModel { detail }
+                    viewModel { interruption }
+                    single<InterruptionAlert> { InterruptionAlert {} }
                 },
             )
         }
