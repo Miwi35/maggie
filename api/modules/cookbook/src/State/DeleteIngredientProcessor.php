@@ -8,11 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\DeleteIngredientCommand;
+use Maggie\Grocery\State\DispatchesProductCommandTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /** @implements ProcessorInterface<Ingredient, void> */
 class DeleteIngredientProcessor implements ProcessorInterface
 {
+    use DispatchesProductCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -20,7 +23,7 @@ class DeleteIngredientProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
-        $this->bus->dispatch(new DeleteIngredientCommand(
+        $this->dispatchProductCommand(new DeleteIngredientCommand(
             ingredientId: (string) $data->getId(),
         ));
     }

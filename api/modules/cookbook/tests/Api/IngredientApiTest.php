@@ -156,4 +156,53 @@ class IngredientApiTest extends WebTestCase
         $em->clear();
         self::assertNull($em->getRepository(Ingredient::class)->findOneBy(['name' => 'Riz']));
     }
+
+    public function testDeleteRequiresAuthentication(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->client->request('DELETE', '/api/ingredients/'.$tomato->getId());
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testDeleteRemovesAnIngredientNoRecipeUses(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->client->request('DELETE', '/api/ingredients/'.$tomato->getId(), [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(204);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Ingredient::class, $tomato->getId()));
+    }
+
+    public function testDeleteRefusesAnIngredientARecipeStillUses(): void
+    {
+        $this->loadTomato();
+        $basil = $this->getFixture('basil');
+
+        $this->client->request('DELETE', '/api/ingredients/'.$basil->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('Pesto', (string) $this->client->getResponse()->getContent());
+        self::assertNotNull($this->reload($basil), 'The ingredient is still there');
+    }
+
+    public function testDeleteThroughTheProductRouteRefusesAnIngredientARecipeStillUses(): void
+    {
+        $this->loadTomato();
+        $basil = $this->getFixture('basil');
+
+        $this->client->request('DELETE', '/api/products/'.$basil->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('Pesto', (string) $this->client->getResponse()->getContent());
+        self::assertNotNull($this->reload($basil));
+    }
 }

@@ -13,6 +13,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 /** @implements ProcessorInterface<Product, void> */
 class DeleteProductProcessor implements ProcessorInterface
 {
+    use DispatchesProductCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -20,7 +22,7 @@ class DeleteProductProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
-        $this->bus->dispatch(new DeleteProductCommand(
+        $this->dispatchProductCommand(new DeleteProductCommand(
             productId: (string) $data->getId(),
         ));
     }
