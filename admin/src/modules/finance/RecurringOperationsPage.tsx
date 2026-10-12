@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -112,6 +112,10 @@ const SeriesBadges = ({ series }: { series: RecurringSeries }) => (
   </Stack>
 )
 
+/** The stored list is served by the search index, which can trail the overview: re-read it a few times. */
+const DETAIL_RETRY_MS = 1500
+const DETAIL_MAX_RETRIES = 5
+
 /**
  * The recurring operations (MAG-308): what each series costs, when it falls
  * due, the attachments waiting for a yes and the series the history suggests.
@@ -131,7 +135,10 @@ export const RecurringOperationsPage = () => {
   const [toDelete, setToDelete] = useState<RecurringSeries | null>(null)
   const [accepting, setAccepting] = useState(false)
 
+  const detailRetries = useRef(0)
+
   const reloadAll = () => {
+    detailRetries.current = 0
     reload()
     reloadSuggestions()
     refetch()
@@ -142,6 +149,22 @@ export const RecurringOperationsPage = () => {
     storedList.map((record) => [idOf(String(record.id)), record as unknown as RecurringStored]),
   )
   const operations = overview?.operations ?? []
+  const detailMissing = operations.some((operation) => !stored.has(operation.id))
+
+  useEffect(() => {
+    if (!detailMissing) {
+      detailRetries.current = 0
+
+      return
+    }
+    if (detailRetries.current >= DETAIL_MAX_RETRIES) return
+    const timer = setTimeout(() => {
+      detailRetries.current += 1
+      refetch()
+    }, DETAIL_RETRY_MS)
+
+    return () => clearTimeout(timer)
+  }, [detailMissing, storedList, refetch])
   const currencyOf = (seriesId: string | null) => operations.find((o) => o.id === seriesId)?.currency ?? 'EUR'
   const proposals = (overview?.proposals ?? []).filter((p) => !ignored.includes(p.transactionId))
 

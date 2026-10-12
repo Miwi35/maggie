@@ -228,6 +228,19 @@ describe('RecurringOperationsPage — the list', () => {
     expect(within(loyer).getByText('mesuré')).toBeInTheDocument()
   })
 
+  test('re-reads the stored list when the search index trails the overview', async () => {
+    const late = STORED.filter((record) => !String(record.id).endsWith('01FLIXO'))
+    getList.mockImplementationOnce(async (resource: string) => ({ data: resource === 'recurring_operations' ? late : [], total: late.length }))
+    renderPage()
+
+    const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
+    expect(within(flixo).getByText('Chaque mois')).toBeInTheDocument()
+
+    await waitFor(() => expect(within(rowOf('Abonnement Flixo')).getByText('Le 12 de chaque mois')).toBeInTheDocument(), {
+      timeout: 5000,
+    })
+  }, 10000)
+
   test('puts expenses and incomes apart in the totals header', async () => {
     renderPage()
 
