@@ -35,10 +35,10 @@ tags:
       ACTION: create
 
 # When I plan the meal from the week: the first free slot, the recipe, « Créer ».
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_cookbook"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: cookbook
 - tapOn: "Repas"
 - extendedWaitUntil:
     visible: "Déjeuner"
@@ -82,10 +82,10 @@ tags:
     file: ../scripts/meal-api.js
     env:
       ACTION: expect-chosen
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_grocery"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
 - extendedWaitUntil:
     visible:
       id: "grocery"

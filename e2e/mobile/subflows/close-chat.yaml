@@ -1,0 +1,19 @@
+appId: com.maggie.app.e2e
+name: leave the chat sheet
+---
+# The sheet's close button exists only where the chat is a sheet. On a tablet the
+# conversation is a panel that stays beside the content and has nothing to close
+# (MAG-35), so there is nothing to tap and the journey carries on from the screen
+# behind. For a chat opened by `open-chat.yaml`; the voice sheet always has its own
+# close, which a flow taps directly.
+#
+# `evalScript` first, for the reason given in `open-destination.yaml`.
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      visible:
+        id: "chat_close"
+    commands:
+      - tapOn:
+          id: "chat_close"

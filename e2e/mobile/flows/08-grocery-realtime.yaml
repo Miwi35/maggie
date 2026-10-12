@@ -31,10 +31,10 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_grocery"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
 - extendedWaitUntil:
     visible:
       id: "grocery"

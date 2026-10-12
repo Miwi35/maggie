@@ -1,0 +1,39 @@
+appId: com.maggie.app.e2e
+name: open a main destination from the dashboard
+---
+# `DEST` is the route of the destination: calendar, cookbook, grocery…
+#
+# The app has two navigations and a flow does not get to choose (MAG-35): under
+# 600 dp the burger of the top bar opens a drawer (`nav_menu`, `drawer_<route>`);
+# from 600 dp wide — a foldable, a tablet — a navigation rail is always on screen
+# (`rail_<route>`) and there is no burger at all. The formats are the nightly's
+# matrix, so a journey that taps `nav_menu` itself is green on the phone and red on
+# the other two. `task e2e:mobile:lint` refuses it outside of this file.
+#
+# The branches key on what exists, not on the absence of the burger: the rail is
+# always there from 600 dp and never under it, whereas `notVisible: nav_menu` is
+# also true for an instant while a phone's drawer closes after the tap. The
+# `evalScript` first: `when: visible` is counted from the last interaction, and
+# after a long wait with nothing tapped it would read « not visible » on a budget of
+# zero and send a phone to the rail (README, « Wait with extendedWaitUntil »).
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      visible:
+        id: "nav_menu"
+    commands:
+      - tapOn:
+          id: "nav_menu"
+      - tapOn:
+          id: "drawer_${DEST}"
+
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      visible:
+        id: "rail_${DEST}"
+    commands:
+      - tapOn:
+          id: "rail_${DEST}"

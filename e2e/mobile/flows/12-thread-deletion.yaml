@@ -27,8 +27,7 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-- tapOn:
-    id: "chat_open"
+- runFlow: ../subflows/open-chat.yaml
 - extendedWaitUntil:
     visible:
       id: "chat_input"

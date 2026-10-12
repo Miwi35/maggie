@@ -85,8 +85,7 @@ tags:
 # ---------------------------------------------------------------------------
 # A conversation with an answer in it — what the overlay used to re-speak.
 # ---------------------------------------------------------------------------
-- tapOn:
-    id: "chat_open"
+- runFlow: ../subflows/open-chat.yaml
 - tapOn:
     id: "chat_input"
 - inputText: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
@@ -125,8 +124,7 @@ tags:
     visible: ".*budget tient la route ce mois-ci.*"
     timeout: 60000
 
-- tapOn:
-    id: "chat_close"
+- runFlow: ../subflows/close-chat.yaml
 
 # ---------------------------------------------------------------------------
 # Restart the app, *without* clearing its state: still signed in, but the
@@ -336,8 +334,7 @@ tags:
     env:
       ACTION: create
       SUMMARY: Test validation MAG-310
-- tapOn:
-    id: "chat_open"
+- runFlow: ../subflows/open-chat.yaml
 - tapOn:
     id: "chat_input"
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
@@ -346,8 +343,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
     timeout: 60000
-- tapOn:
-    id: "chat_close"
+- runFlow: ../subflows/close-chat.yaml
 - extendedWaitUntil:
     visible:
       id: "dashboard"

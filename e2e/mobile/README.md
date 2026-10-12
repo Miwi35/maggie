@@ -88,7 +88,7 @@ A flow takes its dates from `TODAY`, never from a literal.
 |---|---|
 | `config.yaml` | the workspace: which files are flows, and in which order |
 | `flows/` | the journeys, numbered — what `maestro test` runs. The numbers have gaps (01, 02, 04, 05, 08): the missing ones moved to the JVM and keeping their numbers keeps the trail |
-| `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`), kept out of the `flows` glob on purpose |
+| `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`, `open-destination.yaml`, `open-chat.yaml`), kept out of the `flows` glob on purpose |
 | `scripts/` | `runScript` helpers: `grocery-api.js` plays the browser and reads the database back |
 | `shards.txt` | the flows of each CI shard, in order — `lint.sh` checks that every flow is in exactly one |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
@@ -106,6 +106,11 @@ against an app nobody launched.
 1. **Sign in through the subflow**, not by retyping its steps:
    `- runFlow: ../subflows/sign-in.yaml`. It ends on the dashboard, so a flow
    starts from a signed-in app.
+   **Navigate and open the chat through subflows too**: `runFlow: file:
+   ../subflows/open-destination.yaml` with `env: DEST: <route>`, and
+   `../subflows/open-chat.yaml` / `close-chat.yaml`. The nightly plays the phone, the foldable and the
+   tablet: `nav_menu` does not exist from 600 dp (a rail replaces it), `chat_open`
+   not from 840 dp (the conversation is already open). Lint refuses a direct tap.
 2. **`launchApp: clearState: true` and `permissions: all: allow`.** Without the
    first, a second run starts signed in and never sees the login screen; without
    the second, a runtime permission dialog belongs to the system UI and the step
