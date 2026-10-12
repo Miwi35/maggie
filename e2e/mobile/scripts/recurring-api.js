@@ -101,8 +101,8 @@ if (ACTION === 'create') {
   // Eight days after the due date, past the tolerance: proposed, never attached on its own.
   const line = post('/api/transactions', {
     account: account['@id'],
+    // The payee is read from the label: the line has no writable counterparty.
     label: transactionLabel,
-    counterpartyName: 'SCI VERDA',
     amountCents: -90000,
     currency: 'EUR',
     bookedAt: anchorOn.substring(0, 8) + '13',

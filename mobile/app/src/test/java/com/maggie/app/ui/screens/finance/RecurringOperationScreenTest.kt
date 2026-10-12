@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.MissedOccurrence
 import com.maggie.app.data.model.PriceChange
@@ -56,6 +57,19 @@ class RecurringOperationScreenTest {
         compose.onNodeWithText("Hausse de prix", substring = true).assertIsDisplayed()
         compose.onNodeWithText("+33 %", substring = true).assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.RECURRING_MISSED_BADGE).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a price drop says so instead of calling it an increase`() {
+        val series = calm.copy(
+            priceChange = PriceChange(previousCents = 1799, currentCents = 1349, percent = -25, since = "2026-03-01"),
+        )
+        compose.setContent { SeriesCard(series = series, record = null) }
+
+        compose.onNodeWithTag(UiTags.RECURRING_PRICE_BADGE).assertIsDisplayed()
+        compose.onNodeWithText("Baisse de prix", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("-25 %", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Hausse", substring = true).assertCountEquals(0)
     }
 
     @Test

@@ -294,13 +294,13 @@ private fun SectionHeader(title: String, description: String? = null) {
 /** The two warnings of a series: a due date that did not come, a price that moved. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SeriesBadges(series: RecurringSeries) {
+fun SeriesBadges(series: RecurringSeries, onClick: () -> Unit = {}) {
     if (series.missedOccurrence == null && series.priceChange == null) return
 
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         series.missedOccurrence?.let { missed ->
             AssistChip(
-                onClick = {},
+                onClick = onClick,
                 label = { Text("Échéance manquée · ${missed.daysOverdue} j de retard") },
                 colors = AssistChipDefaults.assistChipColors(labelColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.testTag(UiTags.RECURRING_MISSED_BADGE),
@@ -308,8 +308,11 @@ fun SeriesBadges(series: RecurringSeries) {
         }
         series.priceChange?.let { change ->
             AssistChip(
-                onClick = {},
-                label = { Text("Hausse de prix · ${describePriceChange(change, series.currency)}") },
+                onClick = onClick,
+                label = {
+                    val kind = if (change.percent > 0) "Hausse" else "Baisse"
+                    Text("$kind de prix · ${describePriceChange(change, series.currency)}")
+                },
                 modifier = Modifier.testTag(UiTags.RECURRING_PRICE_BADGE),
             )
         }
@@ -363,7 +366,7 @@ fun SeriesCard(series: RecurringSeries, record: RecurringOperationRecord?, onCli
             series.endsOn?.let {
                 Text("Jusqu'au ${formatDay(it)}", style = MaterialTheme.typography.bodySmall)
             }
-            SeriesBadges(series)
+            SeriesBadges(series, onClick)
         }
     }
 }

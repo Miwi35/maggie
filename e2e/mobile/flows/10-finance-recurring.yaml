@@ -46,7 +46,7 @@ tags:
     timeout: 30000
 
 - extendedWaitUntil:
-    visible: ".*900.00 EUR par mois.*"
+    visible: ".*900[.,]00 EUR par mois.*"
     timeout: 10000
 - extendedWaitUntil:
     visible: ".*le 5 de chaque mois.*"
