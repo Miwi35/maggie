@@ -50,14 +50,15 @@ fun RecipeSearchScreen(
 ) {
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
     val matches = recipes.filter { it.name.contains(query.trim(), ignoreCase = true) }
 
     Dialog(
         onDismissRequest = onDone,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        // In the dialog's own composition: from the screen's, the field is not attached yet and
+        // the request is lost, so the first keys land on the back arrow.
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
         Surface(modifier = Modifier.fillMaxSize().uiTagRoot()) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
