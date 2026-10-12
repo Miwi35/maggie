@@ -28,7 +28,9 @@ const token = JSON.parse(login.body).token
 
 const sent = http.post(base + '/agent/chat', {
   headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-  body: JSON.stringify({ message: 'MAG-314 interruption : préviens-moi pour mes comptes.' }),
+  // A unique tail: the same words sent again within a minute follow the turn already
+  // answering them (MAG-386), and the flow raises two notifications in a row.
+  body: JSON.stringify({ message: 'MAG-314 interruption : préviens-moi pour mes comptes (' + Date.now() + ').' }),
 })
 if (!sent.ok) {
   fail('the message answered ' + sent.status + ': ' + sent.body)
