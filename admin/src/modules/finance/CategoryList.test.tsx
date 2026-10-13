@@ -68,11 +68,16 @@ describe('CategoryList', () => {
   test('a row shows the colour and the icon the category was given, not a hex code', async () => {
     renderPage()
 
-    const glyph = await screen.findByRole('img', { name: 'Repère : couleur #4CAF50, icône shopping-cart' })
+    await screen.findByText('Alimentation')
+    const glyphs = screen.getAllByTestId('category-glyph')
+    const colored = glyphs.find((glyph) => glyph.dataset.color === '#4CAF50')
 
-    expect(glyph).toHaveStyle({ backgroundColor: 'rgb(76, 175, 80)' })
+    expect(colored).toBeDefined()
+    expect(colored?.dataset.icon).toBe('shopping-cart')
+    expect(colored).toHaveStyle({ backgroundColor: 'rgb(76, 175, 80)' })
     expect(screen.queryByText('#4CAF50')).not.toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Repère : sans couleur ni icône' })).toBeInTheDocument()
+    expect(glyphs.some((glyph) => glyph.dataset.color === '' && glyph.dataset.icon === '')).toBe(true)
+    expect(screen.getByRole('cell', { name: 'Alimentation' })).toBeInTheDocument()
   })
 
   /** Which categories feed the independence counter has to be readable here. */

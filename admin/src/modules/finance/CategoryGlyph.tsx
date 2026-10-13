@@ -73,6 +73,7 @@ interface CategoryGlyphProps {
 
 /**
  * A category's colour and icon on its list row: a disc of its colour holding its icon.
+ * Decorative (`aria-hidden`): a label here would become part of the name cell's accessible name.
  * A name we do not draw still shows as a generic tag, so an icon that was set is never
  * silently absent; no icon at all leaves the plain colour.
  */
@@ -80,13 +81,14 @@ export const CategoryGlyph = ({ color, icon }: CategoryGlyphProps) => {
   const fill = typeof color === 'string' && HEX.test(color) ? color.toUpperCase() : null
   const name = typeof icon === 'string' ? icon.trim().toLowerCase() : ''
   const Icon = name === '' ? null : (CATEGORY_ICONS[name] ?? LabelIcon)
-  const description = [fill && `couleur ${fill}`, name !== '' && `icône ${icon?.trim()}`].filter(Boolean).join(', ')
 
   return (
     <Box
       component="span"
-      role="img"
-      aria-label={`Repère : ${description || 'sans couleur ni icône'}`}
+      aria-hidden="true"
+      data-testid="category-glyph"
+      data-color={fill ?? ''}
+      data-icon={name}
       sx={{
         width: 28,
         height: 28,
