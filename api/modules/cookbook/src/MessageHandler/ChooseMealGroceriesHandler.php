@@ -34,9 +34,7 @@ class ChooseMealGroceriesHandler
 
         $this->mealGrocerySync->syncChoice($meal, $this->choice->chosenLines($meal, $command->chosen));
 
-        // One flush for the lines and the marker: lines committed without the
-        // marker would be taken back by the meal's next sync, which would
-        // still derive them from the recipes.
+        // One flush for the lines and the marker, so the choice is never half recorded.
         $meal->setGroceryChoiceMadeAt(new \DateTimeImmutable());
         $this->em->flush();
 

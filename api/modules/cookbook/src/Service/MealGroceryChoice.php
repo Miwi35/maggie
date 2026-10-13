@@ -16,7 +16,7 @@ use Maggie\Grocery\Service\Packaging;
  * (MAG-295).
  *
  * The preview reads the meal's recipes, one line per product and recipe unit
- * — the quantities of two recipes added up, as the derived path does — and
+ * — the quantities of two recipes added up — and
  * says how many packagings that is, and whether the product's stock makes it
  * worth buying: `suggested` is what a client ticks by default. The choice
  * turns the picked ingredients into the lines {@see MealGrocerySync::syncChoice()}
