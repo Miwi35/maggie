@@ -9,6 +9,8 @@ export interface Approval {
   id: string
   toolName: string
   arguments: Record<string, unknown>
+  /** The sentence the agent saved with the request: « Supprimer l'événement « X » — le 15 octobre ». */
+  summary?: string | null
   status: ApprovalStatus
   result: string | null
   createdAt: string

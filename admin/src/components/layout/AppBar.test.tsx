@@ -48,3 +48,16 @@ describe('CustomAppBar — the page title', () => {
     expect(screen.getByRole('button', { name: 'Chat avec Maggie' })).toBeInTheDocument()
   })
 })
+
+describe('CustomAppBar — the shortcuts', () => {
+  test('carries no Mind button: the Mind tab of the chat panel is the way in', () => {
+    render(
+      <AdminContext theme={veilleuseLightTheme}>
+        <CustomAppBar />
+      </AdminContext>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Chat avec Maggie' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Maggie's Mind" })).not.toBeInTheDocument()
+  })
+})

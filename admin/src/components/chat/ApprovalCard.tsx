@@ -31,6 +31,8 @@ const STATE_COLORS: Record<CardState, 'warning' | 'info' | 'success' | 'default'
   expired: 'default',
 }
 
+const GENERIC_SUMMARY = 'Maggie souhaite effectuer une action'
+
 function cardState(approval: ApprovalItem): CardState {
   // `approved` is published when the call is claimed, before its result is
   // known: until `result` arrives the action is still running.
@@ -71,7 +73,7 @@ function failureReason(result: string | null): string | null {
  */
 export const ApprovalCard = ({ approval, onApprove, onDeny }: ApprovalCardProps) => {
   const state = cardState(approval)
-  const args = Object.entries(approval.arguments ?? {})
+  const summary = approval.summary?.trim() || GENERIC_SUMMARY
   const reason = state === 'failed' ? failureReason(approval.result) : null
 
   return (
@@ -79,7 +81,7 @@ export const ApprovalCard = ({ approval, onApprove, onDeny }: ApprovalCardProps)
       data-testid="approval-card"
       data-status={state}
       role="group"
-      aria-label={`Validation : ${approval.toolName}`}
+      aria-label={`Validation : ${summary}`}
       sx={{
         alignSelf: 'stretch',
         border: 1,
@@ -104,24 +106,9 @@ export const ApprovalCard = ({ approval, onApprove, onDeny }: ApprovalCardProps)
         />
       </Box>
 
-      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-        {approval.toolName}
+      <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+        {summary}
       </Typography>
-
-      {args.length > 0 && (
-        <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.25 }}>
-          {args.map(([key, value]) => (
-            <Box key={key} sx={{ display: 'contents' }}>
-              <Typography component="dt" variant="caption" color="text.secondary">
-                {key}
-              </Typography>
-              <Typography component="dd" variant="caption" sx={{ m: 0, wordBreak: 'break-word' }}>
-                {formatValue(value)}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
 
       <Typography variant="caption" color="text.secondary">
         Demandée le {formatDateTime(approval.createdAt)} · expire le {formatDateTime(approval.expiresAt)}

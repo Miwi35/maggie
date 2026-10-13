@@ -170,11 +170,9 @@ test.describe('Responsive @responsive', () => {
       visible: shape.narrow,
     })
 
-    // And the Mind shortcut goes the other way: one icon too many for a
-    // phone's bar, and the sheet carries a "Mind" tab of its own.
-    await expect(shell.appBar.getByRole('button', { name: "Maggie's Mind" })).toBeVisible({
-      visible: !shape.narrow,
-    })
+    // The bar carries no Mind shortcut at any width: the "Mind" tab of the chat
+    // panel is the way in, and it is where the pending approvals are counted.
+    await expect(shell.appBar.getByRole('button', { name: "Maggie's Mind" })).toHaveCount(0)
 
     const chatButton = await shell.appBar.getByRole('button', { name: 'Chat avec Maggie' }).boundingBox()
     expect(chatButton?.height ?? 0, 'the chat button is too short to tap').toBeGreaterThanOrEqual(shape.touchTarget)
