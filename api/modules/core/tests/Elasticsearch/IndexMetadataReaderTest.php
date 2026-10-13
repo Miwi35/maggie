@@ -149,6 +149,23 @@ class IndexMetadataReaderTest extends TestCase
         self::assertSame([], $this->reader->indicesOf(StubNotIndexedEntity::class));
     }
 
+    /** MAG-323: a meal keeps being deleted from `events`, but it is written to `meals` only. */
+    public function testARowIsWrittenToItsOwnIndexOnly(): void
+    {
+        self::assertSame('meals', $this->reader->indexOf(\Maggie\Cookbook\Entity\Meal::class));
+        self::assertSame('events', $this->reader->indexOf(\Maggie\Calendar\Entity\Event::class));
+        self::assertSame('products', $this->reader->indexOf(\Maggie\Cookbook\Entity\Ingredient::class));
+        self::assertNull($this->reader->indexOf(StubNotIndexedEntity::class));
+    }
+
+    public function testSubclassesWithTheirOwnIndexAreNotRowsOfTheParentIndex(): void
+    {
+        self::assertSame(
+            [\Maggie\Cookbook\Entity\Meal::class],
+            IndexMetadataReader::subclassesWithOwnIndex([\Maggie\Cookbook\Entity\Meal::class, StubNotIndexedEntity::class]),
+        );
+    }
+
     /** MAG-382: an event's instants name the day fields that stand for them on an all-day event. */
     public function testTheDayFieldsOfTheInstantsAreRead(): void
     {

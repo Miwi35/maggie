@@ -7,6 +7,7 @@ namespace Maggie\Core\Tests\Command;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Cookbook\Entity\Meal;
 use Maggie\Core\Elasticsearch\Command\ElasticsearchReindexCommand;
 use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\IndexManager;
@@ -52,6 +53,38 @@ final class ElasticsearchReindexOrphansTest extends KernelTestCase
         self::assertStringContainsString('0 orphan document(s) removed', $tester->getDisplay());
     }
 
+    /** MAG-323: a deploy cleans the meals out of `events` with the orphans pass. */
+    public function testTheMealsLeftInTheEventsIndexAreOrphans(): void
+    {
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $mealIds = array_map(static fn (Meal $meal) => (string) $meal->getId(), $em->getRepository(Meal::class)->findAll());
+        $em->clear();
+        self::assertNotSame([], $mealIds, 'The fixtures hold a meal.');
+
+        $tester = $this->execute(['--orphans' => true], $this->indexHolding('events', ...$mealIds));
+
+        $tester->assertCommandIsSuccessful();
+        $deleted = array_map(static fn (array $operation) => $operation['delete']['_id'], $this->bulkOperations());
+        self::assertEqualsCanonicalizing($mealIds, $deleted);
+    }
+
+    public function testTheEventsIndexIsRebuiltWithoutTheMeals(): void
+    {
+        $tester = $this->execute(['--entity' => 'Event'], static fn (): array => [200, ['acknowledged' => true, 'errors' => false, 'items' => []]]);
+
+        $tester->assertCommandIsSuccessful();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $mealIds = array_map(static fn (Meal $meal) => (string) $meal->getId(), $em->getRepository(Meal::class)->findAll());
+        $indexed = [];
+        foreach ($this->bulkOperations() as $operation) {
+            if (isset($operation['index'])) {
+                $indexed[] = $operation['index']['_id'];
+            }
+        }
+        self::assertNotSame([], $indexed, 'The events are indexed.');
+        self::assertSame([], array_values(array_intersect($indexed, $mealIds)), 'No meal reaches the events index.');
+    }
+
     public function testItCanBeScopedToOneEntity(): void
     {
         $tester = $this->execute(['--orphans' => true, '--entity' => 'Agenda'], $this->indexHolding('events', self::ORPHAN));
@@ -66,7 +99,10 @@ final class ElasticsearchReindexOrphansTest extends KernelTestCase
     private function indexHolding(string $index, string ...$extraIds): \Closure
     {
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $ids = array_map(static fn (Event $event) => (string) $event->getId(), $em->getRepository(Event::class)->findAll());
+        $ids = array_map(
+            static fn (Event $event) => (string) $event->getId(),
+            array_filter($em->getRepository(Event::class)->findAll(), static fn (Event $event) => !$event instanceof Meal),
+        );
         $em->clear();
 
         return static function (string $method, string $path) use ($index, $ids, $extraIds): array {

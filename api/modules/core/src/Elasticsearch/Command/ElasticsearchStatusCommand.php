@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Elastic\Elasticsearch\Client;
 use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\IndexManager;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -93,11 +94,9 @@ final class ElasticsearchStatusCommand extends Command
         $hasDrift = false;
 
         foreach ($entities as $indexName => $entityClass) {
-            $dbCount = (int) $this->em->createQueryBuilder()
-                ->select('COUNT(e.id)')
-                ->from($entityClass, 'e')
-                ->getQuery()
-                ->getSingleScalarResult();
+            $countQuery = $this->em->createQueryBuilder()->select('COUNT(e.id)')->from($entityClass, 'e');
+            IndexMetadataReader::restrictToOwnRows($countQuery, 'e', $entityClass);
+            $dbCount = (int) $countQuery->getQuery()->getSingleScalarResult();
 
             try {
                 $esCount = (int) $this->client->count(['index' => $indexName])->asArray()['count'];

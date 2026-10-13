@@ -217,9 +217,9 @@ export class CalendarPage extends AdminShell {
    * is the same handle the component's own unit tests use (`findAllByText`),
    * which keeps the two from drifting apart over a theming change.
    *
-   * Month view collapses a day holding more than three events behind
-   * "+N autres", so count in the week or day view when the number is the
-   * assertion.
+   * Month view collapses the events a cell has no room for behind "+N autres"
+   * (the cap follows the cell's height), so count in the week or day view when
+   * the number is the assertion.
    */
   chip(title: string): Locator {
     return this.grid.getByText(title, { exact: true })
