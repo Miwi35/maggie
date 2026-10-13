@@ -54,7 +54,7 @@ class DetectInternalTransfers
     private const string NOT_A_TRANSFER_LABEL = '/^(PAIEMENT\s+(PAR\s+)?(CARTE|CB)|ACHAT\s+(CB|CARTE)|FACTURE\s+CARTE|CARTE|CB|PRLV|PRELEVEMENT|RETRAIT|DAB)\b/';
 
     /** Civilities and particles a bank puts around a name, which say nothing about who it is. */
-    private const array NAME_NOISE = ['M', 'MR', 'MME', 'MLE', 'MLLE', 'MONSIEUR', 'MADAME', 'MADEMOISELLE', 'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'VIR', 'VIREMENT', 'SEPA', 'VERS', 'DEPUIS', 'EN', 'FAVEUR'];
+    private const array NAME_NOISE = ['M', 'MR', 'MME', 'MLE', 'MLLE', 'MONSIEUR', 'MADAME', 'MADEMOISELLE', 'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'VIR', 'VIREMENT', 'SEPA', 'VERS', 'DEPUIS', 'EN', 'FAVEUR', 'INST', 'INSTANTANE', 'PERMANENT', 'RECU', 'EMIS', 'WEB', 'INTERNE', 'VOTRE', 'COMPTE', 'COMPTES', 'ENTRE', 'POUR', 'EPARGNE', 'AU', 'MOTIF'];
 
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
@@ -339,8 +339,9 @@ class DetectInternalTransfers
     /**
      * The credit's counterparty is a name that is neither the owner's, nor
      * one of the two accounts' (a bank words an own transfer after the account
-     * it left). No name — or only civilities and operation wording — is not a
-     * third party: the bank often gives nothing.
+     * it left). No name — or less than two words once civilities and operation
+     * wording are stripped — is not a third party: the bank often gives nothing,
+     * and the label stands in for the name.
      */
     private function namesAThirdParty(Transaction $credit, Transaction $debit): bool
     {
@@ -349,8 +350,10 @@ class DetectInternalTransfers
             return false;
         }
 
+        // A person is a first name and a surname: one word left after the
+        // wording is stripped (« VIREMENT INTERNE ») proves nothing.
         $words = self::words($name);
-        if ([] === $words) {
+        if (\count($words) < 2) {
             return false;
         }
 

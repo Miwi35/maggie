@@ -443,6 +443,10 @@ class DetectInternalTransfersTest extends KernelTestCase
         yield 'the holder, surname first' => ['TRANSFERS USER Internal'];
         yield 'the other account' => ['LIVRET'];
         yield 'the other account, in the bank wording' => ['Virement vers Livret'];
+        yield 'instant transfer wording' => ['VIR INST'];
+        yield 'standing order wording' => ['VIREMENT PERMANENT'];
+        yield 'internal transfer wording' => ['VIREMENT ENTRE COMPTES'];
+        yield 'savings wording' => ['VIREMENT POUR EPARGNE'];
     }
 
     #[DataProvider('counterpartiesOfARealTransfer')]
