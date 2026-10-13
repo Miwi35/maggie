@@ -156,7 +156,7 @@ class SyncBankAccounts
     /**
      * @param array<string, string> $psuHeaders
      *
-     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, pages: int, calls: int, from: string, balanceCents: ?int}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, ignored: int, pages: int, calls: int, from: string, balanceCents: ?int}
      */
     private function syncAccount(
         BankConnection $connection,
@@ -169,6 +169,10 @@ class SyncBankAccounts
         $continuationKey = null;
         $pages = 0;
         $withoutRealCurrency = 0;
+        $ignored = 0;
+        $unreadable = 0;
+        $received = 0;
+        $byStatus = [];
 
         do {
             $page = $this->client->listTransactions(
@@ -181,6 +185,17 @@ class SyncBankAccounts
             ++$pages;
 
             foreach ($page['transactions'] ?? [] as $remote) {
+                ++$received;
+                $status = \is_string($remote['status'] ?? null) ? $remote['status'] : 'none';
+                $byStatus[$status] = ($byStatus[$status] ?? 0) + 1;
+
+                // A card authorisation for nothing (a subscription check, a
+                // hold released at once) moves no money: it is no movement.
+                if ($this->isZeroAmount($remote)) {
+                    ++$ignored;
+                    continue;
+                }
+
                 $currency = $remote['transaction_amount']['currency'] ?? null;
                 if (null !== $currency && !RealCurrency::isReal($currency)) {
                     ++$withoutRealCurrency;
@@ -189,11 +204,27 @@ class SyncBankAccounts
                 $row = $this->toRow($remote, $account->getCurrency());
                 if (null !== $row) {
                     $rows[] = $row;
+                } else {
+                    ++$unreadable;
                 }
             }
 
             $continuationKey = $page['continuation_key'] ?? null;
         } while (null !== $continuationKey && $pages < self::MAX_PAGES_PER_ACCOUNT);
+
+        // What the bank sent and what became of it, counts only: when an
+        // account looks emptier than it should, this tells whether the bank
+        // sent too little or the sync dropped too much (MAG-439).
+        $this->logger->info('Bank sync read {received} movement(s) in {pages} page(s) since {from}: {ignored} at zero, {unreadable} unreadable.', [
+            'received' => $received,
+            'pages' => $pages,
+            'from' => $from->format('Y-m-d'),
+            'ignored' => $ignored,
+            'unreadable' => $unreadable,
+            'byStatus' => $byStatus,
+            'moreToRead' => null !== $continuationKey,
+            'accountId' => (string) $account->getId(),
+        ]);
 
         if ($withoutRealCurrency > 0) {
             $this->logger->warning('The bank gave no real currency for {count} movement(s): the account\'s own is used instead.', [
@@ -220,6 +251,7 @@ class SyncBankAccounts
             'skipped' => $result['skipped'],
             'categorized' => $result['categorized'],
             'counterpartiesCompleted' => $result['counterpartiesCompleted'],
+            'ignored' => $ignored,
             'pages' => $pages,
             'calls' => $pages + 1,
             'from' => $from->format('Y-m-d'),
@@ -314,6 +346,14 @@ class SyncBankAccounts
                 && null !== $account->getExternalAccountId()
                 && !$account->isClosed(),
         ));
+    }
+
+    /** @param array<string, mixed> $remote */
+    private function isZeroAmount(array $remote): bool
+    {
+        $amount = $remote['transaction_amount']['amount'] ?? null;
+
+        return (\is_string($amount) || \is_int($amount) || \is_float($amount)) && is_numeric($amount) && 0.0 === (float) $amount;
     }
 
     /** @param array<string, mixed> $remote */
