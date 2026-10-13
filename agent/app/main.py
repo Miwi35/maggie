@@ -12,6 +12,13 @@ from app.api.routes import router, streaming_gateway
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
+from app.db.memory_index_model import (  # noqa: F401 — register models with AgentBase before create_all
+    MemoryFile,
+    MemoryLink,
+    MemoryOutbox,
+    MemoryTerm,
+    MemoryUsage,
+)
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
 from app.db.pending_action_model import PendingAction  # noqa: F401 — register model with AgentBase before create_all
@@ -24,6 +31,7 @@ from app.e2e_coverage import setup_journey_coverage
 from app.error_tracking import init_error_tracking
 from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
+from app.memory.service import memory_service
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
@@ -99,9 +107,15 @@ async def lifespan(app: FastAPI):
     # every half-minute for the ones a process shutting down hands over later.
     turn_runner.start_sweeper(streaming_gateway)
 
+    # The memory folder: the first pass rehydrates the local copy from the bucket (the pod has no
+    # disk to keep), then it keeps both in step. A bucket that is down is not a reason not to start.
+    memory_service.start()
+
     yield
 
     # Shutdown
+    with contextlib.suppress(Exception):
+        await memory_service.stop()
     with contextlib.suppress(Exception):
         await turn_runner.shutdown()
     with contextlib.suppress(Exception):

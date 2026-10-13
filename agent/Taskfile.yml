@@ -50,3 +50,11 @@ tasks:
     desc: Check code formatting (CI mode)
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format --check app/ evals/
+
+  # ===========================================================================
+  # Memory folder (MAG-195)
+  # ===========================================================================
+  memory:rebuild:
+    desc: Rebuild the memory index from the Markdown files (counters kept). `-- --user <ULID>` to narrow
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent python -m app.memory.rebuild {{.CLI_ARGS}}

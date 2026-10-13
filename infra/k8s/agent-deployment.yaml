@@ -42,6 +42,8 @@ spec:
             - name: jwt-keys
               mountPath: /etc/jwt
               readOnly: true
+            - name: memory
+              mountPath: /var/lib/maggie/memory
           readinessProbe:
             httpGet:
               path: /agent/health
@@ -56,6 +58,10 @@ spec:
               memory: 512Mi
               cpu: 1000m
       volumes:
+        # The memory folder's local copy: a cache of the bucket, rebuilt at boot, never kept.
+        - name: memory
+          emptyDir:
+            sizeLimit: 1Gi
         - name: jwt-keys
           secret:
             secretName: jwt-keys

@@ -61,6 +61,14 @@ class ContextRepository:
                     "ON agent_message (user_id, client_key)"
                 )
             )
+            # MAG-195 — French full-text search over the memory folder. The index is throwaway
+            # (it is rebuilt from the files), so this one is created, never migrated.
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_memory_file_fts "
+                    "ON memory_file USING GIN (to_tsvector('french', search_text))"
+                )
+            )
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:

@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings
 # answers "the AI service is not configured" to every journey step and names
 # nothing.
 LLM_PROVIDERS = ("anthropic", "fake")
+MEMORY_PROVIDERS = ("s3", "fake")
 
 
 class Settings(BaseSettings):
@@ -113,12 +114,46 @@ class Settings(BaseSettings):
     context_close_after_days: int = 14
     context_lifecycle_interval_seconds: int = 600
 
+    # Memory folder (MAG-195): Markdown files, the only truth, kept in an S3-compatible bucket with
+    # versioning on and worked on through a local copy. Provisioned by the owner (MAG-225); nothing here
+    # names a provider, so the bucket stays replaceable. "s3" with an empty bucket = memory off.
+    # "fake" keeps the bucket in the agent's memory, able to fail on demand: dev, unit tests, e2e stack.
+    memory_provider: str = "s3"
+    memory_endpoint: str = ""
+    memory_region: str = ""
+    memory_bucket: str = ""
+    memory_key_id: str = ""
+    memory_application_key: str = ""
+    # True only once the endpoint is known to honour If-Match / If-None-Match: a provider that ignores
+    # the headers would overwrite the owner's edit in silence, so the default compares the ETag first.
+    memory_conditional_writes: bool = False
+    memory_timeout_seconds: float = 10.0
+    # The local copy the agent works on. No persistent volume: it is re-hydrated from the bucket at boot.
+    memory_local_dir: str = "/tmp/maggie-memory"
+    # Background synchronisation, independent of RabbitMQ; a failing bucket is retried with backoff.
+    memory_sync_interval_seconds: int = 60
+    memory_sync_max_backoff_seconds: int = 300
+    # A turn syncs first only if the last pass is older than this, and waits for it at most `timeout`.
+    memory_turn_sync_max_age_seconds: int = 30
+    memory_turn_sync_timeout_seconds: float = 2.0
+
     @field_validator("llm_provider")
     @classmethod
     def _known_provider(cls, value: str) -> str:
         if value not in LLM_PROVIDERS:
             raise ValueError(f"LLM_PROVIDER must be one of {LLM_PROVIDERS}, not {value!r}")
         return value
+
+    @field_validator("memory_provider")
+    @classmethod
+    def _known_memory_provider(cls, value: str) -> str:
+        if value not in MEMORY_PROVIDERS:
+            raise ValueError(f"MEMORY_PROVIDER must be one of {MEMORY_PROVIDERS}, not {value!r}")
+        return value
+
+    @property
+    def memory_enabled(self) -> bool:
+        return self.memory_provider == "fake" or bool(self.memory_bucket)
 
     @property
     def model_aliases(self) -> dict[str, str]:
