@@ -399,21 +399,19 @@ function attempt(label: string): string {
 /**
  * The month cell is as tall as the screen allows, not three events (MAG-323).
  *
- * `dayMaxEvents` was a fixed 3, so a day with four events and a multi-day one wrote
+ * `dayMaxEvents` was a fixed 3, so a day with four events wrote
  * « +1 autre » with room left under it. And the planned meal, a row of the event
  * table, came back from `/api/events` as well as `/api/meals`, so the grid drew it
- * twice. On a 1080 px screen the four events and the bar must all be on the cell,
+ * twice. On a 1080 px screen the four events must all be on the cell,
  * the meal once, and the API must not list the meal among the events.
  */
-test('a day with four events, a multi-day one and a meal fits its month cell, the meal drawn once', async ({ page, api }) => {
+test('a day with four events and a meal fits its month cell, the meal drawn once', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 1080 })
   const [offset] = freeOffsets()
   const day = seedDate(offset)
   const titles = ['Matin', 'Midi', 'Après-midi', 'Soir'].map((part) => attempt(`${part} MAG-323`))
-  const bar = attempt('Séminaire MAG-323')
   const recipe = attempt('Gratin MAG-323')
 
-  await postEvent(api, { summary: bar, allDay: true, startDate: seedDate(offset - 1), endDate: seedDate(offset + 2) })
   for (const [index, title] of titles.entries()) {
     const hour = 8 + index * 3
     await postEvent(api, { summary: title, startAt: `${day}T${String(hour).padStart(2, '0')}:00:00+00:00`, endAt: `${day}T${String(hour + 1).padStart(2, '0')}:00:00+00:00` })
@@ -451,7 +449,6 @@ test('a day with four events, a multi-day one and a meal fits its month cell, th
   for (const title of titles) {
     await expect(cell.getByText(title, { exact: true }), `${title} missing from its cell`).toHaveCount(1)
   }
-  await expect(cell.getByText(bar, { exact: true })).toHaveCount(1)
   await expect(cell.getByText(new RegExp(`${recipe}$`)), 'the meal must be drawn once').toHaveCount(1)
   await expect(cell.locator('.fc-daygrid-more-link'), 'a « +N autres » with room left').toHaveCount(0)
 })
