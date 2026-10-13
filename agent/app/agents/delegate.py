@@ -6,9 +6,11 @@ from app.agents.registry import SubagentDefinition, subagent_registry
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import current_datetime_line
 from app.skills.index import skill_index
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,9 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
 
     router = ToolRouter()
     tools = select_tools(definition, await router.get_tool_definitions(include_native=True))
+    if WEB_SEARCH_TOOL in definition.tools:
+        # Anthropic's server tool, not one the router knows: offered, never routed (MAG-384).
+        tools = with_web_search(tools, await resolve_user_timezone(user_id))
     system = await _system_prompt(definition, user_id, tools)
 
     result = await run_tool_loop(

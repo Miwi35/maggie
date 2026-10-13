@@ -28,6 +28,15 @@ from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tool_blocks import record
 from app.llm.tools import ToolRouter
+from app.llm.web_search import (
+    PAUSE_TURN,
+    SERVER_TOOL_USE,
+    WEB_SEARCH_RESULT,
+    WEB_SEARCH_TOOL,
+    missing_sources,
+    search_failed,
+    with_web_search,
+)
 from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 from app.personality.engine import PersonalityEngine, current_datetime_line
@@ -176,6 +185,8 @@ class StreamingGateway:
 
         # Get tools (contexts are managed by the gateway, not by Claude)
         tools = await self.tool_router.get_tool_definitions(include_native=True)
+        # Anthropic runs the web search itself: it is offered here, never routed (MAG-384).
+        tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
         system_prompt = await self._build_system_prompt(
             user_id, tools=tools, exclude_message_id=user_msg_id, current_context_id=current_context_id
@@ -239,6 +250,28 @@ class StreamingGateway:
                                     "toolCallId": tool_id,
                                     "toolName": tool_name,
                                 }
+                                if event.content_block.type == SERVER_TOOL_USE:
+                                    # What was said so far was the model announcing its search:
+                                    # the answer is the text written after the last one (MAG-384).
+                                    step_text = ""
+                                    step_shown = False
+                            elif event.content_block.type == WEB_SEARCH_RESULT:
+                                # The search ran on Anthropic's side: its result block is the only
+                                # sign it ended, and the Mind panel gets it like any tool's.
+                                yield {
+                                    "type": "TOOL_CALL_END",
+                                    "toolCallId": event.content_block.tool_use_id,
+                                    "toolName": WEB_SEARCH_TOOL,
+                                }
+                                yield {
+                                    "type": "CUSTOM",
+                                    "name": "tool_result",
+                                    "value": {
+                                        "toolCallId": event.content_block.tool_use_id,
+                                        "toolName": WEB_SEARCH_TOOL,
+                                        "status": "error" if search_failed(event.content_block) else "success",
+                                    },
+                                }
 
                         elif event.type == "content_block_delta":
                             if hasattr(event.delta, "text"):
@@ -281,6 +314,12 @@ class StreamingGateway:
                         yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
                         text_started = True
+
+                if stop_reason == PAUSE_TURN:
+                    # A long search stopped on the server's own limit: the response goes back
+                    # as it is and the model carries on (MAG-384).
+                    messages.append({"role": "assistant", "content": response_content})
+                    continue
 
                 # Process tool calls if stop_reason is tool_use
                 if stop_reason == "tool_use":
@@ -376,6 +415,13 @@ class StreamingGateway:
                     yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                     text_started = True
                     yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
+                else:
+                    # The pages the answer cites, as one last line: text is what the clients
+                    # show, store and send back to the model at the next turn (MAG-384).
+                    sources = missing_sources(answer, response_content)
+                    if sources and step_text.strip():
+                        answer = f"{answer}\n\n{sources}"
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
                 break
 
             except Exception as e:

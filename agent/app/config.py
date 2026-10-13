@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     sentry_release: str = ""
     sentry_environment: str = "prod"
 
+    # Anthropic's server-side web search, given to Maggie and to the `researcher` (MAG-384).
+    # The most searches one request may run; 0 switches the web off. The country is a hint
+    # for local questions, and the user's own timezone is added to it per request.
+    web_search_max_uses: int = 5
+    web_search_country: str = "FR"
+
     # MCP Server
     mcp_server_url: str = "http://nginx/_mcp"
 

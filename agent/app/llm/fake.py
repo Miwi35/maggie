@@ -66,11 +66,44 @@ class FakeTextBlock:
 
 
 @dataclass
+class FakeCitation:
+    url: str
+    title: str
+    type: str = "web_search_result_location"
+
+
+@dataclass
+class FakeCitedTextBlock:
+    """A text block of an answer that rests on a web search: the pages it cites ride on the block (MAG-384)."""
+
+    text: str
+    citations: list[FakeCitation]
+    type: str = "text"
+
+
+@dataclass
 class FakeToolUseBlock:
     id: str
     name: str
     input: dict
     type: str = "tool_use"
+
+
+@dataclass
+class FakeServerToolUseBlock:
+    """The web search the model ran on Anthropic's side — never handed to the tool router."""
+
+    id: str
+    input: dict
+    name: str = "web_search"
+    type: str = "server_tool_use"
+
+
+@dataclass
+class FakeWebSearchResultBlock:
+    tool_use_id: str
+    content: list[dict]
+    type: str = "web_search_tool_result"
 
 
 @dataclass
@@ -83,7 +116,9 @@ class FakeUsage:
 
 @dataclass
 class FakeMessage:
-    content: list[FakeTextBlock | FakeToolUseBlock]
+    content: list[
+        FakeTextBlock | FakeCitedTextBlock | FakeToolUseBlock | FakeServerToolUseBlock | FakeWebSearchResultBlock
+    ]
     stop_reason: str
     usage: FakeUsage
     model: str = "fake"
@@ -109,11 +144,21 @@ class ScriptedTool:
 
 
 @dataclass(frozen=True)
+class ScriptedWebSearch:
+    """A web search the model runs before answering (MAG-384): its query, the pages found, the pages cited."""
+
+    query: str
+    results: tuple[tuple[str, str], ...] = ()  # (title, url)
+    cited: tuple[tuple[str, str], ...] = ()  # (title, url), the ones the answer cites
+
+
+@dataclass(frozen=True)
 class Turn:
-    """One model turn: some text, and the tools it asks for."""
+    """One model turn: some text, the tools it asks for, and the web search it ran first."""
 
     text: str = ""
     tools: tuple[ScriptedTool, ...] = ()
+    web_search: ScriptedWebSearch | None = None
 
     @property
     def stop_reason(self) -> str:
@@ -228,6 +273,24 @@ def _as_tuple(value: Any) -> tuple[str, ...]:
     return tuple(str(item) for item in value)
 
 
+def _pages(raw: Any, source: str, position: int, key: str) -> tuple[tuple[str, str], ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(page, dict) and page.get("url") for page in raw):
+        raise ValueError(f"{source}: turn {position} 'web_search.{key}' must be a list of {{title, url}}")
+    return tuple((str(page.get("title") or page["url"]), str(page["url"])) for page in raw)
+
+
+def _parse_web_search(raw: Any, source: str, position: int) -> ScriptedWebSearch | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or not raw.get("query"):
+        raise ValueError(f"{source}: turn {position} 'web_search' must be a mapping with a 'query'")
+    results = _pages(raw.get("results"), source, position, "results")
+    cited = _pages(raw.get("cited"), source, position, "cited") or results
+    return ScriptedWebSearch(query=str(raw["query"]), results=results, cited=cited)
+
+
 def parse_scenario(raw: Any, source: str) -> Scenario:
     """Build a scenario from a fixture file's parsed YAML."""
     if not isinstance(raw, dict):
@@ -247,9 +310,10 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
             for tool in raw_turn.get("tools") or []
         )
         text = str(raw_turn.get("text") or "")
+        web_search = _parse_web_search(raw_turn.get("web_search"), source, position)
         if not text and not tools:
             raise ValueError(f"{source}: turn {position} has neither 'text' nor 'tools'")
-        turns.append(Turn(text=text, tools=tools))
+        turns.append(Turn(text=text, tools=tools, web_search=web_search))
 
     if not turns:
         raise ValueError(f"{source}: a scenario needs at least one turn")
@@ -548,7 +612,7 @@ class FakeStream:
         yield _Event(type="message_start", message=self._message)
 
         for index, block in enumerate(self._message.content):
-            if isinstance(block, FakeTextBlock):
+            if isinstance(block, FakeTextBlock | FakeCitedTextBlock):
                 yield _Event(type="content_block_start", index=index, content_block=FakeTextBlock(text=""))
                 for sent, delta in enumerate(_deltas(block.text), start=1):
                     if self._message.delta_delay:
@@ -614,8 +678,30 @@ class FakeMessages:
         text = scenario.render(turn.text, user_text, history) if scenario else turn.text
 
         offered = {tool["name"] for tool in tools if isinstance(tool, dict) and "name" in tool} if tools else set()
-        content: list[FakeTextBlock | FakeToolUseBlock] = []
-        if text:
+        content: list = []
+        search = turn.web_search
+        if search is not None:
+            if offered and "web_search" not in offered:
+                logger.error(f"[fake-llm] scenario {scenario_name!r} searches the web, but web_search was not offered")
+            search_id = f"srvtoolu_fake_{index}"
+            query = scenario.render(search.query, user_text, history) if scenario else search.query
+            content.append(FakeServerToolUseBlock(id=search_id, input={"query": query}))
+            content.append(
+                FakeWebSearchResultBlock(
+                    tool_use_id=search_id,
+                    content=[
+                        {"type": "web_search_result", "title": title, "url": url, "page_age": None}
+                        for title, url in search.results
+                    ],
+                )
+            )
+        if text and search is not None and search.cited:
+            content.append(
+                FakeCitedTextBlock(
+                    text=text, citations=[FakeCitation(url=url, title=title) for title, url in search.cited]
+                )
+            )
+        elif text:
             content.append(FakeTextBlock(text=text))
         for position, tool in enumerate(turn.tools):
             if offered and tool.name not in offered:
@@ -632,7 +718,7 @@ class FakeMessages:
                 )
             )
 
-        output = text + "".join(str(tool.input) for tool in turn.tools)
+        output = text + "".join(str(tool.input) for tool in turn.tools) + (search.query if search else "")
         return FakeMessage(
             content=content,
             stop_reason=turn.stop_reason,

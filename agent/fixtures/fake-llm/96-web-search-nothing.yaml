@@ -1,0 +1,12 @@
+# A web search that finds nothing reliable: Maggie says so, and does not claim she has no
+# access to the web (MAG-384). No citation, so no sources line.
+name: web-search-nothing
+description: A search without a usable result is reported as such.
+
+match:
+  user_contains: "horaires de la fanfare introuvable"
+
+turns:
+  - text: "J'ai cherché sur le web et je n'ai rien trouvé de fiable sur les horaires de cette fanfare : mieux vaut les demander à l'organisateur."
+    web_search:
+      query: "horaires fanfare introuvable"

@@ -14,8 +14,10 @@ from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
+from app.llm.web_search import with_web_search
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
+from app.policy.engine import A2A_SOURCE
 from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
 from app.user_timezone import resolve_user_timezone
 
@@ -237,6 +239,9 @@ class LLMGateway:
         # Get all tools including proaction tools (so user can schedule reminders from chat);
         # an A2A call only gets the read-only ones
         tools = await self.tool_router.get_tool_definitions(include_native=True, source=source)
+        if source != A2A_SOURCE:
+            # Anthropic runs the web search itself; a peer agent gets the read-only tools only (MAG-384).
+            tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
         try:
             system_prompt = await self._build_system_prompt(

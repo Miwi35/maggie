@@ -770,3 +770,16 @@ class TestThePictureTheQuestionCameWith:
             turns = await build_history(OWNER, context_id="ctx-1", fallback_message="C'est quoi ?", image=image)
 
         assert turns == [{"role": "user", "content": [image.block(), {"type": "text", "text": "C'est quoi ?"}]}]
+
+
+class TestTheSourcesOfAWebAnswerAreReadBack:
+    async def test_the_next_turn_is_sent_the_answer_with_its_sources_line(self, say, thread):
+        """MAG-384: the sources are text of the answer, so the history carries them like the rest."""
+        trip = await thread("Vacances")
+        answer = "Du 17 octobre au 1er novembre.\n\nSource : education.gouv.fr — https://www.education.gouv.fr/calendrier"
+        await say("user", "Dates de la Toussaint ?", context=trip.id, minutes=1)
+        await say("assistant", answer, context=trip.id, minutes=2)
+
+        turns = await build_history(OWNER, context_id=trip.id)
+
+        assert turns[-1] == {"role": "assistant", "content": answer}

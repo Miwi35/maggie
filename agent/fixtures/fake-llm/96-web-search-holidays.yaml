@@ -1,0 +1,22 @@
+# Maggie searches the web and cites her sources (MAG-384).
+#
+# The model runs Anthropic's `web_search` on its side: the response holds the search, its
+# pages, then the answer with `citations`. The agent writes the cited pages as one last line,
+# « Source : domaine — lien », which is what the chat shows as a link and what the next turn
+# reads back from the history. The journey asserts the dates and the link.
+name: web-search-holidays
+description: A public fact (school holidays) is looked up on the web and answered with its source.
+
+match:
+  user_contains: "vacances de la Toussaint"
+
+turns:
+  - text: "Les vacances de la Toussaint 2026 à Rennes (zone B) vont du samedi 17 octobre au dimanche 1er novembre 2026 : reprise des cours le lundi 2 novembre."
+    web_search:
+      query: "calendrier scolaire 2026-2027 vacances de la Toussaint zone B Rennes"
+      results:
+        - title: "Calendrier scolaire 2026-2027"
+          url: "https://www.education.gouv.fr/le-calendrier-scolaire-2026-2027"
+      cited:
+        - title: "Calendrier scolaire 2026-2027"
+          url: "https://www.education.gouv.fr/le-calendrier-scolaire-2026-2027"
