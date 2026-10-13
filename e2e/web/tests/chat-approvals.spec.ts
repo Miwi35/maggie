@@ -88,19 +88,19 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
   await expect(chat.bubbles(announcement(id))).toHaveCount(1)
 
   // The answer stays in the thread as one info line (MAG-336) — however it was given, once —
-  // and is still there after a reload, because it is stored, not only shown.
+  // and is still there after a reload (end of the test), because it is stored, not only shown.
   const line = chat.decisionLines(actionId)
   await expect(line).toHaveCount(1)
   await expect(line).toContainText('Vous avez répondu : Autoriser — ')
 
-  await page.reload()
-  await chat.open()
-  await expect(chat.decisionLines(actionId)).toHaveCount(1)
-
   // The next turn knows the decision: 77-decision-recalled.yaml answers only when the line
   // reached the model's history.
   const recalled = await chat.send("Qu'ai-je décidé ?")
-  expect(assistantText(recalled)).toBe('Tu as autorisé la suppression : je m\'en suis occupée.')
+  expect(assistantText(recalled)).toBe("Tu as autorisé la suppression : je m'en suis occupée.")
+
+  await page.reload()
+  await chat.open()
+  await expect(chat.decisionLines(actionId)).toHaveCount(1)
 })
 
 test('Refuser leaves the event in place', async ({ approvalsUser }) => {
