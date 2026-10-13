@@ -258,6 +258,29 @@ export function writeIgnored(ids: string[]): void {
 }
 
 /** React-admin hands back resources as IRIs; the endpoints want the bare ULID. */
+const VARIABLE_PARTS = [
+  /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b/g,
+  /\b(?:CB|CARTE|CARD)\b[\s*:]*X?\d+/gi,
+  /\bR[ée]f(?:[ée]rence)?\b\.?\s*:?\s*\S+/gi,
+  /\bN°\s*\S+/gi,
+  /\S*\d{4,}\S*/g,
+]
+
+/**
+ * What a bank label reads as when the payee is unknown: the label without the
+ * parts that change from one booking to the next (dates, card and reference
+ * numbers). Left whole if nothing else would remain.
+ */
+export function labelPatternFrom(label: string): string {
+  const whole = label.replace(/\s+/g, ' ').trim()
+  const stable = VARIABLE_PARTS.reduce((text, part) => text.replace(part, ' '), whole)
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-*:/.,]+|[\s\-*:/.,]+$/g, '')
+
+  return stable === '' ? whole : stable
+}
+
 export const idOf = (iri: string) => iri.split('/').pop() ?? iri
 
 export const seriesIri = (id: string) => `/api/recurring_operations/${idOf(id)}`

@@ -90,6 +90,7 @@ describe('RecurringOperationDialog', () => {
     expect(create.mock.calls[0][1].data).toEqual({
       label: 'Abonnement Flixo',
       counterpartyName: 'Flixo',
+      labelPattern: null,
       account: '/api/accounts/01ACC',
       category: '/api/categories/01SUB',
       period: 'monthly',
@@ -108,6 +109,7 @@ describe('RecurringOperationDialog', () => {
     renderDialog({
       initial: {
         label: 'Flixo',
+        counterpartyName: 'Flixo',
         referenceAmountCents: -1349,
         account: '/api/accounts/01ACC',
         category: '/api/categories/01SUB',
@@ -174,6 +176,7 @@ describe('RecurringOperationDialog', () => {
     const { onSaved } = renderDialog({
       initial: {
         label: 'Flixo',
+        counterpartyName: 'Flixo',
         referenceAmountCents: -1349,
         account: '/api/accounts/01ACC',
         category: '/api/categories/01SUB',
@@ -185,6 +188,72 @@ describe('RecurringOperationDialog', () => {
 
     expect(await screen.findByText('Une série existe déjà')).toBeInTheDocument()
     expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  test('shows the label pattern field with a one-line help', () => {
+    renderDialog()
+
+    expect(screen.getByLabelText(/Motif du libellé/)).toBeInTheDocument()
+    expect(screen.getByText(/reconnaît les transactions dont le libellé contient/i)).toBeInTheDocument()
+  })
+
+  test('with neither a payee nor a label pattern, says so in French on the field and writes nothing', async () => {
+    renderDialog({
+      initial: {
+        label: 'Flixo',
+        referenceAmountCents: -1349,
+        account: '/api/accounts/01ACC',
+        category: '/api/categories/01SUB',
+        anchorOn: '2026-10-12',
+      },
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+
+    expect(await screen.findByText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contrepartie attendue')).toBeInvalid()
+    expect(screen.getByLabelText(/Motif du libellé/)).toBeInvalid()
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  test('a label pattern alone is enough, and is sent trimmed', async () => {
+    renderDialog({
+      initial: {
+        label: 'Sas Jardis',
+        referenceAmountCents: -5000,
+        account: '/api/accounts/01ACC',
+        category: '/api/categories/01SUB',
+        anchorOn: '2026-10-12',
+      },
+    })
+
+    await userEvent.type(screen.getByLabelText(/Motif du libellé/), '  Sas Jardis ')
+    await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({ counterpartyName: null, labelPattern: 'Sas Jardis' })
+  })
+
+  test('an API refusal on the payee is shown on the field, without the property name', async () => {
+    create.mockRejectedValueOnce(
+      new Error('counterpartyName: Indique une contrepartie ou un motif de libellé pour reconnaître les transactions'),
+    )
+    renderDialog({
+      initial: {
+        label: 'Flixo',
+        counterpartyName: 'Flixo',
+        referenceAmountCents: -1349,
+        account: '/api/accounts/01ACC',
+        category: '/api/categories/01SUB',
+        anchorOn: '2026-10-12',
+      },
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+
+    expect(await screen.findByText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contrepartie attendue')).toBeInvalid()
+    expect(screen.queryByText(/counterpartyName:/)).not.toBeInTheDocument()
   })
 
   test('cancelling closes without writing', async () => {

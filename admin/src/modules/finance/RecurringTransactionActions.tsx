@@ -7,7 +7,7 @@ import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { useGetOne, useListContext, useNotify } from 'react-admin'
 import { RecurringOperationDialog } from './RecurringOperationDialog'
 import { RecurringCatchUpPreview } from './RecurringCatchUp'
-import { describeHistory, idOf } from './recurringOperations'
+import { describeHistory, idOf, labelPatternFrom } from './recurringOperations'
 import { useAttachRecurringOperations, useRecurringLink } from './useRecurringOperations'
 import type { RaRecord } from 'react-admin'
 import type { RecurringFormValues } from './RecurringOperationDialog'
@@ -85,10 +85,13 @@ export const MakeRecurringButton = ({ record }: { record: RaRecord }) => {
   if (record.recurringOperation) return null
 
   const bookedAt = String(record.bookedAt).slice(0, 10)
-  const name = (record.counterpartyName as string | null | undefined) || (record.label as string)
+  const counterpartyName = (record.counterpartyName as string | null | undefined) ?? ''
+  const name = counterpartyName || (record.label as string)
   const initial: Partial<RecurringFormValues> = {
     label: name,
-    counterpartyName: (record.counterpartyName as string | null | undefined) ?? '',
+    counterpartyName,
+    // Most banks name no payee: the label then recognises the series.
+    labelPattern: counterpartyName === '' ? labelPatternFrom(record.label as string) : '',
     referenceAmountCents: record.amountCents as number,
     account: record.account as string,
     category: (record.category as string | null | undefined) ?? '',

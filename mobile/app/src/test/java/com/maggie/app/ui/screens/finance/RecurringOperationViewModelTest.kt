@@ -20,6 +20,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -385,6 +386,39 @@ class RecurringOperationViewModelTest {
         assertTrue(viewModel.uiState.value.returnToTransaction)
         viewModel.consumeReturnToTransaction()
         assertFalse(viewModel.uiState.value.returnToTransaction)
+    }
+
+    @Test
+    fun `a transaction without a payee becomes a series recognised by its label pattern`() = runTest {
+        val sent = slot<RecurringOperationWriteRequest>()
+        coEvery { repository.create(capture(sent)) } returns Result.success(record.copy(id = "new"))
+        coEvery { repository.attachHistory(true) } returns Result.success(emptyReport)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startFromTransaction(Transaction(id = "tx-jardis", label = "Sas Jardis", amountCents = -5000))
+        viewModel.save(request().copy(counterpartyName = null, labelPattern = "Sas Jardis"))
+        advanceUntilIdle()
+
+        assertEquals("Sas Jardis", sent.captured.labelPattern)
+        assertNull(sent.captured.counterpartyName)
+        assertNull(viewModel.uiState.value.editing)
+        assertEquals("Opération récurrente créée", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a refusal in French is shown as it comes and keeps the form open`() = runTest {
+        val refusal = "Indique une contrepartie ou un motif de libellé pour reconnaître les transactions"
+        coEvery { repository.create(any()) } returns Result.failure(RuntimeException(refusal))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startFromTransaction(Transaction(id = "tx-jardis", label = "Sas Jardis", amountCents = -5000))
+        viewModel.save(request().copy(counterpartyName = null, labelPattern = null))
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.editing)
+        assertEquals(refusal, viewModel.uiState.value.error)
     }
 
     @Test

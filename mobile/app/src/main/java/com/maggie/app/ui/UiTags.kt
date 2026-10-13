@@ -153,6 +153,7 @@ object UiTags {
     const val RECURRING_SUGGESTION_ACCEPT = "recurring_suggestion_accept"
     const val RECURRING_LABEL = "recurring_label"
     const val RECURRING_COUNTERPARTY = "recurring_counterparty"
+    const val RECURRING_LABEL_PATTERN = "recurring_label_pattern"
     const val RECURRING_AMOUNT = "recurring_amount"
     const val RECURRING_ACCOUNT = "recurring_account"
     const val RECURRING_CATEGORY = "recurring_category"

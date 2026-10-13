@@ -137,6 +137,40 @@ class RecurringOperationApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
+    public function testALabelPatternAloneRecognisesTheSeries(): void
+    {
+        $this->login();
+        $before = $this->rows();
+
+        $this->send('POST', '/api/recurring_operations', $this->flixo(['label' => 'Sas Jardis', 'counterpartyName' => null, 'labelPattern' => 'Sas Jardis']));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('Sas Jardis', $this->json()['labelPattern']);
+        self::assertSame($before + 1, $this->rows());
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getRepository(RecurringOperation::class)->findOneBy(['label' => 'Sas Jardis']);
+        self::assertNotNull($stored);
+        self::assertSame('Sas Jardis', $stored->getLabelPattern());
+        self::assertNull($stored->getCounterpartyName());
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
+    }
+
+    public function testNothingToRecogniseItByIsRefusedInFrench(): void
+    {
+        $this->login();
+        $before = $this->rows();
+
+        $this->send('POST', '/api/recurring_operations', $this->flixo(['counterpartyName' => null, 'labelPattern' => null]));
+
+        self::assertResponseStatusCodeSame(422);
+        $violation = array_values(array_filter($this->json()['violations'] ?? [], static fn (array $v) => 'counterpartyName' === $v['propertyPath']));
+        self::assertCount(1, $violation);
+        self::assertSame('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions', $violation[0]['message']);
+        self::assertSame($before, $this->rows());
+        $this->assertMercureUpdateCount(0);
+    }
+
     public function testNoOccurrenceIsWrittenDown(): void
     {
         $this->login();

@@ -175,7 +175,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         }
 
         if (null === $this->counterpartyKey && null === $this->labelPattern) {
-            $context->buildViolation('A recurring operation needs a counterparty or a label pattern to recognise its transactions.')
+            $context->buildViolation('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')
                 ->atPath('counterpartyName')
                 ->addViolation();
         }

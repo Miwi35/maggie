@@ -80,6 +80,33 @@ internal fun parseCents(text: String): Int? {
     return runCatching { value.movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).intValueExact() }.getOrNull()
 }
 
+private val VARIABLE_PARTS = listOf(
+    Regex("""\b\d{4}-\d{2}-\d{2}\b"""),
+    Regex("""\b\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b"""),
+    Regex("""\b(?:CB|CARTE|CARD)\b[\s*:]*X?\d+""", RegexOption.IGNORE_CASE),
+    Regex("""\bR[ée]f(?:[ée]rence)?\b\.?\s*:?\s*\S+""", RegexOption.IGNORE_CASE),
+    Regex("""\bN°\s*\S+""", RegexOption.IGNORE_CASE),
+    Regex("""\S*\d{4,}\S*"""),
+)
+
+private val EDGE_SEPARATORS = Regex("""^[\s\-*:/.,]+|[\s\-*:/.,]+$""")
+
+/**
+ * What a bank label reads as when the payee is unknown: the label without the parts that change
+ * from one booking to the next (dates, card and reference numbers). Left whole if nothing else
+ * would remain.
+ */
+internal fun labelPatternFrom(label: String): String {
+    val whole = label.replace(Regex("""\s+"""), " ").trim()
+    val stable = VARIABLE_PARTS.fold(whole) { text, part -> text.replace(part, " ") }
+        .replace(Regex("""\s+"""), " ")
+        .replace(EDGE_SEPARATORS, "")
+
+    return stable.ifEmpty { whole }
+}
+
+internal const val PAYEE_REQUIRED = "Indique une contrepartie ou un motif de libellé pour reconnaître les transactions"
+
 /**
  * The fields of a recurring operation, new, drawn from a transaction, or stored. The same
  * fields, in the same order, as the admin's dialog.
@@ -95,7 +122,7 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
     var label by mutableStateOf(record?.label ?: payee ?: transaction?.label.orEmpty())
     var counterpartyName by mutableStateOf(payee.orEmpty())
     var labelPattern by mutableStateOf(
-        record?.labelPattern ?: if (transaction != null && payee.isNullOrBlank()) transaction.label else "",
+        record?.labelPattern ?: if (transaction != null && payee.isNullOrBlank()) labelPatternFrom(transaction.label) else "",
     )
     var account by mutableStateOf((record?.account ?: transaction?.account)?.let { recurringAccountIri(idOfIri(it)) })
     var category by mutableStateOf((record?.category ?: transaction?.category)?.let { recurringCategoryIri(idOfIri(it)) })
@@ -144,7 +171,7 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
         if (!show) return@buildMap
         if (label.isBlank()) put("label", "Donnez un nom à l'opération récurrente.")
         if (counterpartyName.isBlank() && labelPattern.isBlank()) {
-            put("payee", "Indiquez la contrepartie ou un motif du libellé : c'est ainsi que les transactions sont reconnues.")
+            put("payee", PAYEE_REQUIRED)
         }
         if (account == null) put("account", "Choisissez un compte.")
         if (category == null) put("category", "Choisissez une catégorie.")
@@ -407,11 +434,12 @@ internal fun RecurringFormFields(
             OutlinedTextField(
                 value = form.labelPattern,
                 onValueChange = { form.labelPattern = it },
-                label = { Text("Motif du libellé (facultatif)") },
-                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Motif du libellé") },
+                isError = form.payeeError != null,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_LABEL_PATTERN),
                 singleLine = true,
             )
-            Helper("Un morceau du libellé bancaire, si la contrepartie n'est pas renseignée par la banque.")
+            Helper("Reconnaît les transactions dont le libellé contient… (si la banque ne nomme pas la contrepartie).")
         }
 
         PickerRow(

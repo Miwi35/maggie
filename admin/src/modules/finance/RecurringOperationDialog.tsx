@@ -27,6 +27,7 @@ import { categoryLabel, orderedCategories } from './categoryTree'
 export interface RecurringFormValues {
   label: string
   counterpartyName: string
+  labelPattern: string
   /** Signed cents: negative is a dépense. */
   referenceAmountCents: number | null
   account: string
@@ -42,6 +43,7 @@ export interface RecurringFormValues {
 export const emptyRecurringValues = (): RecurringFormValues => ({
   label: '',
   counterpartyName: '',
+  labelPattern: '',
   referenceAmountCents: null,
   account: '',
   category: '',
@@ -71,6 +73,11 @@ interface CategoryOption extends RaRecord {
 const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
   nature === 'income' ? category.obligation === 'income' : category.obligation !== 'income'
 
+const PAYEE_REQUIRED = 'Indique une contrepartie ou un motif de libellé pour reconnaître les transactions'
+
+/** The API names the field in front of its message: « counterpartyName: … ». */
+const payeeRefusal = (e: unknown): string | null => /^counterpartyName:\s*(.+)$/s.exec(e instanceof Error ? e.message : '')?.[1] ?? null
+
 const toEuros = (cents: number | null) => (cents === null ? '' : String(Math.abs(cents) / 100))
 
 export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }: RecurringOperationDialogProps) => {
@@ -80,6 +87,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const [amount, setAmount] = useState(toEuros(initial?.referenceAmountCents ?? null))
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refusedPayee, setRefusedPayee] = useState<string | null>(null)
 
   const { data: accounts = [] } = useGetList<RaRecord & { name: string }>('accounts', {
     pagination: { page: 1, perPage: 200 },
@@ -111,6 +119,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const problems = {
     label: values.label.trim() === '' ? 'Donnez un nom à la série' : null,
     amount: !Number.isFinite(cents) || cents === 0 ? 'Saisissez un montant supérieur à 0' : null,
+    payee: values.counterpartyName.trim() === '' && values.labelPattern.trim() === '' ? PAYEE_REQUIRED : null,
     account: values.account === '' ? 'Choisissez un compte' : null,
     category: values.category === '' ? 'Choisissez une catégorie' : null,
     anchorOn: values.anchorOn === '' ? 'Indiquez la date d’une échéance' : null,
@@ -120,12 +129,14 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const submit = () => {
     setTouched(true)
     setError(null)
+    setRefusedPayee(null)
     if (invalid) return
 
     const referenceAmountCents = signedAmountCents(cents, nature)
     const data = {
       label: values.label.trim(),
       counterpartyName: values.counterpartyName.trim() === '' ? null : values.counterpartyName.trim(),
+      labelPattern: values.labelPattern.trim() === '' ? null : values.labelPattern.trim(),
       account: values.account,
       category: values.category,
       period: values.period,
@@ -139,8 +150,15 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
     }
     const options = {
       onSuccess: (saved: RaRecord) => onSaved(saved),
-      onError: (e: unknown) =>
-        setError(e instanceof Error && e.message ? e.message : 'Impossible d’enregistrer l’opération récurrente'),
+      onError: (e: unknown) => {
+        const refusal = payeeRefusal(e)
+        if (refusal) {
+          setRefusedPayee(refusal)
+
+          return
+        }
+        setError(e instanceof Error && e.message ? e.message : 'Impossible d’enregistrer l’opération récurrente')
+      },
     }
 
     if (editing) {
@@ -151,6 +169,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   }
 
   const shown = (key: keyof typeof problems) => (touched ? problems[key] : null)
+  const payeeError = shown('payee') ?? refusedPayee
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recurring-dialog-title">
@@ -186,7 +205,16 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             label="Contrepartie attendue"
             value={values.counterpartyName}
             onChange={(e) => set('counterpartyName', e.target.value)}
-            helperText="Qui est payé (ou qui paie), tel que la banque le nomme : c’est ce qui rattache les transactions."
+            error={Boolean(payeeError)}
+            helperText={payeeError ?? 'Qui est payé (ou qui paie), tel que la banque le nomme : c’est ce qui rattache les transactions.'}
+            fullWidth
+          />
+          <TextField
+            label="Motif du libellé"
+            value={values.labelPattern}
+            onChange={(e) => set('labelPattern', e.target.value)}
+            error={Boolean(payeeError)}
+            helperText="Reconnaît les transactions dont le libellé contient… (si la banque ne nomme pas la contrepartie)."
             fullWidth
           />
           <TextField

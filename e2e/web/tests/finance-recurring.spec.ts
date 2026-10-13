@@ -458,3 +458,60 @@ test('a debit becomes a recurring operation from the account list, its history i
   await list.openTransactions(accountId)
   await expect(list.content.getByText('Série · Netflix')).toHaveCount(2)
 })
+
+test('a debit without counterparty becomes a recurring operation recognised by its label (MAG-437)', async ({ otherUser }) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-437, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryName = `Abonnements MAG-437, essai ${attempt}`
+  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
+  createdCategoryIds.push(categoryId)
+
+  // Given a debit whose label names no merchant: the bank gives it no counterparty.
+  const label = 'PAIEMENT PAR CARTE X9633'
+  const line = await debit(api, accountId, label, -1250, `${parisDay().slice(0, 7)}-03`)
+  expect(line.id).toBeTruthy()
+
+  // When, in the account list, I make a recurring operation of it
+  const list = new FinanceAccountsPage(page)
+  await list.openTransactions(accountId)
+  const recurring = new FinanceRecurringPage(page)
+  await list.content.getByRole('button', { name: `En faire une opération récurrente : ${label}` }).first().click()
+
+  // Then the counterparty is empty and the label pattern is filled, with its help
+  await expect(recurring.form.getByLabel('Contrepartie attendue')).toHaveValue('')
+  const pattern = recurring.form.getByLabel('Motif du libellé')
+  await expect(pattern).not.toHaveValue('')
+  await expect(recurring.form).toContainText(/reconnaît les transactions dont le libellé contient/i)
+  const patternValue = await pattern.inputValue()
+  await recurring.choose(/Catégorie/, categoryName)
+
+  // And emptying both says why, in French, and saves nothing
+  await recurring.form.getByLabel('Motif du libellé').fill('')
+  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
+  await expect(recurring.form).toContainText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')
+
+  // When I restore the pattern and save
+  await recurring.form.getByLabel('Motif du libellé').fill(patternValue)
+  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
+
+  // Then the series is stored with its pattern and no counterparty
+  const series = await waitForIndexed<{ id?: string; label?: string; labelPattern?: string | null; counterpartyName?: string | null }>(
+    api,
+    '/api/recurring_operations',
+    (s) => s.labelPattern === patternValue,
+    { what: 'The series recognised by its label' },
+  )
+  expect(series.counterpartyName ?? null).toBeNull()
+
+  // And it appears in « Opérations récurrentes » with its pattern
+  await recurring.open()
+  await expect(recurring.row(String(series.label))).toContainText(patternValue)
+})
