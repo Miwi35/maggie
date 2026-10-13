@@ -71,6 +71,13 @@ class ContextRepository:
                     "ON memory_file USING GIN (to_tsvector('french', search_text))"
                 )
             )
+            # MAG-23 — the owner's thumb on an answer, and up to when the style synthesis read them.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback VARCHAR(8)"))
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback_comment TEXT"))
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback_at TIMESTAMPTZ"))
+            await conn.execute(
+                text("ALTER TABLE agent_user_setting ADD COLUMN IF NOT EXISTS style_synthesized_at TIMESTAMPTZ")
+            )
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:

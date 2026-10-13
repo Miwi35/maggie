@@ -25,6 +25,7 @@ from app.db.models import Message  # noqa: F401 — register model with AgentBas
 from app.db.pending_action_model import PendingAction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
+from app.db.style_proposal_model import StyleProposal  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
 from app.e2e_coverage import setup_journey_coverage

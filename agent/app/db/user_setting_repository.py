@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 
 from app.db.agent_engine import agent_engine, agent_session
@@ -27,6 +29,18 @@ class UserSettingRepository:
             await session.commit()
             await session.refresh(setting)
             return setting
+
+
+    async def set_style_synthesized_at(self, user_id: str, until: datetime) -> None:
+        """Record up to when the style synthesis has read this user's thumbs (MAG-23)."""
+        async with agent_session() as session:
+            result = await session.execute(select(UserSetting).where(UserSetting.user_id == user_id))
+            setting = result.scalar_one_or_none()
+            if setting is None:
+                session.add(UserSetting(user_id=user_id, style_synthesized_at=until))
+            else:
+                setting.style_synthesized_at = until
+            await session.commit()
 
 
 user_setting_repo = UserSettingRepository()

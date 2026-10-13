@@ -17,6 +17,9 @@ NOTHING_SAID = "…"
 # (MAG-336): neither the user's message nor hers, an information line every client shows apart.
 DECISION_ROLE = "decision"
 
+FEEDBACK_UP = "up"
+FEEDBACK_DOWN = "down"
+
 
 class Message(AgentBase):
     """Chat message — owned by the agent, stored in the agent database."""
@@ -56,6 +59,11 @@ class Message(AgentBase):
     # On a `decision` line only: what was answered (`approved`, `denied`, `expired`), the action's
     # summary, the channel it was answered on, and the action itself (MAG-336).
     decision = Column(JSONB, nullable=True)
+    # The owner's thumb on one of Maggie's answers (MAG-23): `up` or `down`, with an optional
+    # word on why. Read by the style synthesis, which turns them into *proposed* directives.
+    feedback = Column(String(8), nullable=True)
+    feedback_comment = Column(Text, nullable=True)
+    feedback_at = Column(DateTime(timezone=True), nullable=True)
 
     def to_dict(self) -> dict:
         """What a client is shown — `GET /agent/messages`, the Mind panel, the phone.
@@ -72,6 +80,8 @@ class Message(AgentBase):
             "hasImage": bool(self.has_image),
             "createdAt": self.created_at.isoformat() if self.created_at else "",
             "interrupted": bool(self.interrupted),
+            "feedback": self.feedback,
+            "feedbackComment": self.feedback_comment,
         }
         if self.decision:
             payload["decision"] = self.decision

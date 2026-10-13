@@ -119,6 +119,11 @@ class Settings(BaseSettings):
     context_dormant_after_hours: int = 24
     context_close_after_days: int = 14
     context_lifecycle_interval_seconds: int = 600
+    # The style synthesis (MAG-23): how often the owner's thumbs are read back, and how many new
+    # ones it takes before the fast model is asked for a directive. One thumb is a mood, not a
+    # style — below the threshold nothing is proposed and nothing is spent.
+    style_synthesis_interval_hours: int = 24
+    style_synthesis_min_feedback: int = 3
 
     # Memory folder (MAG-195): Markdown files, the only truth, kept in an S3-compatible bucket with
     # versioning on and worked on through a local copy. Provisioned by the owner (MAG-225); nothing here
