@@ -70,7 +70,10 @@ class UpdateTaskHandler
             $parentMoved = true;
             $task->setParent(null);
         }
-        if (null !== $command->position) {
+        if (null !== $command->position && $parentMoved) {
+            // A position among new siblings: no swap with the old ones' numbers.
+            $task->setPosition($command->position);
+        } elseif (null !== $command->position) {
             $this->hierarchy->moveTo($task, $command->position);
         } elseif ($parentMoved) {
             $task->setPosition($this->hierarchy->lastPosition($task->getUser(), $task->getParent(), $task));
