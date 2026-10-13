@@ -44,7 +44,7 @@ final class RecordedResponseContractTest extends WebTestCase
 
     /**
      * Recording name => path. One per DTO the mobile app deserialises from a
-     * collection, plus the two identifier-less items.
+     * collection, plus the identifier-less items and the finance reads.
      *
      * @var array<string, string>
      */
@@ -64,6 +64,10 @@ final class RecordedResponseContractTest extends WebTestCase
         'transactions.collection' => '/api/transactions',
         'users.me' => '/api/users/me',
         'user_preferences.me' => '/api/user_preferences/me',
+        'finance_monthly_review.read' => '/api/finance/monthly-review?year=2026&month=3',
+        'finance_daily_score.read' => '/api/finance/daily-score?year=2026&month=3',
+        'finance_cushion_status.read' => '/api/finance/cushion-status',
+        'finance_dashboard.read' => '/api/finance/dashboard?year=2026&month=3',
     ];
 
     private KernelBrowser $client;

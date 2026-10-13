@@ -1,0 +1,26 @@
+{
+    "state": "building",
+    "targetMonths": 3,
+    "monthlyNetIncomeCents": 495000,
+    "referenceSalarySource": "expected",
+    "targetCents": 1485000,
+    "currentCents": 123456,
+    "deficitCents": 1361544,
+    "coveragePercent": 8,
+    "monthsCovered": 0.2,
+    "rechargeCapCents": 15000,
+    "rechargeTargetMonths": 6,
+    "monthlyRechargeCents": 15000,
+    "rechargeMonths": 91,
+    "isCappedByRechargeCap": true,
+    "blocksGreenScore": true,
+    "isConfigured": true,
+    "accounts": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Account",
+            "balanceCents": 123456,
+            "currency": "EUR"
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+{
+    "score": "neutral",
+    "year": 2026,
+    "month": 3,
+    "reasons": [
+        {
+            "code": "no_budget"
+        }
+    ],
+    "budget": {
+        "totalBudgetedCents": 0,
+        "totalConsumedCents": 0,
+        "totalPlannedCents": 0,
+        "totalAvailableCents": 0,
+        "overspentCategories": []
+    },
+    "cushion": {
+        "state": "building",
+        "blocksGreenScore": true
+    },
+    "comparison": {
+        "thisMonthCents": 0,
+        "sameMonthLastYearCents": 0,
+        "differenceCents": 0,
+        "isBetter": false
+    },
+    "referenceSalary": {
+        "monthlyCents": 495000,
+        "source": "expected"
+    }
+}

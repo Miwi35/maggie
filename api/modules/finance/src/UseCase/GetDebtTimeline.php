@@ -7,7 +7,6 @@ namespace Maggie\Finance\UseCase;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\LoanRepository;
-use Maggie\Finance\Repository\SafetyCushionRepository;
 
 /**
  * When each fixed charge falls away, and what is actually left to save.
@@ -22,7 +21,7 @@ class GetDebtTimeline
     public function __construct(
         private readonly LoanRepository $loanRepository,
         private readonly MeasureMonthlyLifestyle $measureMonthlyLifestyle,
-        private readonly SafetyCushionRepository $cushionRepository,
+        private readonly GetReferenceSalary $getReferenceSalary,
     ) {
     }
 
@@ -57,7 +56,7 @@ class GetDebtTimeline
         });
 
         $lifestyle = $this->measureMonthlyLifestyle->execute($user, $today);
-        $income = $this->cushionRepository->findOneByUser($user)?->getMonthlyNetIncomeCents() ?? 0;
+        $income = $this->getReferenceSalary->execute($user)['monthlyCents'] ?? 0;
 
         return [
             'horizonMonths' => $horizon,

@@ -14,7 +14,8 @@ use Maggie\Finance\Repository\TransactionRepository;
  * the user would skip next time, and how that compares with recent months.
  *
  * Nothing is stored: the verdicts on the transactions are the durable data,
- * the review is read from them.
+ * the review is read from them. The month is also read against the reference
+ * salary: how much of it the lifestyle consumed.
  */
 class GetMonthlyReview
 {
@@ -22,6 +23,7 @@ class GetMonthlyReview
 
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
+        private readonly GetReferenceSalary $getReferenceSalary,
     ) {
     }
 
@@ -55,6 +57,9 @@ class GetMonthlyReview
         $reviewableCents = $keptCents + $avoidableCents + $unratedCents;
         $ratedCents = $keptCents + $avoidableCents;
 
+        $comparison = $this->compare($user, $start);
+        $reference = $this->getReferenceSalary->execute($user);
+
         return [
             'year' => $year,
             'month' => $month,
@@ -71,7 +76,31 @@ class GetMonthlyReview
                 : null,
             'isComplete' => [] === $pending && [] !== $reviewable,
             'pending' => $pending,
-            'comparison' => $this->compare($user, $start),
+            'comparison' => $comparison,
+            'referenceSalary' => [
+                'monthlyCents' => $reference['monthlyCents'],
+                'source' => $reference['source'],
+            ],
+            'consumedVsReference' => $this->consumedVsReference($comparison['thisMonthCents'], $reference['monthlyCents']),
+        ];
+    }
+
+    /**
+     * Without a reference there is nothing to be a share of: the difference
+     * and the percentage are null, never 0.
+     *
+     * @return array{consumedCents: int, differenceCents: int|null, percentOfReference: int|null}
+     */
+    private function consumedVsReference(int $consumedCents, ?int $referenceCents): array
+    {
+        if (null === $referenceCents || $referenceCents <= 0) {
+            return ['consumedCents' => $consumedCents, 'differenceCents' => null, 'percentOfReference' => null];
+        }
+
+        return [
+            'consumedCents' => $consumedCents,
+            'differenceCents' => $consumedCents - $referenceCents,
+            'percentOfReference' => (int) round($consumedCents / $referenceCents * 100),
         ];
     }
 

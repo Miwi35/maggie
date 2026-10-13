@@ -17,6 +17,8 @@ use Maggie\Finance\Repository\SafetyCushionRepository;
  *
  * The current amount is never stored: it is the balance of the accounts
  * flagged as cushion, so the net follows the accounts without double entry.
+ * The target follows the reference salary — declared on the cushion, or
+ * measured from the recurring « Salaire » — not the raw field alone.
  */
 class GetCushionStatus
 {
@@ -24,6 +26,7 @@ class GetCushionStatus
         private readonly SafetyCushionRepository $cushionRepository,
         private readonly AccountRepository $accountRepository,
         private readonly EntityManagerInterface $em,
+        private readonly GetReferenceSalary $getReferenceSalary,
     ) {
     }
 
@@ -42,7 +45,10 @@ class GetCushionStatus
             $accounts,
         ));
 
-        $targetCents = $cushion->getTargetCents();
+        $reference = $this->getReferenceSalary->execute($user);
+        $monthlyIncomeCents = $reference['monthlyCents'] ?? 0;
+
+        $targetCents = $cushion->getTargetMonths() * $monthlyIncomeCents;
         $deficitCents = max(0, $targetCents - $currentCents);
         $isComplete = $targetCents > 0 && $currentCents >= $targetCents;
 
@@ -64,15 +70,16 @@ class GetCushionStatus
         return [
             'state' => $state->value,
             'targetMonths' => $cushion->getTargetMonths(),
-            'monthlyNetIncomeCents' => $cushion->getMonthlyNetIncomeCents(),
+            'monthlyNetIncomeCents' => $monthlyIncomeCents,
+            'referenceSalarySource' => $reference['source'],
             'targetCents' => $targetCents,
             'currentCents' => $currentCents,
             'deficitCents' => $deficitCents,
             'coveragePercent' => $targetCents > 0
                 ? (int) round(min(100, $currentCents / $targetCents * 100))
                 : 0,
-            'monthsCovered' => $cushion->getMonthlyNetIncomeCents() > 0
-                ? round($currentCents / $cushion->getMonthlyNetIncomeCents(), 1)
+            'monthsCovered' => $monthlyIncomeCents > 0
+                ? round($currentCents / $monthlyIncomeCents, 1)
                 : 0.0,
             'rechargeCapCents' => $cushion->getRechargeCapCents(),
             'rechargeTargetMonths' => $cushion->getRechargeTargetMonths(),
@@ -81,7 +88,7 @@ class GetCushionStatus
             'isCappedByRechargeCap' => $plan['isCapped'],
             // What the score layer reads: no green while the net is not full.
             'blocksGreenScore' => CushionState::Complete !== $state,
-            'isConfigured' => $cushion->getMonthlyNetIncomeCents() > 0,
+            'isConfigured' => $monthlyIncomeCents > 0,
             'accounts' => array_map(static fn (Account $account) => [
                 'id' => (string) $account->getId(),
                 'name' => $account->getName(),

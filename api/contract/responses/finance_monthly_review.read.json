@@ -1,0 +1,39 @@
+{
+    "year": 2026,
+    "month": 3,
+    "reviewableCents": 4250,
+    "keptCents": 0,
+    "avoidableCents": 0,
+    "unratedCents": 4250,
+    "ratedCount": 0,
+    "pendingCount": 1,
+    "optimisationScore": null,
+    "isComplete": false,
+    "pending": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded transaction",
+            "amountCents": -4250,
+            "currency": "EUR",
+            "bookedAt": "2026-03-17",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "retrospect": "unrated"
+        }
+    ],
+    "comparison": {
+        "thisMonthCents": 0,
+        "previousMonthCents": 0,
+        "recentAverageCents": 0,
+        "sameMonthLastYearCents": 0
+    },
+    "referenceSalary": {
+        "monthlyCents": 495000,
+        "source": "expected"
+    },
+    "consumedVsReference": {
+        "consumedCents": 0,
+        "differenceCents": -495000,
+        "percentOfReference": 0
+    }
+}

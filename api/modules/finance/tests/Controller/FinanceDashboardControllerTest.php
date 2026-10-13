@@ -52,6 +52,8 @@ class FinanceDashboardControllerTest extends WebTestCase
         self::assertCount(2, $data['budgets']);
         self::assertSame('Alimentation', $data['topPosts'][0]['categoryName']);
         self::assertArrayHasKey('netCapacityCents', $data['savingCapacity']);
+        self::assertSame(['monthlyCents' => 250000, 'source' => 'declared'], $data['score']['referenceSalary']);
+        self::assertSame(250000, $data['savingCapacity']['monthlyNetIncomeCents']);
     }
 
     public function testTopPostsCarryTheCategoryIdTheRestOfTheApiUses(): void

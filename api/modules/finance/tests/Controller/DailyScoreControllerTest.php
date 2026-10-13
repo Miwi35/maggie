@@ -51,6 +51,8 @@ class DailyScoreControllerTest extends WebTestCase
         self::assertSame(25000, $data['budget']['totalConsumedCents']);
         self::assertSame('complete', $data['cushion']['state']);
         self::assertContains('below_last_year', array_column($data['reasons'], 'code'));
+        self::assertSame(['monthlyCents' => 250000, 'source' => 'declared'], $data['referenceSalary']);
+        self::assertNotContains('spending_above_reference_salary', array_column($data['reasons'], 'code'));
     }
 
     public function testDefaultsToTheCurrentPeriod(): void

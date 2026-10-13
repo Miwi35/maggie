@@ -20,6 +20,7 @@ class GetDailyScore
         private readonly GetBudgetStatus $getBudgetStatus,
         private readonly GetCushionStatus $getCushionStatus,
         private readonly TransactionRepository $transactionRepository,
+        private readonly GetReferenceSalary $getReferenceSalary,
     ) {
     }
 
@@ -29,6 +30,7 @@ class GetDailyScore
         $budget = $this->getBudgetStatus->execute($user, $year, $month);
         $cushion = $this->getCushionStatus->execute($user);
         $comparison = $this->compareWithLastYear($user, $year, $month);
+        $reference = $this->getReferenceSalary->execute($user);
 
         $reasons = [];
         $overspentMandatory = [];
@@ -79,6 +81,16 @@ class GetDailyScore
             ];
         }
 
+        $aboveReferenceSalary = null !== $reference['monthlyCents']
+            && $comparison['thisMonthCents'] > $reference['monthlyCents'];
+
+        if ($aboveReferenceSalary) {
+            $reasons[] = [
+                'code' => 'spending_above_reference_salary',
+                'amountCents' => $comparison['thisMonthCents'] - $reference['monthlyCents'],
+            ];
+        }
+
         $reasons[] = [
             'code' => $comparison['isBetter'] ? 'below_last_year' : 'above_last_year',
             'amountCents' => abs($comparison['differenceCents']),
@@ -91,6 +103,7 @@ class GetDailyScore
             overspentOptional: [] !== $overspentOptional,
             overcommitted: [] !== $overcommitted,
             cushionBlocksGreen: $cushion['blocksGreenScore'],
+            aboveReferenceSalary: $aboveReferenceSalary,
             betterThanLastYear: $comparison['isBetter'],
         );
 
@@ -118,13 +131,18 @@ class GetDailyScore
                 'blocksGreenScore' => $cushion['blocksGreenScore'],
             ],
             'comparison' => $comparison,
+            'referenceSalary' => [
+                'monthlyCents' => $reference['monthlyCents'],
+                'source' => $reference['source'],
+            ],
         ];
     }
 
     /**
      * Red and orange are about the budget alone. The cushion can only hold
      * green back — building one is a normal state, not a fault — and so can
-     * spending more than last year, which is often perfectly legitimate.
+     * spending more than last year, or more than the reference salary, which
+     * are often perfectly legitimate.
      */
     private function decide(
         bool $hasBudget,
@@ -133,6 +151,7 @@ class GetDailyScore
         bool $overspentOptional,
         bool $overcommitted,
         bool $cushionBlocksGreen,
+        bool $aboveReferenceSalary,
         bool $betterThanLastYear,
     ): DailyScore {
         if (!$hasBudget) {
@@ -147,7 +166,7 @@ class GetDailyScore
             return DailyScore::Orange;
         }
 
-        if (!$cushionBlocksGreen && $betterThanLastYear) {
+        if (!$cushionBlocksGreen && !$aboveReferenceSalary && $betterThanLastYear) {
             return DailyScore::Green;
         }
 
