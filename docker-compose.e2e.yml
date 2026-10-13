@@ -30,7 +30,7 @@
 # Elasticsearch alone took 1.3 GiB before it was tuned). The ticket aimed at
 # 2.5 GiB; below these, measured services hit their limit (Elasticsearch at
 # 896 MB sat at 842 MB) or trip their own alarms (RabbitMQ's watermark).
-# Two one-shots sit outside the sum: admin-build (1280, gone once the bundle
+# Two one-shots sit outside the sum: admin-build (1792, gone once the bundle
 # exists) and playwright / playwright-journeys (1536 each, behind a profile,
 # never run together). Raise a limit here, never
 # remove it. `task e2e:up` refuses to start below 5 GB available (wt/guard.sh).
@@ -283,8 +283,9 @@ services:
       npm_config_cache: /tmp/.npm-cache
       npm_config_update_notifier: "false"
       # Vite's default heap ceiling is sized from the host, not the container:
-      # below it the build is OOM-killed instead of garbage-collected.
-      NODE_OPTIONS: --max-old-space-size=1024
+      # below it the build is OOM-killed instead of garbage-collected. 1024 MiB
+      # was reached by the production build (CI, 13 Oct.: heap out of memory).
+      NODE_OPTIONS: --max-old-space-size=1536
       E2E_ADMIN_PREBUILT: ${E2E_ADMIN_PREBUILT:-}
       # 1 = emit source maps, which the nightly's coverage needs (admin/vite.config.ts).
       E2E_COVERAGE: ${E2E_COVERAGE:-}
@@ -310,8 +311,8 @@ services:
           npm ci
         fi
         npm run build
-    mem_limit: 1280m
-    memswap_limit: 1280m
+    mem_limit: 1792m
+    memswap_limit: 1792m
     labels:
       <<: *stack-label
     networks:
