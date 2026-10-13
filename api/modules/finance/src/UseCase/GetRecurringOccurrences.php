@@ -20,7 +20,8 @@ use Maggie\Finance\Service\RecurrenceSchedule;
  * not hide it; a second matching rule would be a second truth.
  *
  * A pure read. Nothing is materialised and nothing is extrapolated: only the
- * series the owner confirmed project, and a series that has ended stops. The
+ * series the owner confirmed project, a series that has ended stops, and so
+ * does one on an account that has been closed. The
  * amount is the series' signed reference, in the currency of its account.
  */
 class GetRecurringOccurrences
@@ -63,6 +64,10 @@ class GetRecurringOccurrences
 
         $occurrences = [];
         foreach ($series as $operation) {
+            if ($operation->getAccount()->isClosed()) {
+                continue;
+            }
+
             $operationId = (string) $operation->getId();
 
             foreach ($this->schedule->occurrencesBetween($operation, $from, $until) as $date) {

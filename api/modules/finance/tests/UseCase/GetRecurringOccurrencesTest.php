@@ -80,6 +80,17 @@ class GetRecurringOccurrencesTest extends KernelTestCase
         self::assertSame([], $this->read('2027-07-01', '2027-09-01'));
     }
 
+    public function testASeriesOnAClosedAccountProjectsNothing(): void
+    {
+        $this->series('Loyer', -90000, '2027-01-05');
+        $this->series('Ancien livret', -1000, '2027-01-10', 'livret');
+        $livret = $this->getFixture('livret');
+        $livret->setClosedAt(new \DateTimeImmutable('2027-03-01'));
+        $this->em->flush();
+
+        self::assertSame(['Loyer'], array_unique(array_column($this->read('2027-06-01', '2027-08-20'), 'label')));
+    }
+
     public function testTheWindowIsBoundedTo400Days(): void
     {
         $this->series('Loyer', -90000, '2027-01-05');
