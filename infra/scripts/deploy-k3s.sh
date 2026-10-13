@@ -86,40 +86,11 @@ log "Phase 3: Updating image tags to $TAG (only when image exists on GHCR)..."
 # service to the digest it is running right now: immutable, so restarts and
 # rollbacks land on known code.
 
-# One deployment per image, to read back the digest actually running.
-image_deployment() {
-  case "$1" in
-    *maggie-php) echo "php" ;;
-    *maggie-nginx) echo "nginx" ;;
-    *maggie-agent) echo "agent" ;;
-    *maggie-ciqual) echo "ciqual" ;;
-    *) echo "" ;;
-  esac
-}
-
 image_tag_exists() {
   if ! command -v docker >/dev/null 2>&1; then
     return 0
   fi
   docker manifest inspect "$1:$2" >/dev/null 2>&1
-}
-
-# Digest of the image the deployment's pod is running, as repo@sha256:…
-running_digest() {
-  local deploy image image_id
-  deploy=$(image_deployment "$1")
-  image="$1"
-
-  [ -n "$deploy" ] || return 0
-
-  image_id=$($KUBECTL get pod -n "$NAMESPACE" -l "app=$deploy" \
-    --field-selector=status.phase=Running \
-    -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null || true)
-
-  case "$image_id" in
-    "$image"@sha256:*) echo "${image_id#*@}" ;;
-    *) return 0 ;;
-  esac
 }
 
 set_image_field() {
@@ -130,23 +101,23 @@ set_image_field() {
   sed -i "/name: ${image//\//\\/}$/{n;s#^\([[:space:]]*\)[A-Za-z]*:.*#\1${field}: ${value}#;}" "$KUSTOMIZE_DIR/kustomization.yaml"
 }
 
-# What each image runs before anything changes: verify-digests.sh holds every
-# service not rebuilt by this deploy to it.
-: > "$DIGESTS_FILE.tmp"
-for image in "${IMAGES[@]}"; do
-  before=$(running_digest "$image")
-  if [ -n "$before" ]; then
-    echo "$image $before" >> "$DIGESTS_FILE.tmp"
-  fi
-done
+# What each image runs before anything changes, read once: the pin below and
+# verify-digests.sh, which holds every service not rebuilt by this deploy to
+# it, both use this record (MAG-430). An unreachable kubectl leaves it empty:
+# every image not rebuilt is then left at its tag, with a warning below.
+bash "$(dirname "${BASH_SOURCE[0]}")/running-digests.sh" > "$DIGESTS_FILE.tmp"
 mv "$DIGESTS_FILE.tmp" "$DIGESTS_FILE"
+
+recorded_digest() {
+  awk -v name="$1" '$1 == name { print $2; exit }' "$DIGESTS_FILE"
+}
 
 for image in "${IMAGES[@]}"; do
   if image_tag_exists "$image" "$TAG"; then
     set_image_field "$image" "newTag" "$TAG"
     log "  $image → $TAG"
   else
-    digest=$(running_digest "$image")
+    digest=$(recorded_digest "$image")
     if [ -n "$digest" ]; then
       set_image_field "$image" "digest" "$digest"
       log "  $image → pinned to running ${digest:0:26}… (tag $TAG not on GHCR)"

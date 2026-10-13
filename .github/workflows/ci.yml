@@ -1608,6 +1608,7 @@ jobs:
           bash infra/scripts/tests/release-emergency.test.sh
           bash infra/scripts/tests/incident-gate.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
+          bash infra/scripts/tests/running-digests.test.sh
           bash infra/scripts/tests/should-deploy.test.sh
           bash infra/scripts/tests/tested-tree.test.sh
           bash infra/scripts/tests/migrations-order.test.sh
