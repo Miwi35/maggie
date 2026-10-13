@@ -129,7 +129,9 @@ class StyleSynthesizer:
             logger.warning(f"Style synthesis failed for user {user_id}: {e}")
             return []
 
-    async def _ask(self, exchanges: list[str], *, current: list[str], pending: list[str], rejected: list[str]) -> list[dict]:
+    async def _ask(
+        self, exchanges: list[str], *, current: list[str], pending: list[str], rejected: list[str]
+    ) -> list[dict]:
         parts = []
         if current:
             parts.append("Directives actuelles :\n" + "\n".join(f"- {c}" for c in current))

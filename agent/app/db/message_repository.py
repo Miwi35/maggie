@@ -283,9 +283,7 @@ class MessageRepository:
         """
         async with agent_session() as session:
             result = await session.execute(
-                select(Message).where(
-                    Message.id == message_id, Message.user_id == user_id, Message.role == "assistant"
-                )
+                select(Message).where(Message.id == message_id, Message.user_id == user_id, Message.role == "assistant")
             )
             msg = result.scalar_one_or_none()
             if msg is None:

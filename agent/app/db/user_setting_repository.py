@@ -30,7 +30,6 @@ class UserSettingRepository:
             await session.refresh(setting)
             return setting
 
-
     async def set_style_synthesized_at(self, user_id: str, until: datetime) -> None:
         """Record up to when the style synthesis has read this user's thumbs (MAG-23)."""
         async with agent_session() as session:
