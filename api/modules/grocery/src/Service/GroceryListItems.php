@@ -20,14 +20,15 @@ class GroceryListItems
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly Packaging $packaging,
+        private readonly GroceryLineNeeds $lineNeeds,
     ) {
     }
 
     /**
-     * Adds to the open line of the product when there is one in the same unit,
-     * else appends a line at the end, in the product's usual store. A product
-     * with a packaging is counted in it, whatever the unit asked in, and joins
-     * its open line whatever that line says. Flushes.
+     * Adds to the open line of the product when there is one, else appends a
+     * line at the end, in the product's usual store. A product has one line:
+     * with a packaging it is counted in it, whatever the unit asked in; without
+     * one the quantity joins what the line needs (MAG-380). Flushes.
      */
     public function addProduct(User $user, Product $product, int|float|null $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
     {
@@ -45,7 +46,7 @@ class GroceryListItems
             $maxPosition = max($maxPosition, $existing->getPosition());
 
             // A ticked line is already in the basket: raising it would hide the new need.
-            if (null === $mergeable && !$existing->isChecked() && $this->isLineOf($existing, $product, $unit)) {
+            if (null === $mergeable && !$existing->isChecked() && $this->isLineOf($existing, $product)) {
                 $mergeable = $existing;
             }
         }
@@ -55,18 +56,23 @@ class GroceryListItems
                 // A line with no quantity yet takes the new one as it is.
                 $current = null === $mergeable->getQuantity() ? 0 : $this->packaging->inPackagings($product, $mergeable->getQuantity(), $mergeable->getUnit());
                 $mergeable->setQuantity((float) $current + (float) $quantity);
+                $mergeable->setUnit($unit);
             } elseif (null !== $quantity) {
-                $mergeable->setQuantity(($mergeable->getQuantity() ?? 0) + $quantity);
+                // Added to what the line needs, so that it keeps one line however the units differ.
+                $this->lineNeeds->apply($mergeable, (float) $quantity, $unit);
             }
-            $mergeable->setUnit($unit);
         } else {
             $item = new GroceryItem();
             $item->setProduct($product);
             $item->setSource($source);
             $item->setStore($product->getPreferredStore());
-            $item->setQuantity($quantity);
-            $item->setUnit($unit);
             $item->setPosition($maxPosition + 1);
+            if (null === $packagingUnit && null !== $quantity) {
+                $this->lineNeeds->apply($item, (float) $quantity, $unit);
+            } else {
+                $item->setQuantity(null !== $quantity ? (float) $quantity : null);
+                $item->setUnit($unit);
+            }
             $list->addItem($item);
         }
 
@@ -137,15 +143,14 @@ class GroceryListItems
         return $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
     }
 
-    private function isLineOf(GroceryItem $item, Product $product, ?Unit $unit): bool
+    private function isLineOf(GroceryItem $item, Product $product): bool
     {
         if ((string) $item->getProduct()?->getId() !== (string) $product->getId()) {
             return false;
         }
 
-        // A packaged product has one line, counted in its packaging; otherwise
-        // quantities of different units cannot be added, and a line with no
-        // quantity at all can take the new one.
-        return null !== $product->getPackagingUnit() || $item->getUnit() === $unit || null === $item->getQuantity();
+        // A product has one line: its needs add up in base units, and what
+        // cannot be added stays on the line next to it (MAG-380).
+        return true;
     }
 }

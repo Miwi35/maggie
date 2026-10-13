@@ -15,4 +15,6 @@ data class GroceryItem(
     val store: Store? = null,
     val buyAfter: String? = null,
     val position: Int = 0,
+    // What the meals need, in base units (MAG-380); `quantity` is what to buy.
+    val needed: List<Need>? = null,
 )

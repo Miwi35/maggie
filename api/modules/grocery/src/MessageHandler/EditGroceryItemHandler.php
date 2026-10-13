@@ -14,6 +14,7 @@ use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -115,6 +116,11 @@ class EditGroceryItemHandler
                 if (null !== $product && $product->getDefaultUnit() !== $unit) {
                     $product->setDefaultUnit($unit);
                 }
+            }
+
+            // What the line says is now what it needs: a hand-written quantity replaces the meals' sum.
+            if (null !== $command->quantity || null !== $command->unit) {
+                $item->setNeeded(Needs::of($item->getQuantity(), $item->getUnit()));
             }
         }
 

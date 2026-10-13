@@ -17,6 +17,7 @@ use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\GroceryLineNeeds;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -30,6 +31,7 @@ class AddGroceryItemHandler
         private readonly StoreRepository $storeRepository,
         private readonly UserRepository $userRepository,
         private readonly Packaging $packaging,
+        private readonly GroceryLineNeeds $lineNeeds,
     ) {
     }
 
@@ -122,7 +124,7 @@ class AddGroceryItemHandler
             $unit = $matched->getPackagingUnit();
         }
 
-        $mergeable = null !== $matched ? $this->findMergeable($list, $matched, $unit) : null;
+        $mergeable = null !== $matched ? $this->findMergeable($list, $matched) : null;
         if (null !== $mergeable) {
             $this->merge($mergeable, $quantity, $unit);
             $list->setUpdatedAt(new \DateTimeImmutable());
@@ -131,8 +133,13 @@ class AddGroceryItemHandler
             return $list;
         }
 
-        $item->setQuantity($quantity);
-        $item->setUnit($unit);
+        if (null !== $quantity && null === $item->getProduct()?->getPackagingUnit()) {
+            // The quantity is a need of the product, in a base unit.
+            $this->lineNeeds->apply($item, $quantity, $unit);
+        } else {
+            $item->setQuantity($quantity);
+            $item->setUnit($unit);
+        }
 
         $maxPosition = 0;
         foreach ($list->getItems() as $existing) {
@@ -152,19 +159,13 @@ class AddGroceryItemHandler
     /**
      * The line an added product joins instead of doubling: same product, not
      * yet in the basket — a ticked line is never merged, the new need must not
-     * hide in it (same key as `MealGrocerySync::findMergeable()`). Without a
-     * packaging the unit must match too; with one, every line counts in the
-     * packaging, whatever an older line says.
+     * hide in it (same key as `MealGrocerySync::findMergeable()`). A product has
+     * one line, whatever the unit of what it holds (MAG-380).
      */
-    private function findMergeable(GroceryList $list, Product $product, ?Unit $unit): ?GroceryItem
+    private function findMergeable(GroceryList $list, Product $product): ?GroceryItem
     {
         foreach ($list->getItems() as $existing) {
-            if ($existing->isChecked()) {
-                continue;
-            }
-
-            if ((string) $existing->getProduct()?->getId() === (string) $product->getId()
-                && (null !== $product->getPackagingUnit() || $existing->getUnit() === $unit)) {
+            if (!$existing->isChecked() && (string) $existing->getProduct()?->getId() === (string) $product->getId()) {
                 return $existing;
             }
         }
@@ -179,12 +180,11 @@ class AddGroceryItemHandler
         if (null !== $product && null !== $product->getPackagingUnit()) {
             $current = $this->packaging->inPackagings($product, $existing->getQuantity(), $existing->getUnit());
             $existing->setQuantity((float) $current + ($quantity ?? 1.0));
-        } elseif (null !== $quantity || null !== $existing->getQuantity()) {
-            // Without a quantity on either side there is nothing to count: the line is already there.
-            $existing->setQuantity(($existing->getQuantity() ?? 1.0) + ($quantity ?? 1.0));
+            $existing->setUnit($unit);
+        } elseif (null !== $quantity) {
+            // Without a quantity there is nothing to count: the line is already there.
+            $this->lineNeeds->apply($existing, $quantity, $unit);
         }
-
-        $existing->setUnit($unit);
 
         // Added by hand, so wanted now: a line deferred by a meal's shelf life comes back.
         $existing->setBuyAfter(null);

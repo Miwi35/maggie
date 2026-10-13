@@ -61,3 +61,21 @@ export const quantityHint = (quantity?: number | null, unit?: string | null): st
 
   return name ? `${formatQuantity(quantity)} ${name}` : formatQuantity(quantity)
 }
+
+// What the meals need of a product, in base units (MAG-380): « 800 g », or
+// « 300 g + 2 pièces » when the units cannot be added.
+export interface NeededEntry {
+  quantity: number
+  unit: string | null
+}
+
+const neededEntryLabel = ({ quantity, unit }: NeededEntry): string => {
+  if (unit === 'g' && quantity >= 1000) return `${formatQuantity(quantity / 1000)} kg`
+  if (unit === 'ml' && quantity >= 1000) return `${formatQuantity(quantity / 1000)} l`
+  const name = unitLabel(unit ?? undefined, quantity)
+
+  return name ? `${formatQuantity(quantity)} ${name}` : formatQuantity(quantity)
+}
+
+export const neededLabel = (needed?: NeededEntry[] | null): string | null =>
+  needed && needed.length > 0 ? needed.map(neededEntryLabel).join(' + ') : null

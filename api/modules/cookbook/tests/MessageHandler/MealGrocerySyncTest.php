@@ -26,7 +26,9 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Message\AddRecurringGroceryItemCommand;
+use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Message\RemoveGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -550,6 +552,98 @@ class MealGrocerySyncTest extends KernelTestCase
         $this->bus()->dispatch(new DeleteMealCommand(mealId: $second));
 
         self::assertSame(['Pâtes 1 pack'], $this->unitList());
+    }
+
+    public function testAProductWithoutPackagingIsOneLineWithTheNeedsOfEveryMeal(): void
+    {
+        $this->planMeal('light_pasta');
+        $big = $this->planMealOn('big_pasta', '+2 days');
+
+        self::assertSame(['Pâtes 800 g'], $this->unitList());
+        self::assertSame([['quantity' => 800.0, 'unit' => 'g']], $this->item('Pâtes')->getNeeded());
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $big));
+
+        self::assertSame(['Pâtes 300 g'], $this->unitList());
+    }
+
+    public function testThePacksAreCountedOnTheTotalNeedAndNotOnEachMeal(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+
+        // 300 g + 300 g is 600 g: two packs of 500 g.
+        $this->planMeal('light_pasta');
+        $second = $this->planMealOn('light_pasta', '+2 days');
+        self::assertSame(['Pâtes 2 pack'], $this->unitList());
+
+        // 300 g + 500 g is 800 g: two packs.
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $second));
+        $big = $this->planMealOn('big_pasta', '+2 days');
+        self::assertSame(['Pâtes 2 pack'], $this->unitList());
+        self::assertSame([['quantity' => 800.0, 'unit' => 'g']], $this->item('Pâtes')->getNeeded());
+
+        // Without the 500 g meal, 300 g is one pack again.
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $big));
+        self::assertSame(['Pâtes 1 pack'], $this->unitList());
+    }
+
+    public function testNeedsInUnitsThatCannotBeAddedStayOnOneLine(): void
+    {
+        $this->planMeal('light_pasta');
+        $fresh = $this->planMealOn('pasta_by_the_piece', '+2 days');
+
+        self::assertCount(1, $this->quantitiesOf('Pâtes'), 'one line, not one per unit');
+        self::assertEqualsCanonicalizing(
+            [['quantity' => 300.0, 'unit' => 'g'], ['quantity' => 2.0, 'unit' => 'piece']],
+            $this->item('Pâtes')->getNeeded(),
+        );
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $fresh));
+
+        self::assertSame([['quantity' => 300.0, 'unit' => 'g']], $this->item('Pâtes')->getNeeded());
+    }
+
+    public function testAPackagingAddedToTheProductConvertsTheLineWhenAMealIsAdded(): void
+    {
+        $this->planMeal('light_pasta');
+        self::assertSame(['Pâtes 300 g'], $this->unitList());
+
+        // No background recalculation: the sheet changed, the line did not.
+        $this->givePackaging('pasta_product', 500);
+        self::assertSame(['Pâtes 300 g'], $this->unitList());
+
+        $this->planMealOn('big_pasta', '+2 days');
+
+        self::assertSame(['Pâtes 2 pack'], $this->unitList());
+    }
+
+    public function testAHandAddedPackOnAMealLineStaysWhenTheMealGoes(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+        $meal = $this->planMeal('light_pasta');
+
+        $this->bus()->dispatch(new AddGroceryItemCommand(
+            userId: (string) $this->user()->getId(),
+            label: 'Pâtes',
+            quantity: 1,
+            unit: 'pack',
+        ));
+        self::assertSame(['Pâtes 2 pack'], $this->unitList());
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $meal));
+
+        self::assertSame(['Pâtes 1 pack'], $this->unitList());
+    }
+
+    public function testTheLastNeedTakesTheLineOffTheList(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+        $meal = $this->planMeal('light_pasta');
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $meal));
+
+        self::assertSame([], $this->unitList());
     }
 
     /** Plans tomorrow's pasta, then chooses only the pasta — 400 g, 1 pack of 500 g. */

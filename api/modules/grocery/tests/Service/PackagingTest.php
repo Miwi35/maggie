@@ -4,6 +4,7 @@ namespace Maggie\Grocery\Tests\Service;
 
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -144,14 +145,32 @@ class PackagingTest extends TestCase
         self::assertNull((new Packaging())->inPackagings($this->product(null), 300, Unit::Gram));
     }
 
-    public function testSeveralRecipeQuantitiesAreRoundedUpOnceTogether(): void
+    public function testTheTotalNeedIsRoundedUpToPackagingsOnce(): void
+    {
+        $rice = $this->product(Unit::Pack, 500, Unit::Gram);
+        $packaging = new Packaging();
+
+        // 300 g + 300 g is 600 g: two packs. 300 g + 500 g is 800 g: two packs, not three.
+        self::assertSame(2, $packaging->packsFor($rice, Needs::add(Needs::of(300, Unit::Gram), 300, Unit::Gram)));
+        self::assertSame(2, $packaging->packsFor($rice, Needs::add(Needs::of(300, Unit::Gram), 500, Unit::Gram)));
+        self::assertSame(1, $packaging->packsFor($rice, Needs::add(Needs::of(100, Unit::Gram), 150, Unit::Gram)));
+        self::assertSame(1, $packaging->packsFor($rice, Needs::of(0.4, Unit::Kilogram)), 'a kilogram reads in grams');
+    }
+
+    public function testNothingNeededIsNoPackaging(): void
+    {
+        self::assertSame(0, (new Packaging())->packsFor($this->product(Unit::Pack, 500, Unit::Gram), []));
+    }
+
+    public function testAProductWithoutPackagingHasNoPackCount(): void
+    {
+        self::assertNull((new Packaging())->packsFor($this->product(null), Needs::of(300, Unit::Gram)));
+    }
+
+    public function testANeedThatCannotBeConvertedIsOnePackaging(): void
     {
         $rice = $this->product(Unit::Pack, 500, Unit::Gram);
 
-        // 300 g + 300 g is 600 g: two packs, not 1 + 1 by luck of the rounding, and 0.4 + 0.4 kg is one pack and a bit.
-        self::assertSame(2, (new Packaging())->packagedTotal($rice, [[300, Unit::Gram], [300, Unit::Gram]]));
-        self::assertSame(1, (new Packaging())->packagedTotal($rice, [[100, Unit::Gram], [150, Unit::Gram]]));
-        self::assertSame(3, (new Packaging())->packagedTotal($rice, [[0.5, Unit::Kilogram], [200, Unit::Gram], [1, Unit::Pack]]));
-        self::assertNull((new Packaging())->packagedTotal($this->product(null), [[300, Unit::Gram]]));
+        self::assertSame(1, (new Packaging())->packsFor($rice, Needs::of(2, Unit::Piece)));
     }
 }

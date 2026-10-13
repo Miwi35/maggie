@@ -26,6 +26,33 @@ data class MealGroceryIngredient(
     val stockState: ProductStockState = ProductStockState.IN_STOCK,
     // True for « Stock faible » and « Rupture »: what a client ticks by default.
     val suggested: Boolean = false,
+    // What is already on the list for this product, the other meals behind it, and the total with this meal (MAG-380).
+    val onList: MealGroceryOnList? = null,
+    val otherMeals: List<MealGroceryOtherMeal> = emptyList(),
+    val withThisMeal: MealGroceryWithThisMeal? = null,
+)
+
+@Serializable
+data class MealGroceryOnList(
+    val needed: List<Need> = emptyList(),
+    val packages: Int? = null,
+)
+
+@Serializable
+data class MealGroceryOtherMeal(
+    val mealId: String,
+    val name: String,
+    // `YYYY-MM-DD`.
+    val date: String,
+    val quantity: Double,
+    val unit: String? = null,
+)
+
+@Serializable
+data class MealGroceryWithThisMeal(
+    val needed: List<Need> = emptyList(),
+    val packagesTotal: Int? = null,
+    val packagesToAdd: Int? = null,
 )
 
 @Serializable
@@ -53,4 +80,32 @@ private fun MealGroceryPackaging.contentLabel(): String? {
     val size = size ?: return null
     val sizeUnit = sizeUnit ?: return null
     return "${formatQuantity(size)} ${sizeUnit.frenchLabel(size)}"
+}
+
+private val shortWeekdays = listOf("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
+
+/** « jeu. » for `2026-10-15`; null when the date is not a `YYYY-MM-DD` one. */
+internal fun shortFrenchWeekday(date: String): String? =
+    runCatching { shortWeekdays[java.time.LocalDate.parse(date).dayOfWeek.value - 1] }.getOrNull()
+
+/**
+ * « déjà prévu : 300 g (Bolognaise, jeu.) »: what the other meals already put on the list for this
+ * product (MAG-380). Null when nothing is planned yet.
+ */
+fun MealGroceryIngredient.alreadyPlannedLabel(): String? {
+    val needs = onList?.needed?.takeIf { it.isNotEmpty() }
+        ?: otherMeals.map { Need(it.quantity, it.unit) }
+    val amount = needs.neededLabel() ?: return null
+    val meals = otherMeals.joinToString("; ") { meal ->
+        listOfNotNull(meal.name, shortFrenchWeekday(meal.date)).joinToString(", ")
+    }
+    return if (meals.isEmpty()) "déjà prévu : $amount" else "déjà prévu : $amount ($meals)"
+}
+
+/** « 2 paquets au total (+1) »: packagings once this meal is added; « (+N) » only when it adds some. */
+fun MealGroceryIngredient.packagesTotalLabel(): String? {
+    val total = withThisMeal?.packagesTotal ?: return null
+    val unit = packaging?.unit ?: toBuy.unit
+    val added = withThisMeal.packagesToAdd?.takeIf { it > 0 }
+    return "$total ${unit.frenchLabel(total.toFloat())} au total" + (added?.let { " (+$it)" } ?: "")
 }

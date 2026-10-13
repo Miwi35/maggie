@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.MealGroceryIngredient
+import com.maggie.app.data.model.alreadyPlannedLabel
+import com.maggie.app.data.model.packagesTotalLabel
 import com.maggie.app.data.model.toBuyLabel
 import com.maggie.app.ui.screens.grocery.StockStateChip
 
@@ -197,6 +199,13 @@ private fun IngredientChoiceRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            listOfNotNull(ingredient.alreadyPlannedLabel(), ingredient.packagesTotalLabel()).forEach { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         StockStateChip(ingredient.stockState)
     }

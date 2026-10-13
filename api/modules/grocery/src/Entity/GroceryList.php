@@ -135,6 +135,7 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'customLabel' => $item->getCustomLabel(),
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
+                'needed' => $item->getNeeded(),
                 'checked' => $item->isChecked(),
                 'source' => $item->getSource()->value,
                 'storeId' => null !== $item->getStore() ? (string) $item->getStore()->getId() : null,
@@ -153,6 +154,7 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'customLabel' => $item->getCustomLabel(),
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
+                'needed' => $item->getNeeded(),
                 'checked' => $item->isChecked(),
                 'source' => $item->getSource()->value,
                 'store' => null !== $item->getStore() ? [

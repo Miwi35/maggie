@@ -10,6 +10,8 @@ import DialogContent from '@mui/material/DialogContent'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Typography from '@mui/material/Typography'
 import { StockStateChip } from '../grocery/StockStateChip'
+import { neededLabel } from '../grocery/groceryQuantity'
+import type { NeededEntry } from '../grocery/groceryQuantity'
 import { quantityLabel } from '../grocery/packaging'
 
 interface PreviewLine {
@@ -21,6 +23,17 @@ interface PreviewLine {
   toBuy: { quantity: number; unit: string }
   stockState: string
   suggested: boolean
+  onList?: { needed: NeededEntry[]; packages: number | null } | null
+  otherMeals?: OtherMeal[]
+  withThisMeal?: { needed: NeededEntry[]; packagesTotal: number | null; packagesToAdd: number | null } | null
+}
+
+interface OtherMeal {
+  mealId: string
+  name: string
+  date: string
+  quantity: number
+  unit: string | null
 }
 
 interface Preview {
@@ -34,6 +47,9 @@ interface Row {
   lines: PreviewLine[]
   stockState: string
   suggested: boolean
+  onList: PreviewLine['onList']
+  otherMeals: OtherMeal[]
+  withThisMeal: PreviewLine['withThisMeal']
 }
 
 function rowsOf(lines: PreviewLine[]): Row[] {
@@ -50,6 +66,9 @@ function rowsOf(lines: PreviewLine[]): Row[] {
         lines: [line],
         stockState: line.stockState,
         suggested: line.suggested,
+        onList: line.onList ?? null,
+        otherMeals: line.otherMeals ?? [],
+        withThisMeal: line.withThisMeal ?? null,
       })
     }
   }
@@ -67,6 +86,33 @@ function toBuyLabel(row: Row): string {
       return bought + content
     })
     .join(' + ')
+}
+
+const WEEKDAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
+
+/** « jeu. » — the short weekday of a `YYYY-MM-DD` date, read as a calendar day (no timezone shift). */
+function weekdayOf(date: string): string {
+  const [year, month, day] = date.split('-').map(Number)
+
+  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? ''
+}
+
+/** « déjà prévu : 300 g (Bolognaise, jeu.) » — what the list already holds from other meals, null when nothing. */
+function alreadyPlannedLabel(row: Row): string | null {
+  const needed = neededLabel(row.onList?.needed)
+  if (!needed && row.otherMeals.length === 0) return null
+  const meals = row.otherMeals.map((meal) => `${meal.name}, ${weekdayOf(meal.date)}`).join(', ')
+
+  return `déjà prévu : ${[needed, meals && `(${meals})`].filter(Boolean).join(' ')}`
+}
+
+/** « 2 paquets au total (+1) » — the line once this meal is added; null for a product without packaging. */
+function packagesTotalLabel(row: Row): string | null {
+  const total = row.withThisMeal?.packagesTotal
+  if (total == null) return null
+  const toAdd = row.withThisMeal?.packagesToAdd
+
+  return `${quantityLabel(total, row.lines.find((line) => line.packaging)?.packaging?.unit ?? 'pack')} au total${toAdd ? ` (+${toAdd})` : ''}`
 }
 
 const recipeLabel = (row: Row): string => row.lines.map(({ quantity, unit }) => quantityLabel(quantity, unit)).join(' + ')
@@ -243,6 +289,16 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
                 <Typography variant="caption" color="text.secondary">
                   Recette : {recipeLabel(row)}
                 </Typography>
+                {alreadyPlannedLabel(row) && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} data-testid="already-planned">
+                    {alreadyPlannedLabel(row)}
+                  </Typography>
+                )}
+                {packagesTotalLabel(row) && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} data-testid="packages-total">
+                    {packagesTotalLabel(row)}
+                  </Typography>
+                )}
               </Box>
               {row.stockState !== 'in_stock' && <StockStateChip state={row.stockState} />}
             </Box>

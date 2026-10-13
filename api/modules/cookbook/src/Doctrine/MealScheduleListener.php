@@ -102,7 +102,7 @@ final class MealScheduleListener
      * cascade, a contribution already managed would point at a meal that is gone and
      * make the next flush fail.
      *
-     * @return list<array{groceryItemId: string, quantity: float}>
+     * @return list<array{groceryItemId: string, quantity: float, unit: ?string}>
      */
     private function contributionsOf(EntityManagerInterface $em, Meal $meal): array
     {
@@ -110,7 +110,11 @@ final class MealScheduleListener
         $contributions = [];
 
         foreach ($em->getRepository(MealGroceryContribution::class)->findBy(['meal' => $meal]) as $contribution) {
-            $contributions[] = ['groceryItemId' => (string) $contribution->getGroceryItem()->getId(), 'quantity' => $contribution->getQuantity()];
+            $contributions[] = [
+                'groceryItemId' => (string) $contribution->getGroceryItem()->getId(),
+                'quantity' => $contribution->getQuantity(),
+                'unit' => $contribution->getUnit()?->value,
+            ];
 
             if (!$uow->isScheduledForDelete($contribution)) {
                 $uow->scheduleForDelete($contribution);

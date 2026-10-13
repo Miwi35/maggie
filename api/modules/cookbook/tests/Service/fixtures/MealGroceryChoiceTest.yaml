@@ -76,6 +76,11 @@ Maggie\Cookbook\Entity\Recipe:
     name: Riz deux fois
     servings: 2
     user: '@test_user'
+  # 500 g of rice: with the curry's 300 g, 800 g is two 500 g packs, not 1 + 1 by luck.
+  big_rice:
+    name: Riz pour la tablée
+    servings: 6
+    user: '@test_user'
   other_recipe:
     name: Riz cantonais
     servings: 2
@@ -112,6 +117,11 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     ingredient: '@rice'
     quantity: 0.2
     unit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+  ri_big_rice:
+    recipe: '@big_rice'
+    ingredient: '@rice'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
   ri_other_rice:
     recipe: '@other_recipe'
     ingredient: '@other_rice'

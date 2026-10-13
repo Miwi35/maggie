@@ -18,7 +18,7 @@ class RevokeMealGroceries
     }
 
     /**
-     * @param list<array{groceryItemId: string, quantity: float}> $contributions
+     * @param list<array{groceryItemId: string, quantity: float, unit: ?string}> $contributions
      *
      * @return GroceryList|null the list that lost shopping, null when the meal had put nothing on it
      */
