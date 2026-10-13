@@ -1,0 +1,26 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: proaction-api@example.com
+    googleId: google-proaction-api
+    name: Proaction Api User
+  other_user:
+    email: proaction-api-other@example.com
+    googleId: google-proaction-api-other
+    name: Other Api User
+
+Maggie\Calendar\Entity\Agenda:
+  maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@test_user'
+  perso:
+    name: Perso
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Proaction:
+  proaction:
+    prompt: Rappelle de déposer Ael à l'école
+    summary: Dépose Ael
+    startAt: '<(new \DateTimeImmutable("2037-01-15T08:30:00+01:00"))>'
+    agenda: '@maggie_agenda'

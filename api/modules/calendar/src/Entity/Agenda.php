@@ -66,6 +66,8 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
     use MercurePayloadFilterTrait;
     /** The agenda where the meal planner files what it produces (MAG-324). */
     public const MODULE_COOKBOOK = 'cookbook';
+    /** The agenda where Maggie files her proactions (ADR-012, MAG-326). */
+    public const MODULE_AGENT = 'agent';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]

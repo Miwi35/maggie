@@ -85,6 +85,21 @@
         },
         "description": "Set the preferred/fallback store and shelf life for a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable)."
     },
+    "cancel_proaction": {
+        "name": "cancel_proaction",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Cancel a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. This time only — to stop a lasting habit, change the instruction instead."
+    },
     "check_conflicts": {
         "name": "check_conflicts",
         "inputSchema": {
@@ -126,6 +141,22 @@
             ]
         },
         "description": "Toggle the checked state of a grocery item. Set checked=true when bought, false to uncheck."
+    },
+    "claim_due_proactions": {
+        "name": "claim_due_proactions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Reserved for the proaction executor — never call it in a conversation. Claims the pending proactions whose time has come and marks them running, atomically: a proaction is claimed once, however many executors ask. Each comes with its userId and prompt; report the outcome with record_proaction_result."
     },
     "create_event": {
         "name": "create_event",
@@ -595,6 +626,36 @@
             }
         },
         "description": "Daily weather forecast from Open-Meteo: min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather."
+    },
+    "list_proactions": {
+        "name": "list_proactions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "to": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "status": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "List the proactions Maggie scheduled for the user, by time: each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). Optional from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; optional status filters. Use it before scheduling, so as not to schedule one that already exists."
     },
     "manage_accounts": {
         "name": "manage_accounts",
@@ -1996,6 +2057,39 @@
         },
         "description": "Say what to transfer to give the savings advances back (\"quoi virer, où, et combien ?\"). No arguments. One counter-transfer per open advance, of exactly what is left of it, from the checking account the money landed on to the savings source it came from: proposals[] gives fromAccountId, toAccountId, amountCents, advanceId, currency and a label ready to copy; totalCents adds them up. The proposal is capped at what the checking account holds: when it cannot cover an advance, the proposal is reduced to the balance (isPartial true) and unproposed[] says what could not be proposed (advanceId, sourceAccountName, amountCents, reason insufficient_balance or no_checking_account), unproposedCents adding it up — say it plainly, never present a reduced transfer as the full return. With no open advance, proposals is empty and that is good news: nothing is owed. Amounts are positive integer cents, divide by 100 to speak them. Nothing here moves money: say what to transfer, never that it was transferred. When the user makes the exact transfer, the next detection settles the advance on its own; a regular top-up of the savings account is never counted as a return (mark it funding with manage_transactions if it could be mistaken for one)."
     },
+    "record_proaction_result": {
+        "name": "record_proaction_result",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "response": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "error": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "id",
+                "status"
+            ]
+        },
+        "description": "Reserved for the proaction executor — never call it in a conversation. Records how a claimed (running) proaction went: status completed with response (Maggie's message, may be empty), or status failed with error."
+    },
     "remove_grocery_item": {
         "name": "remove_grocery_item",
         "inputSchema": {
@@ -2025,6 +2119,32 @@
             ]
         },
         "description": "Reorder grocery items by setting their position. Pass an array of {id, position} pairs."
+    },
+    "schedule_proaction": {
+        "name": "schedule_proaction",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string"
+                },
+                "scheduled_at": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "prompt",
+                "scheduled_at"
+            ]
+        },
+        "description": "Schedule ONE run of Maggie at a given moment: at scheduled_at, Maggie receives prompt as her instruction and acts — remind, check, report. It is filed as an event of the user's internal « Maggie » agenda (never synced with Google), five minutes long, so the user sees it and can move or delete it there. Choose between the two first: anything lasting or repeating (« tous les lundis », « les jours où j'ai Ael », « préviens-moi toujours… ») is an instruction — use add_instruction, never a proaction and never an RRULE; a single occurrence (« demain à 8 h 30 », « dans une heure ») is a proaction. scheduled_at is ISO 8601 with a time, e.g. 2037-01-15T08:30:00+01:00, read in Europe/Paris when it has no offset; it must be in the future. prompt is what Maggie will do, written for herself with everything she will need. summary is the short label shown in the agenda (optional, taken from the prompt). Returns the proaction as saved (proaction.scheduledAt): announce exactly that."
     },
     "search": {
         "name": "search",

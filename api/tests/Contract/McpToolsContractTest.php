@@ -130,13 +130,20 @@ final class McpToolsContractTest extends KernelTestCase
     }
 
     /**
+     * Tools the agent serves itself, next to these: Maggie sees both lists, so a
+     * description may send her to one of them (schedule_proaction → add_instruction, MAG-326).
+     * Names from agent/app/llm/tools.py.
+     */
+    private const AGENT_TOOLS = ['add_instruction'];
+
+    /**
      * @param array<string, array<string, mixed>> $tools
      *
      * @return list<string>
      */
     private static function unknownReferences(string $description, array $tools): array
     {
-        $known = array_keys($tools);
+        $known = [...array_keys($tools), ...self::AGENT_TOOLS];
         // "list" prefixes no tool today, but it is the verb an agent invents first.
         $verbs = array_unique([...array_map(static fn (string $name): string => explode('_', $name)[0], $known), 'list']);
         foreach ($tools as $tool) {

@@ -1,0 +1,39 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: proaction@example.com
+    googleId: google-proaction
+    name: Proaction User
+  other_user:
+    email: proaction-other@example.com
+    googleId: google-proaction-other
+    name: Other User
+
+Maggie\Calendar\Entity\Agenda:
+  # Connected to Google and the default: a proaction must go to neither.
+  google_agenda:
+    name: Perso
+    isDefault: true
+    googleCalendarId: perso@group.calendar.google.com
+    user: '@test_user'
+  # The user's own agenda named « Maggie »: never taken over.
+  own_maggie_agenda:
+    name: Maggie
+    user: '@test_user'
+  other_maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Proaction:
+  other_due:
+    prompt: Rappelle à l'autre utilisateur de sortir le chien
+    summary: Sortir le chien
+    startAt: '<(new \DateTimeImmutable("-10 minutes"))>'
+    agenda: '@other_maggie_agenda'
+  other_running:
+    prompt: Rappelle à l'autre utilisateur d'appeler sa mère
+    summary: Appeler sa mère
+    startAt: '<(new \DateTimeImmutable("-30 minutes"))>'
+    agenda: '@other_maggie_agenda'
+    __calls:
+      - markRunning: []
