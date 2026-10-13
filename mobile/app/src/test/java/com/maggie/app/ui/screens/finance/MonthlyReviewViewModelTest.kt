@@ -1,7 +1,9 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.model.ConsumedVsReference
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.PendingSpend
+import com.maggie.app.data.model.ReferenceSalary
 import com.maggie.app.data.model.ReviewComparison
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import io.mockk.coEvery
@@ -121,5 +123,43 @@ class MonthlyReviewViewModelTest {
 
         assertEquals("boom", viewModel.uiState.value.error)
         assertNull(viewModel.uiState.value.review)
+    }
+
+    @Test
+    fun `a review carries the share of the reference salary the month consumed`() = runTest {
+        coEvery { reviewRepository.getReview(any(), any()) } returns Result.success(
+            review.copy(
+                referenceSalary = ReferenceSalary(monthlyCents = 495000, source = "measured"),
+                consumedVsReference = ConsumedVsReference(
+                    consumedCents = 247500,
+                    differenceCents = -247500,
+                    percentOfReference = 50,
+                ),
+            ),
+        )
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value.review
+        assertEquals(50, loaded?.consumedVsReference?.percentOfReference)
+        assertEquals("measured", loaded?.referenceSalary?.source)
+    }
+
+    @Test
+    fun `a review without a reference salary has no share, not 0 percent`() = runTest {
+        coEvery { reviewRepository.getReview(any(), any()) } returns Result.success(
+            review.copy(
+                referenceSalary = ReferenceSalary(monthlyCents = null, source = "unknown"),
+                consumedVsReference = ConsumedVsReference(consumedCents = 110000),
+            ),
+        )
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value.review
+        assertNull(loaded?.consumedVsReference?.percentOfReference)
+        assertNull(loaded?.referenceSalary?.monthlyCents)
     }
 }

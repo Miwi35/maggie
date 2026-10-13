@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ConsumedVsReference, ReferenceSalary } from './referenceSalary'
 
 export interface PendingSpend {
   id: string
@@ -29,6 +30,8 @@ export interface MonthlyReview {
     recentAverageCents: number
     sameMonthLastYearCents: number
   }
+  referenceSalary: ReferenceSalary
+  consumedVsReference: ConsumedVsReference
 }
 
 export type Verdict = 'keep' | 'avoidable' | 'unrated'

@@ -4,6 +4,8 @@ import { calledTools, toolResults } from '../helpers/agui.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
+import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
 
 /**
  * Le salaire de référence (MAG-273 et MAG-274, extends MAG-102).
@@ -17,6 +19,18 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  *   Quand je lis le matelas et le dashboard finance
  *   Alors la cible du matelas vaut 3 × 4 950,00 € et il n'est plus « non configuré »
  *     et le score du mois cite le salaire de référence (4 950 €, « attendu »)
+ *
+ *   Étant donné aucune opération « Salaire » (MAG-275)
+ *   Quand j'ouvre la vue d'ensemble finance
+ *   Alors le salaire de référence est « non renseigné », avec un lien — jamais 0 €
+ *     et la revue mensuelle n'affiche aucune part du repère
+ *   Quand l'opération « Salaire » attendue à 4 950 € existe
+ *   Alors la vue d'ensemble affiche 4 950,00 €, « attendu (opération récurrente) »
+ *     et la revue mensuelle affiche la part du repère consommée
+ *
+ * There is no « Salaire » tick box on a category: the owner decided the salary
+ * is a recurring operation, found by the standard key (see the decision on
+ * MAG-275). The way to set it is the series, so that is what the journey does.
  *
  * The salary is found by the standard key of « Salaire » (`salary`), never by
  * its name: the category comes from the standard set. What the journey asserts
@@ -151,4 +165,39 @@ test('the cushion and the month follow the reference salary, declared nothing', 
   expect(dashboard.score.referenceSalary).toEqual({ monthlyCents: 495000, source: 'expected' })
   expect(dashboard.savingCapacity.monthlyNetIncomeCents).toBe(495000)
   expect(dashboard.savingCapacity.isIncomeKnown).toBe(true)
+})
+
+test('the overview and the review say « non renseigné » until a salary exists, then show it', async ({ stockUser }) => {
+  const { api, page } = stockUser
+  const overview = new FinanceOverviewPage(page)
+  const review = new FinanceReviewPage(page)
+
+  // Given no « Salaire » series, and nothing declared on the cushion.
+  // When I open the finance overview.
+  await overview.open()
+
+  // Then the reference salary is « non renseigné », with a way to fix it, and no 0 €.
+  const card = overview.referenceSalary()
+  await expect(card).toContainText('non renseigné')
+  await expect(card).not.toContainText(/0,00\s€/)
+  await expect(card.getByRole('link', { name: /opération récurrente « Salaire »/ })).toHaveAttribute(
+    'href',
+    /recurring-operations/,
+  )
+
+  // And the review has no share of a mark that does not exist.
+  await review.open()
+  await expect(review.referenceShare()).toHaveCount(0)
+
+  // When the expected salary of 4 950 € exists.
+  await givenAnExpectedSalaryOf4950(api)
+
+  // Then the overview shows it and says it is expected.
+  await overview.open()
+  await expect(overview.referenceSalary()).toContainText(/4\s950,00\s€/)
+  await expect(overview.referenceSalary()).toContainText('attendu (opération récurrente)')
+
+  // And the review shows the share of that mark the month consumed.
+  await review.open()
+  await expect(review.referenceShare()).toContainText(/% du salaire de référence consommés \(4\s950,00\s€, attendu/)
 })

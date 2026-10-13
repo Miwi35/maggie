@@ -188,6 +188,9 @@ object UiTags {
 
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
+    const val REFERENCE_SALARY_CARD = "reference_salary_card"
+    const val REFERENCE_SALARY_LINK = "reference_salary_link"
+    const val REFERENCE_SHARE = "reference_share"
 
     /**
      * Banques — the fetch. Tagged rather than tapped by its label because the

@@ -14,6 +14,7 @@ import { IndependenceCard } from './IndependenceCard'
 import { MonthlyFlowsChart } from './MonthlyFlowsChart'
 import { nestBudgetLines } from './budgetTree'
 import { PeriodPicker } from './PeriodPicker'
+import { ReferenceSalaryCard } from './ReferenceSalaryCard'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import type { FinanceDashboard } from './useFinanceDashboard'
 
@@ -198,6 +199,7 @@ export const FinanceDashboardPage = () => {
 
           <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2, mb: 2 }}>
             <BalanceCard dashboard={dashboard} />
+            <ReferenceSalaryCard reference={dashboard.score.referenceSalary} />
             <CapacityCard dashboard={dashboard} />
             <IndependenceCard counter={dashboard.independence} />
           </Stack>

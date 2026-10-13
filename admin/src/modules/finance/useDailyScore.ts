@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ReferenceSalary } from './referenceSalary'
 
 export interface ScoreReason {
   code: string
@@ -25,6 +26,7 @@ export interface DailyScore {
     differenceCents: number
     isBetter: boolean
   }
+  referenceSalary: ReferenceSalary
 }
 
 export const SCORE_LABELS: Record<string, string> = {

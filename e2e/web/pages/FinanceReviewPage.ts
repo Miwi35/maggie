@@ -40,6 +40,11 @@ export class FinanceReviewPage extends AdminShell {
     await expect(this.summary.getByText(/dépensés ce mois-ci/)).toBeVisible()
   }
 
+  /** « N % du salaire de référence consommés » — absent while the mark is unknown (MAG-275). */
+  referenceShare(): Locator {
+    return this.summary.getByTestId('reference-share')
+  }
+
   /** A line waiting for a verdict, by its label. */
   pending(label: string): Locator {
     return this.pendingCard.locator(`[data-testid="review-pending"][data-label="${label}"]`)

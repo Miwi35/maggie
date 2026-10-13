@@ -33,11 +33,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.optimisationScoreLabel
+import com.maggie.app.data.model.referenceShareLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.abs
 
@@ -187,6 +190,13 @@ private fun ReviewSummaryCard(review: MonthlyReview) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            referenceShareLabel(review)?.let { share ->
+                Text(
+                    text = share,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp).testTag(UiTags.REFERENCE_SHARE),
+                )
+            }
             Text(
                 text = optimisationScoreLabel(review),
                 style = MaterialTheme.typography.bodyMedium,
