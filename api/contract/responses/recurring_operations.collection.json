@@ -2,7 +2,7 @@
     "@context": "/api/contexts/RecurringOperation",
     "@id": "/api/recurring_operations",
     "@type": "Collection",
-    "totalItems": 2,
+    "totalItems": 3,
     "member": [
         {
             "@id": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -45,6 +45,26 @@
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "monthlyCostCents": -3000,
             "yearlyCostCents": -36000
+        },
+        {
+            "@id": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "RecurringOperation",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded salary",
+            "counterpartyName": "RECORDED EMPLOYER",
+            "counterpartyKey": "recorded employer",
+            "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "account": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "period": "monthly",
+            "anchorOn": "2025-01-25T00:00:00+00:00",
+            "dayRule": "fixed_day",
+            "referenceAmountCents": 495000,
+            "referenceSource": "declared",
+            "amountTolerancePercent": 20,
+            "dateToleranceDays": 5,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "monthlyCostCents": 495000,
+            "yearlyCostCents": 5940000
         }
     ]
 }

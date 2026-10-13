@@ -39,6 +39,31 @@
         },
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded salary",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Salaire",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "period": "monthly",
+            "dayRule": "fixed_day",
+            "referenceAmountCents": 495000,
+            "referenceSource": "declared",
+            "currency": "EUR",
+            "monthlyCostCents": 495000,
+            "yearlyCostCents": 5940000,
+            "endsOn": null,
+            "nextOccurrenceOn": "2026-04-25",
+            "lastAttachedOn": null,
+            "attachmentCount": 0,
+            "lastOccurrence": null,
+            "missedOccurrence": {
+                "occurrenceOn": "2026-03-25",
+                "daysOverdue": 28
+            },
+            "priceChange": null
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "label": "Salle de sport",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "categoryName": "Recorded Category",
@@ -81,7 +106,7 @@
     "totals": {
         "monthlyCostCents": -93000,
         "yearlyCostCents": -1116000,
-        "monthlyIncomeCents": 0,
-        "activeCount": 2
+        "monthlyIncomeCents": 495000,
+        "activeCount": 3
     }
 }

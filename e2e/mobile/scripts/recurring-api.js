@@ -89,7 +89,7 @@ if (ACTION === 'create') {
   const category = post('/api/categories', { name: categoryName, obligation: 'mandatory' })
   post('/api/recurring_operations', {
     label: 'Loyer MAG-309',
-    counterpartyName: 'SCI VERDA',
+    counterpartyName: transactionLabel, // the line's payee is its whole label: the key must be the same
     account: account['@id'],
     category: category['@id'],
     period: 'monthly',
