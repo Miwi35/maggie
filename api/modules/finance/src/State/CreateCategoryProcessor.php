@@ -11,11 +11,12 @@ use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Message\CreateCategoryCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** @implements ProcessorInterface<Category, Category> */
 class CreateCategoryProcessor implements ProcessorInterface
 {
+    use DispatchesCategoryCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly Security $security,
@@ -27,7 +28,7 @@ class CreateCategoryProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
-        $envelope = $this->bus->dispatch(new CreateCategoryCommand(
+        return $this->dispatchForCategory($this->bus, new CreateCategoryCommand(
             userId: (string) $user->getId(),
             name: $data->getName(),
             obligation: $data->getObligation()->value,
@@ -36,7 +37,5 @@ class CreateCategoryProcessor implements ProcessorInterface
             color: $data->getColor(),
             icon: $data->getIcon(),
         ));
-
-        return $envelope->last(HandledStamp::class)->getResult();
     }
 }

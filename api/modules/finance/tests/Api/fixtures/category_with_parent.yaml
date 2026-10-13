@@ -16,3 +16,7 @@ Maggie\Finance\Entity\Category:
     color: '#9C27B0'
     icon: music
     user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
