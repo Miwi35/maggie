@@ -62,12 +62,9 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     [current, dismiss],
   )
 
-  const act = useCallback(() => {
-    if (!current) return
-    if (current.source === 'proaction') return openChat()
-    if (current.source === 'approval') return void answer('approve')
-
-    // Opened, it is read — as from the bell. Leaving it for later keeps it unread.
+  // As from the bell: read, so it leaves the bell and the other devices. Leaving it for later keeps it unread.
+  const markRead = useCallback(() => {
+    if (current?.source !== 'notification') return
     dataProvider
       .update('notifications', {
         id: current.ref,
@@ -78,15 +75,32 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
         // The bell still lists it as unread: nothing worth stopping for.
       })
     dismiss(false)
-    if (current.link) navigate(current.link.path)
-  }, [answer, current, dataProvider, dismiss, navigate, openChat])
+  }, [current, dataProvider, dismiss])
 
+  const act = useCallback(() => {
+    if (!current) return
+    if (current.source === 'proaction') return openChat()
+    if (current.source === 'approval') return void answer('approve')
+    markRead()
+  }, [answer, current, markRead, openChat])
+
+  const openLink = useCallback(() => {
+    if (current?.source === 'approval') return void answer('deny')
+    if (current?.source !== 'notification' || !current.link) return
+    markRead()
+    navigate(current.link.path)
+  }, [answer, current, markRead, navigate])
+
+  const link = current?.source === 'notification' ? current.link : null
   const actionLabel =
     current?.source === 'approval'
       ? 'Autoriser'
       : current?.source === 'notification'
-        ? (current.link?.label ?? 'Compris')
+        ? link
+          ? "C'est noté"
+          : 'Compris'
         : 'Ouvrir le chat'
+  const secondaryLabel = current?.source === 'approval' ? 'Refuser' : link?.label
 
   return (
     <MaggieInterruption
@@ -96,8 +110,9 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       message={current?.message ?? ''}
       actionLabel={actionLabel}
       onAction={act}
-      secondaryLabel={current?.source === 'approval' ? 'Refuser' : undefined}
-      onSecondary={() => void answer('deny')}
+      secondaryLabel={secondaryLabel}
+      onSecondary={openLink}
+      holdsQuestion={current?.source === 'approval'}
       busy={busy}
       error={error}
       onLater={() => dismiss(true)}

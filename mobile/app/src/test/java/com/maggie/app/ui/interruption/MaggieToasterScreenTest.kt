@@ -63,21 +63,22 @@ class MaggieToasterScreenTest {
     }
 
     @Test
-    fun `an action form offers its link by the words the server gave, and Plus tard`() {
+    fun `an action form offers C'est noté, its link by the words the server gave, and Plus tard`() {
         show(message(interaction = "action", link = "maggie://event/e-1", actionLabel = "Voir l'événement"))
 
         compose.onNodeWithTag(UiTags.INTERRUPTION_ACTION).assertIsDisplayed()
+        compose.onNodeWithText("C'est noté").performClick()
         compose.onNodeWithText("Voir l'événement").performClick()
         compose.onNodeWithTag(UiTags.INTERRUPTION_LATER).performClick()
 
-        assertEquals(listOf(PushActionKind.GO, PushActionKind.LATER), answers)
+        assertEquals(listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER), answers)
     }
 
     @Test
-    fun `an ack form is acknowledged with OK`() {
+    fun `an ack form is acknowledged with C'est noté`() {
         show(message(type = "reminder", interaction = "ack"))
 
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("C'est noté").performClick()
 
         assertEquals(listOf(PushActionKind.OK), answers)
     }
@@ -137,7 +138,7 @@ class MaggieToasterScreenTest {
         show(message(interaction = "ack"), reducedMotion = true)
 
         compose.onNodeWithTag(UiTags.INTERRUPTION).assertIsDisplayed()
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("C'est noté").performClick()
 
         assertEquals(listOf(PushActionKind.OK), answers)
     }

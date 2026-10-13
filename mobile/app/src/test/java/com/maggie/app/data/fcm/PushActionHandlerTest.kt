@@ -42,6 +42,15 @@ class PushActionHandlerTest {
     }
 
     @Test
+    fun `C'est noté on a notification with a link marks it read and opens nothing`() = runBlocking {
+        val withLink = payload().copy(link = "maggie://event/e-1", actionLabel = "Voir l'événement")
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.OK, withLink))
+
+        coVerify(exactly = 1) { api.markNotificationRead("n-1") }
+    }
+
+    @Test
     fun `Plus tard answers nothing, the notification comes back later`() = runBlocking {
         assertEquals(PushOutcome.Postponed, handler.handle(PushActionKind.LATER, payload()))
 

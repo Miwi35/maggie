@@ -61,8 +61,25 @@ class PushPayloadTest {
     }
 
     @Test
-    fun `a reminder is acknowledged with OK`() {
+    fun `a reminder without a link is acknowledged with C'est noté`() {
         assertEquals(listOf(PushActionKind.OK), payload("reminder").actions())
+    }
+
+    @Test
+    fun `a reminder with a link carries C'est noté, the link and Plus tard`() {
+        val p = payload("reminder", "link" to "maggie://event/e-1", "actionLabel" to "Voir l'événement")
+        assertEquals(listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER), p.actions())
+    }
+
+    @Test
+    fun `C'est noté is the only name of the acknowledgement`() {
+        assertEquals("C'est noté", PushActionKind.OK.label)
+    }
+
+    @Test
+    fun `a task that falls due with a link keeps Fait and Plus tard`() {
+        val p = payload("task_due", "link" to "maggie://task/t-1")
+        assertEquals(listOf(PushActionKind.DONE, PushActionKind.LATER), p.actions())
     }
 
     @Test
@@ -76,9 +93,9 @@ class PushPayloadTest {
     }
 
     @Test
-    fun `a message with a link and nothing else to do is Y aller or Plus tard`() {
+    fun `a message with a link and nothing else to do is C'est noté, Y aller or Plus tard`() {
         val p = payload("finance", "link" to "maggie://finance/banks")
-        assertEquals(listOf(PushActionKind.GO, PushActionKind.LATER), p.actions())
+        assertEquals(listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER), p.actions())
     }
 
     @Test
@@ -103,7 +120,7 @@ class PushPayloadTest {
             "link" to "maggie://event/e-1",
             "interaction" to """{"kind":"action"}""",
         )
-        assertEquals(listOf(PushActionKind.GO, PushActionKind.LATER), go.actions())
+        assertEquals(listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER), go.actions())
 
         val confirm = payload(
             "proaction",

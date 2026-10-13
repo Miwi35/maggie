@@ -65,9 +65,9 @@ class PushNotifierTest {
     }
 
     @Test
-    fun `a reminder carries OK`() {
+    fun `a reminder carries C'est noté`() {
         notifier.show(payload("reminder"))
-        assertEquals(listOf("OK"), buttons())
+        assertEquals(listOf("C'est noté"), buttons())
     }
 
     @Test
@@ -105,16 +105,16 @@ class PushNotifierTest {
     }
 
     @Test
-    fun `a message with a link offers Y aller, and a tap on its body opens the interruption instead`() {
+    fun `a message with a link offers C'est noté, Y aller and Plus tard, and a tap on its body opens the interruption instead`() {
         val link = "${BuildConfig.DEEP_LINK_SCHEME}://finance/banks"
         notifier.show(payload("finance", link = link))
 
-        assertEquals(listOf("Y aller", "Plus tard"), buttons())
+        assertEquals(listOf("C'est noté", "Y aller", "Plus tard"), buttons())
         val tap = shadowOf(shown().contentIntent).savedIntent
         assertNull(tap.data)
         assertEquals("n-1", tap.getStringExtra(PushIntents.EXTRA_NOTIFICATION_ID))
 
-        val go = shadowOf(shown().actions.first().actionIntent).savedIntent
+        val go = shadowOf(shown().actions[1].actionIntent).savedIntent
         assertEquals(Intent.ACTION_VIEW, go.action)
         assertEquals(link, go.dataString)
     }

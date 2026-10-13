@@ -252,6 +252,7 @@ describe('MaggieInterruption', () => {
             onAction={onAction}
             secondaryLabel="Refuser"
             onSecondary={onSecondary}
+            holdsQuestion
             onLater={onLater}
             {...extra}
           />
@@ -292,6 +293,47 @@ describe('MaggieInterruption', () => {
       expect(screen.getByRole('button', { name: 'Refuser' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Plus tard' })).toBeDisabled()
       expect(screen.getByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie.")
+    })
+  })
+  describe('a notification with a link', () => {
+    function setupLink() {
+      const onAction = vi.fn()
+      const onSecondary = vi.fn()
+      const onLater = vi.fn()
+      render(
+        <ThemeProvider theme={veilleuseDarkTheme}>
+          <MaggieInterruption
+            open
+            id="notification:n1"
+            title="close 27"
+            message="Dans 15 min"
+            actionLabel="C'est noté"
+            onAction={onAction}
+            secondaryLabel="Voir l'événement"
+            onSecondary={onSecondary}
+            onLater={onLater}
+          />
+        </ThemeProvider>,
+      )
+      return { onAction, onSecondary, onLater }
+    }
+
+    test('offers « C\'est noté », the link and « Plus tard », each doing its own thing', async () => {
+      const { onAction, onSecondary, onLater } = setupLink()
+
+      await userEvent.click(screen.getByRole('button', { name: "C'est noté" }))
+      await userEvent.click(screen.getByRole('button', { name: "Voir l'événement" }))
+      await userEvent.click(screen.getByRole('button', { name: 'Plus tard' }))
+
+      expect(onAction).toHaveBeenCalledTimes(1)
+      expect(onSecondary).toHaveBeenCalledTimes(1)
+      expect(onLater).toHaveBeenCalledTimes(1)
+    })
+
+    test('puts the focus on « C\'est noté », as on any other notification', () => {
+      setupLink()
+
+      expect(screen.getByRole('button', { name: "C'est noté" })).toHaveFocus()
     })
   })
 })

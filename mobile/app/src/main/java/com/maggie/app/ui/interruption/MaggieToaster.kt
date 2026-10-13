@@ -16,7 +16,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -71,6 +72,7 @@ fun rememberReducedMotion(): Boolean {
  *
  * Stateless: [InterruptionHost] decides when it is shown and for how long.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MaggieToaster(
     payload: PushPayload,
@@ -151,10 +153,11 @@ fun MaggieToaster(
                     Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
-                Row(
+                // Three buttons do not fit one row on a narrow phone: the last ones wrap.
+                FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     TextButton(
                         onClick = { onAction(PushActionKind.LATER) },

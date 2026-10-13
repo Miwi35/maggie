@@ -30,9 +30,11 @@ interface MaggieInterruptionProps {
   message: string
   actionLabel: string
   onAction: () => void
-  /** A second answer next to the action — « Refuser » beside « Autoriser ». */
+  /** A second action next to the first — « Refuser » beside « Autoriser », « Voir l'événement » beside « C'est noté ». */
   secondaryLabel?: string
   onSecondary?: () => void
+  /** A question is being asked: its buttons act when pressed, so the focus starts on « Plus tard ». */
+  holdsQuestion?: boolean
   /** An answer is on its way: the buttons wait for it. */
   busy?: boolean
   error?: string | null
@@ -56,6 +58,7 @@ export const MaggieInterruption = ({
   onAction,
   secondaryLabel,
   onSecondary,
+  holdsQuestion = false,
   busy = false,
   error = null,
   onLater,
@@ -68,7 +71,7 @@ export const MaggieInterruption = ({
   const previousFocus = useRef<HTMLElement | null>(null)
   const actedOn = useRef(false)
   const chimedFor = useRef<string | null>(null)
-  const asksForAnswer = secondaryLabel !== undefined
+  const asksForAnswer = holdsQuestion
 
   // Taken before the modal moves the focus; given back only when it was put off.
   // Opening the chat is not that: the chat's own input wants the focus.
@@ -112,6 +115,11 @@ export const MaggieInterruption = ({
     // Opening something takes the focus with it; answering a question gives it back.
     actedOn.current = !asksForAnswer
     onAction()
+  }
+
+  const handleSecondary = () => {
+    actedOn.current = !asksForAnswer
+    onSecondary?.()
   }
 
   return (
@@ -225,11 +233,11 @@ export const MaggieInterruption = ({
             >
               {actionLabel}
             </Button>
-            {asksForAnswer && (
+            {secondaryLabel !== undefined && (
               <Button
                 variant="outlined"
                 disabled={busy}
-                onClick={onSecondary}
+                onClick={handleSecondary}
                 sx={{ borderRadius: 999, minHeight: 44, px: 3 }}
               >
                 {secondaryLabel}

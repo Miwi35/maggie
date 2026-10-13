@@ -77,14 +77,23 @@ describe('MaggieInterruptionHost', () => {
     localStorage.clear()
   })
 
-  test('a reminder shows its title and time, and its action goes to the event and marks it read', async () => {
+  test('a reminder shows its title and time, with « C\'est noté », its link and « Plus tard »', async () => {
     setup()
     feed().emit(reminder)
 
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('close 27')
     expect(dialog).toHaveTextContent('Dans 15 min')
-    await userEvent.click(screen.getByRole('button', { name: "Voir l'événement" }))
+    expect(screen.getByRole('button', { name: "C'est noté" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "Voir l'événement" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Plus tard' })).toBeInTheDocument()
+  })
+
+  test('« Voir l\'événement » goes to the event and marks it read', async () => {
+    setup()
+    feed().emit(reminder)
+
+    await userEvent.click(await screen.findByRole('button', { name: "Voir l'événement" }))
 
     expect(navigate).toHaveBeenCalledWith('/calendar?eventId=%2Fapi%2Fevents%2Fe1')
     expect(update).toHaveBeenCalledWith(
@@ -93,6 +102,31 @@ describe('MaggieInterruptionHost', () => {
     )
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(onOpenChat).not.toHaveBeenCalled()
+  })
+
+  test('« C\'est noté » marks it read and closes, without opening the event, and it does not come back', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      setup()
+      feed().emit(reminder)
+
+      await userEvent.click(await screen.findByRole('button', { name: "C'est noté" }))
+
+      expect(update).toHaveBeenCalledTimes(1)
+      expect(update).toHaveBeenCalledWith(
+        'notifications',
+        expect.objectContaining({ id: '/api/notifications/n1', data: { readAt: expect.any(String) } }),
+      )
+      expect(navigate).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      })
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('a notification with nowhere to go is acknowledged', async () => {
