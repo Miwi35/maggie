@@ -130,10 +130,10 @@ tags:
 
 # I delete the meal from the week: a long press asks, « Supprimer » confirms, and it
 # leaves the week without a reload; the API no longer has it.
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_cookbook"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: cookbook
 - tapOn: "Repas"
 - extendedWaitUntil:
     visible: "Riz au curry MAG-297"
