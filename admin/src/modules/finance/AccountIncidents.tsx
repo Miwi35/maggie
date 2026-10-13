@@ -33,9 +33,9 @@ const Leg = ({ title, id }: { title: string; id: string | null }) => {
       <Typography variant="overline" color="text.secondary">
         {title}
       </Typography>
-      {id === null && <Typography>Opération non retrouvée</Typography>}
+      {id === null && <Typography>Transaction non retrouvée</Typography>}
       {id !== null && isPending && <Typography color="text.secondary">Chargement…</Typography>}
-      {id !== null && error && <Alert severity="error">Impossible de lire cette opération</Alert>}
+      {id !== null && error && <Alert severity="error">Impossible de lire cette transaction</Alert>}
       {data && (
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'baseline', justifyContent: 'space-between' }}>
           <span>
@@ -56,8 +56,8 @@ const IncidentDetail = ({ incident, onClose }: { incident: AccountIncident; onCl
       {incident.counterpartyName} · {INCIDENT_KIND_LABEL[incident.kind]}
     </DialogTitle>
     <DialogContent>
-      <Leg title="Opération débitée" id={incident.debitId} />
-      <Leg title="Opération rendue" id={incident.creditId} />
+      <Leg title="Transaction débitée" id={incident.debitId} />
+      <Leg title="Transaction rendue" id={incident.creditId} />
     </DialogContent>
     <DialogActions>
       <Button onClick={onClose}>Fermer</Button>

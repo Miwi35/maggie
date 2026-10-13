@@ -135,7 +135,7 @@ fun lastSyncLabel(lastSyncedAt: String?, zone: ZoneId = ZoneId.systemDefault()):
  *
  * A bank that refused is said first: the daily allowance is spent and trying
  * again now would only fail again. An expired consent comes next, because
- * "aucune nouvelle opération" would otherwise read as "tout est à jour" when in
+ * "aucune nouvelle transaction" would otherwise read as "tout est à jour" when in
  * fact nothing was even asked.
  */
 fun bankSyncSummary(result: BankSyncResult): String {
@@ -152,8 +152,8 @@ fun bankSyncSummary(result: BankSyncResult): String {
     }
 
     return if (result.imported > 0) {
-        "${result.imported} opération(s) importée(s), ${result.skipped} déjà présente(s)."
+        "${result.imported} transaction(s) importée(s), ${result.skipped} déjà présente(s)."
     } else {
-        "Aucune nouvelle opération."
+        "Aucune nouvelle transaction."
     }
 }

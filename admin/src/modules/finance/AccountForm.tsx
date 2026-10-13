@@ -24,7 +24,7 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
     <FormSection
       first
       title="Le compte"
-      description="Le nom est celui que vous utiliserez partout ailleurs : dans les opérations, le matelas, la vue d'ensemble."
+      description="Le nom est celui que vous utiliserez partout ailleurs : dans les transactions, le matelas, la vue d'ensemble."
     />
 
     <Box sx={rowSx}>
@@ -55,7 +55,7 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
 
     <FormSection
       title="Solde"
-      description="Le solde est saisi à la main : les opérations que vous ajoutez ne le modifient pas automatiquement."
+      description="Le solde est saisi à la main : les transactions que vous ajoutez ne le modifient pas automatiquement."
     />
 
     <Box sx={rowSx}>

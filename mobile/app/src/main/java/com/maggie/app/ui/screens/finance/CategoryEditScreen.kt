@@ -299,7 +299,7 @@ internal fun CategoryFormFields(
     ) {
         SectionTitle(
             "La catégorie",
-            "Les catégories classent vos opérations : elles portent les budgets, les règles automatiques et la revue mensuelle.",
+            "Les catégories classent vos transactions : elles portent les budgets, les règles automatiques et la revue mensuelle.",
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

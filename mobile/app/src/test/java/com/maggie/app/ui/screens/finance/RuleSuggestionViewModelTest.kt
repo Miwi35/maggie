@@ -200,7 +200,7 @@ class RuleSuggestionViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("1 règle(s) créée(s), 3 opération(s) rangée(s).", state.message)
+        assertEquals("1 règle(s) créée(s), 3 transaction(s) rangée(s).", state.message)
         assertNull(state.acceptingPattern)
         // The merchant is covered now, so it is not a question any more.
         coVerify(atLeast = 2) { ruleRepository.getSuggestions() }

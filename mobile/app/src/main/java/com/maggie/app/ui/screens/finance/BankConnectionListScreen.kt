@@ -113,7 +113,7 @@ fun BankConnectionListScreen(
                             enabled = !uiState.isSyncing,
                             modifier = Modifier.testTag(UiTags.BANK_SYNC),
                         ) {
-                            Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les opérations")
+                            Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
                         }
                     }
                 },
@@ -135,7 +135,7 @@ fun BankConnectionListScreen(
                 uiState.connections.isEmpty() -> {
                     EmptyState(
                         title = "Aucune banque connectée",
-                        description = "Connectez une banque depuis Maggie sur le web : vos opérations arriveront ensuite toutes seules, et cet écran les récupérera.",
+                        description = "Connectez une banque depuis Maggie sur le web : vos transactions arriveront ensuite toutes seules, et cet écran les récupérera.",
                     )
                 }
                 else -> {

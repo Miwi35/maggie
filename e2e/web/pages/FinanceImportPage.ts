@@ -15,7 +15,7 @@ export class FinanceImportPage extends AdminShell {
   readonly accountPicker: Locator
   readonly fileInput: Locator
   readonly simulate: Locator
-  /** "Importer N opération(s)" — only rendered once a rehearsal found something to write. */
+  /** "Importer N transaction(s)" — only rendered once a rehearsal found something to write. */
   readonly confirm: Locator
   readonly report: Locator
 
@@ -26,7 +26,7 @@ export class FinanceImportPage extends AdminShell {
     // field of the form.
     this.fileInput = this.content.getByLabel(/Fichier/)
     this.simulate = this.content.getByRole('button', { name: "Simuler l'import" })
-    this.confirm = this.content.getByRole('button', { name: /^Importer \d+ opération/ })
+    this.confirm = this.content.getByRole('button', { name: /^Importer \d+ transaction/ })
     this.report = this.content.getByRole('table')
   }
 

@@ -175,7 +175,7 @@ export const BankConnectionsPage = () => {
   const onForget = async (connection: BankConnection) => {
     if (
       !window.confirm(
-        `Supprimer la connexion à ${connection.bankName} ? Les comptes et leurs opérations sont conservés, ils cessent simplement de se synchroniser.`,
+        `Supprimer la connexion à ${connection.bankName} ? Les comptes et leurs transactions sont conservés, ils cessent simplement de se synchroniser.`,
       )
     ) {
       return
@@ -212,8 +212,8 @@ export const BankConnectionsPage = () => {
 
     notify(
       result.imported > 0
-        ? `${result.imported} opération(s) importée(s), ${result.skipped} déjà présente(s).`
-        : 'Aucune nouvelle opération.',
+        ? `${result.imported} transaction(s) importée(s), ${result.skipped} déjà présente(s).`
+        : 'Aucune nouvelle transaction.',
       { type: 'info' },
     )
   }
@@ -243,7 +243,7 @@ export const BankConnectionsPage = () => {
           <FormSection
             first
             title="Connecter une banque"
-            description="Vous serez redirigé vers votre banque pour autoriser l'accès. Maggie lit les opérations, elle ne peut rien déclencher sur vos comptes."
+            description="Vous serez redirigé vers votre banque pour autoriser l'accès. Maggie lit les transactions, elle ne peut rien déclencher sur vos comptes."
           />
 
           {banksError && (
@@ -304,7 +304,7 @@ export const BankConnectionsPage = () => {
             </Typography>
             {connections.length > 0 && (
               <Button size="small" onClick={onSync} disabled={syncing}>
-                {syncing ? 'Récupération…' : 'Récupérer les opérations'}
+                {syncing ? 'Récupération…' : 'Récupérer les transactions'}
               </Button>
             )}
           </Stack>
@@ -314,7 +314,7 @@ export const BankConnectionsPage = () => {
           {!loading && connections.length === 0 && (
             <Placeholder
               title="Aucune banque connectée"
-              description="Connectez une banque pour que vos opérations arrivent toutes seules, sans import de fichier."
+              description="Connectez une banque pour que vos transactions arrivent toutes seules, sans import de fichier."
             />
           )}
 
