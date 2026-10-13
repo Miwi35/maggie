@@ -45,6 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.Category
@@ -336,6 +338,8 @@ internal fun CategoryFormFields(
                     modifier = Modifier
                         .matchParentSize()
                         .testTag(UiTags.CATEGORY_PARENT)
+                        // The overlay is the node the system sees: it carries the shown value.
+                        .semantics { contentDescription = "Rattacher à une catégorie, ${parentName ?: "aucune"}" }
                         .clickable(role = Role.Button, onClick = onPickParent),
                 )
             }

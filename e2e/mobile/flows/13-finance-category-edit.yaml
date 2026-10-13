@@ -113,8 +113,8 @@ tags:
       id: "category_name"
     timeout: 10000
 
-# The parent is already Loisirs.
-- assertVisible: "Loisirs"
+# The parent is already Loisirs (the field's overlay is the node Maestro reads: « label, value »).
+- assertVisible: "Rattacher à une catégorie, Loisirs"
 - tapOn:
     id: "category_name"
 - inputText: "Bars"
@@ -147,7 +147,7 @@ tags:
 - hideKeyboard
 - tapOn: "Loisirs › Bars"
 - extendedWaitUntil:
-    visible: "Loisirs › Bars"
+    visible: "Rattacher à une catégorie, Loisirs › Bars"
     timeout: 10000
 - tapOn: "Créer"
 
@@ -188,7 +188,7 @@ tags:
 
 # The line answers with the path the server now holds it under.
 - extendedWaitUntil:
-    visible: "Loisirs › Bars › Obsydian"
+    visible: "Catégorie, Loisirs › Bars › Obsydian"
     timeout: 30000
 
 # Put it back under « Loisirs ».
@@ -197,7 +197,7 @@ tags:
 # No query typed: the field would hold « Loisirs » too, and the tap must find the row.
 - tapOn: "Loisirs"
 - extendedWaitUntil:
-    notVisible: "Loisirs › Bars › Obsydian"
+    notVisible: "Catégorie, Loisirs › Bars › Obsydian"
     timeout: 30000
 
 # Bars goes, and Obsydian with it: the confirmation counts the sub-category.

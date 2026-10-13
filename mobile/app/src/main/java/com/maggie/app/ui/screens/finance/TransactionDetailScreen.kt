@@ -36,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferLeg
@@ -187,6 +189,7 @@ private fun CategoryField(path: String?, enabled: Boolean, onClick: () -> Unit) 
             modifier = Modifier
                 .matchParentSize()
                 .testTag(UiTags.TRANSACTION_CATEGORY)
+                .semantics { contentDescription = "Catégorie, ${path ?: "aucune"}" }
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         )
     }

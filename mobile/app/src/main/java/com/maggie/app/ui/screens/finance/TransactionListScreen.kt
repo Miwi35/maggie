@@ -57,6 +57,8 @@ import com.maggie.app.ui.components.CategorySearchDialog
 import com.maggie.app.ui.components.CategorySearchNone
 import com.maggie.app.ui.components.CategorySearchScreen
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
@@ -379,6 +381,7 @@ private fun TransactionCreateDialog(
                             modifier = Modifier
                                 .matchParentSize()
                                 .testTag(UiTags.TRANSACTION_CATEGORY)
+                                .semantics { contentDescription = "Catégorie, ${tree.pathOf(categoryId) ?: "aucune"}" }
                                 .clickable(role = Role.Button) { searchingCategory = true },
                         )
                     }
