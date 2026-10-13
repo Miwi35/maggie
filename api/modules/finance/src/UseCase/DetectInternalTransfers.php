@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\UpdateTransactionCommand;
+use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\OwnLegRecognizer;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -25,6 +28,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * same amount are common (a monthly standing order), and without a total order
  * two catch-up passes would not agree, so the owner's figure would move
  * without anything having changed.
+ *
+ * A leg whose other half is not there — an account that is not synced — is
+ * still recognised when the line itself designates the owner or one of his
+ * other banks: it is marked internal with no counterpart, and pairs later if
+ * the other leg ever shows up (MAG-440).
  */
 class DetectInternalTransfers
 {
@@ -42,7 +50,27 @@ class DetectInternalTransfers
         private readonly MessageBusInterface $bus,
         private readonly DetectSavingsAdvances $detectSavingsAdvances,
         private readonly ReconcileAdvanceRepayments $reconcileAdvanceRepayments,
+        private readonly AccountRepository $accountRepository,
+        private readonly OwnLegRecognizer $ownLegRecognizer,
     ) {
+    }
+
+    /**
+     * Why this line alone is a leg of the owner's own movement ('holder' or
+     * 'bank'), or null when nothing in it says so.
+     *
+     * @param Account[]|null $accounts the owner's accounts, when the caller already has them
+     */
+    public function loneLegReason(Transaction $transaction, ?array $accounts = null): ?string
+    {
+        if (!$this->isEligible($transaction) || TransferKind::None !== $transaction->getTransferKind()) {
+            return null;
+        }
+
+        return $this->ownLegRecognizer->reasonFor(
+            $transaction,
+            $accounts ?? $this->accountRepository->findByUser($transaction->getUser()),
+        );
     }
 
     /**
@@ -81,7 +109,10 @@ class DetectInternalTransfers
      * pairs already made are requalified (`advances` lists both). Likewise the
      * transfers that give an advance back exactly (`repayments`).
      *
-     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string, transferKind: string}>, advances: int, repayments: int}
+     * The lines left alone that name the owner or one of his banks are marked
+     * internal with no counterpart (`loneLegs`).
+     *
+     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string, transferKind: string}>, loneLegs: list<array{transactionId: string, amountCents: int, bookedAt: string, label: string, reason: string}>, advances: int, repayments: int}
      */
     public function execute(User $user, ?int $limitDays = null, bool $dryRun = false): array
     {
@@ -132,6 +163,8 @@ class DetectInternalTransfers
             }
         }
 
+        $loneLegs = $this->markLoneLegs($user, $transactions, $claimed, $dryRun);
+
         $requalified = $this->detectSavingsAdvances->execute($user, $since, $dryRun);
         $reconciled = $this->reconcileAdvanceRepayments->execute($user, $since, $dryRun, $openAdvances);
         $newAdvances = \count(array_filter($pairs, static fn (array $pair) => TransferKind::Advance->value === $pair['transferKind']));
@@ -142,9 +175,48 @@ class DetectInternalTransfers
             'scanned' => \count($transactions),
             'dryRun' => $dryRun,
             'pairs' => $pairs,
+            'loneLegs' => $loneLegs,
             'advances' => $newAdvances + $requalified['matched'],
             'repayments' => $newRepayments + $reconciled['matched'],
         ];
+    }
+
+    /**
+     * @param Transaction[]       $transactions
+     * @param array<string, true> $claimed      the lines the pairing just took
+     *
+     * @return list<array{transactionId: string, amountCents: int, bookedAt: string, label: string, reason: string}>
+     */
+    private function markLoneLegs(User $user, array $transactions, array $claimed, bool $dryRun): array
+    {
+        $accounts = $this->accountRepository->findByUser($user);
+        $loneLegs = [];
+
+        foreach ($transactions as $transaction) {
+            $id = (string) $transaction->getId();
+            if (isset($claimed[$id]) || null === ($reason = $this->loneLegReason($transaction, $accounts))) {
+                continue;
+            }
+
+            $loneLegs[] = [
+                'transactionId' => $id,
+                'amountCents' => $transaction->getAmountCents(),
+                'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
+                'label' => $transaction->getLabel(),
+                'reason' => $reason,
+            ];
+
+            if (!$dryRun) {
+                $this->bus->dispatch(new UpdateTransactionCommand(
+                    userId: (string) $user->getId(),
+                    transactionId: $id,
+                    transferKind: TransferKind::Internal->value,
+                    transferSource: TransferSource::Auto->value,
+                ));
+            }
+        }
+
+        return $loneLegs;
     }
 
     /**

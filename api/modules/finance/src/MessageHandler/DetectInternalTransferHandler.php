@@ -34,9 +34,13 @@ class DetectInternalTransferHandler
     public function __invoke(DetectInternalTransferCommand $command): ?Transaction
     {
         $transaction = $this->transactionRepository->find($command->transactionId);
-        $counterpart = null === $transaction ? null : $this->detectInternalTransfers->detectFor($transaction);
-        if (null === $transaction || null === $counterpart) {
+        if (null === $transaction) {
             return null;
+        }
+
+        $counterpart = $this->detectInternalTransfers->detectFor($transaction);
+        if (null === $counterpart) {
+            return $this->markLoneLeg($transaction);
         }
 
         // Taken from savings while the salary is late, it is an advance; the
@@ -51,6 +55,20 @@ class DetectInternalTransferHandler
         // Both legs settle no occurrence any more: the payment presented
         // again takes it, and the series recalibrates without them.
         $this->attachRecurring->releaseNeutral($counterpart);
+        $this->attachRecurring->releaseNeutral($transaction);
+
+        return $this->updateTransaction->execute($transaction);
+    }
+
+    /** The other leg is not there: the line itself says it is the owner's own movement. */
+    private function markLoneLeg(Transaction $transaction): ?Transaction
+    {
+        if (null === $this->detectInternalTransfers->loneLegReason($transaction)) {
+            return null;
+        }
+
+        $transaction->setTransferKind(TransferKind::Internal);
+        $transaction->setTransferSource(TransferSource::Auto);
         $this->attachRecurring->releaseNeutral($transaction);
 
         return $this->updateTransaction->execute($transaction);

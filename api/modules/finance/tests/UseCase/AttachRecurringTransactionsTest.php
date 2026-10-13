@@ -557,4 +557,66 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         self::assertSame('Abonnements', $stored->getCategory()?->getName());
         self::assertSame(CategorySource::Series, $stored->getCategorySource());
     }
+
+    /** The owner's standing order from his other bank: a monthly 200 € he makes to himself. */
+    private function standingOrderToSelf(): RecurringOperation
+    {
+        $this->user()->setName('Meven Cadare');
+        $operation = (new RecurringOperation())
+            ->setLabel('Virement de Revolut')
+            ->setCounterpartyName('Meven Cadare')
+            ->setCategory($this->getFixture('subscriptions'))
+            ->setAccount($this->getFixture('checking'))
+            ->setPeriod(RecurrencePeriod::Monthly)
+            ->setAnchorOn(new \DateTimeImmutable('2027-01-01'))
+            ->setReferenceAmountCents(20000)
+            ->setUser($this->user());
+        $this->em->persist($operation);
+        $this->em->flush();
+
+        return $operation;
+    }
+
+    private function landFromHolder(string $bookedAt): Transaction
+    {
+        $line = (new Transaction())
+            ->setUser($this->em->getReference(User::class, $this->user()->getId()))
+            ->setAccount($this->em->getReference(Account::class, $this->getFixture('checking')->getId()))
+            ->setAmountCents(20000)
+            ->setBookedAt(new \DateTimeImmutable($bookedAt))
+            ->setLabel('VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare')
+            ->setCounterpartyName('Meven Cadare');
+        $this->em->persist($line);
+        $this->em->flush();
+
+        return $line;
+    }
+
+    public function testATransferFromTheHolderWithOneLegIsInternalBeforeTheSeriesLooksAtIt(): void
+    {
+        $this->standingOrderToSelf();
+
+        $line = $this->landFromHolder('2027-05-01');
+
+        $stored = $this->reload($line);
+        self::assertSame(TransferKind::Internal, $stored->getTransferKind());
+        self::assertNull($stored->getRecurringOperation(), 'a movement between his own accounts settles no occurrence');
+    }
+
+    public function testALoneLegIsNeverProposedToASeriesNorSuggestedAsOne(): void
+    {
+        $this->user()->setName('Meven Cadare');
+        $this->em->flush();
+        $lines = [$this->landFromHolder('2027-02-01'), $this->landFromHolder('2027-03-01'), $this->landFromHolder('2027-04-01')];
+        $this->standingOrderToSelf();
+
+        $report = $this->attach->execute($this->user());
+        $suggestions = self::getContainer()->get(\Maggie\Finance\UseCase\SuggestRecurringOperations::class)->suggest($this->user());
+
+        foreach ($lines as $line) {
+            self::assertNull($this->proposalFor($report, $line));
+            self::assertNull($this->reload($line)->getRecurringOperation());
+        }
+        self::assertSame([], array_filter($suggestions, static fn (array $s) => 'Meven Cadare' === $s['counterpartyName']));
+    }
 }
