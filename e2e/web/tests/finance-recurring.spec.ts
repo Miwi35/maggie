@@ -551,8 +551,11 @@ test('an unrolled series lists the transactions it recognised, newest first, and
     anchorOn,
     referenceAmountCents: -1349,
   })
-  const first = await debit(api, accountId, 'PAIEMENT PAR CARTE FLIXO PREMIER', -1349, anchorOn)
-  const second = await debit(api, accountId, 'PAIEMENT PAR CARTE FLIXO SECOND', -1349, nextMonth(anchorOn))
+  const secondOn = nextMonth(anchorOn)
+  const firstLabel = `PAIEMENT PAR CARTE FLIXO ${anchorOn.slice(8, 10)}/${anchorOn.slice(5, 7)}`
+  const secondLabel = `PAIEMENT PAR CARTE FLIXO ${secondOn.slice(8, 10)}/${secondOn.slice(5, 7)}`
+  const first = await debit(api, accountId, firstLabel, -1349, anchorOn)
+  const second = await debit(api, accountId, secondLabel, -1349, secondOn)
   expect(first.recurringOperation).toBeTruthy()
   expect(second.recurringOperation).toBeTruthy()
 
@@ -564,14 +567,14 @@ test('an unrolled series lists the transactions it recognised, newest first, and
   // Then its transactions are there, the most recent first, with the due date they cover.
   const lines = recurring.seriesTransactions().getByRole('row')
   await expect(lines).toHaveCount(3)
-  await expect(lines.nth(1)).toContainText('PAIEMENT PAR CARTE FLIXO SECOND')
-  await expect(lines.nth(1)).toContainText(nextMonth(anchorOn).split('-').reverse().join('/'))
-  await expect(lines.nth(2)).toContainText('PAIEMENT PAR CARTE FLIXO PREMIER')
+  await expect(lines.nth(1)).toContainText(secondLabel)
+  await expect(lines.nth(1)).toContainText(secondOn.split('-').reverse().join('/'))
+  await expect(lines.nth(2)).toContainText(firstLabel)
 
   // When I detach one, it leaves the series without a reload.
   const detaching = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/transactions/'))
-  await recurring.seriesTransactions().getByLabel('Détacher PAIEMENT PAR CARTE FLIXO SECOND de la série').click()
+  await recurring.seriesTransactions().getByLabel(`Détacher ${secondLabel} de la série`).click()
   expect((await detaching).status()).toBe(200)
   await expect(lines).toHaveCount(2)
-  await expect(recurring.seriesTransactions()).not.toContainText('PAIEMENT PAR CARTE FLIXO SECOND')
+  await expect(recurring.seriesTransactions()).not.toContainText(secondLabel)
 })
