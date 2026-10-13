@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -35,7 +37,9 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryItemSource
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.Store
+import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,9 +49,21 @@ fun ItemDetailSheet(
     stores: List<Store>,
     onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
+    recurring: RecurringFrequency? = null,
+    onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
 ) {
-    ItemDetailContent(item = item, products = products, stores = stores, onSave = onSave) { body ->
+    ItemDetailContent(
+        item = item,
+        products = products,
+        stores = stores,
+        onSave = onSave,
+        // Taller since the « Récurrent » setting: a short window scrolls to « Enregistrer ».
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        recurring = recurring,
+        onRecurringChange = onRecurringChange,
+    ) { body ->
         ModalBottomSheet(
+            modifier = Modifier.uiTagRoot(),
             onDismissRequest = onDismiss,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) { body() }
@@ -67,6 +83,9 @@ fun ItemDetailContent(
     stores: List<Store>,
     onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
     modifier: Modifier = Modifier,
+    // The « Récurrent » setting needs a product, since a recurring item is a product's (MAG-369).
+    recurring: RecurringFrequency? = null,
+    onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     var label by remember { mutableStateOf(item.label) }
@@ -188,6 +207,10 @@ fun ItemDetailContent(
                     },
                     colors = readOnlyColors,
                 )
+            }
+
+            if (item.product != null && onRecurringChange != null) {
+                RecurringSetting(recurring = recurring, onChange = onRecurringChange)
             }
 
             // Source (read-only)

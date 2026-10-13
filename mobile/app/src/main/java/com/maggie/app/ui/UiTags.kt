@@ -319,6 +319,21 @@ object UiTags {
     /** The search field of the product picker, a window of its own. */
     const val PRODUCT_SEARCH = "product_search"
 
+    /** The grocery screen's tabs: the list, and the recurring items (MAG-369). */
+    const val GROCERY_TAB_LIST = "grocery_tab_list"
+    const val GROCERY_TAB_RECURRING = "grocery_tab_recurring"
+
+    /** The recurring tab's « Ajouter un produit », which opens the product search. */
+    const val RECURRING_ADD = "recurring_add"
+
+    /** The repeat icon and frequency under a list line whose product comes back by itself. */
+    const val RECURRING_INDICATOR = "recurring_indicator"
+
+    /** One choice of the « Récurrent » setting: `recurring_option_none`, `_weekly`, `_biweekly`, `_monthly`. */
+    const val RECURRING_OPTION_PREFIX = "recurring_option_"
+
+    fun recurringOption(value: String) = RECURRING_OPTION_PREFIX + value
+
     /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
     const val TRANSFER_BADGE = "transfer_badge"
 

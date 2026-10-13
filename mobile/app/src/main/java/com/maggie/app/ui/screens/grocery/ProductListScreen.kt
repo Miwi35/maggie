@@ -47,15 +47,20 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
+import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.packagingLabel
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
+    recurringViewModel: RecurringGroceryViewModel,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val recurringState by recurringViewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -99,7 +104,12 @@ fun ProductListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.products, key = { it.id }) { product ->
-                        ProductCard(product = product, onDelete = { viewModel.deleteProduct(product.id) })
+                        ProductCard(
+                            product = product,
+                            onDelete = { viewModel.deleteProduct(product.id) },
+                            recurring = recurringState.forProduct(product.id)?.frequency,
+                            onRecurringChange = { recurringViewModel.setFrequency(product.id, it) },
+                        )
                     }
                 }
             }
@@ -154,7 +164,12 @@ internal fun StockStateChip(state: ProductStockState) {
 
 /** A product of the list, with what it is bought in when the owner said it. */
 @Composable
-internal fun ProductCard(product: Product, onDelete: () -> Unit) {
+internal fun ProductCard(
+    product: Product,
+    onDelete: () -> Unit,
+    recurring: RecurringFrequency? = null,
+    onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -188,6 +203,13 @@ internal fun ProductCard(product: Product, onDelete: () -> Unit) {
                         text = "S'achète en : $it",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                onRecurringChange?.let {
+                    RecurringSetting(
+                        recurring = recurring,
+                        onChange = it,
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }

@@ -17,6 +17,8 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.RecurringFrequency
+import com.maggie.app.data.model.nextDueLabel
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
@@ -1129,5 +1131,49 @@ class MaggieApiServiceTest {
         assertEquals(1, preview.changeCount)
         assertEquals("CARREFOUR", preview.matches.single().label)
         assertTrue(preview.matches.single().wouldChange)
+    }
+
+    @Test
+    fun `the recurring items are read in one page, with what the tab displays`() = runBlocking {
+        var url: io.ktor.http.Url? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url
+                """{"member":[{"id":"r1","product":"/api/products/p1","label":"Lait","frequency":"weekly","nextDueAt":"2026-10-20"}]}"""
+            },
+        )
+
+        val items = service.getRecurringGroceryItems()
+
+        assertEquals("100", url!!.parameters["itemsPerPage"])
+        assertTrue(url!!.encodedPath.endsWith("/api/recurring_grocery_items"))
+        assertEquals("p1", items.single().productId)
+        assertEquals("Lait", items.single().label)
+        assertEquals("20/10/2026", items.single().nextDueLabel())
+    }
+
+    @Test
+    fun `a recurring item's frequency is changed by a merge-patch of that field alone`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var contentType: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                contentType = request.body.contentType?.toString()
+                body = String(request.body.toByteArray())
+                """{"id":"r1","frequency":"biweekly"}"""
+            },
+        )
+
+        val updated = service.updateRecurringGroceryItemFrequency("r1", RecurringFrequency.BIWEEKLY)
+
+        assertEquals(RecurringFrequency.BIWEEKLY, updated.frequency)
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/recurring_grocery_items/r1"))
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        assertEquals("""{"frequency":"biweekly"}""", body)
     }
 }
