@@ -74,8 +74,10 @@ interface Notice {
 
 const UNDO_DELAY_MS = 6000
 const DELETE_FAILED = 'La suppression a échoué. Réessayez.'
+const STOP_UNCONFIRMED = "L'arrêt n'a pas pu être confirmé."
 
 const MESSAGES_URL = '/agent/messages'
+const INTERRUPT_URL = '/agent/chat/interrupt'
 // May be relative in production ('/.well-known/mercure'): mercureUrl() resolves
 // it against the current origin — a bare `new URL()` throws and the subscription
 // dies, which is how b16916d reached production once already.
@@ -138,6 +140,15 @@ function mergeMessages(current: ChatMessage[], restored: ChatMessage[]): ChatMes
     const delta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     return Number.isNaN(delta) ? 0 : delta
   })
+}
+
+/** Without that message of the owner and the answer(s) that follow it — a turn taken back (MAG-320). */
+function withoutTurn(list: ChatMessage[], userMessageId: string): ChatMessage[] {
+  const at = list.findIndex((m) => m.id === userMessageId)
+  if (at === -1) return list
+  let end = at + 1
+  while (end < list.length && list[end].role === 'assistant') end++
+  return [...list.slice(0, at), ...list.slice(end)]
 }
 
 /** A thread updated: its position and its message count are kept, the rest is replaced. */
@@ -245,8 +256,20 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     // The last message sent, with its key; and, when the agent could not be reached, the
     // same pair as a state of that message — not a message of Maggie's (MAG-363).
-    const lastSendRef = useRef<{ text: string; key: string } | null>(null)
-    const [failedSend, setFailedSend] = useState<{ text: string; key: string } | null>(null)
+    const lastSendRef = useRef<{ text: string; key: string; replaces?: string } | null>(null)
+    const [failedSend, setFailedSend] = useState<{ text: string; key: string; replaces?: string } | null>(null)
+
+    // « Arrêter » and « Modifier » (MAG-320). The id of the message the next send corrects: a
+    // promise, because a message stopped before its echo came back has to be looked up first.
+    const inputRef = useRef<HTMLInputElement | null>(null)
+    const replacesRef = useRef<Promise<string | null> | null>(null)
+    const answerIdRef = useRef<string | null>(null)
+    // True while /chat/interrupt is in flight: the answer it stores comes back over Mercure
+    // before its response does, and it belongs to a turn that is already off the screen.
+    const stoppingRef = useRef(false)
+    const ignoredAnswersRef = useRef(new Set<string>())
+    // The echo of a message stopped before it had its real id would put it back in the thread.
+    const ignoredEchoRef = useRef<string | null>(null)
 
     // Search state
     const [searchMode, setSearchMode] = useState(false)
@@ -296,6 +319,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         onAgentStateChange('idle')
       },
       onTextStart: (messageId) => {
+        answerIdRef.current = messageId
         setStreamingMsgId(messageId)
         setStreamingText('')
         streamingTextRef.current = ''
@@ -381,7 +405,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       },
       onError: (message) => {
         console.error('Stream error:', message)
-        setFailedSend(lastSendRef.current)
+        // A 400 on a correction means the message is no longer the last one: the retry goes
+        // out as a plain message instead of failing the same way (MAG-320).
+        const last = lastSendRef.current
+        setFailedSend(last && message === 'HTTP 400' ? { ...last, replaces: undefined } : last)
         onAgentStateChange('idle')
       },
     })
@@ -581,8 +608,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     // --- Send message ---
 
+    // [corrects]: only what the owner writes in the field can correct the message that was
+    // taken back; a send from elsewhere (the imperative handle) never replaces anything.
     const sendMessageDirect = useCallback(
-      async (text: string) => {
+      async (text: string, corrects = false) => {
         if (!text.trim() || agUiStream.isStreaming) return
 
         const userMessage = text.trim()
@@ -593,10 +622,17 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         ])
         setFollowing(true)
 
+        const pendingReplaces = corrects ? replacesRef.current : null
+        replacesRef.current = null
+        ignoredEchoRef.current = null
+        const replaces = (pendingReplaces ? await pendingReplaces : null) ?? undefined
+        if (replaces) setMessages((prev) => withoutTurn(prev, replaces))
+
         const key = newMessageKey()
-        lastSendRef.current = { text: userMessage, key }
+        lastSendRef.current = { text: userMessage, key, replaces }
         setFailedSend(null)
-        await agUiStream.send(userMessage, key)
+        answerIdRef.current = null
+        await agUiStream.send(userMessage, key, replaces)
       },
       [agUiStream, setFollowing],
     )
@@ -607,7 +643,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       setFailedSend(null)
       setFollowing(true)
       onAgentStateChange('thinking')
-      await agUiStream.send(failedSend.text, failedSend.key)
+      answerIdRef.current = null
+      await agUiStream.send(failedSend.text, failedSend.key, failedSend.replaces)
     }, [failedSend, agUiStream, setFollowing, onAgentStateChange])
 
     useImperativeHandle(
@@ -643,6 +680,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
             return
           }
           if (data.id && data.content) {
+            // The turn the owner stopped, or the message taken back with it (MAG-320).
+            const stoppedEcho = data.role === 'user' && ignoredEchoRef.current === data.content.trim()
+            const stoppedAnswer =
+              data.role === 'assistant' && data.interrupted && (stoppingRef.current || ignoredAnswersRef.current.has(data.id))
+            if (stoppedEcho || stoppedAnswer) return
             setMessages((prev) => {
               // Dedup: skip if already in list by real ID. A message this tab streamed
               // learns its thread from the echo, which is what a thread's deletion needs.
@@ -888,9 +930,95 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // --- UI handlers ---
 
     const sendMessage = useCallback(() => {
-      sendMessageDirect(input)
+      sendMessageDirect(input, true)
       setInput('')
     }, [input, sendMessageDirect])
+
+    // --- Stop Maggie and correct the message, as on Claude (MAG-320) ---
+
+    const fillInput = (text: string) => {
+      setInput(text)
+      // After the render that holds the text, so the cursor lands behind it.
+      requestAnimationFrame(() => {
+        const field = inputRef.current
+        if (!field) return
+        field.focus()
+        field.setSelectionRange(text.length, text.length)
+      })
+    }
+
+    // The real id of a message sent from here whose echo had not come back: the server's last
+    // question, if it is that one. Never guessed otherwise — no id, no correction.
+    const lookUpServerId = async (text: string): Promise<string | null> => {
+      try {
+        const recent = await fetchMessages({ limit: '5' })
+        return recent.findLast((m) => m.role === 'user' && m.content.trim() === text.trim())?.id ?? null
+      } catch {
+        return null
+      }
+    }
+
+    // [target] is the last question of the owner. The stream is closed first, the field and the
+    // thread are settled at once, and the server is told afterwards: its answer, or its failure,
+    // changes nothing of what the owner sees but a discreet notice.
+    const stopAnswering = async (target: ChatMessage) => {
+      const spokenText = streamingTextRef.current
+      const messageId = answerIdRef.current
+      const echoPending = target.id.startsWith('tmp-')
+
+      stoppingRef.current = true
+      agUiStream.stop()
+      onAgentStateChange('idle')
+      streamingTextRef.current = ''
+      setStreamingText('')
+      setStreamingMsgId(null)
+      toolCallsRef.current = toolCallsRef.current.map((tc) => (tc.status === 'running' ? { ...tc, status: 'error' } : tc))
+      onToolCallsChange(toolCallsRef.current)
+      setMessages((prev) => withoutTurn(prev, target.id))
+      ignoredEchoRef.current = echoPending ? target.content.trim() : null
+      fillInput(target.content)
+
+      const interruption = fetch(INTERRUPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(messageId ? { messageId, spokenText } : { spokenText }),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const stored = (await res.json()) as { id?: string }
+        if (stored.id) {
+          ignoredAnswersRef.current.add(stored.id)
+          setMessages((prev) => prev.filter((m) => m.id !== stored.id))
+        }
+      })
+      replacesRef.current = interruption
+        .catch(() => undefined)
+        .then(() => (echoPending ? lookUpServerId(target.content) : target.id))
+      try {
+        await interruption
+      } catch (e) {
+        console.error('Failed to interrupt', e)
+        setNotice({ text: STOP_UNCONFIRMED, undo: false })
+      } finally {
+        stoppingRef.current = false
+      }
+    }
+
+    const lastQuestionId = messages.findLast((m) => m.role === 'user')?.id
+
+    const handleStop = () => {
+      const target = messages.find((m) => m.id === lastQuestionId)
+      if (target) void stopAnswering(target)
+      else agUiStream.stop()
+    }
+
+    const editLast = (message: ChatMessage) => {
+      if (agUiStream.isStreaming) {
+        void stopAnswering(message)
+        return
+      }
+      replacesRef.current = Promise.resolve(message.id)
+      fillInput(message.content)
+    }
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -1253,6 +1381,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                 ? undefined
                                 : () => deleteMessage(msg)
                             }
+                            onEdit={msg.id === lastQuestionId ? () => editLast(msg) : undefined}
                           >
                             {msg.hasImage && (
                               <Typography variant="caption" component="div" sx={{ opacity: 0.8, fontStyle: 'italic' }}>
@@ -1343,8 +1472,16 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 <Box sx={{ px: '16px', py: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <TextField
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                      setInput(e.target.value)
+                      // An emptied field gives up the correction.
+                      if (!e.target.value) {
+                        replacesRef.current = null
+                        ignoredEchoRef.current = null
+                      }
+                    }}
                     onKeyDown={handleKeyDown}
+                    inputRef={inputRef}
                     placeholder="Demande à Maggie..."
                     size="small"
                     fullWidth
@@ -1377,9 +1514,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     </span>
                   </Tooltip>
                   <IconButton
-                    aria-label="Envoyer"
-                    onClick={sendMessage}
-                    disabled={isLoading || !input.trim()}
+                    aria-label={isLoading ? 'Arrêter' : 'Envoyer'}
+                    data-testid={isLoading ? 'chat-stop' : undefined}
+                    onClick={isLoading ? handleStop : sendMessage}
+                    disabled={!isLoading && !input.trim()}
                     sx={(theme) => ({
                       ...roundButtonSx(true)(theme),
                       bgcolor: 'primary.main',
@@ -1388,7 +1526,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                       '&.Mui-disabled': { bgcolor: theme.palette.veilleuse.raised, color: 'text.disabled' },
                     })}
                   >
-                    <SendIcon sx={{ fontSize: 20 }} />
+                    {isLoading ? <StopIcon sx={{ fontSize: 20 }} /> : <SendIcon sx={{ fontSize: 20 }} />}
                   </IconButton>
                 </Box>
               )}

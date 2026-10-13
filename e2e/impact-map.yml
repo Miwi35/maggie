@@ -297,6 +297,8 @@ web:
     paths:
       - 'agent/app/memory/**'
       - 'agent/fixtures/fake-llm/96-memory-*.yaml'
+  e2e/web/tests/chat-stop.spec.ts:
+    areas: [chat, dashboard]
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:
@@ -475,6 +477,8 @@ mobile:
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/12-thread-deletion.yaml:
+    areas: [chat, realtime]
+  e2e/mobile/flows/15-stop-and-correct.yaml:
     areas: [chat, realtime]
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
