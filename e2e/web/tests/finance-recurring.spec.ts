@@ -476,6 +476,7 @@ test('a debit without counterparty becomes a recurring operation recognised by i
 
   // Given a debit whose label names no merchant: the bank gives it no counterparty.
   const label = 'PAIEMENT PAR CARTE X9633'
+  const patternValue = label
   const line = await debit(api, accountId, label, -1250, `${parisDay().slice(0, 7)}-03`)
   expect(line.id).toBeTruthy()
 
@@ -490,7 +491,6 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   const pattern = recurring.form.getByLabel('Motif du libellé')
   await expect(pattern).not.toHaveValue('')
   await expect(recurring.form).toContainText(/reconnaît les transactions dont le libellé contient/i)
-  const patternValue = await pattern.inputValue()
   await recurring.choose(/Catégorie/, categoryName)
 
   // And emptying both says why, in French, and saves nothing
@@ -498,7 +498,7 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
   await expect(recurring.form).toContainText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')
 
-  // When I restore the pattern and save
+  // When I write the pattern myself (this label has no merchant to keep) and save
   await recurring.form.getByLabel('Motif du libellé').fill(patternValue)
   await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
 

@@ -76,7 +76,7 @@ const matchesNature = (category: { obligation?: string }, nature: TransactionNat
 const PAYEE_REQUIRED = 'Indique une contrepartie ou un motif de libellé pour reconnaître les transactions'
 
 /** The API names the field in front of its message: « counterpartyName: … ». */
-const payeeRefusal = (e: unknown): string | null => /^counterpartyName:\s*(.+)$/s.exec(e instanceof Error ? e.message : '')?.[1] ?? null
+const payeeRefusal = (e: unknown): string | null => /^counterpartyName:[ \t]*(.+)/.exec(e instanceof Error ? e.message : '')?.[1] ?? null
 
 const toEuros = (cents: number | null) => (cents === null ? '' : String(Math.abs(cents) / 100))
 

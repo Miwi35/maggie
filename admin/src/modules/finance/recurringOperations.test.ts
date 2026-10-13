@@ -146,6 +146,9 @@ describe('labelPatternFrom', () => {
     ['PRLV EDF REF 20261013ABC', 'PRLV EDF'],
     ['PRLV EDF N° 99812', 'PRLV EDF'],
     ['FLIXO 0123456789', 'FLIXO'],
+    ['CARTE X9633 SAS JARDIS 13/10', 'SAS JARDIS'],
+    ['PRLV 12/10 FLIXO', 'FLIXO'],
+    ['VIR 0012345678 LOYER MARS REF: 88', 'LOYER MARS'],
   ])('« %s » reads « %s »', (label, expected) => {
     expect(labelPatternFrom(label)).toBe(expected)
   })

@@ -202,6 +202,9 @@ class RecurringFormStateTest {
         assertEquals("VIR SCI VERDA", labelPatternFrom("VIR SCI VERDA REF: 8842001"))
         assertEquals("PRLV EDF", labelPatternFrom("PRLV EDF N° 99812"))
         assertEquals("FLIXO", labelPatternFrom("FLIXO 0123456789"))
+        assertEquals("SAS JARDIS", labelPatternFrom("CARTE X9633 SAS JARDIS 13/10"))
+        assertEquals("FLIXO", labelPatternFrom("PRLV 12/10 FLIXO"))
+        assertEquals("LOYER MARS", labelPatternFrom("VIR 0012345678 LOYER MARS RÉF: 88"))
         assertEquals("12/10/2026 0123456789", labelPatternFrom("12/10/2026 0123456789"))
     }
 

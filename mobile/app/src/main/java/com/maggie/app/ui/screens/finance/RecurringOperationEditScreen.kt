@@ -84,25 +84,28 @@ private val VARIABLE_PARTS = listOf(
     Regex("""\b\d{4}-\d{2}-\d{2}\b"""),
     Regex("""\b\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b"""),
     Regex("""\b(?:CB|CARTE|CARD)\b[\s*:]*X?\d+""", RegexOption.IGNORE_CASE),
-    Regex("""\bR[ée]f(?:[ée]rence)?\b\.?\s*:?\s*\S+""", RegexOption.IGNORE_CASE),
-    Regex("""\bN°\s*\S+""", RegexOption.IGNORE_CASE),
+    Regex("""(?iu)\bR[ée]f(?:[ée]rence)?\b\.?\s*:?\s*\S+"""),
+    Regex("""(?iu)\bN°\s*\S+"""),
     Regex("""\S*\d{4,}\S*"""),
 )
 
 private val EDGE_SEPARATORS = Regex("""^[\s\-*:/.,]+|[\s\-*:/.,]+$""")
 
 /**
- * What a bank label reads as when the payee is unknown: the label without the parts that change
- * from one booking to the next (dates, card and reference numbers). Left whole if nothing else
- * would remain.
+ * What a bank label reads as when the payee is unknown: the longest stretch of the label that
+ * holds none of the parts that change from one booking to the next (dates, card and reference
+ * numbers). A fragment of the label, as the server matches the pattern by "contains". Left whole
+ * if nothing else remains.
  */
 internal fun labelPatternFrom(label: String): String {
     val whole = label.replace(Regex("""\s+"""), " ").trim()
-    val stable = VARIABLE_PARTS.fold(whole) { text, part -> text.replace(part, " ") }
-        .replace(Regex("""\s+"""), " ")
-        .replace(EDGE_SEPARATORS, "")
+    val longest = VARIABLE_PARTS.fold(whole) { text, part -> text.replace(part, "\u0000") }
+        .split('\u0000')
+        .map { it.replace(EDGE_SEPARATORS, "") }
+        .filter { it.isNotEmpty() }
+        .fold("") { best, stretch -> if (stretch.length > best.length) stretch else best }
 
-    return stable.ifEmpty { whole }
+    return longest.ifEmpty { whole }
 }
 
 internal const val PAYEE_REQUIRED = "Indique une contrepartie ou un motif de libellé pour reconnaître les transactions"

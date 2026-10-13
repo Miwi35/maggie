@@ -257,7 +257,6 @@ export function writeIgnored(ids: string[]): void {
   }
 }
 
-/** React-admin hands back resources as IRIs; the endpoints want the bare ULID. */
 const VARIABLE_PARTS = [
   /\b\d{4}-\d{2}-\d{2}\b/g,
   /\b\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b/g,
@@ -268,19 +267,23 @@ const VARIABLE_PARTS = [
 ]
 
 /**
- * What a bank label reads as when the payee is unknown: the label without the
- * parts that change from one booking to the next (dates, card and reference
- * numbers). Left whole if nothing else would remain.
+ * What a bank label reads as when the payee is unknown: the longest stretch of
+ * the label that holds none of the parts that change from one booking to the
+ * next (dates, card and reference numbers). A fragment of the label, as the
+ * server matches the pattern by « contains ». Left whole if nothing else remains.
  */
 export function labelPatternFrom(label: string): string {
   const whole = label.replace(/\s+/g, ' ').trim()
-  const stable = VARIABLE_PARTS.reduce((text, part) => text.replace(part, ' '), whole)
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s\-*:/.,]+|[\s\-*:/.,]+$/g, '')
+  const stretches = VARIABLE_PARTS.reduce((text, part) => text.replace(part, '\u0000'), whole)
+    .split('\u0000')
+    .map((stretch) => stretch.replace(/^[\s\-*:/.,]+|[\s\-*:/.,]+$/g, ''))
+    .filter((stretch) => stretch !== '')
+  const longest = stretches.reduce((best, stretch) => (stretch.length > best.length ? stretch : best), '')
 
-  return stable === '' ? whole : stable
+  return longest === '' ? whole : longest
 }
 
+/** React-admin hands back resources as IRIs; the endpoints want the bare ULID. */
 export const idOf = (iri: string) => iri.split('/').pop() ?? iri
 
 export const seriesIri = (id: string) => `/api/recurring_operations/${idOf(id)}`
