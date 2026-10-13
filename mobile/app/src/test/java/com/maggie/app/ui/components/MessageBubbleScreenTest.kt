@@ -3,10 +3,12 @@ package com.maggie.app.ui.components
 import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,5 +53,26 @@ class MessageBubbleScreenTest {
 
         compose.onNodeWithText("Capture d'écran (non conservée)").assertDoesNotExist()
         compose.onNodeWithContentDescription("Capture d'écran").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the user's answer to a request is a plain line, not a bubble (MAG-336)`() {
+        val decision = ChatMessage(
+            id = "d-1",
+            role = "decision",
+            content = "Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »",
+        )
+
+        compose.setContent { MessageBubble(decision) }
+
+        compose.onNodeWithText("Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_DECISION).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a question or an answer is no decision line`() {
+        compose.setContent { MessageBubble(question) }
+
+        compose.onNodeWithTag(UiTags.CHAT_DECISION).assertDoesNotExist()
     }
 }

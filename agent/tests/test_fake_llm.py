@@ -536,6 +536,24 @@ class TestMatching:
 
         assert text_of(answer) == f"C'est fait : l'événement Test validation est supprimé ({event_id})."
 
+    async def test_the_decision_scenario_needs_the_decision_line_in_the_history(self):
+        """77-decision-recalled.yaml answers only when the history carries the user's answer (MAG-336)."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        history = [
+            {"role": "user", "content": "Supprime l'événement Test validation"},
+            {"role": "assistant", "content": "Je te demande ton accord."},
+            {
+                "role": "user",
+                "content": "[Réponse de l'utilisateur à ta demande : Autoriser — supprimer l'événement (via chat, 14:32)]",
+            },
+        ]
+
+        informed = await ask(client, "Qu'ai-je décidé ?", history=history)
+        uninformed = await ask(client, "Qu'ai-je décidé ?", history=history[:2])
+
+        assert text_of(informed) == "Tu as autorisé la suppression : je m'en suis occupée."
+        assert text_of(uninformed).startswith("[fake-llm] aucun scénario")
+
     async def test_a_greeting_with_a_reference_is_answered_with_that_reference(self):
         """82-greeting-reference.yaml, before the bare greeting that would also match (MAG-394)."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

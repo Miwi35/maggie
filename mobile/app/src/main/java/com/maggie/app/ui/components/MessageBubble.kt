@@ -43,11 +43,27 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.ScreenshotEncoder
+
+/** The user's answer to a request of Maggie's: a discreet centred line, not a bubble (MAG-336). */
+@Composable
+fun DecisionLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .testTag(UiTags.CHAT_DECISION),
+    )
+}
 
 /**
  * [thumbnail] is the screenshot this device sent with the question, as JPEG bytes
@@ -70,6 +86,10 @@ fun MessageBubble(
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
 ) {
+    if (message.isDecision) {
+        DecisionLine(message.content)
+        return
+    }
     val isUser = message.role == "user"
     val highlightColor by animateColorAsState(
         targetValue = if (isHighlighted) MaterialTheme.colorScheme.primary else Color.Transparent,

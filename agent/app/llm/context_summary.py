@@ -26,6 +26,7 @@ import time
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
+from app.db.models import DECISION_ROLE
 from app.llm.client import create_llm_client, llm_configured
 from app.metrics import record_llm_usage, usage_kwargs
 
@@ -63,7 +64,7 @@ def _transcript(messages: list) -> str:
     """
     lines = []
     for message in messages:
-        speaker = "Utilisateur" if message.role == "user" else "Maggie"
+        speaker = "Utilisateur" if message.role == "user" else "Décision" if message.role == DECISION_ROLE else "Maggie"
         content = message.content or ""
         if len(content) > MAX_MESSAGE_CHARS:
             content = content[:MAX_MESSAGE_CHARS] + " […]"

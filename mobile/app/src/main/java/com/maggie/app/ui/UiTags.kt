@@ -80,6 +80,9 @@ object UiTags {
     const val CHAT_MESSAGES = "chat_messages"
     const val CHAT_JUMP_TO_LATEST = "chat_jump_to_latest"
 
+    /** The line that keeps the user's answer to a request of Maggie's in the thread (MAG-336). */
+    const val CHAT_DECISION = "chat_decision"
+
     /** « Réessayer », under a question that got no answer (MAG-363). */
     const val CHAT_RETRY = "chat_retry"
 

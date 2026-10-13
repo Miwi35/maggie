@@ -32,6 +32,7 @@ from app.config import settings
 from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
+from app.db.models import DECISION_ROLE
 from app.metrics import record_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -240,7 +241,7 @@ async def _discussion_in_progress(user_id: str, message_id: str, contexts: list)
 
     lines = []
     for row in reversed(previous[:CONTINUITY_EXCERPT_MESSAGES]):
-        speaker = "Utilisateur" if row.role == "user" else "Maggie"
+        speaker = "Utilisateur" if row.role == "user" else "Décision" if row.role == DECISION_ROLE else "Maggie"
         lines.append(f"- {speaker} : {(row.content or '')[:CONTINUITY_EXCERPT_CHARS]}")
     return _Discussion(context=current, excerpt="\n".join(lines))
 

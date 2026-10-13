@@ -390,7 +390,7 @@ class ChatViewModel(
                     handleStreamEvent(event)
                 }
             if (awaitingReply) {
-                val answered = _uiState.value.messages.lastOrNull()?.role == "assistant"
+                val answered = _uiState.value.messages.lastOrNull { !it.isDecision }?.role == "assistant"
                 if (answered && streamError == null) finishRequest() else recoverReply(anchor, RECOVERY_WINDOW_MS)
             }
         } catch (e: CancellationException) {
@@ -442,7 +442,7 @@ class ChatViewModel(
             } catch (e: Exception) {
                 Log.w(TAG, "Could not fetch the answer: ${e::class.simpleName}: ${e.message}")
             }
-            if (_uiState.value.messages.lastOrNull()?.role == "assistant") {
+            if (_uiState.value.messages.lastOrNull { !it.isDecision }?.role == "assistant") {
                 finishRequest()
                 rebuildDisplayItems()
                 return
@@ -671,7 +671,7 @@ class ChatViewModel(
 
     /** The request is over: its answer, if any, is now the thing to read aloud. */
     private fun finishRequest() {
-        val reply = if (awaitingReply) _uiState.value.messages.lastOrNull()?.takeIf { it.role == "assistant" } else null
+        val reply = if (awaitingReply) _uiState.value.messages.lastOrNull { !it.isDecision }?.takeIf { it.role == "assistant" } else null
         awaitingReply = false
         unanswered = null
         _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply)
@@ -1194,8 +1194,10 @@ class ChatViewModel(
                             )
                             rebuildDisplayItems()
                         }
-                        // Clear loading when we receive an assistant/system message
-                        if (message.role != "user") {
+                        // Clear loading when we receive an assistant/system message — not the line
+                        // that keeps the user's own answer to a request (MAG-336): Maggie is still
+                        // working on the question asked before it.
+                        if (message.role != "user" && !message.isDecision) {
                             unanswered = null
                             _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()

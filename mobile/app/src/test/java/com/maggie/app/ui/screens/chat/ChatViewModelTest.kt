@@ -670,6 +670,66 @@ class ChatViewModelTest {
         assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Depuis le web" })
     }
 
+    // --- MAG-336: the user's answer to a request of Maggie's stays in the thread ---
+
+    @Test
+    fun `the decision line is appended once as an information line`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        val line = echo("d-1", "decision", "Vous avez répondu : Autoriser — supprimer l'événement")
+
+        topic.tryEmit(line)
+        topic.tryEmit(line)
+        advanceUntilIdle()
+
+        val lines = viewModel.uiState.value.messages.filter { it.id == "d-1" }
+        assertEquals(1, lines.size)
+        assertTrue(lines.single().isDecision)
+        assertEquals("Vous avez répondu : Autoriser — supprimer l'événement", lines.single().content)
+    }
+
+    @Test
+    fun `a decision line arriving while Maggie is still answering does not end the wait`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            awaitCancellation()
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        viewModel.sendMessage("Supprime le rendez-vous")
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        topic.tryEmit(echo("d-1", "decision", "Vous avez répondu : Refuser — supprimer l'événement"))
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.messages.any { it.id == "d-1" })
+        assertTrue(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `an assistant message still ends the wait`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            awaitCancellation()
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        viewModel.sendMessage("Bonjour")
+        runCurrent()
+
+        topic.tryEmit(echo("a-1", "assistant", "Bonjour !"))
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
     // --- MAG-214: the screenshot goes with the sentence, the thumbnail stays in memory ---
 
     private val jpeg = byteArrayOf(-1, -40, -1, -32, 1, 2, 3)

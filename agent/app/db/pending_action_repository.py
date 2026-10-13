@@ -7,6 +7,7 @@ from app.db.agent_engine import agent_session
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
+from app.policy.decision import record_decision
 
 logger = logging.getLogger(__name__)
 
@@ -180,31 +181,41 @@ class PendingActionRepository:
 
         Called from the scheduler's execution loop. Each one is published, which is
         why it reads the rows instead of a bulk UPDATE: a card left on screen for a
-        dead action is one the user clicks for nothing. Two workers sweeping at once
-        may publish the same `expired` twice, which costs a client one redundant
-        event — and never an execution, since `decide` claims its row.
+        dead action is one the user clicks for nothing. Each action is claimed with a
+        conditional UPDATE, so two workers sweeping at once expire it — and write its
+        thread line — only once; and an expired action is never executed, since `decide`
+        claims its row too.
         """
         now = datetime.now(UTC)
+        expired: list[PendingAction] = []
         async with agent_session() as session:
             found = await session.execute(
-                select(PendingAction).where(
+                select(PendingAction.id).where(
                     PendingAction.status == PendingActionStatus.PENDING, PendingAction.expires_at <= now
                 )
             )
-            overdue = list(found.scalars().all())
-            for action in overdue:
-                action.status = PendingActionStatus.EXPIRED
-                action.decided_at = now
-            if overdue:
+            # Claimed one by one, like `decide`: of two workers sweeping at once only one wins
+            # a row, so the thread gets one « Sans réponse » line per action (MAG-336).
+            for action_id in found.scalars().all():
+                claimed = await session.execute(
+                    update(PendingAction)
+                    .where(PendingAction.id == action_id, PendingAction.status == PendingActionStatus.PENDING)
+                    .values(status=PendingActionStatus.EXPIRED, decided_at=now)
+                )
                 await session.commit()
-                for action in overdue:
-                    await session.refresh(action)
+                if claimed.rowcount != 1:
+                    continue
+                row = await session.execute(select(PendingAction).where(PendingAction.id == action_id))
+                action = row.scalar_one_or_none()
+                if action is not None:
+                    expired.append(action)
 
-        for action in overdue:
+        for action in expired:
             await self._publish(action)
-        if overdue:
-            logger.info(f"Expired {len(overdue)} pending action(s)")
-        return len(overdue)
+            await record_decision(action, None)
+        if expired:
+            logger.info(f"Expired {len(expired)} pending action(s)")
+        return len(expired)
 
 
 pending_action_repo = PendingActionRepository()

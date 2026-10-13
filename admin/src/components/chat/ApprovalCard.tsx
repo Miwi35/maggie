@@ -79,6 +79,7 @@ export const ApprovalCard = ({ approval, onApprove, onDeny }: ApprovalCardProps)
   return (
     <Box
       data-testid="approval-card"
+      data-approval-id={approval.id}
       data-status={state}
       role="group"
       aria-label={`Validation : ${summary}`}

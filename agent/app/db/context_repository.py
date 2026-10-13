@@ -55,6 +55,8 @@ class ContextRepository:
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS turn_status VARCHAR(16)"))
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS turn_lease_until TIMESTAMPTZ"))
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS turn_screen_context TEXT"))
+            # MAG-336 — the answer a `decision` line keeps: what, on which channel, to which action.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS decision JSONB"))
             await conn.execute(
                 text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_message_client_key "

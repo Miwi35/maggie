@@ -1,0 +1,15 @@
+# The turn after an answer to a held action (MAG-336): the agent stores a `decision` line in
+# the thread, and `build_history` hands it to the model as the user's turn —
+# « [Réponse de l'utilisateur à ta demande : Autoriser — … (via chat, 14:32)] ».
+#
+# This scenario matches only when that line is in the history, so a journey asking « qu'ai-je
+# décidé » reads this sentence only if the decision really reached the model.
+name: decision-recalled
+description: Say what the user decided, because the decision line is in the history.
+
+match:
+  user_contains: "qu'ai-je décidé"
+  history_contains: "Réponse de l'utilisateur à ta demande : Autoriser"
+
+turns:
+  - text: "Tu as autorisé la suppression : je m'en suis occupée."
