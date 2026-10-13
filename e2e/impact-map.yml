@@ -326,6 +326,8 @@ web:
     areas: [calendar]
   e2e/web/tests/agenda-delete.spec.ts:
     areas: [calendar, search]
+  e2e/web/tests/proactions-agenda.spec.ts:
+    areas: [calendar, notification]
   e2e/web/tests/agenda-events.spec.ts:
     areas: [calendar, realtime]
   e2e/web/tests/agenda-google.spec.ts:

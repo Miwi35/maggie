@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { callMcpTool } from '../helpers/mcp.js'
+import { e2eNow, parisDay } from '../fixtures/clock.js'
 
 /**
  * A proaction is an event of the internal « Maggie » agenda — MAG-326 (extends MAG-103).
@@ -26,9 +27,9 @@ interface StoredAgenda {
   googleCalendarId: string | null
 }
 
-/** Tomorrow's date in Paris, whatever zone the runner is in. */
+/** Tomorrow in Paris on the stack's clock (MAG-234): the API refuses a past `scheduled_at` against `E2E_NOW`, not the wall clock. */
 function tomorrowInParis(): string {
-  return new Date(Date.now() + 86_400_000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' })
+  return parisDay(new Date(e2eNow().getTime() + 86_400_000))
 }
 
 /** A name the current attempt alone writes: CI retries once and nothing reseeds in between. */
