@@ -216,7 +216,7 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
 
     public function testPaginationIsNotTranslated(): void
     {
-        $translated = $this->translator->translate(self::query('page=2&itemsPerPage=50'));
+        $translated = $this->translator->translate(self::query('page=2&itemsPerPage=50&pagination=false'));
 
         self::assertSame([], $translated['filter']);
         self::assertSame([], $translated['sort']);

@@ -68,6 +68,9 @@ class ElasticsearchCollectionProviderTest extends TestCase
         $body = $this->lastRequestBody();
         self::assertSame(10000, $body['size']);
         self::assertSame(0, $body['from']);
+        // `pagination` is an instruction to the provider, not a field to match: as a term it empties the answer.
+        self::assertCount(1, $body['query']['bool']['filter']);
+        self::assertArrayHasKey('userId', $body['query']['bool']['filter'][0]['term']);
     }
 
     public function testPaginationZeroIsTheSameAsFalse(): void
