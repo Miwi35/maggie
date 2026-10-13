@@ -94,25 +94,27 @@ async function suggestions(api: APIRequestContext): Promise<Suggestion[]> {
 }
 
 /**
- * Written as the neighbour, on an account and a category of its own: deleting
- * the account takes the series and the lines with it.
+ * Written on an account of its own (`recurringUser`), not the neighbour's: the
+ * rent debits move the train de vie, which `finance-internal-transfers.spec.ts`
+ * reads on the neighbour while this file runs on another worker. Deleting the
+ * account takes the series and the lines with it.
  */
 const createdAccountIds: string[] = []
 const createdCategoryIds: string[] = []
 
-test.afterEach(async ({ otherUser }) => {
+test.afterEach(async ({ recurringUser }) => {
   for (const id of createdAccountIds.splice(0)) {
-    await otherUser.api.delete(`/api/accounts/${id}`)
+    await recurringUser.api.delete(`/api/accounts/${id}`)
   }
   for (const id of createdCategoryIds.splice(0)) {
-    await otherUser.api.delete(`/api/categories/${id}`)
+    await recurringUser.api.delete(`/api/categories/${id}`)
   }
 })
 
 test('three rent debits are proposed as a monthly series, and accepting it creates and fills the series', async ({
-  otherUser,
+  recurringUser,
 }) => {
-  const { api } = otherUser
+  const { api } = recurringUser
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -201,9 +203,9 @@ test('three rent debits are proposed as a monthly series, and accepting it creat
 })
 
 test('the suggestion is accepted from the screen, then the history is attached after its preview', async ({
-  otherUser,
+  recurringUser,
 }) => {
-  const { api, page } = otherUser
+  const { api, page } = recurringUser
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {

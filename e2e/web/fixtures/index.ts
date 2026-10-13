@@ -11,8 +11,10 @@ import {
   APPROVALS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   OTHER_USER_EMAIL,
+  RECURRING_USER_EMAIL,
   SEED_USER_EMAIL,
   STOCK_USER_EMAIL,
+  TRANSFERS_USER_EMAIL,
   TREASURY_USER_EMAIL,
   signIn,
   storageStateOf,
@@ -30,6 +32,8 @@ export {
   STOCK_USER_EMAIL,
   APPROVALS_USER_EMAIL,
   TREASURY_USER_EMAIL,
+  RECURRING_USER_EMAIL,
+  TRANSFERS_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -123,6 +127,18 @@ export interface MaggieFixtures {
   approvalsUser: OtherUser
   /** The sixth seeded account, for the savings advances journey (MAG-276): its salary day and series are its own. */
   treasuryUser: OtherUser
+  /**
+   * The seventh seeded account, for the recurring operations detection journey
+   * (MAG-47): three rent debits move the train de vie, which
+   * `finance-internal-transfers.spec.ts` reads on the neighbour.
+   */
+  recurringUser: OtherUser
+  /**
+   * The eighth seeded account, for the internal transfers and rejections
+   * journey (MAG-272): it compares the train de vie with itself, so no other
+   * file may book a line on it.
+   */
+  transfersUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -323,6 +339,14 @@ export const test = base.extend<MaggieFixtures>({
 
   treasuryUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(TREASURY_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  recurringUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(RECURRING_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  transfersUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(TRANSFERS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

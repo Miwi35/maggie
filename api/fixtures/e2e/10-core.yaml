@@ -114,6 +114,24 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-treasury-google-id'
         name: 'Sacha Trésorerie'
 
+    # The recurring operations detection journey (MAG-47, MAG-308). Its three
+    # rent debits move the train de vie of whoever owns them: on the neighbour,
+    # run beside the transfers and rejections journey, they broke the figure
+    # that journey compares with itself.
+    e2e_recurring_user:
+        email: 'e2e-recurring@maggie.local'
+        googleId: 'e2e-recurring-google-id'
+        name: 'Alix Récurrence'
+
+    # The internal transfers and rejections journey (MAG-272, MAG-350, MAG-367).
+    # It compares the train de vie with itself before and after its own lines;
+    # any other file booking a debit on the same account, on another worker,
+    # moves the figure between the two reads.
+    e2e_transfers_user:
+        email: 'e2e-transfers@maggie.local'
+        googleId: 'e2e-transfers-google-id'
+        name: 'Noa Virement'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -161,6 +179,22 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_treasury_user_preference:
         user: '@e2e_treasury_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_recurring_user_preference:
+        user: '@e2e_recurring_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_transfers_user_preference:
+        user: '@e2e_transfers_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

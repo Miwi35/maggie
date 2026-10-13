@@ -9,16 +9,18 @@ import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
  * Internal transfers and rejected payments: seen, paired and corrected from
  * the admin (MAG-272 and MAG-350, on MAG-102's journey).
  *
- * Written as the **neighbour**, for the reason `finance-accounts.spec.ts` gives:
- * the owner's balances and train de vie are asserted by other files, and two
- * accounts with 3 000,00 € moving between them would move both.
+ * Written as an account of its own (`transfersUser`), not the owner's nor the
+ * neighbour's: the owner's balances and train de vie are asserted by other
+ * files, and two accounts with 3 000,00 € moving between them would move both;
+ * the neighbour's train de vie is moved by the debits other files book on it
+ * while this one runs on another worker (a rent of 900,00 € read here as
+ * 600,00 € a month).
  *
  * The train de vie is read from the dashboard's own endpoint rather than from
  * its card: the card only shows it once an income is known, and the figure is
  * the one that matters. It is compared with itself — before the detection,
- * after it, after the correction — because the neighbour may hold other
- * history. The amount is a multiple of three so that the average over the
- * three-month sample moves by exactly a third of it.
+ * after it, after the correction. The amount is a multiple of three so that
+ * the average over the three-month sample moves by exactly a third of it.
  */
 
 interface StoredTransaction {
@@ -117,27 +119,26 @@ function frenchDate(isoDay: string): string {
 }
 
 /**
- * The neighbour's finance module must be left as it was found:
- * `finance-independence.spec.ts` declares a rente on it and expects no train de
- * vie yet, so 3 080,00 € left here would show up there as 1 026,66 € a month.
- * Deleting an account takes its transactions with it.
+ * The account's finance module is left as it was found, so a retry starts from
+ * the figure the first attempt started from. Deleting an account takes its
+ * transactions with it.
  */
 const createdAccountIds: string[] = []
 
-// One after the other: both journeys read the neighbour's train de vie, and
+// One after the other: the journeys read this account's train de vie, and
 // each one's lines would move the figure the other compares with itself.
 test.describe.configure({ mode: 'serial' })
 
-test.afterEach(async ({ otherUser }) => {
+test.afterEach(async ({ transfersUser }) => {
   for (const id of createdAccountIds.splice(0)) {
-    await otherUser.api.delete(`/api/accounts/${id}`)
+    await transfersUser.api.delete(`/api/accounts/${id}`)
   }
 })
 
 test('a detected transfer wears its badge and its counterpart, and the owner can take it off', async ({
-  otherUser,
+  transfersUser,
 }) => {
-  const { api, page: actor } = otherUser
+  const { api, page: actor } = transfersUser
   const attempt = test.info().retry
   // Unique per attempt, amount included: CI retries once without reseeding, and
   // a first attempt that stopped before the detection leaves a 3 000,00 € leg
@@ -172,7 +173,7 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
   const before = await lifestyleCents(api)
 
   const transfers = new FinanceTransfersPage(actor)
-  const checking = new FinanceTransfersPage(await otherUser.secondWindow())
+  const checking = new FinanceTransfersPage(await transfersUser.secondWindow())
 
   await checking.openTransactions(checkingId)
   await expect(checking.row(credit)).toBeVisible()
@@ -261,8 +262,8 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
  * or a sync reaches the same detection through the same event
  * (`TransactionEffectsTest`, `ImportStatementTest`).
  */
-test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ otherUser }) => {
-  const { api, page } = otherUser
+test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ transfersUser }) => {
+  const { api, page } = transfersUser
   const attempt = test.info().retry
   const accountName = `Courant MAG-350, essai ${attempt}`
   const debit = `PRELEVEMENT ELECTRICITE DE FRANCE MAG-350 ESSAI ${attempt}`
@@ -334,9 +335,9 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
  * run — the detection follows the recording of the second leg by itself.
  */
 test('the two legs of a transfer imported from statements are both marked, and leave the income', async ({
-  otherUser,
+  transfersUser,
 }) => {
-  const { api, page } = otherUser
+  const { api, page } = transfersUser
   const attempt = test.info().retry
   // Unique per attempt, amount included, for the reason the first journey gives.
   const transferCents = 120_000 + attempt * 100
