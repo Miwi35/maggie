@@ -95,7 +95,14 @@ class UpdateEventToolTest extends KernelTestCase
         self::assertArrayNotHasKey('success', $data);
         self::assertStringContainsString('start_date, start_time, end_date and end_time', $data['error']);
         self::assertSame(
-            ['allDay' => false, 'startAt' => '2026-10-07T19:00:00+02:00', 'endAt' => '2026-10-08T00:00:00+02:00', 'timeZone' => 'Europe/Paris'],
+            [
+                'allDay' => false,
+                'startAt' => '2026-10-07T19:00:00+02:00',
+                'endAt' => '2026-10-08T00:00:00+02:00',
+                'startWeekday' => 'mercredi',
+                'endWeekday' => 'jeudi',
+                'timeZone' => 'Europe/Paris',
+            ],
             $data['currentSchedule'],
         );
         self::assertSame('2026-10-07 19:00 → 2026-10-08 00:00', $this->span('event_evening'));

@@ -46,6 +46,38 @@ class SearchToolTest extends TestCase
         self::assertSame('tasks', $result['results'][1]['index']);
     }
 
+    /** MAG-431: the day of the week of an event comes from the code, in the event's own zone. */
+    public function testEventResultsCarryTheWeekdayOfTheirLocalDates(): void
+    {
+        $this->searchService->method('search')->willReturn([
+            'total' => 3,
+            'results' => [
+                ['index' => 'events', 'id' => 'a', 'score' => 1.0, 'highlights' => [], 'data' => [
+                    'summary' => 'Vacances de la Toussaint', 'allDay' => true, 'startAt' => null, 'endAt' => null,
+                    'startDate' => '2026-10-17', 'endDate' => '2026-11-03', 'timeZone' => 'Europe/Paris',
+                ]],
+                ['index' => 'events', 'id' => 'b', 'score' => 1.0, 'highlights' => [], 'data' => [
+                    'summary' => 'Soirée', 'allDay' => false, 'startAt' => '2026-10-24T22:30:00+00:00', 'endAt' => '2026-10-24T23:30:00+00:00',
+                    'startDate' => null, 'endDate' => null, 'timeZone' => 'Europe/Paris',
+                ]],
+                ['index' => 'tasks', 'id' => 'c', 'score' => 1.0, 'highlights' => [], 'data' => ['title' => 'Prep']],
+            ],
+        ]);
+
+        $result = json_decode((new SearchTool($this->searchService, $this->userContext))('x'), true);
+
+        $holidays = $result['results'][0]['data'];
+        self::assertSame('samedi', $holidays['startWeekday']);
+        self::assertSame('2026-11-02', $holidays['lastDay']);
+        self::assertSame('lundi', $holidays['lastDayWeekday']);
+
+        $evening = $result['results'][1]['data'];
+        self::assertSame('dimanche', $evening['startWeekday'], '22:30 UTC on Saturday is Sunday in Paris');
+        self::assertSame('dimanche', $evening['endWeekday']);
+
+        self::assertSame(['title' => 'Prep'], $result['results'][2]['data']);
+    }
+
     public function testSearchWithTypesFilter(): void
     {
         $this->searchService->expects($this->once())

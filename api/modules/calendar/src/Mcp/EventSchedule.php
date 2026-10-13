@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Mcp;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Core\Time\Weekday;
 
 /**
  * The schedule of an event as `create_event` and `update_event` take it (MAG-321): a start and
@@ -117,18 +118,30 @@ final readonly class EventSchedule
     {
         $zone = self::zoneOf($event);
 
+        $startAt = $event->getStartAt()?->setTimezone($zone);
+        $endAt = $event->getEndAt()?->setTimezone($zone);
+
         $described = [
             'allDay' => $event->isAllDay(),
-            'startAt' => $event->getStartAt()?->setTimezone($zone)->format('c'),
-            'endAt' => $event->getEndAt()?->setTimezone($zone)->format('c'),
+            'startAt' => $startAt?->format('c'),
+            'endAt' => $endAt?->format('c'),
         ];
+
+        // The day of the week is read from the same local date as the one written next to it.
+        if (null !== $startAt && null !== $endAt) {
+            $described['startWeekday'] = Weekday::fr($startAt);
+            $described['endWeekday'] = Weekday::fr($endAt);
+        }
 
         if (null !== $event->getStartDate()) {
             // The days as stored, the end excluded, and the last day to announce.
             $until = $event->getEndDate() ?? $event->getStartDate()->modify('+1 day');
+            $lastDay = $until->modify('-1 day');
             $described['startDate'] = $event->getStartDate()->format('Y-m-d');
+            $described['startWeekday'] = Weekday::fr($event->getStartDate());
             $described['endDate'] = $until->format('Y-m-d');
-            $described['lastDay'] = $until->modify('-1 day')->format('Y-m-d');
+            $described['lastDay'] = $lastDay->format('Y-m-d');
+            $described['lastDayWeekday'] = Weekday::fr($lastDay);
         }
 
         return $described + ['timeZone' => $zone->getName()];

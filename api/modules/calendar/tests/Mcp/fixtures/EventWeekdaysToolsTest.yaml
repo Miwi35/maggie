@@ -1,0 +1,32 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  toussaint:
+    summary: Vacances de la Toussaint
+    allDay: true
+    timeZone: Europe/Paris
+    startDate: '<(new \DateTimeImmutable("2026-10-17"))>'
+    endDate: '<(new \DateTimeImmutable("2026-11-03"))>'
+    agenda: '@own_agenda'
+  after_midnight:
+    summary: Soirée qui finit tard
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-10-24 22:30:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-24 23:30:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  tomorrow_morning:
+    summary: Demain matin
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("tomorrow 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("tomorrow 11:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@own_agenda'
