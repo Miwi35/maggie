@@ -15,7 +15,7 @@ final readonly class UpdateTreasurySettingsCommand
         public string $userId,
         public string $treasurySettingsId,
         public ?int $salaryExpectedDay = null,
-        public bool $changesSalaryExpectedDay = true,
+        public bool $changesSalaryExpectedDay = false,
         public ?int $overdraftLimitCents = null,
     ) {
     }
