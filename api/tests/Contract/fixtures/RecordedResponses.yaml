@@ -53,6 +53,15 @@ Maggie\Calendar\Entity\Event:
     rrule: 'FREQ=WEEKLY;BYDAY=MO'
     agenda: '@recorded_agenda'
 
+  # The only all-day member of the recording: a client's startDate/endDate are
+  # proved by it, now that the meal no longer sits in the events collection.
+  recorded_all_day_event:
+    summary: Recorded all-day event
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2026-03-12"))>'
+    endDate: '<(new \DateTimeImmutable("2026-03-13"))>'
+    agenda: '@recorded_agenda'
+
   recorded_exception_event:
     summary: Recorded recurring event
     startAt: '<(new \DateTimeImmutable("2026-03-09 09:00"))>'
