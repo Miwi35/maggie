@@ -1,0 +1,11 @@
+# Maggie asked whether her memory is up to date while the bucket is cut (MAG-195): the notice in her
+# system prompt says it is late, and she says so. `96-memory-fresh.yaml` answers once it is back.
+name: memory-degraded
+description: Honest answer about a late memory, selected by the notice the agent adds to the system prompt.
+
+match:
+  user_contains: "ta mémoire est-elle à jour"
+  system_contains: "est peut-être en retard"
+
+turns:
+  - text: "Pas sûr : mon stockage ne répond plus, je réponds avec ma copie locale et ce que j'ai écrit depuis attend son retour."

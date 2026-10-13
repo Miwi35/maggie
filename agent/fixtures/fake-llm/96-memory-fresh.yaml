@@ -1,0 +1,9 @@
+# Same question as 96-memory-degraded.yaml, asked when the bucket answers: nothing is late.
+name: memory-fresh
+description: Answer about an up-to-date memory (the degraded scenario is tried first, by file name).
+
+match:
+  user_contains: "ta mémoire est-elle à jour"
+
+turns:
+  - text: "Oui, ma mémoire est à jour : tout ce que j'ai écrit est dans le stockage."

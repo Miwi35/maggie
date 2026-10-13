@@ -34,3 +34,6 @@ data:
   # the fcm-credentials secret, which no deploy touches.
   FCM_CREDENTIALS_PATH: /run/secrets/fcm/credentials.json
   FCM_PROJECT_ID: maggie-487318
+  # Memory folder (MAG-195): the local copy of the bucket, rehydrated at each boot. No
+  # persistent volume — the bucket holds the truth — hence a directory of the pod.
+  MEMORY_LOCAL_DIR: /var/lib/maggie/memory

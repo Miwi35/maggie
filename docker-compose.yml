@@ -348,6 +348,14 @@ services:
       AGENT_DATABASE_URL: ${AGENT_DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
       AGENT_BASE_URL: ${AGENT_BASE_URL}
+      # The memory folder's bucket (MAG-195). Empty: the folder is off in dev, nothing to run.
+      # `MEMORY_PROVIDER=fake` gives an in-memory bucket, lost at each restart.
+      MEMORY_PROVIDER: ${MEMORY_PROVIDER:-s3}
+      MEMORY_ENDPOINT: ${MEMORY_ENDPOINT:-}
+      MEMORY_REGION: ${MEMORY_REGION:-}
+      MEMORY_BUCKET: ${MEMORY_BUCKET:-}
+      MEMORY_KEY_ID: ${MEMORY_KEY_ID:-}
+      MEMORY_APPLICATION_KEY: ${MEMORY_APPLICATION_KEY:-}
     depends_on:
       database:
         condition: service_healthy

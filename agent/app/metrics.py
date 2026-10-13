@@ -1,6 +1,6 @@
 """Prometheus metrics for Maggie Agent Hub."""
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 # ---------------------------------------------------------------------------
 # LLM pricing table (USD per 1M tokens)
@@ -81,6 +81,32 @@ LLM_REQUEST_DURATION = Histogram(
     "LLM API request duration in seconds",
     ["model", "call_type"],
     buckets=(0.5, 1, 2, 5, 10, 20, 30, 60),
+)
+
+
+# ---------------------------------------------------------------------------
+# Memory folder (MAG-195): an outage of the bucket must never look normal
+# ---------------------------------------------------------------------------
+MEMORY_SYNC_FAILURES = Counter(
+    "maggie_memory_sync_failures_total",
+    "Synchronisation passes of the memory folder that failed because the bucket did not answer",
+    ["reason"],
+)
+
+MEMORY_SYNC_FILES = Counter(
+    "maggie_memory_sync_files_total",
+    "Files moved between the memory folder and the bucket",
+    ["direction"],  # pulled | pushed | deleted | conflict
+)
+
+MEMORY_DEGRADED = Gauge(
+    "maggie_memory_degraded",
+    "1 while the memory bucket is unreachable and Maggie works from her local copy and index",
+)
+
+MEMORY_OUTBOX_PENDING = Gauge(
+    "maggie_memory_outbox_pending",
+    "Writes to the memory folder waiting for the bucket",
 )
 
 

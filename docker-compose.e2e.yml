@@ -539,6 +539,11 @@ services:
       # edge_tts opens its own WebSocket to Microsoft, so there is no URL to
       # redirect — the provider switch is the only way out.
       TTS_PROVIDER: fake
+      # The memory folder's bucket is in memory (MAG-195): no storage service among the stack's
+      # containers, and a journey can cut it (`/agent/e2e/memory/outage`). The loop sleeps for
+      # an hour so a journey decides when a pass runs, not the clock.
+      MEMORY_PROVIDER: fake
+      MEMORY_SYNC_INTERVAL_SECONDS: "3600"
       MCP_SERVER_URL: http://nginx/_mcp
       MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure

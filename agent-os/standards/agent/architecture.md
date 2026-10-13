@@ -61,6 +61,12 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - Skills live in the `skill` table of `maggie_agent` (MAG-187), saved with the rest of the agent's data; the in-memory index (`skill_index.rebuild()`) is reloaded from it at startup. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
 - Sub-agent definitions and the policy are files in the repository, not user data: global, versioned, reviewed like code
 
+## Memory folder
+- Maggie's memory is a folder of Markdown files per user in a bucket, with a disposable Postgres index: see `memory.md` (ADR-011). The old `memory` table and its tools stay until the content tickets replace them
+
+## Database schema
+- No Alembic. A new table goes through `create_all` (import its model in `app/main.py`); a new column or index is idempotent SQL (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`) in `context_repo.run_migrations()`, run at startup
+
 ## Dependencies
 - `uv` (astral-sh) for package management, not pip/poetry
 - `pydantic-settings` for env-based config
