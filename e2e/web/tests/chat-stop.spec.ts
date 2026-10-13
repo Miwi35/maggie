@@ -57,8 +57,15 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
     await expect(chat.bubbles(QUESTION)).toHaveCount(0)
 
     // « à elle » becomes « à Ael ».
+    // Not `chat.submit()`: it takes the chat lock, which this journey already holds.
     await chat.input.fill(CORRECTED)
-    await chat.submit()
+    const correctedRun = page.waitForResponse(
+      (response) => response.url().includes('/agent/chat/stream') && response.request().method() === 'POST',
+    )
+    await chat.input.press('Enter')
+    const correctedResponse = await correctedRun
+    expect(correctedResponse.status(), 'the agent refused the corrected message').toBe(200)
+    expect(await correctedResponse.text()).toContain('RUN_FINISHED')
 
     expect(sent).toHaveLength(2)
     expect(sent[0].replaces).toBeUndefined()

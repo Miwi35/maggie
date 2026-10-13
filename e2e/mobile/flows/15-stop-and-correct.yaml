@@ -37,9 +37,11 @@ tags:
 - tapOn:
     id: "chat_send"
 
-# The first words are on screen and the send button is now « Arrêter ».
+# The send button is now « Arrêter ». The phone reads the answer once it is complete, and this
+# one never is, so there are no first words to wait for: the stop is what is pressed.
 - extendedWaitUntil:
-    visible: ".*Je regarde ton agenda.*"
+    visible:
+      id: "chat_stop"
     timeout: 60000
 - tapOn:
     id: "chat_stop"
