@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * MAG-326): `proaction` holds what an event lacks — the prompt the agent runs at
  * the start, and how the run went. Joined to `event` like `meal`.
  */
-final class Version20261013040000 extends AbstractMigration
+final class Version20261013103000 extends AbstractMigration
 {
     public function getDescription(): string
     {
