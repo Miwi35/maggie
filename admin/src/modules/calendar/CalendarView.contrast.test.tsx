@@ -158,7 +158,7 @@ describe('CalendarView — readable text on coloured bars', { timeout: 60_000 },
       title,
       priority: 'low',
       criticality,
-      dueDate: noon.toISOString(),
+      dueDate: localDay(noon),
       completedAt: done ? noon.toISOString() : null,
     })
     serve({

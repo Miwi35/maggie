@@ -13,3 +13,14 @@ Maggie\Calendar\Entity\Task:
     dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
     completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
     user: '@test_user'
+
+  task_parent:
+    title: Préparer le déménagement
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  task_child:
+    title: Réserver le camion
+    parent: '@task_parent'
+    position: '00000000000000000000'
+    user: '@test_user'

@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
@@ -11,7 +12,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD.')]
+#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only).')]
 class CreateTaskTool
 {
     public function __construct(
@@ -26,6 +27,7 @@ class CreateTaskTool
         string $priority = 'medium',
         string $criticality = 'low',
         ?string $dueDate = null,
+        ?string $parentId = null,
     ): string {
         try {
             $user = $this->userContext->getUser();
@@ -33,9 +35,7 @@ class CreateTaskTool
                 return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
             }
 
-            $dueDateObj = null !== $dueDate
-                ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
-                : null;
+            $dueDateObj = null !== $dueDate ? TaskJson::day($dueDate) : null;
 
             $envelope = $this->bus->dispatch(new CreateTaskCommand(
                 userId: (string) $user->getId(),
@@ -44,6 +44,7 @@ class CreateTaskTool
                 priority: $priority,
                 criticality: $criticality,
                 dueDate: $dueDateObj,
+                parentId: $parentId,
             ));
 
             /** @var Task $task */
@@ -51,14 +52,10 @@ class CreateTaskTool
 
             return json_encode([
                 'success' => true,
-                'task' => [
-                    'id' => (string) $task->getId(),
-                    'title' => $task->getTitle(),
-                    'priority' => $task->getPriority()->value,
-                    'criticality' => $task->getCriticality()->value,
-                    'dueDate' => $task->getDueDate()?->format('c'),
-                ],
+                'task' => TaskJson::of($task),
             ], JSON_THROW_ON_ERROR);
+        } catch (\InvalidArgumentException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 

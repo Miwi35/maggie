@@ -129,35 +129,24 @@ class DashboardViewModel(
             agendaMap = agendaRepository.loadAgendas(force).getOrThrow().associateBy { it.id }
             eventRepository.loadPeriod(DayPeriod(DateRanges.todayDate(), DateRanges.todayDate().plusMonths(1)), force).getOrThrow()
 
-            // Fetch tasks
-            val rawTasks = taskRepository.getUndoneTasks(ranges.month.end.toString())
-            val undueTasks = taskRepository.getUndoneUndatedTasks()
+            // Fetch tasks. A due date is a day (MAG-404): compared as days, never as instants.
+            val today = DateRanges.todayDate()
+            val tomorrow = today.plusDays(1)
+            val weekEnd = today.plusDays(7)
+            val monthEnd = today.plusMonths(1)
+            val rawTasks = taskRepository.getUndoneTasks(monthEnd.toString()).filter(::listedOnItsOwn)
+            val undueTasks = taskRepository.getUndoneUndatedTasks().filter(::listedOnItsOwn)
 
             // Today tasks: overdue + today + undated
-            val todayEnd = ranges.today.end
-            val todayTasks = rawTasks.filter { t ->
-                t.dueDate != null && Instant.parse(t.dueDate) < todayEnd
-            } + undueTasks
+            val todayTasks = rawTasks.filter { t -> t.dueDay?.let { it <= today } == true } + undueTasks
 
-            // Tomorrow tasks
-            val tomorrowRange = ranges.tomorrow
-            val tomorrowTasks = rawTasks.filter { t ->
-                t.dueDate != null && isInRange(t.dueDate, tomorrowRange)
-            }
+            val tomorrowTasks = rawTasks.filter { t -> t.dueDay == tomorrow }
 
             // Week tasks (exclude today/tomorrow)
-            val weekTasks = rawTasks.filter { t ->
-                t.dueDate != null &&
-                    Instant.parse(t.dueDate) >= ranges.tomorrow.end &&
-                    Instant.parse(t.dueDate) < ranges.week.end
-            }
+            val weekTasks = rawTasks.filter { t -> t.dueDay?.let { it > tomorrow && it < weekEnd } == true }
 
             // Month tasks (exclude this week)
-            val monthTasks = rawTasks.filter { t ->
-                t.dueDate != null &&
-                    Instant.parse(t.dueDate) >= ranges.week.end &&
-                    Instant.parse(t.dueDate) < ranges.month.end
-            }
+            val monthTasks = rawTasks.filter { t -> t.dueDay?.let { it >= weekEnd && it < monthEnd } == true }
 
             _uiState.value = withEvents(DashboardUiState(
                 todayTasks = todayTasks,
@@ -175,6 +164,13 @@ class DashboardViewModel(
             )
         }
     }
+
+    /**
+     * A subtask lives in its parent's detail (MAG-404). An undated one would otherwise
+     * land in « Aujourd'hui » beside its parent, once per step of every Google list;
+     * a dated one keeps its row, as Google Calendar shows it on its day.
+     */
+    private fun listedOnItsOwn(task: Task): Boolean = !task.isSubtask || task.dueDate != null
 
     fun toggleTaskDone(taskId: String, done: Boolean) {
         viewModelScope.launch {

@@ -7,23 +7,25 @@ import java.time.LocalDate
 
 class TaskDueDateTest {
     @Test
-    fun `a chosen day is sent as its midnight in Paris`() {
-        assertEquals("2026-10-07T22:00:00Z", TaskDueDate.toIso(LocalDate.of(2026, 10, 8)))
+    fun `a chosen day is sent as that day, with no time and no zone`() {
+        assertEquals("2026-10-08", TaskDueDate.toApi(LocalDate.of(2026, 10, 8)))
     }
 
     @Test
     fun `no day is sent as nothing, which clears the due date`() {
-        assertNull(TaskDueDate.toIso(null))
+        assertNull(TaskDueDate.toApi(null))
     }
 
     @Test
     fun `the form opens on the day the API stored`() {
-        assertEquals(LocalDate.of(2026, 10, 8), TaskDueDate.fromIso("2026-10-07T22:00:00Z"))
+        assertEquals(LocalDate.of(2026, 10, 8), TaskDueDate.fromApi("2026-10-08"))
     }
 
     @Test
     fun `a task without a due date, or with an unreadable one, opens empty`() {
-        assertNull(TaskDueDate.fromIso(null))
-        assertNull(TaskDueDate.fromIso("demain"))
+        assertNull(TaskDueDate.fromApi(null))
+        assertNull(TaskDueDate.fromApi("demain"))
+        // The former shape, an instant, is not a day: a stale cache must not crash a form.
+        assertNull(TaskDueDate.fromApi("2026-10-07T22:00:00Z"))
     }
 }

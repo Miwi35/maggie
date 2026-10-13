@@ -93,4 +93,21 @@ class GetTasksToolTest extends KernelTestCase
         self::assertArrayHasKey('isDone', $fullTask);
         self::assertArrayHasKey('completedAt', $fullTask);
     }
+
+    /** The subtasks, their order and Google's links, as Maggie reads them (MAG-404). */
+    public function testTasksCarryTheirParentPositionAndLinks(): void
+    {
+        $this->loadFixtures('GetTasksToolTest.yaml');
+        $this->loginFixtureUser();
+        $parent = $this->getFixture('task_with_subtask');
+
+        $data = json_decode($this->getTool()('pending'), true, 512, JSON_THROW_ON_ERROR);
+        $byTitle = array_column($data['tasks'], null, 'title');
+
+        self::assertNull($byTitle['Préparer le déménagement']['parentId']);
+        self::assertSame([['type' => 'email', 'description' => 'Le mail', 'link' => 'https://mail.google.com/mail/#all/abc']], $byTitle['Préparer le déménagement']['links']);
+        self::assertSame((string) $parent->getId(), $byTitle['Réserver le camion']['parentId']);
+        self::assertSame('00000000000000000000', $byTitle['Réserver le camion']['position']);
+        self::assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $byTitle['Overdue task']['dueDate']);
+    }
 }

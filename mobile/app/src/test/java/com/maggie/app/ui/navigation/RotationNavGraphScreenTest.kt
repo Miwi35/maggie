@@ -134,6 +134,7 @@ class RotationNavGraphScreenTest {
                     viewModel { grocery }
                     viewModel { detail }
                     viewModel { interruption }
+                    viewModel { com.maggie.app.ui.screens.shared.SubtasksViewModel(get()) }
                     single<InterruptionAlert> { InterruptionAlert {} }
                 },
             )

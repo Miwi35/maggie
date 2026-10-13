@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { CalendarView } from './CalendarView'
+import { localDay } from '../../dates'
 
 /**
  * An answer to an older range never overwrites the range on screen (MAG-284).
@@ -52,7 +53,7 @@ const TASK = {
   title: 'Sortir les poubelles',
   priority: 'low',
   criticality: 'low',
-  dueDate: noon.toISOString(),
+  dueDate: localDay(noon),
   completedAt: new Date(noon.getTime() + 900_000).toISOString(),
 }
 

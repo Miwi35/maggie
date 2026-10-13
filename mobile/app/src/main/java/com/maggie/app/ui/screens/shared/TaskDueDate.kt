@@ -1,15 +1,14 @@
 package com.maggie.app.ui.screens.shared
 
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 
-/** A task's due date is a day, sent to the API as that day's midnight in the user's zone. */
+/**
+ * A task's due date is a day, read and written as `YYYY-MM-DD` (MAG-404): Google
+ * Tasks has no due time, so no zone ever shifts it to the day before.
+ */
 object TaskDueDate {
-    private val ZONE: ZoneId = ZoneId.of("Europe/Paris")
+    fun fromApi(day: String?): LocalDate? =
+        day?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
-    fun fromIso(iso: String?): LocalDate? =
-        iso?.let { runCatching { Instant.parse(it).atZone(ZONE).toLocalDate() }.getOrNull() }
-
-    fun toIso(date: LocalDate?): String? = date?.atStartOfDay(ZONE)?.toInstant()?.toString()
+    fun toApi(date: LocalDate?): String? = date?.toString()
 }

@@ -12,6 +12,8 @@ final readonly class CreateTaskCommand
         public ?string $criticality = null,
         public ?\DateTimeImmutable $dueDate = null,
         public ?\DateTimeImmutable $completedAt = null,
+        public ?string $parentId = null,
+        public ?string $position = null,
     ) {
     }
 }

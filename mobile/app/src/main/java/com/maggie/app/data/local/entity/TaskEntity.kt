@@ -3,6 +3,7 @@ package com.maggie.app.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskLink
 
 @Entity(tableName = "tasks")
 data class TaskEntity(
@@ -12,8 +13,12 @@ data class TaskEntity(
     val description: String?,
     val priority: String,
     val criticality: String,
+    /** `YYYY-MM-DD`: a day sorts and compares as a string. */
     val dueDate: String?,
     val completedAt: String?,
+    val parent: String? = null,
+    val position: String? = null,
+    val links: List<TaskLink> = emptyList(),
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Task = Task(
@@ -24,6 +29,9 @@ data class TaskEntity(
         criticality = criticality,
         dueDate = dueDate,
         completedAt = completedAt,
+        parent = parent,
+        position = position,
+        links = links,
     )
 
     companion object {
@@ -36,6 +44,9 @@ data class TaskEntity(
                 criticality = task.criticality,
                 dueDate = task.dueDate,
                 completedAt = task.completedAt,
+                parent = task.parent,
+                position = task.position,
+                links = task.links,
                 syncStatus = syncStatus,
             )
     }

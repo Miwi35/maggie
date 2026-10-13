@@ -6,6 +6,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
@@ -183,6 +184,48 @@ class DashboardViewModelTest {
         assertEquals(emptyList<String>(), state.tomorrowEvents.map { it.id })
         assertEquals(listOf("in3"), state.weekEvents.map { it.id })
         assertEquals(emptyList<String>(), state.monthEvents.map { it.id })
+    }
+
+    /** MAG-404: a due date is a day, compared with today's date and never shifted by a zone. */
+    @Test
+    fun `a task is listed on its due day`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        coEvery { taskRepository.getUndoneTasks(any()) } returns listOf(
+            Task(id = "late", title = "En retard", dueDate = "${today.minusDays(2)}"),
+            Task(id = "today", title = "Aujourd'hui", dueDate = "$today"),
+            Task(id = "tomorrow", title = "Demain", dueDate = "${today.plusDays(1)}"),
+            Task(id = "in3", title = "Plus tard", dueDate = "${today.plusDays(3)}"),
+            Task(id = "in10", title = "Bien plus tard", dueDate = "${today.plusDays(10)}"),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("late", "today"), state.todayTasks.map { it.id })
+        assertEquals(listOf("tomorrow"), state.tomorrowTasks.map { it.id })
+        assertEquals(listOf("in3"), state.weekTasks.map { it.id })
+        assertEquals(listOf("in10"), state.monthTasks.map { it.id })
+        coVerify { taskRepository.getUndoneTasks("${today.plusMonths(1)}") }
+    }
+
+    /** MAG-404: an undated subtask is read in its parent's detail; a dated one keeps its row on its day. */
+    @Test
+    fun `an undated subtask is not a row of its own, a dated one is`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        coEvery { taskRepository.getUndoneTasks(any()) } returns listOf(
+            Task(id = "parent", title = "Préparer le déménagement", dueDate = "$today"),
+            Task(id = "dated", title = "Résilier la box", dueDate = "$today", parent = "/api/tasks/parent"),
+        )
+        coEvery { taskRepository.getUndoneUndatedTasks() } returns listOf(
+            Task(id = "undated", title = "Réserver le camion", parent = "/api/tasks/parent"),
+            Task(id = "loose", title = "Appeler maman"),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf("parent", "dated", "loose"), viewModel.uiState.value.todayTasks.map { it.id })
     }
 
     @Test

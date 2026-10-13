@@ -116,3 +116,45 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
     consoleError.mockRestore()
   })
 })
+
+describe('Dashboard — subtasks (MAG-404)', () => {
+  const task = (id: string, title: string, extra: Record<string, unknown> = {}) => ({
+    id: `/api/tasks/${id}`,
+    title,
+    priority: 'medium',
+    criticality: 'medium',
+    ...extra,
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
+    vi.stubGlobal('EventSource', MockEventSource)
+    mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
+      if (resource !== 'tasks') return Promise.resolve({ data: [], total: 0 })
+      if (params.filter['exists[dueDate]'] === false) {
+        const undated = [
+          task('01MOVING', 'Préparer le déménagement'),
+          task('01BOXES', 'Réserver le camion', { parent: '/api/tasks/01MOVING' }),
+        ]
+        return Promise.resolve({ data: undated, total: undated.length })
+      }
+      const dated = [task('01ADDRESS', "Changer d'adresse à la banque", { parent: '/api/tasks/01MOVING', dueDate: '2037-01-15' })]
+      return Promise.resolve({ data: dated, total: dated.length })
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  test('lists a dated subtask on its own row but not an undated one', async () => {
+    render(<Dashboard />)
+
+    expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
+    expect(screen.getByText("Changer d'adresse à la banque")).toBeInTheDocument()
+    expect(screen.queryByText('Réserver le camion')).not.toBeInTheDocument()
+  })
+})

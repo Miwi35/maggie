@@ -271,6 +271,26 @@ export class CalendarPage extends AdminShell {
     await expect(this.popover).toBeVisible()
   }
 
+  /**
+   * Clicks the chip of `title` even when its row has folded it behind "+N autres".
+   *
+   * The all-day row of the week and day views is capped too (`dayMaxEvents`),
+   * and the seeded day fills it with whatever the other journeys created: a chip
+   * past the cap stays in the DOM, hidden, and only FullCalendar's "more" popover
+   * shows it.
+   */
+  async openFoldableChip(title: string): Promise<void> {
+    const chip = this.chip(title).first()
+    await expect(chip).toBeAttached()
+    try {
+      await chip.click({ timeout: 5_000 })
+    } catch {
+      await this.grid.locator('.fc-more-link').first().click()
+      await this.page.locator('.fc-more-popover').getByText(title, { exact: true }).click()
+    }
+    await expect(this.popover).toBeVisible()
+  }
+
   async closePopover(): Promise<void> {
     await this.popover.getByRole('button', { name: 'Fermer' }).click()
     await expect(this.popover).toBeHidden()

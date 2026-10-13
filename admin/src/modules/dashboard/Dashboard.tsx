@@ -56,7 +56,12 @@ interface RawTask {
   criticality: string
   dueDate?: string
   completedAt?: string
+  /** IRI of the task it belongs to, for a subtask (MAG-404). */
+  parent?: string | null
 }
+
+/** An undated subtask lives under its task, not on the dashboard; a dated one keeps its own row (as on the phone). */
+const listedOnItsOwn = (task: RawTask): boolean => !task.parent || !!task.dueDate
 
 export const Dashboard = () => {
   const dataProvider = useDataProvider()
@@ -95,7 +100,8 @@ export const Dashboard = () => {
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'exists[completedAt]': false, 'dueDate[before]': month.end },
+        // `dueDate` is a day (MAG-404): the bound is one too.
+        filter: { 'exists[completedAt]': false, 'dueDate[before]': localDay(new Date(month.end)) },
       }),
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
@@ -113,8 +119,8 @@ export const Dashboard = () => {
           }
         }
         setRawEvents(merged)
-        setRawTasks(rangeTasks.data as unknown as RawTask[])
-        setUndueTasks(undueTasksResult.data as unknown as RawTask[])
+        setRawTasks((rangeTasks.data as unknown as RawTask[]).filter(listedOnItsOwn))
+        setUndueTasks((undueTasksResult.data as unknown as RawTask[]).filter(listedOnItsOwn))
       })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -246,7 +252,9 @@ export const Dashboard = () => {
         .filter((t) => {
           if (t.completedAt) return false
           if (!t.dueDate) return false
-          const due = new Date(t.dueDate)
+          // Local midnight of the day: `new Date('2026-03-20')` is UTC midnight,
+          // the evening before in Paris (MAG-404).
+          const due = parseDay(t.dueDate)
           return due >= start && due < end
         })
         .map((t) => ({
@@ -293,7 +301,7 @@ export const Dashboard = () => {
       .filter((t) => {
         if (t.completedAt) return false
         if (!t.dueDate) return false
-        return new Date(t.dueDate) < todayEnd
+        return parseDay(t.dueDate) < todayEnd
       })
       .map((t) => ({
         id: t.id,

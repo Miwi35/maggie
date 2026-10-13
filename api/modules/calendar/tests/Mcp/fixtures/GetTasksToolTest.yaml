@@ -31,3 +31,15 @@ Maggie\Calendar\Entity\Task:
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
     dueDate: '<(new \DateTimeImmutable("+3 days"))>'
     user: '@test_user'
+
+  task_with_subtask:
+    title: Préparer le déménagement
+    position: '00000000000000000004'
+    links: [{type: email, description: Le mail, link: 'https://mail.google.com/mail/#all/abc'}]
+    user: '@test_user'
+
+  task_subtask:
+    title: Réserver le camion
+    parent: '@task_with_subtask'
+    position: '00000000000000000000'
+    user: '@test_user'

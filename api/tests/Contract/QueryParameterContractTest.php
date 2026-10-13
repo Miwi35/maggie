@@ -81,6 +81,8 @@ final class QueryParameterContractTest extends WebTestCase
             'order[dueDate]' => 'admin CalendarView and Dashboard',
             'order[criticality]' => 'admin Dashboard',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
+            'parent' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks of the task open (MAG-404)',
+            'order[position]' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks in Google\'s order (MAG-404)',
         ],
         // A meal is a day and a slot (MAG-251): the week is a range of days,
         // never of instants.
@@ -393,6 +395,13 @@ final class QueryParameterContractTest extends WebTestCase
             ['Completed'],
         ];
 
+        // The subtasks of one task, as the edit dialog lists them (MAG-404).
+        yield 'subtasks of one task' => [
+            '/api/tasks', 'parent=IRI:filter_open_undated_task', 'title',
+            ['Second subtask', 'First subtask'],
+            ['Open, no due date', 'Open, due in March'],
+        ];
+
         yield 'recurring events only' => [
             '/api/events', 'exists[rrule]=true', 'summary',
             ['A recurring event, late'],
@@ -440,6 +449,12 @@ final class QueryParameterContractTest extends WebTestCase
         yield 'tasks by due date, ascending' => [
             '/api/tasks', 'order[dueDate]=asc', 'title',
             ['Open, due in March', 'Completed'],
+        ];
+
+        // Persisted second first, so insertion order is not the answer.
+        yield 'tasks by position, ascending' => [
+            '/api/tasks', 'order[position]=asc', 'title',
+            ['First subtask', 'Second subtask'],
         ];
 
         yield 'events by start, descending' => [

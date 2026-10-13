@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Core\Entity\User;
@@ -59,18 +60,19 @@ class TaskRepository extends ServiceEntityRepository
      */
     public function findUpcoming(User $user, int $days = 7): array
     {
-        $now = new \DateTimeImmutable('now');
-        $end = $now->modify("+{$days} days");
+        // The due date is a day: today is in, whatever the hour.
+        $today = new \DateTimeImmutable('today');
+        $end = $today->modify("+{$days} days");
 
         return $this->createQueryBuilder('t')
             ->where('t.user = :user')
             ->andWhere('t.completedAt IS NULL')
             ->andWhere('t.dueDate IS NOT NULL')
-            ->andWhere('t.dueDate >= :now')
+            ->andWhere('t.dueDate >= :today')
             ->setParameter('user', $user->getId(), 'ulid')
             ->andWhere('t.dueDate <= :end')
-            ->setParameter('now', $now)
-            ->setParameter('end', $end)
+            ->setParameter('today', $today, Types::DATE_IMMUTABLE)
+            ->setParameter('end', $end, Types::DATE_IMMUTABLE)
             ->orderBy('t.dueDate', 'ASC')
             ->getQuery()
             ->getResult();
@@ -83,15 +85,14 @@ class TaskRepository extends ServiceEntityRepository
      */
     public function findOverdue(User $user): array
     {
-        $now = new \DateTimeImmutable('now');
-
+        // Overdue from the day after: a task due today is not late yet.
         return $this->createQueryBuilder('t')
             ->where('t.user = :user')
             ->andWhere('t.completedAt IS NULL')
             ->andWhere('t.dueDate IS NOT NULL')
-            ->andWhere('t.dueDate < :now')
+            ->andWhere('t.dueDate < :today')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('now', $now)
+            ->setParameter('today', new \DateTimeImmutable('today'), Types::DATE_IMMUTABLE)
             ->orderBy('t.dueDate', 'ASC')
             ->getQuery()
             ->getResult();
@@ -111,6 +112,29 @@ class TaskRepository extends ServiceEntityRepository
             ->orderBy('t.completedAt', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The tasks under $parent — the top-level ones when null — in their manual
+     * order: by position, then by creation for the ones that have none.
+     *
+     * @return Task[]
+     */
+    public function findSiblings(User $user, ?Task $parent): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (null === $parent) {
+            $qb->andWhere('t.parent IS NULL');
+        } else {
+            $qb->andWhere('t.parent = :parent')->setParameter('parent', $parent->getId(), 'ulid');
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**

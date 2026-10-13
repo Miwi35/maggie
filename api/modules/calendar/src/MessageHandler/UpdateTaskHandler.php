@@ -8,6 +8,7 @@ use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\Service\TaskHierarchy;
 use Maggie\Calendar\UseCase\UpdateTask;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ class UpdateTaskHandler
 {
     public function __construct(
         private readonly UpdateTask $updateTask,
+        private readonly TaskHierarchy $hierarchy,
         private readonly TaskRepository $taskRepository,
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
@@ -57,6 +59,26 @@ class UpdateTaskHandler
             $task->setCompletedAt(null);
         }
 
+        // A new parent, or none: the task goes last among its new siblings
+        // unless the command says where.
+        $parentMoved = false;
+        if (null !== $command->parentId) {
+            $parent = $this->hierarchy->parentFor($task, $task->getUser(), $command->parentId);
+            $parentMoved = $parent !== $task->getParent();
+            $task->setParent($parent);
+        } elseif ($command->clears('parent') && null !== $task->getParent()) {
+            $parentMoved = true;
+            $task->setParent(null);
+        }
+        if (null !== $command->position && $parentMoved) {
+            // A position among new siblings: no swap with the old ones' numbers.
+            $task->setPosition($command->position);
+        } elseif (null !== $command->position) {
+            $this->hierarchy->moveTo($task, $command->position);
+        } elseif ($parentMoved) {
+            $task->setPosition($this->hierarchy->lastPosition($task->getUser(), $task->getParent(), $task));
+        }
+
         // Track which fields were explicitly set in the command
         $changedFields = [];
         if (null !== $command->title) {
@@ -70,6 +92,10 @@ class UpdateTaskHandler
         }
         if (null !== $command->completedAt || $command->clears('completedAt')) {
             $changedFields[] = 'completedAt';
+        }
+        if ($parentMoved || null !== $command->position) {
+            // Google moves a task with its own call, not with a patch.
+            $changedFields[] = 'position';
         }
 
         $task = $this->updateTask->execute($task);

@@ -7,6 +7,7 @@ use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
+use Maggie\Calendar\Service\TaskHierarchy;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
 use Psr\Log\LoggerInterface;
@@ -19,6 +20,7 @@ class CreateTaskHandler
 {
     public function __construct(
         private readonly CreateTask $createTask,
+        private readonly TaskHierarchy $hierarchy,
         private readonly UserRepository $userRepository,
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
@@ -49,6 +51,10 @@ class CreateTaskHandler
         if (null !== $command->completedAt) {
             $task->setCompletedAt($command->completedAt);
         }
+        if (null !== $command->parentId) {
+            $task->setParent($this->hierarchy->parentFor(null, $user, $command->parentId));
+        }
+        $task->setPosition($command->position ?? $this->hierarchy->lastPosition($user, $task->getParent()));
 
         $task = $this->createTask->execute($task);
 

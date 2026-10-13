@@ -2,7 +2,9 @@
 
 namespace Maggie\Calendar\Service;
 
+use Google\Model as GoogleModel;
 use Google\Service\Tasks\Task as GoogleTask;
+use Google\Service\Tasks\TaskLinks as GoogleTaskLink;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Core\Entity\User;
 
@@ -18,14 +20,30 @@ class GoogleTaskMapper
         $task->setTitle($title ?: '(No title)');
         $task->setDescription($googleTask->getNotes());
 
-        // Due date handling — Google Tasks stores due as RFC3339 date-time
+        // Google sends the due day as an RFC 3339 midnight UTC; its API
+        // keeps no time of day, so the day is all there is to read.
         /** @var ?string $due */
         $due = $googleTask->getDue();
-        if ($due) {
-            $task->setDueDate(new \DateTimeImmutable($due));
-        } else {
-            $task->setDueDate(null);
+        $task->setDueDate($due ? self::day($due) : null);
+
+        // The order among the siblings. The parent is a Google id: the sync
+        // resolves it once every task of the list is known.
+        /** @var ?string $position */
+        $position = $googleTask->getPosition();
+        $task->setPosition($position);
+
+        // Read only: Google's API writes no link.
+        $links = [];
+        /** @var ?GoogleTaskLink[] $googleLinks */
+        $googleLinks = $googleTask->getLinks();
+        foreach ($googleLinks ?? [] as $link) {
+            $links[] = [
+                'type' => (string) $link->getType(),
+                'description' => (string) $link->getDescription(),
+                'link' => (string) $link->getLink(),
+            ];
         }
+        $task->setLinks($links);
 
         // Completion status
         /** @var ?string $status */
@@ -71,9 +89,8 @@ class GoogleTaskMapper
             $googleTask->setNotes($task->getDescription());
         }
         if (isset($fields['dueDate'])) {
-            if (null !== $task->getDueDate()) {
-                $googleTask->setDue($task->getDueDate()->format(\DateTimeInterface::RFC3339));
-            }
+            // A plain null is left out of the body: the library's marker sends it.
+            $googleTask->setDue(self::googleDue($task->getDueDate()) ?? GoogleModel::NULL_VALUE);
         }
         if (isset($fields['completedAt'])) {
             if (null !== $task->getCompletedAt()) {
@@ -94,10 +111,7 @@ class GoogleTaskMapper
         $googleTask->setTitle($task->getTitle());
         $googleTask->setNotes($task->getDescription());
 
-        // Due date
-        if (null !== $task->getDueDate()) {
-            $googleTask->setDue($task->getDueDate()->format(\DateTimeInterface::RFC3339));
-        }
+        $googleTask->setDue(self::googleDue($task->getDueDate()));
 
         // Completion status
         if (null !== $task->getCompletedAt()) {
@@ -108,5 +122,19 @@ class GoogleTaskMapper
         }
 
         return $googleTask;
+    }
+
+    /** The day of an RFC 3339 date-time, as Google writes `due`: its date part. */
+    private static function day(string $due): \DateTimeImmutable
+    {
+        $day = \DateTimeImmutable::createFromFormat('!Y-m-d', substr($due, 0, 10));
+
+        return false !== $day ? $day : new \DateTimeImmutable(substr($due, 0, 10));
+    }
+
+    /** A day as Google wants `due`: midnight UTC, the time being dropped anyway. */
+    private static function googleDue(?\DateTimeImmutable $day): ?string
+    {
+        return null === $day ? null : $day->format('Y-m-d').'T00:00:00.000Z';
     }
 }

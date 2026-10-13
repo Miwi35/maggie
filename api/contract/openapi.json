@@ -7376,6 +7376,36 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "order[position]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "parent",
+                        "in": "query",
+                        "description": "Restrict to one parent, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/parents/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                     }
                 ]
             },
@@ -15907,11 +15937,13 @@
                         ]
                     },
                     "dueDate": {
+                        "description": "The day the task is due, YYYY-MM-DD.",
                         "type": [
                             "string",
                             "null"
                         ],
-                        "format": "date-time"
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "completedAt": {
                         "type": [
@@ -15919,6 +15951,34 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "parent": {
+                        "description": "The task this one is a subtask of. A subtask cannot have subtasks.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "position": {
+                        "maxLength": 64,
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "links": {
+                        "readOnly": true,
+                        "description": "Links Google attached to the task, read only: {type, description, link}.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "googleTaskId": {
                         "type": [
@@ -15998,11 +16058,13 @@
                         ]
                     },
                     "dueDate": {
+                        "description": "The day the task is due, YYYY-MM-DD.",
                         "type": [
                             "string",
                             "null"
                         ],
-                        "format": "date-time"
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "completedAt": {
                         "type": [
@@ -16010,6 +16072,34 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "parent": {
+                        "description": "The task this one is a subtask of. A subtask cannot have subtasks.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "position": {
+                        "maxLength": 64,
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "links": {
+                        "readOnly": true,
+                        "description": "Links Google attached to the task, read only: {type, description, link}.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "googleTaskId": {
                         "type": [
@@ -16089,11 +16179,13 @@
                         ]
                     },
                     "dueDate": {
+                        "description": "The day the task is due, YYYY-MM-DD.",
                         "type": [
                             "string",
                             "null"
                         ],
-                        "format": "date-time"
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "completedAt": {
                         "type": [
@@ -16101,6 +16193,34 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "parent": {
+                        "description": "The task this one is a subtask of. A subtask cannot have subtasks.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "position": {
+                        "maxLength": 64,
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "links": {
+                        "readOnly": true,
+                        "description": "Links Google attached to the task, read only: {type, description, link}.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "googleTaskId": {
                         "type": [
@@ -16182,11 +16302,13 @@
                                 ]
                             },
                             "dueDate": {
+                                "description": "The day the task is due, YYYY-MM-DD.",
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "format": "date-time"
+                                "format": "date",
+                                "example": "2037-01-01"
                             },
                             "completedAt": {
                                 "type": [
@@ -16194,6 +16316,34 @@
                                     "null"
                                 ],
                                 "format": "date-time"
+                            },
+                            "parent": {
+                                "description": "The task this one is a subtask of. A subtask cannot have subtasks.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "position": {
+                                "maxLength": 64,
+                                "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "links": {
+                                "readOnly": true,
+                                "description": "Links Google attached to the task, read only: {type, description, link}.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
                             },
                             "googleTaskId": {
                                 "type": [

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.dashboard
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +18,6 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.screens.shared.CriticalityChip
 import com.maggie.app.ui.screens.shared.TaskConstants
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -28,12 +27,14 @@ private val dueDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.FRENC
 fun DashboardTaskItem(
     task: Task,
     onToggleDone: (Boolean) -> Unit,
+    onClick: () -> Unit = {},
 ) {
     val isDone = task.isDone
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -56,10 +57,9 @@ fun DashboardTaskItem(
             modifier = Modifier.weight(1f),
         )
 
-        if (task.dueDate != null) {
-            val zdt = Instant.parse(task.dueDate).atZone(ZoneId.of("Europe/Paris"))
+        task.dueDay?.let { day ->
             Text(
-                text = zdt.format(dueDateFormatter),
+                text = day.format(dueDateFormatter),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

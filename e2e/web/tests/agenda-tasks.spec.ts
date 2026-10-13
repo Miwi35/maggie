@@ -153,6 +153,90 @@ test('a finished task can be reopened from the agenda', async ({ page, api }) =>
     .toBe(true)
 })
 
+/**
+ * A subtask is ticked off from its parent's form, and the parent stays open — MAG-404.
+ *
+ * Google Tasks nests one level of subtasks under a task; the seed gives
+ * « Préparer le déménagement » two of them, in order. Ticking the first must
+ * write that subtask alone: a parent completed along with it would drop off the
+ * day while half its list is still to do.
+ */
+test('a subtask is ticked off from its parent, which stays open', async ({ page, api }) => {
+  const title = 'Préparer le déménagement'
+  const parentId = seedId('e2e_task_moving')
+  const firstId = seedId('e2e_task_moving_boxes')
+
+  // Reopen the subtask first: CI retries once without reseeding, and a retry
+  // would otherwise start on the tick the first attempt left.
+  await reopenTask(api, firstId)
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Jour')
+
+  const dialog = await openTask(calendar, title)
+  await expect(dialog.getByLabel('Notes')).toHaveValue('Les cartons sont à la cave')
+
+  const subtasks = dialog.getByRole('region', { name: 'Sous-tâches' })
+  await expect(subtasks.getByRole('checkbox')).toHaveCount(2)
+  await expect(subtasks.getByRole('checkbox').first()).toHaveAccessibleName('Réserver le camion')
+  await expect(subtasks.getByRole('checkbox').nth(1)).toHaveAccessibleName("Changer d'adresse à la banque")
+
+  const first = subtasks.getByRole('checkbox', { name: 'Réserver le camion' })
+  await expect(first).not.toBeChecked()
+  await first.check()
+  await expect(first).toBeChecked()
+
+  await expect
+    .poll(async () => (await tasks(api)).find((task) => task.id === firstId)?.completedAt != null, {
+      timeout: 30_000,
+      message: 'the ticked subtask should be stored as completed',
+    })
+    .toBe(true)
+  const stored = await tasks(api)
+  expect(stored.find((task) => task.id === parentId)?.completedAt ?? null, 'the parent was completed too').toBeNull()
+  expect(
+    stored.find((task) => task.id === seedId('e2e_task_moving_address'))?.completedAt ?? null,
+    'the other subtask was completed too',
+  ).toBeNull()
+
+  // The state holds once the page and the form are read again from the API.
+  await dialog.getByRole('button', { name: 'Annuler' }).click()
+  await expect(dialog).toBeHidden()
+  await calendar.open()
+  await calendar.chooseView('Jour')
+  const reopened = await openTask(calendar, title)
+  const again = reopened.getByRole('region', { name: 'Sous-tâches' })
+  await expect(again.getByRole('checkbox', { name: 'Réserver le camion' })).toBeChecked()
+  await expect(again.getByRole('checkbox', { name: "Changer d'adresse à la banque" })).not.toBeChecked()
+})
+
+/** Opens the edit form of the task drawn as `title`: chip, detail card, pencil. */
+async function openTask(calendar: CalendarPage, title: string) {
+  await calendar.openFoldableChip(title)
+  await calendar.editFromPopover()
+  const dialog = calendar.editTaskDialog
+  await expect(dialog).toBeVisible()
+
+  return dialog
+}
+
+/** Reopens a task through the API and waits for the collection to agree. */
+async function reopenTask(api: APIRequestContext, taskId: string): Promise<void> {
+  const response = await api.patch(`/api/tasks/${taskId}`, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    data: { completedAt: null },
+  })
+  expect(response.ok(), `PATCH /api/tasks/${taskId} answered ${response.status()}`).toBe(true)
+
+  await expect
+    .poll(async () => (await tasks(api)).find((task) => task.id === taskId)?.completedAt == null, {
+      timeout: 30_000,
+      message: 'the task should be findable as open before the form is read',
+    })
+    .toBe(true)
+}
+
 /** Marks a task done through the API and waits for the grid's index to agree. */
 async function completeTask(api: APIRequestContext, taskId: string): Promise<void> {
   const response = await api.patch(`/api/tasks/${taskId}`, {

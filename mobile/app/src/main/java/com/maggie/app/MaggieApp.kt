@@ -56,6 +56,7 @@ import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.SearchRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.ui.screens.shared.SubtasksViewModel
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountViewModel
@@ -284,6 +285,7 @@ class MaggieApp : Application() {
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
+            viewModel { SubtasksViewModel(get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }

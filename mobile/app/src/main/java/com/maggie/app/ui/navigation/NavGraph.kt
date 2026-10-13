@@ -144,6 +144,8 @@ import com.maggie.app.ui.screens.shared.RecurrenceConfirmDialog
 import com.maggie.app.ui.screens.shared.RecurringEventEditor
 import com.maggie.app.ui.screens.shared.cancelledOccurrence
 import com.maggie.app.ui.screens.shared.occurrenceStartKey
+import com.maggie.app.ui.screens.shared.SubtaskActions
+import com.maggie.app.ui.screens.shared.SubtasksViewModel
 import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
@@ -394,6 +396,7 @@ fun NavGraph() {
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
+    val subtasksViewModel: SubtasksViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showContextSheet by rememberSaveable { mutableStateOf(false) }
@@ -443,6 +446,11 @@ fun NavGraph() {
     var editingRecurrenceAction by rememberSaveable { mutableStateOf<RecurrenceAction?>(null) }
     val recurringEventEditor = remember(eventRepository) { RecurringEventEditor(eventRepository) }
     var editingTask by rememberSavedSelection<Task>()
+
+    // The subtasks of the task open, wherever it is drawn: sheet, pane or edit screen (MAG-404).
+    val subtasksState by subtasksViewModel.uiState.collectAsState()
+    val subtaskActions = remember(subtasksViewModel) { SubtaskActions.of(subtasksViewModel) }
+    LaunchedEffect(selectedTask?.id) { selectedTask?.let(subtasksViewModel::load) }
 
     // Cookbook transient state
     var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
@@ -819,6 +827,10 @@ fun NavGraph() {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
                         onEventClick = { selectedEvent = it },
+                        onTaskClick = {
+                            selectedEvent = null
+                            selectedTask = it
+                        },
                     )
                 }
                 composable(
@@ -868,6 +880,8 @@ fun NavGraph() {
                             task != null -> ({
                                 TaskDetailContent(
                                     task = task,
+                                    subtasks = subtasksState,
+                                    subtaskActions = subtaskActions,
                                     onEdit = { editTask(task) },
                                     onDelete = { deleteTask(task) },
                                     onToggleDone = { done -> toggleTaskDone(task, done) },
@@ -932,8 +946,11 @@ fun NavGraph() {
                     val task = editingTask
                     PopWhenMissing(navController, entry, task != null)
                     if (task != null) {
+                        LaunchedEffect(task.id) { subtasksViewModel.load(task) }
                         TaskEditScreen(
                             task = task,
+                            subtasks = subtasksState,
+                            subtaskActions = subtaskActions,
                             onConfirm = { data ->
                                 scope.launch {
                                     taskRepository.updateTask(task.id, data)
@@ -1356,6 +1373,8 @@ fun NavGraph() {
         selectedTask?.let { task ->
             TaskDetailSheet(
                 task = task,
+                subtasks = subtasksState,
+                subtaskActions = subtaskActions,
                 onDismiss = { selectedTask = null },
                 onEdit = { editTask(task) },
                 onDelete = { deleteTask(task) },

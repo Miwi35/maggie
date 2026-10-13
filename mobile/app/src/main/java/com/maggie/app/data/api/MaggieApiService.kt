@@ -143,7 +143,10 @@ data class TaskCreateRequest(
     val description: String? = null,
     val priority: String = "medium",
     val criticality: String = "low",
+    /** A day, `YYYY-MM-DD` (MAG-404). */
     val dueDate: String? = null,
+    /** The parent's IRI, for a subtask: the API puts it last among its siblings. */
+    val parent: String? = null,
 )
 
 @Serializable
@@ -611,6 +614,15 @@ class MaggieApiService(
             withoutPagination()
             url.parameters.append("exists[completedAt]", "false")
             dueDateBefore?.let { url.parameters.append("dueDate[before]", it) }
+        }.body<ApiCollection<Task>>().member
+    }
+
+    /** A task's subtasks, in Google's order (MAG-404). */
+    suspend fun getSubtasks(parentIri: String): List<Task> {
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("parent", parentIri)
+            url.parameters.append("order[position]", "asc")
         }.body<ApiCollection<Task>>().member
     }
 

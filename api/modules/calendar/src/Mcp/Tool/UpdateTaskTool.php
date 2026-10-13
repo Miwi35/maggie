@@ -3,17 +3,24 @@
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. To empty an optional field, list its name in clear (description, dueDate).')]
+#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again).')]
 class UpdateTaskTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly McpUserContext $userContext,
+        private readonly TaskRepository $taskRepository,
     ) {
     }
 
@@ -27,14 +34,20 @@ class UpdateTaskTool
         ?string $dueDate = null,
         ?bool $done = null,
         ?array $clear = null,
+        ?string $parentId = null,
+        ?string $position = null,
     ): string {
         try {
-            $dueDateObj = null !== $dueDate
-                ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
-                : null;
+            $user = $this->userContext->requireUser();
+            $owned = Ulid::isValid($id) ? $this->taskRepository->find($id) : null;
+            if (null === $owned || !$owned->getUser()->getId()->equals($user->getId())) {
+                return json_encode(['error' => "Task not found: {$id}"], JSON_THROW_ON_ERROR);
+            }
+
+            $dueDateObj = null !== $dueDate ? TaskJson::day($dueDate) : null;
 
             $completedAt = null;
-            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate']));
+            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate', 'parent']));
             if (true === $done) {
                 $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
             } elseif (false === $done) {
@@ -50,6 +63,8 @@ class UpdateTaskTool
                 dueDate: $dueDateObj,
                 completedAt: $completedAt,
                 clearFields: $clearFields,
+                parentId: $parentId,
+                position: $position,
             ));
 
             /** @var Task $task */
@@ -57,15 +72,10 @@ class UpdateTaskTool
 
             return json_encode([
                 'success' => true,
-                'task' => [
-                    'id' => (string) $task->getId(),
-                    'title' => $task->getTitle(),
-                    'priority' => $task->getPriority()->value,
-                    'criticality' => $task->getCriticality()->value,
-                    'dueDate' => $task->getDueDate()?->format('c'),
-                    'isDone' => $task->isDone(),
-                ],
+                'task' => TaskJson::of($task),
             ], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException|\InvalidArgumentException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 

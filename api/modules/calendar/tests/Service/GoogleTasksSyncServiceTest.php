@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Tests\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Google\Service\Tasks\Task as GoogleTask;
+use Google\Service\Tasks\TaskLinks;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\GoogleTaskListSelection;
@@ -289,5 +290,185 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->expectException(GoogleServiceException::class);
 
         $this->createService()->pullFromGoogle($user);
+    }
+
+    /**
+     * A task with notes, two subtasks and a link arrives whole (MAG-404),
+     * the subtasks in Google's order — listed here before their parent, and
+     * in reverse, as Google is free to.
+     */
+    public function testPullBringsNotesSubtasksInGooglesOrderAndLinks(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+
+        $second = $this->googleTask('g-second', 'Changer d\'adresse', parent: 'g-moving', position: '00000000000000000001');
+        $first = $this->googleTask('g-first', 'Réserver le camion', parent: 'g-moving', position: '00000000000000000000');
+        $moving = $this->googleTask('g-moving', 'Préparer le déménagement', position: '00000000000000000003');
+        $moving->setNotes('Les cartons sont à la cave');
+        $link = new TaskLinks();
+        $link->setType('email');
+        $link->setDescription('Le mail du déménageur');
+        $link->setLink('https://mail.google.com/mail/#all/abc');
+        $moving->setLinks([$link]);
+
+        $this->apiClient->method('listTasks')->willReturn([$second, $moving, $first]);
+        $this->taskRepository->method('findBy')->willReturn([]);
+        $persisted = [];
+        $this->entityManager->method('persist')->willReturnCallback(function (Task $task) use (&$persisted): void {
+            $persisted[$task->getGoogleTaskId()] = $task;
+        });
+
+        $this->createService()->pullFromGoogle($user);
+
+        self::assertCount(3, $persisted);
+        $parent = $persisted['g-moving'];
+        self::assertNull($parent->getParent());
+        self::assertSame('Les cartons sont à la cave', $parent->getDescription());
+        self::assertSame([[
+            'type' => 'email',
+            'description' => 'Le mail du déménageur',
+            'link' => 'https://mail.google.com/mail/#all/abc',
+        ]], $parent->getLinks());
+
+        $subtasks = array_values(array_filter($persisted, static fn (Task $task): bool => $task->getParent() === $parent));
+        usort($subtasks, static fn (Task $a, Task $b): int => strcmp((string) $a->getPosition(), (string) $b->getPosition()));
+        self::assertSame(['Réserver le camion', 'Changer d\'adresse'], array_map(static fn (Task $task) => $task->getTitle(), $subtasks));
+    }
+
+    /** A subtask moved to the top level on Google leaves its parent in Maggie too. */
+    public function testPullDetachesASubtaskGoogleMovedToTheTopLevel(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+
+        $parent = $this->localTask($user, 'g-parent');
+        $child = $this->localTask($user, 'g-child')->setParent($parent);
+        $child->setGoogleTaskUpdatedAt(new \DateTimeImmutable('2026-03-20T10:00:00Z'));
+
+        $moved = $this->googleTask('g-child', 'Child', position: '00000000000000000009');
+        $moved->setUpdated('2026-03-21T10:00:00Z');
+        $unchanged = $this->googleTask('g-parent', 'Parent');
+        $unchanged->setUpdated('2026-03-01T10:00:00Z');
+        $parent->setGoogleTaskUpdatedAt(new \DateTimeImmutable('2026-03-01T10:00:00Z'));
+
+        $this->apiClient->method('listTasks')->willReturn([$moved, $unchanged]);
+        $this->taskRepository->method('findBy')->willReturn([$parent, $child]);
+
+        $this->createService()->pullFromGoogle($user);
+
+        self::assertNull($child->getParent());
+        self::assertSame('00000000000000000009', $child->getPosition());
+    }
+
+    /** Added in Maggie, a subtask is created under its parent on Google, after the sibling before it. */
+    public function testPushingANewSubtaskInsertsItUnderItsParentAfterItsPreviousSibling(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $parent = $this->localTask($user, 'g-parent');
+        $sibling = $this->localTask($user, 'g-sibling')->setParent($parent);
+        $task = (new Task())->setUser($user)->setTitle('New subtask')->setParent($parent)->setPosition('00000000000000000001');
+
+        $this->taskRepository->method('findSiblings')->with($user, $parent)->willReturn([$sibling, $task]);
+        $created = $this->googleTask('g-new', 'New subtask', parent: 'g-parent', position: '00000000000000000042');
+        $this->apiClient->expects(self::once())
+            ->method('insertTask')
+            ->with($user, 'task-list-1', self::isInstanceOf(GoogleTask::class), 'g-parent', 'g-sibling')
+            ->willReturn($created);
+
+        $this->createService()->pushTaskToGoogle($task);
+
+        self::assertSame('g-new', $task->getGoogleTaskId());
+        self::assertSame('00000000000000000042', $task->getPosition(), 'Google\'s position replaces Maggie\'s');
+    }
+
+    /** Both made while Google was away: the parent goes first, so the subtask lands under it. */
+    public function testPushingASubtaskPushesItsParentFirst(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $parent = (new Task())->setUser($user)->setTitle('Parent');
+        $task = (new Task())->setUser($user)->setTitle('Child')->setParent($parent);
+
+        $this->taskRepository->method('findSiblings')->willReturnCallback(
+            static fn (User $u, ?Task $p): array => null === $p ? [$parent] : [$task],
+        );
+        $calls = [];
+        $this->apiClient->method('insertTask')->willReturnCallback(
+            function (User $u, string $list, GoogleTask $body, ?string $googleParent) use (&$calls): GoogleTask {
+                $calls[] = [$body->getTitle(), $googleParent];
+
+                return $this->googleTask('g-'.strtolower($body->getTitle()), $body->getTitle());
+            },
+        );
+
+        $this->createService()->pushTaskToGoogle($task);
+
+        self::assertSame([['Parent', null], ['Child', 'g-parent']], $calls);
+    }
+
+    /** Reordered in Maggie, a subtask is moved on Google — `move`, which a patch cannot do. */
+    public function testReorderingASubtaskMovesItOnGoogle(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $parent = $this->localTask($user, 'g-parent');
+        $first = $this->localTask($user, 'g-first')->setParent($parent);
+        $task = $this->localTask($user, 'g-task')->setParent($parent);
+
+        $this->taskRepository->method('findSiblings')->willReturn([$first, $task]);
+        $this->apiClient->expects(self::once())
+            ->method('moveTask')
+            ->with($user, 'task-list-1', 'g-task', 'g-parent', 'g-first')
+            ->willReturn($this->googleTask('g-task', 'Task', parent: 'g-parent', position: '00000000000000000007'));
+        $this->apiClient->expects(self::never())->method('patchTask');
+
+        $this->createService()->pushTaskToGoogle($task, ['position']);
+
+        self::assertSame('00000000000000000007', $task->getPosition());
+    }
+
+    /** Moved first and renamed: the move, then a patch that carries no position. */
+    public function testAMoveAndAnEditAreTwoCalls(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $task = $this->localTask($user, 'g-task');
+
+        $this->taskRepository->method('findSiblings')->willReturn([$task]);
+        $this->apiClient->expects(self::once())
+            ->method('moveTask')
+            ->with($user, 'task-list-1', 'g-task', null, null)
+            ->willReturn($this->googleTask('g-task', 'Task'));
+        $this->apiClient->expects(self::once())
+            ->method('patchTask')
+            ->with($user, 'task-list-1', 'g-task', self::callback(static fn (GoogleTask $t): bool => 'Renamed' === $t->getTitle()))
+            ->willReturn($this->googleTask('g-task', 'Renamed'));
+
+        $this->createService()->pushTaskToGoogle($task->setTitle('Renamed'), ['title', 'position']);
+    }
+
+    private function googleTask(string $id, string $title, ?string $parent = null, ?string $position = null): GoogleTask
+    {
+        $googleTask = new GoogleTask();
+        $googleTask->setId($id);
+        $googleTask->setTitle($title);
+        $googleTask->setStatus('needsAction');
+        $googleTask->setParent($parent);
+        $googleTask->setPosition($position);
+
+        return $googleTask;
+    }
+
+    private function localTask(User $user, string $googleTaskId): Task
+    {
+        $task = new Task();
+        $task->setUser($user);
+        $task->setTitle($googleTaskId);
+        $task->setGoogleTaskId($googleTaskId);
+        $task->setGoogleTaskListId('task-list-1');
+
+        return $task;
     }
 }

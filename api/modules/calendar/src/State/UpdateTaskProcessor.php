@@ -4,8 +4,12 @@ namespace Maggie\Calendar\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Exception\InvalidTaskParentException;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -14,6 +18,7 @@ class UpdateTaskProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -25,15 +30,18 @@ class UpdateTaskProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
             }
         }
 
+        $parentId = null !== $data->getParent() ? (string) $data->getParent()->getId() : null;
+        $previousParentId = null !== $previous?->getParent() ? (string) $previous->getParent()->getId() : null;
+
         // Only send fields that actually changed compared to previous state
-        $envelope = $this->bus->dispatch(new UpdateTaskCommand(
+        $command = new UpdateTaskCommand(
             taskId: (string) $data->getId(),
             title: null === $previous || $data->getTitle() !== $previous->getTitle() ? $data->getTitle() : null,
             description: null === $previous || $data->getDescription() !== $previous->getDescription() ? $data->getDescription() : null,
@@ -42,7 +50,24 @@ class UpdateTaskProcessor implements ProcessorInterface
             dueDate: null === $previous || $data->getDueDate() != $previous->getDueDate() ? $data->getDueDate() : null,
             completedAt: null === $previous || $data->getCompletedAt() != $previous->getCompletedAt() ? $data->getCompletedAt() : null,
             clearFields: $clearFields,
-        ));
+            parentId: null === $previous || $parentId !== $previousParentId ? $parentId : null,
+            position: null === $previous || $data->getPosition() !== $previous->getPosition() ? $data->getPosition() : null,
+        );
+
+        // The deserializer applied the patch to the managed entity, the parent
+        // included — read from the index, so unknown to Doctrine. The command
+        // carries every change: start the handler from the stored state.
+        $this->em->refresh($data);
+
+        try {
+            $envelope = $this->bus->dispatch($command);
+        } catch (HandlerFailedException $e) {
+            if ($e->getPrevious() instanceof InvalidTaskParentException) {
+                throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
+            }
+
+            throw $e;
+        }
 
         return $envelope->last(HandledStamp::class)->getResult();
     }

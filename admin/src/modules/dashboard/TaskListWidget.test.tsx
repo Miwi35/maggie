@@ -76,6 +76,13 @@ describe('TaskListWidget', () => {
     expect(onToggleDone).toHaveBeenCalledExactlyOnceWith('/api/tasks/01CRITICAL', true)
   })
 
+  // A due date is a plain day since MAG-404, read as that day here.
+  test('shows the due day as written', () => {
+    renderWidget([{ id: '/api/tasks/01DUE', title: 'Payer la cantine', criticality: 'low', dueDate: '2026-03-20' }])
+
+    expect(screen.getByText(/^20 mars/)).toBeInTheDocument()
+  })
+
   test('says so when there is nothing to do', () => {
     renderWidget([])
 

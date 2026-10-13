@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -27,8 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -38,12 +38,23 @@ private val dueDateFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", L
 @Composable
 fun TaskDetailSheet(
     task: Task,
+    subtasks: SubtasksUiState,
+    subtaskActions: SubtaskActions,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
 ) {
-    TaskDetailContent(task = task, onEdit = onEdit, onDelete = onDelete, onToggleDone = onToggleDone) { body ->
+    TaskDetailContent(
+        task = task,
+        subtasks = subtasks,
+        subtaskActions = subtaskActions,
+        onEdit = onEdit,
+        onDelete = onDelete,
+        onToggleDone = onToggleDone,
+        // A long list of subtasks must not push the actions off the sheet.
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+    ) { body ->
         ModalBottomSheet(onDismissRequest = onDismiss) { body() }
     }
 }
@@ -52,6 +63,8 @@ fun TaskDetailSheet(
 @Composable
 fun TaskDetailContent(
     task: Task,
+    subtasks: SubtasksUiState,
+    subtaskActions: SubtaskActions,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
@@ -86,26 +99,32 @@ fun TaskDetailContent(
                 )
             }
 
-            // Due date
-            if (task.dueDate != null) {
+            // Due day: a plain date, no zone to read it in (MAG-404).
+            task.dueDay?.let { day ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    val zdt = Instant.parse(task.dueDate).atZone(ZoneId.of("Europe/Paris"))
                     Text(
-                        text = zdt.format(dueDateFormatter).replaceFirstChar { it.uppercase() },
+                        text = day.format(dueDateFormatter).replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
 
-            // Description
-            if (task.description != null) {
+            // Notes
+            if (!task.description.isNullOrBlank()) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.Description, contentDescription = "Notes", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(text = task.description, style = MaterialTheme.typography.bodyMedium)
                 }
+            }
+
+            TaskLinks(task.links)
+
+            // One level only: a subtask has none of its own.
+            if (!task.isSubtask) {
+                SubtasksSection(state = subtasks, actions = subtaskActions)
             }
 
             // Done toggle
