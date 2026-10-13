@@ -26,6 +26,7 @@ import { EnvelopeList } from './EnvelopeList'
 import { TransactionCreate } from './TransactionCreate'
 import { TransactionEdit } from './TransactionEdit'
 import { TransactionList } from './TransactionList'
+import { TreasuryPage } from './TreasuryPage'
 
 export const financeResources = (
   <>
@@ -34,6 +35,7 @@ export const financeResources = (
       <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
       <Route path="/finance/import" element={<StatementImportPage />} />
+      <Route path="/finance/treasury" element={<TreasuryPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
       <Route path="/finance/recurring-operations" element={<RecurringOperationsPage />} />

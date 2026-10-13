@@ -34,6 +34,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import InsightsIcon from '@mui/icons-material/Insights'
 import SavingsIcon from '@mui/icons-material/Savings'
 import ShieldIcon from '@mui/icons-material/Shield'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
@@ -182,6 +183,12 @@ export const CustomMenu = () => {
                 to="/envelopes"
                 primaryText="Budgets"
                 leftIcon={tinted('comptes', <SavingsIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/treasury"
+                primaryText="Trésorerie"
+                leftIcon={tinted('comptes', <ShowChartIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
