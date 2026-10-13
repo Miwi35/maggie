@@ -75,11 +75,10 @@ def answer_text(content: list) -> str:
     """
     parts: list[str] = []
     for block in content:
-        kind = _get(block, "type")
-        if kind == SERVER_TOOL_USE:
+        if _get(block, "type") == SERVER_TOOL_USE:
             parts.clear()
-        elif kind == "text":
-            parts.append(_get(block, "text") or "")
+        elif isinstance(text := _get(block, "text"), str):
+            parts.append(text)
     return "".join(parts)
 
 
