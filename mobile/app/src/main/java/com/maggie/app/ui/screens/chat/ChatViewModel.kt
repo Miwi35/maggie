@@ -289,15 +289,14 @@ class ChatViewModel(
         awaitingReply = true
         val key = java.util.UUID.randomUUID().toString()
         spokenReply = null
-        // A message that never got its stored id cannot be named to the agent: nothing is replaced.
-        val replaces = correction?.messageId?.takeUnless { it.startsWith(PENDING_PREFIX) }
 
         sendJob = viewModelScope.launch {
-            if (replaces != null) {
-                // What the agent is told of the stopped answer must have arrived before it is removed.
-                interruptJob?.join()
-                dropFrom(replaces)
-            }
+            // What the agent is told of the stopped answer must have arrived before it is removed.
+            interruptJob?.join()
+            resolvePendingCorrection()
+            // A message that still has no stored id cannot be named to the agent: nothing is replaced.
+            val replaces = correction?.messageId?.takeUnless { it.startsWith(PENDING_PREFIX) }
+            if (replaces != null) dropFrom(replaces)
             correction = null
             // Add optimistic user message
             val userMessage = ChatMessage(
@@ -334,6 +333,24 @@ class ChatViewModel(
 
             val attached = image?.let { ChatImage.jpeg(it) }
             deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces))
+        }
+    }
+
+    /**
+     * The stored id of the question being corrected comes back through Mercure, which a stopped
+     * request may not have waited for: ask the server for it, or the old exchange would stay.
+     */
+    private suspend fun resolvePendingCorrection() {
+        val pendingId = correction?.messageId?.takeIf { it.startsWith(PENDING_PREFIX) } ?: return
+        val messages = _uiState.value.messages
+        val anchor = messages.take(messages.indexOfFirst { it.id == pendingId }.coerceAtLeast(0))
+            .lastOrNull { !it.id.startsWith(PENDING_PREFIX) }?.createdAt
+        try {
+            mergeStored(repository.fetchMessagesAfter(anchor).asSaid())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not fetch the stored question: ${e::class.simpleName}: ${e.message}")
         }
     }
 

@@ -2136,11 +2136,29 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `a question the agent never named is not guessed, and stays in the thread`() = runTest {
+    fun `a question stopped before any echo is looked up on the server, and replaced`() = runTest {
+        askAndStartAnswering(questionId = null)
+        viewModel.stop()
+        advanceUntilIdle()
+        coEvery { repository.fetchMessagesAfter(any()) } returns listOf(
+            ChatMessage(id = "u-9", role = "user", content = "Raconte", createdAt = "2026-02-15T10:00:01Z"),
+        )
+        correctedAnswer()
+
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), "u-9") }
+        assertFalse("Raconte" in viewModel.uiState.value.messages.map { it.content })
+    }
+
+    @Test
+    fun `a question the server cannot name is not guessed, and stays in the thread`() = runTest {
         askAndStartAnswering(questionId = null)
         viewModel.stop()
         advanceUntilIdle()
         assertEquals("Raconte", viewModel.uiState.value.inputToRestore)
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
         correctedAnswer()
 
         viewModel.sendMessage("Raconte autre chose")
