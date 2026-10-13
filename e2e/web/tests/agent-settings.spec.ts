@@ -14,6 +14,7 @@ test('the Paramètres menu lists Maggie and opens her settings', async ({ page }
   const shell = new AdminShell(page)
 
   await shell.goto(ROUTES.dashboard)
+  await shell.expectLoaded()
   await shell.navigateTo('Maggie', 'Paramètres')
 
   await expect(page).toHaveURL(/#\/settings\/agent$/)
