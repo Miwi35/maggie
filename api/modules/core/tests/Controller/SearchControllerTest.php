@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Tests\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Task;
 use Maggie\Core\Controller\SearchController;
+use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\SearchService;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
 class SearchControllerTest extends TestCase
 {
     private SearchService $searchService;
+    private IndexableEntityRegistry $registry;
     private Security $security;
     private User $user;
 
@@ -28,6 +36,12 @@ class SearchControllerTest extends TestCase
         $this->security->method('getUser')->willReturn($this->user);
 
         $this->searchService = $this->createMock(SearchService::class);
+
+        $factory = $this->createStub(ClassMetadataFactory::class);
+        $factory->method('getAllMetadata')->willReturn([new ClassMetadata(Event::class), new ClassMetadata(Task::class)]);
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('getMetadataFactory')->willReturn($factory);
+        $this->registry = new IndexableEntityRegistry($em, new IndexMetadataReader());
     }
 
     public function testSearchReturnsResults(): void
@@ -40,7 +54,7 @@ class SearchControllerTest extends TestCase
             ],
         ]);
 
-        $controller = new SearchController($this->searchService, $this->security);
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
         $request = Request::create('/api/search', 'GET', ['q' => 'meeting']);
         $response = $controller($request);
         $data = json_decode($response->getContent(), true);
@@ -55,7 +69,7 @@ class SearchControllerTest extends TestCase
 
     public function testMissingQueryReturns400(): void
     {
-        $controller = new SearchController($this->searchService, $this->security);
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
         $request = Request::create('/api/search', 'GET');
         $response = $controller($request);
 
@@ -69,7 +83,7 @@ class SearchControllerTest extends TestCase
         $security = $this->createMock(Security::class);
         $security->method('getUser')->willReturn(null);
 
-        $controller = new SearchController($this->searchService, $security);
+        $controller = new SearchController($this->searchService, $this->registry, $security);
         $request = Request::create('/api/search', 'GET', ['q' => 'test']);
         $response = $controller($request);
 
@@ -80,11 +94,11 @@ class SearchControllerTest extends TestCase
     {
         $this->searchService->expects($this->once())
             ->method('search')
-            ->with('pasta', (string) $this->user->getId(), ['recipes', 'tasks'], 0, 10)
+            ->with('pasta', (string) $this->user->getId(), ['events', 'tasks'], 0, 10)
             ->willReturn(['total' => 0, 'results' => []]);
 
-        $controller = new SearchController($this->searchService, $this->security);
-        $request = Request::create('/api/search', 'GET', ['q' => 'pasta', 'types' => 'recipes,tasks']);
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
+        $request = Request::create('/api/search', 'GET', ['q' => 'pasta', 'types' => 'events,tasks']);
         $controller($request);
     }
 
@@ -95,7 +109,7 @@ class SearchControllerTest extends TestCase
             ->with('test', (string) $this->user->getId(), null, 20, 5)
             ->willReturn(['total' => 50, 'results' => []]);
 
-        $controller = new SearchController($this->searchService, $this->security);
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
         $request = Request::create('/api/search', 'GET', ['q' => 'test', 'page' => '5', 'limit' => '5']);
         $response = $controller($request);
         $data = json_decode($response->getContent(), true);
@@ -111,8 +125,20 @@ class SearchControllerTest extends TestCase
             ->with('test', (string) $this->user->getId(), null, 0, 100)
             ->willReturn(['total' => 0, 'results' => []]);
 
-        $controller = new SearchController($this->searchService, $this->security);
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
         $request = Request::create('/api/search', 'GET', ['q' => 'test', 'limit' => '500']);
         $controller($request);
+    }
+
+    public function testAnUnknownTypeReturns400(): void
+    {
+        $this->searchService->expects($this->never())->method('search');
+
+        $controller = new SearchController($this->searchService, $this->registry, $this->security);
+        $request = Request::create('/api/search', 'GET', ['q' => 'test', 'types' => 'tasks,nope']);
+        $response = $controller($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('nope', json_decode($response->getContent(), true)['error']);
     }
 }

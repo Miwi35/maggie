@@ -12,7 +12,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 final class IndexMetadataReader
 {
     /**
-     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>, dayFields: array<string, array{field: string, exclusiveEnd: bool}>}|null
+     * @return array{index: string, module: ?string, globalSearch: bool, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>, dayFields: array<string, array{field: string, exclusiveEnd: bool}>}|null
      */
     public function read(string $className): ?array
     {
@@ -88,6 +88,7 @@ final class IndexMetadataReader
         return [
             'index' => $indexed->index,
             'module' => $indexed->module,
+            'globalSearch' => $indexed->globalSearch,
             'fields' => $fields,
             'relations' => $relations,
             'boosts' => $boosts,

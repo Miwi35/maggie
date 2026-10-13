@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Controller;
 
+use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\SearchService;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -16,6 +17,7 @@ final class SearchController
 {
     public function __construct(
         private readonly SearchService $searchService,
+        private readonly IndexableEntityRegistry $registry,
         private readonly Security $security,
     ) {
     }
@@ -41,6 +43,16 @@ final class SearchController
         $types = '' !== $typesParam
             ? array_map('trim', explode(',', $typesParam))
             : null;
+
+        if (null !== $types) {
+            $unknown = array_diff($types, array_keys($this->registry->getAll()));
+            if ([] !== $unknown) {
+                return new JsonResponse(
+                    ['error' => 'Unknown types: '.implode(', ', $unknown)],
+                    Response::HTTP_BAD_REQUEST,
+                );
+            }
+        }
 
         $results = $this->searchService->search(
             $query,

@@ -31,6 +31,24 @@ final class IndexableEntityRegistry
     }
 
     /**
+     * The indices a global search queries when the caller names none: those that
+     * did not opt out with `#[Indexed(globalSearch: false)]`.
+     *
+     * @return list<string>
+     */
+    public function getGlobalSearchIndices(): array
+    {
+        $indices = [];
+        foreach ($this->getAll() as $index => $class) {
+            if ($this->metadataReader->read($class)['globalSearch'] ?? true) {
+                $indices[] = $index;
+            }
+        }
+
+        return $indices;
+    }
+
+    /**
      * @return array<string, class-string<IndexableInterface>>
      */
     public function getByModule(string $module): array
