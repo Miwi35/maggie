@@ -538,7 +538,7 @@ test('an unrolled series lists the transactions it recognised, newest first, and
   })
   createdCategoryIds.push(categoryId)
 
-  // Given a monthly series anchored two months back, and its two debits attached.
+  // Given a monthly series anchored last month, and its two debits attached.
   const thisMonth = parisDay().slice(0, 7)
   const anchorOn = `${monthBefore(thisMonth, 1)}-12`
   const seriesName = `Abonnement Flixo MAG-438 ${attempt}`
