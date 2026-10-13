@@ -23,7 +23,7 @@ final class BankSchedulingTest extends KernelTestCase
     {
         $application = new Application(self::bootKernel());
 
-        foreach (['app:finance:sync', 'app:finance:check-consents'] as $name) {
+        foreach (['app:finance:sync', 'app:finance:check-consents', 'app:finance:treasury-alerts'] as $name) {
             self::assertTrue($application->has($name), $name.' is scheduled but not registered');
         }
     }

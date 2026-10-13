@@ -204,7 +204,9 @@ Tests : Vitest (rendu avec et sans découvert prévu, salaire reçu, erreur) ; M
 
 **Bloquée par la tâche 10.**
 
-Commande console `app:finance:treasury-alerts` (quotidienne), sur le modèle de `CheckRemindersCommand` : pour chaque utilisateur dont le salaire est en retard et dont `GetTreasuryOutlook` prévoit un découvert dans les 7 jours, publier une proaction côté agent (`agent/app/queue/proaction_publisher.py`) avec un prompt qui dit le retard, la date du découvert et l'avance conseillée. Une alerte par utilisateur et par jour, pas une par passage ; rien quand le salaire est arrivé ou qu'aucun découvert n'est prévu (décision 18).
+Commande console `app:finance:treasury-alerts` (quotidienne), sur le modèle de `CheckRemindersCommand` : pour chaque utilisateur dont le salaire est en retard et dont `GetTreasuryOutlook` prévoit un découvert dans les 7 jours, déposer une proaction dans l'agenda interne (`ScheduleProactionCommand` par le bus, MAG-326 : Mercure et Elasticsearch partent) avec un prompt qui dit le retard, la date du découvert et l'avance conseillée. Une alerte par utilisateur et par jour, pas une par passage ; rien quand le salaire est arrivé ou qu'aucun découvert n'est prévu (décision 18).
+
+Planifiée à 08:04 UTC (`.docker/php/crontab`). Idempotence : une proaction de résumé « Alerte trésorerie » existe déjà aujourd'hui (jour de Paris), quel que soit son état. **L'exécution côté agent dépend de MAG-327** (l'exécuteur de l'agent réclame les proactions de l'API) : tant qu'elle n'est pas fusionnée, l'alerte est déposée mais pas jouée.
 
 ### Tests
 
@@ -309,9 +311,22 @@ Scénario `agent/fixtures/fake-llm/91-savings-advances.yaml`, `match: user_conta
 
 Ouvrir le dashboard finance, voir le bandeau « découvert prévu », ouvrir la vue trésorerie, lire le retard et l'avance conseillée, ouvrir les avances d'épargne et lire le solde par source.
 
+### Alerte de trésorerie — extension du parcours MAG-102 (tâche 12)
+
+```
+Étant donné un salaire attendu le 25, en retard de 6 jours, et un découvert prévu dans 6 jours
+Quand `app:finance:treasury-alerts` passe, deux fois le même jour
+Alors une seule proaction « Alerte trésorerie » est déposée, avec le retard, la date du découvert et l'avance conseillée avec sa source
+Quand l'agent l'exécute
+Alors `get_treasury_outlook` a tourné et a réussi
+  et le message rangé dans le fil propose l'avance, sans dire que le virement est fait
+```
+
+Scénario `agent/fixtures/fake-llm/92-treasury-alert.yaml`, `match: user_contains: "Alerte trésorerie"`. La moitié API est couverte par `TreasuryAlertsCommandTest`, la moitié agent par `test_proaction.py` (respx) ; le pas de bout en bout rejoint `e2e/smoke/smoke.sh` (MAG-102) quand MAG-327 est fusionnée.
+
 ### Évaluation sur le modèle réel
 
-`task e2e:eval` : un scénario de prompt-lab « salaire en retard » vérifie que Maggie choisit `get_treasury_outlook` plutôt que `manage_transactions`, et qu'elle **propose** sans jamais prétendre exécuter un virement (contrainte de neutralité, doc §7).
+`task e2e:eval` : le scénario de prompt-lab `scripts/prompt-lab/scenarios/90-salaire-en-retard.yaml` vérifie que Maggie choisit `get_treasury_outlook` plutôt que `manage_transactions`, et qu'elle **propose** sans jamais prétendre exécuter un virement (contrainte de neutralité, doc §7).
 
 ## Definition of Done
 

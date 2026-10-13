@@ -21,4 +21,18 @@ class TreasurySettingsRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['user' => $user]);
     }
+
+    /**
+     * Every user who declared the day their salary is expected: the only ones
+     * who can have a late one.
+     *
+     * @return TreasurySettings[]
+     */
+    public function findWithExpectedDay(): array
+    {
+        return $this->createQueryBuilder('s')
+            ->where('s.salaryExpectedDay IS NOT NULL')
+            ->getQuery()
+            ->getResult();
+    }
 }

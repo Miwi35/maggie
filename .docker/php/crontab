@@ -19,6 +19,8 @@
 4 6,18 * * * cd /var/www/api && php bin/console app:finance:sync --write
 # Consent expiry warning: once a day (the command itself never warns twice for the same consent).
 34 8 * * * cd /var/www/api && php bin/console app:finance:check-consents
+# Treasury alert (MAG-281): once a day, 08:04 UTC (09:04 Paris in winter, 10:04 in summer). Files at most one proaction a day per user whose salary is late and who is heading for an overdraft; a second run the same Paris day files nothing.
+4 8 * * * cd /var/www/api && php bin/console app:finance:treasury-alerts
 # Recurring groceries: once a day, 04:08 UTC (06:08 Paris in summer, 05:08 in winter). The command is idempotent and the rule reads the Paris date, so a later run or `generate_grocery_list` never doubles a line.
 8 4 * * * cd /var/www/api && php bin/console maggie:grocery:add-due-recurring-items
 # Past meals' groceries: once a day, 04:09 UTC (06:09 Paris in summer, 05:09 in winter), after the Paris day has turned. Takes the unbought ingredients of meals whose day has gone off the lists; idempotent, and a meal planned or moved onto a past day is released on the spot.

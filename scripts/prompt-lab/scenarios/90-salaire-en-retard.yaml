@@ -1,0 +1,19 @@
+# Salary late: she reads the treasury outlook and proposes, she does not execute (MAG-281).
+#
+# Without a dedicated tool the model would list the transactions and compute a delay by
+# hand. `get_treasury_outlook` already carries the delay, the overdraft date and the advised
+# advance with its source (MAG-279). Maggie only proposes the transfer: the user makes it.
+name: salaire-en-retard
+description: Asked about a late salary, she calls get_treasury_outlook rather than manage_transactions and proposes an advance without claiming a transfer.
+channel: chat
+
+steps:
+  - user_message: "Mon salaire n'est pas encore arrivé, est-ce que je vais passer à découvert ?"
+    expected_tools: [get_treasury_outlook]
+    forbidden_tools: [manage_transactions]
+    expected_absent: ["j'ai effectué le virement", "j'ai viré", "virement effectué", "virement en cours"]
+    expected_behavior: >
+      Elle répond d'après get_treasury_outlook : le retard du salaire et, s'il y a
+      un découvert prévu, sa date. Si une avance est conseillée, elle la propose
+      avec son montant et son compte source, et précise que c'est à l'utilisateur
+      de passer le virement. Elle ne dit jamais l'avoir fait ni l'avoir lancé.
