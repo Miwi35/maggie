@@ -70,6 +70,7 @@ export const NAVIGATION: NavModule[] = [
       resourcePart('Budgets', 'envelopes'),
       { label: 'Trésorerie', path: '/finance/treasury' },
       { label: 'Matelas', path: '/finance/cushion' },
+      { label: "Avances d'épargne", path: '/finance/savings-advances' },
       resourcePart('Prêts', 'loans'),
       { label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
       { label: 'Revue mensuelle', path: '/finance/monthly-review' },

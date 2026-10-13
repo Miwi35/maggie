@@ -14,6 +14,7 @@ import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { LoanCreate } from './LoanCreate'
 import { MonthlyReviewPage } from './MonthlyReviewPage'
 import { RecurringOperationsPage } from './RecurringOperationsPage'
+import { SavingsAdvancesPage } from './SavingsAdvancesPage'
 import { StatementImportPage } from './StatementImportPage'
 import { LoanEdit } from './LoanEdit'
 import { LoanList } from './LoanList'
@@ -37,6 +38,7 @@ export const financeResources = (
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/treasury" element={<TreasuryPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
+      <Route path="/finance/savings-advances" element={<SavingsAdvancesPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
       <Route path="/finance/recurring-operations" element={<RecurringOperationsPage />} />
     </CustomRoutes>

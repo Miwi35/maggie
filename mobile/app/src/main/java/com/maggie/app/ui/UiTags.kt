@@ -165,6 +165,13 @@ object UiTags {
     /** Trésorerie — the advice's « Préparer l'avance », and the field of the overdraft limit. */
     const val TREASURY_PREPARE_ADVANCE = "treasury_prepare_advance"
     const val TREASURY_OVERDRAFT_LIMIT = "treasury_overdraft_limit"
+    /** Savings advances — the screen root, the total, the retry of a failed load, the salary day and the « Je l'ai fait » of an advance. */
+    const val SAVINGS_ADVANCES = "savings_advances"
+    const val SAVINGS_ADVANCES_TOTAL = "savings_advances_total"
+    const val SAVINGS_ADVANCES_RETRY = "savings_advances_retry"
+    const val SAVINGS_ADVANCES_SALARY_DAY = "savings_advances_salary_day"
+    const val SAVINGS_ADVANCES_SAVE_DAY = "savings_advances_save_day"
+    const val SAVINGS_ADVANCE_DONE_PREFIX = "savings_advance_done_"
 
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
@@ -323,6 +330,8 @@ object UiTags {
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
     fun financeAccess(route: String) = FINANCE_ACCESS_PREFIX + route
+
+    fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
 
     fun googleImport(calendarId: String) = GOOGLE_IMPORT_PREFIX + calendarId
 

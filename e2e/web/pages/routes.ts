@@ -29,7 +29,7 @@ export const ROUTES = {
   preferences: '/settings/preferences',
   googleSettings: '/settings/google',
   agentSettings: '/settings/agent',
-  // Finance (MAG-102). Four screens are react-admin resources and five are
+  // Finance (MAG-102). Four screens are react-admin resources and the others are
   // custom routes; nothing on screen says which, so they sit together here.
   accounts: '/accounts',
   categories: '/categories',
@@ -42,6 +42,7 @@ export const ROUTES = {
   financeTreasury: '/finance/treasury',
   financeReview: '/finance/monthly-review',
   financeRecurring: '/finance/recurring-operations',
+  financeSavingsAdvances: '/finance/savings-advances',
 } as const
 
 /**

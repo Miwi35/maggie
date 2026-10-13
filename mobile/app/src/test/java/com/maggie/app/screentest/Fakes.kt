@@ -3,6 +3,12 @@ package com.maggie.app.screentest
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.api.CategoryCreateRequest
+import com.maggie.app.data.api.TransactionCreateRequest
+import com.maggie.app.data.model.SalaryDelay
+import com.maggie.app.data.model.SavingsAdvances
+import com.maggie.app.data.repository.SavingsAdvancesRepository
+import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
+import java.time.LocalDate
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.EndErrandRemainingStore
 import com.maggie.app.data.api.EndErrandResponse
@@ -706,5 +712,38 @@ class FakeMealIngredientChoice(private val refuse: Boolean = false) {
         )
 
         val preview = MealGroceryPreview(MEAL_ID, null, listOf(rice, flour, vegetables))
+    }
+}
+
+/**
+ * The savings advances screen over a server that answers [advances], or fails the load.
+ *
+ * [legs] is what « Je l'ai fait » sent, in order: the request half of the assertion, the
+ * screen after the reload is the other.
+ */
+class FakeSavingsAdvances(
+    private val advances: SavingsAdvances = SavingsAdvances(),
+    private val loadFailure: Throwable? = null,
+) {
+    val legs = mutableListOf<TransactionCreateRequest>()
+
+    /** The days saved, in order; `null` is « forget it ». */
+    val savedDays = mutableListOf<Int?>()
+
+    val viewModel: SavingsAdvancesViewModel by lazy {
+        val repository = mockk<SavingsAdvancesRepository>()
+        val transactions = mockk<TransactionRepository>()
+        coEvery { repository.getSavingsAdvances() } answers {
+            loadFailure?.let { Result.failure(it) } ?: Result.success(advances)
+        }
+        coEvery { repository.setSalaryExpectedDay(any()) } answers {
+            savedDays += firstArg<Int?>()
+            Result.success(SalaryDelay(isConfigured = false, salaryExpectedDay = firstArg()))
+        }
+        coEvery { transactions.createTransaction(any()) } answers {
+            legs += firstArg<TransactionCreateRequest>()
+            Result.success(Transaction(id = "leg-${legs.size}", label = firstArg<TransactionCreateRequest>().label))
+        }
+        SavingsAdvancesViewModel(repository, transactions) { LocalDate.of(2026, 10, 13) }
     }
 }
