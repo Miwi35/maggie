@@ -1,5 +1,4 @@
 import {
-  List,
   Datagrid,
   TextField,
   NumberField,
@@ -7,19 +6,25 @@ import {
   ReferenceField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { packagingLabel } from './packaging'
 import { StockStateChip } from './StockStateChip'
 
 const PRODUCT_TOPICS = ['/api/products/{id}']
 
-const ProductDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(PRODUCT_TOPICS, () => { refetch() })
+const PRODUCT_LIVE: LiveConfig = {
+  topics: PRODUCT_TOPICS,
+  required: ['name', 'category', 'stockState'],
+  references: {
+    preferredStoreId: { field: 'preferredStore', collection: '/api/stores' },
+    fallbackStoreId: { field: 'fallbackStore', collection: '/api/stores' },
+  },
+}
 
+const ProductDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
@@ -46,7 +51,8 @@ const ProductDatagrid = () => {
 }
 
 export const ProductList = () => (
-  <List
+  <LiveList
+    live={PRODUCT_LIVE}
     empty={
       <ListEmpty
         title="Aucun produit pour l'instant"
@@ -56,5 +62,5 @@ export const ProductList = () => (
     }
   >
     <ProductDatagrid />
-  </List>
+  </LiveList>
 )

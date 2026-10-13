@@ -1,5 +1,4 @@
 import {
-  List,
   Datagrid,
   TextField,
   BooleanField,
@@ -9,13 +8,13 @@ import {
   DeleteButton,
   CreateButton,
   TopToolbar,
-  useListContext,
   useNotify,
   useRefresh,
 } from 'react-admin'
 import Button from '@mui/material/Button'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
 import { DetectInternalTransfersButton } from './DetectInternalTransfersButton'
@@ -24,6 +23,14 @@ import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
 
 const RULE_TOPICS = ['/api/categorization_rules/{id}']
+
+const RULE_LIVE: LiveConfig = {
+  topics: RULE_TOPICS,
+  required: ['labelPattern', 'matchType', 'category'],
+  references: {
+    categoryId: { field: 'category', collection: '/api/categories' },
+  },
+}
 
 const ApplyRulesButton = () => {
   const { apply, running } = useApplyCategorizationRules()
@@ -52,9 +59,6 @@ const ApplyRulesButton = () => {
 }
 
 const RuleDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(RULE_TOPICS, () => { refetch() })
-
   return (
     <Datagrid rowClick="edit">
       <TextField source="labelPattern" label="Libellé" />
@@ -93,7 +97,8 @@ const RuleActions = () => (
 )
 
 export const CategorizationRuleList = () => (
-  <List
+  <LiveList
+    live={RULE_LIVE}
     empty={
       <ListEmpty
         title="Aucune règle pour l'instant"
@@ -107,5 +112,5 @@ export const CategorizationRuleList = () => (
     sort={{ field: 'priority', order: 'DESC' }}
   >
     <RuleDatagrid />
-  </List>
+  </LiveList>
 )

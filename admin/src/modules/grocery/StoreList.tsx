@@ -1,21 +1,22 @@
 import {
-  List,
   Datagrid,
   TextField,
   NumberField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 
 const STORE_TOPICS = ['/api/stores/{id}']
 
-const StoreDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(STORE_TOPICS, () => { refetch() })
+const STORE_LIVE: LiveConfig = {
+  topics: STORE_TOPICS,
+  required: ['name', 'visitOrder'],
+}
 
+const StoreDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
@@ -28,7 +29,8 @@ const StoreDatagrid = () => {
 }
 
 export const StoreList = () => (
-  <List
+  <LiveList
+    live={STORE_LIVE}
     empty={
       <ListEmpty
         title="Aucun magasin pour l'instant"
@@ -38,5 +40,5 @@ export const StoreList = () => (
     }
   >
     <StoreDatagrid />
-  </List>
+  </LiveList>
 )

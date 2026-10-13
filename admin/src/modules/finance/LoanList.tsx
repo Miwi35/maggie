@@ -1,13 +1,12 @@
 import {
-  List,
   Datagrid,
   TextField,
   FunctionField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
 import { DebtTimelinePanel } from './DebtTimelinePanel'
@@ -16,10 +15,12 @@ import type { RaRecord } from 'react-admin'
 
 const LOAN_TOPICS = ['/api/loans/{id}']
 
-const LoanDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(LOAN_TOPICS, () => { refetch() })
+const LOAN_LIVE: LiveConfig = {
+  topics: LOAN_TOPICS,
+  required: ['name', 'principalRemainingCents'],
+}
 
+const LoanDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Prêt" />
@@ -58,7 +59,8 @@ const LoanDatagrid = () => {
 export const LoanList = () => (
   <>
     <DebtTimelinePanel />
-    <List
+    <LiveList
+      live={LOAN_LIVE}
       empty={
         <ListEmpty
           title="Aucun prêt enregistré"
@@ -69,6 +71,6 @@ export const LoanList = () => (
       sort={{ field: 'priority', order: 'DESC' }}
     >
       <LoanDatagrid />
-    </List>
+    </LiveList>
   </>
 )

@@ -1,21 +1,22 @@
 import {
-  List,
   Datagrid,
   TextField,
   NumberField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 
 const INGREDIENT_TOPICS = ['/api/ingredients/{id}']
 
-const IngredientDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(INGREDIENT_TOPICS, () => { refetch() })
+const INGREDIENT_LIVE: LiveConfig = {
+  topics: INGREDIENT_TOPICS,
+  required: ['name', 'category'],
+}
 
+const IngredientDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
@@ -32,7 +33,8 @@ const IngredientDatagrid = () => {
 }
 
 export const IngredientList = () => (
-  <List
+  <LiveList
+    live={INGREDIENT_LIVE}
     empty={
       <ListEmpty
         title="Aucun ingrédient pour l'instant"
@@ -42,5 +44,5 @@ export const IngredientList = () => (
     }
   >
     <IngredientDatagrid />
-  </List>
+  </LiveList>
 )

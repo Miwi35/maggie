@@ -1,5 +1,4 @@
 import {
-  List,
   Datagrid,
   TextField,
   DateField,
@@ -8,19 +7,25 @@ import {
   FunctionField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
-const TransactionDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(TRANSACTION_TOPICS, () => { refetch() })
+const TRANSACTION_LIVE: LiveConfig = {
+  topics: TRANSACTION_TOPICS,
+  required: ['label', 'amountCents', 'bookedAt', 'account'],
+  references: {
+    accountId: { field: 'account', collection: '/api/accounts' },
+    categoryId: { field: 'category', collection: '/api/categories' },
+  },
+}
 
+const TransactionDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <DateField source="bookedAt" label="Date" />
@@ -56,7 +61,7 @@ const TransactionDatagrid = () => {
 }
 
 export const TransactionList = () => (
-  <List sort={{ field: 'bookedAt', order: 'DESC' }}>
+  <LiveList live={TRANSACTION_LIVE} sort={{ field: 'bookedAt', order: 'DESC' }}>
     <TransactionDatagrid />
-  </List>
+  </LiveList>
 )

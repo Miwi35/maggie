@@ -1,14 +1,13 @@
 import {
-  List,
   Datagrid,
   TextField,
   BooleanField,
   FunctionField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { ACCOUNT_TYPE_LABELS } from './accountTypes'
 import { Amount } from './AmountField'
@@ -16,10 +15,12 @@ import type { RaRecord } from 'react-admin'
 
 const ACCOUNT_TOPICS = ['/api/accounts/{id}']
 
-const AccountDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(ACCOUNT_TOPICS, () => { refetch() })
+const ACCOUNT_LIVE: LiveConfig = {
+  topics: ACCOUNT_TOPICS,
+  required: ['name', 'type', 'balanceCents'],
+}
 
+const AccountDatagrid = () => {
   return (
     <Datagrid rowClick={(id) => `/accounts/${String(id).split('/').pop()}/transactions`}>
       <TextField source="name" label="Nom" />
@@ -47,7 +48,8 @@ const AccountDatagrid = () => {
 }
 
 export const AccountList = () => (
-  <List
+  <LiveList
+    live={ACCOUNT_LIVE}
     empty={
       <ListEmpty
         title="Aucun compte pour l'instant"
@@ -57,5 +59,5 @@ export const AccountList = () => (
     }
   >
     <AccountDatagrid />
-  </List>
+  </LiveList>
 )

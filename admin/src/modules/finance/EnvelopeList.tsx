@@ -1,14 +1,13 @@
 import {
-  List,
   Datagrid,
   TextField,
   ReferenceField,
   FunctionField,
   EditButton,
   DeleteButton,
-  useListContext,
 } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
 import { BUDGET_MODE_LABELS, formatPeriod } from './budgetModes'
@@ -17,10 +16,15 @@ import type { RaRecord } from 'react-admin'
 
 const ENVELOPE_TOPICS = ['/api/envelopes/{id}']
 
-const EnvelopeDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(ENVELOPE_TOPICS, () => { refetch() })
+const ENVELOPE_LIVE: LiveConfig = {
+  topics: ENVELOPE_TOPICS,
+  required: ['mode', 'amountCents', 'category'],
+  references: {
+    categoryId: { field: 'category', collection: '/api/categories' },
+  },
+}
 
+const EnvelopeDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
@@ -52,7 +56,8 @@ const EnvelopeDatagrid = () => {
 export const EnvelopeList = () => (
   <>
     <BudgetStatusPanel />
-    <List
+    <LiveList
+      live={ENVELOPE_LIVE}
       empty={
         <ListEmpty
           title="Aucune enveloppe pour l'instant"
@@ -63,6 +68,6 @@ export const EnvelopeList = () => (
       sort={{ field: 'year', order: 'DESC' }}
     >
       <EnvelopeDatagrid />
-    </List>
+    </LiveList>
   </>
 )
