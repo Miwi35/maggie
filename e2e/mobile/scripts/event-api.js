@@ -62,14 +62,14 @@ if (ACTION === 'create-burst') {
   for (let i = 1; i <= count; i++) {
     const witness = i > count - 3
     const day = witness ? 24 + (i - (count - 3) - 1) : 10 + Math.floor((i - 1) / 3)
-    const hour = witness ? 9 : 8 + ((i - 1) % 3)
+    const hour = witness ? '09' : '0' + (7 + ((i - 1) % 3))
     const date = MONTH + '-' + (day < 10 ? '0' + day : day)
     const created = http.post(base + '/api/events', {
       headers: authorized({ 'Content-Type': 'application/json', Accept: 'application/ld+json' }),
       body: JSON.stringify({
         summary: 'Séance MAG-430 ' + i,
-        startAt: date + 'T0' + hour + ':00:00Z',
-        endAt: date + 'T0' + hour + ':30:00Z',
+        startAt: date + 'T' + hour + ':00:00Z',
+        endAt: date + 'T' + hour + ':30:00Z',
         timeZone: 'Europe/Paris',
         agenda: '/api/agendas/' + perso.id,
       }),
