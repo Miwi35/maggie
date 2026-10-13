@@ -25,6 +25,7 @@ from typing import Any
 from app.memory import carte as carte_mod
 from app.memory import paths
 from app.memory.carte import PROVENANCES, Carte
+from app.memory.conversations import ROLE_NAMES
 from app.memory.service import MemoryService
 
 KNOWN_HEADING = "Ce qu'on sait"
@@ -165,9 +166,15 @@ async def _check_source(
             raise FicheError(
                 f"«{claim.texte}» cites a conversation: give `heure` as it is in the file, `AAAA-MM-JJ HHhMM`."
             )
-        if f"## {heure} — " not in (folder.read(rel) or ""):
+        text = folder.read(rel) or ""
+        if f"## {heure} — " not in text:
             raise FicheError(
                 f"There is no message at {heure} in {rel}: open it with memory_open and copy the minute of the message."
+            )
+        if claim.provenance == "dit" and f"## {heure} — {ROLE_NAMES['user']}" not in text:
+            raise FicheError(
+                f"«{claim.texte}» is `dit` but the message at {heure} in {rel} is not the owner's: "
+                "what Maggie wrote herself is `déduit`."
             )
     elif claim.provenance == "dit":
         raise FicheError(f"«{claim.texte}» is `dit`: its source is the conversation where it was said, not a fiche.")

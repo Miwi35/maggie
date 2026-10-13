@@ -92,6 +92,12 @@ async def _import_fiches(service: MemoryService, user_id: str, report: Report) -
         recorded = row.created_at.strftime("%d/%m/%Y") if row.created_at else "date inconnue"
         source = f"{fiches.LEGACY_SOURCE} (sans source), enregistrée le {recorded}"
         title = _title_of(_SENTENCES.split(claims[0])[0])
+        taken = service.folder(user_id).files()
+        try:
+            title = paths.fiche_relative([LEGACY_FOLDER], title, taken).rsplit("/", 1)[-1].removesuffix(paths.EXTENSION)
+        except paths.UnsafePath:
+            report.skipped += 1
+            continue
         try:
             await fiches.write_fiche(
                 service,

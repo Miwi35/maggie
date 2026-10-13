@@ -108,6 +108,27 @@ class TestNoSourceNoClaim:
         with pytest.raises(FicheError, match="no message at 2026-10-04 19h00"):
             await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source, heure="2026-10-04 19h00")])
 
+    async def test_something_said_cannot_cite_a_message_maggie_wrote(self, env):
+        source = await conversation(env)
+        answer = SimpleNamespace(
+            id="m2",
+            role="assistant",
+            content="Les concerts ont lieu à l'UBU, à Nantes.",
+            created_at=datetime(2026, 10, 4, 16, 20, tzinfo=UTC),
+            blocks=None,
+            interrupted=False,
+        )
+        await conversations.append_messages(USER_A, "ctx1", "Cadeau", [answer], tz=PARIS, service=env.service)
+
+        with pytest.raises(FicheError, match="not the owner's"):
+            await write(
+                env, source, affirmations=[claim("La salle est à Nantes", source, "dit", "2026-10-04 18h20")]
+            )
+        written = await write(
+            env, source, affirmations=[claim("La salle est à Nantes", source, "déduit", "2026-10-04 18h20")]
+        )
+        assert written["a_annoncer"] == ["La salle est à Nantes"]
+
     async def test_a_conversation_source_needs_its_minute(self, env):
         source = await conversation(env)
         with pytest.raises(FicheError, match="heure"):

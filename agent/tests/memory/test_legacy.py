@@ -65,6 +65,17 @@ async def test_an_old_memory_row_becomes_a_fiche_with_no_invented_source(env, ol
     assert "Préfère le thé au café." in claim.texte
 
 
+async def test_two_rows_with_the_same_title_each_become_a_fiche(env, old):
+    rows = [row("Aime le thé. Pas de sucre."), row("Aime le thé. Avec du lait."), row("Aime le thé. Très chaud.")]
+    with patch.object(legacy.memory_repo, "find_by_user", AsyncMock(return_value=rows)):
+        report = await legacy.import_user(USER_A, env.service)
+
+    fiches_written = [f for f in env.service.folder(USER_A).files() if f.startswith(f"{legacy.LEGACY_FOLDER}/")]
+    assert report.fiches == 3 and report.skipped == 0 and len(fiches_written) == 3
+    texts = " ".join(env.local(f) for f in fiches_written)
+    assert "Pas de sucre" in texts and "Avec du lait" in texts and "Très chaud" in texts
+
+
 async def test_running_it_twice_changes_nothing(env, old):
     await legacy.import_user(USER_A, env.service)
     files = sorted(env.service.folder(USER_A).files())
