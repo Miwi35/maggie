@@ -97,6 +97,34 @@ class TestOutbox:
         await memory_outbox_repo.done(USER_A, "A.md")
         assert await memory_outbox_repo.count() == 0
 
+    async def test_a_skipped_done_moves_the_base_to_the_etag_the_push_obtained(self, memory_db):
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "un", "etag-1")
+        first = await memory_outbox_repo.get(USER_A, "A.md")
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "deux", "etag-1")
+
+        await memory_outbox_repo.done(USER_A, "A.md", only_if_updated_at=first.updated_at, new_base_etag="etag-2")
+
+        [entry] = await memory_outbox_repo.pending(USER_A)
+        assert (entry.body, entry.base_etag) == ("deux", "etag-2")
+
+    async def test_a_skipped_done_can_move_the_base_to_nothing(self, memory_db):
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "delete", None, "etag-1")
+        first = await memory_outbox_repo.get(USER_A, "A.md")
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "deux", "etag-1")
+
+        await memory_outbox_repo.done(USER_A, "A.md", only_if_updated_at=first.updated_at, new_base_etag=None)
+
+        assert (await memory_outbox_repo.get(USER_A, "A.md")).base_etag is None
+
+    async def test_a_skipped_done_without_a_new_base_leaves_the_base(self, memory_db):
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "un", "etag-1")
+        first = await memory_outbox_repo.get(USER_A, "A.md")
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "deux", "etag-1")
+
+        await memory_outbox_repo.done(USER_A, "A.md", only_if_updated_at=first.updated_at)
+
+        assert (await memory_outbox_repo.get(USER_A, "A.md")).base_etag == "etag-1"
+
     async def test_failures_are_counted_and_users_listed(self, memory_db):
         await memory_outbox_repo.enqueue(USER_B, "A.md", "put", "x", None)
         await memory_outbox_repo.failed(USER_B, "A.md", "bucket down")

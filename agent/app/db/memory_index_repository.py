@@ -311,6 +311,13 @@ class MemoryUsageRepository:
             return {card_id: count for card_id, count in rows.all()}
 
 
+class Keep:
+    """Marks 'leave the base ETag as it is', as opposed to None, which is a base of its own."""
+
+
+KEEP = Keep()
+
+
 class MemoryOutboxRepository:
     """Writes waiting for the bucket. One row per file; a newer write replaces the older one."""
 
@@ -380,13 +387,27 @@ class MemoryOutboxRepository:
             rows = await session.execute(select(MemoryOutbox.user_id).distinct())
             return sorted(row[0] for row in rows.all())
 
-    async def done(self, user_id: str, path: str, *, only_if_updated_at: datetime | None = None) -> None:
-        """Remove an entry once pushed — unless a newer write replaced it while the push was running."""
+    async def done(
+        self,
+        user_id: str,
+        path: str,
+        *,
+        only_if_updated_at: datetime | None = None,
+        new_base_etag: str | None | Keep = KEEP,
+    ) -> None:
+        """Remove an entry once pushed — unless a newer write replaced it while the push was running.
+
+        A replaced entry stays, and when `new_base_etag` is given it becomes its base: the push just moved
+        the bucket's object there, so the newer write must be compared with that one, not the old one.
+        """
         async with agent_session() as session:
             row = await self._row(session, user_id, path)
             if row is None:
                 return
             if only_if_updated_at is not None and _naive(row.updated_at) != _naive(only_if_updated_at):
+                if not isinstance(new_base_etag, Keep):
+                    row.base_etag = new_base_etag
+                    await session.commit()
                 return
             await session.delete(row)
             await session.commit()
@@ -415,10 +436,12 @@ memory_usage_repo = MemoryUsageRepository()
 memory_outbox_repo = MemoryOutboxRepository()
 
 __all__ = [
+    "KEEP",
     "OP_APPEND",
     "OP_DELETE",
     "OP_PUT",
     "IndexedFile",
+    "Keep",
     "OutboxEntry",
     "fallback_card_id",
     "memory_index_repo",

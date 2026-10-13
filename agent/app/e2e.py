@@ -6,6 +6,7 @@ the API's `E2eSurfaceAbsenceTest`: `tests/test_e2e_surface.py`.
 """
 
 import hmac
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
@@ -88,6 +89,16 @@ def _fake_bucket() -> FakeBucket:
     return bucket
 
 
+def memory_user(user_id: str) -> str:
+    try:
+        return memory_paths.check_user_id(user_id)
+    except memory_paths.UnsafePath as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+MemoryUser = Annotated[str, Depends(memory_user)]
+
+
 def _key(user_id: str, path: str) -> str:
     try:
         return memory_paths.bucket_key(user_id, path)
@@ -123,7 +134,7 @@ async def memory_outage(body: MemoryOutage) -> dict[str, bool]:
 
 
 @router.post("/memory/{user_id}/sync")
-async def memory_sync(user_id: str) -> dict[str, object]:
+async def memory_sync(user_id: MemoryUser) -> dict[str, object]:
     """Run one synchronisation pass now, instead of waiting for the loop."""
     try:
         report = await memory_service.sync_user(user_id)
@@ -140,7 +151,7 @@ async def memory_sync(user_id: str) -> dict[str, object]:
 
 
 @router.post("/memory/{user_id}/write")
-async def memory_write(user_id: str, body: MemoryWrite) -> dict[str, str]:
+async def memory_write(user_id: MemoryUser, body: MemoryWrite) -> dict[str, str]:
     """Maggie writes a fiche. There is no tool for it yet (MAG-17): the journey calls the service."""
     try:
         return {"path": await memory_service.write(user_id, body.path, body.text)}
@@ -149,7 +160,7 @@ async def memory_write(user_id: str, body: MemoryWrite) -> dict[str, str]:
 
 
 @router.get("/memory/{user_id}/state")
-async def memory_state(user_id: str) -> dict[str, object]:
+async def memory_state(user_id: MemoryUser) -> dict[str, object]:
     return {
         "degraded": memory_service.degraded(user_id),
         "local": memory_service.folder(user_id).files(),
@@ -159,18 +170,18 @@ async def memory_state(user_id: str) -> dict[str, object]:
 
 
 @router.get("/memory/{user_id}/search")
-async def memory_search(user_id: str, q: str) -> dict[str, list[str]]:
+async def memory_search(user_id: MemoryUser, q: str) -> dict[str, list[str]]:
     return {"paths": [f.path for f in await memory_service.search(user_id, q)]}
 
 
 @router.post("/memory/{user_id}/rebuild")
-async def memory_rebuild(user_id: str) -> dict[str, int]:
+async def memory_rebuild(user_id: MemoryUser) -> dict[str, int]:
     report = await memory_service.rebuild(user_id)
     return {"users": report.users, "files": report.files}
 
 
 @router.delete("/memory/{user_id}")
-async def memory_reset(user_id: str) -> dict[str, bool]:
+async def memory_reset(user_id: MemoryUser) -> dict[str, bool]:
     """Start a journey from nothing: no object, no local file, no row, no queued write."""
     bucket = _fake_bucket()
     for key in [k for k in bucket.objects if k.startswith(memory_paths.bucket_prefix(user_id))]:

@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import time
+import unicodedata
 
 import pytest
 
@@ -11,6 +13,7 @@ from app.metrics import MEMORY_DEGRADED, MEMORY_SYNC_FAILURES
 from tests.memory.conftest import USER_A, USER_B, fiche
 
 ROSES = "Famille/Françoise n'aime pas les roses.md"
+IDENT = "abcdef0123456789"
 
 
 def _failures() -> float:
@@ -456,3 +459,179 @@ class TestIsolation:
 
         assert not await env.service.sync_all()
         assert env.service.degraded()
+
+
+def _during_next_put_of(env, rel, hook):
+    """Run `hook` once, right after the bucket stored `rel` and before the push heard back."""
+    original = env.bucket.put
+
+    async def put(key, body, **kwargs):
+        etag = await original(key, body, **kwargs)
+        if key == env.key(rel):
+            env.bucket.put = original
+            await hook()
+        return etag
+
+    env.bucket.put = put
+
+
+class TestWriteDuringPush:
+    async def test_a_write_made_while_its_predecessor_travels_is_not_a_conflict(self, env):
+        await env.service.write(USER_A, ROSES, fiche("Version 1.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+        await env.service.write(USER_A, ROSES, fiche("Version 2.", ident=IDENT))
+        _during_next_put_of(env, ROSES, lambda: env.service.write(USER_A, ROSES, fiche("Version 3.", ident=IDENT)))
+
+        first = await env.service.sync_user(USER_A)
+        second = await env.service.sync_user(USER_A)
+
+        assert first.conflicts == 0 and second.conflicts == 0
+        assert env.service.conflicts(USER_A) == []
+        assert "Version 3." in env.remote(ROSES) and env.remote(ROSES) == env.local(ROSES)
+        assert await memory_outbox_repo.get(USER_A, ROSES) is None
+
+    async def test_a_write_landing_between_the_queue_and_the_saved_state_is_not_a_conflict(self, env, monkeypatch):
+        await env.service.write(USER_A, ROSES, fiche("Version 1.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+        await env.service.write(USER_A, ROSES, fiche("Version 2.", ident=IDENT))
+        original = memory_outbox_repo.done
+        fired = False
+
+        async def done(user_id, path, **kwargs):
+            nonlocal fired
+            await original(user_id, path, **kwargs)
+            if path == ROSES and not fired:
+                fired = True
+                await env.service.write(USER_A, ROSES, fiche("Version 3.", ident=IDENT))
+
+        monkeypatch.setattr(memory_outbox_repo, "done", done)
+        await env.service.sync_user(USER_A)
+        monkeypatch.setattr(memory_outbox_repo, "done", original)
+        await env.service.sync_user(USER_A)
+
+        assert fired and env.service.conflicts(USER_A) == []
+        assert "Version 3." in env.remote(ROSES) and env.remote(ROSES) == env.local(ROSES)
+
+    async def test_a_delete_made_while_a_put_travels_still_reaches_the_bucket(self, env):
+        await env.service.write(USER_A, ROSES, fiche("Version 1.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+        await env.service.write(USER_A, ROSES, fiche("Version 2.", ident=IDENT))
+        _during_next_put_of(env, ROSES, lambda: env.service.delete(USER_A, ROSES))
+
+        await env.service.sync_user(USER_A)
+        await env.service.sync_user(USER_A)
+
+        assert env.remote(ROSES) is None and env.local(ROSES) is None
+        assert env.service.conflicts(USER_A) == []
+        assert await memory_index_repo.get(USER_A, ROSES) is None
+
+    async def test_a_write_made_while_a_delete_travels_is_not_lost(self, env):
+        await env.service.write(USER_A, ROSES, fiche("Version 1.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+        await env.service.delete(USER_A, ROSES)
+        original = env.bucket.delete
+
+        async def delete(key):
+            await original(key)
+            env.bucket.delete = original
+            await env.service.write(USER_A, ROSES, fiche("Version 2.", ident=IDENT))
+
+        env.bucket.delete = delete
+        await env.service.sync_user(USER_A)
+        await env.service.sync_user(USER_A)
+
+        assert "Version 2." in env.remote(ROSES) and env.remote(ROSES) == env.local(ROSES)
+        assert env.service.conflicts(USER_A) == []
+
+
+class TestKeysAsTheBucketSpellsThem:
+    NFD = unicodedata.normalize("NFD", ROSES)
+
+    def raw(self) -> str:
+        return f"{USER_A}/Mémoire/{self.NFD}"
+
+    async def test_a_file_dropped_with_a_decomposed_accent_is_pulled(self, env):
+        assert self.NFD != ROSES
+        env.bucket.seed(self.raw(), fiche("Elle préfère les pivoines.", ident=IDENT))
+
+        report = await env.service.sync_user(USER_A)
+
+        assert report.pulled >= 1 and "pivoines" in env.local(ROSES)
+        assert (await memory_index_repo.get(USER_A, ROSES)) is not None
+
+    async def test_maggie_rewrites_the_same_object_without_a_duplicate(self, env):
+        env.bucket.seed(self.raw(), fiche("Elle préfère les pivoines.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+
+        await env.service.write(USER_A, ROSES, fiche("Elle préfère les tulipes.", ident=IDENT))
+        report = await env.service.sync_user(USER_A)
+
+        assert report.conflicts == 0
+        assert [k for k in env.bucket.objects if "roses" in k] == [self.raw()]
+        assert b"tulipes" in env.bucket.objects[self.raw()].body
+
+    async def test_the_id_stamped_on_a_hand_written_note_goes_to_the_same_object(self, env):
+        env.bucket.seed(self.raw(), "Des fleurs pour Françoise.\n")
+
+        await env.service.sync_user(USER_A)
+
+        assert [k for k in env.bucket.objects if "roses" in k] == [self.raw()]
+        assert carte.is_valid_id(carte.parse(env.bucket.objects[self.raw()].body.decode()).carte.id)
+
+    async def test_maggie_deletes_the_same_object(self, env):
+        env.bucket.seed(self.raw(), fiche("Elle préfère les pivoines.", ident=IDENT))
+        await env.service.sync_user(USER_A)
+
+        await env.service.delete(USER_A, ROSES)
+        await env.service.sync_user(USER_A)
+
+        assert [k for k in env.bucket.objects if "roses" in k] == []
+        assert env.local(ROSES) is None
+
+
+async def _until(condition, seconds: float = 3.0) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition():
+        assert time.monotonic() < deadline, "the condition was never met"
+        await asyncio.sleep(0.01)
+
+
+class TestPeriodicLoop:
+    async def test_the_loop_survives_an_error_of_the_database_and_syncs_afterwards(self, env, monkeypatch, caplog):
+        env.service.interval_seconds = 0.01
+        env.service.max_backoff_seconds = 0.02
+        env.bucket.seed(env.key("Roses.md"), "Des pivoines.\n")
+        original = memory_outbox_repo.users
+        calls = 0
+
+        async def flaky():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("the database went away")
+            return await original()
+
+        monkeypatch.setattr(memory_outbox_repo, "users", flaky)
+        with caplog.at_level(logging.ERROR, logger="app.memory.service"):
+            env.service.start()
+            try:
+                await _until(lambda: env.local("Roses.md") is not None)
+            finally:
+                await env.service.stop()
+
+        assert calls >= 2
+        assert any(r.levelno == logging.ERROR and r.exc_info for r in caplog.records)
+
+    async def test_an_error_of_the_database_while_counting_does_not_hide_the_outage(self, env, monkeypatch, caplog):
+        env.bucket.down = True
+
+        async def broken(user_id=None):
+            raise RuntimeError("the database went away")
+
+        monkeypatch.setattr(memory_outbox_repo, "count", broken)
+        with caplog.at_level(logging.CRITICAL, logger="app.memory.service"):
+            with pytest.raises(BucketUnavailable):
+                await env.service.sync_user(USER_A)
+
+        assert env.service.degraded(USER_A)
+        assert any(r.levelno == logging.CRITICAL and USER_A in r.getMessage() for r in caplog.records)

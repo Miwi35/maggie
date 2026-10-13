@@ -29,7 +29,9 @@ from pathlib import Path
 from app.config import settings
 from app.db.memory_index_model import OP_APPEND, OP_DELETE, OP_PUT
 from app.db.memory_index_repository import (
+    KEEP,
     IndexedFile,
+    Keep,
     OutboxEntry,
     memory_index_repo,
     memory_outbox_repo,
@@ -78,6 +80,23 @@ class PassReport:
 
     def changed(self) -> bool:
         return bool(self.pulled or self.pushed or self.deleted or self.conflicts or self.reindexed)
+
+
+class RemoteView(dict[str, str]):
+    """rel -> ETag of what the bucket holds, remembering the key each object really has.
+
+    A tool that decomposes accents (a Mac, rclone) leaves keys that differ from the normalised ones Maggie
+    builds. Reading, rewriting or deleting such a file must go to the object that is there, not to a twin.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.raw_keys: dict[str, str] = {}
+
+    def key(self, user_id: str, rel: str) -> str:
+        if rel in self and rel in self.raw_keys:
+            return self.raw_keys[rel]
+        return paths.bucket_key(user_id, rel)
 
 
 @dataclass
@@ -324,7 +343,11 @@ class MemoryService:
     async def _run(self) -> None:
         failures = 0
         while True:
-            ok = await self.sync_all()
+            try:
+                ok = await self.sync_all()
+            except Exception:
+                logger.exception("Memory synchronisation loop failed; trying again after a pause")
+                ok = False
             failures = 0 if ok else failures + 1
             delay = min(self.interval_seconds * (2**failures if failures else 1), self.max_backoff_seconds)
             await asyncio.sleep(delay)
@@ -373,15 +396,15 @@ class MemoryService:
         status.last_error = str(error)[:300]
         MEMORY_SYNC_FAILURES.labels(reason=type(error).__name__).inc()
         MEMORY_DEGRADED.set(1)
-        pending = await memory_outbox_repo.count(user_id)
         logger.critical(
-            "Memory bucket unreachable for user %s (%s): working from the local copy and the index, "
-            "%d write(s) waiting",
+            "Memory bucket unreachable for user %s (%s): working from the local copy and the index",
             user_id,
             status.last_error,
-            pending,
         )
-        MEMORY_OUTBOX_PENDING.set(await memory_outbox_repo.count())
+        try:
+            MEMORY_OUTBOX_PENDING.set(await memory_outbox_repo.count())
+        except Exception:
+            logger.exception("Could not count the memory writes waiting for %s", user_id)
 
     async def _mark_up(self, user_id: str) -> None:
         status = self.status(user_id)
@@ -435,7 +458,7 @@ class MemoryService:
                 if known is not None and known.etag == remote[rel] and folder.exists(rel):
                     continue
                 try:
-                    data = await bucket.get(paths.bucket_key(user_id, rel))
+                    data = await bucket.get(remote.key(user_id, rel))
                 except ObjectNotFound:
                     continue
                 text = data.body.decode("utf-8", errors="replace")
@@ -457,15 +480,16 @@ class MemoryService:
         folder.save_state(state)
         return report
 
-    async def _remote_view(self, user_id: str, state: dict[str, Known]) -> dict[str, str]:
-        """rel -> ETag of what the bucket holds. An empty answer that contradicts what is known is refused."""
+    async def _remote_view(self, user_id: str, state: dict[str, Known]) -> RemoteView:
+        """What the bucket holds. An empty answer that contradicts what is known is refused."""
         assert self.bucket is not None
         listing = await self.bucket.list_objects(paths.bucket_prefix(user_id))
-        remote: dict[str, str] = {}
+        remote = RemoteView()
         for item in listing:
             rel = paths.relative_from_key(user_id, item.key)
             if rel is not None and paths.is_syncable(rel):
                 remote[rel] = item.etag
+                remote.raw_keys[rel] = item.key
         if not remote and state:
             raise BucketUnavailable(f"the listing came back empty although {len(state)} file(s) are known")
         return remote
@@ -474,7 +498,7 @@ class MemoryService:
         self,
         user_id: str,
         entry: OutboxEntry,
-        remote: dict[str, str],
+        remote: RemoteView,
         state: dict[str, Known],
         report: PassReport,
         queue: list[OutboxEntry],
@@ -482,7 +506,7 @@ class MemoryService:
         assert self.bucket is not None
         bucket = self.bucket
         rel = entry.path
-        key = paths.bucket_key(user_id, rel)
+        key = remote.key(user_id, rel)
         current = remote.get(rel)
 
         if entry.op == OP_APPEND:
@@ -490,11 +514,10 @@ class MemoryService:
             return
 
         if entry.op == OP_DELETE:
+            new_base: str | None | Keep = None
             if current is None:
-                await memory_outbox_repo.done(user_id, rel)
                 state.pop(rel, None)
-                return
-            if current == entry.base_etag:
+            elif current == entry.base_etag:
                 await bucket.delete(key)
                 remote.pop(rel, None)
                 state.pop(rel, None)
@@ -503,7 +526,8 @@ class MemoryService:
             else:
                 # Edited by the owner after the copy this delete started from: his version stays.
                 logger.warning("Not deleting %s of %s: it changed in the bucket since", rel, user_id)
-            await memory_outbox_repo.done(user_id, rel)
+                new_base = KEEP
+            await self._settle(user_id, entry, state, new_base)
             return
 
         body = entry.body or ""
@@ -518,7 +542,7 @@ class MemoryService:
                 continue
             remote[rel] = etag
             state[rel] = Known(etag, sha(body))
-            await memory_outbox_repo.done(user_id, rel, only_if_updated_at=entry.updated_at)
+            await self._settle(user_id, entry, state, etag)
             report.pushed += 1
             MEMORY_SYNC_FILES.labels(direction="pushed").inc()
             return
@@ -535,11 +559,20 @@ class MemoryService:
                 remote[rel] = data.etag
                 if theirs == body:
                     state[rel] = Known(data.etag, sha(theirs))
-                    await memory_outbox_repo.done(user_id, rel, only_if_updated_at=entry.updated_at)
+                    await self._settle(user_id, entry, state, data.etag)
                     return
         else:
             remote.pop(rel, None)
         await self._set_aside(user_id, entry, theirs, remote, state, report, queue)
+
+    async def _settle(self, user_id: str, entry: OutboxEntry, state: dict[str, Known], new_base: str | None | Keep):
+        """The entry is delivered: remember what the bucket holds, then drop the entry.
+
+        The state goes to disk first, so a write that queues right after the drop starts from the new ETag.
+        An entry rewritten while it travelled stays, based on the object the push left in the bucket.
+        """
+        self.folder(user_id).save_state(state)
+        await memory_outbox_repo.done(user_id, entry.path, only_if_updated_at=entry.updated_at, new_base_etag=new_base)
 
     async def _refresh_etag(self, key: str, remote: dict[str, str], rel: str) -> str | None:
         assert self.bucket is not None
@@ -555,7 +588,7 @@ class MemoryService:
         user_id: str,
         entry: OutboxEntry,
         theirs: str | None,
-        remote: dict[str, str],
+        remote: RemoteView,
         state: dict[str, Known],
         report: PassReport,
         queue: list[OutboxEntry],
@@ -596,14 +629,14 @@ class MemoryService:
         self,
         user_id: str,
         entry: OutboxEntry,
-        remote: dict[str, str],
+        remote: RemoteView,
         state: dict[str, Known],
         report: PassReport,
     ) -> None:
         """Journal lines merge onto whatever the bucket holds: an append never conflicts."""
         assert self.bucket is not None
         rel = entry.path
-        key = paths.bucket_key(user_id, rel)
+        key = remote.key(user_id, rel)
         current = remote.get(rel)
         for _ in range(3):
             base = generated.journal_header()
@@ -656,9 +689,7 @@ class MemoryService:
                 await self.journal(user_id, f"identifiant ajouté à `{rel}`")
                 report.again = True
 
-    async def _generate(
-        self, user_id: str, remote: dict[str, str], state: dict[str, Known], report: PassReport
-    ) -> None:
+    async def _generate(self, user_id: str, remote: RemoteView, state: dict[str, Known], report: PassReport) -> None:
         """Write the generated files that are missing or stale — never over a version someone edited."""
         assert self.bucket is not None
         folder = self.folder(user_id)
@@ -674,7 +705,7 @@ class MemoryService:
                 continue
             if present == text:
                 continue
-            key = paths.bucket_key(user_id, rel)
+            key = remote.key(user_id, rel)
             current = remote.get(rel)
             try:
                 etag = await self.bucket.put(key, text.encode("utf-8"), if_match=current, if_none_match=current is None)

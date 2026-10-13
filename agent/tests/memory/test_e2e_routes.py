@@ -97,3 +97,23 @@ def test_rebuild_and_reset(client, env):
     assert state == {"degraded": False, "local": [], "indexed": [], "outbox": []}
     assert not any(k.startswith(USER_A) for k in env.bucket.objects)
     assert isinstance(env.bucket, FakeBucket)
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "state"),
+        ("post", "sync"),
+        ("post", "write"),
+        ("get", "search?q=x"),
+        ("post", "rebuild"),
+    ],
+)
+def test_a_user_id_that_is_not_one_is_a_400_not_a_500(client, method, path):
+    url = f"/e2e/memory/pas-un-id/{path}"
+    response = client.request(method, url, headers=HEADERS, json={"path": "x.md", "text": "x"})
+    assert response.status_code == 400
+
+
+def test_resetting_a_user_id_that_is_not_one_is_a_400(client):
+    assert client.delete("/e2e/memory/pas-un-id", headers=HEADERS).status_code == 400
