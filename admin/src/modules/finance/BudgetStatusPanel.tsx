@@ -8,12 +8,16 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useNotify, useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { DailyScoreBanner } from './DailyScoreBanner'
 import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
 import { consumedPercent, formatPeriod } from './budgetModes'
+import { nestBudgetLines } from './budgetTree'
+import type { NestedBudgetLine } from './budgetTree'
 import { useBudgetStatus } from './useBudgetStatus'
 import { useRollOverEnvelopes } from './useRollOverEnvelopes'
 import type { BudgetLine } from './useBudgetStatus'
@@ -33,7 +37,40 @@ const breakdown = (line: BudgetLine): string =>
     .filter(Boolean)
     .join(' · ')
 
-const BudgetGauge = ({ line }: { line: BudgetLine }) => {
+/** Overspent is red, overcommitted orange — always an icon and a word, never the colour alone. */
+const BudgetState = ({ line }: { line: BudgetLine }) => {
+  if (line.isOverspent) {
+    return (
+      <Stack direction="row" alignItems="center" spacing={0.5} color="error.main">
+        <ErrorOutlineIcon fontSize="inherit" aria-hidden />
+        <Typography variant="caption" data-testid="budget-state" data-state="overspent">
+          Dépassement de {formatCents(-line.remainingCents, line.currency)}
+        </Typography>
+      </Stack>
+    )
+  }
+  if (line.isOvercommitted) {
+    return (
+      <Stack direction="row" alignItems="center" spacing={0.5} color="warning.main">
+        <WarningAmberIcon fontSize="inherit" aria-hidden />
+        <Typography variant="caption" data-testid="budget-state" data-state="overcommitted">
+          Surengagement de {formatCents(-line.availableCents, line.currency)}
+        </Typography>
+      </Stack>
+    )
+  }
+
+  return (
+    <Typography variant="caption" color="text.secondary">
+      {line.plannedCents > 0
+        ? `${formatCents(line.availableCents, line.currency)} encore libres`
+        : `Reste ${formatCents(line.remainingCents, line.currency)}`}
+    </Typography>
+  )
+}
+
+const BudgetGauge = ({ nested }: { nested: NestedBudgetLine }) => {
+  const { line, depth, label } = nested
   const consumed = consumedPercent(line.consumedCents, line.amountCents)
   const withPlanned = consumedPercent(line.consumedCents + line.plannedCents, line.amountCents)
   const detail = breakdown(line)
@@ -43,10 +80,15 @@ const BudgetGauge = ({ line }: { line: BudgetLine }) => {
     // every amount on it is computed from the transactions, so "this category
     // consumed that much" has to be read as one line rather than as two texts
     // that happen to be on the same screen.
-    <Box sx={{ mb: 2 }} data-testid="budget-gauge" data-category={line.categoryName}>
+    <Box
+      sx={{ mb: 2, ml: (depth - 1) * 3 }}
+      data-testid="budget-gauge"
+      data-category={line.categoryName}
+      data-depth={depth}
+    >
       <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
         <Typography variant="body2">
-          {line.categoryName}
+          {label}
           <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
             {formatPeriod(line.mode, line.year, line.month)}
           </Typography>
@@ -72,18 +114,7 @@ const BudgetGauge = ({ line }: { line: BudgetLine }) => {
         <Typography variant="caption" color="text.secondary">
           {detail}
         </Typography>
-        <Typography
-          variant="caption"
-          color={
-            line.isOverspent ? 'error.main' : line.isOvercommitted ? 'warning.main' : 'text.secondary'
-          }
-        >
-          {line.isOverspent
-            ? `Dépassement de ${formatCents(-line.remainingCents, line.currency)}`
-            : line.plannedCents > 0
-              ? `${formatCents(line.availableCents, line.currency)} encore libres`
-              : `Reste ${formatCents(line.remainingCents, line.currency)}`}
-        </Typography>
+        <BudgetState line={line} />
       </Stack>
     </Box>
   )
@@ -158,8 +189,8 @@ export const BudgetStatusPanel = () => {
 
         {loading && <LinearProgress sx={{ mb: 2 }} />}
 
-        {status?.budgets.map((line) => (
-          <BudgetGauge key={line.id} line={line} />
+        {status && nestBudgetLines(status.budgets).map((nested) => (
+          <BudgetGauge key={nested.line.id} nested={nested} />
         ))}
 
         {status && status.budgets.length > 0 && (

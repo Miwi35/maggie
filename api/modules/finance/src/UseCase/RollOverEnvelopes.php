@@ -9,6 +9,7 @@ use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Message\CreateEnvelopeCommand;
+use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -25,6 +26,7 @@ class RollOverEnvelopes
 {
     public function __construct(
         private readonly EnvelopeRepository $envelopeRepository,
+        private readonly CategoryRepository $categoryRepository,
         private readonly TransactionRepository $transactionRepository,
         private readonly MessageBusInterface $bus,
     ) {
@@ -106,12 +108,12 @@ class RollOverEnvelopes
         return ['created' => $created, 'skipped' => $skipped, 'envelopes' => $envelopes];
     }
 
-    /** What the source envelope's category actually consumed over its period. */
+    /** What the source envelope's category and its sub-categories actually consumed over its period. */
     private function consumedBy(User $user, Envelope $source): int
     {
-        $byStatus = $this->transactionRepository->sumByStatusForCategoryBetween(
+        $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
             $user,
-            $source->getCategory(),
+            $this->categoryRepository->findSelfAndDescendantIds($source->getCategory()),
             $source->getPeriodStart(),
             $source->getPeriodEnd(),
         );

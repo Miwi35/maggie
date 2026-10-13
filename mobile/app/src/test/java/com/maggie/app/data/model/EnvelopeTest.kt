@@ -42,4 +42,57 @@ class EnvelopeTest {
         assertEquals(1f, consumedFraction(100, 0), 0.001f)
         assertEquals(0f, consumedFraction(0, 0), 0.001f)
     }
+
+    private fun line(id: String, path: String, parent: String? = null) = BudgetLine(
+        id = id,
+        categoryId = "cat-$id",
+        categoryName = path.substringAfterLast(" › "),
+        categoryPath = path,
+        parentEnvelopeId = parent,
+    )
+
+    @Test
+    fun `nestBudgetLines puts each envelope under its mother with the path seen from her`() {
+        val rows = nestBudgetLines(
+            listOf(
+                line("obsydian", "Loisirs › Bars › Obsydian", parent = "loisirs"),
+                line("groceries", "Alimentation"),
+                line("loisirs", "Loisirs"),
+            ),
+        )
+
+        assertEquals(listOf("groceries", "loisirs", "obsydian"), rows.map { it.line.id })
+        assertEquals(listOf(1, 1, 2), rows.map { it.depth })
+        assertEquals(listOf("Alimentation", "Loisirs", "Bars › Obsydian"), rows.map { it.label })
+    }
+
+    @Test
+    fun `nestBudgetLines nests three envelopes of one chain`() {
+        val rows = nestBudgetLines(
+            listOf(
+                line("bars", "Loisirs › Bars", parent = "loisirs"),
+                line("obsydian", "Loisirs › Bars › Obsydian", parent = "bars"),
+                line("loisirs", "Loisirs"),
+            ),
+        )
+
+        assertEquals(listOf("loisirs", "bars", "obsydian"), rows.map { it.line.id })
+        assertEquals(listOf(1, 2, 3), rows.map { it.depth })
+        assertEquals(listOf("Loisirs", "Bars", "Obsydian"), rows.map { it.label })
+    }
+
+    @Test
+    fun `nestBudgetLines keeps at the top an envelope whose mother is not listed`() {
+        val rows = nestBudgetLines(listOf(line("obsydian", "Loisirs › Bars › Obsydian", parent = "gone")))
+
+        assertEquals(1, rows.single().depth)
+        assertEquals("Loisirs › Bars › Obsydian", rows.single().label)
+    }
+
+    @Test
+    fun `nestBudgetLines falls back to the category name when the server sent no path`() {
+        val rows = nestBudgetLines(listOf(BudgetLine(id = "e", categoryId = "c", categoryName = "Courses")))
+
+        assertEquals("Courses", rows.single().label)
+    }
 }

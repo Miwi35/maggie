@@ -152,9 +152,9 @@ class TransactionRepositoryTest extends KernelTestCase
         $this->addPairedTransfer(categoryRef: 'leisure');
         $this->add('checking', -8000, '2026-09-14', 'Cinéma', 'leisure');
 
-        $byStatus = $this->repository->sumByStatusForCategoryBetween(
+        $byStatus = $this->repository->sumByStatusForCategoriesBetween(
             $this->user(),
-            $this->category('leisure'),
+            [$this->category('leisure')->getId()],
             $this->from(),
             $this->until(),
         );

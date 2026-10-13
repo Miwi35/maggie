@@ -33,6 +33,7 @@ executionOrder:
     - 13-chat-opens-on-latest
     - 13-meals-planning
     - 13-finance-category-edit
+    - 13-finance-budget-nesting
     - 14-rotation
     - 14-interruption
     - 15-calendar-more-than-a-page

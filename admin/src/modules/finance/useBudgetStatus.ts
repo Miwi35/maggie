@@ -4,6 +4,10 @@ export interface BudgetLine {
   id: string
   categoryId: string
   categoryName: string
+  /** « Loisirs › Bars › Obsydian » */
+  categoryPath: string
+  /** The envelope of the closest ancestor category that has one, null for a root. */
+  parentEnvelopeId: string | null
   mode: string
   amountCents: number
   currency: string

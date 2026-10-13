@@ -7,7 +7,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Mcp\Tool\ManageEnvelopesTool;
+use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -180,6 +182,54 @@ class EnvelopeStatusToolsTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode($this->tool()('rollover', fromYear: 2026), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
+    public function testRecategorizingASpendMovesItBetweenTheNestedEnvelopes(): void
+    {
+        $this->loadFixtures(dirname(__DIR__).'/Controller/fixtures/budget_status_nested.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        // The 25 € spent on Bars were really at Obsydian.
+        $transactions = self::getContainer()->get(ManageTransactionsTool::class);
+        $transactions('categorize', transactionId: (string) $this->getFixture('bars_beer')->getId(), categoryId: (string) $this->getFixture('obsydian')->getId());
+
+        $obsydian = $this->budgetFor('Obsydian', 2026, 10);
+        $leisure = $this->budgetFor('Loisirs', 2026, 10);
+
+        self::assertSame(6500, $obsydian['consumedCents']);
+        self::assertSame(6500, $leisure['consumedCents']);
+
+        $this->assertMercureUpdatePublished((string) $this->getFixture('bars_beer')->getId());
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testRolloverOnActualSpendingTakesTheSubCategoriesAlong(): void
+    {
+        $this->loadFixtures(dirname(__DIR__).'/Controller/fixtures/budget_status_nested.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            $this->tool()('rollover', fromYear: 2026, fromMonth: 10, year: 2026, month: 11, useActualSpending: true),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        $byCategory = array_column($data['envelopes'], null, 'categoryName');
+        self::assertSame(6500, $byCategory['Loisirs']['amountCents']);
+        self::assertSame(4000, $byCategory['Obsydian']['amountCents']);
+    }
+
+    public function testStatusOfABadPeriodIsRefused(): void
+    {
+        $this->loadFixtures(dirname(__DIR__).'/Controller/fixtures/budget_status_nested.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode($this->tool()('status', year: 2026, month: 13), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
     }

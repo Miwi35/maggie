@@ -44,6 +44,7 @@ import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.monthLabel
+import com.maggie.app.data.model.nestBudgetLines
 import com.maggie.app.data.model.postChangeLabel
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
@@ -392,13 +393,13 @@ private fun EnvelopesCard(dashboard: FinanceDashboard) {
                 )
             }
 
-            dashboard.budgets.forEach { line ->
-                Column(modifier = Modifier.padding(top = 8.dp)) {
+            nestBudgetLines(dashboard.budgets).forEach { (line, depth, label) ->
+                Column(modifier = Modifier.padding(start = ((depth - 1) * 12).dp, top = 8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(line.categoryName, style = MaterialTheme.typography.bodySmall)
+                        Text(label, style = MaterialTheme.typography.bodySmall)
                         Text(
                             text = "${formatCents(line.consumedCents, line.currency)} / " +
                                 formatCents(line.amountCents, line.currency),

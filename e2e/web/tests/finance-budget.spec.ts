@@ -52,6 +52,7 @@ const NEXT = 12 === ANCHOR_MONTH
 const TREE_NAMES = ['Obsydian', 'Bars', 'Loisirs'] as const
 const OBSYDIAN_PATH = 'Loisirs › Bars › Obsydian'
 const treeAccountIds: string[] = []
+const treeEnvelopeIds: string[] = []
 
 /** Deepest first: the API refuses to delete a category that still has children. */
 async function removeTree(api: APIRequestContext): Promise<void> {
@@ -182,6 +183,9 @@ test.describe('categories on three levels', () => {
   // Scoped to this test: a file-level hook would also run after the other tests, on the
   // other worker, and delete the tree while this one is still using it.
   test.afterEach(async ({ otherUser }) => {
+    for (const id of treeEnvelopeIds.splice(0)) {
+      await otherUser.api.delete(`/api/envelopes/${id}`)
+    }
     for (const id of treeAccountIds.splice(0)) {
       await otherUser.api.delete(`/api/accounts/${id}`)
     }
@@ -270,5 +274,68 @@ test.describe('categories on three levels', () => {
 
     await accounts.openTransactions(accountId)
     await expect(accounts.row(label)).toContainText(OBSYDIAN_PATH)
+  })
+
+  test('a spend counts in the envelope of its category and in its mother\'s, and the total counts it once', async ({
+    otherUser,
+  }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs at 300 € and Obsydian at 100 € this month, and no envelope on Bars.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    const barsId = await createdId(api, '/api/categories', {
+      name: 'Bars',
+      obligation: 'optional',
+      parent: `/api/categories/${loisirsId}`,
+    })
+    const obsydianId = await createdId(api, '/api/categories', {
+      name: 'Obsydian',
+      obligation: 'optional',
+      parent: `/api/categories/${barsId}`,
+    })
+    for (const [categoryId, amountCents] of [[loisirsId, 30000], [obsydianId, 10000]] as const) {
+      treeEnvelopeIds.push(
+        await createdId(api, '/api/envelopes', {
+          category: `/api/categories/${categoryId}`,
+          mode: 'monthly',
+          amountCents,
+          currency: 'EUR',
+          year: ANCHOR_YEAR,
+          month: ANCHOR_MONTH,
+        }),
+      )
+    }
+    const accountId = await createdId(api, '/api/accounts', {
+      name: 'Compte MAG-412',
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    treeAccountIds.push(accountId)
+
+    // When a 40 € spend is filed in Obsydian.
+    await createdId(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      category: `/api/categories/${obsydianId}`,
+      label: 'OBSYDIAN MAG-412',
+      amountCents: -4000,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+
+    // Then Obsydian reads 40 / 100 € and Loisirs 40 / 300 €, Obsydian nested under it.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    await expect(budget.gauge('Obsydian')).toContainText(overBudget(4000, 10000))
+    await expect(budget.gauge('Loisirs')).toContainText(overBudget(4000, 30000))
+    expect(await budget.gaugedCategories()).toEqual(['Loisirs', 'Obsydian'])
+    await expect(budget.gauge('Obsydian')).toHaveAttribute('data-depth', '2')
+    await expect(budget.gauge('Obsydian')).toContainText('Bars › Obsydian')
+    await expect(budget.gauge('Bars'), 'a category with no envelope is not shown as one').toHaveCount(0)
+    await expect(budget.totalLine, 'the total is Loisirs\' 300 €, not 400 €').toContainText(
+      `${euros(4000)} consommés sur ${euros(30000)}`,
+    )
   })
 })
