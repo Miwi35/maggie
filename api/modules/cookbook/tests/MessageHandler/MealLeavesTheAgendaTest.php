@@ -17,6 +17,7 @@ use Maggie\Calendar\Mcp\Tool\UpdateEventTool;
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -40,6 +41,7 @@ class MealLeavesTheAgendaTest extends WebTestCase
     use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use ChoosesMealGroceriesTrait;
 
     private const GROCERY_TOPIC = '/api/grocery_lists/';
 
@@ -199,7 +201,11 @@ class MealLeavesTheAgendaTest extends WebTestCase
             userId: (string) $this->user()->getId(),
         ));
 
-        return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $mealId = (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+
+        $this->chooseEveryIngredientOf($mealId, $recipeRef, (string) $this->user()->getId());
+
+        return $mealId;
     }
 
     private function day(string $when): string

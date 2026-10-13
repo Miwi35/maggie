@@ -6,9 +6,9 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
+use Maggie\Cookbook\Service\GroceryGeneration;
 use Maggie\Cookbook\Service\GroceryGenerationService;
 use Maggie\Core\Repository\UserRepository;
-use Maggie\Grocery\Entity\GroceryList;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -20,7 +20,7 @@ class GenerateGroceryListHandler
     ) {
     }
 
-    public function __invoke(GenerateGroceryListCommand $command): GroceryList
+    public function __invoke(GenerateGroceryListCommand $command): GroceryGeneration
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');

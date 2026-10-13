@@ -69,7 +69,7 @@ class MealGroceryItemsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(400);
         self::assertNull($this->meal($mealId)->getGroceryChoiceMadeAt());
-        self::assertSame(['Légumes pour couscous 1 jar', 'Oignon 2 piece', 'Riz 1 pack'], $this->list());
+        self::assertSame([], $this->list());
     }
 
     /** @return iterable<string, array{mixed}> */

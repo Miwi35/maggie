@@ -10,7 +10,6 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Repository\RecipeRepository;
-use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\CreateMeal;
 use Maggie\Core\Repository\UserRepository;
@@ -24,7 +23,6 @@ class CreateMealHandler
         private readonly ModuleAgendas $moduleAgendas,
         private readonly RecipeRepository $recipeRepository,
         private readonly UserRepository $userRepository,
-        private readonly MealGrocerySync $mealGrocerySync,
     ) {
     }
 
@@ -54,10 +52,8 @@ class CreateMealHandler
 
         $meal->setSummary(MealTitle::of($meal));
 
-        $meal = $this->createMeal->execute($meal);
-
-        $this->mealGrocerySync->sync($meal);
-
-        return $meal;
+        // Nothing goes on the grocery list here: the owner chooses which
+        // ingredients to buy afterwards (MAG-300).
+        return $this->createMeal->execute($meal);
     }
 }

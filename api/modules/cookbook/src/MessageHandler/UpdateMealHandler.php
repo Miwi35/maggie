@@ -9,7 +9,6 @@ use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
-use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\UpdateMeal;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -21,7 +20,6 @@ class UpdateMealHandler
         private readonly UpdateMeal $updateMeal,
         private readonly MealRepository $mealRepository,
         private readonly RecipeRepository $recipeRepository,
-        private readonly MealGrocerySync $mealGrocerySync,
     ) {
     }
 
@@ -52,14 +50,9 @@ class UpdateMealHandler
 
         $meal->setSummary(MealTitle::of($meal));
 
-        $meal = $this->updateMeal->execute($meal);
-
         // Moving the meal is the `MealRescheduled` event's business, from whichever door.
-        // A recipe swap is no event: the old ingredients come off the list, the new ones go on.
-        if (null !== $command->recipeIds) {
-            $this->mealGrocerySync->sync($meal);
-        }
-
-        return $meal;
+        // A recipe swap leaves the list alone: re-synchronising would put back what the
+        // owner had unticked. The meal screen offers to review the ingredients (MAG-300).
+        return $this->updateMeal->execute($meal);
     }
 }

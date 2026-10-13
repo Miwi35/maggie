@@ -82,6 +82,14 @@ export const RECURRING_USER_EMAIL = 'e2e-recurring@maggie.local'
  */
 export const TRANSFERS_USER_EMAIL = 'e2e-transfers@maggie.local'
 
+/**
+ * The ninth seeded account, for the meals and the grocery list journey
+ * (MAG-300): it asks Maggie to prepare the week, which tops the list up with
+ * *every* recurring item due. On the neighbour, that would add the weekly rice
+ * the errand journey needs to find absent.
+ */
+export const MEALS_USER_EMAIL = 'e2e-meals@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

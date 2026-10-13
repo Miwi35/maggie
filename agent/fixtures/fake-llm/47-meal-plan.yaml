@@ -9,6 +9,10 @@
 # The admin never takes this path — its week view always sends an agenda IRI it
 # picked itself — so asking Maggie is the only way a journey reaches it.
 #
+# Planning adds nothing to the grocery list (MAG-300): `manage_meals create`
+# answers with the meal's ingredients and their stock, and Maggie offers to
+# choose which to buy instead of announcing an addition.
+#
 # Both the recipe's id and the day come from the journey through the capture
 # groups: one is a ULID the seed invented, the other is relative to the anchor.
 name: meal-plan
@@ -21,4 +25,4 @@ turns:
   - tools:
       - name: manage_meals
         input: {action: 'create', slot: 'dinner', recipeIds: '\1', date: '\2'}
-  - text: "C'est planifié, et j'ai ajouté les ingrédients à votre liste de courses."
+  - text: "C'est planifié. Je n'ai rien mis sur votre liste de courses : voulez-vous choisir les ingrédients à acheter pour ce repas ? Je vous montre ce qui manque."

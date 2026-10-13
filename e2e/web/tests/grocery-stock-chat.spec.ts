@@ -118,6 +118,21 @@ test.beforeEach(async ({ stockUser }) => {
     data: { summary: 'Couscous du vendredi', date: seedDate(2), slot: 'dinner', recipes: [recipeIri] },
   })
   expect(meal.status(), `the API refused the meal: ${await meal.text()}`).toBe(201)
+  const mealId = ((await meal.json()) as { id: string }).id
+
+  // A planned meal puts nothing on the list by itself (MAG-300): the owner
+  // chooses its ingredients, which also gives the user the list to open.
+  const chosen = await api.post(`/api/meals/${mealId}/grocery_items`, {
+    headers: LD,
+    data: { ingredients: [{ ingredientId: vegetablesId }] },
+  })
+  expect(chosen.status(), `the API refused the choice: ${await chosen.text()}`).toBeLessThan(300)
+  await waitForIndexed<StoredList & { items: Line[] }>(
+    api,
+    '/api/grocery_lists',
+    (list) => list.items.some((line) => VEGETABLES === line.label),
+    { what: 'The list holding the chosen vegetables' },
+  )
 
   await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => RICE === row.name, {
     what: 'The rice',
@@ -171,9 +186,8 @@ test('« je n\'ai plus de légumes pour couscous » marks them out, adds nothing
 }) => {
   const { api, page } = stockUser
 
-  // The meal brought its own ingredients onto the list when it was planned
-  // (that is MAG-116, not this ticket): what counts is that Maggie adds nothing
-  // more, so the list is read before and after.
+  // The vegetables were put on the list by the choice made in the setup: what
+  // counts is that Maggie adds nothing more, so the list is read before and after.
   const before = await items(api)
   expect(before.filter((line) => 'restock' === line.source).map((line) => line.label)).not.toContain(VEGETABLES)
 

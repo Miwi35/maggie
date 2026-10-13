@@ -36,6 +36,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { MealGroceryChoice } from './MealGroceryChoice'
@@ -143,7 +144,19 @@ function DropCell({ slot, dayIndex, onClick, children }: { slot: string; dayInde
   )
 }
 
-function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: boolean; onDelete: (meal: Meal) => void; sx: ReturnType<typeof transitionSx> }) {
+function MealItem({
+  meal,
+  disabled,
+  onDelete,
+  onReviewIngredients,
+  sx,
+}: {
+  meal: Meal
+  disabled: boolean
+  onDelete: (meal: Meal) => void
+  onReviewIngredients: (meal: Meal) => void
+  sx: ReturnType<typeof transitionSx>
+}) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
     id: meal.id,
     disabled,
@@ -190,10 +203,23 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
           </Typography>
         )}
       </Box>
+      {/* A meal puts nothing on the list by itself (MAG-300): this reopens the choice. */}
+      <IconButton
+        size="small"
+        aria-label={`Revoir les ingrédients à acheter pour ${meal.summary}`}
+        title="Revoir les ingrédients à acheter"
+        sx={{ ml: 'auto' }}
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation()
+          onReviewIngredients(meal)
+        }}
+      >
+        <ShoppingBasketIcon fontSize="small" />
+      </IconButton>
       <IconButton
         size="small"
         aria-label={`Supprimer le repas ${meal.summary}`}
-        sx={{ ml: 'auto' }}
         onClick={(e) => {
           e.stopPropagation()
           onDelete(meal)
@@ -310,6 +336,11 @@ export const MealsWeekView = () => {
     }
   }
 
+  const openReviewDialog = (meal: Meal) => {
+    setChoiceMealIri(meal['@id'] || `/api/meals/${meal.id}`)
+    setDialogOpen(true)
+  }
+
   const closeDialog = useCallback(() => {
     setDialogOpen(false)
     setChoiceMealIri(null)
@@ -407,6 +438,7 @@ export const MealsWeekView = () => {
             meal={meal}
             disabled={removingIds.has(meal.id)}
             onDelete={handleDelete}
+            onReviewIngredients={openReviewDialog}
             sx={transitionSx(meal.id, addedIds, removingIds)}
           />
         ))}
@@ -544,7 +576,7 @@ export const MealsWeekView = () => {
       )}
       </DndContext>
 
-      {/* Create meal dialog: the meal, then — once it exists — which of its ingredients go on the list. */}
+      {/* Create meal dialog: the meal, then — once it exists — which of its ingredients go on the list. The same second step is reopened from a planned meal. */}
       <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
         {choiceMealIri ? (
           <>

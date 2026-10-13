@@ -1431,6 +1431,42 @@ class TestTheShippedFixtures:
         other = await ask(client, "Je n'ai plus de riz")
         assert "[fake-llm]" in text_of(other)
 
+    async def test_generating_the_week_offers_the_choice_instead_of_announcing_an_addition(self):
+        """Meals put nothing on the list by themselves any more: she offers to choose (MAG-300)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        first = await ask(client, "Prépare les courses du 2099-04-06 au 2099-04-12")
+
+        assert first.stop_reason == "tool_use"
+        calls = [block for block in first.content if isinstance(block, FakeToolUseBlock)]
+        assert [(call.name, call.input) for call in calls] == [
+            ("generate_grocery_list", {"fromDate": "2099-04-06", "toDate": "2099-04-12"})
+        ]
+        turns = yaml.safe_load((DEFAULT_FIXTURES_DIR / "44-grocery-generate.yaml").read_text())["turns"]
+        answer = turns[-1]["text"]
+        assert "ce qui revient régulièrement" in answer
+        assert "choisir les ingrédients" in answer
+        assert "repas de la semaine et" not in answer, "it must not claim to have added the meals' ingredients"
+
+    async def test_planning_a_meal_offers_the_choice_instead_of_announcing_an_addition(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        recipe_id = "01JZZZZZZZZZZZZZZZZZZZZZZZ"
+
+        first = await ask(client, f"planifie la recette {recipe_id} pour le dîner du 2099-04-08")
+
+        assert first.stop_reason == "tool_use"
+        calls = [block for block in first.content if isinstance(block, FakeToolUseBlock)]
+        assert [(call.name, call.input) for call in calls] == [
+            (
+                "manage_meals",
+                {"action": "create", "slot": "dinner", "recipeIds": recipe_id, "date": "2099-04-08"},
+            )
+        ]
+        turns = yaml.safe_load((DEFAULT_FIXTURES_DIR / "47-meal-plan.yaml").read_text())["turns"]
+        answer = turns[-1]["text"]
+        assert "ajouté les ingrédients" not in answer
+        assert "choisir les ingrédients" in answer
+
     async def test_the_voice_she_was_asked_for_needs_the_preference_in_the_prompt(self):
         """The chat journey's proof of the injection, and why it is a proof."""
         client = build_client(DEFAULT_FIXTURES_DIR)

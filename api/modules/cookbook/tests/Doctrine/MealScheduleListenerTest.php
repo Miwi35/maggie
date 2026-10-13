@@ -13,6 +13,7 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Event\MealRemoved;
 use Maggie\Cookbook\Event\MealRescheduled;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Envelope;
@@ -22,6 +23,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 class MealScheduleListenerTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use ChoosesMealGroceriesTrait;
     use SecurityTokenTrait;
 
     /** @var list<object> what the spy listener sent */
@@ -177,7 +179,10 @@ class MealScheduleListenerTest extends KernelTestCase
             userId: (string) $this->getFixture('test_user')->getId(),
         ));
 
-        return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $mealId = (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $this->chooseEveryIngredientOf($mealId, $recipeRef, (string) $this->getFixture('test_user')->getId());
+
+        return $mealId;
     }
 
     private function spyBus(): MessageBusInterface

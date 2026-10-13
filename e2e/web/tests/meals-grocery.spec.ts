@@ -1,7 +1,7 @@
 import { test, expect, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext, Page } from '@playwright/test'
-import { calledTools, toolResults } from '../helpers/agui.js'
-import { getCollection } from '../helpers/api.js'
+import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -23,6 +23,12 @@ import { ROUTES } from '../pages/routes.js'
  * slower test of the same thing. Recurring items reaching the list at all is a
  * different claim, and it is covered in `grocery-errand.spec.ts`, which owns a
  * grocery list; the owner-visible half of `buyAfter` is `grocery-list.spec.ts`.
+ *
+ * A meal puts nothing on the list by itself (MAG-300): the last test below owns
+ * that claim, on an account of its own — asking Maggie to prepare the week adds
+ * every recurring item due, and the neighbour's weekly rice belongs to
+ * `grocery-errand.spec.ts`. The choice itself, and the lines it writes, are
+ * `meals-grocery-choice.spec.ts`.
  *
  * Run as the second account, like every other journey that talks to Maggie:
  * `GET /agent/messages` is scoped to the user and returns the last twenty, and
@@ -164,4 +170,156 @@ test('the Repas agenda is in the sidebar after a reload — MAG-176', async ({ o
   await calendar.open()
   await expect(calendar.content.getByText('Repas', { exact: true })).toHaveCount(1)
   await expect(calendar.agendaRow('Repas')).toHaveCount(0)
+})
+
+const JSON_LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+
+interface Line {
+  label: string
+  quantity: number | null
+  unit: string | null
+  source: string | null
+}
+
+interface GroceryListRow {
+  items: Line[]
+}
+
+async function created(api: APIRequestContext, path: string, data: Record<string, unknown>): Promise<{ '@id': string; id: string }> {
+  const response = await api.post(path, { headers: JSON_LD, data })
+  expect(response.status(), `POST ${path} answered ${response.status()}: ${await response.text()}`).toBe(201)
+
+  return (await response.json()) as { '@id': string; id: string }
+}
+
+function linesOf(list: GroceryListRow, label: string): Line[] {
+  return list.items.filter((item) => item.label === label)
+}
+
+/**
+ * Planning a meal adds nothing to the list; the owner chooses — MAG-300, extending MAG-101.
+ *
+ * Until MAG-300 a meal derived its ingredients onto the list by itself, and
+ * asking Maggie to prepare the week added the ones of every meal in it. Both
+ * stopped: the list holds what the owner chose (`meals-grocery-choice.spec.ts`),
+ * and the week's generation is left with the recurring items — and with naming
+ * the meals whose ingredients are still to be chosen.
+ *
+ * The fake model cannot read the tool's answer, so the names of the meals are
+ * `GenerateGroceryListToolTest`'s; what Maggie says here is the scenario's
+ * wording, and that she proposes the choice instead of announcing an addition.
+ *
+ * The weekly milk is this run's own, created due; the dedicated account keeps
+ * the generation from adding anyone else's recurring item.
+ */
+test('a planned meal adds nothing, Maggie prepares the week with the recurring items only, and the meal takes its chosen lines away when it goes — MAG-300', async ({
+  mealsUser,
+}) => {
+  const { api, page } = mealsUser
+  const suffix = `${Date.now()}`
+  const riceName = `Riz MAG-300 ${suffix}`
+  const milkName = `Lait MAG-300 ${suffix}`
+  const recipeName = `Riz au curry MAG-300 ${suffix}`
+  const cleanup: string[] = []
+
+  try {
+    // Given « Riz au curry » with rice out of stock, bought by the 500 g pack…
+    const rice = await created(api, '/api/ingredients', {
+      name: riceName,
+      category: 'grain',
+      packagingUnit: 'pack',
+      packagingSize: 500,
+      packagingSizeUnit: 'g',
+      stockState: 'out',
+    })
+    cleanup.push(rice['@id'])
+    const recipe = await created(api, '/api/recipes', {
+      name: recipeName,
+      servings: 2,
+      ingredients: [{ ingredient: rice['@id'], quantity: 300, unit: 'g' }],
+    })
+    cleanup.push(recipe['@id'])
+
+    // …and a recurring item that is due: milk, weekly, never added yet.
+    const milk = await created(api, '/api/products', { name: milkName, category: 'dairy' })
+    cleanup.push(milk['@id'])
+    const recurring = await created(api, '/api/recurring_grocery_items', {
+      product: milk['@id'],
+      quantity: 1,
+      unit: 'l',
+      frequency: 'weekly',
+    })
+    cleanup.push(recurring['@id'])
+    await waitForIndexed<{ name: string }>(api, '/api/recipes?itemsPerPage=200', (row) => row.name === recipeName, {
+      what: 'The recipe to plan',
+    })
+
+    // When I plan it on Saturday lunch and answer « Plus tard »…
+    const shell = new AdminShell(page)
+    await shell.goto(ROUTES.meals)
+    await shell.content.getByTestId('meal-cell-lunch-5').click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Recettes').click()
+    await page.getByRole('option', { name: recipeName }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+    await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
+    await dialog.getByRole('button', { name: 'Plus tard' }).click()
+    await expect(dialog).toBeHidden()
+
+    const meal = await waitForIndexed<{ '@id': string; id: string; summary: string }>(
+      api,
+      '/api/meals?itemsPerPage=200',
+      (m) => String(m.summary).includes(recipeName),
+      { what: 'The planned meal' },
+    )
+    cleanup.unshift(meal['@id'])
+
+    // …then the list holds nothing of it.
+    const afterPlanning = (await getCollection<GroceryListRow>(api, '/api/grocery_lists'))[0]
+    expect(linesOf(afterPlanning ?? { items: [] }, riceName), 'planning the meal put its rice on the list').toHaveLength(0)
+
+    // When I ask Maggie to prepare the week…
+    const chat = new ChatPanel(page)
+    const events = await chat.send(`Prépare les courses du ${seedDate(0)} au ${seedDate(13)}`)
+    expect(calledTools(events)).toContain('generate_grocery_list')
+    expect(toolResults(events)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ toolName: 'generate_grocery_list', status: 'success' })]),
+    )
+
+    // …then the recurring milk is on the list and the meal's rice is not.
+    const afterGenerating = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => linesOf(list, milkName).length > 0, {
+      what: 'The recurring milk on the list',
+    })
+    expect(linesOf(afterGenerating, milkName)).toMatchObject([{ source: 'recurring' }])
+    expect(linesOf(afterGenerating, riceName), 'preparing the week derived the meal’s ingredients').toHaveLength(0)
+
+    // And Maggie offers the choice instead of announcing an addition.
+    expect(assistantText(events)).toMatch(/choisir les ingrédients/)
+
+    // When I review the meal's ingredients and add them…
+    await chat.close()
+    await page.getByRole('button', { name: `Revoir les ingrédients à acheter pour ${meal.summary}` }).click()
+    await expect(dialog.getByRole('checkbox', { name: riceName })).toBeChecked()
+    await dialog.getByRole('button', { name: 'Ajouter aux courses' }).click()
+    await expect(dialog).toBeHidden()
+
+    // …then the list holds « Riz — 1 paquet ».
+    await waitForIndexed<GroceryListRow>(
+      api,
+      '/api/grocery_lists',
+      (list) => 1 === linesOf(list, riceName).length && 1 === linesOf(list, riceName)[0].quantity && 'pack' === linesOf(list, riceName)[0].unit,
+      { what: 'A single « Riz — 1 paquet » line' },
+    )
+
+    // When I delete the meal…
+    await page.getByRole('button', { name: `Supprimer le repas ${meal.summary}` }).click()
+
+    // …then its lines leave, and the recurring milk stays.
+    const afterDeleting = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => 0 === linesOf(list, riceName).length, {
+      what: 'The list without the rice',
+    })
+    expect(linesOf(afterDeleting, milkName)).toHaveLength(1)
+  } finally {
+    for (const iri of cleanup) await api.delete(iri)
+  }
 })

@@ -13,11 +13,13 @@ use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\RevokeMealGroceriesCommand;
 use Maggie\Cookbook\Message\SyncMealGroceriesCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
 class RevokeMealGroceriesHandlerTest extends KernelTestCase
 {
@@ -25,6 +27,7 @@ class RevokeMealGroceriesHandlerTest extends KernelTestCase
     use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use ChoosesMealGroceriesTrait;
 
     protected function setUp(): void
     {
@@ -87,9 +90,15 @@ class RevokeMealGroceriesHandlerTest extends KernelTestCase
         self::assertCount(2, $this->em()->getRepository(MealGroceryContribution::class)->findAll());
     }
 
-    public function testSyncingAStoredMealPublishesTheList(): void
+    public function testSyncingAStoredMealThatMovedPublishesTheList(): void
     {
-        $mealId = $this->planMeal('pasta');
+        $mealId = $this->planMeal('fish_dish', '+10 days');
+        // Moved behind the handler's back, as the agenda's doors do.
+        $this->em()->getConnection()->executeStatement('UPDATE meal SET date = ? WHERE id = ?', [
+            (new \DateTimeImmutable('+13 days', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            Ulid::fromString($mealId)->toRfc4122(),
+        ]);
+        $this->em()->clear();
         $this->resetMercure();
         $this->resetAsyncTransport();
 
@@ -111,16 +120,19 @@ class RevokeMealGroceriesHandlerTest extends KernelTestCase
         return $snapshot;
     }
 
-    private function planMeal(string $recipeRef): string
+    private function planMeal(string $recipeRef, string $when = '+1 day'): string
     {
         $envelope = $this->bus()->dispatch(new CreateMealCommand(
-            date: (new \DateTimeImmutable('+1 day', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            date: (new \DateTimeImmutable($when, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
             slot: 'dinner',
             recipeIds: [(string) $this->getFixture($recipeRef)->getId()],
             userId: (string) $this->getFixture('test_user')->getId(),
         ));
 
-        return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $mealId = (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $this->chooseEveryIngredientOf($mealId, $recipeRef, (string) $this->getFixture('test_user')->getId());
+
+        return $mealId;
     }
 
     private function em(): EntityManagerInterface

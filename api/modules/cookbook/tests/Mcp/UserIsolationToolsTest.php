@@ -197,13 +197,8 @@ class UserIsolationToolsTest extends KernelTestCase
         $data = $this->decode((self::getContainer()->get(GenerateGroceryListTool::class))('2030-01-14', '2030-01-16'));
 
         self::assertTrue($data['success']);
-        $labels = [];
-        foreach ($data['groceryList']['storeGroups'] as $group) {
-            foreach ($group['items'] as $item) {
-                $labels[] = $item['label'];
-            }
-        }
-        self::assertSame(['Tomate'], $labels);
+        self::assertSame(0, $data['groceryList']['totalItems']);
+        self::assertSame([(string) $this->getFixture('own_meal')->getId()], array_column($data['mealsToChoose'], 'id'));
     }
 
     public function testListMealsOnlyReturnsTheCallersMeals(): void
