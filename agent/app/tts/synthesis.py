@@ -1,11 +1,16 @@
 """Speech synthesis — Edge TTS in real life, a fixed clip under e2e."""
 
+import asyncio
+import logging
 import re
 from collections.abc import AsyncGenerator
 
 import edge_tts
+from aiohttp import WSServerHandshakeError
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # A valid, silent MP3 frame. The e2e provider streams this instead of calling
 # Microsoft: journeys assert that audio arrived and that the player handles it,
@@ -42,7 +47,19 @@ VOICES = [
 
 DEFAULT_VOICE = "fr-FR-DeniseNeural"
 
+
 VOICE_IDS = {v["id"] for v in VOICES}
+
+
+# Microsoft's endpoint refuses the WebSocket upgrade now and then (MAG-401). One retry
+# rides out a blip; a second refusal means the service is down, not that we were unlucky.
+HANDSHAKE_ATTEMPTS = 2
+HANDSHAKE_RETRY_DELAY_SECONDS = 0.5
+
+
+class SpeechUnavailableError(Exception):
+    """Edge TTS refused to start a synthesis: nothing was streamed yet."""
+
 
 # ---------------------------------------------------------------------------
 # Emoji → natural interjection mapping (French)
@@ -166,7 +183,20 @@ async def synthesize_speech(text: str, voice: str = DEFAULT_VOICE) -> AsyncGener
             yield chunk
         return
 
-    communicate = edge_tts.Communicate(text, voice)
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            yield chunk["data"]
+    for attempt in range(1, HANDSHAKE_ATTEMPTS + 1):
+        communicate = edge_tts.Communicate(text, voice)
+        started = False
+        try:
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    started = True
+                    yield chunk["data"]
+            return
+        except WSServerHandshakeError as exc:
+            # Mid-stream the response is already on its way: nothing to retry or to report.
+            if started:
+                raise
+            logger.warning("Edge TTS refused the handshake (status %s), attempt %d", exc.status, attempt)
+            if attempt == HANDSHAKE_ATTEMPTS:
+                raise SpeechUnavailableError from exc
+            await asyncio.sleep(HANDSHAKE_RETRY_DELAY_SECONDS)

@@ -40,7 +40,7 @@ from app.llm.turns import lease_deadline, turn_runner
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
-from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
+from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, SpeechUnavailableError, get_voices, synthesize_speech
 
 logger = logging.getLogger(__name__)
 
@@ -732,10 +732,21 @@ async def tts_synthesize(request: TtsRequest, _user_id: str = Depends(get_curren
     if request.voice not in VOICE_IDS:
         raise HTTPException(status_code=400, detail=f"Unknown voice: {request.voice}")
 
-    return StreamingResponse(
-        synthesize_speech(request.text, request.voice),
-        media_type="audio/mpeg",
-    )
+    audio = synthesize_speech(request.text, request.voice)
+    # Pull the first chunk before answering: once StreamingResponse has sent its 200,
+    # a failing provider can only cut the body short.
+    try:
+        first = await anext(audio, b"")
+    except SpeechUnavailableError as exc:
+        raise HTTPException(status_code=502, detail="Le service de synthèse vocale est indisponible.") from exc
+
+    async def body():
+        if first:
+            yield first
+        async for chunk in audio:
+            yield chunk
+
+    return StreamingResponse(body(), media_type="audio/mpeg")
 
 
 @router.get("/tts/voice")
