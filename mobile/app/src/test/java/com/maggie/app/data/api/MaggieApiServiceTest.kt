@@ -575,6 +575,22 @@ class MaggieApiServiceTest {
         }
 
     @Test
+    fun `getCategories asks for the whole tree, not the first page of thirty`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                """{"member":[{"id":"cat-1","name":"Loisirs","obligation":"optional"}]}"""
+            },
+        )
+
+        val categories = service.getCategories()
+
+        assertEquals(1, categories.size)
+        assertTrue(url!!.contains("itemsPerPage=200"))
+    }
+
+    @Test
     fun `updateCategory sends a merge-patch with the changed fields alone`() = runBlocking {
         var method: HttpMethod? = null
         var url: String? = null

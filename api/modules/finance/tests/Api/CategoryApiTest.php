@@ -234,7 +234,6 @@ class CategoryApiTest extends WebTestCase
     }
 
     /** @param array<string, mixed> $body */
-    /** @param array<string, mixed> $body */
     private function post(array $body): void
     {
         $this->client->request('POST', '/api/categories', [], [], array_merge([
@@ -251,6 +250,7 @@ class CategoryApiTest extends WebTestCase
         return $em->getRepository(Category::class)->count([]);
     }
 
+    /** @param array<string, mixed> $body */
     private function patch(string $id, array $body, bool $authenticated = true): void
     {
         $headers = [

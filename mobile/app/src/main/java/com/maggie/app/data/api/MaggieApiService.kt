@@ -1049,6 +1049,8 @@ class MaggieApiService(
     suspend fun getCategories(): List<Category> {
         return client.get("$baseUrl/api/categories") {
             accept(ContentType("application", "ld+json"))
+            // The collection pages by 30: a tree cut there turns a child into a main category.
+            url.parameters.append("itemsPerPage", "200")
         }.body<ApiCollection<Category>>().member
     }
 
