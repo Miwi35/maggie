@@ -145,4 +145,20 @@ class RecurringOperationScreenTest {
 
         assertEquals(true, retried)
     }
+
+    @Test
+    fun `a series shows its account and its bank`() {
+        val series = calm.copy(accountName = "Courant", accountBank = "Crédit Agricole", categoryName = "Sport")
+        compose.setContent { SeriesCard(series = series, record = null) }
+
+        compose.onNodeWithText("Courant · Crédit Agricole · Sport").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an account without a bank shows only its name`() {
+        val series = calm.copy(accountName = "Espèces", accountBank = null, categoryName = "Sport")
+        compose.setContent { SeriesCard(series = series, record = null) }
+
+        compose.onNodeWithText("Espèces · Sport").assertIsDisplayed()
+    }
 }

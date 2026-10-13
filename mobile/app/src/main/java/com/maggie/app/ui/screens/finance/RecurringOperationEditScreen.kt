@@ -342,7 +342,7 @@ internal fun RecurringOperationEditScreen(
 
             RecurringFormFields(
                 form = form,
-                accountName = state.accounts.firstOrNull { form.account == recurringAccountIri(it.id) }?.name,
+                accountName = state.accounts.firstOrNull { form.account == recurringAccountIri(it.id) }?.let { accountLabel(it.name, it.bank) },
                 categoryName = state.categories.firstOrNull { form.category == recurringCategoryIri(it.id) }?.name,
                 onPickAccount = { picking = "account" },
                 onPickCategory = { picking = "category" },

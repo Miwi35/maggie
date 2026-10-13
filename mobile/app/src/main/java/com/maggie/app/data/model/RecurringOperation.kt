@@ -49,6 +49,7 @@ data class RecurringSeries(
     val categoryName: String = "",
     val accountId: String = "",
     val accountName: String = "",
+    val accountBank: String? = null,
     val period: String = "monthly",
     val dayRule: String = "fixed_day",
     val referenceAmountCents: Int = 0,

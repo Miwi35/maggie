@@ -67,6 +67,7 @@ class GetRecurringOperationsTest extends KernelTestCase
         self::assertSame('Abonnements', $flixo['categoryName']);
         self::assertSame((string) $this->getFixture('checking')->getId(), $flixo['accountId']);
         self::assertSame('Courant', $flixo['accountName']);
+        self::assertSame('Crédit Agricole', $flixo['accountBank']);
         self::assertSame('monthly', $flixo['period']);
         self::assertSame('fixed_day', $flixo['dayRule']);
         self::assertSame(-1799, $flixo['referenceAmountCents']);
