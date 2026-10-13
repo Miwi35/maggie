@@ -355,6 +355,124 @@ class DetectInternalTransfersTest extends KernelTestCase
         self::assertFalse($this->refresh($old)->isInternalTransfer());
     }
 
+    public function testACardPaymentIsNeverPairedWithAFriendsRefund(): void
+    {
+        // The dry run of 13 Oct. found exactly this pair in production (MAG-441).
+        $card = $this->add('checking', -2500, '2026-07-13', 'PAIEMENT PAR CARTE X9633 LE CACTUS RENNES');
+        $refund = $this->add('savings', 2500, '2026-07-16', 'MLE JULIE RAYNAUD', counterparty: 'MLE JULIE RAYNAUD');
+
+        $report = $this->detect->execute($this->user(), null, true);
+
+        $proposed = array_merge(...array_map(
+            static fn (array $pair) => [$pair['transactionId'], $pair['counterpartId']],
+            $report['pairs'],
+        ));
+        self::assertNotContains((string) $card->getId(), $proposed);
+        self::assertNotContains((string) $refund->getId(), $proposed);
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($card)->isInternalTransfer());
+        self::assertFalse($this->refresh($refund)->isInternalTransfer());
+        self::assertNull($this->detect->detectFor($card));
+        self::assertNull($this->detect->detectFor($refund));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function labelsOfAMovementThatIsNotATransfer(): iterable
+    {
+        yield 'card payment' => ['PAIEMENT PAR CARTE X9633 LE CACTUS RENNES'];
+        yield 'card payment, no space before the number' => ['Paiement par carte X1234 Boulangerie'];
+        yield 'card payment CB' => ['PAIEMENT CB 1307 RENNES CACTUS'];
+        yield 'card purchase' => ['ACHAT CB CACTUS RENNES 13/07'];
+        yield 'card statement line' => ['CARTE X9633 13/07 CACTUS'];
+        yield 'direct debit PRLV' => ['PRLV SEPA EDF CLIENTS PARTICULIERS'];
+        yield 'direct debit' => ['PRELEVEMENT 12345 FREE MOBILE'];
+        yield 'cash withdrawal' => ['RETRAIT DAB 13/07 RENNES'];
+        yield 'cash withdrawal, long form' => ["RETRAIT D'ESPECES CC BEST 1"];
+        yield 'cash withdrawal at the machine' => ['RETRAIT AU DISTRIBUTEUR 13/07'];
+    }
+
+    #[DataProvider('labelsOfAMovementThatIsNotATransfer')]
+    public function testACardPaymentADirectDebitOrAWithdrawalIsNotALegOfATransfer(string $label): void
+    {
+        $debit = $this->add('checking', -4200, '2026-08-10', $label);
+        $credit = $this->add('savings', 4200, '2026-08-11', 'Virement du Livret');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($debit)->isInternalTransfer());
+        self::assertFalse($this->refresh($credit)->isInternalTransfer());
+        self::assertNull($this->detect->detectFor($debit));
+        self::assertNull($this->detect->detectFor($credit));
+    }
+
+    #[DataProvider('labelsOfAMovementThatIsNotATransfer')]
+    public function testTheCreditLegIsJudgedByItsLabelToo(string $label): void
+    {
+        $debit = $this->add('checking', -4200, '2026-08-10', 'Virement vers Livret');
+        $credit = $this->add('savings', 4200, '2026-08-11', $label);
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($debit)->isInternalTransfer());
+        self::assertFalse($this->refresh($credit)->isInternalTransfer());
+    }
+
+    public function testACreditFromAThirdPartyIsNotInternal(): void
+    {
+        $debit = $this->add('checking', -6000, '2026-08-10', 'Virement vers Livret');
+        $credit = $this->add('savings', 6000, '2026-08-11', 'VIR SEPA JULIE RAYNAUD', counterparty: 'Julie Raynaud');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($debit)->isInternalTransfer());
+        self::assertFalse($this->refresh($credit)->isInternalTransfer());
+        self::assertNull($this->detect->detectFor($credit));
+    }
+
+    /**
+     * @return iterable<string, array{?string}>
+     */
+    public static function counterpartiesOfARealTransfer(): iterable
+    {
+        yield 'no name' => [null];
+        yield 'the holder, with a civility' => ['MR INTERNAL TRANSFERS USER'];
+        yield 'the holder, surname first' => ['TRANSFERS USER Internal'];
+        yield 'the other account' => ['LIVRET'];
+        yield 'the other account, in the bank wording' => ['Virement vers Livret'];
+        yield 'instant transfer wording' => ['VIR INST'];
+        yield 'standing order wording' => ['VIREMENT PERMANENT'];
+        yield 'internal transfer wording' => ['VIREMENT ENTRE COMPTES'];
+        yield 'savings wording' => ['VIREMENT POUR EPARGNE'];
+    }
+
+    #[DataProvider('counterpartiesOfARealTransfer')]
+    public function testARealTransferBetweenTheHoldersAccountsStaysPaired(?string $counterparty): void
+    {
+        $debit = $this->add('savings', -6000, '2026-08-10', 'Virement vers Courant');
+        $credit = $this->add('checking', 6000, '2026-08-11', 'Virement du Livret', counterparty: $counterparty);
+
+        $this->detect->execute($this->user());
+
+        self::assertTrue($this->refresh($debit)->isInternalTransfer());
+        self::assertTrue($this->refresh($credit)->isInternalTransfer());
+    }
+
+    public function testAThirdPartyCreditDoesNotStealTheRealLegOfATransfer(): void
+    {
+        $debit = $this->add('savings', -6000, '2026-08-10', 'Virement vers Courant');
+        $friend = $this->add('checking', 6000, '2026-08-10', 'VIR SEPA JULIE RAYNAUD', counterparty: 'Julie Raynaud');
+        $own = $this->add('checking', 6000, '2026-08-12', 'Virement du Livret');
+
+        $this->detect->execute($this->user());
+
+        self::assertSame((string) $own->getId(), (string) $this->refresh($debit)->getCounterpart()?->getId());
+        self::assertFalse($this->refresh($friend)->isInternalTransfer());
+    }
+
     public function testDetectForFindsTheOtherLegOfASingleLine(): void
     {
         $out = $this->tx('transfer_out');

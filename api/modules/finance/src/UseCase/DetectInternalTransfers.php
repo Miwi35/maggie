@@ -45,6 +45,17 @@ class DetectInternalTransfers
 
     private const array CONSUMED = [TransactionStatus::Spent, TransactionStatus::Committed];
 
+    /**
+     * Wording of a card payment, a direct debit or a cash withdrawal, label
+     * folded to upper case without accents. Such a line pays someone or takes
+     * cash out: it is never a leg of a transfer, whatever sits opposite it
+     * (MAG-441).
+     */
+    private const string NOT_A_TRANSFER_LABEL = '/^(PAIEMENT\s+(PAR\s+)?(CARTE|CB)|ACHAT\s+(CB|CARTE)|FACTURE\s+CARTE|CARTE|CB|PRLV|PRELEVEMENT|RETRAIT|DAB)\b/';
+
+    /** Civilities and particles a bank puts around a name, which say nothing about who it is. */
+    private const array NAME_NOISE = ['M', 'MR', 'MME', 'MLE', 'MLLE', 'MONSIEUR', 'MADAME', 'MADEMOISELLE', 'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'VIR', 'VIREMENT', 'SEPA', 'VERS', 'DEPUIS', 'EN', 'FAVEUR', 'INST', 'INSTANTANE', 'PERMANENT', 'RECU', 'EMIS', 'WEB', 'INTERNE', 'VOTRE', 'COMPTE', 'COMPTES', 'ENTRE', 'POUR', 'EPARGNE', 'AU', 'MOTIF'];
+
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
         private readonly MessageBusInterface $bus,
@@ -85,7 +96,7 @@ class DetectInternalTransfers
 
         $candidates = array_values(array_filter(
             $this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS),
-            $this->isEligible(...),
+            fn (Transaction $candidate) => $this->isEligible($candidate) && $this->canPair($transaction, $candidate),
         ));
         if ([] === $candidates) {
             return null;
@@ -240,7 +251,7 @@ class DetectInternalTransfers
             }
 
             foreach ($this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS) as $candidate) {
-                if (!$this->isEligible($candidate)) {
+                if (!$this->isEligible($candidate) || !$this->canPair($transaction, $candidate)) {
                     continue;
                 }
                 [$left, $right] = self::order($transaction, $candidate);
@@ -306,9 +317,73 @@ class DetectInternalTransfers
             && null === $transaction->getCounterpart()
             && TransferKind::Rejected !== $transaction->getTransferKind()
             && !($transaction->getAmountCents() > 0 && DetectRejections::isRejectionLabel($transaction->getLabel()))
+            && 1 !== preg_match(self::NOT_A_TRANSFER_LABEL, self::fold($transaction->getLabel()))
             && TransferSource::Manual !== $transaction->getTransferSource()
             && \in_array($transaction->getStatus(), self::CONSUMED, true)
             && $transaction->getAccount()->getUser()->getId()->equals($transaction->getUser()->getId());
+    }
+
+    /**
+     * Whether two eligible lines may be the two legs of one transfer: a credit
+     * that names a third party is a refund or a payment received, not money
+     * the owner moved (MAG-441).
+     */
+    private function canPair(Transaction $a, Transaction $b): bool
+    {
+        $credit = $a->getAmountCents() > 0 ? $a : $b;
+        $debit = $credit === $a ? $b : $a;
+
+        return !$this->namesAThirdParty($credit, $debit);
+    }
+
+    /**
+     * The credit's counterparty is a name that is neither the owner's, nor
+     * one of the two accounts' (a bank words an own transfer after the account
+     * it left). No name — or less than two words once civilities and operation
+     * wording are stripped — is not a third party: the bank often gives nothing,
+     * and the label stands in for the name.
+     */
+    private function namesAThirdParty(Transaction $credit, Transaction $debit): bool
+    {
+        $name = $credit->getCounterpartyName();
+        if (null === $name) {
+            return false;
+        }
+
+        // A person is a first name and a surname: one word left after the
+        // wording is stripped (« VIREMENT INTERNE ») proves nothing.
+        $words = self::words($name);
+        if (\count($words) < 2) {
+            return false;
+        }
+
+        $known = array_merge(
+            self::words($credit->getUser()->getName()),
+            self::words($credit->getAccount()->getName()),
+            self::words($debit->getAccount()->getName()),
+        );
+
+        return [] === array_intersect($words, $known);
+    }
+
+    /** @return list<string> significant words of a name, folded */
+    private static function words(string $text): array
+    {
+        $words = preg_split('/[^A-Z0-9]+/', self::fold($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_filter(
+            $words,
+            static fn (string $word) => \strlen($word) > 1 && !\in_array($word, self::NAME_NOISE, true),
+        ));
+    }
+
+    /** Upper case without accents, so a label reads the same however the bank spells it. */
+    private static function fold(string $text): string
+    {
+        return strtoupper(strtr(mb_strtolower(trim($text)), [
+            'à' => 'a', 'â' => 'a', 'ä' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'î' => 'i', 'ï' => 'i', 'ô' => 'o', 'ö' => 'o', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ç' => 'c',
+        ]));
     }
 
     private static function gapInDays(\DateTimeImmutable $reference, Transaction $candidate): int
