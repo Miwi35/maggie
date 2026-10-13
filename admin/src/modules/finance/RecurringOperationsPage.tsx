@@ -168,7 +168,8 @@ export const RecurringOperationsPage = () => {
   )
   const operations = overview?.operations ?? []
   const accounts = [...new Map(operations.map((o) => [o.accountId, o.accountName])).entries()]
-  const shown = accountFilter ? operations.filter((o) => o.accountId === accountFilter) : operations
+  const activeFilter = accounts.some(([id]) => id === accountFilter) ? accountFilter : ''
+  const shown = activeFilter ? operations.filter((o) => o.accountId === activeFilter) : operations
   const detailMissing = operations.some((operation) => !stored.has(operation.id))
 
   useEffect(() => {
@@ -323,7 +324,7 @@ export const RecurringOperationsPage = () => {
           select
           size="small"
           label="Compte"
-          value={accountFilter}
+          value={activeFilter}
           onChange={(event) => setAccountFilter(event.target.value)}
           sx={{ mb: 2, minWidth: 240 }}
           slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
