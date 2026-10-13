@@ -10,6 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\ProductStockState;
+use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\CheckGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\EndErrandTool;
@@ -63,6 +64,22 @@ class GroceryToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/grocery_lists/');
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
         $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testAQuantityAddedWithoutUnitCountsInThePiecesOfTheLine(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $tool('Bananes', 6, 'piece');
+        $tool('Bananes', 4);
+
+        $this->em()->clear();
+        $items = $this->em()->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame(10.0, $items[0]->getQuantity());
+        self::assertSame(Unit::Piece, $items[0]->getUnit());
     }
 
     public function testAddGroceryItemReusesExistingProduct(): void

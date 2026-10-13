@@ -12,7 +12,8 @@ use Maggie\Grocery\Enum\Unit;
  * Mass is counted in grams and volume in millilitres; every other unit only
  * adds up with itself, so 300 g and 2 pieces of one product stay two entries
  * of the same line — « 300 g + 2 pièces » — instead of two lines. A need is
- * `{quantity, unit}`, the unit being null when nobody said one.
+ * `{quantity, unit}`, the unit being null when nobody said one; a quantity
+ * without unit is a count and adds up with the pieces.
  *
  * @phpstan-type Need array{quantity: float, unit: ?string}
  */
@@ -79,10 +80,12 @@ final class Needs
         $merged = [];
         foreach ([...$needs, ['quantity' => $quantity, 'unit' => $unit?->value]] as $need) {
             [$q, $u] = self::toBase((float) $need['quantity'], null === $need['unit'] ? null : Unit::from($need['unit']));
-            $key = $u->value ?? '';
+            // « 4 tomates » says no unit: it is a count, so it adds to the pieces.
+            $key = $u->value ?? Unit::Piece->value;
 
             if (isset($merged[$key])) {
                 $merged[$key]['quantity'] += $q;
+                $merged[$key]['unit'] ??= $u?->value;
 
                 continue;
             }

@@ -29,6 +29,13 @@ class NeedsTest extends TestCase
         self::assertSame([['quantity' => 300.0, 'unit' => 'g'], ['quantity' => 2.0, 'unit' => 'piece']], $needs);
     }
 
+    public function testAQuantityWithoutUnitAddsUpWithThePieces(): void
+    {
+        self::assertSame([['quantity' => 10.0, 'unit' => 'piece']], Needs::add(Needs::of(6, Unit::Piece), 4, null));
+        self::assertSame([['quantity' => 10.0, 'unit' => 'piece']], Needs::add(Needs::of(6, null), 4, Unit::Piece));
+        self::assertSame([['quantity' => 10.0, 'unit' => null]], Needs::add(Needs::of(6, null), 4, null));
+    }
+
     public function testAnEntryThatFallsToNothingIsDropped(): void
     {
         $needs = Needs::add(Needs::of(300, Unit::Gram), -300, Unit::Gram);
