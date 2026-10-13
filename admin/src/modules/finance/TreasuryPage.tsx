@@ -270,9 +270,16 @@ const AdviceCard = ({ outlook }: { outlook: TreasuryOutlook }) => {
 }
 
 const OverdraftLimitForm = ({ outlook, onSave }: { outlook: TreasuryOutlook; onSave: Save }) => {
-  const [value, setValue] = useState(String(outlook.overdraft.limitCents / 100))
+  const limitCents = outlook.overdraft.limitCents
+  const [value, setValue] = useState(String(limitCents / 100))
+  const [seenLimit, setSeenLimit] = useState(limitCents)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+
+  if (seenLimit !== limitCents) {
+    setSeenLimit(limitCents)
+    setValue(String(limitCents / 100))
+  }
 
   const submit = async () => {
     setSaved(false)
@@ -326,7 +333,7 @@ const SettingsCard = ({
         Réglages
       </Typography>
       <Stack spacing={3}>
-        <OverdraftLimitForm key={outlook.overdraft.limitCents} outlook={outlook} onSave={onSave} />
+        <OverdraftLimitForm outlook={outlook} onSave={onSave} />
         {outlook.salary.isConfigured && (
           <SalaryDayForm
             key={settings.salaryExpectedDay ?? 'none'}

@@ -235,11 +235,14 @@ describe('TreasuryPage', () => {
     const field = await screen.findByLabelText('Découvert autorisé (€)')
     await user.clear(field)
     await user.type(field, '500')
+    // The reload after the save reads the new limit, as the API does.
+    serve({ ...OUTLOOK, overdraft: { ...OUTLOOK.overdraft, limitCents: 50000 } }, { id: 's1', salaryExpectedDay: 13, overdraftLimitCents: 50000 })
     await user.click(screen.getByRole('button', { name: 'Enregistrer le découvert' }))
 
     await waitFor(() => expect(patches()).toHaveLength(1))
     expect(JSON.parse(patches()[0][1].body)).toEqual({ overdraftLimitCents: 50000 })
     expect(await screen.findByText('Découvert autorisé enregistré.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Découvert autorisé (€)')).toHaveValue(500)
   })
 
   test('a negative limit is refused in plain words, without a request', async () => {

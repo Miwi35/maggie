@@ -69,7 +69,7 @@ class TreasuryViewModel(
 
     fun saveOverdraftLimit(euros: String) {
         val amount = euros.trim().replace(',', '.').toDoubleOrNull()
-        if (amount == null) return refuse(INVALID_LIMIT_MESSAGE)
+        if (amount == null || !amount.isFinite()) return refuse(INVALID_LIMIT_MESSAGE)
         if (amount < 0) return refuse(NEGATIVE_LIMIT_MESSAGE)
 
         save(TreasurySettingsRequest(overdraftLimitCents = (amount * 100).roundToInt()), "Découvert autorisé enregistré")

@@ -185,6 +185,12 @@ class TreasuryViewModelTest {
 
         assertEquals(INVALID_LIMIT_MESSAGE, viewModel.uiState.value.error)
         coVerify(exactly = 0) { treasuryRepository.updateSettings(any()) }
+
+        viewModel.saveOverdraftLimit("NaN")
+        advanceUntilIdle()
+
+        assertEquals(INVALID_LIMIT_MESSAGE, viewModel.uiState.value.error)
+        coVerify(exactly = 0) { treasuryRepository.updateSettings(any()) }
     }
 
     @Test
