@@ -19,16 +19,25 @@ class GroceryListItems
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
+        private readonly Packaging $packaging,
     ) {
     }
 
     /**
      * Adds to the open line of the product when there is one in the same unit,
-     * else appends a line at the end, in the product's usual store. Flushes.
+     * else appends a line at the end, in the product's usual store. A product
+     * with a packaging is counted in it, whatever the unit asked in, and joins
+     * its open line whatever that line says. Flushes.
      */
     public function addProduct(User $user, Product $product, int|float|null $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
     {
         $list = $this->groceryListRepository->findOrCreateForUser($user);
+
+        $packagingUnit = $product->getPackagingUnit();
+        if (null !== $packagingUnit) {
+            $quantity = $this->packaging->inPackagings($product, null !== $quantity ? (float) $quantity : null, $unit);
+            $unit = $packagingUnit;
+        }
 
         $maxPosition = 0;
         $mergeable = null;
@@ -42,7 +51,11 @@ class GroceryListItems
         }
 
         if (null !== $mergeable) {
-            if (null !== $quantity) {
+            if (null !== $packagingUnit) {
+                // A line with no quantity yet takes the new one as it is.
+                $current = null === $mergeable->getQuantity() ? 0 : $this->packaging->inPackagings($product, $mergeable->getQuantity(), $mergeable->getUnit());
+                $mergeable->setQuantity((float) $current + (float) $quantity);
+            } elseif (null !== $quantity) {
                 $mergeable->setQuantity(($mergeable->getQuantity() ?? 0) + $quantity);
             }
             $mergeable->setUnit($unit);
@@ -130,8 +143,9 @@ class GroceryListItems
             return false;
         }
 
-        // Quantities of different units cannot be added; a line with no
+        // A packaged product has one line, counted in its packaging; otherwise
+        // quantities of different units cannot be added, and a line with no
         // quantity at all can take the new one.
-        return $item->getUnit() === $unit || null === $item->getQuantity();
+        return null !== $product->getPackagingUnit() || $item->getUnit() === $unit || null === $item->getQuantity();
     }
 }

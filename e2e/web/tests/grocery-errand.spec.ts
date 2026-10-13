@@ -117,6 +117,7 @@ const WRITES = {
   posted: 'Pois chiches MAG-101',
   stepped: 'Boulgour du placard',
   packaged: 'Riz MAG-299',
+  unpackaged: 'Charbon MAG-299',
   errandBought: 'Anchois MAG-101',
   errandKept: 'Olives MAG-101',
   deleted: 'Lait MAG-283',
@@ -416,7 +417,7 @@ test('a line written in one window appears in the other without a reload', async
   )
 })
 
-test('pressing + twice on a line makes it three, in the other window and after a reload — MAG-291', async ({
+test('pressing + twice on a packaged line makes it three, in the other window and after a reload — MAG-291', async ({
   otherUser,
 }) => {
   const label = WRITES.stepped
@@ -425,6 +426,13 @@ test('pressing + twice on a line makes it three, in the other window and after a
 
   const acting = new GroceryListPage(otherUser.page)
   const watching = new GroceryListPage(observerPage)
+
+  // Given « Boulgour », bought in jars: its line is a count of jars.
+  const created = await api.post('/api/products', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name: label, category: 'grain', packagingUnit: 'jar' },
+  })
+  expect(created.status(), `the API refused the product: ${await created.text()}`).toBe(201)
 
   await acting.open()
   await acting.addItem(label, { quantity: 1, store: SHOPS.market })
@@ -527,6 +535,27 @@ test('a packaged product is counted in packs, and adding it again raises the lin
   await acting.expectItemEventually(label)
   await expect(acting.line(label)).toHaveCount(1)
   await expect(acting.line(label)).toContainText('4 paquets')
+
+  // And grams of it are a number of packs too: 300 g of a 500 g pack is one more.
+  const grams = await api.post('/api/grocery/add-item', { data: { label, quantity: 300, unit: 'g' } })
+  expect(grams.ok(), `the API refused the grams: ${await grams.text()}`).toBe(true)
+  await expectLine(api, label, (line) => 5 === line?.quantity, 'the grams are one more pack, not a line in grams')
+  expect((await storedList(api)).items.filter((item) => item.label === label)).toHaveLength(1)
+  await acting.expectItemEventually(label)
+  await expect(acting.line(label)).toContainText('5 paquets')
+})
+
+test('a product without packaging has no quantity to manage on its line — MAG-299', async ({ otherUser }) => {
+  const label = WRITES.unpackaged
+  const grocery = new GroceryListPage(otherUser.page)
+
+  await grocery.open()
+  await grocery.addItem(label, { quantity: 2, store: SHOPS.market })
+  await grocery.expectItemEventually(label)
+
+  await expect(grocery.line(label).getByRole('button', { name: `Augmenter la quantité de ${label}` })).toHaveCount(0)
+  await expect(grocery.line(label).getByRole('button', { name: `Diminuer la quantité de ${label}` })).toHaveCount(0)
+  await expect(grocery.line(label).getByRole('button', { name: `Modifier la quantité de ${label}` })).toHaveCount(0)
 })
 
 test('adding a line goes through the endpoint the API really exposes', async ({ otherUser }) => {

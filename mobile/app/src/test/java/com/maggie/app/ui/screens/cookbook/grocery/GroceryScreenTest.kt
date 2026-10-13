@@ -18,6 +18,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.screentest.FakeGrocery
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.Seed
@@ -199,11 +201,20 @@ class GroceryScreenTest {
 
     // --- MAG-291: − quantity + on the line ---
 
+    private val ricePack = Product(
+        id = "product-riz",
+        name = "Riz",
+        category = ProductCategory.GRAIN,
+        packagingUnit = CookbookUnit.PACK,
+        packagingSize = 500f,
+        packagingSizeUnit = CookbookUnit.G,
+    )
+
     private val riceList = GroceryList(
         id = "list-rice",
         items = listOf(
-            GroceryItem(id = "item-riz", label = "Riz", customLabel = "Riz", quantity = 1f, unit = CookbookUnit.PACK, position = 0),
-            GroceryItem(id = "item-sel", label = "Sel", customLabel = "Sel", position = 1),
+            GroceryItem(id = "item-riz", label = "Riz", customLabel = "Riz", product = ricePack, quantity = 1f, unit = CookbookUnit.PACK, position = 0),
+            GroceryItem(id = "item-sel", label = "Sel", customLabel = "Sel", quantity = 300f, unit = CookbookUnit.G, position = 1),
         ),
     )
 
@@ -228,6 +239,26 @@ class GroceryScreenTest {
         compose.onNodeWithText("3 paquets").assertIsDisplayed()
         afterSaveDelay()
         assertEquals(3f, quantityOfRice(fake))
+    }
+
+    /** MAG-299: a product with no packaging has nothing to adjust on its line, only the quantity a recipe asked for. */
+    @Test
+    fun `a product without packaging shows its quantity as an indication, with no buttons`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithText("300 g").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Augmenter la quantité de Sel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Diminuer la quantité de Sel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Modifier la quantité de Sel").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a packaged line shows what one pack holds`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithText("(500 g)").assertIsDisplayed()
     }
 
     @Test

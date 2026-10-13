@@ -6,36 +6,22 @@ import com.maggie.app.data.model.formatQuantity as formatSize
 import com.maggie.app.data.model.frenchLabel
 import kotlin.math.roundToInt
 
-// Step of the − / + buttons on a list line (MAG-291), the same as the admin's: a
-// counted unit moves by one, a weight or a volume by what a shopper adds at a
-// time. The lowest a line can be taken to is one step: − never removes the line.
-fun quantityStep(unit: CookbookUnit?): Float = when (unit) {
-    CookbookUnit.G, CookbookUnit.ML -> 100f
-    CookbookUnit.CL -> 10f
-    CookbookUnit.KG, CookbookUnit.L -> 0.1f
-    else -> 1f
-}
+// A packaged product's line is a whole number of packagings (MAG-299): − and +
+// move it by one, and − never goes below one — removing a line is the delete gesture.
+fun increasedQuantity(quantity: Float?): Float = (quantity ?: 0f) + 1f
 
-// 0.1f + 0.2f is not 0.3f: quantities are kept to three decimals.
-private fun round(value: Float): Float = (value * 1000).roundToInt() / 1000f
+fun decreasedQuantity(quantity: Float?): Float = maxOf(1f, (quantity ?: 0f) - 1f)
 
-fun increasedQuantity(quantity: Float?, unit: CookbookUnit?): Float =
-    round((quantity ?: 0f) + quantityStep(unit))
+fun canDecreaseQuantity(quantity: Float?): Boolean = quantity != null && quantity > 1f
 
-fun decreasedQuantity(quantity: Float?, unit: CookbookUnit?): Float =
-    maxOf(quantityStep(unit), round((quantity ?: 0f) - quantityStep(unit)))
-
-fun canDecreaseQuantity(quantity: Float?, unit: CookbookUnit?): Boolean =
-    quantity != null && quantity > quantityStep(unit)
-
-/** `null` when the text is no quantity to send: empty, not a number, zero or negative. */
+/** `null` when the text is no number of packagings: empty, not a whole number, zero or negative. */
 fun parseQuantity(text: String): Float? {
-    val value = text.trim().replace(',', '.').toFloatOrNull() ?: return null
-    return if (value.isFinite() && value > 0f) round(value) else null
+    val value = text.trim().toIntOrNull() ?: return null
+    return if (value > 0) value.toFloat() else null
 }
 
 fun formatQuantity(quantity: Float): String {
-    val rounded = round(quantity)
+    val rounded = (quantity * 1000).roundToInt() / 1000f
     val text = if (rounded == rounded.toLong().toFloat()) rounded.toLong().toString() else rounded.toString()
     return text.replace('.', ',')
 }
@@ -60,23 +46,26 @@ fun unitLabel(unit: CookbookUnit?, quantity: Float): String {
     }
 }
 
-/**
- * The unit a line is counted in. A product with a packaging is counted in it: a
- * line with no unit of its own reads as that packaging, « Riz » alone being one
- * pack (MAG-299).
- */
-val GroceryItem.countedUnit: CookbookUnit?
-    get() = unit ?: product?.packagingUnit
+/** A product with a packaging is counted in it; any other has no quantity to manage on its line. */
+val GroceryItem.isPackaged: Boolean
+    get() = product?.packagingUnit != null
 
-/**
- * « (500 g) »: what one pack holds, shown after the quantity on a line counted in
- * the packaging itself. A line in grams of the same product says its weight, not its pack.
- */
+/** The unit a packaged line is counted in: always its product's packaging. */
+val GroceryItem.countedUnit: CookbookUnit?
+    get() = product?.packagingUnit
+
+/** « (500 g) »: what one packaging holds, shown after the number of packagings. */
 fun GroceryItem.packagingContent(): String? {
     val product = product ?: return null
-    val packaging = product.packagingUnit ?: return null
+    if (product.packagingUnit == null) return null
     val size = product.packagingSize ?: return null
     val sizeUnit = product.packagingSizeUnit ?: return null
-    if (unit != null && unit != packaging) return null
     return "(${formatSize(size)} ${sizeUnit.frenchLabel(size)})"
+}
+
+/** « 300 g »: the quantity a recipe asked for, shown as an indication on a line with nothing to adjust. */
+fun GroceryItem.quantityHint(): String? {
+    val quantity = quantity ?: return null
+    val unitText = unitLabel(unit, quantity)
+    return formatQuantity(quantity) + if (unitText.isNotEmpty()) " $unitText" else ""
 }

@@ -273,4 +273,50 @@ class EditGroceryItemControllerTest extends WebTestCase
         $this->assertMercureUpdatePublished('/products/');
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
+
+    /** @param array<string, mixed> $body */
+    private function patchRice(array $body): GroceryItem
+    {
+        $this->loadFixtures('edit_packaged.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $itemId = (string) $this->getFixture('item_riz_packs')->getId();
+
+        $this->client->request('PATCH', "/api/grocery/edit-item/$itemId", [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode($body, JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(GroceryItem::class)->find($itemId);
+    }
+
+    public function testAQuantityOnAPackagedLineIsAPackagingCount(): void
+    {
+        $item = $this->patchRice(['quantity' => 3]);
+
+        self::assertSame(3.0, $item->getQuantity());
+        self::assertSame('pack', $item->getUnit()?->value);
+    }
+
+    public function testAQuantityInGramsOnAPackagedLineBecomesPackagings(): void
+    {
+        $item = $this->patchRice(['quantity' => 600, 'unit' => 'g']);
+
+        self::assertSame(2.0, $item->getQuantity());
+        self::assertSame('pack', $item->getUnit()?->value);
+        self::assertSame('pack', $item->getProduct()->getPackagingUnit()?->value);
+        self::assertNull($item->getProduct()->getDefaultUnit(), 'a packaged product keeps counting in its packaging');
+    }
+
+    public function testAPackagedLineNeverFallsBelowOnePackaging(): void
+    {
+        $item = $this->patchRice(['quantity' => 0.2, 'unit' => 'pack']);
+
+        self::assertSame(1.0, $item->getQuantity());
+        self::assertSame('pack', $item->getUnit()?->value);
+    }
 }

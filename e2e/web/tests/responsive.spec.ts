@@ -228,19 +228,30 @@ test.describe('Responsive @responsive', () => {
     }
   })
 
-  test('a grocery line with a long name keeps its name, badge and quantity apart — MAG-387', async ({ page }) => {
+  test('a grocery line with a long name keeps its name, badge and quantity apart — MAG-387', async ({ page, api }) => {
     // The owner's phone drew the source badge over the name and the quantity
     // into it. Boxes are measured rather than looked at: that overlap is what
     // is wrong, however the line is drawn.
     const shape = shapeOf(page)
     const grocery = new GroceryListPage(page)
     const label = 'Pâtes sèches, standard, crues MAG-387'
+    const short = 'Pile MAG-387'
+
+    // Only a product bought in a packaging has a quantity to adjust (MAG-299).
+    // A retry finds them already there: the refusal of a duplicate is no failure.
+    for (const name of [label, short]) {
+      await api.post('/api/products', {
+        headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+        data: { name, category: 'other', packagingUnit: 'pack' },
+      })
+    }
 
     await grocery.open()
     await grocery.addItem(label, { quantity: 2 })
+    await grocery.addItem(short, { quantity: 1 })
 
     try {
-      for (const name of [label, 'Pile LR03']) {
+      for (const name of [label, short]) {
         const line = grocery.line(name)
         await expect(line).toBeVisible()
 
@@ -324,6 +335,7 @@ test.describe('Responsive @responsive', () => {
       expect(room, 'the page title has no room to spare in the app bar').toBeGreaterThanOrEqual(20)
     } finally {
       await grocery.deleteLine(label)
+      await grocery.deleteLine(short)
     }
   })
 

@@ -38,7 +38,7 @@ class GroceryListItemsTest extends KernelTestCase
         return $this->em()->find(Product::class, $this->getFixture('rice')->getId());
     }
 
-    private function add(float|int $quantity, ?Unit $unit = Unit::Pack, GroceryItemSource $source = GroceryItemSource::Restock): GroceryList
+    private function add(float|int|null $quantity, ?Unit $unit = Unit::Pack, GroceryItemSource $source = GroceryItemSource::Restock): GroceryList
     {
         return self::getContainer()->get(GroceryListItems::class)->addProduct($this->user(), $this->rice(), $quantity, $unit, $source);
     }
@@ -81,7 +81,7 @@ class GroceryListItemsTest extends KernelTestCase
 
     public function testTheNewLineGoesAfterTheLastPosition(): void
     {
-        $this->seedLine(['unit' => Unit::Kilogram, 'position' => 7]);
+        $this->seedLine(['checked' => true, 'position' => 7]);
 
         $this->add(2);
 
@@ -127,15 +127,47 @@ class GroceryListItemsTest extends KernelTestCase
         self::assertFalse($lines[1]->isChecked());
     }
 
-    public function testALineInAnotherUnitIsNotRaised(): void
+    public function testALineLeftInAnotherUnitIsConvertedAndRaised(): void
     {
         $this->seedLine(['quantity' => 1.0, 'unit' => Unit::Kilogram]);
 
         $this->add(2);
 
         $lines = $this->lines();
-        self::assertCount(2, $lines);
-        self::assertSame(Unit::Kilogram, $lines[0]->getUnit());
-        self::assertSame(Unit::Pack, $lines[1]->getUnit());
+        self::assertCount(1, $lines);
+        self::assertSame(4.0, $lines[0]->getQuantity(), '1 kg is two 500 g packs, and two more');
+        self::assertSame(Unit::Pack, $lines[0]->getUnit());
+    }
+
+    public function testAQuantityInGramsIsAddedAsPackagings(): void
+    {
+        $this->seedLine(['quantity' => 1.0]);
+
+        $this->add(300, Unit::Gram);
+
+        $lines = $this->lines();
+        self::assertCount(1, $lines);
+        self::assertSame(2.0, $lines[0]->getQuantity());
+        self::assertSame(Unit::Pack, $lines[0]->getUnit());
+    }
+
+    public function testAProductNotOnTheListIsAddedInPackagingsWhateverTheUnit(): void
+    {
+        $this->add(1.2, Unit::Kilogram);
+
+        $lines = $this->lines();
+        self::assertCount(1, $lines);
+        self::assertSame(3.0, $lines[0]->getQuantity());
+        self::assertSame(Unit::Pack, $lines[0]->getUnit());
+    }
+
+    public function testAPackagedProductWithoutQuantityIsOnePackaging(): void
+    {
+        $this->add(null, null);
+
+        $lines = $this->lines();
+        self::assertCount(1, $lines);
+        self::assertSame(1.0, $lines[0]->getQuantity());
+        self::assertSame(Unit::Pack, $lines[0]->getUnit());
     }
 }

@@ -125,4 +125,33 @@ class PackagingTest extends TestCase
     {
         self::assertNull((new Packaging())->packagedQuantity($this->product(null), 300, Unit::Gram));
     }
+
+    public function testALineCountsInPackagingsWhateverTheUnitItWasAskedIn(): void
+    {
+        $rice = $this->product(Unit::Pack, 500, Unit::Gram);
+        $packaging = new Packaging();
+
+        self::assertSame(1, $packaging->inPackagings($rice, 300, Unit::Gram));
+        self::assertSame(2, $packaging->inPackagings($rice, 600, Unit::Gram));
+        self::assertSame(3, $packaging->inPackagings($rice, 3, Unit::Pack));
+        self::assertSame(3, $packaging->inPackagings($rice, 3, null), 'no unit reads as the packaging');
+        self::assertSame(1, $packaging->inPackagings($rice, null, null), 'no quantity is one packaging');
+        self::assertSame(1, $packaging->inPackagings($rice, 0.2, Unit::Pack), 'never below one packaging');
+    }
+
+    public function testAProductWithoutPackagingHasNoPackagingCount(): void
+    {
+        self::assertNull((new Packaging())->inPackagings($this->product(null), 300, Unit::Gram));
+    }
+
+    public function testSeveralRecipeQuantitiesAreRoundedUpOnceTogether(): void
+    {
+        $rice = $this->product(Unit::Pack, 500, Unit::Gram);
+
+        // 300 g + 300 g is 600 g: two packs, not 1 + 1 by luck of the rounding, and 0.4 + 0.4 kg is one pack and a bit.
+        self::assertSame(2, (new Packaging())->packagedTotal($rice, [[300, Unit::Gram], [300, Unit::Gram]]));
+        self::assertSame(1, (new Packaging())->packagedTotal($rice, [[100, Unit::Gram], [150, Unit::Gram]]));
+        self::assertSame(3, (new Packaging())->packagedTotal($rice, [[0.5, Unit::Kilogram], [200, Unit::Gram], [1, Unit::Pack]]));
+        self::assertNull((new Packaging())->packagedTotal($this->product(null), [[300, Unit::Gram]]));
+    }
 }
