@@ -177,7 +177,7 @@ class UpdateTransactionHandler
         $counterpart = $this->references->transaction($command->counterpartId, $transaction->getUser(), 'Counterpart');
 
         $sameAccount = $counterpart->getAccount()->getId()->equals($transaction->getAccount()->getId());
-        if (TransferKind::Internal === $kind && $sameAccount) {
+        if ($kind->isBetweenAccounts() && $sameAccount) {
             throw new \DomainException('An internal transfer goes between two different accounts.');
         }
         // The bank gives a rejected payment back where it took it from.

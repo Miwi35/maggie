@@ -10,6 +10,7 @@ use Maggie\Finance\Message\DetectInternalTransferCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
+use Maggie\Finance\UseCase\DetectSavingsAdvances;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -22,6 +23,7 @@ class DetectInternalTransferHandler
         private readonly UpdateTransaction $updateTransaction,
         private readonly AttachRecurringTransactions $attachRecurring,
         private readonly TransactionRepository $transactionRepository,
+        private readonly DetectSavingsAdvances $detectSavingsAdvances,
     ) {
     }
 
@@ -34,7 +36,8 @@ class DetectInternalTransferHandler
             return null;
         }
 
-        $counterpart->markAsInternalTransfer($transaction, TransferSource::Auto);
+        // Taken from savings while the salary is late, it is an advance.
+        $counterpart->pairWith($transaction, $this->detectSavingsAdvances->kindFor($transaction, $counterpart), TransferSource::Auto);
 
         // Both legs settle no occurrence any more: the payment presented
         // again takes it, and the series recalibrates without them.

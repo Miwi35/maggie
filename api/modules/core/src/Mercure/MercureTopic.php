@@ -87,10 +87,16 @@ final class MercureTopic
     /**
      * Pluralize a snake_case entity name to match API Platform's collection
      * route. Handles the consonant+"y" → "ies" case (e.g. category →
-     * categories); every other entity keeps the simple "+s" form.
+     * categories) and a name already plural (treasury_settings stays as is,
+     * as API Platform's inflector leaves it); every other entity keeps the
+     * simple "+s" form.
      */
     private static function pluralize(string $snake): string
     {
+        if (str_ends_with($snake, 's')) {
+            return $snake;
+        }
+
         if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
             return substr($snake, 0, -1).'ies';
         }

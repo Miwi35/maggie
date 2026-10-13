@@ -106,6 +106,14 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-approvals-google-id'
         name: 'Robin Validation'
 
+    # The savings advances journey (MAG-276). It declares a salary day and a
+    # « Salaire » series of its own: on the stock account, run beside the
+    # reference salary journey, two series would double the mark both read.
+    e2e_treasury_user:
+        email: 'e2e-treasury@maggie.local'
+        googleId: 'e2e-treasury-google-id'
+        name: 'Sacha Trésorerie'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -145,6 +153,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_approvals_user_preference:
         user: '@e2e_approvals_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_treasury_user_preference:
+        user: '@e2e_treasury_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

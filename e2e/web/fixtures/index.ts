@@ -13,6 +13,7 @@ import {
   OTHER_USER_EMAIL,
   SEED_USER_EMAIL,
   STOCK_USER_EMAIL,
+  TREASURY_USER_EMAIL,
   signIn,
   storageStateOf,
 } from './session.js'
@@ -28,6 +29,7 @@ export {
   INTERRUPTED_USER_EMAIL,
   STOCK_USER_EMAIL,
   APPROVALS_USER_EMAIL,
+  TREASURY_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -119,6 +121,8 @@ export interface MaggieFixtures {
    * history, the held actions and their cards are that file's alone.
    */
   approvalsUser: OtherUser
+  /** The sixth seeded account, for the savings advances journey (MAG-276): its salary day and series are its own. */
+  treasuryUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -315,6 +319,10 @@ export const test = base.extend<MaggieFixtures>({
 
   approvalsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(APPROVALS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  treasuryUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(TREASURY_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

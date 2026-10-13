@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\RecurringOperation;
@@ -885,6 +886,125 @@ class TransactionRepository extends ServiceEntityRepository
     public function findAttachedTo(RecurringOperation $operation): array
     {
         return $this->findBy(['recurringOperation' => $operation], ['recurringOccurrenceOn' => 'ASC', 'id' => 'ASC']);
+    }
+
+    /**
+     * The credits filed under the standard « Salaire » (or a category under
+     * it) booked in a span, both days included, oldest first: what closes a
+     * salary delay. Neutral movements stay out; a bonus is in « Primes », not
+     * here, and a rente is left to the caller, which reads the category.
+     *
+     * @return Transaction[]
+     */
+    public function findSalaryCreditsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->innerJoin('t.category', 'c')
+            ->leftJoin('c.parent', 'p')
+            ->andWhere('t.user = :user')
+            ->andWhere('c.user = :user')
+            ->andWhere('t.amountCents > 0')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('c.standardKey = :salary OR p.standardKey = :salary')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt <= :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('salary', StandardCategories::SALARY)
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The paired lines of one kind decided by the detection, debit legs only,
+     * oldest first — one row per movement.
+     *
+     * @param \DateTimeImmutable|null $since how far back to look, or null for everything
+     *
+     * @return Transaction[]
+     */
+    public function findAutoPairedDebits(User $user, TransferKind $kind, ?\DateTimeImmutable $since = null): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.counterpart IS NOT NULL')
+            ->andWhere('t.transferKind = :kind')
+            ->andWhere('t.transferSource = :auto')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('kind', $kind->value)
+            ->setParameter('auto', TransferSource::Auto->value)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (null !== $since) {
+            $qb->andWhere('t.bookedAt >= :since')->setParameter('since', $since);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The savings advances of one user — the debit leg, on the source account —
+     * oldest first.
+     *
+     * @return Transaction[]
+     */
+    public function findAdvanceDebits(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.transferKind = :advance')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('advance', TransferKind::Advance->value)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * What has been given back on each advance: the debit legs pointing at it
+     * with `repays`, as positive cents, keyed by the advance's id.
+     *
+     * @param Transaction[] $advances
+     *
+     * @return array<string, int>
+     */
+    public function sumRepaidByAdvance(User $user, array $advances): array
+    {
+        if ([] === $advances) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.repays) AS advanceId, SUM(t.amountCents) AS total')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.repays IN (:advances)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('advances', array_map(static fn (Transaction $t): string => $t->getId()->toRfc4122(), $advances), ArrayParameterType::STRING)
+            ->groupBy('advanceId')
+            ->getQuery()
+            ->getResult();
+
+        $repaid = [];
+        foreach ($rows as $row) {
+            $repaid[self::ulid($row['advanceId'])] = -(int) $row['total'];
+        }
+
+        return $repaid;
     }
 
     /** A scalar id as Doctrine returns it — a Ulid, or the database's UUID form — in the base 32 every caller compares. */

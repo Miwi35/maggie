@@ -186,6 +186,17 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     private ?self $counterpart = null;
 
     /**
+     * The advance this line gives back: the debit leg of a repayment points at
+     * the debit leg of the advance. What is left to give back is never stored —
+     * it is the advance minus the lines pointing at it.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false)]
+    #[IndexedRelation(targetEntity: self::class, sourceField: 'repaysId')]
+    private ?self $repays = null;
+
+    /**
      * The recurring operation this line is one occurrence of. Written over
      * REST by a PATCH that names it with `recurringOccurrenceOn`, which the
      * processor turns into a manual attachment: the setters below only exist
@@ -447,6 +458,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getRepays(): ?self
+    {
+        return $this->repays;
+    }
+
+    public function setRepays(?self $repays): static
+    {
+        $this->repays = $repays;
+
+        return $this;
+    }
+
     /** Not serialized: `transferKind` is the one truth a client reads. */
     #[ApiProperty(readable: false)]
     public function isInternalTransfer(): bool
@@ -615,6 +638,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
@@ -641,6 +665,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
@@ -648,6 +673,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'account' => 'accountId',
             'category' => 'categoryId',
             'counterpart' => 'counterpartId',
+            'repays' => 'repaysId',
             'recurringOperation' => 'recurringOperationId',
         ]);
     }

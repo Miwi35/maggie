@@ -40,6 +40,7 @@ class DetectInternalTransfers
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
         private readonly MessageBusInterface $bus,
+        private readonly DetectSavingsAdvances $detectSavingsAdvances,
     ) {
     }
 
@@ -75,7 +76,10 @@ class DetectInternalTransfers
      * @param int|null $limitDays how far back to look, or null for the whole history
      * @param bool     $dryRun    report what would be paired without writing anything
      *
-     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string}>}
+     * Then the savings advances: a new pair is marked one at once, and the
+     * pairs already made are requalified (`advances` lists both)
+     *
+     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string, transferKind: string}>, advances: int}
      */
     public function execute(User $user, ?int $limitDays = null, bool $dryRun = false): array
     {
@@ -106,6 +110,7 @@ class DetectInternalTransfers
 
             $claimed[$leftId] = true;
             $claimed[$rightId] = true;
+            $kind = $this->detectSavingsAdvances->kindFor($left, $right);
 
             $pairs[] = [
                 'transactionId' => $leftId,
@@ -115,18 +120,23 @@ class DetectInternalTransfers
                 'counterpartBookedAt' => $right->getBookedAt()->format('Y-m-d'),
                 'label' => $left->getLabel(),
                 'counterpartLabel' => $right->getLabel(),
+                'transferKind' => $kind->value,
             ];
 
             if (!$dryRun) {
-                $this->pair($user, $leftId, $rightId);
+                $this->pair($user, $leftId, $rightId, $kind);
             }
         }
+
+        $requalified = $this->detectSavingsAdvances->execute($user, $since, $dryRun);
+        $newAdvances = \count(array_filter($pairs, static fn (array $pair) => TransferKind::Advance->value === $pair['transferKind']));
 
         return [
             'matched' => \count($pairs),
             'scanned' => \count($transactions),
             'dryRun' => $dryRun,
             'pairs' => $pairs,
+            'advances' => $newAdvances + $requalified['matched'],
         ];
     }
 
@@ -188,12 +198,12 @@ class DetectInternalTransfers
      * One command: its handler marks both legs and broadcasts the other one,
      * so each line reaches Mercure and the search index exactly once.
      */
-    private function pair(User $user, string $transactionId, string $counterpartId): void
+    private function pair(User $user, string $transactionId, string $counterpartId, TransferKind $kind): void
     {
         $this->bus->dispatch(new UpdateTransactionCommand(
             userId: (string) $user->getId(),
             transactionId: $transactionId,
-            transferKind: TransferKind::Internal->value,
+            transferKind: $kind->value,
             transferSource: TransferSource::Auto->value,
             counterpartId: $counterpartId,
         ));
