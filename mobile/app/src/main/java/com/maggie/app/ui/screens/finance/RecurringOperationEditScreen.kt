@@ -486,7 +486,7 @@ internal fun RecurringFormFields(
                 onClear = { form.endsOn = null },
                 isError = form.endsError != null,
             )
-            Helper(form.endsError ?: "Après cette date, l'opération n'attend plus rien.", isError = form.endsError != null)
+            Helper(form.endsError ?: "Après cette date, l'opération récurrente n'attend plus rien.", isError = form.endsError != null)
         }
 
         Text("Tolérances", style = MaterialTheme.typography.titleSmall)
