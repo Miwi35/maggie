@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import {
-  List,
   Datagrid,
   TextField,
   DateField,
@@ -15,11 +14,12 @@ import {
   TopToolbar,
   Title,
   useGetOne,
-  useListContext,
 } from 'react-admin'
 import { useParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
 import { Placeholder } from '../../components/list/ListEmpty'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import { TransferBadge, TransferCounterpart } from './TransferBadge'
@@ -31,10 +31,18 @@ import type { RaRecord } from 'react-admin'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
-const TransactionDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(TRANSACTION_TOPICS, () => { refetch() })
+const transactionLive = (accountIri: string): LiveConfig => ({
+  topics: TRANSACTION_TOPICS,
+  required: ['label', 'amountCents', 'bookedAt', 'account'],
+  references: {
+    accountId: { field: 'account', collection: '/api/accounts' },
+    categoryId: { field: 'category', collection: '/api/categories' },
+    recurringOperationId: { field: 'recurringOperation', collection: '/api/recurring_operations' },
+  },
+  accept: (row) => row.account === accountIri,
+})
 
+const TransactionDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <DateField source="bookedAt" label="Date" />
@@ -118,6 +126,7 @@ export const AccountTransactionsView = () => {
   const accountIri = `/api/accounts/${id}`
   const { data: account } = useGetOne('accounts', { id: accountIri })
   const accountName = (account?.name as string) ?? 'Compte'
+  const live = useMemo(() => transactionLive(accountIri), [accountIri])
 
   const [tab, setTab] = useState(0)
   const { incidents, error, reload } = useAccountIncidents(id)
@@ -139,7 +148,8 @@ export const AccountTransactionsView = () => {
         <Tab label={`Incidents${incidents === null ? '' : ` (${incidents.length})`}`} />
       </Tabs>
       <Box hidden={tab !== 0}>
-        <List
+        <LiveList
+          live={live}
           resource="transactions"
           // The view's own <Title> names the account; the list's default one would be
           // portalled next to it and break the app bar's ellipsis (MAG-387).
@@ -151,7 +161,7 @@ export const AccountTransactionsView = () => {
           sort={{ field: 'bookedAt', order: 'DESC' }}
         >
           <TransactionDatagrid />
-        </List>
+        </LiveList>
       </Box>
       <Box hidden={tab !== 1}>
         <AccountIncidents incidents={incidents} error={error} />

@@ -1,25 +1,27 @@
 import {
-  List,
   Datagrid,
   TextField,
   NumberField,
   DateField,
   FunctionField,
   EditButton,
-  useListContext,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
 import { RecipeDeleteButton } from './RecipeDeleteButton'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 
 const RECIPE_TOPICS = ['/api/recipes/{id}']
 
-const RecipeDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(RECIPE_TOPICS, () => { refetch() })
+const RECIPE_LIVE: LiveConfig = {
+  topics: RECIPE_TOPICS,
+  required: ['name', 'servings'],
+  fallback: () => ({ createdAt: new Date().toISOString() }),
+}
 
+const RecipeDatagrid = () => {
   return (
     <Datagrid rowClick="edit" bulkActionButtons={false}>
       <TextField source="name" label="Nom" />
@@ -52,7 +54,8 @@ const RecipeDatagrid = () => {
 }
 
 export const RecipeList = () => (
-  <List
+  <LiveList
+    live={RECIPE_LIVE}
     empty={
       <ListEmpty
         title="Aucune recette pour l'instant"
@@ -62,5 +65,5 @@ export const RecipeList = () => (
     }
   >
     <RecipeDatagrid />
-  </List>
+  </LiveList>
 )

@@ -3,7 +3,6 @@ import Box from '@mui/material/Box'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import {
-  List,
   Datagrid,
   TextField,
   ReferenceField,
@@ -12,9 +11,9 @@ import {
   DeleteButton,
   CreateButton,
   TopToolbar,
-  useListContext,
 } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
+import { LiveList } from '../../components/list/LiveList'
+import type { LiveConfig } from '../../hooks/liveList'
 import { CategorizationRuleList } from './CategorizationRuleList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { StandardCategoriesButton } from './StandardCategoriesButton'
@@ -23,6 +22,14 @@ import { OBLIGATION_LABELS } from './obligationFlags'
 import type { RaRecord } from 'react-admin'
 
 const CATEGORY_TOPICS = ['/api/categories/{id}']
+
+const CATEGORY_LIVE: LiveConfig = {
+  topics: CATEGORY_TOPICS,
+  required: ['name', 'obligation'],
+  references: {
+    parentId: { field: 'parent', collection: '/api/categories' },
+  },
+}
 
 /** The starting set sits next to Create: both are ways to fill this screen. */
 const CategoryActions = () => (
@@ -33,11 +40,6 @@ const CategoryActions = () => (
 )
 
 const CategoryDatagrid = () => {
-  const { refetch } = useListContext()
-  useMercure(CATEGORY_TOPICS, () => {
-    refetch()
-  })
-
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
@@ -79,7 +81,8 @@ export const CategoryList = () => {
 
       <Box hidden={tab !== 0}>
         {tab === 0 && (
-          <List
+          <LiveList
+            live={CATEGORY_LIVE}
             actions={<CategoryActions />}
             empty={
               <ListEmpty
@@ -91,7 +94,7 @@ export const CategoryList = () => {
             }
           >
             <CategoryDatagrid />
-          </List>
+          </LiveList>
         )}
       </Box>
 

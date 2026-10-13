@@ -304,6 +304,8 @@ web:
     areas: [notification, realtime]
   e2e/web/tests/mercure.spec.ts:
     areas: [realtime, grocery, calendar, settings]
+  e2e/web/tests/live-lists.spec.ts:
+    areas: [realtime, grocery, cookbook, finance]
   e2e/web/tests/design-system.spec.ts:
     areas: [design, dashboard]
   e2e/web/tests/theme-preference.spec.ts:
