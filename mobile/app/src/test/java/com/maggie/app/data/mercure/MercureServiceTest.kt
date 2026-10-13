@@ -73,13 +73,21 @@ class MercureServiceTest {
 
     // A hub heartbeat is a comment line (": ..."), not an update: handing it to a subscriber makes
     // every idle screen reload on each beat (MAG-372).
+    // No fixed sleep: the fake hub holds the stream open until the client hangs up, so a slow runner
+    // cannot lose the beats to an early close. The timeout is only a ceiling (red once at 10 s, 11 Oct.).
     @Test
     fun `a hub heartbeat is not handed to subscribers as an update`() = runBlocking {
         val server = ServerSocket(0)
         val accepting = thread(isDaemon = true) {
             val socket = try { server.accept() } catch (e: Exception) { return@thread }
             try {
-                socket.getInputStream().read(ByteArray(4096))
+                val input = socket.getInputStream()
+                val head = StringBuilder()
+                while (!head.endsWith("\r\n\r\n")) {
+                    val byte = input.read()
+                    if (byte == -1) return@thread
+                    head.append(byte.toChar())
+                }
                 socket.getOutputStream().apply {
                     write(
                         ("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n" +
@@ -87,7 +95,9 @@ class MercureServiceTest {
                     )
                     flush()
                 }
-                Thread.sleep(2_000)
+                while (input.read() != -1) {
+                    // Hold the stream open until the client closes it.
+                }
             } catch (e: Exception) {
                 // Closed by the test's cleanup.
             } finally {
@@ -104,7 +114,7 @@ class MercureServiceTest {
         val service = MercureService(authRepository, "http://127.0.0.1:${server.localPort}/hub", client)
 
         try {
-            val first = kotlinx.coroutines.withTimeout(10_000) {
+            val first = kotlinx.coroutines.withTimeout(30_000) {
                 service.subscribe("/users/u/api/events/{id}").first()
             }
             assertEquals("{\"title\":\"x\"}", first.data)
