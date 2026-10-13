@@ -49,6 +49,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255)]

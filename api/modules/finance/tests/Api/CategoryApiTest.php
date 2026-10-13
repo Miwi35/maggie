@@ -299,6 +299,33 @@ class CategoryApiTest extends WebTestCase
         self::assertSame('Loisirs', $refreshed->getParent()?->getName());
     }
 
+    public function testPatchAcceptsTheRecordAsTheAdminSendsItBack(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $concerts = $this->getFixture('concerts');
+
+        $this->patch((string) $concerts->getId(), [
+            'id' => '/api/categories/'.$concerts->getId(),
+            'name' => 'Concerts',
+            'parent' => '/api/categories/'.$concerts->getParent()?->getId(),
+            'obligation' => 'optional',
+            'passiveIncome' => false,
+            'standardKey' => null,
+            'color' => '#F44336',
+            'icon' => null,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Category::class, $concerts->getId());
+        self::assertSame('#F44336', $refreshed->getColor());
+    }
+
     public function testDeleteCategoryRemovesAndPublishes(): void
     {
         $this->loadFixtures('category.yaml');
