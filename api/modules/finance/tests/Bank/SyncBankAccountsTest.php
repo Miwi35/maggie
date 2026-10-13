@@ -162,6 +162,60 @@ class SyncBankAccountsTest extends KernelTestCase
         self::assertSame(350000, $income->getAmountCents());
     }
 
+    public function testARevolutAnswerGivesItsRealMovementsAndNoneOfTheZeroAuthorisations(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            [
+                'entry_reference' => 'rev-salary',
+                'status' => 'BOOK',
+                'booking_date' => '2026-09-26',
+                'transaction_amount' => ['amount' => '2450.00', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'CRDT',
+                'debtor' => ['name' => 'ACME SAS'],
+                'remittance_information' => ['Salaire septembre'],
+            ],
+            [
+                'entry_reference' => 'rev-transfer',
+                'status' => 'BOOK',
+                'booking_date' => '2026-09-29',
+                'transaction_amount' => ['amount' => '200.00', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'DBIT',
+                'creditor' => ['name' => 'Meven Ca'],
+                'remittance_information' => ['Transfer to Meven'],
+            ],
+            [
+                'entry_reference' => 'rev-card',
+                'status' => 'BOOK',
+                'booking_date' => '2026-09-30',
+                'transaction_amount' => ['amount' => '12.50', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'DBIT',
+                'creditor' => ['name' => 'Boulangerie Paul'],
+            ],
+            [
+                'entry_reference' => 'rev-authorisation',
+                'status' => 'BOOK',
+                'booking_date' => '2026-10-01',
+                'transaction_amount' => ['amount' => '0.00', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'DBIT',
+                'creditor' => ['name' => 'OpenAI'],
+            ],
+        ])]);
+
+        $result = $this->sync($http)->execute($this->getFixture('test_user'));
+
+        self::assertSame(3, $result['imported']);
+        self::assertSame(1, $result['accounts'][0]['ignored']);
+
+        $amounts = array_map(
+            static fn (Transaction $t) => $t->getAmountCents(),
+            self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findBy([], ['bookedAt' => 'ASC']),
+        );
+        self::assertSame([245000, -20000, -1250], $amounts);
+    }
+
     public function testWhatItWritesIsIndexedOrTheListsWouldNotShowIt(): void
     {
         $this->loadFixtures('account.yaml');
