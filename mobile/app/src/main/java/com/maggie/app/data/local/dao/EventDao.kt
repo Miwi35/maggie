@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.maggie.app.data.local.entity.EventEntity
+import com.maggie.app.data.local.entity.FetchedPeriodEntity
 import com.maggie.app.data.local.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -31,6 +32,37 @@ interface EventDao {
 
     @Query("DELETE FROM events WHERE id IN (:ids) AND syncStatus = :status")
     suspend fun deleteSyncedByIds(ids: List<String>, status: SyncStatus = SyncStatus.SYNCED)
+
+    /**
+     * The synced events a read of [firstDay]..[endDay] (excluded) answers for: those starting in the
+     * period, and the recurring ones started before its end. Days are the first ten characters of
+     * the start, as the API spells them.
+     */
+    @Query(
+        "SELECT id FROM events WHERE syncStatus = 'SYNCED' AND (" +
+            "(substr(COALESCE(startAt, startDate), 1, 10) >= :firstDay AND substr(COALESCE(startAt, startDate), 1, 10) < :endDay)" +
+            " OR (rrule IS NOT NULL AND substr(COALESCE(startAt, startDate), 1, 10) < :endDay))",
+    )
+    suspend fun getSyncedIdsOfPeriod(firstDay: String, endDay: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFetchedPeriod(period: FetchedPeriodEntity)
+
+    /** Whether one read made since [since] (epoch ms) holds the whole of [firstDay]..[endDay]. */
+    @Query("SELECT COUNT(*) FROM fetched_periods WHERE firstDay <= :firstDay AND endDay >= :endDay AND fetchedAt >= :since")
+    suspend fun countFetchedPeriodsCovering(firstDay: String, endDay: String, since: Long): Int
+
+    @Query("SELECT * FROM fetched_periods WHERE fetchedAt >= :since ORDER BY fetchedAt DESC")
+    suspend fun getFetchedPeriodsSince(since: Long): List<FetchedPeriodEntity>
+
+    @Query("DELETE FROM events WHERE agenda = :agendaIri AND syncStatus = 'SYNCED'")
+    suspend fun deleteSyncedOfAgenda(agendaIri: String)
+
+    @Query("DELETE FROM fetched_periods")
+    suspend fun deleteFetchedPeriods()
+
+    @Query("DELETE FROM fetched_periods WHERE fetchedAt < :before")
+    suspend fun deleteFetchedPeriodsBefore(before: Long)
 
     @Query("SELECT * FROM events WHERE syncStatus != 'SYNCED'")
     suspend fun getPending(): List<EventEntity>

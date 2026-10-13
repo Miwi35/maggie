@@ -51,7 +51,7 @@ class QueryParameterContractTest {
      * Provided by API Platform for every collection, declared by no entity,
      * so absent from the contract by design.
      */
-    private val pagination = setOf("page", "itemsPerPage")
+    private val pagination = setOf("page", "itemsPerPage", "pagination")
 
     @Test
     fun `every query parameter the app sends is declared by the API`() {

@@ -23,9 +23,11 @@ import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
+import com.maggie.app.util.DayPeriod
 import com.maggie.app.util.EventExpander
 import com.maggie.app.util.SingleFlight
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -82,11 +84,14 @@ class FullCalendarViewModel(
     private var meals: List<Meal> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
     private val loader = SingleFlight(viewModelScope) { load() }
+    private var forceNext = false
+    private var periodJob: Job? = null
 
     // Saved preferences only seed the initial state (MAG-120): once the user has picked a view or
     // toggled an agenda, or the seed was applied, they are not consulted again.
     private var preference: UserPreference? = null
     private var agendasLoaded = false
+    private var agendasFetched = false
     private var viewSettled = false
     private var agendasSettled = false
 
@@ -99,13 +104,23 @@ class FullCalendarViewModel(
                 .distinctUntilChanged()
                 .collect { authenticated ->
                     if (authenticated) {
-                        refresh()
+                        loader.run()
                         fetchPreferenceIfMissing()
                     }
                 }
         }
         viewModelScope.launch {
             applyPreference(userPreferenceRepository.preference.filterNotNull().first())
+        }
+        // The cache is the single source: a read, a push or an edit lands in the tables and shows here.
+        viewModelScope.launch {
+            eventRepository.observeEvents().collect {
+                allEvents = it
+                expandForCurrentRange()
+            }
+        }
+        viewModelScope.launch {
+            agendaRepository.observeAgendas().collect { applyAgendas(it) }
         }
         subscribeToMercure()
     }
@@ -200,9 +215,15 @@ class FullCalendarViewModel(
         expandForCurrentRange()
     }
 
-    fun refresh() = loader.run()
+    /** Pull-to-refresh: the visible period and the agendas are read again whatever the cache holds. */
+    fun refresh() {
+        forceNext = true
+        loader.run()
+    }
 
     private suspend fun load() {
+        val force = forceNext
+        forceNext = false
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         try {
             if (module != null) {
@@ -211,41 +232,65 @@ class FullCalendarViewModel(
                 expandForCurrentRange()
                 return
             }
-            val agendas = agendaRepository.refreshAgendas().getOrThrow()
-            agendaMap = agendas.associateBy { it.id }
+            val agendas = agendaRepository.loadAgendas(force).getOrThrow()
+            agendasFetched = true
+            applyAgendas(agendas)
 
-            val rangeEvents = eventRepository.refreshEvents().getOrThrow()
-            val range = getVisibleRange()
-            val recurringEvents = eventRepository.getRecurringBefore(range.start.toString())
-
-            val seen = mutableSetOf<String>()
-            allEvents = (rangeEvents + recurringEvents).filter { seen.add(it.id) }
+            // The events reach the screen through the cache (observeEvents), once the period is in it.
+            eventRepository.loadPeriod(visiblePeriod(), force).getOrThrow()
 
             taskRepository.refreshTasks()
             val tasks = taskRepository.getUndoneTasks()
             // Best effort: the meals failing must not blank the user's own calendar.
             val mealsFailure = loadMeals()
 
-            // Auto-enable new agendas
-            val previousEnabled = _uiState.value.enabledAgendas
-            val allIds = agendas.map { it.id }.toSet()
-            val enabledAgendas = if (previousEnabled.isEmpty()) allIds
-            else previousEnabled + (allIds - previousEnabled)
-
             _uiState.value = _uiState.value.copy(
-                agendas = agendas,
-                enabledAgendas = enabledAgendas,
                 tasks = tasks,
                 isLoading = false,
                 error = mealsFailure?.message,
             )
-            agendasLoaded = true
-            applyAgendaPreference()
             expandForCurrentRange()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+        }
+    }
+
+    // The cache holds the agendas; a list that is empty before the first read says nothing about the account.
+    private fun applyAgendas(agendas: List<Agenda>) {
+        if (module != null || (agendas.isEmpty() && !agendasFetched)) return
+        val known = agendaMap.keys
+        agendaMap = agendas.associateBy { it.id }
+
+        // Auto-enable new agendas: the ones the screen has not seen yet, not the ones the user or the preference left out.
+        val previousEnabled = _uiState.value.enabledAgendas
+        val allIds = agendas.map { it.id }.toSet()
+        val enabledAgendas = if (previousEnabled.isEmpty() && known.isEmpty()) allIds
+        else previousEnabled + (allIds - known)
+
+        _uiState.value = _uiState.value.copy(agendas = agendas, enabledAgendas = enabledAgendas)
+        agendasLoaded = true
+        applyAgendaPreference()
+        expandForCurrentRange()
+    }
+
+    // A period already read within the hour is served by the cache: no request.
+    private fun loadVisiblePeriod() {
+        if (module != null) return
+        periodJob?.cancel()
+        periodJob = viewModelScope.launch {
+            eventRepository.loadPeriod(visiblePeriod())
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    private fun visiblePeriod(): DayPeriod {
+        val date = _uiState.value.currentDate
+        return when (_uiState.value.viewType) {
+            CalendarViewType.MONTH -> DateRanges.periodOfMonthGrid(date)
+            CalendarViewType.WEEK -> DateRanges.periodOfWeek(date)
+            CalendarViewType.DAY -> DateRanges.periodOfDate(date)
         }
     }
 
@@ -301,6 +346,7 @@ class FullCalendarViewModel(
 
     private fun onRangeChanged() {
         expandForCurrentRange()
+        loadVisiblePeriod()
         viewModelScope.launch {
             val failure = loadMeals()
             if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
@@ -345,7 +391,6 @@ class FullCalendarViewModel(
     fun createAgenda(name: String, color: String?, description: String?) {
         viewModelScope.launch {
             agendaRepository.createAgenda(AgendaCreateRequest(name, color, description))
-                .onSuccess { refresh() }
                 .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
         }
     }
@@ -353,7 +398,7 @@ class FullCalendarViewModel(
     fun deleteAgenda(id: String) {
         viewModelScope.launch {
             agendaRepository.deleteAgenda(id)
-                .onSuccess { refresh() }
+                .onSuccess { eventRepository.dropEventsOfAgenda(id) }
                 .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
         }
     }
@@ -384,8 +429,9 @@ class FullCalendarViewModel(
     }
 
     // Subscribed once the user is known, and again on each login: the ViewModel is built before
-    // the login screen has run, so the user id is not there yet at init. One change is announced
-    // on several topics and a sync announces many rows: the burst reloads the screen once.
+    // the login screen has run, so the user id is not there yet at init. Events and agendas are
+    // not listened to here: CalendarCacheFeed applies them to the cache, which this screen observes.
+    // One change is announced on several topics and a sync announces many rows: the burst reloads once.
     private fun subscribeToMercure() {
         viewModelScope.launch {
             authRepository.token
@@ -395,14 +441,30 @@ class FullCalendarViewModel(
                     if (!authenticated) return@collectLatest
                     val userId = authRepository.getUserId() ?: return@collectLatest
                     merge(
-                        *listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS, MercureTopics.MEALS).map { topic ->
+                        *listOf(MercureTopics.TASKS, MercureTopics.MEALS).map { topic ->
                             mercureService.subscribe(MercureTopics.userScoped(userId, topic))
                                 .catch { /* SSE reconnects automatically */ }
                         }.toTypedArray(),
                     )
                         .coalescedAndRechecked()
-                        .collect { refresh() }
+                        .collect { reloadSideData() }
                 }
+        }
+    }
+
+    private suspend fun reloadSideData() {
+        try {
+            if (module == null) {
+                taskRepository.refreshTasks()
+                _uiState.value = _uiState.value.copy(tasks = taskRepository.getUndoneTasks())
+            }
+            val failure = loadMeals()
+            if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
+            expandForCurrentRange()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(error = e.message)
         }
     }
 }

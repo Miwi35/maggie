@@ -13,7 +13,9 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.util.DateRange
 import com.maggie.app.util.DateRanges
+import com.maggie.app.util.DayPeriod
 import com.maggie.app.util.EventExpander
 import com.maggie.app.util.SingleFlight
 import kotlinx.coroutines.CancellationException
@@ -52,6 +54,9 @@ class DashboardViewModel(
     val uiState: StateFlow<DashboardUiState> = _uiState
 
     private val loader = SingleFlight(viewModelScope) { load() }
+    private var forceNext = false
+    private var allEvents: List<Event> = emptyList()
+    private var agendaMap: Map<String, Agenda> = emptyMap()
 
     init {
         // Refresh once the auth token is available (and again whenever the user
@@ -61,44 +66,68 @@ class DashboardViewModel(
             authRepository.token
                 .map { it != null }
                 .distinctUntilChanged()
-                .collect { authenticated -> if (authenticated) refresh() }
+                .collect { authenticated -> if (authenticated) reload() }
+        }
+        // The cache is the single source of the events: a read, a push or an edit lands in it and shows here.
+        viewModelScope.launch {
+            eventRepository.observeEvents().collect {
+                allEvents = it
+                _uiState.value = withEvents(_uiState.value)
+            }
+        }
+        viewModelScope.launch {
+            agendaRepository.observeAgendas().collect {
+                agendaMap = it.associateBy { agenda -> agenda.id }
+                _uiState.value = withEvents(_uiState.value)
+            }
         }
         subscribeToMercure()
     }
 
-    fun refresh() = loader.run()
+    // What the cache holds is served as it is while it is fresh (loadPeriod, loadAgendas).
+    private fun reload() = loader.run()
+
+    /** Pull-to-refresh: the period and the agendas are read again whatever the cache holds. */
+    fun refresh() {
+        forceNext = true
+        loader.run()
+    }
+
+    private fun withEvents(state: DashboardUiState): DashboardUiState {
+        val ranges = currentRanges()
+        val today = EventExpander.expandForRange(allEvents, ranges.today.start, ranges.today.end, agendaMap)
+        val tomorrow = EventExpander.expandForRange(allEvents, ranges.tomorrow.start, ranges.tomorrow.end, agendaMap)
+        val week = EventExpander.expandForRange(allEvents, ranges.week.start, ranges.week.end, agendaMap)
+            .filter { !startsIn(it, ranges.today) && !startsIn(it, ranges.tomorrow) }
+        val month = EventExpander.expandForRange(allEvents, ranges.month.start, ranges.month.end, agendaMap)
+            .filter { !startsIn(it, ranges.week) && !startsIn(it, ranges.tomorrow) }
+        return state.copy(todayEvents = today, tomorrowEvents = tomorrow, weekEvents = week, monthEvents = month)
+    }
+
+    private fun currentRanges() = Ranges(
+        today = DateRanges.today(),
+        tomorrow = DateRanges.tomorrow(),
+        week = DateRanges.thisWeek(),
+        month = DateRanges.thisMonth(),
+    )
+
+    private class Ranges(
+        val today: DateRange,
+        val tomorrow: DateRange,
+        val week: DateRange,
+        val month: DateRange,
+    )
 
     private suspend fun load() {
+        val force = forceNext
+        forceNext = false
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         try {
-            val ranges = object {
-                val today = DateRanges.today()
-                val tomorrow = DateRanges.tomorrow()
-                val week = DateRanges.thisWeek()
-                val month = DateRanges.thisMonth()
-            }
+            val ranges = currentRanges()
 
-            // Fetch all data
-            val agendas = agendaRepository.getAgendas()
-            val agendaMap = agendas.associateBy { it.id }
-
-            val rangeEvents = eventRepository.refreshEvents().getOrThrow()
-            val recurringEvents = eventRepository.getRecurringBefore(ranges.month.start.toString())
-
-            // Merge & deduplicate
-            val seen = mutableSetOf<String>()
-            val allEvents = mutableListOf<Event>()
-            for (e in rangeEvents + recurringEvents) {
-                if (seen.add(e.id)) allEvents.add(e)
-            }
-
-            // Expand events for each range
-            val todayExpanded = EventExpander.expandForRange(allEvents, ranges.today.start, ranges.today.end, agendaMap)
-            val tomorrowExpanded = EventExpander.expandForRange(allEvents, ranges.tomorrow.start, ranges.tomorrow.end, agendaMap)
-            val weekExpanded = EventExpander.expandForRange(allEvents, ranges.week.start, ranges.week.end, agendaMap)
-                .filter { !startsIn(it, ranges.today) && !startsIn(it, ranges.tomorrow) }
-            val monthExpanded = EventExpander.expandForRange(allEvents, ranges.month.start, ranges.month.end, agendaMap)
-                .filter { !startsIn(it, ranges.week) && !startsIn(it, ranges.tomorrow) }
+            // The period lands in the cache, which the events are read from (observeEvents).
+            agendaMap = agendaRepository.loadAgendas(force).getOrThrow().associateBy { it.id }
+            eventRepository.loadPeriod(DayPeriod(DateRanges.todayDate(), DateRanges.todayDate().plusMonths(1)), force).getOrThrow()
 
             // Fetch tasks
             val rawTasks = taskRepository.getUndoneTasks(ranges.month.end.toString())
@@ -130,17 +159,13 @@ class DashboardViewModel(
                     Instant.parse(t.dueDate) < ranges.month.end
             }
 
-            _uiState.value = DashboardUiState(
-                todayEvents = todayExpanded,
-                tomorrowEvents = tomorrowExpanded,
-                weekEvents = weekExpanded,
-                monthEvents = monthExpanded,
+            _uiState.value = withEvents(DashboardUiState(
                 todayTasks = todayTasks,
                 tomorrowTasks = tomorrowTasks,
                 weekTasks = weekTasks,
                 monthTasks = monthTasks,
                 isLoading = false,
-            )
+            ))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -154,12 +179,12 @@ class DashboardViewModel(
     fun toggleTaskDone(taskId: String, done: Boolean) {
         viewModelScope.launch {
             taskRepository.toggleDone(taskId, done)
-            refresh()
+            reload()
         }
     }
 
     /** An all-day event starts on its date, read against the days of [range] in Paris (MAG-382). */
-    private fun startsIn(event: ExpandedEvent, range: com.maggie.app.util.DateRange): Boolean {
+    private fun startsIn(event: ExpandedEvent, range: DateRange): Boolean {
         val firstDay = event.startDate
         if (event.allDay && firstDay != null) {
             return firstDay >= range.start.atZone(PARIS).toLocalDate() &&
@@ -168,7 +193,7 @@ class DashboardViewModel(
         return event.startAt?.let { isInRange(it, range) } ?: false
     }
 
-    private fun isInRange(dateStr: String, range: com.maggie.app.util.DateRange): Boolean {
+    private fun isInRange(dateStr: String, range: DateRange): Boolean {
         val d = Instant.parse(dateStr)
         return d >= range.start && d < range.end
     }
@@ -177,14 +202,15 @@ class DashboardViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
+            // Events and agendas are applied to the cache by CalendarCacheFeed, which this screen observes.
             merge(
-                *listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).map { topic ->
+                *listOf(MercureTopics.TASKS).map { topic ->
                     mercureService.subscribe(MercureTopics.userScoped(userId, topic))
                         .catch { /* SSE reconnects automatically */ }
                 }.toTypedArray(),
             )
                 .coalescedAndRechecked()
-                .collect { refresh() }
+                .collect { reload() }
         }
     }
 

@@ -30,6 +30,7 @@ import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.ApprovalRepository
+import com.maggie.app.data.repository.CalendarCacheFeed
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
@@ -245,6 +246,7 @@ class MaggieApp : Application() {
             single { ChatRepository(get(), get()) }
             single { ApprovalRepository(get(), get(), get()) }
             single { AgendaRepository(get(), get()) }
+            single { CalendarCacheFeed(get(), get(), get(), get()) }
             single { RecipeRepository(get(), get()) }
             single { IngredientRepository(get()) }
             single { MealRepository(get()) }
@@ -335,6 +337,7 @@ class MaggieApp : Application() {
             registrar.keepRegistered(authRepository.isAuthenticated)
         }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
+        keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
         removeListeningLeftovers()
     }
 
@@ -345,6 +348,16 @@ class MaggieApp : Application() {
             // Whatever was said to one account is not said to the next.
             auth.isAuthenticated.collect { signedIn -> if (!signedIn) center.clear() }
         }
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                feed.runWhileSignedIn(auth.isAuthenticated)
+            }
+        }
+    }
+
+    // Same rule as the interruptions: while the app is open the pushes keep the cached calendar current;
+    // a period read before the app went to the background is read again once its hour is up.
+    private fun keepCalendarCacheFed(feed: CalendarCacheFeed, auth: AuthRepository) {
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 feed.runWhileSignedIn(auth.isAuthenticated)

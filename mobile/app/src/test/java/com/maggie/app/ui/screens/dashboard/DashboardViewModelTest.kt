@@ -4,6 +4,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
@@ -16,6 +17,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -39,6 +41,8 @@ class DashboardViewModelTest {
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
+    private val cachedEvents = MutableStateFlow<List<Event>>(emptyList())
+    private val cachedAgendas = MutableStateFlow<List<Agenda>>(emptyList())
     private lateinit var topics: Map<String, MutableSharedFlow<MercureEvent>>
 
     @Before
@@ -51,12 +55,13 @@ class DashboardViewModelTest {
         authRepository = mockk(relaxed = true)
         every { authRepository.token } returns flowOf("test-jwt")
         coEvery { authRepository.getUserId() } returns "u1"
-        coEvery { agendaRepository.getAgendas() } returns emptyList()
-        coEvery { eventRepository.refreshEvents() } returns Result.success(emptyList())
-        coEvery { eventRepository.getRecurringBefore(any()) } returns emptyList()
+        coEvery { agendaRepository.loadAgendas(any()) } returns Result.success(emptyList())
+        every { agendaRepository.observeAgendas() } returns cachedAgendas
+        coEvery { eventRepository.loadPeriod(any(), any()) } returns Result.success(Unit)
+        every { eventRepository.observeEvents() } returns cachedEvents
         coEvery { taskRepository.getUndoneTasks(any()) } returns emptyList()
         coEvery { taskRepository.getUndoneUndatedTasks() } returns emptyList()
-        topics = listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).associateWith { collection ->
+        topics = listOf(MercureTopics.TASKS).associateWith { collection ->
             MutableSharedFlow<MercureEvent>().also {
                 every { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) } returns it
             }
@@ -81,7 +86,7 @@ class DashboardViewModelTest {
         val viewModel = createViewModel()
         advanceTimeBy(10_000)
 
-        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), any()) }
         coVerify(exactly = 1) { taskRepository.getUndoneTasks(any()) }
         assertFalse(viewModel.uiState.value.isLoading)
         assertNull(viewModel.uiState.value.error)
@@ -89,7 +94,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `a failing load sets the error`() = runTest {
-        coEvery { eventRepository.refreshEvents() } returns Result.failure(RuntimeException("Network error"))
+        coEvery { eventRepository.loadPeriod(any(), any()) } returns Result.failure(RuntimeException("Network error"))
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -99,41 +104,55 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `ten Mercure updates within 200 ms reload once, then once more for the index`() = runTest {
+    fun `ten task updates within 200 ms reload once, then once more for the index, and never read the period again`() = runTest {
         createViewModel()
         advanceUntilIdle()
 
         repeat(10) {
-            topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+            topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
             advanceTimeBy(20)
         }
         advanceTimeBy(600)
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 2) { taskRepository.getUndoneTasks(any()) }
 
         advanceTimeBy(10_000)
-        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+        coVerify(exactly = 3) { taskRepository.getUndoneTasks(any()) }
+        // Not forced: the cache answers while the period is fresh.
+        coVerify(exactly = 0) { eventRepository.loadPeriod(any(), true) }
     }
 
     @Test
-    fun `one change announced on events, tasks and agendas reloads once`() = runTest {
-        createViewModel()
+    fun `an event pushed into the cache shows on the dashboard without a read`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(emptyList<String>(), viewModel.uiState.value.todayEvents.map { it.id })
+
+        cachedEvents.value = listOf(Event(id = "new", summary = "Anniversaire", allDay = true, startDate = "$today", endDate = "${today.plusDays(1)}"))
         advanceUntilIdle()
 
-        topics.values.forEach { it.emit(MercureEvent()) }
-        advanceTimeBy(600)
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        assertEquals(listOf("new"), viewModel.uiState.value.todayEvents.map { it.id })
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), any()) }
+    }
 
-        advanceTimeBy(10_000)
-        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    @Test
+    fun `pull-to-refresh reads the period again whatever the cache holds`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), true) }
     }
 
     @Test
     fun `refreshes asked while a load is running fold into one follow-up load`() = runTest {
         val gate = CompletableDeferred<Unit>()
         var calls = 0
-        coEvery { agendaRepository.getAgendas() } coAnswers {
+        coEvery { agendaRepository.loadAgendas(any()) } coAnswers {
             if (calls++ == 0) gate.await()
-            emptyList()
+            Result.success(emptyList())
         }
 
         val viewModel = createViewModel()
@@ -142,20 +161,19 @@ class DashboardViewModelTest {
         gate.complete(Unit)
         advanceUntilIdle()
 
-        coVerify(exactly = 2) { agendaRepository.getAgendas() }
+        coVerify(exactly = 2) { agendaRepository.loadAgendas(any()) }
     }
 
     /** MAG-382: today's all-day event is today's, and yesterday's does not come back as today's at 01:00. */
     @Test
     fun `an all-day event is listed on its date, not the day after`() = runTest {
         val today = com.maggie.app.util.DateRanges.todayDate()
-        coEvery { eventRepository.refreshEvents() } returns Result.success(
+        cachedEvents.value =
             listOf(
                 Event(id = "today", summary = "Anniversaire", allDay = true, startDate = "$today", endDate = "${today.plusDays(1)}"),
                 Event(id = "yesterday", summary = "Veille", allDay = true, startDate = "${today.minusDays(1)}", endDate = "$today"),
                 Event(id = "in3", summary = "Plus tard", allDay = true, startDate = "${today.plusDays(3)}", endDate = "${today.plusDays(4)}"),
-            ),
-        )
+            )
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -176,6 +194,7 @@ class DashboardViewModelTest {
         viewModel.toggleTaskDone("t1", true)
         advanceUntilIdle()
 
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 2) { taskRepository.getUndoneTasks(any()) }
+        coVerify(exactly = 0) { eventRepository.loadPeriod(any(), true) }
     }
 }

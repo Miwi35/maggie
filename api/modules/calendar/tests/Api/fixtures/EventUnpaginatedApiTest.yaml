@@ -1,0 +1,41 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Agenda:
+  test_agenda:
+    name: Test Agenda
+    isDefault: true
+    user: '@test_user'
+  other_agenda:
+    name: Other Agenda
+    isDefault: true
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Event:
+  # 37 events in March 2037: one more page than the 30 the API serves by default.
+  event_{1..37}:
+    summary: 'Event <current()>'
+    startAt: '<(new \DateTimeImmutable("2037-03-10 08:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-10 08:30"))>'
+    agenda: '@test_agenda'
+
+  # Outside the period asked.
+  outside_period:
+    summary: Outside
+    startAt: '<(new \DateTimeImmutable("2037-05-10 08:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-05-10 09:00"))>'
+    agenda: '@test_agenda'
+
+  # Someone else's, inside the period.
+  strangers_event:
+    summary: Stranger
+    startAt: '<(new \DateTimeImmutable("2037-03-10 09:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-10 10:00"))>'
+    agenda: '@other_agenda'

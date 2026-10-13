@@ -66,6 +66,7 @@ import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.accept
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -75,7 +76,6 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
@@ -110,15 +110,7 @@ data class PlannedMealRef(val date: String, val slot: String)
 data class RecipeDeletionImpact(val mealCount: Int = 0, val meals: List<PlannedMealRef> = emptyList())
 
 @Serializable
-data class ApiCollection<T>(
-    val member: List<T> = emptyList(),
-    val totalItems: Int? = null,
-    val view: ApiCollectionView? = null,
-)
-
-/** Hydra's partial-collection view: [next] is the IRI of the following page, absent on the last one. */
-@Serializable
-data class ApiCollectionView(val next: String? = null)
+data class ApiCollection<T>(val member: List<T> = emptyList(), val totalItems: Int? = null)
 
 /**
  * A timed event sends [startAt]/[endAt], an all-day one [startDate]/[endDate]
@@ -539,45 +531,29 @@ class MaggieApiService(
     private companion object {
         // The next request waits for the interruption to be recorded: it must not wait forever.
         const val INTERRUPT_TIMEOUT_MS = 5_000L
-
-        // API Platform serves 30 members a page. A runaway `view.next` must not loop for ever.
-        const val MAX_PAGES = 100
     }
 
     /**
-     * Reads a whole collection: [firstPage] is the request as the caller builds it, and every
-     * `view.next` after it is followed to the end. Stopping at the first page dropped the 31st
-     * event from the agenda (MAG-430).
+     * Asks for the whole collection in one response. API Platform serves 30 members a page and the
+     * app reads no further, so a displayed list (the agenda, the tasks...) lost its 31st item
+     * (MAG-430). Infinite-scroll screens do not call this.
      */
-    private suspend inline fun <reified T> allPages(firstPage: () -> HttpResponse): List<T> {
-        var page = firstPage().body<ApiCollection<T>>()
-        val members = page.member.toMutableList()
-        val seen = mutableSetOf<String>()
-        while (seen.size < MAX_PAGES - 1) {
-            val next = page.view?.next ?: break
-            if (!seen.add(next)) break
-            page = client.get(absolute(next)) {
-                accept(ContentType("application", "ld+json"))
-            }.body<ApiCollection<T>>()
-            members += page.member
-        }
-        return members
+    private fun HttpRequestBuilder.withoutPagination() {
+        url.parameters.append("pagination", "false")
     }
 
-    private fun absolute(iri: String): String =
-        if (iri.startsWith("http://") || iri.startsWith("https://")) iri else "$baseUrl$iri"
-
-    suspend fun getEvents(
-        afterDate: String? = null,
-        beforeDate: String? = null,
-    ): List<Event> {
-        return allPages {
-            client.get("$baseUrl/api/events") {
-                accept(ContentType("application", "ld+json"))
-                afterDate?.let { url.parameters.append("startAt[after]", it) }
-                beforeDate?.let { url.parameters.append("endAt[before]", it) }
-            }
-        }
+    /**
+     * The events that overlap the period: [periodStart] and [periodEnd] are ISO-8601 instants with
+     * their offset (`2026-10-01T00:00:00+02:00`). An event belongs to the period when it ends
+     * after it starts and starts before it ends.
+     */
+    suspend fun getEvents(periodStart: String, periodEnd: String): List<Event> {
+        return client.get("$baseUrl/api/events") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("endAt[after]", periodStart)
+            url.parameters.append("startAt[before]", periodEnd)
+        }.body<ApiCollection<Event>>().member
     }
 
     suspend fun getEvent(id: String): Event {
@@ -587,13 +563,12 @@ class MaggieApiService(
     }
 
     suspend fun getRecurringEventsBefore(before: String): List<Event> {
-        return allPages {
-            client.get("$baseUrl/api/events") {
-                accept(ContentType("application", "ld+json"))
-                url.parameters.append("exists[rrule]", "true")
-                url.parameters.append("startAt[strictly_before]", before)
-            }
-        }
+        return client.get("$baseUrl/api/events") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("exists[rrule]", "true")
+            url.parameters.append("startAt[strictly_before]", before)
+        }.body<ApiCollection<Event>>().member
     }
 
     suspend fun createEvent(request: EventCreateRequest): Event {
@@ -617,11 +592,10 @@ class MaggieApiService(
     }
 
     suspend fun getTasks(): List<Task> {
-        return allPages {
-            client.get("$baseUrl/api/tasks") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Task>>().member
     }
 
     suspend fun getTask(id: String): Task {
@@ -631,23 +605,21 @@ class MaggieApiService(
     }
 
     suspend fun getUndoneTasks(dueDateBefore: String? = null): List<Task> {
-        return allPages {
-            client.get("$baseUrl/api/tasks") {
-                accept(ContentType("application", "ld+json"))
-                url.parameters.append("exists[completedAt]", "false")
-                dueDateBefore?.let { url.parameters.append("dueDate[before]", it) }
-            }
-        }
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("exists[completedAt]", "false")
+            dueDateBefore?.let { url.parameters.append("dueDate[before]", it) }
+        }.body<ApiCollection<Task>>().member
     }
 
     suspend fun getUndoneUndatedTasks(): List<Task> {
-        return allPages {
-            client.get("$baseUrl/api/tasks") {
-                accept(ContentType("application", "ld+json"))
-                url.parameters.append("exists[completedAt]", "false")
-                url.parameters.append("exists[dueDate]", "false")
-            }
-        }
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("exists[completedAt]", "false")
+            url.parameters.append("exists[dueDate]", "false")
+        }.body<ApiCollection<Task>>().member
     }
 
     suspend fun createTask(request: TaskCreateRequest): Task {
@@ -671,11 +643,16 @@ class MaggieApiService(
     }
 
     suspend fun getAgendas(): List<Agenda> {
-        return allPages {
-            client.get("$baseUrl/api/agendas") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/agendas") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Agenda>>().member
+    }
+
+    suspend fun getAgenda(id: String): Agenda {
+        return client.get("$baseUrl/api/agendas/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
     }
 
     suspend fun createAgenda(request: AgendaCreateRequest): Agenda {
@@ -924,11 +901,10 @@ class MaggieApiService(
 
     // Recipes
     suspend fun getRecipes(): List<Recipe> {
-        return allPages {
-            client.get("$baseUrl/api/recipes") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/recipes") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Recipe>>().member
     }
 
     suspend fun getRecipe(id: String): Recipe {
@@ -965,11 +941,10 @@ class MaggieApiService(
 
     // Ingredients
     suspend fun getIngredients(): List<Ingredient> {
-        return allPages {
-            client.get("$baseUrl/api/ingredients") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/ingredients") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Ingredient>>().member
     }
 
     suspend fun createIngredient(request: IngredientCreateRequest): Ingredient {
@@ -989,21 +964,15 @@ class MaggieApiService(
     }
 
     // Meals
-    /**
-     * [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. A month
-     * holds up to 62 meals: the page size is raised to the API's maximum, else the
-     * default of 30 cuts the end of the month off.
-     */
+    /** [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. */
     suspend fun getMeals(fromDay: String? = null, toDay: String? = null): List<Meal> {
-        return allPages {
-            client.get("$baseUrl/api/meals") {
-                accept(ContentType("application", "ld+json"))
-                url.parameters.append("itemsPerPage", "100")
-                url.parameters.append("order[date]", "asc")
-                fromDay?.let { url.parameters.append("date[after]", it) }
-                toDay?.let { url.parameters.append("date[before]", it) }
-            }
-        }
+        return client.get("$baseUrl/api/meals") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("order[date]", "asc")
+            fromDay?.let { url.parameters.append("date[after]", it) }
+            toDay?.let { url.parameters.append("date[before]", it) }
+        }.body<ApiCollection<Meal>>().member
     }
 
     suspend fun createMeal(request: MealCreateRequest): Meal {
@@ -1035,11 +1004,10 @@ class MaggieApiService(
 
     // Grocery Lists
     suspend fun getGroceryLists(): List<GroceryList> {
-        return allPages {
-            client.get("$baseUrl/api/grocery_lists") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/grocery_lists") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<GroceryList>>().member
     }
 
     suspend fun getGroceryList(id: String): GroceryList {
@@ -1062,11 +1030,10 @@ class MaggieApiService(
 
     // Recurring Grocery Items
     suspend fun getRecurringGroceryItems(): List<RecurringGroceryItem> {
-        return allPages {
-            client.get("$baseUrl/api/recurring_grocery_items") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/recurring_grocery_items") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<RecurringGroceryItem>>().member
     }
 
     suspend fun createRecurringGroceryItem(request: RecurringGroceryItemCreateRequest): RecurringGroceryItem {
@@ -1083,11 +1050,10 @@ class MaggieApiService(
 
     // Products
     suspend fun getProducts(): List<Product> {
-        return allPages {
-            client.get("$baseUrl/api/products") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/products") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Product>>().member
     }
 
     suspend fun createProduct(request: ProductCreateRequest): Product {
@@ -1104,11 +1070,10 @@ class MaggieApiService(
 
     // Stores
     suspend fun getStores(): List<Store> {
-        return allPages {
-            client.get("$baseUrl/api/stores") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/stores") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Store>>().member
     }
 
     suspend fun createStore(request: StoreCreateRequest): Store {
@@ -1125,11 +1090,10 @@ class MaggieApiService(
 
     // Finance — Accounts
     suspend fun getAccounts(): List<Account> {
-        return allPages {
-            client.get("$baseUrl/api/accounts") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/accounts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Account>>().member
     }
 
     suspend fun createAccount(request: AccountCreateRequest): Account {
@@ -1146,11 +1110,10 @@ class MaggieApiService(
 
     // Finance — Categories
     suspend fun getCategories(): List<Category> {
-        return allPages {
-            client.get("$baseUrl/api/categories") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/categories") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Category>>().member
     }
 
     // The client does not `expectSuccess`: a 422 body would fail to decode as a Category
@@ -1192,17 +1155,15 @@ class MaggieApiService(
 
     // Finance — Transactions
     suspend fun getTransactions(accountId: String? = null): List<Transaction> {
-        return allPages {
-            client.get("$baseUrl/api/transactions") {
-                accept(ContentType("application", "ld+json"))
-                url.parameters.append("order[bookedAt]", "desc")
-                // "account", not "accountId": API Platform names a relation
-                // filter after the property, and takes the IRI the provider hands
-                // out. "accountId" was declared nowhere, so it was dropped and
-                // every account showed the full transaction list.
-                accountId?.let { url.parameters.append("account", "/api/accounts/$it") }
-            }
-        }
+        return client.get("$baseUrl/api/transactions") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("order[bookedAt]", "desc")
+            // "account", not "accountId": API Platform names a relation
+            // filter after the property, and takes the IRI the provider hands
+            // out. "accountId" was declared nowhere, so it was dropped and
+            // every account showed the full transaction list.
+            accountId?.let { url.parameters.append("account", "/api/accounts/$it") }
+        }.body<ApiCollection<Transaction>>().member
     }
 
     /** The account's rejected payments, one line each; the transaction list leaves them out (MAG-375). */
@@ -1241,11 +1202,10 @@ class MaggieApiService(
 
     // Finance — Envelopes (budgets)
     suspend fun getEnvelopes(): List<Envelope> {
-        return allPages {
-            client.get("$baseUrl/api/envelopes") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/envelopes") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Envelope>>().member
     }
 
     suspend fun createEnvelope(request: EnvelopeCreateRequest): Envelope {
@@ -1283,11 +1243,10 @@ class MaggieApiService(
 
     // Finance — Loans
     suspend fun getLoans(): List<Loan> {
-        return allPages {
-            client.get("$baseUrl/api/loans") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/loans") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<Loan>>().member
     }
 
     suspend fun createLoan(request: LoanCreateRequest): Loan {
@@ -1342,11 +1301,10 @@ class MaggieApiService(
 
     // Finance — Categorization rules
     suspend fun getCategorizationRules(): List<CategorizationRule> {
-        return allPages {
-            client.get("$baseUrl/api/categorization_rules") {
-                accept(ContentType("application", "ld+json"))
-            }
-        }
+        return client.get("$baseUrl/api/categorization_rules") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.body<ApiCollection<CategorizationRule>>().member
     }
 
     /**
@@ -1520,14 +1478,13 @@ class MaggieApiService(
 
     // Notifications
     suspend fun getNotifications(unreadOnly: Boolean = false): List<Notification> {
-        return allPages {
-            client.get("$baseUrl/api/notifications") {
-                accept(ContentType("application", "ld+json"))
-                if (unreadOnly) {
-                    url.parameters.append("exists[readAt]", "false")
-                }
+        return client.get("$baseUrl/api/notifications") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            if (unreadOnly) {
+                url.parameters.append("exists[readAt]", "false")
             }
-        }
+        }.body<ApiCollection<Notification>>().member
     }
 
     suspend fun markNotificationRead(id: String): Notification {

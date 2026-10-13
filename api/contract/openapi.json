@@ -90,6 +90,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -504,6 +516,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -997,6 +1021,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -1411,6 +1447,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -1831,6 +1879,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -2245,6 +2305,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -2809,6 +2881,18 @@
                         "explode": false
                     },
                     {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "order[createdAt]",
                         "in": "query",
                         "description": "",
@@ -2976,6 +3060,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -3413,6 +3509,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -3827,6 +3935,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -4456,6 +4576,18 @@
                         "explode": false
                     },
                     {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "exists[readAt]",
                         "in": "query",
                         "description": "",
@@ -4802,6 +4934,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -5241,6 +5385,18 @@
                         "explode": false
                     },
                     {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "order[name]",
                         "in": "query",
                         "description": "",
@@ -5673,6 +5829,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -6087,6 +6255,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -6563,6 +6743,18 @@
                         "explode": false
                     },
                     {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "order[name]",
                         "in": "query",
                         "description": "",
@@ -6992,6 +7184,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -7586,6 +7790,18 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false

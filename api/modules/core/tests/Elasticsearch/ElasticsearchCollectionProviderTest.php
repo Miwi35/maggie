@@ -2,12 +2,112 @@
 
 namespace Maggie\Core\Tests\Elasticsearch;
 
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\State\ProviderInterface;
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Event;
+use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Pagination\ElasticsearchPaginator;
 use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class ElasticsearchCollectionProviderTest extends TestCase
 {
+    use RecordingElasticsearchTrait;
+
+    /**
+     * @param array<string, mixed> $filters
+     *
+     * @return array<string, mixed>|object the provider's answer, with the request it sent in $this->requests
+     */
+    private function provide(array $filters, int $total, ?bool $clientEnabled = true, ?LoggerInterface $logger = null): mixed
+    {
+        $hit = static fn (string $id): array => [
+            '_id' => $id,
+            '_source' => ['summary' => 'Event '.$id, 'startAt' => '2037-01-01T10:00:00+00:00'],
+        ];
+        $client = $this->recordingClient(static fn (): array => [200, [
+            'hits' => ['total' => ['value' => $total], 'hits' => [
+                $hit('01J00000000000000000000001'),
+                $hit('01J00000000000000000000002'),
+            ]],
+        ]]);
+
+        $user = new User();
+        $security = $this->createStub(Security::class);
+        $security->method('getUser')->willReturn($user);
+
+        $provider = new ElasticsearchCollectionProvider(
+            $client,
+            new IndexMetadataReader(),
+            new ElasticsearchEntityHydrator($this->createStub(EntityManagerInterface::class)),
+            new ElasticsearchFilterTranslator(),
+            $security,
+            $logger ?? $this->createStub(LoggerInterface::class),
+            $this->createStub(ProviderInterface::class),
+        );
+
+        return $provider->provide(
+            new GetCollection(class: Event::class, paginationClientEnabled: $clientEnabled, paginationItemsPerPage: 30),
+            [],
+            ['filters' => $filters],
+        );
+    }
+
+    public function testPaginationFalseAsksTheWholeResultWindowAndReturnsAnArray(): void
+    {
+        $result = $this->provide(['pagination' => 'false', 'page' => '2'], 2);
+
+        self::assertIsArray($result);
+        self::assertCount(2, $result);
+        $body = $this->lastRequestBody();
+        self::assertSame(10000, $body['size']);
+        self::assertSame(0, $body['from']);
+    }
+
+    public function testPaginationZeroIsTheSameAsFalse(): void
+    {
+        self::assertIsArray($this->provide(['pagination' => '0'], 2));
+        self::assertSame(10000, $this->lastRequestBody()['size']);
+    }
+
+    public function testWithoutThePaginationParameterThePageIsServed(): void
+    {
+        $result = $this->provide(['page' => '2'], 45);
+
+        self::assertInstanceOf(ElasticsearchPaginator::class, $result);
+        $body = $this->lastRequestBody();
+        self::assertSame(30, $body['size']);
+        self::assertSame(30, $body['from']);
+    }
+
+    public function testPaginationTrueKeepsThePage(): void
+    {
+        self::assertInstanceOf(ElasticsearchPaginator::class, $this->provide(['pagination' => 'true'], 45));
+    }
+
+    public function testPaginationFalseIsIgnoredWhenTheClientMayNotAskIt(): void
+    {
+        self::assertInstanceOf(ElasticsearchPaginator::class, $this->provide(['pagination' => 'false'], 45, clientEnabled: false));
+        self::assertSame(30, $this->lastRequestBody()['size']);
+    }
+
+    public function testAnAnswerCutByTheResultWindowIsLogged(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(
+            self::anything(),
+            self::callback(static fn (array $context): bool => 'es_collection_truncated' === $context['event']),
+        );
+
+        self::assertIsArray($this->provide(['pagination' => 'false'], 10001, logger: $logger));
+    }
+
     public function testFilterTranslatorHandlesDateFilters(): void
     {
         $translator = new ElasticsearchFilterTranslator();
