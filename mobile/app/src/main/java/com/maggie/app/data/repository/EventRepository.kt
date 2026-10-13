@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
 import java.time.Clock
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 
@@ -58,8 +59,9 @@ class EventRepository(
 
         eventDao.upsertAll(fetched.map { EventEntity.fromModel(it) })
         // What the server no longer has for this period, and only for it: the rest of the cache was not asked about.
-        eventDao.getSyncedIdsOfPeriod(firstDay, endDay)
-            .filter { it !in fetchedIds }
+        eventDao.getSynced()
+            .filter { it.id !in fetchedIds && it.answeredFor(period) }
+            .map { it.id }
             .chunked(DELETE_CHUNK)
             .forEach { eventDao.deleteSyncedByIds(it) }
         eventDao.deleteFetchedPeriodsBefore(validSince)
@@ -130,6 +132,25 @@ class EventRepository(
         apiService.deleteEvent(id)
         eventDao.deleteById(id)
     }
+}
+
+/**
+ * Whether a read of [period] answers for this event: the rule of the request itself — it meets the
+ * period (it ends after its start and starts before its end), or it recurs and started before its
+ * end — computed on instants, since the API spells them in UTC and the period is made of Paris days.
+ */
+private fun EventEntity.answeredFor(period: DayPeriod): Boolean {
+    val range = period.asRange()
+    if (allDay) {
+        val first = startDate?.let(LocalDate::parse) ?: return false
+        if (rrule != null) return first < period.endDay
+        val end = endDate?.let(LocalDate::parse) ?: first.plusDays(1)
+        return first < period.endDay && end > period.firstDay
+    }
+    val start = startAt?.let { OffsetDateTime.parse(it).toInstant() } ?: return false
+    if (rrule != null) return start < range.end
+    val end = endAt?.let { OffsetDateTime.parse(it).toInstant() } ?: start
+    return start < range.end && end > range.start
 }
 
 // SQLite caps the variables of one statement at 999.

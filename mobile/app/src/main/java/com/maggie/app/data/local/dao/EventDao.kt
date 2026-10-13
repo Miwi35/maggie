@@ -33,17 +33,8 @@ interface EventDao {
     @Query("DELETE FROM events WHERE id IN (:ids) AND syncStatus = :status")
     suspend fun deleteSyncedByIds(ids: List<String>, status: SyncStatus = SyncStatus.SYNCED)
 
-    /**
-     * The synced events a read of [firstDay]..[endDay] (excluded) answers for: those starting in the
-     * period, and the recurring ones started before its end. Days are the first ten characters of
-     * the start, as the API spells them.
-     */
-    @Query(
-        "SELECT id FROM events WHERE syncStatus = 'SYNCED' AND (" +
-            "(substr(COALESCE(startAt, startDate), 1, 10) >= :firstDay AND substr(COALESCE(startAt, startDate), 1, 10) < :endDay)" +
-            " OR (rrule IS NOT NULL AND substr(COALESCE(startAt, startDate), 1, 10) < :endDay))",
-    )
-    suspend fun getSyncedIdsOfPeriod(firstDay: String, endDay: String): List<String>
+    @Query("SELECT * FROM events WHERE syncStatus = 'SYNCED'")
+    suspend fun getSynced(): List<EventEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertFetchedPeriod(period: FetchedPeriodEntity)

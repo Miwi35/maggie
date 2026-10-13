@@ -162,7 +162,30 @@ class EventPeriodCacheTest {
     }
 
     @Test
-    fun `a recurring event the server still returns survives the re-read`() = runBlocking {
+    fun `an event just after midnight in Paris on the next period's first day is not dropped by this period's re-read`() = runBlocking {
+        // Monday 6 July 00:30 in Paris is Sunday 5 July 22:30 in UTC: the day prefix says the 5th, the period ends on the 6th.
+        val lateNight = Event(id = "late", summary = "Nuit", startAt = "2026-07-05T22:30:00+00:00", endAt = "2026-07-05T23:30:00+00:00")
+        dao.upsertAll(listOf(EventEntity.fromModel(lateNight)))
+
+        events.loadPeriod(june)
+
+        assertEquals(listOf("late"), cachedIds())
+    }
+
+    @Test
+    fun `an event that began before the period and meets it is dropped when the server no longer has it`() = runBlocking {
+        val holiday = Event(id = "holiday", summary = "Congés", allDay = true, startDate = "2026-05-28", endDate = "2026-06-03")
+        val ending = Event(id = "ending", summary = "Séminaire", startAt = "2026-05-31T20:00:00+00:00", endAt = "2026-06-01T10:00:00+00:00")
+        val before = Event(id = "before", summary = "Avant", startAt = "2026-05-31T20:00:00+00:00", endAt = "2026-05-31T21:00:00+00:00")
+        dao.upsertAll(listOf(holiday, ending, before).map { EventEntity.fromModel(it) })
+
+        events.loadPeriod(june)
+
+        assertEquals(listOf("before"), cachedIds())
+    }
+
+    @Test
+    fun `a recurring event the server no longer returns is dropped by the re-read`() = runBlocking {
         val weekly = Event(id = "weekly", summary = "Sport", startAt = "2026-01-05T18:00:00Z", endAt = "2026-01-05T19:00:00Z", rrule = "FREQ=WEEKLY")
         coEvery { api.getRecurringEventsBefore(any()) } returns listOf(weekly)
         events.loadPeriod(june)

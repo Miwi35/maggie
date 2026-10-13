@@ -31,8 +31,7 @@ class AgendaRepository(
 
     suspend fun refreshAgendas(): Result<List<Agenda>> = runCatching {
         val serverAgendas = apiService.getAgendas()
-        agendaDao.deleteAll()
-        agendaDao.upsertAll(serverAgendas.map { AgendaEntity.fromModel(it) })
+        agendaDao.replaceAll(serverAgendas.map { AgendaEntity.fromModel(it) })
         lastReadAt = clock.millis()
         serverAgendas
     }

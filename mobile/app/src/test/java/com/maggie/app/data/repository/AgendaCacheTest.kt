@@ -55,6 +55,16 @@ class AgendaCacheTest {
     }
 
     @Test
+    fun `a full read replaces the table in one step, so an observer never sees it empty`() = runTest {
+        coEvery { api.getAgendas() } returns listOf(work)
+
+        agendas.refreshAgendas()
+
+        coVerify(exactly = 1) { dao.replaceAll(match { it.single().id == "W" }) }
+        coVerify(exactly = 0) { dao.deleteAll() }
+    }
+
+    @Test
     fun `a push puts the agenda in the cache, a delete push removes it and names it`() = runTest {
         coEvery { api.getAgenda("W") } returns work
 
