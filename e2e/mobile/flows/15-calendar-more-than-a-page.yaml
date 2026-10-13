@@ -1,0 +1,57 @@
+appId: com.maggie.app.e2e
+name: 15-calendar-more-than-a-page
+tags:
+  - calendar
+---
+# The API serves a collection 30 at a time and the app read the first page only: three
+# sessions of a month with more than 30 events were in the database, in the index and in
+# Google, and missing from the phone (MAG-430).
+#
+# Thirty-seven events are written over HTTP in next month, before the app is launched
+# (`event-api.js`, create-burst): with the seeded ones, well past one page. The last three
+# are alone on their day, the 24th to the 26th, and were created last, so they come on the
+# page the app used to ignore. The flow opens the month after the anchor's and expects all
+# three. It is written here and not in the seed because 37 more events would crowd every
+# other journey's calendar.
+
+- evalScript: ${output.nextMonthIndex = Number(TODAY.substring(5, 7)) % 12 + 1}
+- evalScript: "${output.nextYear = Number(TODAY.substring(0, 4)) + (output.nextMonthIndex === 1 ? 1 : 0)}"
+- evalScript: "${output.month = output.nextYear + '-' + (output.nextMonthIndex < 10 ? '0' : '') + output.nextMonthIndex}"
+
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: create-burst
+      MONTH: ${output.month}
+      COUNT: "37"
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/15-calendar-more-than-a-page.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+- tapOn:
+    id: "calendar_view_month"
+
+- tapOn:
+    id: "calendar_next"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_month_slot_${output.month}-24_.*"
+      text: ".*Séance MAG-430 35.*"
+    timeout: 30000
+
+- assertVisible:
+    id: "calendar_month_slot_${output.month}-25_.*"
+    text: ".*Séance MAG-430 36.*"
+
+- assertVisible:
+    id: "calendar_month_slot_${output.month}-26_.*"
+    text: ".*Séance MAG-430 37.*"

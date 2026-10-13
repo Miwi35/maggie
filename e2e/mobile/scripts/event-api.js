@@ -8,8 +8,10 @@
 // deletion really happened once the card is gone from the screen.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION    create | expect
+//   ACTION    create | create-burst | expect
 //   SUMMARY   create: the event's title
+//   MONTH     create-burst: the month to fill, `YYYY-MM`
+//   COUNT     create-burst: how many events, at least 3 (see below)
 //   EVENT_ID  expect: the id `create` returned
 //   STATE     expect: present | absent
 //   EMAIL     the account, default the one the app signs in as (e2e@maggie.local)
@@ -34,7 +36,7 @@ const authorized = function (extra) {
   return Object.assign({ Authorization: 'Bearer ' + token }, extra || {})
 }
 
-if (ACTION === 'create') {
+function persoAgenda() {
   const agendas = http.get(base + '/api/agendas', {
     headers: authorized({ Accept: 'application/ld+json' }),
   })
@@ -47,6 +49,37 @@ if (ACTION === 'create') {
   if (!perso) {
     fail('the account has no "Perso" agenda — did the seed run?')
   }
+  return perso
+}
+
+if (ACTION === 'create-burst') {
+  // More events than one API page holds (30), inside the window the app loads (MAG-430).
+  // All but the last three are filler, three a day from the 10th. The last three, created
+  // last and so served last, sit alone on the 24th, 25th and 26th: those are what the
+  // journey looks for. From the 10th on, so that none lands in the dashboard's week.
+  const perso = persoAgenda()
+  const count = Number(COUNT)
+  for (let i = 1; i <= count; i++) {
+    const witness = i > count - 3
+    const day = witness ? 24 + (i - (count - 3) - 1) : 10 + Math.floor((i - 1) / 3)
+    const hour = witness ? 9 : 8 + ((i - 1) % 3)
+    const date = MONTH + '-' + (day < 10 ? '0' + day : day)
+    const created = http.post(base + '/api/events', {
+      headers: authorized({ 'Content-Type': 'application/json', Accept: 'application/ld+json' }),
+      body: JSON.stringify({
+        summary: 'Séance MAG-430 ' + i,
+        startAt: date + 'T0' + hour + ':00:00Z',
+        endAt: date + 'T0' + hour + ':30:00Z',
+        timeZone: 'Europe/Paris',
+        agenda: '/api/agendas/' + perso.id,
+      }),
+    })
+    if (!created.ok) {
+      fail('POST /api/events #' + i + ' answered ' + created.status + ': ' + created.body)
+    }
+  }
+} else if (ACTION === 'create') {
+  const perso = persoAgenda()
   const created = http.post(base + '/api/events', {
     headers: authorized({ 'Content-Type': 'application/json', Accept: 'application/ld+json' }),
     body: JSON.stringify({
