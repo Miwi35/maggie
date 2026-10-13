@@ -60,6 +60,22 @@ Maggie\Calendar\Entity\Task:
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
     user: '@filter_user'
 
+  filter_second_subtask:
+    title: Second subtask
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    parent: '@filter_open_undated_task'
+    position: '00000000000000000002'
+    user: '@filter_user'
+
+  filter_first_subtask:
+    title: First subtask
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    parent: '@filter_open_undated_task'
+    position: '00000000000000000001'
+    user: '@filter_user'
+
 Maggie\Notification\Entity\Notification:
   filter_unread_notification:
     user: '@filter_user'

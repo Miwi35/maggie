@@ -77,6 +77,17 @@ Maggie\Calendar\Entity\Task:
     priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
     dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
+    position: '00000000000000000000'
+    user: '@recorded_user'
+
+  # A subtask as Google sends one (MAG-404): its parent, its place, a link.
+  recorded_subtask:
+    title: Recorded subtask
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    parent: '@recorded_open_task'
+    position: '00000000000000000001'
+    links: [{type: email, description: 'Le mail du déménageur', link: 'https://mail.google.com/mail/#all/abc'}]
     user: '@recorded_user'
 
   recorded_done_task:

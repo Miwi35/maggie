@@ -2,13 +2,13 @@
 
 namespace Maggie\Calendar\Mcp\Tool;
 
-use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope.')]
+#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Each task has parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD.')]
 class GetTasksTool
 {
     public function __construct(
@@ -35,16 +35,7 @@ class GetTasksTool
             default => $this->taskRepository->findPending($user),
         };
 
-        $result = array_map(fn (Task $task) => [
-            'id' => (string) $task->getId(),
-            'title' => $task->getTitle(),
-            'description' => $task->getDescription(),
-            'priority' => $task->getPriority()->value,
-            'criticality' => $task->getCriticality()->value,
-            'dueDate' => $task->getDueDate()?->format('c'),
-            'isDone' => $task->isDone(),
-            'completedAt' => $task->getCompletedAt()?->format('c'),
-        ], $tasks);
+        $result = array_map(TaskJson::of(...), $tasks);
 
         return json_encode(['status' => $status, 'tasks' => $result, 'count' => count($result)], JSON_THROW_ON_ERROR);
     }

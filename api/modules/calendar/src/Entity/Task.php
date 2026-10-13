@@ -7,6 +7,7 @@ use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -31,7 +32,11 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Doctrine\Filter\UlidRelationFilter;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Core\Serializer\StrictDayNormalizer;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -41,7 +46,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
 #[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
-#[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality', 'position'])]
+#[ApiFilter(UlidRelationFilter::class, properties: ['parent'])]
 #[Indexed(index: 'tasks', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -81,13 +87,57 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[IndexedField(type: 'keyword')]
     private TaskCriticality $criticality = TaskCriticality::Low;
 
-    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    /**
+     * A day, as Google Tasks has it: its API keeps no time of day (MAG-404).
+     * The index keeps the default date formats, which a day goes through.
+     */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
+    #[ApiProperty(
+        description: 'The day the task is due, YYYY-MM-DD.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
+    )]
+    #[Context(
+        normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'],
+        denormalizationContext: [DateTimeNormalizer::FORMAT_KEY => StrictDayNormalizer::DAY_FORMAT],
+    )]
     private ?\DateTimeImmutable $dueDate = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $completedAt = null;
+
+    /** The task this one is a subtask of. One level only, as on Google: a subtask has no subtask. */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[IndexedRelation(targetEntity: self::class, sourceField: 'parentId')]
+    #[ApiProperty(description: 'The task this one is a subtask of. A subtask cannot have subtasks.')]
+    private ?self $parent = null;
+
+    /**
+     * Google's manual order among the siblings: a string compared as is,
+     * twenty digits on Google. Left empty, a new task goes after its siblings.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[Assert\Length(max: 64)]
+    #[ApiProperty(description: 'The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.')]
+    private ?string $position = null;
+
+    /**
+     * What Google attached to the task (an email it came from, a document),
+     * read from Google and never written back: its API cannot.
+     *
+     * @var list<array{type: string, description: string, link: string}>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    #[IndexedField(type: 'object', properties: [
+        'type' => ['type' => 'keyword'],
+        'description' => ['type' => 'text'],
+        'link' => ['type' => 'keyword', 'index' => false],
+    ])]
+    #[ApiProperty(writable: false, description: 'Links Google attached to the task, read only: {type, description, link}.')]
+    private array $links = [];
 
     public function __construct()
     {
@@ -183,6 +233,44 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return $this;
     }
 
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    public function setParent(?self $parent): static
+    {
+        $this->parent = $parent;
+
+        return $this;
+    }
+
+    public function getPosition(): ?string
+    {
+        return $this->position;
+    }
+
+    public function setPosition(?string $position): static
+    {
+        $this->position = $position;
+
+        return $this;
+    }
+
+    /** @return list<array{type: string, description: string, link: string}> */
+    public function getLinks(): array
+    {
+        return $this->links;
+    }
+
+    /** @param list<array{type: string, description: string, link: string}> $links */
+    public function setLinks(array $links): static
+    {
+        $this->links = $links;
+
+        return $this;
+    }
+
     public function isDone(): bool
     {
         return null !== $this->completedAt;
@@ -194,8 +282,11 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return [
             'title' => $this->title,
             'description' => $this->description,
-            'dueDate' => $this->dueDate?->format('c'),
+            'dueDate' => $this->dueDate?->format('Y-m-d'),
             'completedAt' => $this->completedAt?->format('c'),
+            'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
+            'position' => $this->position,
+            'links' => $this->links,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'userId' => (string) $this->user->getId(),
@@ -208,8 +299,11 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'title' => $this->title,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
-            'dueDate' => $this->dueDate?->format('c'),
+            'dueDate' => $this->dueDate?->format('Y-m-d'),
             'isDone' => $this->isDone(),
+            'parent' => null !== $this->parent ? '/api/tasks/'.$this->parent->getId() : null,
+            'position' => $this->position,
+            'links' => $this->links,
         ], $changedProperties, ['completedAt' => 'isDone']);
     }
 }

@@ -286,13 +286,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "parentId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "title"
             ]
         },
-        "description": "Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD."
+        "description": "Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only)."
     },
     "delete_event": {
         "name": "delete_event",
@@ -543,7 +550,7 @@
                 }
             }
         },
-        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope."
+        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Each task has parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD."
     },
     "get_upcoming_events": {
         "name": "get_upcoming_events",
@@ -2378,12 +2385,26 @@
                         "null"
                     ],
                     "default": null
+                },
+                "parentId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "position": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "id"
             ]
         },
-        "description": "Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. To empty an optional field, list its name in clear (description, dueDate)."
+        "description": "Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again)."
     }
 }

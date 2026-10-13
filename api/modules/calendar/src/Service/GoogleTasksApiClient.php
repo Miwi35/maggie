@@ -74,11 +74,32 @@ class GoogleTasksApiClient
         return $allTasks;
     }
 
-    public function insertTask(User $user, string $taskListId, GoogleTask $task): GoogleTask
+    /**
+     * @param ?string $parent   the Google id of the parent, for a subtask
+     * @param ?string $previous the Google id of the sibling it goes after; first when null
+     */
+    public function insertTask(User $user, string $taskListId, GoogleTask $task, ?string $parent = null, ?string $previous = null): GoogleTask
     {
         $service = $this->getTasksService($user);
 
-        return $service->tasks->insert($taskListId, $task);
+        return $service->tasks->insert($taskListId, $task, self::placement($parent, $previous));
+    }
+
+    /**
+     * Where a task sits — under which parent, after which sibling. Google
+     * keeps both out of insert's body and patch's: only move changes them.
+     */
+    public function moveTask(User $user, string $taskListId, string $taskId, ?string $parent, ?string $previous): GoogleTask
+    {
+        $service = $this->getTasksService($user);
+
+        return $service->tasks->move($taskListId, $taskId, self::placement($parent, $previous));
+    }
+
+    /** @return array<string, string> */
+    private static function placement(?string $parent, ?string $previous): array
+    {
+        return array_filter(['parent' => $parent, 'previous' => $previous], static fn (?string $id): bool => null !== $id);
     }
 
     public function updateTask(User $user, string $taskListId, string $taskId, GoogleTask $task): GoogleTask

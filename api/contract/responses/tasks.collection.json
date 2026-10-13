@@ -2,7 +2,7 @@
     "@context": "/api/contexts/Task",
     "@id": "/api/tasks",
     "@type": "Collection",
-    "totalItems": 2,
+    "totalItems": 3,
     "member": [
         {
             "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -13,7 +13,29 @@
             "description": "A task with a due date and no completion",
             "priority": "high",
             "criticality": "high",
-            "dueDate": "2026-03-20T10:00:00+00:00",
+            "dueDate": "2026-03-20",
+            "position": "00000000000000000000",
+            "links": [],
+            "done": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded subtask",
+            "priority": "medium",
+            "criticality": "low",
+            "parent": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "position": "00000000000000000001",
+            "links": [
+                {
+                    "type": "email",
+                    "description": "Le mail du déménageur",
+                    "link": "https://mail.google.com/mail/#all/abc"
+                }
+            ],
             "done": false,
             "googleSynced": false
         },
@@ -26,13 +48,14 @@
             "priority": "low",
             "criticality": "low",
             "completedAt": "2026-03-19T10:00:00+00:00",
+            "links": [],
             "done": true,
             "googleSynced": false
         }
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality]}",
+        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality],order[position],parent}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -111,6 +134,18 @@
                 "@type": "IriTemplateMapping",
                 "variable": "order[criticality]",
                 "property": "criticality",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[position]",
+                "property": "position",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "parent",
+                "property": "parent",
                 "required": false
             }
         ]

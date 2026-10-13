@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
+use Google\Service\Tasks\Task as GoogleTask;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
@@ -80,6 +81,10 @@ class GoogleTasksSyncService
 
         // Track which Google IDs we've seen
         $seenGoogleIds = [];
+        /** @var array<string, Task> $mapped the tasks read this pull, by Google ID */
+        $mapped = [];
+        /** @var array<string, ?string> $googleParents their parent's Google ID */
+        $googleParents = [];
         $changedTaskIds = [];
         $removedTaskIds = [];
 
@@ -117,12 +122,23 @@ class GoogleTasksSyncService
 
             $task = $this->taskMapper->fromGoogle($googleTask, $user, $existing);
             $task->setGoogleTaskListId($taskListId);
+            $mapped[$googleTaskId] = $task;
+            /** @var ?string $googleParent */
+            $googleParent = $googleTask->getParent();
+            $googleParents[$googleTaskId] = $googleParent;
 
             if (null === $existing) {
                 $this->entityManager->persist($task);
             }
 
             $changedTaskIds[] = (string) $task->getId();
+        }
+
+        // The parents, once every task of the list is known: Google lists a
+        // subtask before its parent as readily as after.
+        foreach ($mapped as $googleTaskId => $task) {
+            $googleParent = $googleParents[$googleTaskId];
+            $task->setParent(null === $googleParent ? null : ($mapped[$googleParent] ?? $existingByGoogleId[$googleParent] ?? null));
         }
 
         // Remove local tasks whose Google IDs are no longer present
@@ -164,37 +180,45 @@ class GoogleTasksSyncService
         try {
             $googleTaskId = $task->getGoogleTaskId();
             if (null === $googleTaskId) {
-                // Create new task on Google
+                // Create new task on Google, in its place among its siblings
                 $googleTask = $this->taskMapper->toGoogle($task);
-                $result = $this->apiClient->insertTask($user, $taskListId, $googleTask);
+                $result = $this->apiClient->insertTask(
+                    $user,
+                    $taskListId,
+                    $googleTask,
+                    $task->getParent()?->getGoogleTaskId(),
+                    $this->previousSiblingOnGoogle($task),
+                );
                 $task->setGoogleTaskId($result->getId());
                 $task->setGoogleTaskListId($taskListId);
-                $task->setGoogleTaskEtag($result->getEtag());
-                /** @var ?string $updatedAt */
-                $updatedAt = $result->getUpdated();
-                if ($updatedAt) {
-                    $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
-                }
+                $this->takePlacement($task, $result);
+                $this->takeVersion($task, $result);
             } elseif (null !== $changedFields && [] !== $changedFields) {
+                // A new parent or a new place: Google's move, which no patch can do
+                if (\in_array('position', $changedFields, true)) {
+                    $result = $this->apiClient->moveTask(
+                        $user,
+                        $taskListId,
+                        $googleTaskId,
+                        $task->getParent()?->getGoogleTaskId(),
+                        $this->previousSiblingOnGoogle($task),
+                    );
+                    $this->takePlacement($task, $result);
+                    $this->takeVersion($task, $result);
+                    $changedFields = array_values(array_diff($changedFields, ['position']));
+                }
+
                 // Partial update via PATCH
-                $googleTask = $this->taskMapper->toGooglePatch($task, $changedFields);
-                $result = $this->apiClient->patchTask($user, $taskListId, $googleTaskId, $googleTask);
-                $task->setGoogleTaskEtag($result->getEtag());
-                /** @var ?string $updatedAt */
-                $updatedAt = $result->getUpdated();
-                if ($updatedAt) {
-                    $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
+                if ([] !== $changedFields) {
+                    $googleTask = $this->taskMapper->toGooglePatch($task, $changedFields);
+                    $result = $this->apiClient->patchTask($user, $taskListId, $googleTaskId, $googleTask);
+                    $this->takeVersion($task, $result);
                 }
             } else {
                 // Full update via PUT
                 $googleTask = $this->taskMapper->toGoogle($task);
                 $result = $this->apiClient->updateTask($user, $taskListId, $googleTaskId, $googleTask);
-                $task->setGoogleTaskEtag($result->getEtag());
-                /** @var ?string $updatedAt */
-                $updatedAt = $result->getUpdated();
-                if ($updatedAt) {
-                    $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
-                }
+                $this->takeVersion($task, $result);
             }
 
             $this->entityManager->flush();
@@ -233,6 +257,47 @@ class GoogleTasksSyncService
                 return;
             }
             throw $e;
+        }
+    }
+
+    /**
+     * The Google ID of the sibling $task comes after in Maggie's order, for
+     * Google's `previous`; null puts it first. A sibling Google does not know
+     * yet is passed over.
+     */
+    private function previousSiblingOnGoogle(Task $task): ?string
+    {
+        $previous = null;
+        foreach ($this->taskRepository->findSiblings($task->getUser(), $task->getParent()) as $sibling) {
+            if ($sibling === $task || $sibling->getId()->equals($task->getId())) {
+                return $previous;
+            }
+            $previous = $sibling->getGoogleTaskId() ?? $previous;
+        }
+
+        return $previous;
+    }
+
+    /**
+     * Google's position replaces Maggie's: the siblings read from Google hold
+     * Google's, and one scheme is what keeps the order comparable.
+     */
+    private function takePlacement(Task $task, GoogleTask $result): void
+    {
+        /** @var ?string $position */
+        $position = $result->getPosition();
+        if (null !== $position) {
+            $task->setPosition($position);
+        }
+    }
+
+    private function takeVersion(Task $task, GoogleTask $result): void
+    {
+        $task->setGoogleTaskEtag($result->getEtag());
+        /** @var ?string $updatedAt */
+        $updatedAt = $result->getUpdated();
+        if ($updatedAt) {
+            $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
         }
     }
 

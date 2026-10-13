@@ -16,7 +16,9 @@
         "dueDate[before]": "admin CalendarView and Dashboard, mobile getOpenTasks",
         "order[dueDate]": "admin CalendarView and Dashboard",
         "order[criticality]": "admin Dashboard",
-        "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)"
+        "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)",
+        "parent": "admin TaskEditDialog, the subtasks of the task open (MAG-404)",
+        "order[position]": "admin TaskEditDialog, the subtasks in Google's order (MAG-404)"
     },
     "/api/meals": {
         "date[after]": "admin MealsWeekView and CalendarView, mobile getMeals",
