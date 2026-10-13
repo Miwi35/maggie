@@ -142,6 +142,41 @@ class TestTheMove:
         assert [p["prompt"] for p in api.of("user-1")] == ["Rappelle le pain", "Rappelle le chien"]
         assert not table_exists(engine)
 
+    async def test_an_overdue_one_survives_an_unreachable_api_and_a_clock_that_moved_on(self, engine, api, monkeypatch):
+        seed(engine, "late", at=datetime(2030, 11, 13, 10, 55, tzinfo=UTC))
+        api.down = True
+        assert await legacy.migrate_legacy_proactions() is False
+
+        # Five minutes later the API is back: the instant first chosen is past, a new one is taken.
+        later = datetime(2030, 11, 13, 11, 5, tzinfo=UTC)
+        monkeypatch.setattr(legacy, "_utcnow", lambda: later)
+        api.now = later
+        api.down = False
+        assert await legacy.migrate_legacy_proactions() is True
+
+        assert [p["scheduledAt"] for p in api.of("user-1")] == ["2030-11-13T11:06:00+00:00"]
+
+    async def test_a_row_scheduled_but_not_deleted_is_not_scheduled_twice(self, engine, api, monkeypatch):
+        seed(engine, "late", at=datetime(2030, 11, 13, 10, 55, tzinfo=UTC))
+        real_engine = legacy.agent_engine
+
+        class DeleteFails:
+            def connect(self):
+                return real_engine.connect()
+
+            def begin(self):
+                raise RuntimeError("agent db down")
+
+        monkeypatch.setattr(legacy, "agent_engine", DeleteFails())
+        with pytest.raises(RuntimeError):
+            await legacy.migrate_legacy_proactions()
+
+        monkeypatch.setattr(legacy, "agent_engine", real_engine)
+        assert await legacy.migrate_legacy_proactions() is True
+
+        assert len(api.of("user-1")) == 1
+        assert not table_exists(engine)
+
     async def test_one_the_api_refuses_is_dropped_not_retried_for_ever(self, engine, api):
         seed(engine, "empty", at=datetime(2030, 11, 13, 17, 0, tzinfo=UTC), prompt=" ")
         seed(engine, "a", at=datetime(2030, 11, 13, 18, 0, tzinfo=UTC))

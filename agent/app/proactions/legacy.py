@@ -24,9 +24,11 @@ LEGACY_TABLE = "proaction"
 OVERDUE_DELAY = timedelta(minutes=1)
 
 _done = False
-# Taken once: an overdue row scheduled again after a failed DELETE lands on the same
-# instant, which the API recognises as the one it already holds.
+# Kept from one attempt to the next while it is still ahead, so an overdue row scheduled
+# again after a failed DELETE lands on the same instant — which the API recognises as the
+# one it already holds. Once too close, it moves on: the API would refuse it as past.
 _earliest: datetime | None = None
+EARLIEST_MARGIN = timedelta(seconds=30)
 
 
 def _utcnow() -> datetime:
@@ -64,7 +66,9 @@ async def migrate_legacy_proactions() -> bool:
             )
         ).all()
 
-    _earliest = _earliest or (_utcnow() + OVERDUE_DELAY).replace(second=0, microsecond=0)
+    now = _utcnow()
+    if _earliest is None or _earliest <= now + EARLIEST_MARGIN:
+        _earliest = now + OVERDUE_DELAY
     earliest = _earliest
     for row in rows:
         try:
