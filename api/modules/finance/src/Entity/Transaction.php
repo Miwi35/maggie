@@ -51,7 +51,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(UlidRelationFilter::class, properties: ['account', 'category'])]
 // The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
 #[ApiFilter(SearchFilter::class, properties: ['transferKind' => 'exact'])]
-#[Indexed(index: 'transactions', module: 'finance')]
+#[Indexed(index: 'transactions', module: 'finance', globalSearch: false)]
 #[ApiResource(operations: [
     new GetCollection(provider: TransactionCollectionProvider::class),
     new Get(provider: ElasticsearchItemProvider::class),

@@ -35,6 +35,11 @@ class StubIndexedEntity
     private string $notIndexed;
 }
 
+#[Indexed(index: 'quiet_entities', module: 'test', globalSearch: false)]
+class StubQuietIndexedEntity
+{
+}
+
 class StubNotIndexedEntity
 {
     private string $name;
@@ -53,6 +58,12 @@ class IndexMetadataReaderTest extends TestCase
     {
         $result = $this->reader->read(StubNotIndexedEntity::class);
         self::assertNull($result);
+    }
+
+    public function testAnIndexIsInTheGlobalSearchUnlessItOptsOut(): void
+    {
+        self::assertTrue($this->reader->read(StubIndexedEntity::class)['globalSearch']);
+        self::assertFalse($this->reader->read(StubQuietIndexedEntity::class)['globalSearch']);
     }
 
     public function testReadReturnsIndexMetadata(): void

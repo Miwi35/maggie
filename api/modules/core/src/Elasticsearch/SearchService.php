@@ -7,6 +7,7 @@ namespace Maggie\Core\Elasticsearch;
 use Doctrine\ORM\EntityManagerInterface;
 use Elastic\Elasticsearch\Client;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Uid\Ulid;
 
 class SearchService
 {
@@ -54,7 +55,7 @@ class SearchService
         int $from,
         int $size,
     ): array {
-        $targetIndices = $indices ?? array_keys($this->registry->getAll());
+        $targetIndices = $indices ?? $this->registry->getGlobalSearchIndices();
 
         if ([] === $targetIndices) {
             return ['total' => 0, 'results' => []];
@@ -146,7 +147,7 @@ class SearchService
         int $size,
     ): array {
         $allEntities = $this->registry->getAll();
-        $targetIndices = $indices ?? array_keys($allEntities);
+        $targetIndices = $indices ?? $this->registry->getGlobalSearchIndices();
         $results = [];
 
         $likePattern = '%'.str_replace(['%', '_'], ['\\%', '\\_'], mb_strtolower($query)).'%';
@@ -231,8 +232,8 @@ class SearchService
         if ($classMetadata->hasAssociation('user')) {
             // Direct user relation (Task, Recipe, Product, Notification, etc.)
             $qb->join('e.user', 'u')
-                ->andWhere('CAST(u.id AS TEXT) = :userId')
-                ->setParameter('userId', $userId);
+                ->andWhere('u.id = :userId')
+                ->setParameter('userId', Ulid::fromString($userId), 'ulid');
 
             return true;
         }
@@ -241,8 +242,8 @@ class SearchService
             // Scoped via agenda → user (Event, Meal)
             $qb->join('e.agenda', 'a')
                 ->join('a.user', 'u')
-                ->andWhere('CAST(u.id AS TEXT) = :userId')
-                ->setParameter('userId', $userId);
+                ->andWhere('u.id = :userId')
+                ->setParameter('userId', Ulid::fromString($userId), 'ulid');
 
             return true;
         }

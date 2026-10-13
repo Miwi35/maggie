@@ -1,0 +1,31 @@
+Maggie\Core\Entity\User:
+  user_{owner, other}:
+    email: '<current()>\@maggie.local'
+    googleId: 'google-<current()>'
+    name: '<current()>'
+
+Maggie\Grocery\Entity\Store:
+  store_{owner, other}:
+    name: Carrefour
+    visitOrder: 1
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Account:
+  account_{owner, other}:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Transaction:
+  transaction_{owner, other}:
+    account: '@account_<current()>'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: CARREFOUR MARKET PARIS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@user_<current()>'
