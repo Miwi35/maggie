@@ -58,4 +58,38 @@ class IsRecurringGroceryItemDueTest extends TestCase
 
         self::assertTrue((new IsRecurringGroceryItemDue($today))->isSatisfiedBy($item));
     }
+
+    /** @return iterable<string, array{RecurringFrequency, ?string, string}> the expected day, with today being 2026-10-09 */
+    public static function nextDays(): iterable
+    {
+        yield 'never added: the next run' => [RecurringFrequency::Weekly, null, '2026-10-09'];
+        yield 'weekly, added today' => [RecurringFrequency::Weekly, '2026-10-09', '2026-10-16'];
+        yield 'weekly, added three days ago' => [RecurringFrequency::Weekly, '2026-10-06', '2026-10-13'];
+        yield 'biweekly, added ten days ago' => [RecurringFrequency::Biweekly, '2026-09-29', '2026-10-13'];
+        yield 'monthly, added today' => [RecurringFrequency::Monthly, '2026-10-09', '2026-11-09'];
+        yield 'weekly, added a month ago: overdue, due at the next run' => [RecurringFrequency::Weekly, '2026-09-09', '2026-10-09'];
+    }
+
+    #[DataProvider('nextDays')]
+    public function testTheNextDueDayIsTheEndOfThePeriodButNeverInThePast(RecurringFrequency $frequency, ?string $lastAddedAt, string $expected): void
+    {
+        $item = (new RecurringGroceryItem())
+            ->setFrequency($frequency)
+            ->setLastAddedAt(null === $lastAddedAt ? null : new \DateTimeImmutable($lastAddedAt));
+
+        $next = (new IsRecurringGroceryItemDue(new \DateTimeImmutable('2026-10-09 15:30')))->nextDueDayOf($item);
+
+        self::assertSame($expected, $next->format('Y-m-d'));
+    }
+
+    public function testAnItemDueTodayIsDueOnItsNextDueDay(): void
+    {
+        $specification = new IsRecurringGroceryItemDue(new \DateTimeImmutable('2026-10-09'));
+        $item = (new RecurringGroceryItem())
+            ->setFrequency(RecurringFrequency::Weekly)
+            ->setLastAddedAt(new \DateTimeImmutable('2026-10-01'));
+
+        self::assertSame('2026-10-09', $specification->nextDueDayOf($item)->format('Y-m-d'));
+        self::assertTrue($specification->isSatisfiedBy($item));
+    }
 }

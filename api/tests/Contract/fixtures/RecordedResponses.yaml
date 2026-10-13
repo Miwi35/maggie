@@ -167,6 +167,16 @@ Maggie\Grocery\Entity\GroceryList:
   recorded_grocery_list:
     user: '@recorded_user'
 
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  recorded_recurring_grocery_item:
+    product: '@recorded_product'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    # Far ahead, so the next due day the API derives from it never depends on today.
+    lastAddedAt: '<(new \DateTimeImmutable("2099-01-01"))>'
+    user: '@recorded_user'
+
 Maggie\Notification\Entity\Notification:
   recorded_unread_notification:
     user: '@recorded_user'

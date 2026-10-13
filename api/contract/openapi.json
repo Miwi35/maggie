@@ -14901,6 +14901,11 @@
                     "label": {
                         "readOnly": true,
                         "type": "string"
+                    },
+                    "nextDueAt": {
+                        "readOnly": true,
+                        "description": "The day the item next reaches the list, read-only: derived from the frequency and `lastAddedAt`.",
+                        "type": "string"
                     }
                 }
             },
@@ -14978,6 +14983,11 @@
                     "label": {
                         "readOnly": true,
                         "type": "string"
+                    },
+                    "nextDueAt": {
+                        "readOnly": true,
+                        "description": "The day the item next reaches the list, read-only: derived from the frequency and `lastAddedAt`.",
+                        "type": "string"
                     }
                 }
             },
@@ -15054,6 +15064,11 @@
                     },
                     "label": {
                         "readOnly": true,
+                        "type": "string"
+                    },
+                    "nextDueAt": {
+                        "readOnly": true,
+                        "description": "The day the item next reaches the list, read-only: derived from the frequency and `lastAddedAt`.",
                         "type": "string"
                     }
                 }
@@ -15136,6 +15151,11 @@
                             },
                             "label": {
                                 "readOnly": true,
+                                "type": "string"
+                            },
+                            "nextDueAt": {
+                                "readOnly": true,
+                                "description": "The day the item next reaches the list, read-only: derived from the frequency and `lastAddedAt`.",
                                 "type": "string"
                             }
                         }

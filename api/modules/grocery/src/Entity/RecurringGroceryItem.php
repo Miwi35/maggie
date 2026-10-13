@@ -26,6 +26,7 @@ use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Grocery\Enum\RecurringFrequency;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
+use Maggie\Grocery\Specification\IsRecurringGroceryItemDue;
 use Maggie\Grocery\State\CreateRecurringGroceryItemProcessor;
 use Maggie\Grocery\State\DeleteRecurringGroceryItemProcessor;
 use Maggie\Grocery\State\UpdateRecurringGroceryItemProcessor;
@@ -177,6 +178,12 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
         return $this;
     }
 
+    /** The day the item next reaches the list, read-only: derived from the frequency and `lastAddedAt`. */
+    public function getNextDueAt(): string
+    {
+        return IsRecurringGroceryItemDue::today()->nextDueDayOf($this)->format('Y-m-d');
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -206,6 +213,11 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
+        // Derived from these two: a screen showing only the changed fields would keep a stale date.
+        if (null !== $changedProperties && [] !== array_intersect($changedProperties, ['frequency', 'lastAddedAt'])) {
+            $changedProperties[] = 'nextDueAt';
+        }
+
         return self::filterPayload([
             'label' => $this->getLabel(),
             'customLabel' => $this->customLabel,
@@ -214,6 +226,7 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
             'frequency' => $this->frequency->value,
             'productId' => null !== $this->product ? (string) $this->product->getId() : null,
             'lastAddedAt' => $this->lastAddedAt?->format('Y-m-d'),
+            'nextDueAt' => $this->getNextDueAt(),
         ], $changedProperties);
     }
 }
