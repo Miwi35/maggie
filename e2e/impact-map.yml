@@ -292,6 +292,11 @@ web:
     areas: [chat, dashboard]
   e2e/web/tests/chat-send-failed.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/memory-folder.spec.ts:
+    areas: [chat, dashboard]
+    paths:
+      - 'agent/app/memory/**'
+      - 'agent/fixtures/fake-llm/96-memory-*.yaml'
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:
