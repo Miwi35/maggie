@@ -42,16 +42,20 @@ tags:
 - tapOn:
     id: "calendar_next"
 
+# The slot (the chip's cell) and its title are two nodes: each is looked for on its own.
 - extendedWaitUntil:
-    visible:
-      id: "calendar_month_slot_${output.month}-24_.*"
-      text: ".*Séance MAG-430 35.*"
+    visible: ".*Séance MAG-430 35.*"
     timeout: 30000
 
-- assertVisible:
-    id: "calendar_month_slot_${output.month}-25_.*"
-    text: ".*Séance MAG-430 36.*"
+- assertVisible: ".*Séance MAG-430 36.*"
+
+- assertVisible: ".*Séance MAG-430 37.*"
 
 - assertVisible:
-    id: "calendar_month_slot_${output.month}-26_.*"
-    text: ".*Séance MAG-430 37.*"
+    id: "calendar_month_slot_${output.month}-24_0"
+
+- assertVisible:
+    id: "calendar_month_slot_${output.month}-25_0"
+
+- assertVisible:
+    id: "calendar_month_slot_${output.month}-26_0"
