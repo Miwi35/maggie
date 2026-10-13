@@ -7,7 +7,7 @@ from typing import Literal
 import anthropic
 import openai
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
@@ -737,8 +737,10 @@ async def tts_synthesize(request: TtsRequest, _user_id: str = Depends(get_curren
     # a failing provider can only cut the body short.
     try:
         first = await anext(audio, b"")
-    except SpeechUnavailableError as exc:
-        raise HTTPException(status_code=502, detail="Le service de synthèse vocale est indisponible.") from exc
+    except SpeechUnavailableError:
+        # Returned, not raised: the error tracker reports every raised 5xx HTTPException, and
+        # a provider outage the client already handles is not an issue to fix (MAG-429).
+        return JSONResponse(status_code=502, content={"detail": "Le service de synthèse vocale est indisponible."})
 
     async def body():
         if first:

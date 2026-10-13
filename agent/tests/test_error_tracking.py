@@ -6,10 +6,11 @@ them, so what is asserted is what GlitchTip would receive.
 
 import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import sentry_sdk
+from aiohttp import WSServerHandshakeError
 from sqlalchemy import select
 from sentry_sdk.transport import Transport
 
@@ -162,3 +163,27 @@ class TestTheSignals:
         assert_signal(event, "unanswered_message")
         assert event["tags"]["message_id"] == stale.id
         assert event["tags"]["user_id"] == "user-1"
+
+
+class TestAnExpectedOutageIsNotAnError:
+    """MAG-429: Edge TTS being down is answered with a 502 and handled by the client — not an issue."""
+
+    def test_a_refused_speech_synthesis_sends_nothing(self, sent, monkeypatch, authed_client):
+        class Refusing:
+            def __init__(self, *_args):
+                pass
+
+            async def stream(self):
+                raise WSServerHandshakeError(MagicMock(), (), status=503, message="Invalid response status")
+                yield
+
+        monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
+        monkeypatch.setattr("app.tts.synthesis.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", Refusing)
+
+        response = authed_client.post("/tts/synthesize", json={"text": "Bonjour."})
+
+        assert response.status_code == 502
+        assert response.json() == {"detail": "Le service de synthèse vocale est indisponible."}
+        sentry_sdk.flush()
+        assert sent == []
