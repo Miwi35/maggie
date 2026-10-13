@@ -70,6 +70,14 @@ interface SavingsAdvances {
   }
 }
 
+interface TreasuryOutlook {
+  salary: { isConfigured: boolean; isLate: boolean; delayDays: number; expectedOn: string | null }
+  balanceCents: number
+  projection: Array<{ date: string; balanceCents: number; movements: Array<{ label: string; amountCents: number }> }>
+  overdraft: { isForecast: boolean; onDate: string | null; worstBalanceCents: number; limitCents: number }
+  advice: { amountCents: number; sourceAccountId: string | null; sourceAccountName: string | null; isCushion: boolean } | null
+}
+
 const createdAccountIds: string[] = []
 
 /** `YYYY-MM-DD` shifted by whole days, on the calendar alone. */
@@ -96,10 +104,17 @@ async function account(api: APIRequestContext, name: string, type: string, balan
   return id
 }
 
-async function line(api: APIRequestContext, accountId: string, amountCents: number, bookedAt: string, label: string): Promise<void> {
+async function line(
+  api: APIRequestContext,
+  accountId: string,
+  amountCents: number,
+  bookedAt: string,
+  label: string,
+  status = 'spent',
+): Promise<void> {
   const response = await api.post('/api/transactions', {
     headers: LD,
-    data: { account: `/api/accounts/${accountId}`, label, amountCents, currency: 'EUR', bookedAt, status: 'spent' },
+    data: { account: `/api/accounts/${accountId}`, label, amountCents, currency: 'EUR', bookedAt, status },
   })
   expect(response.status(), await response.text()).toBe(201)
 }
@@ -115,7 +130,7 @@ test.afterEach(async ({ treasuryUser }) => {
   for (const id of createdAccountIds.splice(0)) {
     await treasuryUser.api.delete(`/api/accounts/${id}`)
   }
-  await treasuryUser.api.patch('/api/finance/treasury-settings', { data: { salaryExpectedDay: null } })
+  await treasuryUser.api.patch('/api/finance/treasury-settings', { data: { salaryExpectedDay: null, overdraftLimitCents: 0 } })
 })
 
 test('« combien je dois remettre sur mon livret ? » reads the advance taken during the delay', async ({ treasuryUser }) => {
@@ -216,4 +231,84 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   const afterTopUp = await savingsAdvances(api)
   expect(afterTopUp.advances).toEqual([expect.objectContaining({ repaidCents: 150000, outstandingCents: 0, isClosed: true })])
   expect(afterTopUp.totalOutstandingCents).toBe(0)
+})
+
+/**
+ * La vue trésorerie (MAG-279) — the screen comes with MAG-280:
+ *
+ *   Étant donné un salaire attendu le jour J et un repère de 4 950,00 €
+ *     et aucun crédit de salaire depuis le jour J du mois dernier
+ *     et un Courant à -120,00 € et un Livret à 6 000,00 €
+ *     et un loyer de 300,00 € prévu aujourd'hui
+ *   Quand je demande la vue trésorerie
+ *   Alors elle annonce le retard en jours
+ *     et un découvert prévu avec sa date
+ *     et une avance conseillée de 420,00 € sur le Livret
+ *   Quand je déclare un découvert autorisé de 500,00 €
+ *   Alors plus aucun découvert n'est annoncé, ni aucune avance conseillée
+ */
+test('the treasury outlook announces the delay, the overdraft and the advance to make', async ({ treasuryUser }) => {
+  const { api } = treasuryUser
+  const today = parisDay()
+
+  const installed = await api.post('/api/finance/categories/standard')
+  expect(installed.status(), await installed.text()).toBe(200)
+  const salary = await waitForIndexed<StoredCategory>(api, '/api/categories', (c) => c.standardKey === 'salary', {
+    what: 'The standard « Salaire » category',
+  })
+  const checkingId = await account(api, 'Courant MAG-279', 'checking', -12000)
+  const livretId = await account(api, 'Livret MAG-279', 'savings', 600000)
+  const series = await api.post('/api/recurring_operations', {
+    headers: LD,
+    data: {
+      label: 'Salaire ACME MAG-279',
+      counterpartyName: 'ACME MAG-279',
+      account: `/api/accounts/${checkingId}`,
+      category: `/api/categories/${salary.id}`,
+      period: 'monthly',
+      anchorOn: '2025-01-25',
+      referenceAmountCents: 495000,
+      referenceSource: 'declared',
+    },
+  })
+  expect(series.status(), await series.text()).toBe(201)
+  const settings = await api.patch('/api/finance/treasury-settings', {
+    data: { salaryExpectedDay: Number(today.slice(8, 10)), overdraftLimitCents: 0 },
+  })
+  expect(settings.status(), await settings.text()).toBe(200)
+  await line(api, checkingId, -30000, today, 'LOYER PREVU MAG-279', 'planned')
+
+  // When I ask for the treasury outlook.
+  const response = await api.get('/api/finance/treasury-outlook')
+  expect(response.status(), await response.text()).toBe(200)
+  const outlook = (await response.json()) as TreasuryOutlook
+
+  // Then the delay is counted from last month's expected day.
+  expect(outlook.salary.isConfigured).toBe(true)
+  expect(outlook.salary.isLate).toBe(true)
+  expect(outlook.salary.delayDays).toBe(daysBetween(outlook.salary.expectedOn ?? today, today))
+  expect(outlook.salary.delayDays).toBeGreaterThanOrEqual(28)
+  expect(outlook.balanceCents).toBe(-12000)
+
+  // And an overdraft is forecast, with its date, the planned rent in the projection.
+  expect(outlook.projection[0]).toEqual(
+    expect.objectContaining({
+      date: today,
+      balanceCents: -42000,
+      movements: [expect.objectContaining({ label: 'LOYER PREVU MAG-279', amountCents: -30000 })],
+    }),
+  )
+  expect(outlook.overdraft).toEqual(expect.objectContaining({ isForecast: true, onDate: today, worstBalanceCents: -42000 }))
+
+  // And the advance advised is on the Livret, what keeps the Courant at zero.
+  expect(outlook.advice).toEqual(
+    expect.objectContaining({ amountCents: 42000, sourceAccountId: livretId, sourceAccountName: 'Livret MAG-279', isCushion: false }),
+  )
+
+  // When the bank allows a 500 € overdraft, nothing is announced any more.
+  const limited = await api.patch('/api/finance/treasury-settings', { data: { overdraftLimitCents: 50000 } })
+  expect(limited.status(), await limited.text()).toBe(200)
+  const within = (await (await api.get('/api/finance/treasury-outlook')).json()) as TreasuryOutlook
+  expect(within.overdraft).toEqual(expect.objectContaining({ isForecast: false, limitCents: 50000 }))
+  expect(within.advice).toBeNull()
 })

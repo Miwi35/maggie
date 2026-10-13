@@ -583,6 +583,14 @@
         },
         "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Each task has parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD."
     },
+    "get_treasury_outlook": {
+        "name": "get_treasury_outlook",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read the treasury until the salary comes (\"je vais être à découvert ?\", \"combien je dois avancer ?\"): the salary delay, the projected checking balance, the overdraft ahead and how much to advance from which savings. No arguments. It only reads what is entered — the balances of the checking accounts and their planned and committed movements to come — no average, no guess: every figure can be recomputed by hand, say so if asked. salary: isConfigured (false when no expected day or no reference salary is known: then nothing is projected and nothing is late — say so instead of saying all is fine), expectedOn (the salary awaited; in the past when late), referenceCents, isReceived (this month's salary is in), isLate, delayDays, shortfallCents. balanceCents is today's checking balance. projection[] gives, day by day from today to the eve of the expected salary (60 days at most; when late, to the next expected day), date, balanceCents and the movements of the day (id, label, amountCents, status planned or committed, accountId, accountName). balanceBeforeSalary {onDate, balanceCents} is the balance the eve of the salary (today's when late): use it, never recompute it. overdraft: isForecast, onDate (the first day below minus limitCents; today when already below), worstBalanceCents, limitCents (the overdraft the bank allows, set with manage_treasury_settings). advice, null when no overdraft is forecast or the salary is in: amountCents (what is missing to stay above the limit), sourceAccountId, sourceAccountName, sourceAmountCents (what to take from it) from the savings with the largest balance; alternatives[] (accountId, accountName, balanceCents, amountCents, isCushion) when it is not enough; uncoveredCents, what no source covers. A cushion account comes last: when isCushion or touchesCushion is true, say it breaks into the safety net and starts a recharge plan. outstandingAdvancesCents is what is still to give back from earlier advances (get_savings_advances for the detail). Amounts are integer cents, divide by 100 to speak them. Nothing here moves money: propose the transfer, never say it was made."
+    },
     "get_upcoming_events": {
         "name": "get_upcoming_events",
         "inputSchema": {
@@ -1960,13 +1968,20 @@
                         "boolean"
                     ],
                     "default": null
+                },
+                "overdraftLimitCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Read or change the treasury settings: salaryExpectedDay, the day of the month the salary is expected on (1 to 31; on a shorter month, its last day). Action get returns the settings and salaryDelay; action update sets salaryExpectedDay, or forgets it with clearSalaryExpectedDay true. Setting the day does not look back by itself: offer to run detect_internal_transfers afterwards, which marks as advances the transfers from savings already made during a delay. salaryDelay says whether the salary is late, for the previous month and the current one: isConfigured is false when no expected day or no reference salary is known, and then nothing is late — say so instead of saying the salary is on time. The salary is late from the day after the expected day until the credits in the « Salaire » category reach 90 % of the reference salary; a bonus closes nothing. isLate, delayDays (days since the expected day of the oldest month still open) and shortfallCents (what is still missing, integer cents) sum it up; months[] gives month, expectedOn, receivedCents, referenceCents, isReceived, receivedOn, isDue, delayDays and shortfallCents."
+        "description": "Read or change the treasury settings: salaryExpectedDay, the day of the month the salary is expected on (1 to 31; on a shorter month, its last day), and overdraftLimitCents, the overdraft the bank allows in positive integer cents (0, the default, means any negative balance is an overdraft; get_treasury_outlook only announces an overdraft below minus this limit). Action get returns the settings and salaryDelay; action update sets salaryExpectedDay and/or overdraftLimitCents — only what is given changes — or forgets the day with clearSalaryExpectedDay true. Setting the day does not look back by itself: offer to run detect_internal_transfers afterwards, which marks as advances the transfers from savings already made during a delay. salaryDelay says whether the salary is late, for the previous month and the current one: isConfigured is false when no expected day or no reference salary is known, and then nothing is late — say so instead of saying the salary is on time. The salary is late from the day after the expected day until the credits in the « Salaire » category reach 90 % of the reference salary; a bonus closes nothing. isLate, delayDays (days since the expected day of the oldest month still open) and shortfallCents (what is still missing, integer cents) sum it up; months[] gives month, expectedOn, receivedCents, referenceCents, isReceived, receivedOn, isDue, delayDays and shortfallCents."
     },
     "monthly_review": {
         "name": "monthly_review",

@@ -13,6 +13,7 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\RecurringLinkSource;
@@ -482,6 +483,36 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('from', $from)
             ->setParameter('until', $until)
             ->orderBy('t.bookedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The movements already entered but not yet booked on the open checking
+     * accounts — planned and committed, debits and credits, transfers
+     * included — over a half-open period, in date order: all a treasury
+     * projection may add to today's balance, and nothing it would have to guess.
+     *
+     * @return Transaction[]
+     */
+    public function findForecastMovementsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('a.type = :checking')
+            ->andWhere('a.closedAt IS NULL')
+            ->andWhere('t.status IN (:forecast)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('checking', AccountType::Checking->value)
+            ->setParameter('forecast', [TransactionStatus::Planned->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
             ->getQuery()
             ->getResult();
     }

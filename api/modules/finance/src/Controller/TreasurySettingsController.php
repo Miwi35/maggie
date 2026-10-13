@@ -56,13 +56,20 @@ final class TreasurySettingsController
             $body = null;
         }
 
-        if (!\is_array($body) || !\array_key_exists('salaryExpectedDay', $body)) {
-            return new JsonResponse(['error' => 'Provide salaryExpectedDay (1 to 31, or null to forget it)'], Response::HTTP_BAD_REQUEST);
+        $changesDay = \is_array($body) && \array_key_exists('salaryExpectedDay', $body);
+        $changesLimit = \is_array($body) && \array_key_exists('overdraftLimitCents', $body);
+        if (!$changesDay && !$changesLimit) {
+            return new JsonResponse(['error' => 'Provide salaryExpectedDay (1 to 31, or null to forget it) or overdraftLimitCents (0 or more cents)'], Response::HTTP_BAD_REQUEST);
         }
 
-        $day = $body['salaryExpectedDay'];
+        $day = $changesDay ? $body['salaryExpectedDay'] : null;
         if (null !== $day && (!\is_int($day) || $day < 1 || $day > 31)) {
             return new JsonResponse(['error' => 'salaryExpectedDay must be an integer from 1 to 31, or null'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $limit = $changesLimit ? $body['overdraftLimitCents'] : null;
+        if ($changesLimit && (!\is_int($limit) || $limit < 0)) {
+            return new JsonResponse(['error' => 'overdraftLimitCents must be an integer of 0 or more cents'], Response::HTTP_BAD_REQUEST);
         }
 
         $settings = $this->getTreasurySettings->forUser($user);
@@ -72,6 +79,8 @@ final class TreasurySettingsController
                 userId: (string) $user->getId(),
                 treasurySettingsId: (string) $settings->getId(),
                 salaryExpectedDay: $day,
+                changesSalaryExpectedDay: $changesDay,
+                overdraftLimitCents: $limit,
             ));
         } catch (HandlerFailedException $e) {
             return new JsonResponse(['error' => ($e->getPrevious() ?? $e)->getMessage()], Response::HTTP_BAD_REQUEST);
