@@ -108,7 +108,7 @@ data class ChatUiState(
     val commentingMessageId: String? = null,
 ) {
     /** The badge of the Mind tab: the held actions that can still be answered. */
-    val awaitingApprovalCount: Int get() = pendingApprovals.count { it.isAwaitingAnswer() }
+    val awaitingApprovalCount: Int get() = pendingApprovals.count { it.approval.isPending }
 }
 
 @OptIn(FlowPreview::class)

@@ -1,8 +1,5 @@
 package com.maggie.app.ui.screens.chat
 
-import com.maggie.app.util.ChatDateFormatter
-import java.time.Instant
-
 /** What Maggie is doing right now, read from the AG-UI stream of the turn (MAG-403). */
 enum class AgentState { IDLE, THINKING, ACTING }
 
@@ -32,16 +29,6 @@ data class ToolCallItem(
     val toolName: String,
     val status: ToolCallStatus,
 )
-
-/**
- * A held action still waiting for the owner: pending, and not past its expiry — the server
- * flips it to expired a little later, but nobody can answer it any more.
- */
-fun ApprovalItem.isAwaitingAnswer(now: Instant = Instant.now()): Boolean {
-    if (!approval.isPending) return false
-    val expiry = approval.expiresAt?.let(ChatDateFormatter::parseIso) ?: return true
-    return expiry.isAfter(now)
-}
 
 private val ACTIVITY_LABELS = mapOf(
     "create_event" to "Création d'un événement",

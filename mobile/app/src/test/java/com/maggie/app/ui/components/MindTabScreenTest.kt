@@ -48,7 +48,6 @@ class MindTabScreenTest {
         toolName = "delete_event",
         arguments = buildJsonObject { put("id", ulid) },
         summary = "Supprimer l'événement « Test validation » — le 8 octobre à 10:00",
-        expiresAt = "2099-01-01T00:00:00Z",
     )
 
     private fun hold(): FakeChat = FakeChat(pending = listOf(held))

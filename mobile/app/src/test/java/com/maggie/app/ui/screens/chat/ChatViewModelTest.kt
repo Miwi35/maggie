@@ -2498,8 +2498,6 @@ class ChatViewModelTest {
 
     // --- The Mind tab: Maggie's state, her tool calls, the held actions (MAG-403) ---
 
-    private val soon = "2099-01-01T00:00:00Z"
-
     /** A turn the test writes by hand, one event at a time. */
     private suspend fun kotlinx.coroutines.test.TestScope.liveRun(): Channel<AgUiEvent> {
         val events = Channel<AgUiEvent>(Channel.UNLIMITED)
@@ -2661,11 +2659,11 @@ class ChatViewModelTest {
         advanceUntilIdle()
         assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
 
-        stream.emit(approval("ap-1").copy(expiresAt = soon))
+        stream.emit(approval("ap-1"))
         advanceUntilIdle()
         assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
 
-        stream.emit(approval("ap-2").copy(expiresAt = soon))
+        stream.emit(approval("ap-2"))
         advanceUntilIdle()
         assertEquals(2, viewModel.uiState.value.awaitingApprovalCount)
 
@@ -2676,7 +2674,7 @@ class ChatViewModelTest {
 
     @Test
     fun `denying from the Mind tab takes the badge away once the agent confirms`() = runTest {
-        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1").copy(expiresAt = soon)))
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
         coEvery { approvalRepository.deny("ap-1") } returns
             Result.success(approval("ap-1", status = PendingApproval.STATUS_DENIED))
         viewModel = createViewModel()
@@ -2688,16 +2686,5 @@ class ChatViewModelTest {
 
         assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
         assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
-    }
-
-    @Test
-    fun `an action past its expiry is no longer waiting for an answer`() = runTest {
-        coEvery { approvalRepository.getPending() } returns Result.success(
-            listOf(approval("ap-1").copy(expiresAt = "2020-01-01T00:00:00Z")),
-        )
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
     }
 }
