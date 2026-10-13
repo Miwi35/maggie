@@ -27,7 +27,7 @@ Un seul composant pour toute parole spontanée : `components/maggie/MaggieInterr
 - `prefers-reduced-motion` : fondu simple, ni pop-in, ni halo, ni glissement.
 - **Sources** (MAG-311) : toute notification dont Maggie prend l'initiative (rappel, proaction, tâche échue — flux Mercure des notifications de l'utilisateur, tous types), toute demande qu'elle soumet (validation en attente : `/approvals/{userId}` + `GET /agent/approvals?status=pending` à l'ouverture), et une proaction terminée avec réponse (`/proactions/{userId}`). Un seul flux partagé (`hooks/agentFeed.ts`) ; aucun changement d'API.
 - **File d'attente** : une à la fois, la suivante après « Plus tard » ou l'action, jamais deux fois la même (dédoublonnage par source + id). Le chat ouvert ne masque que les proactions (il les affiche déjà).
-- **Action** : notification → ouvre son lien (écran admin) et la marque lue, sinon « Compris » ; validation → « Autoriser » / « Refuser » (le focus reste sur « Plus tard »).
+- **Action** : notification avec lien → « C'est noté » (principal : la marque lue et ferme), le lien (écran admin ; la marque aussi lue) et « Plus tard », sans lien « Compris » ; validation → « Autoriser » / « Refuser » (le focus reste sur « Plus tard »).
 
 Le chat (`components/chat/ChatWidget`) porte le même habillage : panneau `maggie.panel`, bulles utilisateur accent 18 % et Maggie `maggie.reply`, mode vocal en orbe violette. Sa place ne change pas (à droite, tiroir sous `md`, MAG-38).
 
