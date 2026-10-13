@@ -89,30 +89,53 @@ describe('cell ids', () => {
 
 describe('mealCollision', () => {
   const droppableContainers = cells.map((cell) => ({ id: mealCellId(cell), disabled: false, node: { current: null }, rect: { current: null }, data: { current: undefined } }))
-  const args = (pointerCoordinates: { x: number; y: number } | null, collisionRect = mealIn({ slot: 'lunch', dayIndex: 1 })) =>
+  const args = (
+    pointerCoordinates: { x: number; y: number } | null,
+    collisionRect = mealIn({ slot: 'lunch', dayIndex: 1 }),
+    droppableRects: Map<string, ReturnType<typeof cellRect>> = rects,
+  ) =>
     ({
       active: { id: 'meal' },
       collisionRect: { ...collisionRect },
-      droppableRects: rects,
+      droppableRects,
       droppableContainers,
       pointerCoordinates,
-    }) as unknown as Parameters<typeof mealCollision>[0]
+    }) as unknown as Parameters<ReturnType<typeof mealCollision>>[0]
+
+  const noKeyboardDrag = { current: null }
 
   test('a pointer over a cell drops in that cell', () => {
-    const over = mealCollision(args({ x: 350, y: 240 }))
+    const over = mealCollision(noKeyboardDrag)(args({ x: 350, y: 240 }))
 
     expect(over.map((c) => c.id)).toEqual([mealCellId({ slot: 'dinner', dayIndex: 2 })])
   })
 
   test('a pointer released over no cell drops nowhere, however near a cell is', () => {
     // Above the grid, and in the gap between two cells.
-    expect(mealCollision(args({ x: 350, y: 20 }))).toEqual([])
-    expect(mealCollision(args({ x: 350, y: 190 }))).toEqual([])
+    expect(mealCollision(noKeyboardDrag)(args({ x: 350, y: 20 }))).toEqual([])
+    expect(mealCollision(noKeyboardDrag)(args({ x: 350, y: 190 }))).toEqual([])
   })
 
-  test('the keyboard, which has no pointer, takes the cell nearest to the meal', () => {
-    const over = mealCollision(args(null, mealIn({ slot: 'dinner', dayIndex: 3 })))
+  test('the keyboard, before its first arrow, is over the cell the meal sits in', () => {
+    const over = mealCollision(noKeyboardDrag)(args(null, mealIn({ slot: 'dinner', dayIndex: 3 })))
 
-    expect(over[0]?.id).toBe(mealCellId({ slot: 'dinner', dayIndex: 3 }))
+    expect(over.map((c) => c.id)).toEqual([mealCellId({ slot: 'dinner', dayIndex: 3 })])
+  })
+
+  test('the keyboard is over the cell its last arrow chose, however tall the cells around it', () => {
+    // Sunday lunch holds the meals of other journeys: three times as tall, the
+    // dinner row pushed down. The meal sits at its top, nearer the centre of
+    // Saturday lunch, or of Sunday dinner, than of its own cell.
+    const tall = new Map(rects)
+    tall.set(mealCellId({ slot: 'lunch', dayIndex: 6 }), { ...cellRect('lunch', 6), height: 300, bottom: 400 })
+    for (const dayIndex of [0, 1, 2, 3, 4, 5, 6]) {
+      tall.set(mealCellId({ slot: 'dinner', dayIndex }), { ...cellRect('dinner', dayIndex), top: 420, bottom: 500 })
+    }
+    const sundayLunch = mealCellId({ slot: 'lunch', dayIndex: 6 })
+    const drag = { current: { cell: sundayLunch, offset: { x: 0, y: 0 } } }
+
+    const over = mealCollision(drag)(args(null, mealIn({ slot: 'lunch', dayIndex: 6 }), tall))
+
+    expect(over.map((c) => c.id)).toEqual([sundayLunch])
   })
 })

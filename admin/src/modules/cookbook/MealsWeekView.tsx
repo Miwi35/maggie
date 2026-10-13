@@ -332,6 +332,7 @@ export const MealsWeekView = () => {
   // used on a tablet, and a drag must never be the only way to move a meal.
   const keyboardDrag = useRef<KeyboardDrag | null>(null)
   const coordinateGetter = useMemo(() => neighbourCellCoordinates(keyboardDrag), [])
+  const collisionDetection = useMemo(() => mealCollision(keyboardDrag), [])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter }),
@@ -488,7 +489,7 @@ export const MealsWeekView = () => {
         sensors={sensors}
         onDragEnd={handleDragEnd}
         onDragCancel={() => (keyboardDrag.current = null)}
-        collisionDetection={mealCollision}
+        collisionDetection={collisionDetection}
         accessibility={{ announcements, screenReaderInstructions: { draggable: DRAG_INSTRUCTIONS } }}
       >
       {isNarrow ? (
