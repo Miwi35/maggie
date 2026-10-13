@@ -31,6 +31,8 @@ import com.maggie.app.ui.screens.contexts.ContextUiState
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryUiState
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryUiState
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
@@ -105,6 +107,7 @@ class RotationNavGraphScreenTest {
         val meals = mockk<MealsWeekViewModel>(relaxed = true) { every { uiState } returns state(MealsWeekUiState()) }
         val mealCreate = mockk<MealCreateViewModel>(relaxed = true) { every { uiState } returns state(MealCreateUiState()) }
         val grocery = mockk<GroceryViewModel>(relaxed = true) { every { uiState } returns state(GroceryUiState()) }
+        val recurring = mockk<RecurringGroceryViewModel>(relaxed = true) { every { uiState } returns state(RecurringGroceryUiState()) }
         val interruption = mockk<InterruptionViewModel>(relaxed = true) {
             every { uiState } returns state(InterruptionUiState())
             every { events } returns kotlinx.coroutines.flow.emptyFlow()
@@ -136,6 +139,7 @@ class RotationNavGraphScreenTest {
                     viewModel { meals }
                     viewModel { mealCreate }
                     viewModel { grocery }
+                    viewModel { recurring }
                     viewModel { detail }
                     viewModel { interruption }
                     viewModel { com.maggie.app.ui.screens.shared.SubtasksViewModel(get()) }
