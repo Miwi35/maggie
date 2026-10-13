@@ -95,6 +95,12 @@ fun MonthCalendarView(
         firstDayOfWeek = DayOfWeek.MONDAY,
     )
 
+    // The arrows and « Aujourd'hui » move the date, not the grid: it scrolls to the month the date is in.
+    val shownMonth = YearMonth.from(currentDate)
+    LaunchedEffect(shownMonth) {
+        if (calendarState.firstVisibleMonth.yearMonth != shownMonth) calendarState.scrollToMonth(shownMonth)
+    }
+
     LaunchedEffect(calendarState) {
         snapshotFlow { calendarState.firstVisibleMonth.yearMonth }
             .collect { month -> if (monthChangeTarget(month, latestDate) != null) onMonthChange(month) }

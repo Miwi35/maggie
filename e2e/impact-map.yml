@@ -452,6 +452,9 @@ mobile:
     quarantine:
       since: 2026-10-08
       reason: Red then green on a re-run with no change (7-8 Oct.).
+  e2e/mobile/flows/15-calendar-more-than-a-page.yaml:
+    areas: [calendar]
+    paths: [e2e/mobile/scripts/event-api.js]
   e2e/mobile/flows/12-event-date-picker.yaml:
     areas: [calendar]
   e2e/mobile/flows/12-finance-rente.yaml:

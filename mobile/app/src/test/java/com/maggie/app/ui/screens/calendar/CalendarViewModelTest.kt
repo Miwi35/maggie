@@ -17,6 +17,7 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.util.DayPeriod
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -53,6 +54,10 @@ class CalendarViewModelTest {
     private lateinit var userPreferenceRepository: UserPreferenceRepository
     private lateinit var preference: MutableStateFlow<UserPreference?>
 
+    // The cache the screen observes: what a read, a push or an edit puts in the tables.
+    private val cachedEvents = MutableStateFlow<List<Event>>(emptyList())
+    private val cachedAgendas = MutableStateFlow<List<Agenda>>(emptyList())
+
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -61,6 +66,8 @@ class CalendarViewModelTest {
         agendaRepository = mockk()
         mealRepository = mockk()
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
+        every { eventRepository.observeEvents() } returns cachedEvents
+        every { agendaRepository.observeAgendas() } returns cachedAgendas
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
         every { authRepository.token } returns flowOf("test-jwt")
@@ -92,9 +99,10 @@ class CalendarViewModelTest {
         tasks: List<Task> = emptyList(),
         agendas: List<Agenda> = emptyList(),
     ) {
-        coEvery { agendaRepository.refreshAgendas() } returns Result.success(agendas)
-        coEvery { eventRepository.refreshEvents() } returns Result.success(events)
-        coEvery { eventRepository.getRecurringBefore(any()) } returns emptyList()
+        cachedEvents.value = events
+        cachedAgendas.value = agendas
+        coEvery { agendaRepository.loadAgendas(any()) } returns Result.success(agendas)
+        coEvery { eventRepository.loadPeriod(any(), any()) } returns Result.success(Unit)
         coEvery { taskRepository.refreshTasks() } returns Result.success(tasks)
         coEvery { taskRepository.getUndoneTasks(any()) } returns tasks
     }
@@ -121,7 +129,7 @@ class CalendarViewModelTest {
 
     @Test
     fun `refresh failure sets error`() = runTest {
-        coEvery { agendaRepository.refreshAgendas() } throws RuntimeException("Network error")
+        coEvery { agendaRepository.loadAgendas(any()) } returns Result.failure(RuntimeException("Network error"))
         every { mercureService.subscribe(any()) } returns emptyFlow()
 
         val viewModel = createViewModel()
@@ -146,7 +154,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun `subscribes to Mercure once the user has logged in`() = runTest {
+    fun `subscribes to the tasks and the meals once the user has logged in, the events go through the cache feed`() = runTest {
         stubRepositories()
         val token = MutableStateFlow<String?>(null)
         every { authRepository.token } returns token
@@ -160,14 +168,17 @@ class CalendarViewModelTest {
         token.value = "jwt"
         advanceUntilIdle()
 
-        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS, MercureTopics.MEALS).forEach { collection ->
+        listOf(MercureTopics.TASKS, MercureTopics.MEALS).forEach { collection ->
             verify(exactly = 1) { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) }
+        }
+        listOf(MercureTopics.EVENTS, MercureTopics.AGENDAS).forEach { collection ->
+            verify(exactly = 0) { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) }
         }
     }
 
     private fun mercureTopics(): Map<String, MutableSharedFlow<MercureEvent>> {
         coEvery { authRepository.getUserId() } returns "u1"
-        return listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).associateWith { collection ->
+        return listOf(MercureTopics.TASKS, MercureTopics.MEALS).associateWith { collection ->
             MutableSharedFlow<MercureEvent>().also {
                 every { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) } returns it
             }
@@ -182,29 +193,31 @@ class CalendarViewModelTest {
         createViewModel()
         advanceTimeBy(10_000)
 
-        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), any()) }
         coVerify(exactly = 1) { taskRepository.refreshTasks() }
-        coVerify(exactly = 1) { agendaRepository.refreshAgendas() }
+        coVerify(exactly = 1) { agendaRepository.loadAgendas(any()) }
     }
 
     @Test
-    fun `a Mercure update reloads after the burst window, then once more for the index`() = runTest {
+    fun `a task update reloads the tasks after the burst window, then once more, and never the period`() = runTest {
         stubRepositories()
         val topics = mercureTopics()
 
         createViewModel()
         advanceUntilIdle()
-        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+        coVerify(exactly = 1) { taskRepository.refreshTasks() }
 
-        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
         advanceTimeBy(100)
-        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+        coVerify(exactly = 1) { taskRepository.refreshTasks() }
 
         advanceTimeBy(500)
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 2) { taskRepository.refreshTasks() }
 
         advanceTimeBy(10_000)
-        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+        coVerify(exactly = 3) { taskRepository.refreshTasks() }
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), any()) }
+        coVerify(exactly = 1) { agendaRepository.loadAgendas(any()) }
     }
 
     @Test
@@ -216,20 +229,18 @@ class CalendarViewModelTest {
         advanceUntilIdle()
 
         repeat(10) {
-            topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+            topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
             advanceTimeBy(20)
         }
         advanceTimeBy(600)
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
         coVerify(exactly = 2) { taskRepository.refreshTasks() }
-        coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
 
         advanceTimeBy(10_000)
-        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+        coVerify(exactly = 3) { taskRepository.refreshTasks() }
     }
 
     @Test
-    fun `one change announced on events, tasks and agendas reloads once`() = runTest {
+    fun `one change announced on tasks and meals reloads once`() = runTest {
         stubRepositories()
         val topics = mercureTopics()
 
@@ -238,10 +249,10 @@ class CalendarViewModelTest {
 
         topics.values.forEach { it.emit(MercureEvent()) }
         advanceTimeBy(600)
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 2) { taskRepository.refreshTasks() }
 
         advanceTimeBy(10_000)
-        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+        coVerify(exactly = 3) { taskRepository.refreshTasks() }
     }
 
     @Test
@@ -252,12 +263,12 @@ class CalendarViewModelTest {
         createViewModel()
         advanceUntilIdle()
 
-        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
         advanceTimeBy(1_000)
-        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
         advanceTimeBy(10_000)
 
-        coVerify(exactly = 4) { eventRepository.refreshEvents() }
+        coVerify(exactly = 4) { taskRepository.refreshTasks() }
     }
 
     @Test
@@ -276,12 +287,118 @@ class CalendarViewModelTest {
         coVerify(exactly = 3) { taskRepository.refreshTasks() }
     }
 
+    private val juneEvents = (1..37).map { n ->
+        val day = 1 + (n - 1) % 28
+        Event(
+            id = "01E%02d".format(n),
+            summary = "Rendez-vous $n",
+            startAt = "2026-06-%02dT10:00:00Z".format(day),
+            endAt = "2026-06-%02dT11:00:00Z".format(day),
+        )
+    }
+
+    // MAG-430: the month held 37 events and the screen drew the first 30.
+    @Test
+    fun `a month holding more than a page of events draws every one`() = runTest {
+        stubRepositories(events = juneEvents)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        assertEquals(37, viewModel.uiState.value.expandedEvents.count { it.summary.startsWith("Rendez-vous") })
+    }
+
+    @Test
+    fun `changing the month asks for the period of that month, grid included`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        // June 2026 is drawn from Monday 1 June to Sunday 5 July.
+        coVerify {
+            eventRepository.loadPeriod(
+                DayPeriod(java.time.LocalDate.of(2026, 6, 1), java.time.LocalDate.of(2026, 7, 6)),
+                false,
+            )
+        }
+    }
+
+    @Test
+    fun `the week and the day views ask for their own days`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 17))
+        advanceUntilIdle()
+
+        viewModel.setViewType(CalendarViewType.WEEK)
+        advanceUntilIdle()
+        coVerify {
+            eventRepository.loadPeriod(DayPeriod(java.time.LocalDate.of(2026, 6, 15), java.time.LocalDate.of(2026, 6, 22)), false)
+        }
+
+        viewModel.setViewType(CalendarViewType.DAY)
+        advanceUntilIdle()
+        coVerify {
+            eventRepository.loadPeriod(DayPeriod(java.time.LocalDate.of(2026, 6, 17), java.time.LocalDate.of(2026, 6, 18)), false)
+        }
+    }
+
+    @Test
+    fun `pull-to-refresh reads the period and the agendas again whatever the cache holds`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        coVerify(exactly = 0) { eventRepository.loadPeriod(any(), true) }
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { eventRepository.loadPeriod(any(), true) }
+        coVerify(exactly = 1) { agendaRepository.loadAgendas(true) }
+    }
+
+    @Test
+    fun `an event pushed into the cache shows without the period being read again`() = runTest {
+        stubRepositories(events = listOf(event))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+        assertEquals(listOf("Dentiste"), viewModel.uiState.value.expandedEvents.map { it.summary })
+        val reads = 2
+
+        cachedEvents.value = listOf(event, Event(id = "01NEW", summary = "Coiffeur", startAt = "2026-06-16T08:00:00Z", endAt = "2026-06-16T09:00:00Z"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Dentiste", "Coiffeur"), viewModel.uiState.value.expandedEvents.map { it.summary })
+        coVerify(exactly = reads) { eventRepository.loadPeriod(any(), any()) }
+    }
+
+    @Test
+    fun `an agenda pushed into the cache is listed and enabled`() = runTest {
+        stubRepositories(agendas = listOf(work))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        cachedAgendas.value = listOf(work, home)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Home", "Work"), viewModel.uiState.value.agendas.map { it.name }.sorted())
+        assertEquals(setOf("01WORK", "01HOME"), viewModel.uiState.value.enabledAgendas)
+    }
+
     @Test
     fun `refreshes asked while a load is running fold into one follow-up load`() = runTest {
         stubRepositories()
         val gate = CompletableDeferred<Unit>()
         var calls = 0
-        coEvery { agendaRepository.refreshAgendas() } coAnswers {
+        coEvery { agendaRepository.loadAgendas(any()) } coAnswers {
             if (calls++ == 0) gate.await()
             Result.success(emptyList())
         }
@@ -292,7 +409,7 @@ class CalendarViewModelTest {
         gate.complete(Unit)
         advanceUntilIdle()
 
-        coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
+        coVerify(exactly = 2) { agendaRepository.loadAgendas(any()) }
     }
 
     private val dinner = Meal(id = "01MEAL", summary = "Gratin", date = "2026-06-15", slot = MealSlot.DINNER)
@@ -387,8 +504,8 @@ class CalendarViewModelTest {
 
         assertEquals(listOf("Dîner: Gratin"), viewModel.uiState.value.expandedEvents.map { it.summary })
         assertTrue(viewModel.uiState.value.agendas.isEmpty())
-        coVerify(exactly = 0) { agendaRepository.refreshAgendas() }
-        coVerify(exactly = 0) { eventRepository.refreshEvents() }
+        coVerify(exactly = 0) { agendaRepository.loadAgendas(any()) }
+        coVerify(exactly = 0) { eventRepository.loadPeriod(any(), any()) }
         coVerify(exactly = 0) { taskRepository.refreshTasks() }
     }
 
@@ -454,7 +571,7 @@ class CalendarViewModelTest {
 
         coVerify { mealRepository.getMeals("2026-06-01", "2026-06-30") }
         coVerify { mealRepository.getMeals("2026-06-15", "2026-06-21") }
-        coVerify(exactly = 0) { eventRepository.refreshEvents() }
+        coVerify(exactly = 0) { eventRepository.loadPeriod(any(), any()) }
     }
 
     private val work = Agenda(id = "01WORK", name = "Work", color = "#FF0000")
@@ -581,7 +698,7 @@ class CalendarViewModelTest {
     fun `agendas arriving after the preferences are filtered the same way`() = runTest {
         val agendas = CompletableDeferred<Result<List<Agenda>>>()
         stubRepositories()
-        coEvery { agendaRepository.refreshAgendas() } coAnswers { agendas.await() }
+        coEvery { agendaRepository.loadAgendas(any()) } coAnswers { agendas.await() }
         preference.value = preferenceOf(agendaIds = listOf("01HOME"))
 
         val viewModel = createViewModel()

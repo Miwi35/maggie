@@ -52,7 +52,7 @@ final class ElasticsearchFilterTranslator
             }
 
             // Skip pagination params
-            if (\in_array($key, ['page', 'itemsPerPage', '_page', '_per_page'], true)) {
+            if (\in_array($key, ['page', 'itemsPerPage', 'pagination', '_page', '_per_page'], true)) {
                 continue;
             }
 

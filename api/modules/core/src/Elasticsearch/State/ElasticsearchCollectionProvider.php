@@ -19,6 +19,9 @@ use Symfony\Bundle\SecurityBundle\Security;
  */
 final class ElasticsearchCollectionProvider implements ProviderInterface
 {
+    /** Elasticsearch's default `index.max_result_window`. */
+    private const MAX_RESULT_WINDOW = 10000;
+
     /**
      * @param ProviderInterface<object> $doctrineProvider
      */
@@ -66,12 +69,18 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     /**
      * @param array{index: string, module: ?string, fields: array<string, mixed>, relations: array<string, mixed>, dayFields?: array<string, array{field: string, exclusiveEnd: bool}>} $meta
      * @param array<string, mixed>                                                                                                                                                      $context
+     *
+     * @return ElasticsearchPaginator|list<object>
      */
-    private function doProvide(array $meta, string $entityClass, Operation $operation, array $context): ElasticsearchPaginator
+    private function doProvide(array $meta, string $entityClass, Operation $operation, array $context): ElasticsearchPaginator|array
     {
         $userId = $this->getCurrentUserId();
         $filters = $context['filters'] ?? [];
         $translated = $this->filterTranslator->translate($filters, $meta['fields'], $meta['relations'], $meta['dayFields'] ?? []);
+
+        // `?pagination=false` (MAG-430): the client asks for the whole collection
+        // in one answer, as API Platform's Doctrine provider gives it.
+        $unpaginated = $this->clientAsksForEverything($operation, $filters);
 
         // Pagination
         $page = (int) ($filters['page'] ?? 1);
@@ -92,8 +101,8 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
 
         $body = [
             'query' => ['bool' => $boolQuery],
-            'from' => $from,
-            'size' => $itemsPerPage,
+            'from' => $unpaginated ? 0 : $from,
+            'size' => $unpaginated ? self::MAX_RESULT_WINDOW : $itemsPerPage,
         ];
 
         // Sort
@@ -120,7 +129,36 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
 
         $total = $response['hits']['total']['value'];
 
+        if ($unpaginated) {
+            if ($total > self::MAX_RESULT_WINDOW) {
+                // Elasticsearch refuses to go past `index.max_result_window`:
+                // the answer is cut, say so rather than loop on a scroll.
+                $this->logger->warning('ES unpaginated collection truncated: {total} hits, {returned} returned', [
+                    'event' => 'es_collection_truncated',
+                    'total' => $total,
+                    'returned' => \count($items),
+                    'entity' => $entityClass,
+                    'index' => $meta['index'],
+                    'filters' => $filters,
+                ]);
+            }
+
+            return $items;
+        }
+
         return new ElasticsearchPaginator($items, (float) $page, (float) $itemsPerPage, (float) $total);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function clientAsksForEverything(Operation $operation, array $filters): bool
+    {
+        if (true !== $operation->getPaginationClientEnabled() || !\array_key_exists('pagination', $filters)) {
+            return false;
+        }
+
+        return false === filter_var($filters['pagination'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
     }
 
     private function getCurrentUserId(): string

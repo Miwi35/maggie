@@ -10,14 +10,19 @@ import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.header
 import io.ktor.http.URLBuilder
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Dispatcher
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -45,6 +50,49 @@ fun Flow<MercureEvent>.coalesced(): Flow<MercureEvent> = debounce(MERCURE_BURST_
  */
 fun Flow<MercureEvent>.coalescedAndRechecked(): Flow<MercureEvent> =
     coalesced().transformLatest {
+        emit(it)
+        delay(MERCURE_INDEX_RECHECK_MS)
+        emit(it)
+    }
+
+/**
+ * What the stream announced in each burst, in one list: a value is emitted once the stream has been
+ * quiet for [MERCURE_BURST_WINDOW_MS], carrying everything received since the last emission.
+ */
+fun <T> Flow<T>.batched(): Flow<List<T>> = channelFlow {
+    val inbox = Channel<T>(Channel.UNLIMITED)
+    launch {
+        try {
+            collect { inbox.send(it) }
+            inbox.close()
+        } catch (e: Throwable) {
+            inbox.close(e)
+        }
+    }
+    val batch = mutableListOf<T>()
+    var open = true
+    while (open) {
+        val first = inbox.receiveCatching()
+        batch += first.getOrNull() ?: break
+        while (true) {
+            val next = withTimeoutOrNull(MERCURE_BURST_WINDOW_MS) { inbox.receiveCatching() } ?: break
+            val value = next.getOrNull()
+            if (value == null) {
+                open = false
+                break
+            }
+            batch += value
+        }
+        send(batch.toList())
+        batch.clear()
+    }
+    inbox.cancel()
+}
+
+/** [batched], then the same batch once more [MERCURE_INDEX_RECHECK_MS] later, unless a newer burst comes first (see [coalescedAndRechecked]). */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun <T> Flow<T>.batchedAndRechecked(): Flow<List<T>> =
+    batched().transformLatest {
         emit(it)
         delay(MERCURE_INDEX_RECHECK_MS)
         emit(it)

@@ -66,6 +66,7 @@ import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.accept
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -533,14 +534,26 @@ class MaggieApiService(
         const val INTERRUPT_TIMEOUT_MS = 5_000L
     }
 
-    suspend fun getEvents(
-        afterDate: String? = null,
-        beforeDate: String? = null,
-    ): List<Event> {
+    /**
+     * Asks for the whole collection in one response. API Platform serves 30 members a page and the
+     * app reads no further, so a displayed list (the agenda, the tasks...) lost its 31st item
+     * (MAG-430). Infinite-scroll screens do not call this.
+     */
+    private fun HttpRequestBuilder.withoutPagination() {
+        url.parameters.append("pagination", "false")
+    }
+
+    /**
+     * The events that overlap the period: [periodStart] and [periodEnd] are ISO-8601 instants with
+     * their offset (`2026-10-01T00:00:00+02:00`). An event belongs to the period when it ends
+     * after it starts and starts before it ends.
+     */
+    suspend fun getEvents(periodStart: String, periodEnd: String): List<Event> {
         return client.get("$baseUrl/api/events") {
             accept(ContentType("application", "ld+json"))
-            afterDate?.let { url.parameters.append("startAt[after]", it) }
-            beforeDate?.let { url.parameters.append("endAt[before]", it) }
+            withoutPagination()
+            url.parameters.append("endAt[after]", periodStart)
+            url.parameters.append("startAt[before]", periodEnd)
         }.body<ApiCollection<Event>>().member
     }
 
@@ -553,6 +566,7 @@ class MaggieApiService(
     suspend fun getRecurringEventsBefore(before: String): List<Event> {
         return client.get("$baseUrl/api/events") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
             url.parameters.append("exists[rrule]", "true")
             url.parameters.append("startAt[strictly_before]", before)
         }.body<ApiCollection<Event>>().member
@@ -581,6 +595,7 @@ class MaggieApiService(
     suspend fun getTasks(): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Task>>().member
     }
 
@@ -593,6 +608,7 @@ class MaggieApiService(
     suspend fun getUndoneTasks(dueDateBefore: String? = null): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
             url.parameters.append("exists[completedAt]", "false")
             dueDateBefore?.let { url.parameters.append("dueDate[before]", it) }
         }.body<ApiCollection<Task>>().member
@@ -601,6 +617,7 @@ class MaggieApiService(
     suspend fun getUndoneUndatedTasks(): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
             url.parameters.append("exists[completedAt]", "false")
             url.parameters.append("exists[dueDate]", "false")
         }.body<ApiCollection<Task>>().member
@@ -629,7 +646,14 @@ class MaggieApiService(
     suspend fun getAgendas(): List<Agenda> {
         return client.get("$baseUrl/api/agendas") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Agenda>>().member
+    }
+
+    suspend fun getAgenda(id: String): Agenda {
+        return client.get("$baseUrl/api/agendas/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
     }
 
     suspend fun createAgenda(request: AgendaCreateRequest): Agenda {
@@ -880,6 +904,7 @@ class MaggieApiService(
     suspend fun getRecipes(): List<Recipe> {
         return client.get("$baseUrl/api/recipes") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Recipe>>().member
     }
 
@@ -919,6 +944,7 @@ class MaggieApiService(
     suspend fun getIngredients(): List<Ingredient> {
         return client.get("$baseUrl/api/ingredients") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Ingredient>>().member
     }
 
@@ -939,15 +965,11 @@ class MaggieApiService(
     }
 
     // Meals
-    /**
-     * [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. A month
-     * holds up to 62 meals: the page size is raised to the API's maximum, else the
-     * default of 30 cuts the end of the month off.
-     */
+    /** [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. */
     suspend fun getMeals(fromDay: String? = null, toDay: String? = null): List<Meal> {
         return client.get("$baseUrl/api/meals") {
             accept(ContentType("application", "ld+json"))
-            url.parameters.append("itemsPerPage", "100")
+            withoutPagination()
             url.parameters.append("order[date]", "asc")
             fromDay?.let { url.parameters.append("date[after]", it) }
             toDay?.let { url.parameters.append("date[before]", it) }
@@ -985,6 +1007,7 @@ class MaggieApiService(
     suspend fun getGroceryLists(): List<GroceryList> {
         return client.get("$baseUrl/api/grocery_lists") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<GroceryList>>().member
     }
 
@@ -1010,6 +1033,7 @@ class MaggieApiService(
     suspend fun getRecurringGroceryItems(): List<RecurringGroceryItem> {
         return client.get("$baseUrl/api/recurring_grocery_items") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<RecurringGroceryItem>>().member
     }
 
@@ -1029,6 +1053,7 @@ class MaggieApiService(
     suspend fun getProducts(): List<Product> {
         return client.get("$baseUrl/api/products") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Product>>().member
     }
 
@@ -1048,6 +1073,7 @@ class MaggieApiService(
     suspend fun getStores(): List<Store> {
         return client.get("$baseUrl/api/stores") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Store>>().member
     }
 
@@ -1067,6 +1093,7 @@ class MaggieApiService(
     suspend fun getAccounts(): List<Account> {
         return client.get("$baseUrl/api/accounts") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Account>>().member
     }
 
@@ -1086,8 +1113,7 @@ class MaggieApiService(
     suspend fun getCategories(): List<Category> {
         return client.get("$baseUrl/api/categories") {
             accept(ContentType("application", "ld+json"))
-            // The collection pages by 30: a tree cut there turns a child into a main category.
-            url.parameters.append("itemsPerPage", "200")
+            withoutPagination()
         }.body<ApiCollection<Category>>().member
     }
 
@@ -1179,6 +1205,7 @@ class MaggieApiService(
     suspend fun getEnvelopes(): List<Envelope> {
         return client.get("$baseUrl/api/envelopes") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Envelope>>().member
     }
 
@@ -1219,6 +1246,7 @@ class MaggieApiService(
     suspend fun getLoans(): List<Loan> {
         return client.get("$baseUrl/api/loans") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<Loan>>().member
     }
 
@@ -1276,6 +1304,7 @@ class MaggieApiService(
     suspend fun getCategorizationRules(): List<CategorizationRule> {
         return client.get("$baseUrl/api/categorization_rules") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<CategorizationRule>>().member
     }
 
@@ -1352,6 +1381,7 @@ class MaggieApiService(
     suspend fun getRecurringOperationRecords(): List<RecurringOperationRecord> {
         return client.get("$baseUrl/api/recurring_operations") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<RecurringOperationRecord>>().member
     }
 
@@ -1452,6 +1482,7 @@ class MaggieApiService(
     suspend fun getNotifications(unreadOnly: Boolean = false): List<Notification> {
         return client.get("$baseUrl/api/notifications") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
             if (unreadOnly) {
                 url.parameters.append("exists[readAt]", "false")
             }
