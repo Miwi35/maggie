@@ -28,7 +28,9 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * `retries: 0` because a retry would start on what the first attempt left.
  */
 
-test.describe.configure({ retries: 0 })
+// Serial: both tests lay a « Salaire » series on the same account, and the reference salary adds
+// every series up — in parallel the second read 9 900 € (MAG-443).
+test.describe.configure({ mode: 'serial', retries: 0 })
 
 const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 
