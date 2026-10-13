@@ -154,3 +154,24 @@ async def test_prefixes_and_versioning(s3):
     s3.pages = [{"CommonPrefixes": [{"Prefix": "01A/"}, {"Prefix": "01B/"}], "IsTruncated": False}]
     assert await bucket().list_prefixes() == ["01A", "01B"]
     assert await bucket().versioning_status() == "Enabled"
+
+
+async def test_one_boto_session_serves_every_call(monkeypatch):
+    # A session per call reloads botocore's models each time: +130 MB per worker, and production's
+    # agent pod was OOM-killed on its first sync passes (MAG-309, deploy of 1d92172 rolled back).
+    import aioboto3
+
+    created: list[object] = []
+
+    class Session:
+        def __init__(self) -> None:
+            created.append(self)
+
+        def client(self, *args, **kwargs):
+            return StubS3()
+
+    monkeypatch.setattr(aioboto3, "Session", Session)
+    b = bucket()
+    for _ in range(3):
+        assert await b.head("absent") is None
+    assert len(created) == 1

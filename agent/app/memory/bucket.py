@@ -85,7 +85,8 @@ class Bucket(Protocol):
 
 
 class S3Bucket:
-    """aioboto3 against an S3-compatible endpoint. One short-lived client per call: no stale connection to repair."""
+    """aioboto3 against an S3-compatible endpoint. One session, one short-lived client per call: no stale
+    connection to repair."""
 
     def __init__(
         self,
@@ -106,12 +107,21 @@ class S3Bucket:
         # False = compare the ETag ourselves before writing (HEAD then PUT): narrower than a real
         # condition, but safe on an endpoint that would silently ignore If-Match / If-None-Match.
         self.conditional_writes = conditional_writes
+        self._boto_session: Any = None
+
+    def _session(self) -> Any:
+        """One session for the bucket's life: each new one reloads botocore's models (~130 MB per
+        worker on a sync pass), which got the agent pod OOM-killed in production."""
+        if self._boto_session is None:
+            import aioboto3
+
+            self._boto_session = aioboto3.Session()
+        return self._boto_session
 
     def _client(self) -> Any:
-        import aioboto3
         from botocore.config import Config
 
-        return aioboto3.Session().client(
+        return self._session().client(
             "s3",
             endpoint_url=self.endpoint_url,
             region_name=self.region,
