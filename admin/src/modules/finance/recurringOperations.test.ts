@@ -5,6 +5,7 @@ import {
   describePriceChange,
   describeReason,
   describeSchedule,
+  labelPatternFrom,
   readIgnored,
   seriesIri,
   writeIgnored,
@@ -130,4 +131,29 @@ describe('ignored proposals', () => {
 test('seriesIri accepts a bare id or an IRI', () => {
   expect(seriesIri('01OP')).toBe('/api/recurring_operations/01OP')
   expect(seriesIri('/api/recurring_operations/01OP')).toBe('/api/recurring_operations/01OP')
+})
+
+describe('labelPatternFrom', () => {
+  test.each([
+    ['Sas Jardis', 'Sas Jardis'],
+    ['  Sas   Jardis ', 'Sas Jardis'],
+    ['PRLV FLIXO 12/10/2026', 'PRLV FLIXO'],
+    ['PRLV FLIXO 12/10', 'PRLV FLIXO'],
+    ['PRLV FLIXO 2026-10-12', 'PRLV FLIXO'],
+    ['CARTE X1234 BOULANGERIE DUPONT', 'BOULANGERIE DUPONT'],
+    ['CB*4567 BOULANGERIE DUPONT 13/10', 'BOULANGERIE DUPONT'],
+    ['VIR SCI VERDA REF: 8842001', 'VIR SCI VERDA'],
+    ['PRLV EDF REF 20261013ABC', 'PRLV EDF'],
+    ['PRLV EDF N° 99812', 'PRLV EDF'],
+    ['FLIXO 0123456789', 'FLIXO'],
+    ['CARTE X9633 SAS JARDIS 13/10', 'SAS JARDIS'],
+    ['PRLV 12/10 FLIXO', 'FLIXO'],
+    ['VIR 0012345678 LOYER MARS REF: 88', 'LOYER MARS'],
+  ])('« %s » reads « %s »', (label, expected) => {
+    expect(labelPatternFrom(label)).toBe(expected)
+  })
+
+  test('keeps the label as it is when nothing but variable parts would remain', () => {
+    expect(labelPatternFrom('12/10/2026 0123456789')).toBe('12/10/2026 0123456789')
+  })
 })

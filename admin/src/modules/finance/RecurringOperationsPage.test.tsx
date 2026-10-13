@@ -337,6 +337,16 @@ describe('RecurringOperationsPage — the list', () => {
     await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/overview')).length).toBeGreaterThan(before))
   })
 
+  test('editing a series recognised by its label pattern opens with the pattern, never wipes it', async () => {
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Modifier Loyer' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText(/Motif du libellé/)).toHaveValue('LOYER')
+    expect(within(dialog).getByLabelText('Contrepartie attendue')).toHaveValue('')
+  })
+
   test('deleting a series asks first, then removes it', async () => {
     renderPage()
     await screen.findByText('Assurance')

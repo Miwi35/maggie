@@ -68,6 +68,7 @@ const Stat = ({ label, children }: { label: string; children: React.ReactNode })
 const dialogValuesOf = (series: RecurringSeries, stored: RecurringStored): Partial<RecurringFormValues> => ({
   label: series.label,
   counterpartyName: stored.counterpartyName ?? '',
+  labelPattern: stored.labelPattern ?? '',
   referenceAmountCents: series.referenceAmountCents,
   account: `/api/accounts/${series.accountId}`,
   category: `/api/categories/${series.categoryId}`,
@@ -82,6 +83,7 @@ const dialogValuesOf = (series: RecurringSeries, stored: RecurringStored): Parti
 const suggestionValuesOf = (s: RecurringSuggestion): Partial<RecurringFormValues> => ({
   label: s.label,
   counterpartyName: s.counterpartyName ?? '',
+  labelPattern: s.labelPattern ?? '',
   referenceAmountCents: s.referenceAmountCents,
   account: `/api/accounts/${s.accountId}`,
   category: s.categoryId ? `/api/categories/${s.categoryId}` : '',

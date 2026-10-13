@@ -157,6 +157,41 @@ describe('MakeRecurringButton', () => {
     expect(within(dialog).getByRole('combobox', { name: /Catégorie/ })).toHaveTextContent('Abonnements')
   })
 
+  test('a line with no payee opens with its label as the label pattern, cleaned of its variable parts', async () => {
+    renderWith(<MakeRecurringButton record={{ ...TRANSACTION, label: 'Sas Jardis 13/10', counterpartyName: null }} />)
+
+    const dialog = await screen.findByRole('button', { name: /En faire une opération récurrente/ }).then(async (b) => {
+      await userEvent.click(b)
+
+      return screen.findByRole('dialog')
+    })
+
+    expect(within(dialog).getByLabelText('Contrepartie attendue')).toHaveValue('')
+    expect(within(dialog).getByLabelText(/Motif du libellé/)).toHaveValue('Sas Jardis')
+  })
+
+  test('a line with no payee is saved with its label pattern', async () => {
+    renderWith(<MakeRecurringButton record={{ ...TRANSACTION, label: 'Sas Jardis', counterpartyName: null }} />)
+    await userEvent.click(screen.getByRole('button', { name: /En faire une opération récurrente/ }))
+    const form = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(form).getByRole('combobox', { name: /Compte/ })).toHaveTextContent('Courant'))
+
+    await userEvent.click(within(form).getByRole('button', { name: 'Créer la série' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({ counterpartyName: null, labelPattern: 'Sas Jardis' })
+    expect(await screen.findByText('Opération récurrente créée')).toBeInTheDocument()
+  })
+
+  test('a line with a payee leaves the label pattern empty', async () => {
+    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+
+    const dialog = await open()
+
+    expect(within(dialog).getByLabelText('Contrepartie attendue')).toHaveValue('Flixo')
+    expect(within(dialog).getByLabelText(/Motif du libellé/)).toHaveValue('')
+  })
+
   test('clicking inside the dialog does not reach the row, whose click opens the edit page', async () => {
     const rowClick = vi.fn()
     renderWith(

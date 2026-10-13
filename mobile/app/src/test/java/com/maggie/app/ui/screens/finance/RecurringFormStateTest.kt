@@ -166,6 +166,49 @@ class RecurringFormStateTest {
     }
 
     @Test
+    fun `a transaction without a payee opens with its label as the pattern, cleaned of its variable parts`() {
+        val form = RecurringFormState(RecurringEditing(transaction = late.copy(label = "CB*4567 SAS JARDIS 13/10", counterpartyName = null)))
+
+        assertEquals("", form.counterpartyName)
+        assertEquals("SAS JARDIS", form.labelPattern)
+        assertEquals("SAS JARDIS", form.toRequest()!!.labelPattern)
+    }
+
+    @Test
+    fun `a transaction with a payee fills the payee and leaves the pattern empty`() {
+        val form = RecurringFormState(RecurringEditing(transaction = late))
+
+        assertEquals("SCI VERDA", form.counterpartyName)
+        assertEquals("", form.labelPattern)
+        assertNull(form.toRequest()!!.labelPattern)
+    }
+
+    @Test
+    fun `with neither a payee nor a pattern the French message is shown and nothing is sent`() {
+        val form = RecurringFormState(RecurringEditing(transaction = late.copy(counterpartyName = null)))
+        form.labelPattern = ""
+        form.showErrors = true
+
+        assertNull(form.toRequest())
+        assertEquals("Indique une contrepartie ou un motif de libellé pour reconnaître les transactions", form.payeeError)
+    }
+
+    @Test
+    fun `labelPatternFrom drops dates, card and reference numbers and keeps a bare label whole`() {
+        assertEquals("Sas Jardis", labelPatternFrom("  Sas   Jardis "))
+        assertEquals("PRLV FLIXO", labelPatternFrom("PRLV FLIXO 12/10/2026"))
+        assertEquals("PRLV FLIXO", labelPatternFrom("PRLV FLIXO 2026-10-12"))
+        assertEquals("BOULANGERIE DUPONT", labelPatternFrom("CARTE X1234 BOULANGERIE DUPONT"))
+        assertEquals("VIR SCI VERDA", labelPatternFrom("VIR SCI VERDA REF: 8842001"))
+        assertEquals("PRLV EDF", labelPatternFrom("PRLV EDF N° 99812"))
+        assertEquals("FLIXO", labelPatternFrom("FLIXO 0123456789"))
+        assertEquals("SAS JARDIS", labelPatternFrom("CARTE X9633 SAS JARDIS 13/10"))
+        assertEquals("FLIXO", labelPatternFrom("PRLV 12/10 FLIXO"))
+        assertEquals("LOYER MARS", labelPatternFrom("VIR 0012345678 LOYER MARS RÉF: 88"))
+        assertEquals("12/10/2026 0123456789", labelPatternFrom("12/10/2026 0123456789"))
+    }
+
+    @Test
     fun `a transaction on the last day of the month proposes the last day rule`() {
         val form = RecurringFormState(RecurringEditing(transaction = late.copy(bookedAt = "2026-04-30T00:00:00+00:00")))
 
