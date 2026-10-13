@@ -588,7 +588,7 @@ class MaggieApiServiceTest {
         val categories = service.getCategories()
 
         assertEquals(1, categories.size)
-        assertTrue(url!!.contains("itemsPerPage=200"))
+        assertTrue(url!!.contains("pagination=false"))
     }
 
     @Test
