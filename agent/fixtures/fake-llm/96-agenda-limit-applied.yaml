@@ -1,0 +1,17 @@
+# « Qu'est-ce que j'ai demain ? » in a new thread, after the directive (MAG-325).
+#
+# `system_contains` is matched on the system prompt she is really sent, so this can only
+# answer once the directive reached it; the tool call then carries the filter, and the
+# journey asserts it (`agendas` as the owner named them).
+name: agenda-limit-applied
+description: Read tomorrow through MCP with the agendas the directive limits her to.
+
+match:
+  user_contains: "qu'est-ce que j'ai demain"
+  system_contains: "agendas Défaut et Garde Ael"
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 2, agendas: ["Défaut", "Garde Ael"]}
+  - text: "Voici demain dans Défaut et Garde Ael, les seuls agendas que tu m'as demandé de lire."

@@ -1,0 +1,17 @@
+# « Supprime le piano du jeudi » (MAG-325, the 7 Oct. conversation): the series starts in 8
+# days, and a 7-day window had her answer « je n'ai pas trouvé » then look at the wrong
+# Thursday. She looks the event up by its name, with no window, before anything else.
+#
+# The fake does not read results, so the deletion that follows (held for approval, see
+# 90-delete-event-approval.yaml) is not scripted: this scenario proves the first call.
+name: delete-event-by-name
+description: Find an event by its title, whatever its date, before acting on it.
+
+match:
+  user_contains: "supprime le piano du jeudi"
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {query: "piano"}
+  - text: "J'ai trouvé la série « Cours de piano » : c'est bien celle-là que je supprime ?"
