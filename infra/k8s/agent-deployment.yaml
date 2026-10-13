@@ -55,7 +55,10 @@ spec:
               memory: 128Mi
               cpu: 50m
             limits:
-              memory: 512Mi
+              # 1 Gi since 13 Oct. (MAG-444): two uvicorn workers already used ~380 Mi, and the memory
+              # folder's sync, one loop per worker, took them past 512 Mi at its first pass (OOMKilled).
+              # Back to 512 Mi once a single sync loop runs per pod.
+              memory: 1Gi
               cpu: 1000m
       volumes:
         # The memory folder's local copy: a cache of the bucket, rebuilt at boot, never kept.
