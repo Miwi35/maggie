@@ -13,16 +13,23 @@ import com.maggie.app.data.model.RecurringProposal
 import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.RecurringSuggestion
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureEvent
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -44,6 +51,8 @@ class RecurringOperationViewModelTest {
     private lateinit var repository: RecurringOperationRepository
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var accountRepository: AccountRepository
+    private lateinit var mercureService: MercureService
+    private lateinit var authRepository: AuthRepository
 
     private val rent = RecurringSeries(
         id = "rent",
@@ -123,6 +132,11 @@ class RecurringOperationViewModelTest {
         coEvery { repository.getOverview() } returns Result.success(overview)
         coEvery { repository.getRecords() } returns Result.success(listOf(record))
         coEvery { repository.getSuggestions() } returns Result.success(emptyList())
+        coEvery { repository.getSeriesTransactions(any()) } returns Result.success(emptyList())
+        mercureService = mockk()
+        authRepository = mockk()
+        coEvery { authRepository.getUserId() } returns "user-1"
+        every { mercureService.subscribe(any()) } returns emptyFlow()
     }
 
     @After
@@ -130,7 +144,7 @@ class RecurringOperationViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = RecurringOperationViewModel(repository, categoryRepository, accountRepository)
+    private fun viewModel() = RecurringOperationViewModel(repository, categoryRepository, accountRepository, mercureService, authRepository)
 
     @Test
     fun `loading shows a spinner until the overview answers`() = runTest {
@@ -464,5 +478,136 @@ class RecurringOperationViewModelTest {
 
         assertNull(viewModel.uiState.value.editing)
         assertEquals("Opération récurrente supprimée", viewModel.uiState.value.message)
+    }
+
+    private val april = Transaction(
+        id = "tx-april", label = "LOYER SCI VERDA", amountCents = -90000, bookedAt = "2026-04-12",
+        recurringOperation = "/api/recurring_operations/rent", recurringOccurrenceOn = "2026-04-05", recurringSource = "auto",
+    )
+    private val march = april.copy(id = "tx-march", bookedAt = "2026-03-05", recurringOccurrenceOn = "2026-03-05", recurringSource = "manual")
+
+    @Test
+    fun `opening a series reads its lines, newest first`() = runTest {
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april, march))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        assertNull(viewModel.uiState.value.seriesLines)
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-april", "tx-march"), viewModel.uiState.value.seriesLines?.map { it.id })
+        assertNull(viewModel.uiState.value.seriesLinesError)
+    }
+
+    @Test
+    fun `a series with no line reads as an empty list, not as loading`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Transaction>(), viewModel.uiState.value.seriesLines)
+    }
+
+    @Test
+    fun `lines that cannot be read are an error of the section, and reloading recovers`() = runTest {
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.failure(RuntimeException("503"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.seriesLines)
+        assertEquals("503", viewModel.uiState.value.seriesLinesError)
+        assertNull(viewModel.uiState.value.error)
+
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april))
+        viewModel.reloadSeriesLines()
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-april"), viewModel.uiState.value.seriesLines?.map { it.id })
+        assertNull(viewModel.uiState.value.seriesLinesError)
+    }
+
+    @Test
+    fun `detaching a line takes it off the list and reloads the overview`() = runTest {
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april, march))
+        coEvery { repository.detachTransaction("tx-april") } returns Result.success(Unit)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        viewModel.detachSeriesLine("tx-april")
+        assertEquals("tx-april", viewModel.uiState.value.detachingId)
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-march"), viewModel.uiState.value.seriesLines?.map { it.id })
+        assertNull(viewModel.uiState.value.detachingId)
+        coVerify(exactly = 2) { repository.getOverview() }
+    }
+
+    @Test
+    fun `a detachment that fails keeps the line and says so`() = runTest {
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april))
+        coEvery { repository.detachTransaction("tx-april") } returns Result.failure(RuntimeException("500"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        viewModel.detachSeriesLine("tx-april")
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-april"), viewModel.uiState.value.seriesLines?.map { it.id })
+        assertEquals("500", viewModel.uiState.value.seriesLinesError)
+        assertNull(viewModel.uiState.value.detachingId)
+    }
+
+    @Test
+    fun `a Mercure update on transactions reloads the lines of the open series`() = runTest {
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.TRANSACTIONS)) } returns events
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(march))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april, march))
+        events.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-april", "tx-march"), viewModel.uiState.value.seriesLines?.map { it.id })
+    }
+
+    @Test
+    fun `a Mercure update with no series open reads nothing`() = runTest {
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.TRANSACTIONS)) } returns events
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        events.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.getSeriesTransactions(any()) }
+        assertNull(viewModel.uiState.value.seriesLines)
+    }
+
+    @Test
+    fun `lines that arrive after the editor closed are dropped`() = runTest {
+        coEvery { repository.getSeriesTransactions("rent") } returns Result.success(listOf(april))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        viewModel.closeEditor()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.seriesLines)
     }
 }

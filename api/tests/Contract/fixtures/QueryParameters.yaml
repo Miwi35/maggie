@@ -104,6 +104,17 @@ Maggie\Finance\Entity\Category:
     name: Category A
     user: '@filter_user'
 
+Maggie\Finance\Entity\RecurringOperation:
+  filter_recurring:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@filter_category'
+    account: '@filter_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-03-01"))>'
+    referenceAmountCents: -1000
+    user: '@filter_user'
+
 Maggie\Finance\Entity\Transaction:
   filter_transaction_a:
     account: '@filter_account'
@@ -112,6 +123,8 @@ Maggie\Finance\Entity\Transaction:
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-03-01"))>'
     label: On account A
+    recurringOperation: '@filter_recurring'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2026-03-01"))>'
     user: '@filter_user'
 
   filter_transaction_b:

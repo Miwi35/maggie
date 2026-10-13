@@ -98,7 +98,8 @@ final class QueryParameterContractTest extends WebTestCase
         '/api/transactions' => [
             'account' => 'mobile getTransactions, narrowing to one account',
             'category' => 'mobile countTransactionsOfCategory, the weight of a deletion',
-            'order[bookedAt]' => 'mobile getTransactions',
+            'recurringOperation' => 'admin RecurringOperationsPage and mobile getTransactionsOfRecurringOperation, the transactions a series recognised',
+            'order[bookedAt]' => 'admin RecurringOperationsPage, mobile getTransactions',
         ],
         '/api/grocery_lists' => [
             'order[createdAt]' => 'admin GroceryListView',
@@ -435,6 +436,13 @@ final class QueryParameterContractTest extends WebTestCase
             ['On account B'],
         ];
 
+        // The transactions a recurring series recognised, unrolled on its row.
+        yield 'transactions of one recurring operation' => [
+            '/api/transactions', 'recurringOperation=IRI:filter_recurring', 'label',
+            ['On account A'],
+            ['On account B'],
+        ];
+
         // How many transactions a category deletion would uncategorise.
         yield 'transactions of one category' => [
             '/api/transactions', 'category=IRI:filter_category', 'label',
@@ -492,7 +500,11 @@ final class QueryParameterContractTest extends WebTestCase
             $uri = (string) preg_replace_callback(
                 '/IRI:([a-z_]+)/',
                 fn (array $m): string => rawurlencode(
-                    (str_starts_with($m[1], 'filter_category') ? '/api/categories/' : '/api/accounts/').$this->getFixture($m[1])->getId(),
+                    match (true) {
+                        str_starts_with($m[1], 'filter_category') => '/api/categories/',
+                        str_starts_with($m[1], 'filter_recurring') => '/api/recurring_operations/',
+                        default => '/api/accounts/',
+                    }.$this->getFixture($m[1])->getId(),
                 ),
                 $uri,
             );

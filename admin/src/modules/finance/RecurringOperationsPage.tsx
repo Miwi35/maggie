@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
+import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -21,6 +22,8 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight'
 import { Title, useDelete, useGetList, useNotify } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { Placeholder } from '../../components/list/ListEmpty'
@@ -29,6 +32,7 @@ import { formatCents } from './accountTypes'
 import { RecurringOperationDialog } from './RecurringOperationDialog'
 import { RecurringCatchUpButton } from './RecurringCatchUp'
 import { ProposalsPanel, SuggestionsPanel } from './RecurringPanels'
+import { RecurringSeriesTransactions } from './RecurringSeriesTransactions'
 import {
   SOURCE_LABEL,
   describePriceChange,
@@ -137,6 +141,11 @@ export const RecurringOperationsPage = () => {
   const [dialog, setDialog] = useState<{ recordId?: string; initial?: Partial<RecurringFormValues> } | null>(null)
   const [toDelete, setToDelete] = useState<RecurringSeries | null>(null)
   const [accepting, setAccepting] = useState(false)
+  const [expanded, setExpanded] = useState<string[]>([])
+  const [transactionsTick, setTransactionsTick] = useState(0)
+
+  const toggle = (id: string) =>
+    setExpanded((open) => (open.includes(id) ? open.filter((other) => other !== id) : [...open, id]))
 
   const detailRetries = useRef(0)
   const [retryTick, setRetryTick] = useState(0)
@@ -144,6 +153,7 @@ export const RecurringOperationsPage = () => {
   const reloadAll = () => {
     detailRetries.current = 0
     setRetryTick((tick) => tick + 1)
+    setTransactionsTick((tick) => tick + 1)
     reload()
     reloadSuggestions()
     refetch()
@@ -308,6 +318,7 @@ export const RecurringOperationsPage = () => {
           <Table size="small" aria-label="Opérations récurrentes">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox" />
                 <TableCell>Libellé</TableCell>
                 <TableCell>Contrepartie</TableCell>
                 <TableCell>Catégorie</TableCell>
@@ -322,9 +333,21 @@ export const RecurringOperationsPage = () => {
             <TableBody>
               {operations.map((series) => {
                 const detail = stored.get(series.id)
+                const open = expanded.includes(series.id)
 
                 return (
-                  <TableRow key={series.id} hover>
+                  <Fragment key={series.id}>
+                  <TableRow hover>
+                    <TableCell padding="checkbox">
+                      <IconButton
+                        size="small"
+                        aria-label={`${open ? 'Replier' : 'Dérouler'} les transactions de ${series.label}`}
+                        aria-expanded={open}
+                        onClick={() => toggle(series.id)}
+                      >
+                        {open ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
+                      </IconButton>
+                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {series.label}
@@ -371,6 +394,20 @@ export const RecurringOperationsPage = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={10} sx={{ py: 0, borderBottom: open ? undefined : 'none' }}>
+                      <Collapse in={open} unmountOnExit>
+                        <Box sx={{ py: 1.5 }}>
+                          <RecurringSeriesTransactions
+                            seriesId={series.id}
+                            currency={series.currency}
+                            reloadKey={transactionsTick}
+                          />
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                  </Fragment>
                 )
               })}
             </TableBody>

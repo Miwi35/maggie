@@ -6,7 +6,7 @@
 // Same login and polling as `meal-api.js`.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create | expect-attached | remove
+//   ACTION  create | expect-attached | expect-detached | remove
 //
 // Everything lives on an account of its own, so `remove` is one delete: the series and
 // the lines go with it. Dates come from TODAY, the day the stack runs at.
@@ -119,6 +119,17 @@ if (ACTION === 'create') {
     }
     if (Date.now() >= deadline) {
       fail('the line "' + transactionLabel + '" was never attached within 30 s (found ' + lines.length + ' line(s))')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'expect-detached') {
+  for (;;) {
+    const lines = transactions()
+    if (lines.length === 1 && !lines[0].recurringOperation) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the line "' + transactionLabel + '" was still attached after 30 s (found ' + lines.length + ' line(s))')
     }
     pause(300)
   }

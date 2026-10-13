@@ -7,6 +7,7 @@ import com.maggie.app.data.model.RecurringAttachReport
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringSuggestion
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.util.rethrowCancellation
 
 class RecurringOperationRepository(
@@ -44,6 +45,10 @@ class RecurringOperationRepository(
 
     suspend fun delete(id: String): Result<Unit> = runCatching {
         apiService.deleteRecurringOperation(id)
+    }.rethrowCancellation()
+
+    suspend fun getSeriesTransactions(seriesId: String): Result<List<Transaction>> = runCatching {
+        apiService.getTransactionsOfRecurringOperation(seriesId)
     }.rethrowCancellation()
 
     suspend fun attachTransaction(transactionId: String, seriesId: String, occurrenceOn: String): Result<Unit> = runCatching {

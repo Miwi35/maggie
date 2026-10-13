@@ -164,12 +164,34 @@ const fetchMock = vi.fn((url: string, init?: RequestInit) => {
   return json(404, {})
 })
 
-const getList = vi.fn(async (resource: string) => {
+const tx = (id: string, overrides: Record<string, unknown> = {}) => ({
+  id: `/api/transactions/${id}`,
+  label: `PAIEMENT FLIXO ${id}`,
+  bookedAt: '2026-10-14T00:00:00+00:00',
+  amountCents: -1349,
+  currency: 'EUR',
+  recurringOperation: '/api/recurring_operations/01FLIXO',
+  recurringOccurrenceOn: '2026-10-12T00:00:00+00:00',
+  recurringSource: 'auto',
+  ...overrides,
+})
+let seriesTransactions: Array<ReturnType<typeof tx>> = []
+let seriesTransactionsFail = false
+
+const defaultGetList = async (resource: string, params?: { pagination?: { page: number } }) => {
+  if (resource === 'transactions') {
+    if (seriesTransactionsFail) throw new Error('boom')
+    const page = params?.pagination?.page ?? 1
+
+    return { data: seriesTransactions.slice((page - 1) * 100, page * 100), total: seriesTransactions.length }
+  }
   if (resource === 'recurring_operations') return { data: STORED, total: STORED.length }
   if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
 
   return { data: [{ id: '/api/categories/01CAT', name: 'Abonnements', obligation: 'optional' }], total: 1 }
-})
+}
+
+const getList = vi.fn(defaultGetList)
 
 const deleteMock = vi.fn(async () => ({ data: { id: '/api/recurring_operations/01CALM' } }))
 
@@ -196,6 +218,8 @@ beforeEach(() => {
   mercureListeners.length = 0
   overviews = [overviewOf([FLIXO, LOYER, SALAIRE, CALME])]
   suggestions = []
+  seriesTransactions = []
+  seriesTransactionsFail = false
   attachReport = { dryRun: true, scanned: 0, attached: 0, proposed: 0, attachments: [], proposals: [] }
 })
 
@@ -253,12 +277,7 @@ describe('RecurringOperationsPage — the list', () => {
 
     afterEach(() => {
       vi.useRealTimers()
-      getList.mockImplementation(async (resource: string) => {
-        if (resource === 'recurring_operations') return { data: STORED, total: STORED.length }
-        if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
-
-        return { data: [{ id: '/api/categories/01CAT', name: 'Abonnements', obligation: 'optional' }], total: 1 }
-      })
+      getList.mockImplementation(defaultGetList)
     })
 
     test('re-reads the stored list until the series is there, however many reads that takes', async () => {
@@ -358,6 +377,115 @@ describe('RecurringOperationsPage — the list', () => {
 
     await waitFor(() => expect(deleteMock).toHaveBeenCalledTimes(1))
     expect(deleteMock.mock.calls[0]).toEqual(['recurring_operations', expect.objectContaining({ id: '/api/recurring_operations/01CALM' })])
+  })
+})
+
+describe('RecurringOperationsPage — unrolling a series', () => {
+  const unroll = async (label = 'Abonnement Flixo') => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: `Dérouler les transactions de ${label}` }))
+  }
+
+  test('reads nothing until a row is unrolled, then lists its transactions newest first with their due date and origin', async () => {
+    seriesTransactions = [
+      tx('3', { bookedAt: '2026-10-14T00:00:00+00:00', recurringOccurrenceOn: '2026-10-12T00:00:00+00:00' }),
+      tx('2', { bookedAt: '2026-09-13T00:00:00+00:00', recurringOccurrenceOn: '2026-09-12T00:00:00+00:00', recurringSource: 'manual' }),
+      tx('1', { bookedAt: '2026-08-12T00:00:00+00:00', recurringOccurrenceOn: '2026-08-12T00:00:00+00:00' }),
+    ]
+    renderPage()
+    await screen.findByText('Abonnement Flixo')
+    expect(getList.mock.calls.some(([resource]) => resource === 'transactions')).toBe(false)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dérouler les transactions de Abonnement Flixo' }))
+
+    const table = await screen.findByRole('table', { name: 'Transactions de la série' })
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(3)
+    expect(within(rows[0]).getByText('PAIEMENT FLIXO 3')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('14/10/2026')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('12/10/2026')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Automatique')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Manuel')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('PAIEMENT FLIXO 1')).toBeInTheDocument()
+
+    const read = getList.mock.calls.find(([resource]) => resource === 'transactions') as unknown as [string, Record<string, unknown>]
+    expect(read[1]).toMatchObject({
+      filter: { recurringOperation: '/api/recurring_operations/01FLIXO' },
+      sort: { field: 'bookedAt', order: 'DESC' },
+    })
+  })
+
+  test('reads every page of a long series', async () => {
+    seriesTransactions = Array.from({ length: 130 }, (_, i) => tx(String(i)))
+    await unroll()
+
+    const table = await screen.findByRole('table', { name: 'Transactions de la série' })
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(131))
+  })
+
+  test('a series with no transaction says so', async () => {
+    await unroll()
+
+    expect(await screen.findByText('Aucune transaction reconnue pour l’instant')).toBeInTheDocument()
+  })
+
+  test('detaching a line takes it off the series without a reload', async () => {
+    seriesTransactions = [tx('2'), tx('1')]
+    await unroll()
+    await screen.findByText('PAIEMENT FLIXO 2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Détacher PAIEMENT FLIXO 2 de la série' }))
+
+    await waitFor(() => expect(screen.queryByText('PAIEMENT FLIXO 2')).not.toBeInTheDocument())
+    expect(screen.getByText('PAIEMENT FLIXO 1')).toBeInTheDocument()
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch?.url).toBe('/api/transactions/2')
+    expect(patch?.body).toEqual({ recurringOperation: null, recurringOccurrenceOn: null })
+  })
+
+  test('a refused detach says so and keeps the line', async () => {
+    seriesTransactions = [tx('1')]
+    await unroll()
+    await screen.findByText('PAIEMENT FLIXO 1')
+    fetchMock.mockImplementationOnce(() => json(500, {}))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Détacher PAIEMENT FLIXO 1 de la série' }))
+
+    expect(await screen.findByText('Impossible de détacher cette transaction')).toBeInTheDocument()
+    expect(screen.getByText('PAIEMENT FLIXO 1')).toBeInTheDocument()
+  })
+
+  test('a line attached elsewhere appears when Mercure announces it', async () => {
+    seriesTransactions = [tx('1')]
+    await unroll()
+    await screen.findByText('PAIEMENT FLIXO 1')
+
+    seriesTransactions = [tx('2'), tx('1')]
+    await act(async () => mercureListeners.forEach((listener) => listener('{}')))
+
+    expect(await screen.findByText('PAIEMENT FLIXO 2')).toBeInTheDocument()
+  })
+
+  test('a failed read shows an error with a way to retry', async () => {
+    seriesTransactionsFail = true
+    await unroll()
+    expect(await screen.findByText('Impossible de lire les transactions de cette série')).toBeInTheDocument()
+
+    seriesTransactionsFail = false
+    seriesTransactions = [tx('1')]
+    await userEvent.click(screen.getAllByRole('button', { name: 'Réessayer' }).at(-1)!)
+
+    expect(await screen.findByText('PAIEMENT FLIXO 1')).toBeInTheDocument()
+  })
+
+  test('folding the row hides the transactions', async () => {
+    seriesTransactions = [tx('1')]
+    await unroll()
+    await screen.findByText('PAIEMENT FLIXO 1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Replier les transactions de Abonnement Flixo' }))
+
+    await waitFor(() => expect(screen.queryByText('PAIEMENT FLIXO 1')).not.toBeInTheDocument())
   })
 })
 

@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.RecurringOperationWriteRequest
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ProposalClaim
@@ -14,11 +15,15 @@ import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.RecurringSuggestion
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.acceptedRecurringSummary
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 /** The series on the editor: a stored one, or a new one, possibly drawn from [transaction]. */
@@ -59,6 +64,11 @@ data class RecurringOperationUiState(
     val actingOn: String? = null,
     val editing: RecurringEditing? = null,
     val preview: RecurringPreview? = null,
+    /** The lines the stored series on the editor recognised, newest first; null until they are read. */
+    val seriesLines: List<Transaction>? = null,
+    val seriesLinesError: String? = null,
+    /** The line being detached from the series. */
+    val detachingId: String? = null,
     /** Set when an editor opened from a transaction closes: the screen goes back to it. */
     val returnToTransaction: Boolean = false,
     val message: String? = null,
@@ -97,6 +107,8 @@ class RecurringOperationViewModel(
     private val repository: RecurringOperationRepository,
     private val categoryRepository: CategoryRepository,
     private val accountRepository: AccountRepository,
+    private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecurringOperationUiState())
@@ -104,6 +116,18 @@ class RecurringOperationViewModel(
 
     init {
         refresh()
+        subscribeToMercure()
+    }
+
+    // A line attached or detached elsewhere reaches the open series without a pull to refresh.
+    private fun subscribeToMercure() {
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TRANSACTIONS))
+                .catch { /* SSE reconnects automatically */ }
+                .coalescedAndRechecked()
+                .collect { reloadSeriesLines() }
+        }
     }
 
     // Read once: the headings and the accounts do not move while the screen is open, and a
@@ -214,7 +238,57 @@ class RecurringOperationViewModel(
             _uiState.value = _uiState.value.copy(error = "Cette opération récurrente est introuvable. Tirez pour actualiser.")
             return
         }
-        _uiState.value = _uiState.value.copy(editing = RecurringEditing(record = record), error = null)
+        _uiState.value = _uiState.value.copy(
+            editing = RecurringEditing(record = record),
+            seriesLines = null,
+            seriesLinesError = null,
+            detachingId = null,
+            error = null,
+        )
+        loadSeriesLines(seriesId)
+    }
+
+    fun reloadSeriesLines() {
+        _uiState.value.editing?.record?.id?.let(::loadSeriesLines)
+    }
+
+    private fun loadSeriesLines(seriesId: String) {
+        viewModelScope.launch {
+            val result = repository.getSeriesTransactions(seriesId)
+            // The editor may have closed, or moved to another series, while the lines were on their way.
+            if (_uiState.value.editing?.record?.id != seriesId) return@launch
+            result
+                .onSuccess { lines -> _uiState.value = _uiState.value.copy(seriesLines = lines, seriesLinesError = null) }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(seriesLinesError = failure.message ?: "Lecture impossible")
+                }
+        }
+    }
+
+    /** Takes the line out of the series: the transaction stays, it is only no longer recognised. */
+    fun detachSeriesLine(transactionId: String) {
+        val seriesId = _uiState.value.editing?.record?.id ?: return
+        if (_uiState.value.detachingId != null) return
+
+        _uiState.value = _uiState.value.copy(detachingId = transactionId, seriesLinesError = null)
+
+        viewModelScope.launch {
+            repository.detachTransaction(transactionId)
+                .onSuccess {
+                    val state = _uiState.value
+                    _uiState.value = state.copy(
+                        detachingId = null,
+                        seriesLines = if (state.editing?.record?.id == seriesId) state.seriesLines?.filter { it.id != transactionId } else state.seriesLines,
+                    )
+                    load()
+                }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(
+                        detachingId = null,
+                        seriesLinesError = failure.message ?: "Détachement impossible",
+                    )
+                }
+        }
     }
 
     fun closeEditor() {

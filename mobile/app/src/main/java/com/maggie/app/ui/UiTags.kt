@@ -188,6 +188,11 @@ object UiTags {
     const val RECURRING_FROM_TRANSACTION = "recurring_from_transaction"
     const val RECURRING_ATTACHED = "recurring_attached"
 
+    /** The lines a series recognised, on its editor (MAG-438): a row, its « Détacher », the empty message. */
+    const val RECURRING_LINE = "recurring_line"
+    const val RECURRING_LINE_DETACH = "recurring_line_detach"
+    const val RECURRING_LINES_EMPTY = "recurring_lines_empty"
+
     /** Calendar — the « + » button and its « Événement » entry. */
     const val CALENDAR_CREATE = "calendar_create"
     const val CALENDAR_CREATE_EVENT = "calendar_create_event"
