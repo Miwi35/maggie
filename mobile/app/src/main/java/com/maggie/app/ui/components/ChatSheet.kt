@@ -273,6 +273,7 @@ private fun ChatHistory(
         onDeleteMessage = viewModel::deleteMessage,
         editableMessageId = uiState.editableMessageId,
         onEditMessage = viewModel::editMessage,
+        onRateMessage = viewModel::rateMessage,
     )
 }
 
@@ -304,6 +305,13 @@ private fun ChatSnackbarHost(viewModel: ChatViewModel) {
         snackbarHostState = hostState,
         onDismiss = viewModel::consumeMessageDeleteFailed,
         message = "La suppression a échoué. Réessayez.",
+    )
+
+    ErrorSnackbar(
+        error = "feedback".takeIf { uiState.messageFeedbackFailed },
+        snackbarHostState = hostState,
+        onDismiss = viewModel::consumeMessageFeedbackFailed,
+        message = "Votre avis n'a pas été enregistré. Réessayez.",
     )
 
     SnackbarHost(hostState)

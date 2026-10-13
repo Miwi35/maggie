@@ -15,17 +15,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +55,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.ScreenshotEncoder
@@ -75,6 +85,9 @@ fun DecisionLine(text: String) {
  *   No confirmation: one message takes nothing else with it, and « Annuler » follows.
  *   A long press had no other use here, so the menu has no « Copier » to sit beside.
  * @param onEdit set on the last message of the user only: « Modifier » puts it back in the input (MAG-320).
+ * @param onRate when set, an answer of Maggie's has a thumb up and a thumb down under it
+ *   (MAG-23): called with the new rating — `null` when the selected thumb is tapped again —
+ *   and, for a thumb down, what the owner wrote about it. Never on a question.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -85,6 +98,7 @@ fun MessageBubble(
     thumbnail: ByteArray? = null,
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
+    onRate: ((rating: String?, comment: String?) -> Unit)? = null,
 ) {
     if (message.isDecision) {
         DecisionLine(message.content)
@@ -118,77 +132,157 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
-        Box {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = if (isUser)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surfaceVariant,
-                border = if (isHighlighted) BorderStroke(2.dp, highlightColor) else null,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .then(gestures)
-                    // The same action for a screen reader, which has no long press to offer.
-                    .then(
-                        if (onDelete != null) {
-                            Modifier.semantics {
-                                customActions = listOf(
-                                    CustomAccessibilityAction("Supprimer le message") {
-                                        onDelete()
-                                        true
-                                    },
-                                )
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    if (isUser && message.hasImage) {
-                        ScreenshotThumbnail(thumbnail)
-                        Spacer(modifier = Modifier.height(8.dp))
+        Column {
+            Box {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = if (isUser)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (isHighlighted) BorderStroke(2.dp, highlightColor) else null,
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .then(gestures)
+                        // The same action for a screen reader, which has no long press to offer.
+                        .then(
+                            if (onDelete != null) {
+                                Modifier.semantics {
+                                    customActions = listOf(
+                                        CustomAccessibilityAction("Supprimer le message") {
+                                            onDelete()
+                                            true
+                                        },
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        if (isUser && message.hasImage) {
+                            ScreenshotThumbnail(thumbnail)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        val linkColor = MaterialTheme.colorScheme.primary
+                        Text(
+                            text = remember(message.content, linkColor) { linkified(message.content, linkColor) },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
-                    val linkColor = MaterialTheme.colorScheme.primary
-                    Text(
-                        text = remember(message.content, linkColor) { linkified(message.content, linkColor) },
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                }
+
+                if (onDelete != null) {
+                    // A popup is a window of its own, so it carries its own tag root (MAG-98).
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        modifier = Modifier.uiTagRoot(),
+                    ) {
+                        if (onEdit != null) {
+                            DropdownMenuItem(
+                                text = { Text("Modifier") },
+                                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onEdit()
+                                },
+                                modifier = Modifier.testTag(UiTags.MESSAGE_EDIT),
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Supprimer") },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onDelete()
+                            },
+                            modifier = Modifier.testTag(UiTags.MESSAGE_DELETE),
+                        )
+                    }
                 }
             }
 
-            if (onDelete != null) {
-                // A popup is a window of its own, so it carries its own tag root (MAG-98).
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    modifier = Modifier.uiTagRoot(),
-                ) {
-                    if (onEdit != null) {
-                        DropdownMenuItem(
-                            text = { Text("Modifier") },
-                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                onEdit()
-                            },
-                            modifier = Modifier.testTag(UiTags.MESSAGE_EDIT),
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("Supprimer") },
-                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            onDelete()
-                        },
-                        modifier = Modifier.testTag(UiTags.MESSAGE_DELETE),
-                    )
-                }
+            if (onRate != null && !isUser) {
+                FeedbackThumbs(feedback = message.feedback, onRate = onRate)
             }
         }
     }
+}
+
+/**
+ * The two thumbs under an answer (MAG-23). Tapping the selected one takes it back; a thumb
+ * down first asks, in one optional field, what was wrong — « Annuler » leaves the answer as
+ * it was.
+ */
+@Composable
+private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?, comment: String?) -> Unit) {
+    var askingWhy by remember { mutableStateOf(false) }
+
+    Row {
+        IconToggleButton(
+            checked = feedback == MessageFeedback.UP,
+            onCheckedChange = { checked -> onRate(MessageFeedback.UP.takeIf { checked }, null) },
+            modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_UP),
+        ) {
+            Icon(
+                if (feedback == MessageFeedback.UP) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                contentDescription = "Réponse utile",
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        IconToggleButton(
+            checked = feedback == MessageFeedback.DOWN,
+            onCheckedChange = { checked -> if (checked) askingWhy = true else onRate(null, null) },
+            modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_DOWN),
+        ) {
+            Icon(
+                if (feedback == MessageFeedback.DOWN) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                contentDescription = "Réponse à revoir",
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+
+    if (askingWhy) {
+        FeedbackCommentDialog(
+            onSend = { comment ->
+                askingWhy = false
+                onRate(MessageFeedback.DOWN, comment.ifBlank { null })
+            },
+            onDismiss = { askingWhy = false },
+        )
+    }
+}
+
+@Composable
+private fun FeedbackCommentDialog(onSend: (String) -> Unit, onDismiss: () -> Unit) {
+    var comment by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.uiTagRoot(),
+        title = { Text("Réponse à revoir") },
+        text = {
+            OutlinedTextField(
+                value = comment,
+                onValueChange = { comment = it.take(MessageFeedback.MAX_COMMENT_LENGTH) },
+                label = { Text("Qu'est-ce qui n'allait pas ? (facultatif)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSend(comment.trim()) }, modifier = Modifier.testTag(UiTags.MESSAGE_FEEDBACK_SEND)) {
+                Text("Envoyer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+    )
 }
 
 @Composable

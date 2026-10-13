@@ -160,6 +160,21 @@ class ChatRepository(
         chatMessageDao.deleteByIds(listOf(id))
     }
 
+    /**
+     * Put the owner's thumb on an answer, or take it off with a null [rating] (MAG-23), on
+     * the server, then on the local copy. Only the server's refusal is a failure: the thumb
+     * is recorded once it accepted it, whatever happens to the cache.
+     */
+    suspend fun rateMessage(id: String, rating: String?, comment: String? = null): Result<Unit> = runCatching {
+        if (rating != null) apiService.rateMessage(id, rating, comment) else apiService.clearMessageFeedback(id)
+    }.onSuccess {
+        try {
+            chatMessageDao.updateFeedback(id, rating, comment.takeIf { rating != null })
+        } catch (e: Exception) {
+            Log.w(TAG, "Local copy of the feedback on $id not updated: ${e.message}")
+        }
+    }
+
     /** The server removed these messages (a thread, or one message): drop the local copy too. */
     suspend fun forgetMessages(ids: List<String>, contextId: String? = null) {
         if (ids.isNotEmpty()) chatMessageDao.deleteByIds(ids)

@@ -97,6 +97,7 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
                 onApprove = viewModel::approve,
                 onDeny = viewModel::deny,
                 onDismissApproval = viewModel::dismissApproval,
+                onRateMessage = viewModel::rateMessage,
             )
 
             Row(

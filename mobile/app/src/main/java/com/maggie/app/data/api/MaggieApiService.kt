@@ -213,6 +213,13 @@ data class InterruptChatRequest(
     val spokenText: String,
 )
 
+/** [rating] is `up` or `down` ([com.maggie.app.data.model.MessageFeedback]) (MAG-23). */
+@Serializable
+data class MessageFeedbackRequest(
+    val rating: String,
+    val comment: String? = null,
+)
+
 @Serializable
 data class AgentChatResponse(
     val response: String,
@@ -839,6 +846,23 @@ class MaggieApiService(
     suspend fun deleteMessage(id: String) {
         val response = client.delete("$baseUrl/agent/messages/$id")
         if (!response.status.isSuccess()) throw IllegalStateException("DELETE message $id: HTTP ${response.status.value}")
+    }
+
+    /**
+     * The owner's thumb on one of Maggie's answers (MAG-23). Rating again replaces it. The
+     * answer the agent sends back is not read: the chat already shows what was chosen.
+     */
+    suspend fun rateMessage(id: String, rating: String, comment: String? = null) {
+        val response = client.put("$baseUrl/agent/messages/$id/feedback") {
+            contentType(ContentType.Application.Json)
+            setBody(MessageFeedbackRequest(rating = rating, comment = comment))
+        }
+        if (!response.status.isSuccess()) throw IllegalStateException("PUT feedback $id: HTTP ${response.status.value}")
+    }
+
+    suspend fun clearMessageFeedback(id: String) {
+        val response = client.delete("$baseUrl/agent/messages/$id/feedback")
+        if (!response.status.isSuccess()) throw IllegalStateException("DELETE feedback $id: HTTP ${response.status.value}")
     }
 
     // Chat streaming — AG-UI SSE endpoint

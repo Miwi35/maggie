@@ -2,13 +2,21 @@ package com.maggie.app.ui.components
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTouchHeightIsEqualTo
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,4 +83,65 @@ class MessageBubbleScreenTest {
 
         compose.onNodeWithTag(UiTags.CHAT_DECISION).assertDoesNotExist()
     }
+
+    // --- Thumbs on Maggie's answers (MAG-23) ---
+
+    private val answer = ChatMessage(id = "a-1", role = "assistant", content = "Il fait beau.")
+    private val ratings = mutableListOf<Pair<String?, String?>>()
+    private val record: (String?, String?) -> Unit = { rating, comment -> ratings += rating to comment }
+
+    @Test
+    fun `an answer has both thumbs, none selected until rated`() {
+        compose.setContent { MessageBubble(answer, onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse utile").assertIsDisplayed().assertIsOff()
+        compose.onNodeWithContentDescription("Réponse à revoir").assertIsDisplayed().assertIsOff()
+    }
+
+    @Test
+    fun `a question has no thumbs`() {
+        compose.setContent { MessageBubble(question, onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse utile").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Réponse à revoir").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the thumbs are large enough to tap`() {
+        compose.setContent { MessageBubble(answer, onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse utile").assertTouchHeightIsEqualTo(48.dp)
+    }
+
+    @Test
+    fun `a thumb up is sent at once`() {
+        compose.setContent { MessageBubble(answer, onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse utile").performClick()
+
+        assertEquals(listOf<Pair<String?, String?>>(MessageFeedback.UP to null), ratings)
+    }
+
+    @Test
+    fun `the selected thumb shows as on, and tapping it again takes it back`() {
+        compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.UP), onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse utile").assertIsOn().performClick()
+        compose.onNodeWithContentDescription("Réponse à revoir").assertIsOff()
+
+        assertEquals(listOf<Pair<String?, String?>>(null to null), ratings)
+    }
+
+    @Test
+    fun `a selected thumb down tapped again is taken back without asking anything`() {
+        compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.DOWN), onRate = record) }
+
+        compose.onNodeWithContentDescription("Réponse à revoir").assertIsOn().performClick()
+
+        assertEquals(listOf<Pair<String?, String?>>(null to null), ratings)
+    }
+
+    // The thumb-down dialog is not driven here: an `AlertDialog` hangs Robolectric's idling
+    // (AppNotIdleException), and no screen test of the app opens one. The comment it carries
+    // is covered by `ChatViewModelTest`; the dialog itself is left to a Maestro journey.
 }

@@ -37,6 +37,9 @@ interface ChatMessageDao {
     @Query("SELECT * FROM chat_messages WHERE createdAt < :beforeCreatedAt ORDER BY createdAt DESC LIMIT :limit")
     suspend fun loadBefore(beforeCreatedAt: String, limit: Int): List<ChatMessageEntity>
 
+    @Query("UPDATE chat_messages SET feedback = :feedback, feedbackComment = :comment WHERE id = :id")
+    suspend fun updateFeedback(id: String, feedback: String?, comment: String?)
+
     @Query("SELECT * FROM chat_messages WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ChatMessageEntity?
 
