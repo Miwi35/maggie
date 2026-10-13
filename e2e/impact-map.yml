@@ -189,7 +189,7 @@ areas:
     - admin/src/hooks/{useAgUiStream,agentFeed,agentTopics,useVoiceRecorder,useTranscription}.ts
     - admin/src/screenContext.ts
     - mobile/app/src/main/java/com/maggie/app/ui/screens/{chat,contexts}/**
-    - mobile/app/src/main/java/com/maggie/app/ui/components/{ApprovalCard,ChatBottomBar,ChatMessageList,ChatSheet,ContextListSheet,MessageBubble}.kt
+    - mobile/app/src/main/java/com/maggie/app/ui/components/{ApprovalCard,ChatBottomBar,ChatMessageList,ChatSheet,ContextListSheet,MessageBubble,MindTab}.kt
     - mobile/app/src/main/java/com/maggie/app/data/api/AgUiStreamParser.kt
     - mobile/app/src/main/java/com/maggie/app/data/repository/{Approval,Chat,ChatPreferences,Context}Repository.kt
     - mobile/app/src/main/java/com/maggie/app/data/model/{AgUiEvent,ChatMessage,Context,PendingApproval}.kt
@@ -519,3 +519,7 @@ mobile:
       - e2e/mobile/scripts/interruption-api.js
       - mobile/app/src/main/java/com/maggie/app/data/{fcm,interruption}/**
       - mobile/app/src/main/java/com/maggie/app/ui/interruption/**
+  e2e/mobile/flows/15-mind-tab.yaml:
+    areas: [chat, calendar, realtime]
+    paths:
+      - e2e/mobile/scripts/event-api.js
