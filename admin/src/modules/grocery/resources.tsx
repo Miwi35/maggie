@@ -20,7 +20,6 @@ export const groceryResources = (
       create={ProductCreate}
       edit={ProductEdit}
     />
-    <ResourceGuesser name="recurring_grocery_items" />
     <ResourceGuesser
       name="stores"
       list={StoreList}

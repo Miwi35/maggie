@@ -356,6 +356,8 @@ web:
     areas: [grocery]
   e2e/web/tests/grocery-product-store.spec.ts:
     areas: [grocery]
+  e2e/web/tests/grocery-recurring.spec.ts:
+    areas: [grocery, realtime]
   e2e/web/tests/grocery-stock.spec.ts:
     areas: [grocery, cookbook, realtime]
   e2e/web/tests/grocery-stock-chat.spec.ts:

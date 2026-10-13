@@ -37,11 +37,13 @@ export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
     basePath: '/events',
     getPath: (iri) => `/calendar?mealId=${encodeURIComponent(iri)}`,
   },
+  // No page of its own: the « Récurrents » tab of the grocery list holds them.
   recurring_grocery_items: {
     label: 'Articles récurrents',
     icon: 'Repeat',
     resource: 'recurring_grocery_items',
-    basePath: '/recurring_grocery_items',
+    basePath: '/grocery',
+    getPath: () => '/grocery',
   },
   // No admin page lists or shows these two: the dashboard and the preferences are the closest.
   notifications: {

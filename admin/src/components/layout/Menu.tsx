@@ -23,7 +23,6 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import KitchenIcon from '@mui/icons-material/Kitchen'
 import EggIcon from '@mui/icons-material/Egg'
-import RepeatIcon from '@mui/icons-material/Repeat'
 import CategoryIcon from '@mui/icons-material/Category'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import TuneIcon from '@mui/icons-material/Tune'
@@ -294,12 +293,6 @@ export const CustomMenu = () => {
                     to="/ingredients"
                     primaryText="Ingrédients"
                     leftIcon={tinted('cuisine', <EggIcon />)}
-                    sx={{ pl: 8 }}
-                  />
-                  <MenuItemLink
-                    to="/recurring_grocery_items"
-                    primaryText="Articles récurrents"
-                    leftIcon={tinted('cuisine', <RepeatIcon />)}
                     sx={{ pl: 8 }}
                   />
                 </List>
