@@ -507,6 +507,7 @@ async def _handle_create_skill(arguments: dict, user_id: str) -> str:
 
 
 async def _handle_list_skills(arguments: dict, user_id: str) -> str:
+    await skill_index.refresh()
     entries = skill_index.list_all()
     return json.dumps([{"name": e.name, "description": e.description, "tags": e.tags} for e in entries])
 
