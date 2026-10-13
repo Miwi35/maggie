@@ -116,6 +116,7 @@ class UnpaginatedReadsTest {
 
         check({ it.getTasks() }) { """{"id":"t$it","title":"Tâche $it"}""" }
         check({ it.getUndoneTasks("2026-10-13") }) { """{"id":"t$it","title":"Tâche $it"}""" }
+        check({ it.getRecurringOperationRecords() }) { """{"id":"r$it","label":"Récurrence $it"}""" }
         check({ it.getAgendas() }) { """{"id":"a$it","name":"Agenda $it"}""" }
         check({ it.getProducts() }) { """{"id":"p$it","name":"Produit $it","category":"produce"}""" }
         check({ it.getMeals("2026-10-01", "2026-10-31") }) {

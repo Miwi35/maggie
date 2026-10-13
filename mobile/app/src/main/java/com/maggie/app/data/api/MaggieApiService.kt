@@ -1381,6 +1381,7 @@ class MaggieApiService(
     suspend fun getRecurringOperationRecords(): List<RecurringOperationRecord> {
         return client.get("$baseUrl/api/recurring_operations") {
             accept(ContentType("application", "ld+json"))
+            withoutPagination()
         }.body<ApiCollection<RecurringOperationRecord>>().member
     }
 
