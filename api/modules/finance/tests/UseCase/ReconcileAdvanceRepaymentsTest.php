@@ -2,7 +2,9 @@
 
 namespace Maggie\Finance\Tests\UseCase;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferKind;
@@ -23,6 +25,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 class ReconcileAdvanceRepaymentsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use MercureAssertionTrait;
+    use ElasticsearchAssertionTrait;
     use SavingsAdvancesWorld;
 
     private ReconcileAdvanceRepayments $reconcile;
@@ -54,6 +58,21 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
         return null === $transaction->getRepays() ? null : (string) $transaction->getRepays()->getId();
     }
 
+    /** Both legs of a transfer reached the live lists and the index, once each. */
+    private function assertLegsPublishedAndIndexed(Transaction ...$legs): void
+    {
+        foreach ($legs as $leg) {
+            $this->assertMercurePublishedOnce('/api/transactions/'.$leg->getId());
+            $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $leg->getId());
+        }
+    }
+
+    private function assertNothingWritten(): void
+    {
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Transaction::class);
+    }
+
     /** An advance of the given amount on a source, already marked. */
     private function advance(string $sourceRef, int $amountCents, string $bookedAt): Transaction
     {
@@ -64,9 +83,12 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
     {
         $advance = $this->advance('livret', 150000, '2026-10-01');
         [$debit, $credit] = $this->transfer('checking', 'livret', 150000, '2026-10-27');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
         $report = $this->reconcile->execute($this->user());
 
+        $this->assertLegsPublishedAndIndexed($debit, $credit);
         self::assertSame(1, $report['matched']);
         self::assertSame((string) $advance->getId(), $report['repayments'][0]['advanceId']);
         self::assertSame((string) $debit->getId(), $report['repayments'][0]['transactionId']);
@@ -86,8 +108,11 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
     {
         $this->advance('livret', 50000, '2026-10-01');
         [$debit] = $this->transfer('checking', 'livret', 30000, '2026-10-27');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
         self::assertSame(0, $this->reconcile->execute($this->user())['matched']);
+        $this->assertNothingWritten();
         self::assertSame(TransferKind::Internal, $this->kindOf($debit));
         self::assertNull($this->repaysOf($debit));
         self::assertSame(50000, $this->advances->execute($this->user())['totalOutstandingCents']);
@@ -217,9 +242,13 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
         $this->advance('livret', 150000, '2026-10-01');
         [$debit] = $this->transfer('checking', 'livret', 150000, '2026-10-27');
 
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
         $report = $this->reconcile->execute($this->user(), null, true);
 
         self::assertSame(1, $report['matched']);
+        $this->assertNothingWritten();
         self::assertSame(TransferKind::Internal, $this->kindOf($debit));
         self::assertNull($this->repaysOf($debit));
     }
@@ -238,9 +267,12 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
         $advance = $this->advance('livret', 150000, '2026-10-01');
         $debit = $this->add('checking', -150000, '2026-10-27', label: 'Virement émis');
         $credit = $this->add('livret', 150000, '2026-10-27', label: 'Virement reçu');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
         self::getContainer()->get(MessageBusInterface::class)->dispatch(new DetectInternalTransferCommand((string) $credit->getId()));
 
+        $this->assertLegsPublishedAndIndexed($debit, $credit);
         self::assertSame(TransferKind::Repayment, $this->kindOf($debit));
         self::assertSame(TransferKind::Repayment, $this->kindOf($credit));
         self::assertSame((string) $advance->getId(), $this->repaysOf($debit));
@@ -295,9 +327,12 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
         $this->advance('livret', 150000, '2026-10-01');
         $debit = $this->add('checking', -150000, '2026-10-27', label: 'Virement émis');
         $this->add('livret', 150000, '2026-10-27', label: 'Virement reçu');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
         $report = self::getContainer()->get(DetectInternalTransfers::class)->execute($this->user(), null, true);
 
+        $this->assertNothingWritten();
         self::assertSame(1, $report['repayments']);
         self::assertSame('repayment', $report['pairs'][0]['transferKind']);
         self::assertSame(TransferKind::None, $this->kindOf($debit));
@@ -306,12 +341,34 @@ class ReconcileAdvanceRepaymentsTest extends KernelTestCase
     public function testTheCatchUpPassRequalifiesAnInternalPairAlreadyMade(): void
     {
         $advance = $this->advance('livret', 150000, '2026-10-01');
-        [$debit] = $this->transfer('checking', 'livret', 150000, '2026-10-27');
+        [$debit, $credit] = $this->transfer('checking', 'livret', 150000, '2026-10-27');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
         $report = self::getContainer()->get(DetectInternalTransfers::class)->execute($this->user());
 
+        $this->assertLegsPublishedAndIndexed($debit, $credit);
         self::assertSame(0, $report['matched']);
         self::assertSame(1, $report['repayments']);
         self::assertSame((string) $advance->getId(), $this->repaysOf($debit));
+    }
+
+    public function testAnAdvanceGivenBackOnceIsNotGivenBackAgainByAnIdenticalTransferOnCreation(): void
+    {
+        $advance = $this->advance('livret', 150000, '2026-10-01');
+        $bus = self::getContainer()->get(MessageBusInterface::class);
+
+        $firstDebit = $this->add('checking', -150000, '2026-10-26', label: 'Virement émis');
+        $firstCredit = $this->add('livret', 150000, '2026-10-26', label: 'Virement reçu');
+        $bus->dispatch(new DetectInternalTransferCommand((string) $firstCredit->getId()));
+
+        $secondDebit = $this->add('checking', -150000, '2026-10-27', label: 'Virement émis');
+        $secondCredit = $this->add('livret', 150000, '2026-10-27', label: 'Virement reçu');
+        $bus->dispatch(new DetectInternalTransferCommand((string) $secondCredit->getId()));
+
+        self::assertSame((string) $advance->getId(), $this->repaysOf($firstDebit));
+        self::assertSame(TransferKind::Internal, $this->kindOf($secondDebit));
+        self::assertNull($this->repaysOf($secondDebit));
+        self::assertSame(150000, $this->advances->execute($this->user())['advances'][0]['repaidCents']);
     }
 }
