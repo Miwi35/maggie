@@ -65,6 +65,16 @@ describe('TransferPanel', () => {
     expect(screen.getByRole('button', { name: 'Ce n’est pas un virement interne' })).toBeInTheDocument()
   })
 
+  test('an advance is shown as a transfer, never offered as an ordinary line (MAG-276)', async () => {
+    fetchMock.mockImplementation(() => respond(200, { ...PAIRED, transferKind: 'advance' }))
+
+    renderPanel()
+
+    expect(await screen.findByText('Avance d’épargne', { selector: '.MuiChip-label' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'C’est un virement interne' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/compte comme une dépense ordinaire/)).not.toBeInTheDocument()
+  })
+
   test('an ordinary line shows no badge and offers to mark it', async () => {
     fetchMock.mockImplementation(() => respond(200, NONE))
 

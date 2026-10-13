@@ -98,9 +98,9 @@ class GetSalaryDelay
     }
 
     /**
-     * Pours the credits into the months, oldest month first, each one up to
-     * the reference; what a credit has left goes to the next month, if that
-     * month may take it.
+     * Pours the credits into the months, oldest month first, each one until
+     * it closes and at most up to the reference; what a credit has left goes
+     * to the next month, if that month may take it.
      *
      * @param list<\DateTimeImmutable> $expected
      * @param list<Transaction>        $credits
@@ -117,7 +117,9 @@ class GetSalaryDelay
             $receivedOn = null;
 
             foreach ($credits as $i => $credit) {
-                if ($received >= $reference) {
+                // A closed month takes no more: what it lacks to 100 % is
+                // not owed, or the next salary would come up short.
+                if (self::closes($received, $reference)) {
                     break;
                 }
                 if (0 === $left[$i] || $credit->getBookedAt() < self::firstPayableDay($expectedOn)) {

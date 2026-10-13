@@ -113,6 +113,18 @@ class GetSalaryDelayTest extends KernelTestCase
         self::assertFalse($this->readOn('2026-10-01')['isLate']);
     }
 
+    /** A month closed at 92 % takes nothing more from the next month's salary. */
+    public function testTwoSalariesInARowAtNinetyTwoPercentLeaveNothingLate(): void
+    {
+        $this->salary(455400, '2026-09-25');
+        $this->salary(455400, '2026-10-25');
+
+        $delay = $this->readOn('2026-10-26');
+
+        self::assertFalse($delay['isLate']);
+        self::assertSame([455400, 455400], array_column($delay['months'], 'receivedCents'));
+    }
+
     /** Case 3: a bonus is in « Primes », not in « Salaire »: it closes nothing. */
     public function testABonusTheSameDayAsTheSalaryClosesNoDelay(): void
     {

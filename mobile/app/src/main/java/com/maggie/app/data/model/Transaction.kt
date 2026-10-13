@@ -14,13 +14,14 @@ data class Transaction(
     // Serialised as "exceptional" by the API, for the same reason as
     // Account.isCushion.
     @SerialName("exceptional") val isExceptional: Boolean = false,
-    // "internal" when the line is one leg of a move between the owner's own accounts,
+    // "internal" when the line is one leg of a move between the owner's own accounts — and so
+    // are "advance", "repayment" and "funding", which say what the move is for (MAG-276);
     // "rejected" when it is a payment the bank rejected or the credit that gave it back.
     // Anything but "none" is neutral: neither an expense nor an income.
     val transferKind: String = "none",
     val transferSource: String = "auto",
 ) {
-    val isInternalTransfer: Boolean get() = transferKind == "internal"
+    val isInternalTransfer: Boolean get() = transferKind != "none" && transferKind != "rejected"
 
     val isRejected: Boolean get() = transferKind == "rejected"
 }
@@ -33,6 +34,9 @@ data class Transaction(
 fun transferBadgeLabel(transferKind: String, amountCents: Int, counterpartLabel: String? = null): String? =
     when (transferKind) {
         "internal" -> "Virement interne"
+        "advance" -> "Avance d'épargne"
+        "repayment" -> "Remboursement d'avance"
+        "funding" -> "Approvisionnement"
         "rejected" -> when {
             amountCents < 0 -> "Rejeté"
             counterpartLabel.isNullOrBlank() -> "Rejet"
