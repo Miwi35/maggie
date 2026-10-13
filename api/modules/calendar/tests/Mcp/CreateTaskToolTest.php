@@ -9,6 +9,7 @@ use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Mcp\Tool\CreateTaskTool;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class CreateTaskToolTest extends KernelTestCase
@@ -94,5 +95,62 @@ class CreateTaskToolTest extends KernelTestCase
         self::assertTrue($data['success']);
         self::assertNotNull($data['task']['dueDate']);
         self::assertStringStartsWith('2026-04-01', $data['task']['dueDate']);
+    }
+
+    /** A due date is a day (MAG-404): it comes back as it was given, with no time. */
+    public function testTheDueDateIsADay(): void
+    {
+        $data = json_decode(($this->getTool())('Deadline task', dueDate: '2026-04-01'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('2026-04-01', $data['task']['dueDate']);
+    }
+
+    public function testADueDateThatIsNotADayIsRefused(): void
+    {
+        $data = json_decode(($this->getTool())('Bad', dueDate: '2026-13-45'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('YYYY-MM-DD', $data['error']);
+        self::assertSame(0, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Task::class)->count([]));
+    }
+
+    public function testParentIdMakesASubtaskPlacedLast(): void
+    {
+        $tool = $this->getTool();
+        $parent = json_decode($tool('Préparer le déménagement'), true, 512, JSON_THROW_ON_ERROR)['task'];
+        $tool('Réserver le camion', parentId: $parent['id']);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = json_decode($tool('Changer d\'adresse', parentId: $parent['id']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame($parent['id'], $data['task']['parentId']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->getRepository(Task::class)->find($data['task']['id']);
+        self::assertSame($parent['id'], (string) $stored->getParent()?->getId());
+        self::assertSame('00000000000000000001', $stored->getPosition());
+        $this->assertMercureUpdatePublished('/api/tasks/'.$data['task']['id']);
+        $this->assertElasticsearchIndexDispatchedFor(Task::class, $data['task']['id']);
+    }
+
+    public function testASubtaskOfASubtaskIsRefused(): void
+    {
+        $tool = $this->getTool();
+        $parent = json_decode($tool('Parent'), true, 512, JSON_THROW_ON_ERROR)['task'];
+        $child = json_decode($tool('Child', parentId: $parent['id']), true, 512, JSON_THROW_ON_ERROR)['task'];
+
+        $data = json_decode($tool('Grandchild', parentId: $child['id']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('A subtask cannot have subtasks', $data['error']);
+    }
+
+    public function testWithoutAUserNothingIsCreated(): void
+    {
+        self::getContainer()->get('security.token_storage')->setToken(null);
+
+        $data = json_decode(($this->getTool())('Anonymous'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
     }
 }

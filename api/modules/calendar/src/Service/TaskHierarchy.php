@@ -69,8 +69,8 @@ class TaskHierarchy
 
     /**
      * The next position after $position, compared as a string. A string of
-     * digits is incremented in place, as Google numbers; anything else gets a
-     * digit appended, which sorts after it.
+     * digits is incremented in place, as Google numbers; anything else — and
+     * a string of nines — gets a digit appended, which sorts after it.
      */
     public static function after(?string $position): string
     {
@@ -81,7 +81,8 @@ class TaskHierarchy
             return $position.'0';
         }
 
-        $digits = str_pad($position, self::POSITION_LENGTH, '0', \STR_PAD_LEFT);
+        // Incremented at its own length: padding it would sort it before itself.
+        $digits = $position;
         for ($i = \strlen($digits) - 1; $i >= 0; --$i) {
             if ('9' !== $digits[$i]) {
                 $digits[$i] = (string) ((int) $digits[$i] + 1);
@@ -91,7 +92,6 @@ class TaskHierarchy
             $digits[$i] = '0';
         }
 
-        // Every digit was a 9: one more digit keeps the order.
-        return str_repeat('9', \strlen($digits)).'0';
+        return $position.'0';
     }
 }
