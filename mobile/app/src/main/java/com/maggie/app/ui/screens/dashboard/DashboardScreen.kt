@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -38,6 +39,7 @@ private val TABS = listOf("Aujourd'hui", "Semaine", "Mois")
 fun DashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     onEventClick: (ExpandedEvent) -> Unit = {},
+    onTaskClick: (Task) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val pagerState = rememberPagerState(pageCount = { 3 })
@@ -79,9 +81,9 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) { page ->
                     when (page) {
-                        0 -> TodayPage(uiState, viewModel, onEventClick)
-                        1 -> WeekPage(uiState, viewModel, onEventClick)
-                        2 -> MonthPage(uiState, viewModel, onEventClick)
+                        0 -> TodayPage(uiState, viewModel, onEventClick, onTaskClick)
+                        1 -> WeekPage(uiState, viewModel, onEventClick, onTaskClick)
+                        2 -> MonthPage(uiState, viewModel, onEventClick, onTaskClick)
                     }
                 }
             }
@@ -94,6 +96,7 @@ private fun TodayPage(
     uiState: DashboardUiState,
     viewModel: DashboardViewModel,
     onEventClick: (ExpandedEvent) -> Unit,
+    onTaskClick: (Task) -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -107,6 +110,7 @@ private fun TodayPage(
                 tasks = uiState.todayTasks,
                 onToggleTaskDone = { id, done -> viewModel.toggleTaskDone(id, done) },
                 onEventClick = onEventClick,
+                onTaskClick = onTaskClick,
             )
         }
         item {
@@ -116,6 +120,7 @@ private fun TodayPage(
                 tasks = uiState.tomorrowTasks,
                 onToggleTaskDone = { id, done -> viewModel.toggleTaskDone(id, done) },
                 onEventClick = onEventClick,
+                onTaskClick = onTaskClick,
             )
         }
     }
@@ -126,6 +131,7 @@ private fun WeekPage(
     uiState: DashboardUiState,
     viewModel: DashboardViewModel,
     onEventClick: (ExpandedEvent) -> Unit,
+    onTaskClick: (Task) -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -140,6 +146,7 @@ private fun WeekPage(
                 showDate = true,
                 onToggleTaskDone = { id, done -> viewModel.toggleTaskDone(id, done) },
                 onEventClick = onEventClick,
+                onTaskClick = onTaskClick,
             )
         }
     }
@@ -150,6 +157,7 @@ private fun MonthPage(
     uiState: DashboardUiState,
     viewModel: DashboardViewModel,
     onEventClick: (ExpandedEvent) -> Unit,
+    onTaskClick: (Task) -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -164,6 +172,7 @@ private fun MonthPage(
                 showDate = true,
                 onToggleTaskDone = { id, done -> viewModel.toggleTaskDone(id, done) },
                 onEventClick = onEventClick,
+                onTaskClick = onTaskClick,
             )
         }
     }

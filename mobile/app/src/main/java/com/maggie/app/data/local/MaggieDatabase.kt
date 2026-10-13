@@ -31,7 +31,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 10: chat messages say whether a screenshot went with them (MAG-214).
     // 11: messages carry their thread (contextId, MAG-342), to drop a deleted thread's messages.
     // 12: the stretches of calendar already read, with the time of the read (MAG-430).
-    version = 12,
+    // 13: tasks carry their parent, position and links, and the due date is a day (MAG-404).
+    version = 13,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -468,6 +468,8 @@ mobile:
     areas: [calendar, cookbook]
   e2e/mobile/flows/14-rotation.yaml:
     areas: [cookbook]
+  e2e/mobile/flows/15-task-subtasks.yaml:
+    areas: [calendar, dashboard]
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/12-thread-deletion.yaml:

@@ -53,6 +53,28 @@ class TaskRepository(
         return apiService.getUndoneTasks(dueDateBefore)
     }
 
+    /** The subtasks of [parentId], in their order, cached as they come (MAG-404). */
+    suspend fun getSubtasks(parentId: String): Result<List<Task>> = runCatching {
+        val subtasks = apiService.getSubtasks(Task.iriOf(parentId))
+        taskDao.upsertAll(subtasks.map { TaskEntity.fromModel(it) })
+        subtasks.sortedWith(Task.SIBLING_ORDER)
+    }
+
+    /** A new subtask of [parentId]; the API puts it last among its siblings. */
+    suspend fun createSubtask(parentId: String, title: String): Result<Task> =
+        createTask(TaskCreateRequest(title = title, parent = Task.iriOf(parentId)))
+
+    /**
+     * Moves two adjacent siblings past each other by swapping their positions: Google's
+     * positions are opaque strings, so the app never makes one up. Returns both, updated.
+     */
+    suspend fun swapPositions(first: Task, second: Task): Result<List<Task>> = runCatching {
+        listOf(
+            apiService.updateTask(first.id, buildJsonObject { put("position", second.position) }),
+            apiService.updateTask(second.id, buildJsonObject { put("position", first.position) }),
+        ).also { tasks -> taskDao.upsertAll(tasks.map { TaskEntity.fromModel(it) }) }
+    }
+
     suspend fun getUndoneUndatedTasks(): List<Task> {
         return apiService.getUndoneUndatedTasks()
     }

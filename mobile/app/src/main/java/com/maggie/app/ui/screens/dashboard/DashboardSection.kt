@@ -23,6 +23,7 @@ fun DashboardSection(
     showDate: Boolean = false,
     onToggleTaskDone: (String, Boolean) -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
+    onTaskClick: (Task) -> Unit = {},
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -69,6 +70,7 @@ fun DashboardSection(
                     DashboardTaskItem(
                         task = task,
                         onToggleDone = { done -> onToggleTaskDone(task.id, done) },
+                        onClick = { onTaskClick(task) },
                     )
                 }
             }

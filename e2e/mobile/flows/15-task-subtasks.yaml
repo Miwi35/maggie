@@ -1,0 +1,51 @@
+appId: com.maggie.app.e2e
+name: 15-task-subtasks
+tags:
+  - calendar
+---
+# A task brought from Google Tasks keeps its notes and its subtasks, in Google's
+# order (MAG-404).
+#
+# The witness is « Préparer le déménagement » (`api/fixtures/e2e/20-calendar.yaml`):
+# note « Les cartons sont à la cave », due on the anchor day so the dashboard lists
+# it under « Aujourd'hui », with two undated subtasks whose positions put « Réserver
+# le camion » before « Changer d'adresse à la banque ». The subtasks are not rows of
+# the dashboard: they are read in their parent's sheet, which every format opens
+# from the dashboard (the pane is the calendar's). Ticking, moving and adding are
+# the JVM's business (`SubtasksViewModelTest`, `TaskDetailScreenTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/15-task-subtasks.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+# The today list holds the overdue and undated tasks too: the witness may be below the fold.
+- scrollUntilVisible:
+    element: "Préparer le déménagement"
+    timeout: 30000
+- tapOn: "Préparer le déménagement"
+
+- extendedWaitUntil:
+    visible: "Les cartons sont à la cave"
+    timeout: 20000
+
+# The subtasks load once the sheet is open, under the note.
+- scrollUntilVisible:
+    element: "Changer d'adresse à la banque"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      text: "Réserver le camion"
+      below: "Les cartons sont à la cave"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      text: "Changer d'adresse à la banque"
+      below: "Réserver le camion"
+    timeout: 20000

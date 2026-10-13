@@ -38,6 +38,8 @@ import java.time.Instant
 @Composable
 fun TaskEditScreen(
     task: Task,
+    subtasks: SubtasksUiState,
+    subtaskActions: SubtaskActions,
     onConfirm: (JsonObject) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -46,7 +48,7 @@ fun TaskEditScreen(
     var priority by remember { mutableStateOf(task.priority) }
     var criticality by remember { mutableStateOf(task.criticality) }
     var done by remember { mutableStateOf(task.isDone) }
-    var dueDate by remember { mutableStateOf(TaskDueDate.fromIso(task.dueDate)) }
+    var dueDate by remember { mutableStateOf(TaskDueDate.fromApi(task.dueDate)) }
 
     Scaffold(
         topBar = {
@@ -79,7 +81,7 @@ fun TaskEditScreen(
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description") },
+                label = { Text("Notes") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -106,6 +108,11 @@ fun TaskEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Subtasks apply at once, as in the sheet: « Enregistrer » is for the fields above.
+            if (!task.isSubtask) {
+                SubtasksSection(state = subtasks, actions = subtaskActions)
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -122,7 +129,7 @@ fun TaskEditScreen(
                         put("description", description.ifBlank { null })
                         put("priority", priority)
                         put("criticality", criticality)
-                        put("dueDate", TaskDueDate.toIso(dueDate))
+                        put("dueDate", TaskDueDate.toApi(dueDate))
                         put("completedAt", if (done) Instant.now().toString() else null)
                     })
                 },

@@ -71,7 +71,7 @@ fun TaskCreateScreen(
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description") },
+                label = { Text("Notes") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -106,7 +106,7 @@ fun TaskCreateScreen(
                             description = description.ifBlank { null },
                             priority = priority,
                             criticality = criticality,
-                            dueDate = TaskDueDate.toIso(dueDate),
+                            dueDate = TaskDueDate.toApi(dueDate),
                         ),
                     )
                 },

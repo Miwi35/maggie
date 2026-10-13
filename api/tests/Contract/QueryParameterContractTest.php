@@ -81,8 +81,8 @@ final class QueryParameterContractTest extends WebTestCase
             'order[dueDate]' => 'admin CalendarView and Dashboard',
             'order[criticality]' => 'admin Dashboard',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
-            'parent' => 'admin TaskEditDialog, the subtasks of the task open (MAG-404)',
-            'order[position]' => 'admin TaskEditDialog, the subtasks in Google\'s order (MAG-404)',
+            'parent' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks of the task open (MAG-404)',
+            'order[position]' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks in Google\'s order (MAG-404)',
         ],
         // A meal is a day and a slot (MAG-251): the week is a range of days,
         // never of instants.
