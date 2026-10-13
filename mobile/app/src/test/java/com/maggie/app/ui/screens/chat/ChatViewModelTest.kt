@@ -29,6 +29,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -80,6 +81,7 @@ class ChatViewModelTest {
         approvalRepository = mockk()
         coEvery { approvalRepository.getPending() } returns Result.success(emptyList())
         every { approvalRepository.observe() } returns emptyFlow()
+        every { authRepository.isAuthenticated } returns flowOf(true)
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
@@ -101,6 +103,27 @@ class ChatViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
+        verify { mercureService.subscribe("/chat/user-1") }
+    }
+
+    @Test
+    fun `listens for held actions once the sign-in is over, even when it ends after the view model exists`() = runTest {
+        val session = MutableStateFlow(false)
+        val announced = MutableSharedFlow<PendingApproval>()
+        every { authRepository.isAuthenticated } returns session
+        coEvery { authRepository.getUserId() } answers { if (session.value) "user-1" else null }
+        every { approvalRepository.observe() } returns announced
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
+
+        session.value = true
+        advanceUntilIdle()
+        announced.emit(PendingApproval(id = "a1", toolName = "delete_event", summary = "Supprimer l'événement « X »"))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
         verify { mercureService.subscribe("/chat/user-1") }
     }
 

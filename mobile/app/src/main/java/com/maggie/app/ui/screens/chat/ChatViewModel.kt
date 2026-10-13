@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -209,8 +210,7 @@ class ChatViewModel(
         loadInitialMessages()
         subscribeToChatUpdates()
         observeSearchQuery()
-        subscribeToApprovals()
-        loadPendingApprovals()
+        startRealtimeWhenSignedIn()
     }
 
     private fun loadInitialMessages() {
@@ -1044,8 +1044,25 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(pendingApprovals = updated)
     }
 
-    private fun loadPendingApprovals() {
+    // The view model is built with the navigation graph, before a first sign-in is over: the
+    // user id is not there yet, and a subscription skipped for want of it is never retried.
+    // So the live feeds follow the session, restarted whenever it starts.
+    private fun startRealtimeWhenSignedIn() {
         viewModelScope.launch {
+            var feeds: List<Job> = emptyList()
+            authRepository.isAuthenticated.distinctUntilChanged().collect { signedIn ->
+                feeds.forEach { it.cancel() }
+                feeds = if (signedIn) {
+                    listOf(subscribeToChatUpdates(), subscribeToApprovals(), loadPendingApprovals())
+                } else {
+                    emptyList()
+                }
+            }
+        }
+    }
+
+    private fun loadPendingApprovals(): Job {
+        return viewModelScope.launch {
             approvalRepository.getPending().onSuccess { loaded ->
                 // An id the stream already told about is fresher than this snapshot.
                 val known = _uiState.value.pendingApprovals.map { it.approval.id }.toSet()
@@ -1060,8 +1077,8 @@ class ChatViewModel(
         }
     }
 
-    private fun subscribeToApprovals() {
-        viewModelScope.launch {
+    private fun subscribeToApprovals(): Job {
+        return viewModelScope.launch {
             approvalRepository.observe()
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { approval -> applyApproval(approval) }
@@ -1282,8 +1299,8 @@ class ChatViewModel(
         return true
     }
 
-    private fun subscribeToChatUpdates() {
-        viewModelScope.launch {
+    private fun subscribeToChatUpdates(): Job {
+        return viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
             mercureService.subscribe(MercureTopics.agentScoped(userId, MercureTopics.CHAT))
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
