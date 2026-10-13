@@ -6,7 +6,7 @@ namespace Maggie\Calendar\Tests\Migration;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\DBAL\Connection;
-use DoctrineMigrations\Version20261013080000;
+use DoctrineMigrations\Version20261013130000;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Entity\UserPreference;
@@ -128,13 +128,13 @@ class TaskDueDayMigrationTest extends KernelTestCase
         return $id;
     }
 
-    private function migration(): Version20261013080000
+    private function migration(): Version20261013130000
     {
         // api/migrations is not on the autoloader — the migrations runner loads
         // the files itself, and this test runs *that* file.
-        require_once \dirname(__DIR__, 4).'/migrations/Version20261013080000.php';
+        require_once \dirname(__DIR__, 4).'/migrations/Version20261013130000.php';
 
-        return new Version20261013080000($this->connection, new NullLogger());
+        return new Version20261013130000($this->connection, new NullLogger());
     }
 
     private function runMigration(string $direction): void
