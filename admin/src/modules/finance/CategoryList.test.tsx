@@ -3,7 +3,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { CategoryList } from './CategoryList'
+import { CategoryCreate } from './CategoryCreate'
 
 const CATEGORIES = [
   { id: '/api/categories/1', name: 'Alimentation', obligation: 'mandatory' },
@@ -13,6 +15,13 @@ const CATEGORIES = [
     obligation: 'income',
     passiveIncome: true,
   },
+]
+
+const TREE = [
+  { id: '/api/categories/obsydian', name: 'Obsydian', path: 'Loisirs › Bars › Obsydian', depth: 3, parent: '/api/categories/bars', obligation: 'optional' },
+  { id: '/api/categories/courses', name: 'Courses', path: 'Courses', depth: 1, parent: null, obligation: 'mandatory' },
+  { id: '/api/categories/bars', name: 'Bars', path: 'Loisirs › Bars', depth: 2, parent: '/api/categories/loisirs', obligation: 'optional' },
+  { id: '/api/categories/loisirs', name: 'Loisirs', path: 'Loisirs', depth: 1, parent: null, obligation: 'optional' },
 ]
 
 const RULES = [
@@ -89,5 +98,57 @@ describe('CategoryList', () => {
 
     expect(await screen.findByText('CARREFOUR')).toBeInTheDocument()
     expect(screen.getByText('Appliquer les règles')).toBeInTheDocument()
+  })
+})
+
+describe('CategoryList, three levels', () => {
+  const treeProvider = testDataProvider({
+    getList: (() => Promise.resolve({ data: TREE, total: TREE.length })) as unknown as DataProvider['getList'],
+    getMany: (() => Promise.resolve({ data: TREE })) as unknown as DataProvider['getMany'],
+  })
+
+  const renderTree = () =>
+    render(
+      <MemoryRouter>
+        <AdminContext dataProvider={treeProvider}>
+          <ResourceContextProvider value="categories">
+            <Routes>
+              <Route path="/" element={<CategoryList />} />
+              <Route path="/categories/create" element={<CategoryCreate />} />
+            </Routes>
+          </ResourceContextProvider>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+  const depthOf = (name: string) => screen.getByText(name).closest('[data-depth]')?.getAttribute('data-depth')
+
+  test('shows Loisirs › Bars › Obsydian as a tree, each under its parent', async () => {
+    renderTree()
+
+    await screen.findByText('Obsydian')
+    const names = screen.getAllByText(/^(Courses|Loisirs|Bars|Obsydian)$/).map((el) => el.textContent)
+
+    expect(names).toEqual(['Courses', 'Loisirs', 'Bars', 'Obsydian'])
+    expect([depthOf('Courses'), depthOf('Loisirs'), depthOf('Bars'), depthOf('Obsydian')]).toEqual(['1', '1', '2', '3'])
+  })
+
+  test('offers to create under levels 1 and 2, never under level 3', async () => {
+    renderTree()
+
+    await screen.findByText('Obsydian')
+
+    expect(screen.getByRole('link', { name: 'Ajouter une sous-catégorie à Loisirs' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ajouter une sous-catégorie à Bars' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ajouter une sous-catégorie à Obsydian' })).not.toBeInTheDocument()
+  })
+
+  test('creating under Bars opens the form with Loisirs › Bars as the parent', async () => {
+    const user = userEvent.setup()
+    renderTree()
+
+    await user.click(await screen.findByRole('link', { name: 'Ajouter une sous-catégorie à Bars' }))
+
+    expect(await screen.findByLabelText('Rattacher à une catégorie')).toHaveValue('Loisirs › Bars')
   })
 })

@@ -175,7 +175,7 @@ test.describe('Filing the history', () => {
       categories.content.getByText('Choisissez une catégorie pour au moins une ligne.'),
     ).toBeVisible()
 
-    await categories.chooseSuggestionCategory('FROMAGERIE DES LICES', 'Courses')
+    await categories.chooseSuggestionCategory('FROMAGERIE DES LICES', 'Vie courante › Courses')
     await categories.createSuggestedRules.click()
 
     const created = await waitForIndexed<StoredRule>(

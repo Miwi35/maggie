@@ -54,6 +54,7 @@ import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
@@ -73,6 +74,7 @@ fun BudgetScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     val budgets = uiState.status?.budgets ?: emptyList()
+    val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.rollOverMessage) {
@@ -160,6 +162,7 @@ fun BudgetScreen(
                         items(budgets, key = { it.id }) { line ->
                             BudgetCard(
                                 line = line,
+                                categoryLabel = tree.pathOf(line.categoryId) ?: line.categoryName,
                                 onDelete = { viewModel.deleteEnvelope(line.id) },
                             )
                         }
@@ -241,6 +244,7 @@ private fun PeriodSelector(
 @Composable
 private fun BudgetCard(
     line: BudgetLine,
+    categoryLabel: String,
     onDelete: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -251,7 +255,7 @@ private fun BudgetCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = line.categoryName, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = categoryLabel, style = MaterialTheme.typography.bodyLarge)
                     Text(
                         text = budgetPeriodLabel(line.mode, line.year, line.month),
                         style = MaterialTheme.typography.bodySmall,
@@ -320,6 +324,7 @@ private fun EnvelopeCreateDialog(
     onConfirm: (EnvelopeCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tree = remember(categories) { CategoryTree(categories) }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var amountText by remember { mutableStateOf("") }
     var isMonthly by remember { mutableStateOf(true) }
@@ -340,7 +345,7 @@ private fun EnvelopeCreateDialog(
                         FilterChip(
                             selected = selectedCategoryId == category.id,
                             onClick = { selectedCategoryId = category.id },
-                            label = { Text(category.name) },
+                            label = { Text(tree.path(category)) },
                         )
                     }
                 }

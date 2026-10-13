@@ -231,6 +231,23 @@ class TransactionViewModel(
         }
     }
 
+    /** Files the open line under [categoryId], or takes its category away with null. */
+    fun setCategory(categoryId: String?) {
+        val open = _uiState.value.detail ?: return
+        val id = open.transaction.id
+        viewModelScope.launch {
+            updateDetail(id) { it.copy(isSaving = true, error = null) }
+            transactionRepository.setCategory(id, categoryId)
+                .onSuccess { updated ->
+                    updateDetail(id) {
+                        it.copy(isSaving = false, transaction = it.transaction.copy(category = updated.category))
+                    }
+                    refresh()
+                }
+                .onFailure { e -> updateDetail(id) { it.copy(isSaving = false, error = e.message) } }
+        }
+    }
+
     private fun updateDetail(transactionId: String, change: (TransferDetailState) -> TransferDetailState) {
         val open = _uiState.value.detail ?: return
         if (open.transaction.id != transactionId) return

@@ -48,13 +48,8 @@ class CategoryRepository extends ServiceEntityRepository
         return $this->findBy(['parent' => $parent], ['name' => 'ASC']);
     }
 
-    /**
-     * The category and every category below it, as ULIDs, for a filter that
-     * must take the sub-categories along.
-     *
-     * @return list<Ulid>
-     */
-    public function findSelfAndDescendantIds(Category $category): array
+    /** @return list<Category> every category below this one, whatever the depth */
+    public function findDescendants(Category $category): array
     {
         $childrenByParent = [];
         foreach ($this->findBy(['user' => $category->getUser()]) as $candidate) {
@@ -63,15 +58,26 @@ class CategoryRepository extends ServiceEntityRepository
             }
         }
 
-        $ids = [$category->getId()];
+        $descendants = [];
         $queue = [(string) $category->getId()];
         while ([] !== $queue) {
             foreach ($childrenByParent[array_shift($queue)] ?? [] as $child) {
-                $ids[] = $child->getId();
+                $descendants[] = $child;
                 $queue[] = (string) $child->getId();
             }
         }
 
-        return $ids;
+        return $descendants;
+    }
+
+    /**
+     * The category and every category below it, as ULIDs, for a filter that
+     * must take the sub-categories along.
+     *
+     * @return list<Ulid>
+     */
+    public function findSelfAndDescendantIds(Category $category): array
+    {
+        return [$category->getId(), ...array_map(static fn (Category $c) => $c->getId(), $this->findDescendants($category))];
     }
 }

@@ -1,6 +1,5 @@
 import {
   Datagrid,
-  TextField,
   ReferenceField,
   FunctionField,
   EditButton,
@@ -13,6 +12,7 @@ import { Amount } from './AmountField'
 import { BUDGET_MODE_LABELS, formatPeriod } from './budgetModes'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import type { RaRecord } from 'react-admin'
+import { CategoryPathField } from './CategoryPathField'
 
 const ENVELOPE_TOPICS = ['/api/envelopes/{id}']
 
@@ -28,7 +28,7 @@ const EnvelopeDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
-        <TextField source="name" />
+        <CategoryPathField />
       </ReferenceField>
       <FunctionField
         label="Période"

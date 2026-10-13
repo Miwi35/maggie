@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.directionLabel
 import com.maggie.app.data.model.suggestionWeight
@@ -142,6 +143,7 @@ private fun SuggestionCard(
     onAccept: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tree = remember(categories) { CategoryTree(categories) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -177,7 +179,7 @@ private fun SuggestionCard(
                     FilterChip(
                         selected = chosenCategoryId == category.id,
                         onClick = { onChooseCategory(category.id) },
-                        label = { Text(category.name) },
+                        label = { Text(tree.path(category)) },
                     )
                 }
             }

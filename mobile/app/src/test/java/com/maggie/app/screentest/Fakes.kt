@@ -1,5 +1,6 @@
 package com.maggie.app.screentest
 
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.EndErrandRemainingStore
@@ -64,6 +65,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /*
@@ -481,6 +483,8 @@ class FakeCategories(
     initial: List<Category> = Seed.financeCategories,
     private val transactionsOf: Map<String, Int> = emptyMap(),
     private val rulesCount: Int = 0,
+    /** The sentence the fake server refuses a create with (422), or null to accept. */
+    private val refuseWith: String? = null,
 ) {
     private val stored = initial.toMutableList()
 
@@ -500,6 +504,7 @@ class FakeCategories(
         coEvery { repository.createCategory(any()) } answers {
             val request = firstArg<CategoryCreateRequest>()
             created += request
+            if (refuseWith != null) return@answers Result.failure(ApiRefusalException(422, refuseWith))
             val category = Category(
                 id = "cat-created-${created.size}",
                 name = request.name,
@@ -521,6 +526,7 @@ class FakeCategories(
                 name = changes["name"]?.jsonPrimitive?.content ?: before.name,
                 obligation = changes["obligation"]?.jsonPrimitive?.content ?: before.obligation,
                 passiveIncome = changes["passiveIncome"]?.jsonPrimitive?.boolean ?: before.passiveIncome,
+                parent = if ("parent" in changes) changes["parent"]?.jsonPrimitive?.contentOrNull else before.parent,
             )
             stored[stored.indexOf(before)] = after
             Result.success(after)

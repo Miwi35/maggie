@@ -13,10 +13,16 @@ tags:
 # The name goes back at the end so the seeded server is left as found: a re-run on the
 # same server, and the flows of the other shards, still meet « Courses ».
 #
-# What is not here: the deletion's confirmation and the transaction count it cites.
-# The question is a dialog and the count is the API's filter — `CategoryViewModelTest`,
-# `CategoryListScreenTest` and `TransactionCategoryFilterTest` check them, and a delete
-# on the shared seed would take the owner's groceries with it.
+# Three levels (MAG-411): Loisirs › Bars is created under Loisirs with the « add a
+# sub-category » button, Obsydian under Bars through the parent's full-screen search,
+# the tree shows Loisirs › Bars › Obsydian, and a transaction is filed in it through the
+# category search on its detail. Everything is put back: the transaction goes back to
+# « Loisirs » and Bars is deleted with Obsydian, so the shared seed is left as found.
+#
+# What is not here: the deletion of a seeded category and the transaction count it cites.
+# That count is the API's filter — `CategoryViewModelTest`, `CategoryListScreenTest` and
+# `TransactionCategoryFilterTest` check it, and a delete on the shared seed would take
+# the owner's groceries with it. Only the two categories made here are deleted.
 
 - launchApp:
     clearState: true
@@ -92,3 +98,134 @@ tags:
 - extendedWaitUntil:
     visible: "Courses"
     timeout: 30000
+
+# Bars, under Loisirs: the button on the line presets the parent.
+- openLink: "maggie-e2e://finance/categories"
+
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 20000
+
+- tapOn: "Ajouter une sous-catégorie à Loisirs"
+
+- extendedWaitUntil:
+    visible:
+      id: "category_name"
+    timeout: 10000
+
+# The parent is already Loisirs (the field's overlay is the node Maestro reads: « label, value »).
+- assertVisible: "Rattacher à une catégorie, Loisirs"
+- tapOn:
+    id: "category_name"
+- inputText: "Bars"
+- hideKeyboard
+- tapOn: "Créer"
+
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Bars"
+    timeout: 30000
+
+# Obsydian, under Bars: the parent is chosen by path in a full-screen search.
+- tapOn: "Nouvelle catégorie"
+- extendedWaitUntil:
+    visible:
+      id: "category_name"
+    timeout: 10000
+
+- tapOn:
+    id: "category_name"
+- inputText: "Obsydian"
+- hideKeyboard
+- tapOn:
+    id: "category_parent"
+- tapOn:
+    id: "category_parent_search"
+- inputText: "Bars"
+- hideKeyboard
+- tapOn: "Loisirs › Bars"
+- extendedWaitUntil:
+    visible: "Rattacher à une catégorie, Loisirs › Bars"
+    timeout: 10000
+- tapOn: "Créer"
+
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 30000
+# Bars was opened by the creation: Loisirs › Bars › Obsydian is in sight.
+- extendedWaitUntil:
+    visible: "Obsydian"
+    timeout: 30000
+- assertVisible: "Bars"
+- assertVisible: "Loisirs"
+
+# A transaction filed in Obsydian, found by its path in the same kind of search.
+- openLink: "maggie-e2e://finance/accounts"
+
+- extendedWaitUntil:
+    visible: "Compte courant"
+    timeout: 20000
+- tapOn: "Compte courant"
+
+- extendedWaitUntil:
+    visible: "CINEMA GAUMONT"
+    timeout: 30000
+- tapOn: "CINEMA GAUMONT"
+
+- extendedWaitUntil:
+    visible:
+      id: "transaction_category"
+    timeout: 10000
+- tapOn:
+    id: "transaction_category"
+- tapOn:
+    id: "transaction_category_search"
+- inputText: "Obsydian"
+- hideKeyboard
+- tapOn: "Loisirs › Bars › Obsydian"
+
+# The line answers with the path the server now holds it under.
+- extendedWaitUntil:
+    visible: "Catégorie, Loisirs › Bars › Obsydian"
+    timeout: 30000
+
+# Put it back under « Loisirs ».
+- tapOn:
+    id: "transaction_category"
+# No query typed: the field would hold « Loisirs » too, and the tap must find the row.
+- tapOn: "Loisirs"
+- extendedWaitUntil:
+    notVisible: "Catégorie, Loisirs › Bars › Obsydian"
+    timeout: 30000
+
+# Bars goes, and Obsydian with it: the confirmation counts the sub-category.
+- openLink: "maggie-e2e://finance/categories"
+
+- extendedWaitUntil:
+    visible: "Bars"
+    timeout: 20000
+- tapOn: "Bars"
+
+- extendedWaitUntil:
+    visible: "Modifier la catégorie"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "category_delete"
+- tapOn:
+    id: "category_delete"
+
+- extendedWaitUntil:
+    visible: ".*1 sous-catégorie sera supprimée.*"
+    timeout: 20000
+- tapOn: "Supprimer"
+
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Bars"
+    timeout: 30000
+- assertNotVisible: "Obsydian"

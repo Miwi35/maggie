@@ -21,6 +21,7 @@ import { DetectInternalTransfersButton } from './DetectInternalTransfersButton'
 import { RecurringCatchUpButton } from './RecurringCatchUp'
 import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
+import { CategoryPathField } from './CategoryPathField'
 
 const RULE_TOPICS = ['/api/categorization_rules/{id}']
 
@@ -67,7 +68,7 @@ const RuleDatagrid = () => {
         render={(record: RaRecord) => MATCH_TYPE_LABELS[record.matchType as string] ?? record.matchType}
       />
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
-        <TextField source="name" />
+        <CategoryPathField />
       </ReferenceField>
       <FunctionField
         label="Portée"

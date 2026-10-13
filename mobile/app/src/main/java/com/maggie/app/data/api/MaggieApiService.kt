@@ -66,6 +66,7 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
@@ -79,7 +80,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
@@ -460,6 +466,22 @@ data class EndErrandResponse(
 /** The agent refused a decision: 404 (not yours), 409 (already decided) or 410 (expired) mean it can no longer be answered. */
 class ApprovalDecisionException(val status: Int) : Exception("HTTP $status") {
     val isFinal: Boolean get() = status == 404 || status == 409 || status == 410
+}
+
+/**
+ * The server turned a write down and said why (422 on a rule of the model, such as a fourth
+ * category level): [message] is its own sentence, fit to show as it is.
+ */
+class ApiRefusalException(val status: Int, message: String) : Exception(message)
+
+private val REFUSAL_JSON = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/** The `detail` (or `hydra:description`) of an error body, falling back to a generic sentence. */
+internal fun refusalMessage(status: Int, body: String): String {
+    val parsed = runCatching { REFUSAL_JSON.parseToJsonElement(body).jsonObject }.getOrNull()
+    val text = listOf("detail", "hydra:description", "message")
+        .firstNotNullOfOrNull { key -> (parsed?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } }
+    return text ?: "Le serveur a refusé la modification (HTTP $status)."
 }
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
@@ -1027,7 +1049,16 @@ class MaggieApiService(
     suspend fun getCategories(): List<Category> {
         return client.get("$baseUrl/api/categories") {
             accept(ContentType("application", "ld+json"))
+            // The collection pages by 30: a tree cut there turns a child into a main category.
+            url.parameters.append("itemsPerPage", "200")
         }.body<ApiCollection<Category>>().member
+    }
+
+    // The client does not `expectSuccess`: a 422 body would fail to decode as a Category
+    // and the reason it carries would be lost.
+    private suspend fun HttpResponse.orRefusal(): HttpResponse {
+        if (!status.isSuccess()) throw ApiRefusalException(status.value, refusalMessage(status.value, bodyAsText()))
+        return this
     }
 
     suspend fun createCategory(request: CategoryCreateRequest): Category {
@@ -1035,7 +1066,7 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
             setBody(request)
-        }.body()
+        }.orRefusal().body()
     }
 
     suspend fun updateCategory(id: String, data: JsonObject): Category {
@@ -1043,7 +1074,7 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(data)
-        }.body()
+        }.orRefusal().body()
     }
 
     suspend fun deleteCategory(id: String) {
@@ -1186,6 +1217,15 @@ class MaggieApiService(
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
         }.body()
+    }
+
+    /** Files the transaction under [categoryIri], or takes its category away with null. */
+    suspend fun updateTransactionCategory(id: String, categoryIri: String?): Transaction {
+        return client.patch("$baseUrl/api/transactions/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("category", categoryIri?.let(::JsonPrimitive) ?: JsonNull) })
+        }.orRefusal().body()
     }
 
     suspend fun rateTransaction(id: String, verdict: String) {

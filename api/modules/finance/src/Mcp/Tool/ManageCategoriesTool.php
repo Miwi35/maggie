@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categories', description: 'List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, debt (loan repayments, left out of the measured lifestyle), or income (money coming in, such as a salary: use income for revenue categories, never mandatory). An income category may also be flagged passiveIncome: a rente, money that comes in without being worked for (rent received, dividends, interest, royalties) — that flag is what the independence counter counts, and it is refused on anything but an income category. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear.')]
+#[McpTool(name: 'manage_categories', description: 'List, create, update, or delete budget categories. Categories form a tree of at most three levels (Loisirs › Bars › Obsydian): a category may have a parentId, which may itself be a level-2 category; a level-3 category cannot have children, a category cannot move under its own descendants, and moving one never pushes its sub-categories past level 3. Each category is read with its depth (1 to 3) and its path (names from the top, joined by « › »). Each category has an obligation flag: mandatory, optional, saving, investment, debt (loan repayments, left out of the measured lifestyle), or income (money coming in, such as a salary: use income for revenue categories, never mandatory). An income category may also be flagged passiveIncome: a rente, money that comes in without being worked for (rent received, dividends, interest, royalties) — that flag is what the independence counter counts, and it is refused on anything but an income category. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear.')]
 class ManageCategoriesTool
 {
     public function __construct(
@@ -144,6 +144,8 @@ class ManageCategoriesTool
             'obligation' => $category->getObligation()->value,
             'passiveIncome' => $category->isPassiveIncome(),
             'parentId' => null !== $category->getParent() ? (string) $category->getParent()->getId() : null,
+            'depth' => $category->getDepth(),
+            'path' => $category->getPath(),
             'color' => $category->getColor(),
             'icon' => $category->getIcon(),
         ];

@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -47,11 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.categoryIri
 import com.maggie.app.data.model.obligationLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.CategorySearchNone
+import com.maggie.app.ui.components.CategorySearchScreen
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.serialization.json.JsonNull
@@ -66,12 +69,12 @@ private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment"
  * The same six, in the same order, as the admin's `CategoryForm`: what is edited here is
  * what the admin shows.
  */
-internal class CategoryFormState(private val initial: Category? = null) {
+internal class CategoryFormState(private val initial: Category? = null, presetParent: String? = null) {
     var name by mutableStateOf(initial?.name.orEmpty())
     var obligation by mutableStateOf(initial?.obligation ?: "optional")
         private set
     var passiveIncome by mutableStateOf(initial?.passiveIncome ?: false)
-    var parent by mutableStateOf(initial?.parent)
+    var parent by mutableStateOf(initial?.parent ?: presetParent)
     var color by mutableStateOf(initial?.color.orEmpty())
     var icon by mutableStateOf(initial?.icon.orEmpty())
 
@@ -145,7 +148,7 @@ fun categoryDeletionBody(impact: CategoryDeletionImpact?): String {
 
 /**
  * A category on a screen of its own, new or existing (MAG-353). Parent is chosen on a
- * full-screen search, and a deletion sits at the bottom, apart, with what it takes along.
+ * full-screen search showing the path, and a deletion sits at the bottom, apart, with what it takes along.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -159,25 +162,32 @@ internal fun CategoryEditScreen(
     onCancelDelete: () -> Unit,
     onClearError: () -> Unit,
 ) {
-    val form = remember(editing.category?.id) { CategoryFormState(editing.category) }
+    val form = remember(editing.category?.id, editing.parent) { CategoryFormState(editing.category, editing.parent) }
+    val tree = remember(state.categories) { state.tree }
     var searchingParent by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     BackHandler(onBack = if (searchingParent) ({ searchingParent = false }) else onBack)
 
     if (searchingParent) {
-        val self = editing.category
-        // Two levels at most: only a main category can be a parent, and one that has
-        // sub-categories of its own cannot become a sub-category.
-        val candidates = state.categories.filter { it.parent == null && it.id != self?.id }
-        CategoryParentSearchScreen(
-            candidates = candidates,
-            selected = form.parent,
+        // Levels 1 and 2 only, and none inside the subtree being moved: three levels at most.
+        CategorySearchScreen(
+            title = "Rattacher à une catégorie",
+            candidates = state.parentCandidates,
+            pathOf = tree::path,
+            selectedId = form.parent?.substringAfterLast('/'),
             onPick = { picked ->
-                form.parent = picked?.let { categoryIri(it.id) }
+                form.parent = categoryIri(picked.id)
                 searchingParent = false
             },
             onBack = { searchingParent = false },
+            searchTag = UiTags.CATEGORY_PARENT_SEARCH,
+            none = CategorySearchNone("Aucune", "Catégorie principale"),
+            onPickNone = {
+                form.parent = null
+                searchingParent = false
+            },
+            emptyMessage = "Aucune catégorie ne peut accueillir celle-ci.",
         )
         return
     }
@@ -186,7 +196,9 @@ internal fun CategoryEditScreen(
         error = state.error,
         snackbarHostState = snackbarHostState,
         onDismiss = onClearError,
-        message = "Enregistrement impossible. Vérifiez votre connexion et réessayez.",
+        // A refusal carries the server's own reason (« 3 niveaux au maximum »); anything else is the network.
+        message = state.error.takeIf { state.errorIsRefusal }
+            ?: "Enregistrement impossible. Vérifiez votre connexion et réessayez.",
     )
 
     val deletion = state.deletion
@@ -247,10 +259,7 @@ internal fun CategoryEditScreen(
         ) {
             CategoryFormFields(
                 form = form,
-                parentName = state.categories.firstOrNull { categoryIri(it.id) == form.parent }?.name,
-                // A category that has sub-categories of its own stays a main one.
-                canHaveParent = editing.category == null ||
-                    state.categories.none { it.parent == categoryIri(editing.category.id) },
+                parentName = state.categories.firstOrNull { categoryIri(it.id) == form.parent }?.let(tree::path),
                 onPickParent = { searchingParent = true },
             )
 
@@ -290,7 +299,6 @@ private fun SectionTitle(title: String, description: String? = null) {
 internal fun CategoryFormFields(
     form: CategoryFormState,
     parentName: String? = null,
-    canHaveParent: Boolean = true,
     onPickParent: () -> Unit = {},
 ) {
     Column(
@@ -321,28 +329,21 @@ internal fun CategoryFormFields(
                     value = parentName ?: "",
                     onValueChange = {},
                     readOnly = true,
-                    enabled = canHaveParent,
                     label = { Text("Rattacher à une catégorie") },
                     placeholder = { Text("Aucune — catégorie principale") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-                if (canHaveParent) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .testTag(UiTags.CATEGORY_PARENT)
-                            .clickable(role = Role.Button, onClick = onPickParent),
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .testTag(UiTags.CATEGORY_PARENT)
+                        // The overlay is the node the system sees: it carries the shown value.
+                        .semantics { contentDescription = "Rattacher à une catégorie, ${parentName ?: "aucune"}" }
+                        .clickable(role = Role.Button, onClick = onPickParent),
+                )
             }
-            Helper(
-                if (canHaveParent) {
-                    "Laissez vide pour une catégorie principale. Deux niveaux au maximum."
-                } else {
-                    "Cette catégorie a des sous-catégories : elle reste une catégorie principale."
-                },
-            )
+            Helper("Laissez vide pour une catégorie principale. Trois niveaux au maximum : Loisirs › Bars › Obsydian.")
         }
 
         SectionTitle(
@@ -408,79 +409,6 @@ internal fun CategoryFormFields(
                 singleLine = true,
             )
             Helper("Nom d'icône, par exemple shopping-cart.")
-        }
-    }
-}
-
-/** Full-screen search among the main categories, plus « none » to make this one a main category. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun CategoryParentSearchScreen(
-    candidates: List<Category>,
-    selected: String?,
-    onPick: (Category?) -> Unit,
-    onBack: () -> Unit,
-) {
-    var query by rememberSaveable { mutableStateOf("") }
-    val shown = remember(candidates, query) {
-        candidates.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Rattacher à une catégorie") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
-        },
-    ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = { Text("Rechercher une catégorie") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(UiTags.CATEGORY_PARENT_SEARCH),
-            )
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    Column(modifier = Modifier.fillMaxWidth().clickable { onPick(null) }.padding(16.dp)) {
-                        Text("Aucune", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Catégorie principale",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    HorizontalDivider()
-                }
-                if (shown.isEmpty()) {
-                    item {
-                        Text(
-                            "Aucune catégorie principale ne correspond.",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-                items(shown, key = { it.id }) { category ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onPick(category) }.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(category.name, style = MaterialTheme.typography.bodyLarge)
-                        if (selected == categoryIri(category.id)) {
-                            Text("Choisie", color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    HorizontalDivider()
-                }
-            }
         }
     }
 }

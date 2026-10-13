@@ -35,6 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferLeg
@@ -71,6 +74,8 @@ fun TransactionDetailScreen(
     onBack: () -> Unit,
     onSearchCounterpart: () -> Unit,
     onRelease: () -> Unit,
+    categoryPath: String? = null,
+    onPickCategory: (() -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
     val transaction = state.transaction
@@ -150,6 +155,9 @@ fun TransactionDetailScreen(
                     modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
                 ) { Text("Ce n'est pas un virement interne") }
             } else {
+                if (onPickCategory != null) {
+                    CategoryField(path = categoryPath, enabled = !state.isSaving, onClick = onPickCategory)
+                }
                 Button(
                     onClick = onSearchCounterpart,
                     enabled = !state.isSaving,
@@ -161,6 +169,29 @@ fun TransactionDetailScreen(
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+}
+
+/** The line's category, written as its path; a tap opens the full-screen search, never a dropdown. */
+@Composable
+private fun CategoryField(path: String?, enabled: Boolean, onClick: () -> Unit) {
+    Box {
+        OutlinedTextField(
+            value = path.orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Catégorie") },
+            placeholder = { Text("Aucune catégorie") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .testTag(UiTags.TRANSACTION_CATEGORY)
+                .semantics { contentDescription = "Catégorie, ${path ?: "aucune"}" }
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        )
     }
 }
 

@@ -5,13 +5,17 @@ import {
   BooleanInput,
   TextInput,
   SelectInput,
-  ReferenceInput,
   AutocompleteInput,
   required,
+  useGetList,
+  useRecordContext,
 } from 'react-admin'
+import type { RaRecord } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
 import { OBLIGATION_CHOICES } from './obligationFlags'
 import { ColorInput } from './ColorInput'
+import { categoryLabel, parentChoices } from './categoryTree'
+import type { CategoryNode } from './categoryTree'
 
 const formSx = { maxWidth: 680 }
 
@@ -52,6 +56,31 @@ const RenteInput = () => {
   )
 }
 
+/**
+ * The parent is chosen by its path. Level-3 categories are not offered (nothing
+ * goes under them), nor the category itself or what sits under it; the server
+ * has the last word and its refusal is shown by the screen.
+ */
+const ParentInput = () => {
+  const edited = useRecordContext()
+  const { data = [] } = useGetList<CategoryNode & RaRecord>('categories', {
+    pagination: { page: 1, perPage: 200 },
+    sort: { field: 'name', order: 'ASC' },
+  })
+  const choices = parentChoices(data, edited?.id)
+
+  return (
+    <AutocompleteInput
+      source="parent"
+      label="Rattacher à une catégorie"
+      choices={choices}
+      optionText={categoryLabel}
+      fullWidth
+      helperText="Laissez vide pour une catégorie principale. Trois niveaux au maximum : Loisirs › Bars › Obsydian."
+    />
+  )
+}
+
 export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
   <SimpleForm sx={formSx}>
     <FormSection
@@ -68,14 +97,7 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
       helperText="Alimentation, Loisirs, Transport…"
     />
 
-    <ReferenceInput source="parent" reference="categories">
-      <AutocompleteInput
-        label="Rattacher à une catégorie"
-        optionText="name"
-        fullWidth
-        helperText="Laissez vide pour une catégorie principale. Deux niveaux au maximum."
-      />
-    </ReferenceInput>
+    <ParentInput />
 
     <FormSection
       title="Nature de la dépense"

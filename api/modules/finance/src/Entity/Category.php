@@ -47,6 +47,10 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
 
     public const RENTE_WITHOUT_INCOME = 'Only an income category can be a rente.';
 
+    public const MAX_DEPTH = 3;
+
+    public const PATH_SEPARATOR = ' › ';
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     #[ApiProperty(writable: false)]
@@ -59,7 +63,21 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
 
     #[ORM\ManyToOne(targetEntity: Category::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[IndexedRelation(targetEntity: Category::class, sourceField: 'parentId')]
     private ?Category $parent = null;
+
+    // depth and path are not stored: they come from the parent chain. Only a
+    // category rebuilt from its Elasticsearch document carries them.
+
+    /** Level in the tree, from 1 (top-level) to 3. */
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'integer')]
+    private ?int $depth = null; // @phpstan-ignore property.unusedType (set by the Elasticsearch hydrator)
+
+    /** Names from the top-level category down to this one, e.g. « Loisirs › Bars › Obsydian ». */
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'text', keyword: true)]
+    private ?string $path = null; // @phpstan-ignore property.unusedType (set by the Elasticsearch hydrator)
 
     #[ORM\Column(length: 20, enumType: ObligationFlag::class)]
     #[Assert\NotNull]
@@ -157,6 +175,16 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
+    public function getDepth(): int
+    {
+        return $this->depth ?? (null === $this->parent ? 1 : $this->parent->getDepth() + 1);
+    }
+
+    public function getPath(): string
+    {
+        return $this->path ?? (null === $this->parent ? $this->name : $this->parent->getPath().self::PATH_SEPARATOR.$this->name);
+    }
+
     public function getObligation(): ObligationFlag
     {
         return $this->obligation;
@@ -193,10 +221,10 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
-    /** Whether this category, or the one it sits under, is the standard one with this key. */
+    /** Whether this category, or one it sits under, is the standard one with this key. */
     public function isStandard(string $key): bool
     {
-        return $key === $this->standardKey || $key === $this->parent?->getStandardKey();
+        return $key === $this->standardKey || (null !== $this->parent && $this->parent->isStandard($key));
     }
 
     public function getColor(): ?string
@@ -244,6 +272,8 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'passiveIncome' => $this->passiveIncome,
             'standardKey' => $this->standardKey,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
+            'depth' => $this->getDepth(),
+            'path' => $this->getPath(),
             'color' => $this->color,
             'icon' => $this->icon,
             'userId' => (string) $this->user->getId(),
@@ -259,8 +289,27 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'passiveIncome' => $this->passiveIncome,
             'standardKey' => $this->standardKey,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
+            'depth' => $this->getDepth(),
+            'path' => $this->getPath(),
             'color' => $this->color,
             'icon' => $this->icon,
-        ], $changedProperties, ['parent' => 'parentId']);
+        ], self::withDerivedProperties($changedProperties), ['parent' => 'parentId']);
+    }
+
+    /**
+     * The depth and the path follow the name and the parent: a differential
+     * update that renames or moves a category must carry them too.
+     *
+     * @param string[]|null $changedProperties
+     *
+     * @return string[]|null
+     */
+    private static function withDerivedProperties(?array $changedProperties): ?array
+    {
+        if (null === $changedProperties || [] === array_intersect($changedProperties, ['name', 'parent'])) {
+            return $changedProperties;
+        }
+
+        return [...$changedProperties, 'depth', 'path'];
     }
 }

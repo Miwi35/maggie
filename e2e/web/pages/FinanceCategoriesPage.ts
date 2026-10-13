@@ -72,6 +72,21 @@ export class FinanceCategoriesPage extends AdminShell {
     return this.suggestionsTable.getByRole('row').filter({ hasText: pattern })
   }
 
+  /** The « Sous-catégorie » link of a row — absent on a third-level category. */
+  addUnder(name: string): Locator {
+    return this.content.getByRole('link', { name: `Ajouter une sous-catégorie à ${name}` })
+  }
+
+  /** The tree on screen, top to bottom: each category with its level (1 to 3). */
+  async tree(): Promise<{ name: string; depth: number }[]> {
+    return this.content.locator('[data-depth]').evaluateAll((cells) =>
+      cells.map((cell) => ({
+        name: cell.lastElementChild?.textContent ?? '',
+        depth: Number((cell as HTMLElement).dataset.depth),
+      })),
+    )
+  }
+
   /**
    * Fills the category form and saves.
    *

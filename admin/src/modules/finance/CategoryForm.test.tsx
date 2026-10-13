@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
+import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -198,5 +198,100 @@ describe('CategoryForm', () => {
     await user.type(screen.getByLabelText(/Nom/), ' et garages')
 
     expect(screen.getByLabelText('Rente')).toBeChecked()
+  })
+})
+
+const TREE = [
+  { id: '/api/categories/loisirs', name: 'Loisirs', path: 'Loisirs', depth: 1, parent: null, obligation: 'optional' },
+  { id: '/api/categories/bars', name: 'Bars', path: 'Loisirs › Bars', depth: 2, parent: '/api/categories/loisirs', obligation: 'optional' },
+  { id: '/api/categories/obsydian', name: 'Obsydian', path: 'Loisirs › Bars › Obsydian', depth: 3, parent: '/api/categories/bars', obligation: 'optional' },
+  { id: '/api/categories/cinema', name: 'Cinéma', path: 'Loisirs › Cinéma', depth: 2, parent: '/api/categories/loisirs', obligation: 'optional' },
+  { id: '/api/categories/courses', name: 'Courses', path: 'Courses', depth: 1, parent: null, obligation: 'mandatory' },
+]
+
+const treeList = (() => Promise.resolve({ data: TREE, total: TREE.length })) as unknown as DataProvider['getList']
+
+/** The create screen over a three-level tree; failures of the API show in the notification area. */
+const renderCreateInTree = (create = vi.fn().mockResolvedValue({ data: { id: '/api/categories/new' } })) => {
+  render(
+    <MemoryRouter>
+      <AdminContext dataProvider={testDataProvider({ create, getList: treeList })} i18nProvider={i18nProvider}>
+        <ResourceContextProvider value="categories">
+          <CategoryCreate />
+        </ResourceContextProvider>
+        <Notification />
+      </AdminContext>
+    </MemoryRouter>,
+  )
+
+  return create
+}
+
+const parentOptions = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByLabelText('Rattacher à une catégorie'))
+
+  return (await screen.findAllByRole('option')).map((option) => option.textContent)
+}
+
+describe('CategoryForm, three levels', () => {
+  test('the parent is chosen by its path, and level 3 is not offered', async () => {
+    const user = userEvent.setup()
+    renderCreateInTree()
+
+    expect(await parentOptions(user)).toEqual(['Courses', 'Loisirs', 'Loisirs › Bars', 'Loisirs › Cinéma'])
+  })
+
+  test('a category created under Loisirs › Bars is sent with that parent', async () => {
+    const user = userEvent.setup()
+    const create = renderCreateInTree()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Obsydian')
+    await parentOptions(user)
+    await user.click(screen.getByRole('option', { name: 'Loisirs › Bars' }))
+    await chooseObligation(user, 'Non-obligatoire')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({ name: 'Obsydian', parent: '/api/categories/bars' })
+  })
+
+  test('editing Bars offers neither Bars, nor what sits under it, nor a place its subtree would not fit', async () => {
+    const user = userEvent.setup()
+    // Bars as a main category with its own child: it can only go under a level 1.
+    const bars = { ...TREE[1], parent: null }
+    render(
+      <MemoryRouter initialEntries={[`/categories/${encodeURIComponent(bars.id)}`]}>
+        <AdminContext
+          dataProvider={testDataProvider({
+            getOne: (() => Promise.resolve({ data: bars })) as unknown as DataProvider['getOne'],
+            getList: treeList,
+          })}
+          i18nProvider={i18nProvider}
+        >
+          <ResourceContextProvider value="categories">
+            <Routes>
+              <Route path="/categories/:id" element={<CategoryEdit />} />
+            </Routes>
+          </ResourceContextProvider>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    expect(await parentOptions(user)).toEqual(['Courses', 'Loisirs'])
+  })
+
+  test('the reason the API refuses a category is shown, and the form stays open', async () => {
+    const user = userEvent.setup()
+    const create = renderCreateInTree(
+      vi.fn().mockRejectedValue(Object.assign(new Error('Une catégorie ne peut pas dépasser trois niveaux.'), { status: 422 })),
+    )
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Obsydian')
+    await chooseObligation(user, 'Non-obligatoire')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(await screen.findByText('Une catégorie ne peut pas dépasser trois niveaux.')).toBeInTheDocument()
+    expect(create).toHaveBeenCalled()
+    expect(screen.getByLabelText(/Nom/)).toHaveValue('Obsydian')
   })
 })

@@ -21,6 +21,7 @@ import {
 import type { RaRecord } from 'react-admin'
 import type { TransactionNature } from './transactionStatuses'
 import type { DayRule, RecurrencePeriod } from './recurringOperations'
+import { categoryLabel, orderedCategories } from './categoryTree'
 
 /** What the form opens with: a series being edited, or a transaction being generalised. */
 export interface RecurringFormValues {
@@ -62,6 +63,8 @@ interface RecurringOperationDialogProps {
 
 interface CategoryOption extends RaRecord {
   name: string
+  path?: string
+  parent?: string | null
   obligation?: string
 }
 
@@ -92,7 +95,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
 
   // Same rule as a transaction: a recette sits in a recette category. The one
   // the series already carries stays offered so an old series opens filled.
-  const choices = categories.filter((c) => matchesNature(c, nature) || c.id === values.category)
+  const choices = orderedCategories(categories).filter((c) => matchesNature(c, nature) || c.id === values.category)
 
   useEffect(() => {
     const current = categories.find((c) => c.id === values.category)
@@ -227,7 +230,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             >
               {choices.map((c) => (
                 <MenuItem key={c.id} value={String(c.id)}>
-                  {c.name}
+                  {categoryLabel(c)}
                 </MenuItem>
               ))}
             </TextField>

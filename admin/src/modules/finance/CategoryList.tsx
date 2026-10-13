@@ -1,17 +1,22 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import AddIcon from '@mui/icons-material/Add'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import {
   Datagrid,
   TextField,
-  ReferenceField,
   FunctionField,
   EditButton,
   DeleteButton,
   CreateButton,
   TopToolbar,
+  ListContextProvider,
+  useCreatePath,
+  useListContext,
 } from 'react-admin'
+import { Link } from 'react-router-dom'
 import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { CategorizationRuleList } from './CategorizationRuleList'
@@ -19,6 +24,8 @@ import { ListEmpty } from '../../components/list/ListEmpty'
 import { StandardCategoriesButton } from './StandardCategoriesButton'
 import { RuleSuggestions } from './RuleSuggestions'
 import { OBLIGATION_LABELS } from './obligationFlags'
+import { CATEGORY_MAX_DEPTH, categoryTree } from './categoryTree'
+import type { CategoryNode } from './categoryTree'
 import type { RaRecord } from 'react-admin'
 
 const CATEGORY_TOPICS = ['/api/categories/{id}']
@@ -39,28 +46,86 @@ const CategoryActions = () => (
   </TopToolbar>
 )
 
-const CategoryDatagrid = () => {
+/** Create under a category: the form opens with the parent already chosen. */
+const AddUnderButton = ({ category }: { category: CategoryNode }) => {
+  const createPath = useCreatePath()
+  const to = {
+    pathname: createPath({ resource: 'categories', type: 'create' }),
+    search: `?source=${encodeURIComponent(JSON.stringify({ parent: category.id }))}`,
+  }
+
   return (
-    <Datagrid rowClick="edit">
-      <TextField source="name" label="Nom" />
-      <FunctionField
-        label="Obligation"
-        render={(record: RaRecord) =>
-          // A rente is said on the obligation column rather than on one of its
-          // own: it only ever qualifies a recette, and a column of blanks for
-          // every expense would say nothing.
-          record.passiveIncome
-            ? 'Recette · rente'
-            : (OBLIGATION_LABELS[record.obligation as string] ?? record.obligation)
-        }
-      />
-      <ReferenceField source="parent" reference="categories" label="Catégorie parente" link={false}>
-        <TextField source="name" />
-      </ReferenceField>
-      <TextField source="color" label="Couleur" />
-      <EditButton />
-      <DeleteButton />
-    </Datagrid>
+    <Button
+      component={Link}
+      to={to}
+      size="small"
+      startIcon={<AddIcon />}
+      aria-label={`Ajouter une sous-catégorie à ${category.name}`}
+      onClick={(event: React.MouseEvent) => event.stopPropagation()}
+    >
+      Sous-catégorie
+    </Button>
+  )
+}
+
+/** The rows as a three-level tree: each category under its parent, indented by its level. */
+const CategoryDatagrid = () => {
+  const list = useListContext()
+  const rows = useMemo(() => categoryTree((list.data ?? []) as unknown as CategoryNode[]), [list.data])
+  const depths = useMemo(() => new Map(rows.map((row) => [row.category.id, row.depth])), [rows])
+  const value = useMemo(
+    () => ({ ...list, data: rows.map((row) => row.category) }) as unknown as typeof list,
+    [list, rows],
+  )
+
+  return (
+    <ListContextProvider value={value}>
+      <Datagrid rowClick="edit">
+        <FunctionField
+          label="Nom"
+          sortable={false}
+          render={(record: RaRecord) => {
+            const depth = depths.get(record.id as string) ?? 1
+
+            return (
+              <Box
+                component="span"
+                data-depth={depth}
+                title={(record.path as string | undefined) ?? undefined}
+                sx={{ pl: (depth - 1) * 3, fontWeight: depth === 1 ? 600 : 400 }}
+              >
+                {depth > 1 && <span aria-hidden="true">› </span>}
+                <span>{record.name as string}</span>
+              </Box>
+            )
+          }}
+        />
+        <FunctionField
+          label="Obligation"
+          sortable={false}
+          render={(record: RaRecord) =>
+            // A rente is said on the obligation column rather than on one of its
+            // own: it only ever qualifies a recette, and a column of blanks for
+            // every expense would say nothing.
+            record.passiveIncome
+              ? 'Recette · rente'
+              : (OBLIGATION_LABELS[record.obligation as string] ?? record.obligation)
+          }
+        />
+        <TextField source="color" label="Couleur" sortable={false} />
+        <FunctionField
+          label=""
+          sortable={false}
+          render={(record: RaRecord) =>
+            (depths.get(record.id as string) ?? 1) < CATEGORY_MAX_DEPTH ? (
+              <AddUnderButton category={record as unknown as CategoryNode} />
+            ) : null
+          }
+        />
+        <EditButton />
+        <DeleteButton />
+      </Datagrid>
+    </ListContextProvider>
   )
 }
 
@@ -83,6 +148,9 @@ export const CategoryList = () => {
         {tab === 0 && (
           <LiveList
             live={CATEGORY_LIVE}
+            perPage={200}
+            pagination={false}
+            sort={{ field: 'name', order: 'ASC' }}
             actions={<CategoryActions />}
             empty={
               <ListEmpty

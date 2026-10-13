@@ -61,8 +61,8 @@ tags:
     id: "suggestion_accept"
     enabled: false
 
-# The heading, then the yes.
-- tapOn: "Courses"
+# The heading — its chip reads « Vie courante › Courses » since MAG-411 — then the yes.
+- tapOn: ".*Courses"
 - tapOn:
     id: "suggestion_accept"
 

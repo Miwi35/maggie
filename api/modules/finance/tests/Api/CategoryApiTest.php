@@ -234,6 +234,23 @@ class CategoryApiTest extends WebTestCase
     }
 
     /** @param array<string, mixed> $body */
+    private function post(array $body): void
+    {
+        $this->client->request('POST', '/api/categories', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    private function countCategories(): int
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(Category::class)->count([]);
+    }
+
+    /** @param array<string, mixed> $body */
     private function patch(string $id, array $body, bool $authenticated = true): void
     {
         $headers = [
@@ -279,43 +296,166 @@ class CategoryApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
-    /** A sub-category cannot have children: a refused body (422), not a 500. */
-    public function testPatchUnderASubCategoryIsRefused(): void
+    public function testObsydianCanBeCreatedUnderBarsAndReadsItsPath(): void
     {
-        $this->loadFixtures('category_with_parent.yaml');
-        /** @var User $user */
-        $user = $this->getFixture('test_user');
-        $this->authenticateAsUser($user);
-        $groceries = $this->getFixture('groceries');
-        $concerts = $this->getFixture('concerts');
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
 
-        $this->patch((string) $groceries->getId(), ['parent' => '/api/categories/'.$concerts->getId()]);
+        $this->post(['name' => 'Le Corner', 'obligation' => 'optional', 'parent' => '/api/categories/'.$bars->getId()]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(3, $data['depth']);
+        self::assertSame('Loisirs › Bars › Le Corner', $data['path']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $created = $em->getRepository(Category::class)->findOneBy(['name' => 'Le Corner']);
+        self::assertSame((string) $bars->getId(), (string) $created?->getParent()?->getId());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    public function testTheMercurePayloadCarriesTheDepthAndThePath(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
+        $this->resetMercure();
+
+        $this->post(['name' => 'Le Corner', 'obligation' => 'optional', 'parent' => '/api/categories/'.$bars->getId()]);
+
+        $created = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $payloads = $this->mercurePayloadsOn('/api/categories/'.$created['id']);
+        self::assertSame(3, $payloads[0]['depth']);
+        self::assertSame('Loisirs › Bars › Le Corner', $payloads[0]['path']);
+    }
+
+    public function testReadingACategoryGivesItsDepthAndPath(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $obsydian = $this->getFixture('obsydian');
+
+        $this->client->request('GET', '/api/categories/'.$obsydian->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(3, $data['depth']);
+        self::assertSame('Loisirs › Bars › Obsydian', $data['path']);
+    }
+
+    public function testCreateUnderALevelThreeCategoryIsRefused(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $obsydian = $this->getFixture('obsydian');
+        $before = $this->countCategories();
+
+        $this->post(['name' => 'Trop profond', 'obligation' => 'optional', 'parent' => '/api/categories/'.$obsydian->getId()]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame($before, $this->countCategories());
+    }
+
+    public function testMakingLoisirsTheChildOfObsydianIsRefusedAsACycle(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $leisure = $this->getFixture('leisure');
+        $obsydian = $this->getFixture('obsydian');
+
+        $this->patch((string) $leisure->getId(), ['parent' => '/api/categories/'.$obsydian->getId()]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('own sub-categories', $this->client->getResponse()->getContent());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Category::class, $leisure->getId())?->getParent());
+    }
+
+    public function testACategoryCannotBeItsOwnParent(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
+
+        $this->patch((string) $bars->getId(), ['parent' => '/api/categories/'.$bars->getId()]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testMovingASubtreePastLevelThreeIsRefused(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $leisure = $this->getFixture('leisure');
+        $food = $this->getFixture('food');
+
+        // Loisirs carries Bars and Obsydian: under Alimentation, Obsydian would be level 4.
+        $this->patch((string) $leisure->getId(), ['parent' => '/api/categories/'.$food->getId()]);
 
         self::assertResponseStatusCodeSame(422);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertNull($em->find(Category::class, $groceries->getId())?->getParent());
+        self::assertNull($em->find(Category::class, $leisure->getId())?->getParent());
     }
 
-    public function testCreateUnderASubCategoryIsRefused(): void
+    public function testMovingASubtreeThatStillFitsIsAccepted(): void
     {
-        $this->loadFixtures('category_with_parent.yaml');
-        /** @var User $user */
-        $user = $this->getFixture('test_user');
-        $this->authenticateAsUser($user);
-        $concerts = $this->getFixture('concerts');
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
 
-        $this->client->request('POST', '/api/categories', [], [], array_merge([
-            'CONTENT_TYPE' => 'application/ld+json',
-            'HTTP_ACCEPT' => 'application/ld+json',
-        ], $this->authHeaders()), json_encode([
-            'name' => 'Trop profond',
-            'obligation' => 'optional',
-            'parent' => '/api/categories/'.$concerts->getId(),
-        ], JSON_THROW_ON_ERROR));
+        $this->patch((string) $bars->getId(), ['parent' => null]);
 
-        self::assertResponseStatusCodeSame(422);
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(1, $data['depth']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Bars › Obsydian', $em->find(Category::class, $this->getFixture('obsydian')->getId())?->getPath());
+    }
+
+    public function testRenamingACategoryAnnouncesTheNewPathOfItsDescendants(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
+        $obsydian = $this->getFixture('obsydian');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->patch((string) $bars->getId(), ['name' => 'Pubs']);
+
+        self::assertResponseIsSuccessful();
+        $payloads = $this->mercurePayloadsOn('/api/categories/'.$obsydian->getId());
+        self::assertNotEmpty($payloads);
+        self::assertSame('Loisirs › Pubs › Obsydian', end($payloads)['path']);
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    public function testChangingAColorDoesNotRepublishTheDescendants(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $bars = $this->getFixture('bars');
+        $obsydian = $this->getFixture('obsydian');
+        $this->resetMercure();
+
+        $this->patch((string) $bars->getId(), ['color' => '#112233']);
+
+        self::assertResponseIsSuccessful();
+        $this->assertNothingPublishedOn('/api/categories/'.$obsydian->getId());
     }
 
     public function testPatchWithNullColorAndIconClearsThemAndKeepsTheParent(): void

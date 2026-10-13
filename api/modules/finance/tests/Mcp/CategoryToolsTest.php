@@ -7,6 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -61,19 +62,99 @@ class CategoryToolsTest extends KernelTestCase
         self::assertSame((string) $parent->getId(), $data['category']['parentId']);
     }
 
-    public function testCreateThirdLevelIsRejected(): void
+    public function testObsydianCanBeCreatedUnderBars(): void
     {
-        $this->loadFixtures('category.yaml');
+        $this->loadFixtures('category_three_levels.yaml');
         $this->loginFixtureUser();
-        // 'leisure_concerts' is already a sub-category (has a parent)
-        $sub = $this->getFixture('leisure_concerts');
+        $bars = $this->getFixture('bars');
 
         $tool = self::getContainer()->get(ManageCategoriesTool::class);
-        $result = $tool('create', name: 'Trop profond', parentId: (string) $sub->getId());
+        $result = $tool('create', name: 'Le Corner', parentId: (string) $bars->getId());
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertSame(3, $data['category']['depth']);
+        self::assertSame('Loisirs › Bars › Le Corner', $data['category']['path']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $created = $em->getRepository(Category::class)->findOneBy(['name' => 'Le Corner']);
+        self::assertSame((string) $bars->getId(), (string) $created?->getParent()?->getId());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    public function testCreateFourthLevelIsRejected(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->loginFixtureUser();
+        $obsydian = $this->getFixture('obsydian');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('create', name: 'Trop profond', parentId: (string) $obsydian->getId());
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('error', $data);
-        self::assertStringContainsString('two levels', $data['error']);
+        self::assertStringContainsString('at most 3 levels', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertNull($em->getRepository(Category::class)->findOneBy(['name' => 'Trop profond']));
+    }
+
+    public function testMakingAnAncestorTheChildOfItsDescendantIsRejectedAsACycle(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->loginFixtureUser();
+        $leisure = $this->getFixture('leisure');
+        $obsydian = $this->getFixture('obsydian');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('update', categoryId: (string) $leisure->getId(), parentId: (string) $obsydian->getId());
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('own sub-categories', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Category::class, $leisure->getId())?->getParent());
+    }
+
+    public function testMovingASubtreePastLevelThreeIsRejected(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->loginFixtureUser();
+        $leisure = $this->getFixture('leisure');
+        $food = $this->getFixture('food');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('update', categoryId: (string) $leisure->getId(), parentId: (string) $food->getId());
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('past level 3', $data['error']);
+    }
+
+    public function testListGivesTheDepthAndThePathOfEveryCategory(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $data = json_decode($tool('list'), true, 512, JSON_THROW_ON_ERROR);
+
+        $paths = array_column($data['categories'], 'depth', 'path');
+        ksort($paths);
+        self::assertSame(['Alimentation' => 1, 'Loisirs' => 1, 'Loisirs › Bars' => 2, 'Loisirs › Bars › Obsydian' => 3], $paths);
+    }
+
+    public function testCategoriesNeedAnAuthenticatedUser(): void
+    {
+        $this->loadFixtures('category_three_levels.yaml');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $data = json_decode($tool('create', name: 'Orpheline'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
     }
 
     public function testListCategoriesReturnsAll(): void

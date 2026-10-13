@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.describeRuleScope
 import com.maggie.app.data.model.matchTypeLabel
 import com.maggie.app.ui.components.EmptyState
@@ -61,6 +62,7 @@ fun CategorizationRuleListScreen(
     onOpenSuggestions: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var showCreateDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -131,9 +133,7 @@ fun CategorizationRuleListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.rules, key = { it.id }) { rule ->
-                        val categoryName = uiState.categories
-                            .firstOrNull { it.id == rule.categoryId }
-                            ?.name
+                        val categoryName = tree.pathOf(rule.categoryId)
                         val scope = describeRuleScope(
                             rule.direction,
                             rule.minAmountCents,
@@ -191,6 +191,7 @@ private fun RuleCreateDialog(
     onConfirm: (CategorizationRuleCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tree = remember(categories) { CategoryTree(categories) }
     var labelPattern by remember { mutableStateOf("") }
     var matchType by remember { mutableStateOf("contains") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
@@ -230,7 +231,7 @@ private fun RuleCreateDialog(
                         FilterChip(
                             selected = selectedCategoryId == category.id,
                             onClick = { selectedCategoryId = category.id },
-                            label = { Text(category.name) },
+                            label = { Text(tree.path(category)) },
                         )
                     }
                 }

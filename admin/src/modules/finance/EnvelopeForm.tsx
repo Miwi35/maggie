@@ -4,14 +4,13 @@ import {
   TextInput,
   NumberInput,
   SelectInput,
-  ReferenceInput,
-  AutocompleteInput,
   FormDataConsumer,
   required,
 } from 'react-admin'
 import { BUDGET_MODE_CHOICES, MONTH_CHOICES } from './budgetModes'
 import { EnvelopeSummary } from './EnvelopeSummary'
 import { FormSection } from '../../components/form/FormSection'
+import { CategoryInput } from './CategoryInput'
 
 const now = new Date()
 
@@ -33,15 +32,13 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
       description="Une enveloppe plafonne les dépenses d'une catégorie sur une période. Les transactions de cette catégorie viennent s'en déduire automatiquement."
     />
 
-    <ReferenceInput source="category" reference="categories">
-      <AutocompleteInput
-        label="Catégorie"
-        optionText="name"
-        validate={required()}
-        fullWidth
-        helperText="Seules les dépenses classées dans cette catégorie sont décomptées."
-      />
-    </ReferenceInput>
+    <CategoryInput
+      source="category"
+      label="Catégorie"
+      validate={required()}
+      fullWidth
+      helperText="Seules les dépenses classées dans cette catégorie sont décomptées."
+    />
 
     <Box sx={rowSx}>
       <NumberInput

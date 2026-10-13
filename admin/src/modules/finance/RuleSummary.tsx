@@ -1,6 +1,7 @@
 import Alert from '@mui/material/Alert'
 import { useGetOne } from 'react-admin'
 import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
+import { categoryLabel } from './categoryTree'
 
 interface RuleSummaryProps {
   category?: string
@@ -35,7 +36,7 @@ export const RuleSummary = ({
   }
 
   const comparison = (MATCH_TYPE_LABELS[matchType] ?? matchType).toLowerCase()
-  const categoryName = (categoryRecord?.name as string) ?? 'cette catégorie'
+  const categoryName = categoryLabel(categoryRecord) || 'cette catégorie'
   const scope = describeRuleScope(direction, minAmountCents, maxAmountCents)
 
   return (

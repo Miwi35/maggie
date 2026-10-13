@@ -6,8 +6,6 @@ import {
   NumberInput,
   SelectInput,
   BooleanInput,
-  ReferenceInput,
-  AutocompleteInput,
   FormDataConsumer,
   required,
 } from 'react-admin'
@@ -17,6 +15,7 @@ import { RuleSummary } from './RuleSummary'
 import { RulePreviewPanel } from './RulePreviewPanel'
 import { CategorizationRuleToolbar } from './CategorizationRuleToolbar'
 import { RulePreviewContext } from './rulePreviewContext'
+import { CategoryInput } from './CategoryInput'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -63,15 +62,13 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
           description="La catégorie posée sur les transactions reconnues."
         />
 
-        <ReferenceInput source="category" reference="categories">
-          <AutocompleteInput
-            label="Catégorie"
-            optionText="name"
-            validate={required()}
-            fullWidth
-            helperText="Une catégorie posée à la main ne sera jamais écrasée par cette règle."
-          />
-        </ReferenceInput>
+        <CategoryInput
+          source="category"
+          label="Catégorie"
+          validate={required()}
+          fullWidth
+          helperText="Une catégorie posée à la main ne sera jamais écrasée par cette règle."
+        />
 
         <FormSection
           title="Restreindre (facultatif)"

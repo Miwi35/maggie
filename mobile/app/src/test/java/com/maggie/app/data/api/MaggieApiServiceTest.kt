@@ -575,6 +575,22 @@ class MaggieApiServiceTest {
         }
 
     @Test
+    fun `getCategories asks for the whole tree, not the first page of thirty`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                """{"member":[{"id":"cat-1","name":"Loisirs","obligation":"optional"}]}"""
+            },
+        )
+
+        val categories = service.getCategories()
+
+        assertEquals(1, categories.size)
+        assertTrue(url!!.contains("itemsPerPage=200"))
+    }
+
+    @Test
     fun `updateCategory sends a merge-patch with the changed fields alone`() = runBlocking {
         var method: HttpMethod? = null
         var url: String? = null
@@ -669,5 +685,63 @@ class MaggieApiServiceTest {
         )
 
         assertNull(service.countCategorizationRulesOf(setOf("cat-1")))
+    }
+
+    private fun refusingClient(status: HttpStatusCode, body: String): HttpClient =
+        HttpClient(
+            MockEngine {
+                respond(
+                    content = ByteReadChannel(body),
+                    status = status,
+                    headers = headersOf(HttpHeaders.ContentType, "application/problem+json"),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+    @Test
+    fun `a category refused with 422 raises the server's own sentence`() = runBlocking {
+        val sentence = "Une catégorie ne peut pas dépasser trois niveaux."
+        val service = MaggieApiService(refusingClient(HttpStatusCode.UnprocessableEntity, """{"detail":"$sentence"}"""))
+
+        val created = runCatching { service.createCategory(CategoryCreateRequest(name = "Trop")) }.exceptionOrNull()
+        val moved = runCatching {
+            service.updateCategory("cat-1", kotlinx.serialization.json.JsonObject(emptyMap()))
+        }.exceptionOrNull()
+
+        assertTrue(created is ApiRefusalException)
+        assertEquals(422, (created as ApiRefusalException).status)
+        assertEquals(sentence, created.message)
+        assertEquals(sentence, (moved as ApiRefusalException).message)
+    }
+
+    @Test
+    fun `a refusal reads hydra description when there is no detail`() {
+        assertEquals("Cycle.", refusalMessage(422, """{"hydra:description":"Cycle."}"""))
+        assertEquals("Le serveur a refusé la modification (HTTP 422).", refusalMessage(422, "<html>"))
+    }
+
+    @Test
+    fun `updateTransactionCategory patches the category by IRI, or null to take it away`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                bodies += String(request.body.toByteArray())
+                """{"id":"tx-1","label":"Bar","amountCents":-500,"category":"/api/categories/cat-9"}"""
+            },
+        )
+
+        val updated = service.updateTransactionCategory("tx-1", "/api/categories/cat-9")
+        service.updateTransactionCategory("tx-1", null)
+
+        assertEquals("cat-9", updated.categoryId)
+        assertTrue(url!!.endsWith("/api/transactions/tx-1"))
+        assertEquals("""{"category":"/api/categories/cat-9"}""", bodies[0])
+        assertEquals("""{"category":null}""", bodies[1])
     }
 }

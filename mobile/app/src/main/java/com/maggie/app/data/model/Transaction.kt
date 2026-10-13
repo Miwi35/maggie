@@ -20,7 +20,11 @@ data class Transaction(
     // Anything but "none" is neutral: neither an expense nor an income.
     val transferKind: String = "none",
     val transferSource: String = "auto",
+    // An IRI ("/api/categories/01H…"), null while the line is not filed.
+    val category: String? = null,
 ) {
+    val categoryId: String? get() = category?.substringAfterLast('/')
+
     val isInternalTransfer: Boolean get() = transferKind != "none" && transferKind != "rejected"
 
     val isRejected: Boolean get() = transferKind == "rejected"

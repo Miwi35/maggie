@@ -9607,6 +9607,16 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "depth": {
+                        "readOnly": true,
+                        "description": "Level in the tree, from 1 (top-level) to 3.",
+                        "type": "integer"
+                    },
+                    "path": {
+                        "readOnly": true,
+                        "description": "Names from the top-level category down to this one, e.g. « Loisirs › Bars › Obsydian ».",
+                        "type": "string"
+                    },
                     "obligation": {
                         "default": "optional",
                         "type": "string",
@@ -9673,6 +9683,16 @@
                         ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "depth": {
+                        "readOnly": true,
+                        "description": "Level in the tree, from 1 (top-level) to 3.",
+                        "type": "integer"
+                    },
+                    "path": {
+                        "readOnly": true,
+                        "description": "Names from the top-level category down to this one, e.g. « Loisirs › Bars › Obsydian ».",
+                        "type": "string"
                     },
                     "obligation": {
                         "default": "optional",
@@ -9741,6 +9761,16 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "depth": {
+                        "readOnly": true,
+                        "description": "Level in the tree, from 1 (top-level) to 3.",
+                        "type": "integer"
+                    },
+                    "path": {
+                        "readOnly": true,
+                        "description": "Names from the top-level category down to this one, e.g. « Loisirs › Bars › Obsydian ».",
+                        "type": "string"
+                    },
                     "obligation": {
                         "default": "optional",
                         "type": "string",
@@ -9808,6 +9838,16 @@
                                 ],
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "depth": {
+                                "readOnly": true,
+                                "description": "Level in the tree, from 1 (top-level) to 3.",
+                                "type": "integer"
+                            },
+                            "path": {
+                                "readOnly": true,
+                                "description": "Names from the top-level category down to this one, e.g. « Loisirs › Bars › Obsydian ».",
+                                "type": "string"
                             },
                             "obligation": {
                                 "default": "optional",
