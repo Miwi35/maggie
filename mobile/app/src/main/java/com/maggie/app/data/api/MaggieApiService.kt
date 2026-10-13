@@ -186,6 +186,8 @@ data class AgentChatRequest(
     val idempotency_key: String? = null,
     /** The assist screenshot, for this turn only (MAG-214). Omitted when null: defaults are not encoded. */
     val image: ChatImage? = null,
+    /** The last message of the user, which this one corrects: the agent removes it and its answer (MAG-320). */
+    val replaces: String? = null,
 )
 
 /** An image as the agent takes it: standard base64, no `data:` prefix. */
@@ -832,6 +834,7 @@ class MaggieApiService(
         screenContext: String? = null,
         idempotencyKey: String = java.util.UUID.randomUUID().toString(),
         image: ChatImage? = null,
+        replaces: String? = null,
     ): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
@@ -843,6 +846,7 @@ class MaggieApiService(
                         screen_context = screenContext,
                         idempotency_key = idempotencyKey,
                         image = image,
+                        replaces = replaces,
                     ),
                 )
             }

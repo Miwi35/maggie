@@ -1,0 +1,70 @@
+appId: com.maggie.app.e2e
+name: 15-stop-and-correct
+tags:
+  - chat
+---
+# Stop Maggie while she answers, then correct the message (MAG-320).
+#
+# `97-stop-slow-answer` streams three deltas of a long answer and stalls, so « Arrêter » is
+# pressed on an answer that is really still being written, whatever the emulator's speed. The
+# stop brings the question back in the input and takes the exchange off the thread; the corrected
+# sentence is answered by `97-corrected-message`, and only that exchange stays — the server
+# removed the old one (`replaces`), which is what the last assertions check.
+#
+# Cursor, `replaces`, the hidden echo of the interrupted answer and « Modifier » on the last
+# message are `ChatViewModelTest` (JVM); this flow proves the live chain.
+#
+# Text selectors are regexes wrapped in `.*`, for the reason given in `01`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/15-stop-and-correct.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-chat.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 20000
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Crée un événement test à elle demain"
+- tapOn:
+    id: "chat_send"
+
+# The first words are on screen and the send button is now « Arrêter ».
+- extendedWaitUntil:
+    visible: ".*Je regarde ton agenda.*"
+    timeout: 60000
+- tapOn:
+    id: "chat_stop"
+
+# The question is back in the input, and the stopped exchange left the thread.
+- extendedWaitUntil:
+    visible:
+      id: "chat_send"
+    timeout: 20000
+- assertNotVisible:
+    id: "chat_stop"
+- assertNotVisible: ".*Je regarde ton agenda.*"
+- assertVisible: ".*Crée un événement test à elle demain.*"
+
+# Corrected, and sent again.
+- tapOn:
+    id: "chat_input"
+- eraseText: 100
+- inputText: "Crée un événement test à Ael demain"
+- tapOn:
+    id: "chat_send"
+
+- extendedWaitUntil:
+    visible: ".*C'est noté : un événement test à Ael demain.*"
+    timeout: 60000
+- assertNotVisible: ".*aucun scénario.*"
+- assertNotVisible: ".*à elle demain.*"
+- assertNotVisible: ".*Je regarde ton agenda.*"

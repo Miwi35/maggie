@@ -566,6 +566,22 @@ class TestMatching:
             "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine. (réf 1a2b3c4d)"
         )
 
+    async def test_the_stopped_request_stalls_and_its_correction_does_not_match_it(self):
+        """97-*.yaml (MAG-320): « à elle » is stopped, « à Ael » is answered, and the note makes it say what was done."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        stopped = await ask(client, "Crée un événement test à elle demain")
+        corrected = await ask(client, "Crée un événement test à Ael demain")
+        after_action = await ask(
+            client,
+            "Crée un événement test à Ael demain\n\n[Message corrigé : x. Pendant ce tour tu avais déjà fait : "
+            'create_event({"title":"Test"}). Ces actions n\'ont pas été défaites.]',
+        )
+
+        assert "FIN DE LA RÉPONSE" in text_of(stopped)
+        assert text_of(corrected) == "C'est noté : un événement test à Ael demain. Je m'en occupe."
+        assert "je le garde ou je le supprime" in text_of(after_action)
+
 
 class TestTurns:
     async def test_a_tool_turn_asks_for_its_tools(self, fixtures_dir):

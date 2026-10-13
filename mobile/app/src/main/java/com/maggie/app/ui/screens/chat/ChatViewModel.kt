@@ -88,6 +88,12 @@ data class ChatUiState(
     val undoableMessageDeletion: ChatMessage? = null,
     /** The server did not delete it: the message is back, say so once. */
     val messageDeleteFailed: Boolean = false,
+    /** Maggie is preparing or writing her answer: the send button is an « Arrêter » (MAG-320). */
+    val answering: Boolean = false,
+    /** The last message of the user, the only one « Modifier » is offered on (MAG-320). */
+    val editableMessageId: String? = null,
+    /** Text for the input to take, cursor at its end, then [ChatViewModel.consumeInputToRestore]. */
+    val inputToRestore: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -129,9 +135,18 @@ class ChatViewModel(
         val anchor: String?,
         val pendingId: String,
         val image: ChatImage?,
+        val replaces: String?,
     )
 
     private var unanswered: Attempt? = null
+
+    /**
+     * The message the next send corrects (MAG-320). [withdrawn]: the answer to it was stopped, so it
+     * and what follows are hidden until the correction is sent, or given up and shown again.
+     */
+    private data class Correction(val messageId: String, val withdrawn: Boolean)
+
+    private var correction: Correction? = null
 
     // The request in flight, so that cutting Maggie off can stop it (MAG-223).
     private var sendJob: Job? = null
@@ -274,8 +289,16 @@ class ChatViewModel(
         awaitingReply = true
         val key = java.util.UUID.randomUUID().toString()
         spokenReply = null
+        // A message that never got its stored id cannot be named to the agent: nothing is replaced.
+        val replaces = correction?.messageId?.takeUnless { it.startsWith(PENDING_PREFIX) }
 
         sendJob = viewModelScope.launch {
+            if (replaces != null) {
+                // What the agent is told of the stopped answer must have arrived before it is removed.
+                interruptJob?.join()
+                dropFrom(replaces)
+            }
+            correction = null
             // Add optimistic user message
             val userMessage = ChatMessage(
                 id = "$PENDING_PREFIX${System.currentTimeMillis()}",
@@ -297,6 +320,7 @@ class ChatViewModel(
                     _uiState.value.thumbnails
                 },
                 isLoading = true,
+                answering = true,
                 streamingText = "",
                 streamingMessageId = null,
                 replyToSpeak = null,
@@ -309,7 +333,7 @@ class ChatViewModel(
             interruptJob?.join()
 
             val attached = image?.let { ChatImage.jpeg(it) }
-            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached))
+            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces))
         }
     }
 
@@ -327,6 +351,7 @@ class ChatViewModel(
             _uiState.value = _uiState.value.copy(
                 failure = null,
                 isLoading = true,
+                answering = true,
                 streamingText = "",
                 streamingMessageId = null,
                 replyToSpeak = null,
@@ -339,10 +364,10 @@ class ChatViewModel(
 
     private suspend fun deliver(attempt: Attempt) {
         unanswered = attempt
-        val (text, screen, key, anchor, pendingId, image) = attempt
+        val (text, screen, key, anchor, pendingId, image, replaces) = attempt
         try {
             var streamError: String? = null
-            repository.sendMessageStream(text, screen, key, image)
+            repository.sendMessageStream(text, screen, key, image, replaces)
                 .collect { event ->
                     if (event is AgUiEvent.Error) streamError = event.message
                     handleStreamEvent(event)
@@ -423,6 +448,8 @@ class ChatViewModel(
                 -1
             }
             messages = if (pendingIndex >= 0) {
+                correction?.takeIf { it.messageId == messages[pendingIndex].id }
+                    ?.let { correction = it.copy(messageId = message.id) }
                 thumbnails = thumbnails.rekeyed(messages[pendingIndex].id, message.id)
                 messages.mapIndexed { i, m -> if (i == pendingIndex) message else m }
             } else {
@@ -437,6 +464,7 @@ class ChatViewModel(
         awaitingReply = false
         _uiState.value = _uiState.value.copy(
             isLoading = false,
+            answering = false,
             streamingText = "",
             streamingMessageId = null,
             failure = NO_ANSWER,
@@ -475,6 +503,7 @@ class ChatViewModel(
         _uiState.value = state.copy(
             messages = messages,
             isLoading = false,
+            answering = false,
             streamingText = "",
             streamingMessageId = null,
             replyToSpeak = null,
@@ -496,6 +525,54 @@ class ChatViewModel(
 
     private fun List<ChatMessage>.withMessage(message: ChatMessage): List<ChatMessage> =
         if (any { it.id == message.id }) map { if (it.id == message.id) message.copy(createdAt = it.createdAt) else it } else this + message
+
+    /**
+     * « Arrêter » of the written chat (MAG-320): the answer is cut like a voice reply is, the question
+     * and the interrupted answer leave the thread, and the question comes back in the input to be
+     * corrected. The agent is told even if the phone could not be heard saying so: the words are back
+     * in the input either way.
+     */
+    fun stop() {
+        if (!awaitingReply) return
+        val question = _uiState.value.messages.lastOrNull { it.role == "user" }
+        if (question != null) {
+            correction = Correction(question.id, withdrawn = true)
+            _uiState.value = _uiState.value.copy(inputToRestore = question.content)
+        }
+        unanswered = null
+        interrupt()
+    }
+
+    /** « Modifier » on the last message of the user: its words go back in the input, and the next send replaces it. */
+    fun editMessage(id: String) {
+        val last = _uiState.value.messages.lastOrNull { it.role == "user" }
+        if (last == null || last.id != id) return
+        if (awaitingReply) {
+            stop()
+            return
+        }
+        correction = Correction(last.id, withdrawn = false)
+        _uiState.value = _uiState.value.copy(inputToRestore = last.content)
+    }
+
+    fun consumeInputToRestore() {
+        _uiState.value = _uiState.value.copy(inputToRestore = null)
+    }
+
+    /** An emptied input gives the correction up: what was stopped stays in the thread, as it is on the server. */
+    fun onInputChanged(text: String) {
+        if (text.isNotEmpty() || correction == null) return
+        correction = null
+        rebuildDisplayItems()
+    }
+
+    /** The agent takes [userMessageId] and its answer off the conversation: so does the thread, at once. */
+    private fun dropFrom(userMessageId: String) {
+        val messages = _uiState.value.messages
+        val index = messages.indexOfFirst { it.id == userMessageId }
+        if (index < 0) return
+        removeMessages(messages.drop(index).map { it.id }.toSet(), null)
+    }
 
     private suspend fun handleStreamEvent(event: AgUiEvent) {
         when (event) {
@@ -580,7 +657,7 @@ class ChatViewModel(
         val reply = if (awaitingReply) _uiState.value.messages.lastOrNull()?.takeIf { it.role == "assistant" } else null
         awaitingReply = false
         unanswered = null
-        _uiState.value = _uiState.value.copy(isLoading = false, replyToSpeak = reply)
+        _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply)
     }
 
     /** Called by whoever read [ChatUiState.replyToSpeak]: it is offered once. */
@@ -593,7 +670,7 @@ class ChatViewModel(
     fun dropPendingReply() {
         awaitingReply = false
         spokenReply = null
-        _uiState.value = _uiState.value.copy(replyToSpeak = null)
+        _uiState.value = _uiState.value.copy(replyToSpeak = null, answering = false)
     }
 
     fun openSearch() {
@@ -738,10 +815,16 @@ class ChatViewModel(
     fun rebuildDisplayItems() {
         val state = _uiState.value
         val items = mutableListOf<ChatListItem>()
+        // The answer stopped and its question wait to be replaced: the echo of the interrupted
+        // answer, which arrives after them, must not bring them back.
+        val withdrawnFrom = correction?.takeIf { it.withdrawn }
+            ?.let { c -> state.messages.indexOfFirst { it.id == c.messageId } }
+            ?.takeIf { it >= 0 }
+        val kept = if (withdrawnFrom != null) state.messages.take(withdrawnFrom) else state.messages
         val messages = if (hiddenContextIds.isEmpty()) {
-            state.messages
+            kept
         } else {
-            state.messages.filterNot { it.contextId != null && it.contextId in hiddenContextIds }
+            kept.filterNot { it.contextId != null && it.contextId in hiddenContextIds }
         }
         val tappedId = state.tappedMessageId
         val highlightedId = state.highlightedMessageId
@@ -787,7 +870,10 @@ class ChatViewModel(
         }
         state.failure?.let { items.add(ChatListItem.Failure(it)) }
 
-        _uiState.value = _uiState.value.copy(displayItems = items)
+        _uiState.value = _uiState.value.copy(
+            displayItems = items,
+            editableMessageId = messages.lastOrNull { it.role == "user" }?.id,
+        )
     }
 
     /** Locks the card at once, then confirms with the agent; a failure unlocks it with an error. */
@@ -1068,6 +1154,8 @@ class ChatViewModel(
                             _uiState.value = _uiState.value.copy(
                                 messages = if (pendingIndex >= 0) {
                                     if (current[pendingIndex].id in runMessageIds) runMessageIds += message.id
+                                    correction?.takeIf { it.messageId == current[pendingIndex].id }
+                                        ?.let { correction = it.copy(messageId = message.id) }
                                     current.mapIndexed { i, m ->
                                         // The echo's thread wins; the run's is what the bubble had.
                                         if (i == pendingIndex) m.copy(id = message.id, contextId = message.contextId ?: m.contextId) else m

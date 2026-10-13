@@ -21,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.ScreenContext
@@ -162,6 +165,19 @@ fun AssistantOverlay(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = 8.dp),
                             )
+                        }
+                    }
+                    if (uiState.answering) {
+                        item {
+                            // Cuts the voice if it is heard, then tells the agent, like a tap on the mic.
+                            TextButton(
+                                onClick = {
+                                    if (!voiceManager.interrupt()) viewModel.interrupt(streamingIsShown = false)
+                                },
+                                modifier = Modifier.testTag(UiTags.CHAT_STOP),
+                            ) {
+                                Text("Arrêter")
+                            }
                         }
                     }
                     uiState.failure?.let { failure ->

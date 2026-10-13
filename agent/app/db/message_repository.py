@@ -235,6 +235,26 @@ class MessageRepository:
 
         return True
 
+    async def delete_many_for_user(self, message_ids: list[str], user_id: str) -> list[str]:
+        """Remove some of the user's messages in one go and tell the chat stream (MAG-320)."""
+        async with agent_session() as session:
+            result = await session.execute(
+                delete(Message).where(Message.id.in_(message_ids), Message.user_id == user_id).returning(Message.id)
+            )
+            deleted = [row.id for row in result.all()]
+            await session.commit()
+        if not deleted:
+            return []
+
+        try:
+            await self.publisher.publish(
+                topics.for_user(topics.CHAT, user_id), {"deleted": True, "contextId": None, "messageIds": deleted}
+            )
+        except Exception as e:
+            logger.warning(f"Failed to publish message deletion to Mercure: {e}")
+
+        return deleted
+
     async def count_by_user_contexts(self, user_id: str) -> dict[str, int]:
         """How many messages each of the user's threads holds, by context id — what a thread's deletion takes away."""
         async with agent_session() as session:

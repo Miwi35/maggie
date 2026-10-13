@@ -1,0 +1,17 @@
+# Maggie being stopped while she answers (MAG-320): the journey sends this sentence, presses
+# « Arrêter » once the first words show, and checks that nothing else is written and that
+# the sentence is back in the input. After its first deltas the stream stalls and never
+# finishes by itself, so no emulator or browser speed turns the stop into a race.
+#
+# The corrected sentence (« … Ael … ») is the next two files; this one must not match it.
+name: stop-slow-answer
+description: Answer "create a test event" slowly, so a journey can stop her before the end.
+
+match:
+  user_matches: "événement test à elle demain"
+
+stream_delay_ms: 200
+stall_after_deltas: 3
+
+turns:
+  - text: "Je regarde ton agenda de demain pour y placer cet événement test, puis je te confirme l'heure et le calendrier avant de le créer. FIN DE LA RÉPONSE."

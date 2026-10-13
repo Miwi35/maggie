@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ import com.maggie.app.voice.ScreenshotEncoder
  * @param onDelete when set, a long press opens a small menu with « Supprimer » (MAG-342).
  *   No confirmation: one message takes nothing else with it, and « Annuler » follows.
  *   A long press had no other use here, so the menu has no « Copier » to sit beside.
+ * @param onEdit set on the last message of the user only: « Modifier » puts it back in the input (MAG-320).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -66,6 +68,7 @@ fun MessageBubble(
     isHighlighted: Boolean = false,
     thumbnail: ByteArray? = null,
     onDelete: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
 ) {
     val isUser = message.role == "user"
     val highlightColor by animateColorAsState(
@@ -142,6 +145,17 @@ fun MessageBubble(
                     onDismissRequest = { menuOpen = false },
                     modifier = Modifier.uiTagRoot(),
                 ) {
+                    if (onEdit != null) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onEdit()
+                            },
+                            modifier = Modifier.testTag(UiTags.MESSAGE_EDIT),
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Supprimer") },
                         leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },

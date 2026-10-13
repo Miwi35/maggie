@@ -384,6 +384,7 @@ class TestSummaryTrigger:
             "current_message_id": "msg-1",
             "screen_context": None,
             "image": None,
+            "carried_over": None,
         }
 
     async def test_a_routing_failure_still_answers_from_the_global_window(self):

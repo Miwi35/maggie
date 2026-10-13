@@ -147,6 +147,7 @@ async def build_history(
     screen_context: str | None = None,
     tz: ZoneInfo | None = None,
     image: ChatImage | None = None,
+    carried_over: str | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -180,6 +181,10 @@ async def build_history(
     `image` is the picture that came with the message (MAG-214), and it goes on the same
     turn, last of all: the merges above concatenate strings, and an image turn is a list.
     It is not stored, so an earlier turn that had one reads as [GONE_MARKER] instead.
+
+    `carried_over` is what the turn this message replaces had already done (MAG-320). That turn
+    is gone from the conversation, so its actions are told on the message that replaces it, and
+    on that one only.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -198,7 +203,7 @@ async def build_history(
         except Exception as exc:
             logger.warning(f"Could not name the threads the history borrows from: {exc}")
 
-    turns = _turns(rows, context_id, labels, current_message_id, screen_context, tz or TZ_PARIS)
+    turns = _turns(rows, context_id, labels, current_message_id, screen_context, tz or TZ_PARIS, carried_over)
     if pending_message:
         _append_user(turns, _dated_today(rows, pending_message, tz or TZ_PARIS))
     # The floor under a history that would not load is then the whole conversation, so the
@@ -279,6 +284,7 @@ def _turns(
     current_message_id: str | None,
     screen_context: str | None = None,
     tz: ZoneInfo = TZ_PARIS,
+    carried_over: str | None = None,
 ) -> list[dict]:
     """The rows as Anthropic turns: dated, labelled, replayed, merged, and starting on the user."""
     # A turn taken up again after a restart may have been overtaken: the user retyped the
@@ -313,6 +319,8 @@ def _turns(
         # and the follow-up question is about the answer, not about the page.
         if screen_context and is_current:
             content = attach(content, screen_context)
+        if carried_over and is_current:
+            content = f"{content}\n\n{carried_over}"
         # Only the user's side again: an answer opening on « — le mardi 6 octobre — » would
         # be copied the way the thread label was. The question that opens the day dates it.
         if row.role == "user":

@@ -33,6 +33,8 @@ SWEEP_SECONDS = 30
 # How long a repeated request waits for the turn it duplicates before letting go.
 REPLAY_WAIT_SECONDS = 120
 REPLAY_POLL_SECONDS = 1.0
+# How long a stop waits for the turn it cancels to wind down (a tool already acting is let finish).
+STOP_WAIT_SECONDS = 15
 
 _END = object()
 
@@ -47,6 +49,8 @@ class TurnRunner:
     def __init__(self) -> None:
         # Held: the event loop keeps only a weak reference to a running task.
         self._tasks: dict[str, asyncio.Task] = {}
+        # The turns the user stopped (MAG-320): told apart from a shutdown, which hands the turn over.
+        self._stopped: set[str] = set()
         self._sweeper: asyncio.Task | None = None
 
     async def idle(self) -> None:
@@ -63,13 +67,19 @@ class TurnRunner:
         message: str,
         screen_context: str | None = None,
         image: ChatImage | None = None,
+        carried_over: str | None = None,
         follow: bool = True,
     ) -> AsyncGenerator[dict, None] | None:
-        """Launch the turn answering `message_id`; the events come back to whoever follows it."""
+        """Launch the turn answering `message_id`; the events come back to whoever follows it.
+
+        `carried_over` is what the turn this message replaces had already done (MAG-320).
+        """
         queue: asyncio.Queue | None = asyncio.Queue() if follow else None
-        task = asyncio.create_task(self._run(gateway, user_id, message_id, message, screen_context, image, queue))
+        task = asyncio.create_task(
+            self._run(gateway, user_id, message_id, message, screen_context, image, carried_over, queue)
+        )
         self._tasks[message_id] = task
-        task.add_done_callback(lambda _: self._tasks.pop(message_id, None))
+        task.add_done_callback(lambda _: self._forget(message_id))
         return _events(queue) if queue is not None else None
 
     async def _run(
@@ -80,16 +90,29 @@ class TurnRunner:
         message: str,
         screen_context: str | None,
         image: ChatImage | None,
+        carried_over: str | None,
         queue: asyncio.Queue | None,
     ) -> None:
         heartbeat = asyncio.create_task(self._renew_lease(message_id))
         try:
             async for event in gateway.chat_stream(
-                message, user_id, message_id, screen_context=screen_context, image=image
+                message,
+                user_id,
+                message_id,
+                screen_context=screen_context,
+                image=image,
+                carried_over=carried_over,
+                stopped=lambda: message_id in self._stopped,
             ):
                 if queue is not None:
                     queue.put_nowait(event)
             await self._settle(message_id)
+        except asyncio.CancelledError:
+            # Stopped by the user: the turn is over, and must not be taken up again once its
+            # lease lapses. A shutdown cancels without that, and hands the turn over instead.
+            if message_id in self._stopped:
+                await self._settle(message_id)
+            raise
         except Exception as exc:
             # The turn stays running with its lease running out: it is taken up again if
             # the message is recent, and expires otherwise.
@@ -99,6 +122,26 @@ class TurnRunner:
             heartbeat.cancel()
             if queue is not None:
                 queue.put_nowait(_END)
+
+    async def stop(self, message_id: str) -> bool:
+        """Cancel the turn answering `message_id`, and wait until it has wound down (MAG-320).
+
+        A tool already acting is let finish and recorded, so what was done is known; nothing
+        starts after. `False` when no turn of this process is running for it.
+        """
+        task = self._tasks.get(message_id)
+        if task is None or task.done():
+            return False
+        # Forgotten when the task ends, not when this wait does: a tool slower than the wait is
+        # still being let finish, and its turn must still know the user stopped it.
+        self._stopped.add(message_id)
+        task.cancel()
+        await asyncio.wait({task}, timeout=STOP_WAIT_SECONDS)
+        return True
+
+    def _forget(self, message_id: str) -> None:
+        self._tasks.pop(message_id, None)
+        self._stopped.discard(message_id)
 
     @staticmethod
     async def _settle(message_id: str) -> None:

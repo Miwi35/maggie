@@ -82,7 +82,10 @@ the turn after an interruption was told about it.
 **Answers that wait.** `stall_after_deltas: 4` makes the stream pause for 90 seconds
 after its fourth delta, so the answer cannot finish before a journey acts on it, however
 slow the emulator: a pace alone is a race. Default `0` (never); a negative or non-integer
-value is refused at load.
+value is refused at load. `97-stop-slow-answer.yaml` uses it (MAG-320: stop Maggie, correct the
+message); `97-corrected-action-done.yaml` matches the note the agent appends to a corrected message
+whose replaced turn had already acted — on `user_matches`, since `history_contains` leaves the message
+being answered out.
 
 ## Beyond chat
 

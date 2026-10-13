@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -1925,5 +1926,294 @@ class ChatViewModelTest {
             listOf("Il était une fois"),
             viewModel.uiState.value.messages.filter { it.id == "a-9" }.map { it.content },
         )
+    }
+
+    // --- Stopping Maggie and correcting the message (MAG-320) ---
+
+    /** A question sent, its echo received with the stored id [questionId], the answer half written. */
+    private fun TestScope.askAndStartAnswering(questionId: String? = "u-9"): MutableSharedFlow<MercureEvent> {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        halfWrittenStory()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        coEvery { repository.forgetMessages(any(), any()) } returns Unit
+        coEvery { repository.interruptChat(any(), any()) } returns interruptedAs("Il était une fois")
+        viewModel.sendMessage("Raconte")
+        if (questionId != null) topic.tryEmit(echo(questionId, "user", "Raconte"))
+        advanceUntilIdle()
+        return topic
+    }
+
+    private fun correctedAnswer() {
+        every { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), any()) } returns
+            streamedAnswer("resp-2", "Toc toc.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+    }
+
+    @Test
+    fun `while Maggie answers the send button is a stop, and it is not once she is done`() = runTest {
+        askAndStartAnswering()
+        assertTrue(viewModel.uiState.value.answering)
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.answering)
+    }
+
+    @Test
+    fun `stopping brings the question back to the input and tells the agent what was shown`() = runTest {
+        askAndStartAnswering()
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Raconte", state.inputToRestore)
+        assertFalse(state.isLoading)
+        assertEquals("", state.streamingText)
+        coVerify { repository.interruptChat("resp-1", "Il était une fois") }
+    }
+
+    @Test
+    fun `the stopped question and its interrupted answer leave the thread`() = runTest {
+        askAndStartAnswering()
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        assertEquals(listOf("msg-1", "msg-2"), shownIds())
+    }
+
+    @Test
+    fun `the echo of the interrupted answer does not bring the exchange back`() = runTest {
+        val topic = askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+
+        topic.tryEmit(echo("resp-1", "assistant", "Il était une fois"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("msg-1", "msg-2"), shownIds())
+    }
+
+    @Test
+    fun `the input takes the restored text once`() = runTest {
+        askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+
+        viewModel.consumeInputToRestore()
+
+        assertNull(viewModel.uiState.value.inputToRestore)
+    }
+
+    @Test
+    fun `the question comes back even if the agent could not be told`() = runTest {
+        askAndStartAnswering()
+        coEvery { repository.interruptChat(any(), any()) } throws RuntimeException("offline")
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Raconte", state.inputToRestore)
+        assertFalse(state.answering)
+        assertEquals(listOf("msg-1", "msg-2"), shownIds())
+    }
+
+    @Test
+    fun `the next send after a stop replaces the stopped question`() = runTest {
+        askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+        correctedAnswer()
+
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), "u-9") }
+        val ids = viewModel.uiState.value.messages.map { it.id }
+        assertFalse("u-9" in ids)
+        assertFalse("resp-1" in ids)
+        coVerify { repository.forgetMessages(match { it.toSet() == setOf("u-9", "resp-1") }, null) }
+    }
+
+    @Test
+    fun `a send after the stop waits for the agent to be told, then removes the exchange`() = runTest {
+        askAndStartAnswering()
+        val recorded = CompletableDeferred<ChatMessage>()
+        coEvery { repository.interruptChat(any(), any()) } coAnswers { recorded.await() }
+        viewModel.stop()
+        advanceUntilIdle()
+        correctedAnswer()
+
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+        verify(exactly = 0) { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), any()) }
+
+        recorded.complete(interruptedAs("Il était une fois"))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), "u-9") }
+        val ids = viewModel.uiState.value.messages.map { it.id }
+        assertFalse("u-9" in ids)
+        assertFalse("resp-1" in ids)
+    }
+
+    @Test
+    fun `an ordinary message carries no replaces`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour", any(), any(), any(), any()) } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Bonjour", any(), any(), any(), null) }
+    }
+
+    @Test
+    fun `the correction is sent once, the message after it replaces nothing`() = runTest {
+        askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+        correctedAnswer()
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Merci", any(), any(), any(), any()) } returns streamedAnswer("resp-3", "De rien.")
+
+        viewModel.sendMessage("Merci")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Merci", any(), any(), any(), null) }
+    }
+
+    @Test
+    fun `emptying the input gives the correction up and the stopped exchange shows again`() = runTest {
+        askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+
+        viewModel.onInputChanged("")
+        correctedAnswer()
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), null) }
+        assertTrue("u-9" in viewModel.uiState.value.messages.map { it.id })
+    }
+
+    @Test
+    fun `editing the input without emptying it keeps the correction`() = runTest {
+        askAndStartAnswering()
+        viewModel.stop()
+        advanceUntilIdle()
+
+        viewModel.onInputChanged("Raconte autre")
+        correctedAnswer()
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), "u-9") }
+    }
+
+    @Test
+    fun `a question stopped before its echo is named to the agent once the echo is in`() = runTest {
+        val topic = askAndStartAnswering(questionId = null)
+        viewModel.stop()
+        advanceUntilIdle()
+
+        topic.tryEmit(echo("u-9", "user", "Raconte"))
+        advanceUntilIdle()
+        correctedAnswer()
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), "u-9") }
+    }
+
+    @Test
+    fun `a question the agent never named is not guessed, and stays in the thread`() = runTest {
+        askAndStartAnswering(questionId = null)
+        viewModel.stop()
+        advanceUntilIdle()
+        assertEquals("Raconte", viewModel.uiState.value.inputToRestore)
+        correctedAnswer()
+
+        viewModel.sendMessage("Raconte autre chose")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Raconte autre chose", any(), any(), any(), null) }
+        assertTrue(viewModel.uiState.value.messages.any { it.content == "Raconte" })
+    }
+
+    @Test
+    fun `stopping when nothing is being answered does nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.inputToRestore)
+        coVerify(exactly = 0) { repository.interruptChat(any(), any()) }
+    }
+
+    @Test
+    fun `only the last message of the user can be edited`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns listOf(
+            ChatMessage(id = "m-1", role = "user", content = "Première", createdAt = "2026-02-15T10:00:00Z"),
+            ChatMessage(id = "m-2", role = "assistant", content = "Réponse 1", createdAt = "2026-02-15T10:00:05Z"),
+            ChatMessage(id = "m-3", role = "user", content = "Seconde", createdAt = "2026-02-15T10:01:00Z"),
+            ChatMessage(id = "m-4", role = "assistant", content = "Réponse 2", createdAt = "2026-02-15T10:01:05Z"),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals("m-3", viewModel.uiState.value.editableMessageId)
+
+        viewModel.editMessage("m-1")
+        assertNull(viewModel.uiState.value.inputToRestore)
+        viewModel.editMessage("m-2")
+        assertNull(viewModel.uiState.value.inputToRestore)
+        viewModel.editMessage("m-3")
+
+        assertEquals("Seconde", viewModel.uiState.value.inputToRestore)
+    }
+
+    @Test
+    fun `editing the last message leaves it in place until the correction is sent, and sends replaces`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.forgetMessages(any(), any()) } returns Unit
+
+        viewModel.editMessage("msg-1")
+        assertEquals("Hello", viewModel.uiState.value.inputToRestore)
+        assertEquals(listOf("msg-1", "msg-2"), shownIds())
+
+        every { repository.sendMessageStream("Hello again", any(), any(), any(), any()) } returns streamedAnswer("resp-2", "Salut.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Hello again")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Hello again", any(), any(), any(), "msg-1") }
+        assertFalse("msg-1" in viewModel.uiState.value.messages.map { it.id })
+        assertFalse("msg-2" in viewModel.uiState.value.messages.map { it.id })
+    }
+
+    @Test
+    fun `editing a message while Maggie still answers stops her first`() = runTest {
+        askAndStartAnswering()
+
+        viewModel.editMessage("u-9")
+        advanceUntilIdle()
+
+        coVerify { repository.interruptChat("resp-1", "Il était une fois") }
+        val state = viewModel.uiState.value
+        assertFalse(state.answering)
+        assertEquals("Raconte", state.inputToRestore)
+        assertEquals(listOf("msg-1", "msg-2"), shownIds())
     }
 }

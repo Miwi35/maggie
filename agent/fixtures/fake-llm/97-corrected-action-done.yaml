@@ -1,0 +1,15 @@
+# The corrected message of a turn that had already acted (MAG-320). The agent appends to it
+# « Pendant ce tour tu avais déjà fait : … Ces actions n'ont pas été défaites », and Maggie says
+# it in one line instead of doing it twice. It sorts before 97-corrected-message.yaml, which
+# answers the same sentence when nothing had been done.
+#
+# `user_matches`, not `history_contains`: the note rides the message being answered, and the
+# history condition leaves that one out.
+name: corrected-action-done
+description: Tell the owner what the replaced turn had already created, and ask what to do with it.
+
+match:
+  user_matches: "(?s)événement test à Ael demain.*avais déjà fait"
+
+turns:
+  - text: "J'avais déjà créé un événement test avant que tu me corriges : je le garde ou je le supprime ?"
