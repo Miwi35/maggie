@@ -62,11 +62,6 @@ tags:
     timeout: 20000
 - tapOn:
     id: "recurring_option_weekly"
-- extendedWaitUntil:
-    visible:
-      id: "recurring_option_weekly"
-      selected: true
-    timeout: 20000
 
 # The form is taller than a short window: Maestro does not scroll for a tap.
 - scrollUntilVisible:
@@ -119,10 +114,10 @@ tags:
     timeout: 20000
 - tapOn: "Timbres du voisin"
 
+# Weekly is the default of the add dialog; the tab's row below proves it.
 - extendedWaitUntil:
     visible:
       id: "recurring_option_weekly"
-      selected: true
     timeout: 20000
 - tapOn: "Ajouter"
 
@@ -131,6 +126,9 @@ tags:
       text: "Prochain ajout.*"
       below: "Timbres du voisin"
     timeout: 30000
+- extendedWaitUntil:
+    visible: "Toutes les semaines"
+    timeout: 10000
 
 # ---------------------------------------------------------------------------
 # Left as found: removed from the tab, and the list shows the line without indicator.
