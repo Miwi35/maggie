@@ -97,6 +97,11 @@ data class ChatUiState(
     val inputToRestore: String? = null,
     /** The server did not take a thumb: the answer shows its previous rating again, say so once (MAG-23). */
     val messageFeedbackFailed: Boolean = false,
+    /**
+     * The answer whose thumb down was just recorded and which is now offered an optional word on
+     * why (MAG-23); `null` once it is sent or skipped. The comment dialog renders from it.
+     */
+    val commentingMessageId: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -1087,25 +1092,69 @@ class ChatViewModel(
 
     /**
      * Put the owner's thumb on one of Maggie's answers, or take it off with a null [rating]
-     * (MAG-23). The bubble shows it at once; a refusal puts back what it showed before, unless
-     * another tap changed it since — that tap's own answer settles it.
+     * (MAG-23). As on the web, a thumb down is recorded at once, then offers an optional word on
+     * why ([commentingMessageId][ChatUiState.commentingMessageId]): a quick tap is never lost to
+     * a form nobody fills.
      */
-    fun rateMessage(id: String, rating: String?, comment: String? = null) {
-        val message = _uiState.value.messages.firstOrNull { it.id == id } ?: return
-        // Only a stored answer of Maggie's can be rated.
-        if (message.role != "assistant" || id.startsWith(PENDING_PREFIX)) return
-        val word = comment?.trim()?.takeIf { rating == MessageFeedback.DOWN && it.isNotEmpty() }
-            ?.take(MessageFeedback.MAX_COMMENT_LENGTH)
-        if (message.feedback == rating && message.feedbackComment == word) return
+    fun rateMessage(id: String, rating: String?) {
+        val message = rateableMessage(id) ?: return
+        if (message.feedback == rating) return
 
-        setFeedback(id, rating, word)
+        recordFeedback(message, rating, null)
+        val commenting = _uiState.value.commentingMessageId
+        _uiState.value = _uiState.value.copy(
+            commentingMessageId = when {
+                rating == MessageFeedback.DOWN -> id
+                commenting == id -> null
+                else -> commenting
+            },
+        )
+    }
+
+    /**
+     * « Envoyer » under a thumb down: the same thumb, now with what the owner wrote. A blank
+     * comment sends nothing — the thumb down is already recorded.
+     */
+    fun sendFeedbackComment(comment: String) {
+        val id = _uiState.value.commentingMessageId ?: return
+        _uiState.value = _uiState.value.copy(commentingMessageId = null)
+        val word = comment.trim().take(MessageFeedback.MAX_COMMENT_LENGTH).ifEmpty { return }
+        val message = rateableMessage(id) ?: return
+        // The thumb down was refused or taken back meanwhile: a comment on nothing is not sent.
+        if (message.feedback != MessageFeedback.DOWN) return
+
+        recordFeedback(message, MessageFeedback.DOWN, word)
+    }
+
+    /** « Passer »: no word on why, the thumb down stays. */
+    fun skipFeedbackComment() {
+        _uiState.value = _uiState.value.copy(commentingMessageId = null)
+    }
+
+    /** A stored answer of Maggie's: the one being written still has its `pending_` id. */
+    private fun rateableMessage(id: String): ChatMessage? =
+        _uiState.value.messages.firstOrNull { it.id == id }
+            ?.takeIf { it.role == "assistant" && !id.startsWith(PENDING_PREFIX) }
+
+    /**
+     * The bubble shows it at once; a refusal puts back what it showed before, unless another tap
+     * changed it since — that tap's own answer settles it.
+     */
+    private fun recordFeedback(message: ChatMessage, rating: String?, comment: String?) {
+        val id = message.id
+        setFeedback(id, rating, comment)
         viewModelScope.launch {
-            repository.rateMessage(id, rating, word).onFailure { e ->
+            repository.rateMessage(id, rating, comment).onFailure { e ->
                 Log.w(TAG, "Feedback on $id not recorded: ${e.message}")
                 val current = _uiState.value.messages.firstOrNull { it.id == id }
-                if (current != null && current.feedback == rating && current.feedbackComment == word) {
+                if (current != null && current.feedback == rating && current.feedbackComment == comment) {
                     setFeedback(id, message.feedback, message.feedbackComment)
-                    _uiState.value = _uiState.value.copy(messageFeedbackFailed = true)
+                    _uiState.value = _uiState.value.copy(
+                        messageFeedbackFailed = true,
+                        // No thumb down left to say why about.
+                        commentingMessageId = _uiState.value.commentingMessageId
+                            .takeUnless { it == id && message.feedback != MessageFeedback.DOWN },
+                    )
                 }
             }
         }

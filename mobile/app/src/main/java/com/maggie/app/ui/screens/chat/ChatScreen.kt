@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.ui.components.ChatMessageList
+import com.maggie.app.ui.components.FeedbackCommentDialog
 import com.maggie.app.ui.components.rememberChatListState
 
 @Composable
@@ -99,6 +101,13 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
                 onDismissApproval = viewModel::dismissApproval,
                 onRateMessage = viewModel::rateMessage,
             )
+
+            // Keyed on the answer: a new thumb down opens an empty field.
+            uiState.commentingMessageId?.let { id ->
+                key(id) {
+                    FeedbackCommentDialog(onSend = viewModel::sendFeedbackComment, onSkip = viewModel::skipFeedbackComment)
+                }
+            }
 
             Row(
                 modifier = Modifier

@@ -46,6 +46,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -275,6 +276,13 @@ private fun ChatHistory(
         onEditMessage = viewModel::editMessage,
         onRateMessage = viewModel::rateMessage,
     )
+
+    // Keyed on the answer: a new thumb down opens an empty field.
+    uiState.commentingMessageId?.let { id ->
+        key(id) {
+            FeedbackCommentDialog(onSend = viewModel::sendFeedbackComment, onSkip = viewModel::skipFeedbackComment)
+        }
+    }
 }
 
 /**

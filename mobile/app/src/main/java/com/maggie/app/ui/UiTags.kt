@@ -62,10 +62,9 @@ object UiTags {
     /** The « Modifier » of the same menu, on the last message of the user only (MAG-320). */
     const val MESSAGE_EDIT = "message_edit"
 
-    /** The thumbs under each answer of Maggie's, and « Envoyer » in the thumb-down dialog (MAG-23). */
+    /** The thumbs under each answer of Maggie's (MAG-23). */
     const val MESSAGE_THUMB_UP = "message_thumb_up"
     const val MESSAGE_THUMB_DOWN = "message_thumb_down"
-    const val MESSAGE_FEEDBACK_SEND = "message_feedback_send"
 
     /** The chat sheet: its input and its two buttons. */
     const val CHAT_INPUT = "chat_input"

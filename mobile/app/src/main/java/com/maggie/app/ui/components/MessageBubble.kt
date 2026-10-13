@@ -86,8 +86,8 @@ fun DecisionLine(text: String) {
  *   A long press had no other use here, so the menu has no « Copier » to sit beside.
  * @param onEdit set on the last message of the user only: « Modifier » puts it back in the input (MAG-320).
  * @param onRate when set, an answer of Maggie's has a thumb up and a thumb down under it
- *   (MAG-23): called with the new rating — `null` when the selected thumb is tapped again —
- *   and, for a thumb down, what the owner wrote about it. Never on a question.
+ *   (MAG-23): called with the new rating — `null` when the selected thumb is tapped again.
+ *   Never on a question. The word on why that follows a thumb down is [FeedbackCommentDialog].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -98,7 +98,7 @@ fun MessageBubble(
     thumbnail: ByteArray? = null,
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
-    onRate: ((rating: String?, comment: String?) -> Unit)? = null,
+    onRate: ((rating: String?) -> Unit)? = null,
 ) {
     if (message.isDecision) {
         DecisionLine(message.content)
@@ -213,17 +213,14 @@ fun MessageBubble(
 
 /**
  * The two thumbs under an answer (MAG-23). Tapping the selected one takes it back; a thumb
- * down first asks, in one optional field, what was wrong — « Annuler » leaves the answer as
- * it was.
+ * down is recorded at once, and the ViewModel then offers [FeedbackCommentDialog].
  */
 @Composable
-private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?, comment: String?) -> Unit) {
-    var askingWhy by remember { mutableStateOf(false) }
-
+private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?) -> Unit) {
     Row {
         IconToggleButton(
             checked = feedback == MessageFeedback.UP,
-            onCheckedChange = { checked -> onRate(MessageFeedback.UP.takeIf { checked }, null) },
+            onCheckedChange = { checked -> onRate(MessageFeedback.UP.takeIf { checked }) },
             modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_UP),
         ) {
             Icon(
@@ -234,7 +231,7 @@ private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?, comment:
         }
         IconToggleButton(
             checked = feedback == MessageFeedback.DOWN,
-            onCheckedChange = { checked -> if (checked) askingWhy = true else onRate(null, null) },
+            onCheckedChange = { checked -> onRate(MessageFeedback.DOWN.takeIf { checked }) },
             modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_DOWN),
         ) {
             Icon(
@@ -244,24 +241,19 @@ private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?, comment:
             )
         }
     }
-
-    if (askingWhy) {
-        FeedbackCommentDialog(
-            onSend = { comment ->
-                askingWhy = false
-                onRate(MessageFeedback.DOWN, comment.ifBlank { null })
-            },
-            onDismiss = { askingWhy = false },
-        )
-    }
 }
 
+/**
+ * The optional word on why, offered once a thumb down is recorded (MAG-23), shown while
+ * [ChatUiState.commentingMessageId][com.maggie.app.ui.screens.chat.ChatUiState.commentingMessageId]
+ * is set. « Envoyer » needs a comment; « Passer » and a tap outside keep the thumb down as it is.
+ */
 @Composable
-private fun FeedbackCommentDialog(onSend: (String) -> Unit, onDismiss: () -> Unit) {
+fun FeedbackCommentDialog(onSend: (String) -> Unit, onSkip: () -> Unit) {
     var comment by remember { mutableStateOf("") }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = onSkip,
         modifier = Modifier.uiTagRoot(),
         title = { Text("Réponse à revoir") },
         text = {
@@ -273,13 +265,13 @@ private fun FeedbackCommentDialog(onSend: (String) -> Unit, onDismiss: () -> Uni
             )
         },
         confirmButton = {
-            TextButton(onClick = { onSend(comment.trim()) }, modifier = Modifier.testTag(UiTags.MESSAGE_FEEDBACK_SEND)) {
+            TextButton(onClick = { onSend(comment) }, enabled = comment.isNotBlank()) {
                 Text("Envoyer")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler")
+            TextButton(onClick = onSkip) {
+                Text("Passer")
             }
         },
     )
