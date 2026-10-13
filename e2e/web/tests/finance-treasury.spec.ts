@@ -6,15 +6,22 @@ import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 
 /**
- * Les avances d'épargne (MAG-276, extends MAG-102).
+ * Les avances d'épargne (MAG-276, MAG-277, extends MAG-102).
  *
  *   Étant donné un salaire attendu le jour J et un repère de 4 950,00 €
  *     et aucun crédit de salaire depuis le jour J du mois dernier (30 jours dans un mois de 30)
  *     et un virement Livret → Courant de 1 500,00 € pendant le retard
+ *     et un Courant qui contient 4 000,00 €
  *   Quand je demande à Maggie « combien je dois remettre sur mon livret ? »
- *   Alors `get_savings_advances` a tourné et a réussi
+ *   Alors `get_savings_advances` et `propose_advance_repayments` ont tourné et ont réussi
  *     et l'API rend une avance en cours de 1 500,00 € sur le Livret
  *     et un retard de salaire compté depuis le jour J du mois dernier
+ *     et un contre-virement proposé de 1 500,00 € du Courant vers le Livret
+ *   Quand je saisis ce contre-virement de 1 500,00 €
+ *   Alors l'avance est soldée : il reste 0,00 € à rendre et plus rien n'est proposé
+ *   Quand je saisis ensuite un approvisionnement de 200,00 € du Courant vers le Livret
+ *   Alors les deux lignes restent un virement interne neutre
+ *     et l'avance soldée n'a rien reçu de plus
  *
  * The expected day is today's, so the current month is not due yet and the
  * previous one is the whole delay, whatever the day the suite runs. The two
@@ -36,8 +43,22 @@ interface StoredCategory {
   standardKey?: string | null
 }
 
+interface StoredTransaction {
+  label?: string
+  transferKind?: string
+}
+
 interface SavingsAdvances {
-  advances: Array<{ sourceAccountName: string; amountCents: number; outstandingCents: number; isClosed: boolean }>
+  advances: Array<{
+    id: string
+    sourceAccountName: string
+    amountCents: number
+    repaidCents: number
+    outstandingCents: number
+    isClosed: boolean
+  }>
+  proposals: Array<{ fromAccountId: string; toAccountId: string; amountCents: number; advanceId: string }>
+  proposalsTotalCents: number
   bySource: Array<{ sourceAccountName: string; outstandingCents: number }>
   totalOutstandingCents: number
   salaryDelay: {
@@ -63,10 +84,10 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 }
 
-async function account(api: APIRequestContext, name: string, type: string): Promise<string> {
+async function account(api: APIRequestContext, name: string, type: string, balanceCents = 0): Promise<string> {
   const response = await api.post('/api/accounts', {
     headers: LD,
-    data: { name, type, currency: 'EUR', balanceCents: 0 },
+    data: { name, type, currency: 'EUR', balanceCents },
   })
   expect(response.status(), await response.text()).toBe(201)
   const id = String(((await response.json()) as { id: string }).id)
@@ -81,6 +102,13 @@ async function line(api: APIRequestContext, accountId: string, amountCents: numb
     data: { account: `/api/accounts/${accountId}`, label, amountCents, currency: 'EUR', bookedAt, status: 'spent' },
   })
   expect(response.status(), await response.text()).toBe(201)
+}
+
+async function savingsAdvances(api: APIRequestContext): Promise<SavingsAdvances> {
+  const response = await api.get('/api/finance/savings-advances')
+  expect(response.status(), await response.text()).toBe(200)
+
+  return (await response.json()) as SavingsAdvances
 }
 
 test.afterEach(async ({ treasuryUser }) => {
@@ -100,7 +128,7 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   const salary = await waitForIndexed<StoredCategory>(api, '/api/categories', (c) => c.standardKey === 'salary', {
     what: 'The standard « Salaire » category',
   })
-  const checkingId = await account(api, 'Courant MAG-276', 'checking')
+  const checkingId = await account(api, 'Courant MAG-276', 'checking', 400000)
   const livretId = await account(api, 'Livret MAG-276', 'savings')
   const series = await api.post('/api/recurring_operations', {
     headers: LD,
@@ -130,16 +158,17 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   await new DashboardPage(page).open()
   const events = await new ChatPanel(page).send('Combien je dois remettre sur mon livret ?')
 
-  // Then she read the savings advances, and it went through.
-  expect(calledTools(events)).toContain('get_savings_advances')
+  // Then she read the savings advances and asked what to transfer, and both went through.
+  expect(calledTools(events)).toEqual(expect.arrayContaining(['get_savings_advances', 'propose_advance_repayments']))
   expect(toolResults(events)).toEqual(
-    expect.arrayContaining([expect.objectContaining({ toolName: 'get_savings_advances', status: 'success' })]),
+    expect.arrayContaining([
+      expect.objectContaining({ toolName: 'get_savings_advances', status: 'success' }),
+      expect.objectContaining({ toolName: 'propose_advance_repayments', status: 'success' }),
+    ]),
   )
 
   // And the API gives an advance of 1 500 € still owed to the Livret.
-  const response = await api.get('/api/finance/savings-advances')
-  expect(response.status(), await response.text()).toBe(200)
-  const data = (await response.json()) as SavingsAdvances
+  const data = await savingsAdvances(api)
   expect(data.advances).toEqual([
     expect.objectContaining({ sourceAccountName: 'Livret MAG-276', amountCents: 150000, outstandingCents: 150000, isClosed: false }),
   ])
@@ -154,4 +183,37 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   expect(data.salaryDelay.delayDays).toBe(daysBetween(previous.expectedOn, today))
   expect(data.salaryDelay.delayDays).toBeGreaterThanOrEqual(28)
   expect(data.salaryDelay.shortfallCents).toBe(495000)
+
+  // And the exact counter-transfer is proposed: 1 500 € from the Courant to the Livret.
+  expect(data.proposals).toEqual([
+    expect.objectContaining({ fromAccountId: checkingId, toAccountId: livretId, amountCents: 150000, advanceId: data.advances[0].id }),
+  ])
+  expect(data.proposalsTotalCents).toBe(150000)
+
+  // When I make that transfer, the Courant leg first, as a bank sync would deliver it.
+  await line(api, checkingId, -150000, today, 'VIR VERS LIVRET MAG-277')
+  await line(api, livretId, 150000, today, 'VIR DEPUIS COURANT MAG-277')
+
+  // Then the advance is settled on its own: nothing is left to give back, nothing is proposed.
+  const settled = await savingsAdvances(api)
+  expect(settled.advances).toEqual([
+    expect.objectContaining({ sourceAccountName: 'Livret MAG-276', repaidCents: 150000, outstandingCents: 0, isClosed: true }),
+  ])
+  expect(settled.totalOutstandingCents).toBe(0)
+  expect(settled.proposals).toEqual([])
+
+  // And a 200 € top-up of the Livret afterwards is a neutral internal transfer, not a repayment.
+  await line(api, checkingId, -20000, today, 'VIR APPRO LIVRET MAG-277')
+  await line(api, livretId, 20000, today, 'VIR APPRO DEPUIS COURANT MAG-277')
+  for (const label of ['VIR APPRO LIVRET MAG-277', 'VIR APPRO DEPUIS COURANT MAG-277']) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'internal',
+      { what: `The top-up leg "${label}"` },
+    )
+  }
+  const afterTopUp = await savingsAdvances(api)
+  expect(afterTopUp.advances).toEqual([expect.objectContaining({ repaidCents: 150000, outstandingCents: 0, isClosed: true })])
+  expect(afterTopUp.totalOutstandingCents).toBe(0)
 })

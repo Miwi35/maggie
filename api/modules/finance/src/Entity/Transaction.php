@@ -538,11 +538,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
         $this->transferKind = TransferKind::None;
         $this->counterpart = null;
+        // A line that is no longer a repayment gives nothing back.
+        $this->repays = null;
 
         if (null !== $former && $former->counterpart === $this) {
             $former->transferKind = TransferKind::None;
             $former->transferSource = TransferSource::Auto;
             $former->counterpart = null;
+            $former->repays = null;
         }
     }
 

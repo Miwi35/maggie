@@ -89,6 +89,7 @@ class UpdateTransactionHandler
         $this->natureGuard->assertStillCompatible($transaction);
 
         $this->applyTransfer($transaction, $command);
+        $this->applyRepays($transaction, $command);
         $this->applyRecurring($transaction, $command);
 
         // A line a marking made neutral settles no occurrence any more, on
@@ -132,6 +133,32 @@ class UpdateTransactionHandler
         }
 
         return $this->attachRecurring->attachByHand($transaction, $operation, $occurrenceOn);
+    }
+
+    /**
+     * Points the debit leg of a repayment at the advance it gives back — the
+     * hard guarantee the owner can give by hand, next to the detection's
+     * exact-amount rule.
+     */
+    private function applyRepays(Transaction $transaction, UpdateTransactionCommand $command): void
+    {
+        if (null === $command->repaysTransactionId) {
+            return;
+        }
+
+        if (TransferKind::Repayment !== $transaction->getTransferKind()) {
+            throw new \DomainException('repaysTransactionId goes with transferKind repayment.');
+        }
+        if ($transaction->getAmountCents() >= 0) {
+            throw new \DomainException('A repayment points at its advance from the debit leg, the one leaving the checking account.');
+        }
+
+        $advance = $this->references->transaction($command->repaysTransactionId, $transaction->getUser(), 'Advance');
+        if (TransferKind::Advance !== $advance->getTransferKind() || $advance->getAmountCents() >= 0) {
+            throw new \DomainException('repaysTransactionId must name the debit leg of an advance (get_savings_advances lists them).');
+        }
+
+        $transaction->setRepays($advance);
     }
 
     /**

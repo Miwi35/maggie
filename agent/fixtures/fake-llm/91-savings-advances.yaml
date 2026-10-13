@@ -1,10 +1,12 @@
-# « Combien je dois remettre sur mon livret ? » (MAG-276): the savings advances
-# per source and the salary delay, through `get_savings_advances` (no argument —
-# a pure read). The fake does not read the result: the journey asserts the tool
-# ran and reads the same figures on `GET /api/finance/savings-advances`; what the
-# tool returns is `GetSavingsAdvancesToolTest`'s business.
+# « Combien je dois remettre sur mon livret ? » (MAG-276, MAG-277): the savings
+# advances per source and the salary delay through `get_savings_advances`, then
+# the exact counter-transfer to give them back through `propose_advance_repayments`
+# (both without argument — pure reads). The fake does not read the results: the
+# journey asserts both tools ran and reads the same figures on
+# `GET /api/finance/savings-advances`; what the tools return is
+# `GetSavingsAdvancesToolTest`'s and `ProposeAdvanceRepaymentsToolTest`'s business.
 name: savings-advances
-description: Read what is left to give back to each savings source through MCP.
+description: Read what is left to give back to each savings source, and what to transfer, through MCP.
 
 match:
   user_contains: "remettre sur mon livret"
@@ -13,4 +15,6 @@ turns:
   - tools:
       - name: get_savings_advances
         input: {}
-  - text: "Voici ce qu'il reste à rendre à votre livret, avance par avance."
+      - name: propose_advance_repayments
+        input: {}
+  - text: "Voici ce qu'il reste à rendre à votre livret, avance par avance, et le virement à faire pour tout remettre."

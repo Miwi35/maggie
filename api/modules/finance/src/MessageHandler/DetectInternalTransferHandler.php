@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\DetectInternalTransferCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
 use Maggie\Finance\UseCase\DetectSavingsAdvances;
+use Maggie\Finance\UseCase\ReconcileAdvanceRepayments;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -24,6 +26,7 @@ class DetectInternalTransferHandler
         private readonly AttachRecurringTransactions $attachRecurring,
         private readonly TransactionRepository $transactionRepository,
         private readonly DetectSavingsAdvances $detectSavingsAdvances,
+        private readonly ReconcileAdvanceRepayments $reconcileAdvanceRepayments,
     ) {
     }
 
@@ -36,8 +39,14 @@ class DetectInternalTransferHandler
             return null;
         }
 
-        // Taken from savings while the salary is late, it is an advance.
-        $counterpart->pairWith($transaction, $this->detectSavingsAdvances->kindFor($transaction, $counterpart), TransferSource::Auto);
+        // Taken from savings while the salary is late, it is an advance; the
+        // exact amount of an open advance, back to its source, repays it.
+        $repaid = $this->reconcileAdvanceRepayments->advanceRepaidBy($transaction, $counterpart);
+        $kind = null !== $repaid ? TransferKind::Repayment : $this->detectSavingsAdvances->kindFor($transaction, $counterpart);
+        $counterpart->pairWith($transaction, $kind, TransferSource::Auto);
+        if (null !== $repaid) {
+            ($transaction->getAmountCents() < 0 ? $transaction : $counterpart)->setRepays($repaid);
+        }
 
         // Both legs settle no occurrence any more: the payment presented
         // again takes it, and the series recalibrates without them.

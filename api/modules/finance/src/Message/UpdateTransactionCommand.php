@@ -14,6 +14,8 @@ final readonly class UpdateTransactionCommand
      * `recurringOperationId` attaches the line by hand, to `recurringOccurrenceOn`
      * or to the occurrence nearest its booking day; `recurringOccurrenceOn`
      * alone moves it within its series; clearing `recurringOperation` detaches it.
+     * `repaysTransactionId` points the debit leg of a `repayment` at the advance
+     * it gives back.
      *
      * @param list<'categoryId'|'transferKind'|'recurringOperation'> $clearFields
      */
@@ -33,6 +35,7 @@ final readonly class UpdateTransactionCommand
         public ?string $transferKind = null,
         public ?string $transferSource = null,
         public ?string $counterpartId = null,
+        public ?string $repaysTransactionId = null,
         public ?string $recurringOperationId = null,
         public ?string $recurringOccurrenceOn = null,
         public array $clearFields = [],
