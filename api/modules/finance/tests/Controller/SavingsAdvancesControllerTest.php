@@ -57,4 +57,38 @@ class SavingsAdvancesControllerTest extends WebTestCase
         self::assertTrue($data['salaryDelay']['isConfigured']);
         self::assertTrue($data['salaryDelay']['isLate']);
     }
+
+    public function testItProposesTheExactCounterTransferForWhatIsLeft(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/savings_advances.yaml');
+        $this->em = self::getContainer()->get('doctrine.orm.entity_manager');
+        [$advance] = $this->transfer('livret', 'checking', 150000, 'today -5 days', TransferKind::Advance);
+        $this->repay($advance, 'livret', 50000, 'today');
+        $this->transfer('other_livret', 'other_checking', 90000, 'today -5 days', TransferKind::Advance);
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
+
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertCount(1, $data['proposals']);
+        self::assertSame(100000, $data['proposals'][0]['amountCents']);
+        self::assertSame((string) $advance->getId(), $data['proposals'][0]['advanceId']);
+        self::assertSame((string) $this->getFixture('checking')->getId(), $data['proposals'][0]['fromAccountId']);
+        self::assertSame((string) $this->getFixture('livret')->getId(), $data['proposals'][0]['toAccountId']);
+        self::assertSame(100000, $data['proposalsTotalCents']);
+        self::assertSame([], $data['unproposed']);
+        self::assertSame(0, $data['unproposedCents']);
+    }
+
+    public function testWithNoOpenAdvanceTheProposalsAreEmpty(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/savings_advances.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
+
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], $data['proposals']);
+        self::assertSame(0, $data['proposalsTotalCents']);
+    }
 }

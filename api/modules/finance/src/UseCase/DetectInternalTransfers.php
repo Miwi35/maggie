@@ -41,6 +41,7 @@ class DetectInternalTransfers
         private readonly TransactionRepository $transactionRepository,
         private readonly MessageBusInterface $bus,
         private readonly DetectSavingsAdvances $detectSavingsAdvances,
+        private readonly ReconcileAdvanceRepayments $reconcileAdvanceRepayments,
     ) {
     }
 
@@ -77,9 +78,10 @@ class DetectInternalTransfers
      * @param bool     $dryRun    report what would be paired without writing anything
      *
      * Then the savings advances: a new pair is marked one at once, and the
-     * pairs already made are requalified (`advances` lists both)
+     * pairs already made are requalified (`advances` lists both). Likewise the
+     * transfers that give an advance back exactly (`repayments`).
      *
-     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string, transferKind: string}>, advances: int}
+     * @return array{matched: int, scanned: int, dryRun: bool, pairs: list<array{transactionId: string, counterpartId: string, amountCents: int, bookedAt: string, counterpartBookedAt: string, label: string, counterpartLabel: string, transferKind: string}>, advances: int, repayments: int}
      */
     public function execute(User $user, ?int $limitDays = null, bool $dryRun = false): array
     {
@@ -98,6 +100,7 @@ class DetectInternalTransfers
         /** @var array<string, true> $claimed */
         $claimed = [];
         $pairs = [];
+        $openAdvances = $this->reconcileAdvanceRepayments->openAdvances($user);
 
         foreach ($candidates as $candidate) {
             [$left, $right] = [$candidate['left'], $candidate['right']];
@@ -110,7 +113,8 @@ class DetectInternalTransfers
 
             $claimed[$leftId] = true;
             $claimed[$rightId] = true;
-            $kind = $this->detectSavingsAdvances->kindFor($left, $right);
+            $repaid = $this->reconcileAdvanceRepayments->take($openAdvances, $left, $right);
+            $kind = null !== $repaid ? TransferKind::Repayment : $this->detectSavingsAdvances->kindFor($left, $right);
 
             $pairs[] = [
                 'transactionId' => $leftId,
@@ -124,12 +128,14 @@ class DetectInternalTransfers
             ];
 
             if (!$dryRun) {
-                $this->pair($user, $leftId, $rightId, $kind);
+                $this->pair($user, $left, $right, $kind, $repaid);
             }
         }
 
         $requalified = $this->detectSavingsAdvances->execute($user, $since, $dryRun);
+        $reconciled = $this->reconcileAdvanceRepayments->execute($user, $since, $dryRun, $openAdvances);
         $newAdvances = \count(array_filter($pairs, static fn (array $pair) => TransferKind::Advance->value === $pair['transferKind']));
+        $newRepayments = \count(array_filter($pairs, static fn (array $pair) => TransferKind::Repayment->value === $pair['transferKind']));
 
         return [
             'matched' => \count($pairs),
@@ -137,6 +143,7 @@ class DetectInternalTransfers
             'dryRun' => $dryRun,
             'pairs' => $pairs,
             'advances' => $newAdvances + $requalified['matched'],
+            'repayments' => $newRepayments + $reconciled['matched'],
         ];
     }
 
@@ -198,14 +205,19 @@ class DetectInternalTransfers
      * One command: its handler marks both legs and broadcasts the other one,
      * so each line reaches Mercure and the search index exactly once.
      */
-    private function pair(User $user, string $transactionId, string $counterpartId, TransferKind $kind): void
+    private function pair(User $user, Transaction $left, Transaction $right, TransferKind $kind, ?Transaction $repaid): void
     {
+        // A repayment points at its advance from the debit leg.
+        $first = null !== $repaid && $right->getAmountCents() < 0 ? $right : $left;
+        $second = $first === $left ? $right : $left;
+
         $this->bus->dispatch(new UpdateTransactionCommand(
             userId: (string) $user->getId(),
-            transactionId: $transactionId,
+            transactionId: (string) $first->getId(),
             transferKind: $kind->value,
             transferSource: TransferSource::Auto->value,
-            counterpartId: $counterpartId,
+            counterpartId: (string) $second->getId(),
+            repaysTransactionId: null !== $repaid ? (string) $repaid->getId() : null,
         ));
     }
 
