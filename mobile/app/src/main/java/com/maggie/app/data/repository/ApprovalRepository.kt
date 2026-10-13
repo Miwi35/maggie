@@ -24,9 +24,11 @@ class ApprovalRepository(
         apiService.getPendingApprovals()
     }
 
-    suspend fun approve(id: String): Result<PendingApproval> = runCatching { apiService.approve(id) }
+    suspend fun approve(id: String, channel: String = "chat"): Result<PendingApproval> =
+        runCatching { apiService.approve(id, channel) }
 
-    suspend fun deny(id: String): Result<PendingApproval> = runCatching { apiService.deny(id) }
+    suspend fun deny(id: String, channel: String = "chat"): Result<PendingApproval> =
+        runCatching { apiService.deny(id, channel) }
 
     /**
      * What a held action is about, in the user's words, when its arguments only carry an

@@ -14,7 +14,7 @@ const GONE = [404, 409, 410]
 
 async function answerApproval(id: string, decision: 'approve' | 'deny'): Promise<boolean> {
   const token = localStorage.getItem('token')
-  const response = await fetch(`/agent/approvals/${encodeURIComponent(id)}/${decision}`, {
+  const response = await fetch(`/agent/approvals/${encodeURIComponent(id)}/${decision}?channel=notification`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })

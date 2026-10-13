@@ -393,7 +393,7 @@ class MaggieApiServiceTest {
         val approval = MaggieApiService(client).approve("ap-1")
 
         assertEquals(HttpMethod.Post, seen.single().first)
-        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/approve"))
+        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/approve?channel=chat"))
         assertEquals("approved", approval.status)
     }
 
@@ -404,8 +404,18 @@ class MaggieApiServiceTest {
 
         val approval = MaggieApiService(client).deny("ap-1")
 
-        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/deny"))
+        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/deny?channel=chat"))
         assertEquals("denied", approval.status)
+    }
+
+    @Test
+    fun `an answer says where it was given, for the line the thread keeps`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(body = pendingJson.replace("pending", "approved"), seen = seen)
+
+        MaggieApiService(client).approve("ap-1", "voice")
+
+        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/approve?channel=voice"))
     }
 
     @Test

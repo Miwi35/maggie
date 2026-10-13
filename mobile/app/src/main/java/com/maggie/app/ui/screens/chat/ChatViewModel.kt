@@ -910,7 +910,7 @@ class ChatViewModel(
         // A « oui » answers a question that was heard: a card nobody read out yet is not it.
         if (target.approval.id !in askedApprovals) return false
         val decision = SpokenApprovalAnswer.parse(text) ?: return false
-        decide(target.approval.id, decision)
+        decide(target.approval.id, decision, channel = "voice")
         return true
     }
 
@@ -933,15 +933,15 @@ class ChatViewModel(
         )
     }
 
-    private fun decide(id: String, decision: ApprovalDecision) {
+    private fun decide(id: String, decision: ApprovalDecision, channel: String = "chat") {
         val item = _uiState.value.pendingApprovals.firstOrNull { it.approval.id == id } ?: return
         if (item.decision != null || !item.approval.isPending) return
 
         updateApproval(id) { it.copy(decision = decision, error = false) }
         viewModelScope.launch {
             val outcome = when (decision) {
-                ApprovalDecision.APPROVE -> approvalRepository.approve(id)
-                ApprovalDecision.DENY -> approvalRepository.deny(id)
+                ApprovalDecision.APPROVE -> approvalRepository.approve(id, channel)
+                ApprovalDecision.DENY -> approvalRepository.deny(id, channel)
             }
             outcome
                 .onSuccess { confirmed -> applyApproval(confirmed) }

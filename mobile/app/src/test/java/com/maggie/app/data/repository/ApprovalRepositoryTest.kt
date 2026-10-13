@@ -64,6 +64,6 @@ class ApprovalRepositoryTest {
 
         assertTrue(repository.approve("ap-1").isFailure)
         assertTrue(repository.getPending().isFailure)
-        coVerify(exactly = 0) { api.deny(any()) }
+        coVerify(exactly = 0) { api.deny(any(), any()) }
     }
 }

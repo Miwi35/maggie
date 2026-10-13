@@ -52,8 +52,8 @@ class PushActionHandler(
         PushActionKind.LATER -> PushOutcome.Postponed
         PushActionKind.OK, PushActionKind.DONE -> markRead(payload)
         PushActionKind.REPLY -> reply(payload, reply, onLateFailure)
-        PushActionKind.APPROVE -> decide(payload) { apiService.approve(it) }
-        PushActionKind.DENY -> decide(payload) { apiService.deny(it) }
+        PushActionKind.APPROVE -> decide(payload) { apiService.approve(it, "notification") }
+        PushActionKind.DENY -> decide(payload) { apiService.deny(it, "notification") }
     }
 
     private suspend fun markRead(payload: PushPayload): PushOutcome = attempt {

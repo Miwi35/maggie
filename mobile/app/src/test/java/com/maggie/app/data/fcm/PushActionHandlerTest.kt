@@ -63,7 +63,7 @@ class PushActionHandlerTest {
 
         assertEquals(PushOutcome.Closed, outcome)
         coVerifyOrder {
-            api.approve("ap-1")
+            api.approve("ap-1", "notification")
             api.markNotificationRead("n-1")
         }
     }
@@ -73,13 +73,13 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.DENY, payload("approval", approvalId = "ap-1"))
 
         assertEquals(PushOutcome.Closed, outcome)
-        coVerify { api.deny("ap-1") }
-        coVerify(exactly = 0) { api.approve(any()) }
+        coVerify { api.deny("ap-1", "notification") }
+        coVerify(exactly = 0) { api.approve(any(), any()) }
     }
 
     @Test
     fun `a decision that did not get through leaves the notification and the buttons`() = runBlocking {
-        coEvery { api.approve("ap-1") } throws ApprovalDecisionException(500)
+        coEvery { api.approve("ap-1", "notification") } throws ApprovalDecisionException(500)
 
         val outcome = handler.handle(PushActionKind.APPROVE, payload("approval", approvalId = "ap-1"))
 
@@ -89,7 +89,7 @@ class PushActionHandlerTest {
 
     @Test
     fun `a request already answered elsewhere settles the notification`() = runBlocking {
-        coEvery { api.deny("ap-1") } throws ApprovalDecisionException(409)
+        coEvery { api.deny("ap-1", "notification") } throws ApprovalDecisionException(409)
 
         val outcome = handler.handle(PushActionKind.DENY, payload("approval", approvalId = "ap-1"))
 
@@ -102,7 +102,7 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.APPROVE, payload("approval"))
 
         assertTrue(outcome is PushOutcome.Settled)
-        coVerify(exactly = 0) { api.approve(any()) }
+        coVerify(exactly = 0) { api.approve(any(), any()) }
     }
 
     @Test

@@ -1562,14 +1562,17 @@ class MaggieApiService(
         }.body()
     }
 
-    suspend fun approve(id: String): PendingApproval = decideApproval(id, "approve")
+    // `channel` (chat, notification or voice) is where the answer was given: it is written in the line the thread keeps (MAG-336).
+    suspend fun approve(id: String, channel: String = "chat"): PendingApproval = decideApproval(id, "approve", channel)
 
-    suspend fun deny(id: String): PendingApproval = decideApproval(id, "deny")
+    suspend fun deny(id: String, channel: String = "chat"): PendingApproval = decideApproval(id, "deny", channel)
 
     // The client does not `expectSuccess`: without this check a 409 body ({"detail": …})
     // would fail to decode and read as a network error, hiding that the answer is final.
-    private suspend fun decideApproval(id: String, verb: String): PendingApproval {
-        val response = client.post("$baseUrl/agent/approvals/$id/$verb")
+    private suspend fun decideApproval(id: String, verb: String, channel: String): PendingApproval {
+        val response = client.post("$baseUrl/agent/approvals/$id/$verb") {
+            url.parameters.append("channel", channel)
+        }
         if (!response.status.isSuccess()) throw ApprovalDecisionException(response.status.value)
         return response.body()
     }
