@@ -65,14 +65,16 @@ class TaskRepository(
         createTask(TaskCreateRequest(title = title, parent = Task.iriOf(parentId)))
 
     /**
-     * Moves two adjacent siblings past each other by swapping their positions: Google's
-     * positions are opaque strings, so the app never makes one up. Returns both, updated.
+     * Moves [subtask] past its adjacent sibling [neighbour]: one PATCH on the moved subtask
+     * with the neighbour's position, and the API swaps the two in one operation (and moves
+     * the task on Google). Google's positions are opaque strings, so the app never makes one
+     * up. Returns both: the moved one as the server answered, the neighbour with the moved
+     * one's old position, as the server gave it.
      */
-    suspend fun swapPositions(first: Task, second: Task): Result<List<Task>> = runCatching {
-        listOf(
-            apiService.updateTask(first.id, buildJsonObject { put("position", second.position) }),
-            apiService.updateTask(second.id, buildJsonObject { put("position", first.position) }),
-        ).also { tasks -> taskDao.upsertAll(tasks.map { TaskEntity.fromModel(it) }) }
+    suspend fun moveSubtask(subtask: Task, neighbour: Task): Result<List<Task>> = runCatching {
+        val moved = apiService.updateTask(subtask.id, buildJsonObject { put("position", neighbour.position) })
+        listOf(moved, neighbour.copy(position = subtask.position))
+            .also { tasks -> taskDao.upsertAll(tasks.map { TaskEntity.fromModel(it) }) }
     }
 
     suspend fun getUndoneUndatedTasks(): List<Task> {

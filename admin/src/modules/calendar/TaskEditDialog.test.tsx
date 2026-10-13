@@ -130,22 +130,42 @@ describe('TaskEditDialog', () => {
     expect(mockUpdate).toHaveBeenCalledWith('tasks', expect.objectContaining({ id: BOXES.id, data: { completedAt: null } }))
   })
 
-  test('moving a subtask down swaps its position with the next one', async () => {
+  test('moving a subtask down sends one PATCH with the next one’s position', async () => {
     renderDialog()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Descendre Réserver le camion' }))
 
     await waitFor(() => expect(subtaskTitles()).toEqual(["Changer d'adresse à la banque", 'Réserver le camion']))
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
     expect(mockUpdate).toHaveBeenCalledWith(
       'tasks',
       expect.objectContaining({ id: BOXES.id, data: { position: ADDRESS.position } }),
     )
+    expect(screen.getByRole('button', { name: 'Monter Réserver le camion' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Descendre Réserver le camion' })).toBeDisabled()
+  })
+
+  test('moving a subtask up sends one PATCH with the previous one’s position', async () => {
+    renderDialog()
+
+    await userEvent.click(await screen.findByRole('button', { name: "Monter Changer d'adresse à la banque" }))
+
+    await waitFor(() => expect(subtaskTitles()).toEqual(["Changer d'adresse à la banque", 'Réserver le camion']))
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
     expect(mockUpdate).toHaveBeenCalledWith(
       'tasks',
       expect.objectContaining({ id: ADDRESS.id, data: { position: BOXES.position } }),
     )
-    expect(screen.getByRole('button', { name: 'Monter Réserver le camion' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Descendre Réserver le camion' })).toBeDisabled()
+  })
+
+  test('a refused move keeps the order and says so', async () => {
+    mockUpdate.mockRejectedValueOnce(new Error('boom'))
+    renderDialog()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Descendre Réserver le camion' }))
+
+    await waitFor(() => expect(mockNotify).toHaveBeenCalled())
+    expect(subtaskTitles()).toEqual(['Réserver le camion', "Changer d'adresse à la banque"])
   })
 
   test('adding a subtask posts it under the task and lists it last', async () => {

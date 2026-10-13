@@ -82,7 +82,7 @@ class SubtasksViewModel(
         val neighbour = subtasks.getOrNull(index + offset) ?: return
         if (index < 0) return
         viewModelScope.launch {
-            taskRepository.swapPositions(subtasks[index], neighbour)
+            taskRepository.moveSubtask(subtasks[index], neighbour)
                 .onSuccess { moved -> moved.forEach(::replace) }
                 .onFailure(::fail)
         }

@@ -137,8 +137,8 @@ class SubtasksViewModelTest {
     }
 
     @Test
-    fun `moving a subtask down swaps its position with the next one`() = runTest {
-        coEvery { taskRepository.swapPositions(truck, bank) } returns Result.success(
+    fun `moving a subtask down moves it past the next one in one call`() = runTest {
+        coEvery { taskRepository.moveSubtask(truck, bank) } returns Result.success(
             listOf(truck.copy(position = bank.position), bank.copy(position = truck.position)),
         )
         val viewModel = loaded()
@@ -147,13 +147,13 @@ class SubtasksViewModelTest {
         viewModel.moveDown("s1")
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { taskRepository.swapPositions(truck, bank) }
+        coVerify(exactly = 1) { taskRepository.moveSubtask(truck, bank) }
         assertEquals(listOf("s2", "s1"), viewModel.uiState.value.subtasks.map { it.id })
     }
 
     @Test
     fun `moving a subtask up swaps its position with the previous one`() = runTest {
-        coEvery { taskRepository.swapPositions(bank, truck) } returns Result.success(
+        coEvery { taskRepository.moveSubtask(bank, truck) } returns Result.success(
             listOf(bank.copy(position = truck.position), truck.copy(position = bank.position)),
         )
         val viewModel = loaded()
@@ -174,12 +174,12 @@ class SubtasksViewModelTest {
         viewModel.moveDown("s2")
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { taskRepository.swapPositions(any(), any()) }
+        coVerify(exactly = 0) { taskRepository.moveSubtask(any(), any()) }
     }
 
     @Test
     fun `a failing move keeps the order and exposes the error`() = runTest {
-        coEvery { taskRepository.swapPositions(truck, bank) } returns Result.failure(RuntimeException("Serveur indisponible"))
+        coEvery { taskRepository.moveSubtask(truck, bank) } returns Result.failure(RuntimeException("Serveur indisponible"))
         val viewModel = loaded()
         advanceUntilIdle()
 

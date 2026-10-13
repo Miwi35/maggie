@@ -56,7 +56,12 @@ interface RawTask {
   criticality: string
   dueDate?: string
   completedAt?: string
+  /** IRI of the task it belongs to, for a subtask (MAG-404). */
+  parent?: string | null
 }
+
+/** An undated subtask lives under its task, not on the dashboard; a dated one keeps its own row (as on the phone). */
+const listedOnItsOwn = (task: RawTask): boolean => !task.parent || !!task.dueDate
 
 export const Dashboard = () => {
   const dataProvider = useDataProvider()
@@ -114,8 +119,8 @@ export const Dashboard = () => {
           }
         }
         setRawEvents(merged)
-        setRawTasks(rangeTasks.data as unknown as RawTask[])
-        setUndueTasks(undueTasksResult.data as unknown as RawTask[])
+        setRawTasks((rangeTasks.data as unknown as RawTask[]).filter(listedOnItsOwn))
+        setUndueTasks((undueTasksResult.data as unknown as RawTask[]).filter(listedOnItsOwn))
       })
       .catch(console.error)
       .finally(() => setLoading(false))

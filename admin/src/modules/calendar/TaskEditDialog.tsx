@@ -132,16 +132,15 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
       })
   }
 
-  // Moving swaps the positions of two neighbours, two PATCHes the API orders by.
+  // Moving is one PATCH on the moved subtask with its neighbour's position: the API
+  // swaps the two in one operation (and moves the task on Google), then publishes both.
   const moveSubtask = (index: number, offset: -1 | 1) => {
     const a = subtasks[index]
     const b = subtasks[index + offset]
     if (!a || !b) return
     setBusy(true)
-    Promise.all([
-      dataProvider.update('tasks', { id: a.id, data: { position: b.position ?? null }, previousData: a }),
-      dataProvider.update('tasks', { id: b.id, data: { position: a.position ?? null }, previousData: b }),
-    ])
+    dataProvider
+      .update('tasks', { id: a.id, data: { position: b.position ?? null }, previousData: a })
       .then(() => {
         setSubtasks((list) => {
           const next = [...list]
