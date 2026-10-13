@@ -18,7 +18,9 @@ case "$1 $2" in
   "get pods") echo "fake pods" ;;
   "get pod")
     # `get pod -l app=<name> -o jsonpath=…`: answers with the lines of
-    # `pods-<name>`, already in the `name|deletionTimestamp|imageID` shape.
+    # `pods-<name>`, already in the shape the caller asks for:
+    # `name|deletionTimestamp|imageID` (verify-digests.sh) or
+    # `name|deletionTimestamp|ready|imageID` (running-digests.sh).
     for arg in "$@"; do
       case "$arg" in
         app=*) [ -f "$dir/pods-${arg#app=}" ] && cat "$dir/pods-${arg#app=}" ;;
