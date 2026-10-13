@@ -31,7 +31,7 @@ const STATE_COLORS: Record<CardState, 'warning' | 'info' | 'success' | 'default'
   expired: 'default',
 }
 
-const GENERIC_SUMMARY = 'Maggie souhaite effectuer une action'
+const GENERIC_SUMMARY = 'Action en attente de validation'
 
 function cardState(approval: ApprovalItem): CardState {
   // `approved` is published when the call is claimed, before its result is

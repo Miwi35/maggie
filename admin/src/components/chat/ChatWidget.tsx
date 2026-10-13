@@ -1089,6 +1089,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         <Box
                           component="span"
                           data-testid="mind-approvals-badge"
+                          role="status"
                           aria-label={`${awaitingCount} en attente de validation`}
                           sx={{
                             display: 'inline-flex',

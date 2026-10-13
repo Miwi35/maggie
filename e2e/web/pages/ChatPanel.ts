@@ -271,7 +271,7 @@ export class ChatPanel {
     return this.panel.getByTestId('approval-card')
   }
 
-  /** The validation card showing `text` — a tool name, or one of its arguments. */
+  /** The validation card whose readable summary contains `text` — in practice the title of the object it aims at. */
   approvalCard(text: string): Locator {
     return this.approvalCards.filter({ hasText: text })
   }

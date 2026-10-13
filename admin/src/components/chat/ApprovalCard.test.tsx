@@ -54,7 +54,7 @@ describe('ApprovalCard', () => {
     renderCard(approval({ summary }))
 
     const card = screen.getByTestId('approval-card')
-    expect(screen.getByText('Maggie souhaite effectuer une action')).toBeInTheDocument()
+    expect(screen.getByText('Action en attente de validation')).toBeInTheDocument()
     expect(card).not.toHaveTextContent('delete_event')
   })
 
