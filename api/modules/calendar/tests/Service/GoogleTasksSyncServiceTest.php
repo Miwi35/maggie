@@ -383,6 +383,31 @@ class GoogleTasksSyncServiceTest extends TestCase
         self::assertSame('00000000000000000042', $task->getPosition(), 'Google\'s position replaces Maggie\'s');
     }
 
+    /** Both made while Google was away: the parent goes first, so the subtask lands under it. */
+    public function testPushingASubtaskPushesItsParentFirst(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $parent = (new Task())->setUser($user)->setTitle('Parent');
+        $task = (new Task())->setUser($user)->setTitle('Child')->setParent($parent);
+
+        $this->taskRepository->method('findSiblings')->willReturnCallback(
+            static fn (User $u, ?Task $p): array => null === $p ? [$parent] : [$task],
+        );
+        $calls = [];
+        $this->apiClient->method('insertTask')->willReturnCallback(
+            function (User $u, string $list, GoogleTask $body, ?string $googleParent) use (&$calls): GoogleTask {
+                $calls[] = [$body->getTitle(), $googleParent];
+
+                return $this->googleTask('g-'.strtolower($body->getTitle()), $body->getTitle());
+            },
+        );
+
+        $this->createService()->pushTaskToGoogle($task);
+
+        self::assertSame([['Parent', null], ['Child', 'g-parent']], $calls);
+    }
+
     /** Reordered in Maggie, a subtask is moved on Google — `move`, which a patch cannot do. */
     public function testReorderingASubtaskMovesItOnGoogle(): void
     {

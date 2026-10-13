@@ -15963,7 +15963,7 @@
                     },
                     "position": {
                         "maxLength": 64,
-                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.",
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
                         "type": [
                             "string",
                             "null"
@@ -16084,7 +16084,7 @@
                     },
                     "position": {
                         "maxLength": 64,
-                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.",
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
                         "type": [
                             "string",
                             "null"
@@ -16205,7 +16205,7 @@
                     },
                     "position": {
                         "maxLength": 64,
-                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.",
+                        "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
                         "type": [
                             "string",
                             "null"
@@ -16328,7 +16328,7 @@
                             },
                             "position": {
                                 "maxLength": 64,
-                                "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.",
+                                "description": "The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling's position swaps the two: that is how a task moves up or down.",
                                 "type": [
                                     "string",
                                     "null"

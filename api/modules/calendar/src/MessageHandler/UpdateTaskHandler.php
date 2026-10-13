@@ -71,7 +71,7 @@ class UpdateTaskHandler
             $task->setParent(null);
         }
         if (null !== $command->position) {
-            $task->setPosition($command->position);
+            $this->hierarchy->moveTo($task, $command->position);
         } elseif ($parentMoved) {
             $task->setPosition($this->hierarchy->lastPosition($task->getUser(), $task->getParent(), $task));
         }

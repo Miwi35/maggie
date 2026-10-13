@@ -1,0 +1,34 @@
+Maggie\Core\Entity\User:
+  google_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    googleTaskListId: 'list-1'
+
+Maggie\Calendar\Entity\Task:
+  moving:
+    title: Préparer le déménagement
+    position: '00000000000000000003'
+    googleTaskId: 'g-moving'
+    googleTaskListId: 'list-1'
+    user: '@google_user'
+
+  # The ids are created in this order, so a tie broken by id puts `first` first.
+  first:
+    title: Réserver le camion
+    parent: '@moving'
+    position: '00000000000000000000'
+    googleTaskId: 'g-first'
+    googleTaskListId: 'list-1'
+    user: '@google_user'
+
+  second:
+    title: Changer d'adresse
+    parent: '@moving'
+    position: '00000000000000000001'
+    googleTaskId: 'g-second'
+    googleTaskListId: 'list-1'
+    user: '@google_user'

@@ -121,7 +121,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[ORM\Column(length: 64, nullable: true)]
     #[IndexedField(type: 'keyword')]
     #[Assert\Length(max: 64)]
-    #[ApiProperty(description: 'The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last.')]
+    #[ApiProperty(description: 'The order among the tasks of the same parent, compared as a string. Left out on creation, the task goes last. Writing a sibling\'s position swaps the two: that is how a task moves up or down.')]
     private ?string $position = null;
 
     /**

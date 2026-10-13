@@ -179,6 +179,12 @@ class GoogleTasksSyncService
 
         try {
             $googleTaskId = $task->getGoogleTaskId();
+            // A subtask goes under its parent: Google must know the parent first.
+            $parent = $task->getParent();
+            if (null !== $parent && null === $parent->getGoogleTaskId()) {
+                $this->pushTaskToGoogle($parent);
+            }
+
             if (null === $googleTaskId) {
                 // Create new task on Google, in its place among its siblings
                 $googleTask = $this->taskMapper->toGoogle($task);

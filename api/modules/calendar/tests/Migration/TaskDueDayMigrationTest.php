@@ -75,6 +75,20 @@ class TaskDueDayMigrationTest extends KernelTestCase
         );
     }
 
+    /** Synced tasks are read again on the next pull, which brings their subtasks, order and links. */
+    public function testASyncedTaskIsReadAgainFromGoogle(): void
+    {
+        $id = $this->aTaskStoredAs(null, null);
+        $this->connection->executeStatement(
+            "UPDATE task SET google_task_id = 'g-1', google_task_updated_at = '2026-03-20 10:00:00+00' WHERE id = :id",
+            ['id' => $id],
+        );
+
+        $this->runMigration('up');
+
+        self::assertNull($this->connection->fetchOne('SELECT google_task_updated_at FROM task WHERE id = :id', ['id' => $id]));
+    }
+
     public function testItRollsBackToMidnightInTheOwnersZone(): void
     {
         $id = $this->aTaskStoredAs('2026-01-19 23:00:00+00', 'Europe/Paris');

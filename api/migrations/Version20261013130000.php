@@ -15,6 +15,9 @@ use Doctrine\Migrations\AbstractMigration;
  * midnight Europe/Paris create_task wrote is 22:00 UTC the day before, and a
  * plain cast would have moved every such task back a day. PostgreSQL refuses a
  * subquery in `ALTER … USING`, hence the column added, filled, then swapped.
+ *
+ * The tasks already synced are read again from Google on the next pull, so
+ * the subtasks, the order and the links arrive for them too.
  */
 final class Version20261013130000 extends AbstractMigration
 {
@@ -43,6 +46,11 @@ final class Version20261013130000 extends AbstractMigration
         $this->addSql('ALTER TABLE task ADD links JSON DEFAULT \'[]\' NOT NULL');
         $this->addSql('ALTER TABLE task ADD CONSTRAINT FK_527EDB25727ACA70 FOREIGN KEY (parent_id) REFERENCES task (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('CREATE INDEX IDX_527EDB25727ACA70 ON task (parent_id)');
+
+        // The pull skips a task Google has not changed since the last sync:
+        // forgetting when it last did makes the next one read every task
+        // again, and bring its parent, its place and its links.
+        $this->addSql('UPDATE task SET google_task_updated_at = NULL WHERE google_task_id IS NOT NULL');
     }
 
     public function down(Schema $schema): void

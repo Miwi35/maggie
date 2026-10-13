@@ -12,6 +12,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
 #[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again).')]
 class UpdateTaskTool
@@ -38,7 +39,7 @@ class UpdateTaskTool
     ): string {
         try {
             $user = $this->userContext->requireUser();
-            $owned = $this->taskRepository->find($id);
+            $owned = Ulid::isValid($id) ? $this->taskRepository->find($id) : null;
             if (null === $owned || !$owned->getUser()->getId()->equals($user->getId())) {
                 return json_encode(['error' => "Task not found: {$id}"], JSON_THROW_ON_ERROR);
             }

@@ -50,6 +50,23 @@ class TaskHierarchy
         return $parent;
     }
 
+    /**
+     * Gives $task $position. A sibling holding it already gives its place and
+     * takes $task's: moving up or down is one write on the moved task, never
+     * two — each of which would go to Google on its own and, between them,
+     * leave two siblings tied (MAG-404).
+     */
+    public function moveTo(Task $task, string $position): void
+    {
+        $previous = $task->getPosition();
+        foreach ($this->taskRepository->findSiblings($task->getUser(), $task->getParent()) as $sibling) {
+            if ($sibling !== $task && $sibling->getPosition() === $position && null !== $previous) {
+                $sibling->setPosition($previous);
+            }
+        }
+        $task->setPosition($position);
+    }
+
     /** A position after every sibling under $parent, $except left out. */
     public function lastPosition(User $user, ?Task $parent, ?Task $except = null): string
     {
