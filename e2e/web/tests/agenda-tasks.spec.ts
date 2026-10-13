@@ -213,8 +213,7 @@ test('a subtask is ticked off from its parent, which stays open', async ({ page,
 
 /** Opens the edit form of the task drawn as `title`: chip, detail card, pencil. */
 async function openTask(calendar: CalendarPage, title: string) {
-  await calendar.chip(title).click()
-  await expect(calendar.popover).toBeVisible()
+  await calendar.openFoldableChip(title)
   await calendar.editFromPopover()
   const dialog = calendar.editTaskDialog
   await expect(dialog).toBeVisible()
