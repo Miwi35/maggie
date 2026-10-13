@@ -13,6 +13,7 @@ or the model wrote.
 import logging
 
 import sentry_sdk
+from sentry_sdk.integrations.anthropic import AnthropicIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 from app.config import Settings, settings
@@ -54,6 +55,9 @@ def init_error_tracking(config: Settings = settings, **options) -> bool:
         include_local_variables=False,
         # Log records mention contents and tool results: neither events nor breadcrumbs.
         integrations=[LoggingIntegration(level=None, event_level=None)],
+        # It reports every failed model call, the ones the chat answers with an apology too
+        # (a refused call, an empty credit balance): an outage is not a bug of the agent (MAG-445).
+        disabled_integrations=[AnthropicIntegration],
         before_send=_tag_component,
         **options,
     )
