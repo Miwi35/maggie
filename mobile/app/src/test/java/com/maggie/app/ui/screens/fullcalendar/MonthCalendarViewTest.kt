@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.fullcalendar
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -95,6 +96,25 @@ class MonthCalendarViewTest {
 
         compose.onNodeWithTag(UiTags.calendarMonthSlot(wednesday, 3), useUnmergedTree = true).assertExists()
         compose.onNodeWithTag(UiTags.calendarMonthMore(wednesday), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the grid follows the date when the arrows, not a swipe, change the month`() {
+        val next = YearMonth.from(wednesday).plusMonths(1).atDay(10)
+        val current = mutableStateOf(wednesday)
+        compose.setContent {
+            Box(Modifier.height(900.dp)) {
+                MonthCalendarView(current.value, listOf(timed("e", "Séance", next, LocalTime.of(9, 0))), {}, today = wednesday)
+            }
+        }
+        compose.onNodeWithTag(UiTags.calendarMonthSlot(next, 0), useUnmergedTree = true).assertDoesNotExist()
+
+        compose.runOnIdle { current.value = next }
+
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasTagPrefix("${UiTags.CALENDAR_MONTH_SLOT_PREFIX}${next}_"), useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Composable
