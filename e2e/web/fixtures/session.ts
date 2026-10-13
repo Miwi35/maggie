@@ -68,6 +68,20 @@ export const APPROVALS_USER_EMAIL = 'e2e-approvals@maggie.local'
  */
 export const TREASURY_USER_EMAIL = 'e2e-treasury@maggie.local'
 
+/**
+ * The seventh seeded account, for the recurring operations detection journey
+ * (MAG-47): its rent debits would move the train de vie another file compares
+ * with itself.
+ */
+export const RECURRING_USER_EMAIL = 'e2e-recurring@maggie.local'
+
+/**
+ * The eighth seeded account, for the internal transfers and rejections journey
+ * (MAG-272): it compares the train de vie with itself, which a debit booked by
+ * any other file on the same account would move.
+ */
+export const TRANSFERS_USER_EMAIL = 'e2e-transfers@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
