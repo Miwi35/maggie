@@ -23,7 +23,7 @@ import type { LiveConfig } from '../../hooks/liveList'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import { TransferBadge, TransferCounterpart } from './TransferBadge'
-import { transactionIdOf } from './useTransactionTransfer'
+import { isBetweenAccounts, transactionIdOf } from './useTransactionTransfer'
 import { AccountIncidents } from './AccountIncidents'
 import { MakeRecurringButton, RecurringBadge } from './RecurringTransactionActions'
 import { useAccountIncidents } from './useAccountIncidents'
@@ -56,7 +56,7 @@ const TransactionDatagrid = () => {
               amountCents={record.amountCents as number}
             />
             <RecurringBadge record={record} />
-            {(record.transferKind === 'internal' || record.transferKind === 'rejected') && (
+            {(isBetweenAccounts(record.transferKind as string | undefined) || record.transferKind === 'rejected') && (
               <TransferCounterpart
                 transactionId={transactionIdOf(record.id as string)}
                 amountCents={record.amountCents as number}

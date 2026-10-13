@@ -24,6 +24,16 @@ class TransactionTest {
     }
 
     @Test
+    fun `an advance, its repayment and a top-up are transfers between accounts, each named`() {
+        assertEquals("Avance d'épargne", transferBadgeLabel("advance", -150000))
+        assertEquals("Remboursement d'avance", transferBadgeLabel("repayment", -50000))
+        assertEquals("Approvisionnement", transferBadgeLabel("funding", -20000))
+        assertTrue(Transaction(id = "1", label = "Virement", transferKind = "advance").isInternalTransfer)
+        assertFalse(Transaction(id = "1", label = "Virement", transferKind = "rejected").isInternalTransfer)
+        assertFalse(Transaction(id = "1", label = "Virement", transferKind = "none").isInternalTransfer)
+    }
+
+    @Test
     fun `an amount typed without sign gets the sign of the nature`() {
         assertEquals(4250, signedAmountCents(4250, TransactionNature.Income))
         assertEquals(-4250, signedAmountCents(4250, TransactionNature.Expense))

@@ -83,14 +83,17 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Maggie's interruptions are published to (MAG-311). The fourth is the
         // stock journey's, which writes to a list and a chat history of its own
         // (MAG-294). The fifth is the approval cards journey's, which answers a
-        // held deletion in the chat (MAG-6). A sixth would mean somebody added an
-        // account without saying why.
-        self::assertSame(5, $this->rowsOf(User::class));
+        // held deletion in the chat (MAG-6). The sixth is the savings advances
+        // journey's, whose salary day and « Salaire » series no other journey
+        // may read (MAG-276). A seventh would mean somebody added an account
+        // without saying why.
+        self::assertSame(6, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stock@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-approvals@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-treasury@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -289,11 +292,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(6, $this->rowsOf(User::class));
+        self::assertSame(7, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(5, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(6, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

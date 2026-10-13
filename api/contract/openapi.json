@@ -16091,7 +16091,10 @@
                         "enum": [
                             "none",
                             "internal",
-                            "rejected"
+                            "rejected",
+                            "advance",
+                            "repayment",
+                            "funding"
                         ]
                     },
                     "transferSource": {
@@ -16107,6 +16110,16 @@
                     "counterpart": {
                         "readOnly": true,
                         "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "repays": {
+                        "readOnly": true,
+                        "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
                         "type": [
                             "string",
                             "null"
@@ -16277,7 +16290,10 @@
                         "enum": [
                             "none",
                             "internal",
-                            "rejected"
+                            "rejected",
+                            "advance",
+                            "repayment",
+                            "funding"
                         ]
                     },
                     "transferSource": {
@@ -16293,6 +16309,16 @@
                     "counterpart": {
                         "readOnly": true,
                         "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "repays": {
+                        "readOnly": true,
+                        "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
                         "type": [
                             "string",
                             "null"
@@ -16463,7 +16489,10 @@
                         "enum": [
                             "none",
                             "internal",
-                            "rejected"
+                            "rejected",
+                            "advance",
+                            "repayment",
+                            "funding"
                         ]
                     },
                     "transferSource": {
@@ -16479,6 +16508,16 @@
                     "counterpart": {
                         "readOnly": true,
                         "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "repays": {
+                        "readOnly": true,
+                        "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
                         "type": [
                             "string",
                             "null"
@@ -16642,7 +16681,10 @@
                                 "enum": [
                                     "none",
                                     "internal",
-                                    "rejected"
+                                    "rejected",
+                                    "advance",
+                                    "repayment",
+                                    "funding"
                                 ]
                             },
                             "transferSource": {
@@ -16658,6 +16700,16 @@
                             "counterpart": {
                                 "readOnly": true,
                                 "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "repays": {
+                                "readOnly": true,
+                                "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
                                 "type": [
                                     "string",
                                     "null"

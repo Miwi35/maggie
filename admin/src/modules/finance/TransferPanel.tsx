@@ -14,7 +14,7 @@ import { useNotify, useRecordContext } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
 import { useMercure } from '../../hooks/useMercure'
 import { CounterpartLeg, CounterpartSentence, TransferBadge } from './TransferBadge'
-import { useTransactionTransfer } from './useTransactionTransfer'
+import { isBetweenAccounts, useTransactionTransfer } from './useTransactionTransfer'
 import type { MarkKind, TransferLeg } from './useTransactionTransfer'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
@@ -160,7 +160,7 @@ export const TransferPanel = () => {
       )}
       {transfer && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-          {kind === 'internal' || kind === 'rejected' ? (
+          {isBetweenAccounts(kind) || kind === 'rejected' ? (
             <>
               <Box>
                 <TransferBadge transferKind={kind} amountCents={amountCents} />

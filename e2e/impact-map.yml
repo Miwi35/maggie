@@ -392,6 +392,8 @@ web:
     areas: [finance, chat]
   e2e/web/tests/finance-rules.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-treasury.spec.ts:
+    areas: [finance, chat]
 
 mobile:
   # The critical core: sign in, read the dashboard, get an answer from Maggie.

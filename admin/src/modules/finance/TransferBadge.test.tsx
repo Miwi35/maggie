@@ -32,6 +32,19 @@ describe('TransferBadge', () => {
     expect(screen.queryByText('Rejeté')).not.toBeInTheDocument()
   })
 
+  test('an advance, its repayment and a top-up are transfers too, each named (MAG-276)', () => {
+    const { unmount } = render(<TransferBadge transferKind="advance" amountCents={-150000} />)
+    expect(screen.getByText('Avance d’épargne')).toBeInTheDocument()
+    unmount()
+
+    const second = render(<TransferBadge transferKind="repayment" amountCents={-50000} />)
+    expect(screen.getByText('Remboursement d’avance')).toBeInTheDocument()
+    second.unmount()
+
+    render(<TransferBadge transferKind="funding" amountCents={-20000} />)
+    expect(screen.getByText('Approvisionnement')).toBeInTheDocument()
+  })
+
   test('an ordinary line carries no badge', () => {
     const { container } = render(<TransferBadge transferKind="none" amountCents={-8000} />)
 

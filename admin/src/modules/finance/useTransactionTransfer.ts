@@ -12,14 +12,20 @@ export interface TransferLeg {
 }
 
 /**
- * `internal`: money moved between two of the owner's accounts. `rejected`: a
- * payment the bank refused and the credit that gave it back, on one account.
- * Both keep the line out of every figure.
+ * `internal`: money moved between two of the owner's accounts — and so are
+ * `advance` (taken from savings while the salary was late), `repayment` (an
+ * advance given back) and `funding` (a regular top-up). `rejected`: a payment
+ * the bank refused and the credit that gave it back, on one account. Every
+ * kind but `none` keeps the line out of every figure.
  */
-export type TransferKind = 'none' | 'internal' | 'rejected'
+export type TransferKind = 'none' | 'internal' | 'rejected' | 'advance' | 'repayment' | 'funding'
 
 /** The two markings the owner can put on a line by hand. */
-export type MarkKind = Exclude<TransferKind, 'none'>
+export type MarkKind = 'internal' | 'rejected'
+
+/** A movement between two of the owner's accounts, whatever its purpose (MAG-276). */
+export const isBetweenAccounts = (kind: string | null | undefined): boolean =>
+  kind === 'internal' || kind === 'advance' || kind === 'repayment' || kind === 'funding'
 
 export interface TransferState {
   transferKind: TransferKind

@@ -3,10 +3,17 @@ import Chip from '@mui/material/Chip'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import UndoIcon from '@mui/icons-material/Undo'
 import { Amount } from './AmountField'
-import { useTransactionTransfer } from './useTransactionTransfer'
+import { isBetweenAccounts, useTransactionTransfer } from './useTransactionTransfer'
 import type { TransferLeg, TransferState } from './useTransactionTransfer'
 
 export const TRANSFER_BADGE_LABEL = 'Virement interne'
+/** What a movement between two of the owner's accounts is for, when the API knows (MAG-276). */
+const BETWEEN_ACCOUNTS_LABEL: Record<string, string> = {
+  internal: TRANSFER_BADGE_LABEL,
+  advance: 'Avance d’épargne',
+  repayment: 'Remboursement d’avance',
+  funding: 'Approvisionnement',
+}
 /** The payment the bank refused, and the credit that gave it back. */
 export const REJECTED_DEBIT_LABEL = 'Rejeté'
 export const REJECTED_CREDIT_LABEL = 'Rejet'
@@ -25,14 +32,14 @@ export const TransferBadge = ({
   transferKind?: string | null
   amountCents?: number | null
 }) => {
-  if (transferKind === 'internal') {
+  if (transferKind && isBetweenAccounts(transferKind)) {
     return (
       <Chip
         size="small"
         color="info"
         variant="outlined"
         icon={<SwapHorizIcon />}
-        label={TRANSFER_BADGE_LABEL}
+        label={BETWEEN_ACCOUNTS_LABEL[transferKind]}
         sx={{ ml: 1 }}
       />
     )

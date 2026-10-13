@@ -61,6 +61,13 @@ export const STOCK_USER_EMAIL = 'e2e-stock@maggie.local'
  */
 export const APPROVALS_USER_EMAIL = 'e2e-approvals@maggie.local'
 
+/**
+ * The sixth seeded account, for the savings advances journey (MAG-276): it
+ * declares a salary day and a « Salaire » series, which the reference salary
+ * journey, on the stock account, must not see doubled.
+ */
+export const TREASURY_USER_EMAIL = 'e2e-treasury@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

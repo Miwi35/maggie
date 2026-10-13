@@ -1,0 +1,121 @@
+# Savings advances (MAG-276). The reference salary is declared on the cushion
+# (4 950 €), so it does not move with the day the suite runs; the movements
+# are written by the tests, dated, and each read passes its own « today ».
+Maggie\Core\Entity\User:
+  test_user:
+    email: savings-advances@example.com
+    googleId: google-savings-advances
+    name: Savings Advances User
+  other_user:
+    email: savings-advances-other@example.com
+    googleId: google-savings-advances-other
+    name: Someone Else
+  bare_user:
+    email: savings-advances-bare@example.com
+    googleId: google-savings-advances-bare
+    name: No Expected Day
+  unknown_reference_user:
+    email: savings-advances-unknown@example.com
+    googleId: google-savings-advances-unknown
+    name: No Reference Salary
+
+Maggie\Finance\Entity\TreasurySettings:
+  settings:
+    salaryExpectedDay: 25
+    user: '@test_user'
+  other_settings:
+    salaryExpectedDay: 25
+    user: '@other_user'
+  unknown_reference_settings:
+    salaryExpectedDay: 25
+    user: '@unknown_reference_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@test_user'
+  other_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@other_user'
+  bare_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@bare_user'
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  joint:
+    name: Compte joint
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@test_user'
+  livret:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+  pea:
+    name: PEA
+    type: '<(Maggie\Finance\Enum\AccountType::Investment)>'
+    currency: EUR
+    balanceCents: 1200000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@other_user'
+  other_livret:
+    name: Livret de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@other_user'
+  bare_checking:
+    name: Courant sans jour
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@bare_user'
+  bare_livret:
+    name: Livret sans jour
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@bare_user'
+
+Maggie\Finance\Entity\Category:
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@test_user'
+  bonus:
+    name: Primes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: bonus
+    user: '@test_user'
