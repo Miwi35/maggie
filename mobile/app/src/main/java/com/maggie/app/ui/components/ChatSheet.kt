@@ -240,6 +240,7 @@ fun ChatPanel(
             ChatInputRow(
                 viewModel = viewModel,
                 isSending = uiState.isLoading,
+                windowIsResizedByKeyboard = true,
                 leading = { ChatMicButton(onMicClick) },
             )
         }
@@ -334,12 +335,19 @@ private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit, onThreads: 
     }
 }
 
-/** @param leading what sits left of the field — the panel puts the mic there. */
+/**
+ * @param leading what sits left of the field — the panel puts the mic there.
+ * @param windowIsResizedByKeyboard the sheet is a dialog, which the keyboard does not
+ * resize, so its row lifts itself by the keyboard's height. The panel is in the
+ * activity's own window, which the system already shrinks above the keyboard: lifting
+ * it again pushed the field out of the top of the screen on a tablet.
+ */
 @Composable
 private fun ChatInputRow(
     viewModel: ChatViewModel,
     isSending: Boolean,
     focusRequester: FocusRequester? = null,
+    windowIsResizedByKeyboard: Boolean = false,
     leading: @Composable () -> Unit = {},
 ) {
     var input by remember { mutableStateOf("") }
@@ -347,7 +355,13 @@ private fun ChatInputRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+            .windowInsetsPadding(
+                if (windowIsResizedByKeyboard) {
+                    WindowInsets.navigationBars
+                } else {
+                    WindowInsets.ime.union(WindowInsets.navigationBars)
+                },
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

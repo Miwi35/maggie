@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,7 +91,9 @@ internal fun MealIngredientChoiceContent(
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                // Edge to edge: a tablet's taskbar is a navigation bar the Scaffold does not
+                // reserve for its bottom bar, and the buttons would sit under it.
+                Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
                     Text(
                         text = articlesToAddLabel(uiState.selectedCount),
                         style = MaterialTheme.typography.labelLarge,
