@@ -1401,7 +1401,9 @@ class TestTheShippedFixtures:
         """A rule she gives herself is read in every answer, so it is `behavior`, not `planning` (MAG-325)."""
         client = build_client(DEFAULT_FIXTURES_DIR)
 
-        answer = await ask(client, "Ne me parle que des événements de Défaut et Garde Ael")
+        for wording in ("Ne me parle que de Défaut et Garde Ael", "Ne me parle que des événements de Défaut et Garde Ael"):
+            answer = await ask(client, wording)
+            assert answer.stop_reason == "tool_use", wording
 
         stored = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
         assert stored.name == "add_instruction"

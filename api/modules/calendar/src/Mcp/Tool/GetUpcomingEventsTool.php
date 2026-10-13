@@ -32,6 +32,7 @@ class GetUpcomingEventsTool
         try {
             $user = $this->userContext->requireUser();
             $agendaIds = $this->filter->agendaIds($user, $agendas);
+            $this->filter->assertSearchable($query);
         } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }

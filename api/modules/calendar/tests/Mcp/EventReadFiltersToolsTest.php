@@ -225,6 +225,18 @@ class EventReadFiltersToolsTest extends KernelTestCase
         self::assertSame('Europe/Paris', $event['timeZone']);
     }
 
+    public function testAQueryWithNoWordToLookForIsRefusedNotIgnored(): void
+    {
+        $this->loginFixtureUser();
+
+        foreach (['ab', 'les'] as $query) {
+            $upcoming = $this->upcoming(null, null, $query);
+            self::assertArrayNotHasKey('events', $upcoming, $query);
+            self::assertStringContainsString('no word to look for', $upcoming['error']);
+            self::assertArrayHasKey('error', $this->byDate($this->tomorrow(), null, $query), $query);
+        }
+    }
+
     public function testBothToolsRefuseAnAnonymousCaller(): void
     {
         self::assertSame(MissingMcpUserException::MESSAGE, $this->upcoming(7, ['Défaut'], 'piano')['error']);

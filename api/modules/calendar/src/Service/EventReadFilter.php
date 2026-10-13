@@ -68,6 +68,17 @@ class EventReadFilter
         }));
     }
 
+    /**
+     * @throws \DomainException when a query was given but holds no word to look for: ignoring it
+     *                          would hand back every event as if all of them matched
+     */
+    public function assertSearchable(?string $query): void
+    {
+        if (null !== $query && '' !== trim($query) && [] === self::words($query)) {
+            throw new \DomainException(sprintf('The query "%s" holds no word to look for: give the distinctive word(s) of the title, at least %d letters.', trim($query), self::MIN_WORD));
+        }
+    }
+
     public function hasQuery(?string $query): bool
     {
         return null !== $query && [] !== self::words($query);

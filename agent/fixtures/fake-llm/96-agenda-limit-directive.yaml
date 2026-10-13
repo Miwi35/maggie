@@ -6,7 +6,7 @@ name: agenda-limit-directive
 description: Store the owner's « only these agendas » rule as a behaviour directive.
 
 match:
-  user_contains: "ne me parle que des événements de Défaut et Garde Ael"
+  user_matches: "ne me parle que (de|des événements de) Défaut et Garde Ael"
 
 turns:
   - tools:
