@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
@@ -33,5 +34,32 @@ class MealGroceryContributionRepository extends ServiceEntityRepository
     public function findByGroceryItem(GroceryItem $item): array
     {
         return $this->findBy(['groceryItem' => $item]);
+    }
+
+    /**
+     * The ids of the meals whose day is before `$today` and which still hold a
+     * line that is not in the basket: the meals whose shopping has to come off
+     * the list.
+     *
+     * @return list<string>
+     */
+    public function findPassedMealIdsWithUnboughtLines(\DateTimeImmutable $today): array
+    {
+        /** @var MealGroceryContribution[] $contributions */
+        $contributions = $this->createQueryBuilder('c')
+            ->join('c.meal', 'm')
+            ->join('c.groceryItem', 'i')
+            ->where('m.date < :today')
+            ->andWhere('i.checked = false')
+            ->setParameter('today', $today, Types::DATE_IMMUTABLE)
+            ->getQuery()
+            ->getResult();
+
+        $ids = [];
+        foreach ($contributions as $contribution) {
+            $ids[(string) $contribution->getMeal()->getId()] = true;
+        }
+
+        return array_keys($ids);
     }
 }

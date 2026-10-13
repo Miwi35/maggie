@@ -231,9 +231,10 @@ async function planRecipe(shell: AdminShell, cell: string, recipeName: string): 
   await dialog.getByRole('button', { name: 'Créer' }).click()
 }
 
-// Monday lunch is the one cell no other journey plans on (the seed's meals are
-// dinners, recipes.spec and meals-move.spec take the other lunches): the two
-// journeys share it, so they run one after the other.
+// Saturday lunch is the one cell no other journey plans on (the seed's meals are
+// dinners, recipes.spec and meals-move.spec take the other lunches) and it is
+// still ahead of the pinned clock: a meal of a day gone adds nothing to the list
+// (MAG-400). The two journeys share it, so they run one after the other.
 test.describe('Choosing the ingredients of a new meal', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -251,8 +252,8 @@ test.describe('Choosing the ingredients of a new meal', () => {
       // Given the grocery list open in a second window.
       await openSubscribed(observer, () => watching.open())
 
-      // When I plan « Riz au curry » on Monday lunch…
-      await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
+      // When I plan « Riz au curry » on Saturday lunch…
+      await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
 
       // …then the choice opens: « Riz » ticked, « 1 paquet », « Rupture »; the
       // vegetables not ticked, « 1 bocal ».
@@ -302,7 +303,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
         what: 'The planned meal',
       })
       cleanup.push(meal['@id'])
-      await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
+      await expect(acting.content.getByTestId('meal-cell-lunch-5')).toContainText(recipeName)
     } finally {
       for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
     }
@@ -318,7 +319,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
     })
 
     try {
-      await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
+      await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
 
       const dialog = page.getByRole('dialog')
       await expect(dialog.getByText('Courses du repas')).toBeVisible()
@@ -327,7 +328,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
       await expect(dialog).toBeHidden()
 
       // The meal is in the week, and the API never heard of a choice.
-      await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
+      await expect(acting.content.getByTestId('meal-cell-lunch-5')).toContainText(recipeName)
       const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
         what: 'The planned meal',
       })

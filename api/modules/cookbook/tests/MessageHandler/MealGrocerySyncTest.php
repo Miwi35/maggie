@@ -32,6 +32,7 @@ use Maggie\Grocery\Message\RemoveGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * Meals and the grocery list, kept in step (MAG-116).
@@ -405,7 +406,7 @@ class MealGrocerySyncTest extends KernelTestCase
 
     public function testEditingARecipeLeavesPastMealsAlone(): void
     {
-        $this->planMealOn('pasta', '-3 days');
+        $this->planMealThatThenPasses('pasta', '-3 days');
 
         $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
 
@@ -510,9 +511,10 @@ class MealGrocerySyncTest extends KernelTestCase
     public function testDeletingARecipeLeavesThePastShoppingOfAMealThatKeepsOtherRecipes(): void
     {
         $upcomingId = $this->planMeal('pasta');
-        $pastId = $this->planMealOn('pasta', '-3 days');
+        $pastId = $this->planMeal('pasta');
         $this->replaceRecipes($upcomingId, 'pasta', 'gratin');
         $this->replaceRecipes($pastId, 'pasta', 'gratin');
+        $this->letMealPass($pastId, '-3 days');
         $this->resetMercure();
         $this->resetAsyncTransport();
 
@@ -637,6 +639,50 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertSame(0, $this->contributionCount());
     }
 
+    public function testAMealPlannedOnAPastDayPutsNothingOnTheList(): void
+    {
+        $this->planMealOn('pasta', '-1 day');
+
+        self::assertSame(0, $this->itemCount());
+        self::assertSame(0, $this->contributionCount());
+    }
+
+    public function testAMealPlannedOnAPastDayLeavesTheRestOfTheListAsItWas(): void
+    {
+        $this->planMeal('gratin');
+        $this->resetMercure();
+
+        $this->planMealOn('pasta', '-1 day');
+
+        self::assertSame(['Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
+        self::assertSame(0, $this->groceryUpdateCount(), 'nothing moved, nothing to publish');
+    }
+
+    public function testGeneratingOverAPeriodStartingYesterdayLeavesYesterdaysMealOut(): void
+    {
+        $this->planMealOn('pasta', '-1 day');
+        $this->planMeal('gratin');
+
+        $this->generate('-1 day', self::TOMORROW);
+
+        // Lait is the recurring item generation brings along, not a meal's.
+        self::assertSame(['Lait' => 1.0, 'Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
+    }
+
+    public function testMovingAMealToAPastDayTakesItsUnboughtShareOffTheList(): void
+    {
+        $mealId = $this->planMeal('pasta');
+        $this->planMealOn('gratin', '+2 days');
+        $this->check('Pâtes');
+        $this->resetMercure();
+
+        $this->bus()->dispatch(new UpdateMealCommand(mealId: $mealId, date: $this->day('-1 day'), slot: null, recipeIds: null));
+
+        // The pasta is already in the basket; the tomatoes are the gratin's alone now.
+        self::assertSame(['Parmesan' => 80.0, 'Pâtes' => 400.0, 'Tomate' => 2.0], $this->list());
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
+    }
+
     /** Plans tomorrow's pasta, then chooses only the pasta — 400 g, 1 pack of 500 g. */
     private function planChosenPasta(): string
     {
@@ -728,6 +774,27 @@ class MealGrocerySyncTest extends KernelTestCase
         return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
     }
 
+    /**
+     * Planned ahead like any meal, then its day goes by — the only way a meal
+     * comes to hold shopping on a past day, until the daily release takes it off.
+     */
+    private function planMealThatThenPasses(string $recipeRef, string $when): string
+    {
+        $mealId = $this->planMeal($recipeRef);
+        $this->letMealPass($mealId, $when);
+
+        return $mealId;
+    }
+
+    private function letMealPass(string $mealId, string $when): void
+    {
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE meal SET date = ? WHERE id = ?',
+            [$this->day($when), Ulid::fromString($mealId)->toRfc4122()],
+        );
+        $this->em()->clear();
+    }
+
     private function replaceRecipes(string $mealId, string ...$recipeRefs): void
     {
         $this->bus()->dispatch(new UpdateMealCommand(
@@ -738,14 +805,12 @@ class MealGrocerySyncTest extends KernelTestCase
         ));
     }
 
-    private function generate(): void
+    private function generate(string $from = self::TOMORROW, string $to = self::TOMORROW): void
     {
-        $day = new \DateTimeImmutable(self::TOMORROW, new \DateTimeZone('Europe/Paris'));
-
         $this->bus()->dispatch(new GenerateGroceryListCommand(
             userId: (string) $this->user()->getId(),
-            fromDate: $day->format('Y-m-d'),
-            toDate: $day->format('Y-m-d'),
+            fromDate: $this->day($from),
+            toDate: $this->day($to),
         ));
     }
 
@@ -889,6 +954,11 @@ class MealGrocerySyncTest extends KernelTestCase
     {
         return $this->em()->getRepository(RecurringGroceryItem::class)->findOneBy(['customLabel' => $label])
             ?? throw new \LogicException("No recurring item labelled {$label}.");
+    }
+
+    private function itemCount(): int
+    {
+        return count($this->em()->getRepository(GroceryItem::class)->findAll());
     }
 
     private function contributionCount(): int
