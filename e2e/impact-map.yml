@@ -315,6 +315,8 @@ web:
     paths:
       - 'agent/app/memory/**'
       - 'agent/fixtures/fake-llm/*-memory-*.yaml'
+  e2e/web/tests/chat-feedback.spec.ts:
+    areas: [chat, settings, dashboard]
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:

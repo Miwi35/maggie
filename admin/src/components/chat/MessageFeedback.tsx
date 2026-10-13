@@ -51,7 +51,7 @@ export const MessageFeedback = ({ feedback, onRate }: MessageFeedbackProps) => {
   }
 
   return (
-    <Box sx={{ alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: 0.5, pl: 0.5 }}>
+    <Box data-testid="message-feedback" sx={{ alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: 0.5, pl: 0.5 }}>
       <Box sx={{ display: 'flex', gap: 0.25 }}>
         <IconButton
           size="small"
