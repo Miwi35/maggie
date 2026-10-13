@@ -33,8 +33,8 @@ from app.llm.web_search import (
     SERVER_TOOL_USE,
     WEB_SEARCH_RESULT,
     WEB_SEARCH_TOOL,
+    missing_sources,
     search_failed,
-    sources_line,
     with_web_search,
 )
 from app.memory.agent_memory import AgentMemory
@@ -418,7 +418,7 @@ class StreamingGateway:
                 else:
                     # The pages the answer cites, as one last line: text is what the clients
                     # show, store and send back to the model at the next turn (MAG-384).
-                    sources = sources_line(response_content)
+                    sources = missing_sources(answer, response_content)
                     if sources and step_text.strip():
                         answer = f"{answer}\n\n{sources}"
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}

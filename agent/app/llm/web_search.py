@@ -120,9 +120,20 @@ def sources_line(content: list) -> str:
     return f"{label} : " + SOURCE_SEPARATOR.join(f"{host} — {url}" for host, url in sources)
 
 
+def already_cites(text: str) -> bool:
+    """Whether the answer already ends on a « Source(s) : » line, written by the model or taken from `researcher`."""
+    lines = [line for line in text.strip().splitlines() if line.strip()]
+    return bool(lines) and lines[-1].lstrip().startswith(("Source :", "Sources :"))
+
+
+def missing_sources(text: str, content: list) -> str:
+    """The line to add after `text` — empty when nothing is cited, or when the answer already has its line."""
+    return "" if already_cites(text) else sources_line(content)
+
+
 def with_sources(text: str, content: list) -> str:
     """The answer, closed by the line of the sources it cites — untouched when it cites none."""
-    line = sources_line(content)
+    line = missing_sources(text, content)
     if not line or not text.strip():
         return text
     return f"{text.rstrip()}\n\n{line}"

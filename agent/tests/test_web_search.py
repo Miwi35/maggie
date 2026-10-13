@@ -15,6 +15,7 @@ from app.llm.web_search import (
     MAX_SOURCES,
     answer_text,
     cited_sources,
+    missing_sources,
     search_failed,
     sources_line,
     web_search_tool,
@@ -106,6 +107,19 @@ class TestTheAnswerAndItsSources:
 
         assert with_sources("Du 17 octobre.\n", content) == f"Du 17 octobre.\n\nSource : education.gouv.fr — {PAGE}"
 
+    @pytest.mark.parametrize("written", ["Source : education.gouv.fr — https://a.fr/x", "Sources : a.fr — https://a.fr/x · b.fr — https://b.fr/y\n"])
+    def test_a_line_the_model_wrote_or_took_from_the_researcher_is_not_added_twice(self, written):
+        content = _searched_content(_cited("a", PAGE))
+        text = f"Du 17 octobre.\n\n{written}"
+
+        assert with_sources(text, content) == text
+        assert missing_sources(text, content) == ""
+
+    def test_a_source_mentioned_inside_the_text_does_not_count_as_the_line(self):
+        content = _searched_content(_cited("a", PAGE))
+
+        assert with_sources("La Source : un film.\nPuis la suite.", content).endswith(f"Source : education.gouv.fr — {PAGE}")
+
     def test_it_reads_the_sdk_objects_as_well_as_plain_dicts(self):
         citation = SimpleNamespace(type="web_search_result_location", url=PAGE, title="t")
         block = SimpleNamespace(type="text", text="a", citations=[citation])
@@ -180,7 +194,7 @@ class TestTheResearcher:
         assert "search*" in definition.tools
         assert "Internet" in definition.prompt
         assert "données de Maggie" in definition.prompt
-        assert "Sources :" in definition.prompt
+        assert "ajoutée à ta réponse automatiquement" in definition.prompt
 
     async def test_the_subagent_loop_is_sent_the_web_search_with_max_uses(self):
         researcher = SubagentDefinition(

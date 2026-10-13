@@ -727,6 +727,24 @@ class TestWebSearchStreamed:
 
         gw.tool_router.call_tool.assert_not_called()
 
+    async def test_a_sources_line_the_model_wrote_is_not_doubled(self):
+        from app.llm.fake import FakeCitation, FakeCitedTextBlock
+
+        written = f"Du 17 octobre.\n\nSource : education.gouv.fr — {self.PAGE}"
+        gw, _ = self._gateway(
+            [
+                FakeMessage(
+                    content=[FakeCitedTextBlock(text=written, citations=[FakeCitation(url=self.PAGE, title="t")])],
+                    stop_reason="end_turn",
+                    usage=FakeUsage(input_tokens=10, output_tokens=5),
+                )
+            ]
+        )
+
+        _, stored = await self._run(gw)
+
+        assert stored["content"] == written
+
     async def test_an_answer_without_citation_has_no_sources_line(self):
         gw, _ = self._gateway(
             [
