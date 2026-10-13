@@ -255,6 +255,11 @@ object UiTags {
     /** Cuisine › Repas — one cell of the week: `meal_slot_<lunch|dinner>_<0 = Monday … 6 = Sunday>`. */
     const val MEAL_SLOT_PREFIX = "meal_slot_"
 
+    /** Dashboard — the box that ticks a task, suffixed by the task's id (MAG-405). */
+    const val DASHBOARD_TASK_CHECK_PREFIX = "dashboard_task_check_"
+
+    fun dashboardTaskCheck(id: String) = DASHBOARD_TASK_CHECK_PREFIX + id
+
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
     const val APPROVAL_CARD_PREFIX = "approval_card_"
     const val APPROVAL_ALLOW_PREFIX = "approval_allow_"

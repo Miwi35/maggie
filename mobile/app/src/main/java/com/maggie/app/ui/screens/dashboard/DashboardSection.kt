@@ -24,6 +24,7 @@ fun DashboardSection(
     onToggleTaskDone: (String, Boolean) -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
+    nestSubtasks: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -71,6 +72,7 @@ fun DashboardSection(
                         task = task,
                         onToggleDone = { done -> onToggleTaskDone(task.id, done) },
                         onClick = { onTaskClick(task) },
+                        nested = nestSubtasks,
                     )
                 }
             }

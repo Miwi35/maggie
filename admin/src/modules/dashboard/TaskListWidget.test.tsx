@@ -24,8 +24,8 @@ const TASKS: DashboardTask[] = [
 
 const onToggleDone = vi.fn()
 
-const renderWidget = (tasks: DashboardTask[], loading = false) =>
-  render(<TaskListWidget tasks={tasks} loading={loading} onToggleDone={onToggleDone} />)
+const renderWidget = (tasks: DashboardTask[], loading = false, extra: { ordered?: boolean; error?: boolean } = {}) =>
+  render(<TaskListWidget tasks={tasks} loading={loading} onToggleDone={onToggleDone} {...extra} />)
 
 /** `#4CAF50` as `rgb(76, 175, 80)` — what jsdom computes off the emotion rule. */
 const asRgb = (hex: string): string => {
@@ -96,5 +96,68 @@ describe('TaskListWidget', () => {
     expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
     expect(screen.queryByText('Payer le loyer')).toBeNull()
     expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  // MAG-405: a late task says so in words and with an icon, never by colour alone.
+  describe('a late task', () => {
+    const LATE: DashboardTask[] = [
+      { id: '/api/tasks/01LATE', title: 'Renvoyer le formulaire', criticality: 'low', dueDate: '2026-10-11', overdueDays: 2 },
+      { id: '/api/tasks/01TODAY', title: 'Appeler le garage', criticality: 'critical', dueDate: '2026-10-13', overdueDays: null },
+    ]
+
+    test('reads « En retard de N j » with an icon, and its original due day', () => {
+      renderWidget(LATE, false, { ordered: true })
+
+      const row = screen.getByText('Renvoyer le formulaire').closest('li') as HTMLElement
+      const badge = within(row).getByText('En retard de 2 j')
+      expect(badge.querySelector('svg')).not.toBeNull()
+      expect(within(row).getByText(/^prévue le 11 oct/)).toBeInTheDocument()
+    })
+
+    test('does not flag a task due today', () => {
+      renderWidget(LATE, false, { ordered: true })
+
+      const row = screen.getByText('Appeler le garage').closest('li') as HTMLElement
+      expect(within(row).queryByText(/En retard/)).toBeNull()
+      expect(within(row).getByText(/^13 oct/)).toBeInTheDocument()
+    })
+
+    test('keeps the given order when ordered, instead of sorting by criticality', () => {
+      renderWidget(LATE, false, { ordered: true })
+
+      const titles = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
+      expect(titles[0]).toContain('Renvoyer le formulaire')
+      expect(titles[1]).toContain('Appeler le garage')
+    })
+
+    test('sorts by criticality otherwise', () => {
+      renderWidget(LATE)
+
+      const titles = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
+      expect(titles[0]).toContain('Appeler le garage')
+    })
+
+    test('reports the late task that was ticked, as done', async () => {
+      const user = userEvent.setup()
+      renderWidget(LATE, false, { ordered: true })
+
+      const row = screen.getByText('Renvoyer le formulaire').closest('li') as HTMLElement
+      await user.click(within(row).getByRole('checkbox'))
+
+      expect(onToggleDone).toHaveBeenCalledExactlyOnceWith('/api/tasks/01LATE', true)
+    })
+
+    test('drops the badge once the task is done', () => {
+      renderWidget([{ ...LATE[0], completedAt: '2026-10-13T08:00:00Z' }], false, { ordered: true })
+
+      expect(screen.queryByText(/En retard/)).toBeNull()
+    })
+  })
+
+  test('says the tasks are unavailable instead of « Aucune tâche » on an error', () => {
+    renderWidget([], false, { error: true })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tâches indisponibles')
+    expect(screen.queryByText('Aucune tâche')).toBeNull()
   })
 })

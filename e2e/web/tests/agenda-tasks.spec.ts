@@ -90,7 +90,7 @@ test('ticking a task off on the dashboard completes it and takes it out of the d
   const dashboard = new DashboardPage(page)
   await dashboard.open()
   // Due today, so it belongs to "Aujourd'hui" — the one bucket that also gathers
-  // what is overdue and what has no date at all.
+  // what is overdue (MAG-405).
   await expect(dashboard.line(title)).toHaveCount(1)
 
   await dashboard.taskCheckbox(title).click()
@@ -99,6 +99,49 @@ test('ticking a task off on the dashboard completes it and takes it out of the d
   // there a moment later says nothing until the write is known to have landed.
   await expect
     .poll(async () => (await tasks(api)).find((task) => task.id === stored.id)?.completedAt != null, {
+      timeout: 30_000,
+      message: 'the task should be stored as completed',
+    })
+    .toBe(true)
+
+  await dashboard.open()
+  await expect(dashboard.line(title), 'a completed task is still in the day').toHaveCount(0)
+})
+
+/**
+ * A task due and not done stays in « Aujourd'hui », first, marked late — MAG-405.
+ *
+ * The seed has one task due today and one due two days ago: the late one goes
+ * first, with its lateness in words and its original day, and ticking it takes it
+ * out of the day. The lateness comes from the API (`overdueDays`), counted in the
+ * user's timezone: the page only draws it.
+ */
+test('a late task heads « Aujourd\'hui », says how late it is, and leaves when ticked', async ({ page, api }) => {
+  const title = 'Renvoyer le formulaire de la mutuelle'
+  const taskId = seedId('e2e_task_late')
+
+  // Reopen first: CI retries once without reseeding, and a retry would otherwise
+  // start on the tick the first attempt left.
+  await reopenTask(api, taskId)
+
+  const item = await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/ld+json' } })
+  expect(item.ok(), `GET /api/tasks/${taskId} answered ${item.status()}`).toBe(true)
+  expect(((await item.json()) as { overdueDays?: number | null }).overdueDays, 'the item should carry its lateness').toBe(2)
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const rows = dashboard.content.getByRole('heading', { name: "Aujourd'hui" }).locator('..').getByRole('listitem')
+  await expect(dashboard.line(title)).toHaveCount(1)
+  await expect(rows.first(), 'the late task should come before the one due today').toContainText(title)
+  await expect(rows.first()).toContainText('En retard de 2 j')
+  await expect(rows.first()).toContainText('prévue le')
+  await expect(rows.filter({ hasText: 'Préparer le déménagement' })).not.toContainText('En retard')
+
+  await dashboard.taskCheckbox(title).click()
+
+  await expect
+    .poll(async () => (await tasks(api)).find((task) => task.id === taskId)?.completedAt != null, {
       timeout: 30_000,
       message: 'the task should be stored as completed',
     })

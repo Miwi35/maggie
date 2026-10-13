@@ -16049,6 +16049,15 @@
                             }
                         }
                     },
+                    "overdueDays": {
+                        "readOnly": true,
+                        "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 1
+                    },
                     "googleTaskId": {
                         "type": [
                             "string",
@@ -16170,6 +16179,15 @@
                             }
                         }
                     },
+                    "overdueDays": {
+                        "readOnly": true,
+                        "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 1
+                    },
                     "googleTaskId": {
                         "type": [
                             "string",
@@ -16290,6 +16308,15 @@
                                 "type": "string"
                             }
                         }
+                    },
+                    "overdueDays": {
+                        "readOnly": true,
+                        "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 1
                     },
                     "googleTaskId": {
                         "type": [
@@ -16413,6 +16440,15 @@
                                         "type": "string"
                                     }
                                 }
+                            },
+                            "overdueDays": {
+                                "readOnly": true,
+                                "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 1
                             },
                             "googleTaskId": {
                                 "type": [

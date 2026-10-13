@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { addDays } from '../../dates'
 import { Dashboard } from './Dashboard'
+import type { TodayTask } from './todayTasks'
 
 class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -10,6 +11,8 @@ class MockEventSource {
 }
 
 const mockGetList = vi.fn()
+const mockFetchToday = vi.fn<() => Promise<TodayTask[]>>()
+vi.mock('./todayTasks', () => ({ fetchTodayTasks: () => mockFetchToday() }))
 vi.mock('react-admin', () => ({
   useDataProvider: () => ({ getList: mockGetList, update: vi.fn() }),
   useNotify: () => vi.fn(),
@@ -52,6 +55,7 @@ const digest = (name: string) => screen.getByRole('heading', { name }).parentEle
 describe('Dashboard — all-day events are dates (MAG-382)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetchToday.mockResolvedValue([])
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
     vi.stubGlobal('EventSource', MockEventSource)
@@ -117,31 +121,34 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
   })
 })
 
-describe('Dashboard — subtasks (MAG-404)', () => {
-  const task = (id: string, title: string, extra: Record<string, unknown> = {}) => ({
-    id: `/api/tasks/${id}`,
+describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405)', () => {
+  const todayTask = (id: string, title: string, extra: Partial<TodayTask> = {}): TodayTask => ({
+    '@id': `/api/tasks/${id}`,
     title,
-    priority: 'medium',
     criticality: 'medium',
     ...extra,
   })
+
+  const VIEW: TodayTask[] = [
+    todayTask('01LATE', 'Renvoyer le formulaire', { dueDate: '2037-01-13', overdueDays: 2 }),
+    todayTask('01MOVING', 'Préparer le déménagement', { dueDate: '2037-01-15', overdueDays: null }),
+    todayTask('01BOXES', 'Réserver le camion', { parent: '/api/tasks/01MOVING' }),
+  ]
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
     vi.stubGlobal('EventSource', MockEventSource)
-    mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
+    mockFetchToday.mockResolvedValue(VIEW)
+    mockGetList.mockImplementation((resource: string) => {
       if (resource !== 'tasks') return Promise.resolve({ data: [], total: 0 })
-      if (params.filter['exists[dueDate]'] === false) {
-        const undated = [
-          task('01MOVING', 'Préparer le déménagement'),
-          task('01BOXES', 'Réserver le camion', { parent: '/api/tasks/01MOVING' }),
-        ]
-        return Promise.resolve({ data: undated, total: undated.length })
-      }
-      const dated = [task('01ADDRESS', "Changer d'adresse à la banque", { parent: '/api/tasks/01MOVING', dueDate: '2037-01-15' })]
-      return Promise.resolve({ data: dated, total: dated.length })
+      // The other days: an undated subtask never gets a row of its own there.
+      const ranged = [
+        { id: '/api/tasks/01WEEK', title: 'Payer la cantine', priority: 'medium', criticality: 'low', dueDate: '2037-01-17' },
+        { id: '/api/tasks/01SUB', title: 'Sous-tâche sans date', priority: 'medium', criticality: 'low', parent: '/api/tasks/01WEEK' },
+      ]
+      return Promise.resolve({ data: ranged, total: ranged.length })
     })
   })
 
@@ -150,11 +157,35 @@ describe('Dashboard — subtasks (MAG-404)', () => {
     vi.unstubAllGlobals()
   })
 
-  test('lists a dated subtask on its own row but not an undated one', async () => {
+  test('keeps the API order, the late task first with its lateness and original day', async () => {
     render(<Dashboard />)
 
-    expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
-    expect(screen.getByText("Changer d'adresse à la banque")).toBeInTheDocument()
-    expect(screen.queryByText('Réserver le camion')).not.toBeInTheDocument()
+    const late = (await screen.findByText('Renvoyer le formulaire')).closest('li') as HTMLElement
+    expect(within(late).getByText('En retard de 2 j')).toBeInTheDocument()
+    expect(within(late).getByText(/^prévue le 13 janv/)).toBeInTheDocument()
+
+    const rows = within(dailyColumn("Aujourd'hui")).getAllByRole('listitem').map((li) => li.textContent ?? '')
+    expect(rows[0]).toContain('Renvoyer le formulaire')
+    expect(rows[1]).toContain('Préparer le déménagement')
+    expect(rows[2]).toContain('Réserver le camion')
+  })
+
+  test('lists a subtask under its task in Today, but not an undated one on the other days', async () => {
+    render(<Dashboard />)
+
+    expect(await screen.findByText('Réserver le camion')).toBeInTheDocument()
+    expect(screen.getByText('Payer la cantine')).toBeInTheDocument()
+    expect(screen.queryByText('Sous-tâche sans date')).not.toBeInTheDocument()
+  })
+
+  test('says « Tâches indisponibles » rather than « Aucune tâche » when the view cannot be read', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockFetchToday.mockRejectedValue(new Error('Tâches du jour : 500'))
+    render(<Dashboard />)
+
+    expect(await within(dailyColumn("Aujourd'hui")).findByText('Tâches indisponibles')).toBeInTheDocument()
+    // The rest of the page still shows.
+    expect(await screen.findByText('Payer la cantine')).toBeInTheDocument()
+    consoleError.mockRestore()
   })
 })

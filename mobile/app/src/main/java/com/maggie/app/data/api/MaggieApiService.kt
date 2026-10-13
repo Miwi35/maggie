@@ -638,12 +638,10 @@ class MaggieApiService(
         }.body<ApiCollection<Task>>().member
     }
 
-    suspend fun getUndoneUndatedTasks(): List<Task> {
-        return client.get("$baseUrl/api/tasks") {
+    /** The tasks of « Aujourd'hui »: a read-only view, in the order to show (MAG-405). */
+    suspend fun getTodayTasks(): List<Task> {
+        return client.get("$baseUrl/api/tasks/view/today") {
             accept(ContentType("application", "ld+json"))
-            withoutPagination()
-            url.parameters.append("exists[completedAt]", "false")
-            url.parameters.append("exists[dueDate]", "false")
         }.body<ApiCollection<Task>>().member
     }
 

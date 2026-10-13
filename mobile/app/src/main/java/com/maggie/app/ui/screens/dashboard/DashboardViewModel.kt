@@ -135,10 +135,10 @@ class DashboardViewModel(
             val weekEnd = today.plusDays(7)
             val monthEnd = today.plusMonths(1)
             val rawTasks = taskRepository.getUndoneTasks(monthEnd.toString()).filter(::listedOnItsOwn)
-            val undueTasks = taskRepository.getUndoneUndatedTasks().filter(::listedOnItsOwn)
 
-            // Today tasks: overdue + today + undated
-            val todayTasks = rawTasks.filter { t -> t.dueDay?.let { it <= today } == true } + undueTasks
+            // Today: the API's view (MAG-405) — due today or late, the most late first, each task
+            // followed by its subtasks. The server decides which day it is, in the user's timezone.
+            val todayTasks = taskRepository.getTodayTasks()
 
             val tomorrowTasks = rawTasks.filter { t -> t.dueDay == tomorrow }
 
@@ -166,9 +166,8 @@ class DashboardViewModel(
     }
 
     /**
-     * A subtask lives in its parent's detail (MAG-404). An undated one would otherwise
-     * land in « Aujourd'hui » beside its parent, once per step of every Google list;
-     * a dated one keeps its row, as Google Calendar shows it on its day.
+     * On the other days, a subtask lives in its parent's detail (MAG-404): an undated one
+     * has no day of its own, a dated one keeps its row, as Google Calendar shows it.
      */
     private fun listedOnItsOwn(task: Task): Boolean = !task.isSubtask || task.dueDate != null
 

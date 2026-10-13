@@ -1,0 +1,83 @@
+# « Aujourd'hui » (MAG-405). The tests pin the clock at 2026-10-13 12:00 UTC.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  late_one_day:
+    title: Late one day
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    position: '00000000000000000002'
+    user: '@test_user'
+
+  late_three_days:
+    title: Late three days
+    dueDate: '<(new \DateTimeImmutable("2026-10-10"))>'
+    position: '00000000000000000009'
+    user: '@test_user'
+
+  due_today:
+    title: Due today
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  # Not yet due, undated, or done: never in.
+  due_tomorrow:
+    title: Due tomorrow
+    dueDate: '<(new \DateTimeImmutable("2026-10-14"))>'
+    user: '@test_user'
+
+  undated:
+    title: Undated
+    user: '@test_user'
+
+  late_but_done:
+    title: Late but done
+    dueDate: '<(new \DateTimeImmutable("2026-10-09"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-10-11 10:00"))>'
+    user: '@test_user'
+
+  # Under their task, in their order, dated or not, done ones left out.
+  sub_of_late_second:
+    title: Sub of late, second
+    parent: '@late_three_days'
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  sub_of_late_first:
+    title: Sub of late, first
+    parent: '@late_three_days'
+    position: '00000000000000000000'
+    user: '@test_user'
+
+  sub_of_late_done:
+    title: Sub of late, done
+    parent: '@late_three_days'
+    position: '00000000000000000002'
+    completedAt: '<(new \DateTimeImmutable("2026-10-12 10:00"))>'
+    user: '@test_user'
+
+  # Late, but its task is not listed: a row of its own.
+  sub_late_alone:
+    title: Late subtask of a future task
+    parent: '@due_tomorrow'
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    position: '00000000000000000000'
+    user: '@test_user'
+
+  other_users_late:
+    title: Someone else's late task
+    dueDate: '<(new \DateTimeImmutable("2026-10-01"))>'
+    user: '@other_user'
