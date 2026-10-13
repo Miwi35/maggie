@@ -1134,7 +1134,7 @@ class MaggieApiServiceTest {
     }
 
     @Test
-    fun `the recurring items are read in one page, with what the tab displays`() = runBlocking {
+    fun `the recurring items are read without pagination, with what the tab displays`() = runBlocking {
         var url: io.ktor.http.Url? = null
         val service = MaggieApiService(
             categoryClient { request ->
@@ -1145,7 +1145,7 @@ class MaggieApiServiceTest {
 
         val items = service.getRecurringGroceryItems()
 
-        assertEquals("100", url!!.parameters["itemsPerPage"])
+        assertEquals("false", url!!.parameters["pagination"])
         assertTrue(url!!.encodedPath.endsWith("/api/recurring_grocery_items"))
         assertEquals("p1", items.single().productId)
         assertEquals("Lait", items.single().label)
