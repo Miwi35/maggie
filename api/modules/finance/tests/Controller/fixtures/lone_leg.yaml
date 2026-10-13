@@ -1,0 +1,44 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: lone-leg-controller@example.com
+    googleId: google-lone-leg-controller
+    name: Meven Cadare
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  revolut:
+    name: Revolut
+    bank: Revolut
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # The Revolut sync is incomplete: only the credit side is visible.
+  lone_leg:
+    account: '@checking'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-29"))>'
+    label: VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  third_party:
+    account: '@checking'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-30"))>'
+    label: VIR INST de MR CADARE ALEX
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

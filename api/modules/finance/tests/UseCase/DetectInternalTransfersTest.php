@@ -69,6 +69,7 @@ class DetectInternalTransfersTest extends KernelTestCase
         TransactionStatus $status = TransactionStatus::Spent,
         string $currency = 'EUR',
         string $userRef = 'test_user',
+        ?string $counterparty = null,
     ): Transaction {
         $transaction = new Transaction();
         $transaction->setUser($this->user($userRef));
@@ -78,11 +79,33 @@ class DetectInternalTransfersTest extends KernelTestCase
         $transaction->setBookedAt(new \DateTimeImmutable($bookedAt));
         $transaction->setLabel($label);
         $transaction->setStatus($status);
+        $transaction->setCounterpartyName($counterparty);
 
         $this->em->persist($transaction);
         $this->flushWithoutTransactionEffects($this->em);
 
         return $transaction;
+    }
+
+    /** The owner's name is what a bank writes on the transfers he makes to himself. */
+    private function ownerIs(string $name): void
+    {
+        $this->user()->setName($name);
+        $this->flushWithoutTransactionEffects($this->em);
+    }
+
+    /** An account at another bank, with nothing synced on it yet. */
+    private function accountAt(string $bank): Account
+    {
+        $account = (new Account())
+            ->setName($bank)
+            ->setBank($bank)
+            ->setCurrency('EUR')
+            ->setUser($this->user());
+        $this->em->persist($account);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        return $account;
     }
 
     private function refresh(Transaction $transaction): Transaction
@@ -339,5 +362,214 @@ class DetectInternalTransfersTest extends KernelTestCase
 
         self::assertSame((string) $in->getId(), (string) $this->detect->detectFor($out)?->getId());
         self::assertNull($this->detect->detectFor($this->tx('groceries')));
+    }
+
+    private const string REVOLUT_LEG = 'VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare';
+
+    public function testALegWhoseLabelNamesTheHolderIsAnInternalTransferWithNoCounterpart(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertNotContains((string) $leg->getId(), array_column($report['pairs'], 'transactionId'), 'there is no pair, only one leg');
+        self::assertNotContains((string) $leg->getId(), array_column($report['pairs'], 'counterpartId'));
+        self::assertCount(1, $report['loneLegs']);
+        self::assertSame((string) $leg->getId(), $report['loneLegs'][0]['transactionId']);
+
+        $this->refresh($leg);
+        self::assertSame(TransferKind::Internal, $leg->getTransferKind());
+        self::assertSame(TransferSource::Auto, $leg->getTransferSource());
+        self::assertNull($leg->getCounterpart());
+    }
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function holderSpellings(): iterable
+    {
+        yield 'surname first' => ['VIR INST de CADARE MEVEN', null];
+        yield 'upper case' => ['VIREMENT RECU DE MEVEN CADARE', null];
+        yield 'lower case' => ['virement de meven cadare', null];
+        yield 'cut by the bank' => ['VIREMENT EN VOTRE FAVEUR VIR INST de Meven Ca…', null];
+        yield 'on the counterparty only' => ['VIR SEPA RECU', 'Cadare Meven'];
+        yield 'a debit towards oneself' => ['VIR SEPA EMIS vers Meven Cadare', null];
+    }
+
+    #[DataProvider('holderSpellings')]
+    public function testEverySpellingOfTheHolderIsRecognised(string $label, ?string $counterparty): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', $label, counterparty: $counterparty);
+
+        $this->detect->execute($this->user());
+
+        self::assertSame(TransferKind::Internal, $this->refresh($leg)->getTransferKind(), $label);
+    }
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function otherPeople(): iterable
+    {
+        yield 'same surname, another first name' => ['VIR INST de MR CADARE ALEX', 'MR CADARE ALEX'];
+        yield 'same first name, another surname' => ['VIR INST de Meven Dupont', null];
+        yield 'the surname alone' => ['VIR INST de Cadare', null];
+        yield 'a longer name that contains his' => ['VIR INST de Meven Cadaresse', null];
+        yield 'a card payment in a shop of that name' => ['CB MEVEN CADARE COIFFURE', null];
+        yield 'a rejection of his own transfer' => ['REJET VIR INST de Meven Cadare', null];
+    }
+
+    #[DataProvider('otherPeople')]
+    public function testSomeoneElseIsStillAnIncome(string $label, ?string $counterparty): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', $label, counterparty: $counterparty);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs'], $label);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer(), $label);
+    }
+
+    public function testAHolderWithOneNameOnlyIsNeverGuessedFrom(): void
+    {
+        $this->ownerIs('Meven');
+        $leg = $this->add('checking', 20000, '2026-09-29', 'VIR INST de Meven');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($leg)->isInternalTransfer(), 'one first name is shared by too many payees');
+    }
+
+    public function testALegComingFromTheBankOfAnotherAccountOfTheHolderIsInternal(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->accountAt('Revolut');
+        $leg = $this->add('checking', 20000, '2026-09-29', 'VIREMENT RECU REVOLUT BANK UAB');
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame('bank', $report['loneLegs'][0]['reason']);
+        self::assertSame(TransferKind::Internal, $this->refresh($leg)->getTransferKind());
+        self::assertNull($leg->getCounterpart());
+    }
+
+    public function testTheNameOfABankHeDoesNotHaveAnAccountAtIsNothing(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', 'VIREMENT RECU REVOLUT BANK UAB');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testTheBankNameNeedsAWordOfTransferAndNotAPurchase(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->accountAt('Revolut');
+        $card = $this->add('checking', -1500, '2026-09-29', 'CB REVOLUT STORE PARIS');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($card)->isInternalTransfer());
+    }
+
+    public function testTheBankOfTheLinesOwnAccountSaysNothingAboutIt(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->account('checking')->setBank('Crédit Agricole');
+        $this->flushWithoutTransactionEffects($this->em);
+        $leg = $this->add('checking', 20000, '2026-09-29', 'VIR SEPA RECU CREDIT AGRICOLE ASSURANCES');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testSomeoneElsesNameOrBankNeverMarksMyLine(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->user('other_user')->setName('Alex Martin');
+        $leg = $this->add('checking', 20000, '2026-09-29', 'VIR INST de Alex Martin');
+
+        $this->detect->execute($this->user());
+
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testADryRunReportsTheLoneLegAndWritesNothing(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+
+        $report = $this->detect->execute($this->user(), null, true);
+
+        self::assertTrue($report['dryRun']);
+        self::assertSame([(string) $leg->getId()], array_column($report['loneLegs'], 'transactionId'));
+        self::assertSame(20000, $report['loneLegs'][0]['amountCents']);
+        self::assertSame('2026-09-29', $report['loneLegs'][0]['bookedAt']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testASecondPassChangesNothing(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+
+        $first = $this->detect->execute($this->user());
+        $second = $this->detect->execute($this->user());
+
+        self::assertCount(1, $first['loneLegs']);
+        self::assertSame([], $second['loneLegs']);
+        self::assertSame(0, $second['matched']);
+    }
+
+    public function testALegTheOwnerTookOutByHandIsNeverMarkedAgain(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+        $leg->releaseInternalTransfer(TransferSource::Manual);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testTheOtherLegArrivingLaterIsPairedWithTheLoneOne(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $revolut = $this->accountAt('Revolut');
+        $lone = $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+        $this->detect->execute($this->user());
+        self::assertNull($this->refresh($lone)->getCounterpart());
+
+        $this->em->persist($out = (new Transaction())
+            ->setUser($this->user())
+            ->setAccount($revolut)
+            ->setAmountCents(-20000)
+            ->setCurrency('EUR')
+            ->setBookedAt(new \DateTimeImmutable('2026-09-28'))
+            ->setLabel('Transfer to Meven Cadare')
+            ->setStatus(TransactionStatus::Spent));
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame(1, $report['matched']);
+        self::assertSame([], $report['loneLegs'], 'the pair says it all');
+        self::assertSame((string) $out->getId(), (string) $this->refresh($lone)->getCounterpart()?->getId());
+        self::assertSame((string) $lone->getId(), (string) $this->refresh($out)->getCounterpart()?->getId());
+        self::assertSame(TransferKind::Internal, $out->getTransferKind());
+    }
+
+    public function testDetectForALoneLegFindsNoCounterpartButMarksItAsLone(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 20000, '2026-09-29', self::REVOLUT_LEG);
+
+        self::assertNull($this->detect->detectFor($leg));
+        self::assertNotNull($this->detect->loneLegReason($leg));
+        self::assertNull($this->detect->loneLegReason($this->tx('groceries')));
     }
 }

@@ -184,4 +184,64 @@ class DetectInternalTransfersControllerTest extends WebTestCase
         self::assertSame(0, $second['matched']);
         self::assertSame(1, $second['scanned'], 'only the ordinary expense is still up for pairing');
     }
+
+    public function testTheCatchUpMarksALegWhoseOtherSideIsNotVisibleAndTellsEveryScreen(): void
+    {
+        $this->loadFixtures('lone_leg.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $lone = $this->tx('lone_leg');
+        $thirdParty = $this->tx('third_party');
+
+        $data = $this->detect();
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $data['matched']);
+        self::assertSame([(string) $lone->getId()], array_column($data['loneLegs'], 'transactionId'));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Transaction::class, $lone->getId());
+
+        self::assertSame(TransferKind::Internal, $stored->getTransferKind());
+        self::assertSame(TransferSource::Auto, $stored->getTransferSource());
+        self::assertNull($stored->getCounterpart());
+        self::assertSame(TransferKind::None, $em->find(Transaction::class, $thirdParty->getId())->getTransferKind());
+
+        $this->assertMercureUpdatePublished((string) $lone->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $lone->getId());
+    }
+
+    public function testADryRunReportsTheLoneLegAndWritesNothing(): void
+    {
+        $this->loadFixtures('lone_leg.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $lone = $this->tx('lone_leg');
+
+        $data = $this->detect(['dryRun' => true]);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($data['dryRun']);
+        self::assertSame([(string) $lone->getId()], array_column($data['loneLegs'], 'transactionId'));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        self::assertSame(TransferKind::None, $em->find(Transaction::class, $lone->getId())->getTransferKind());
+        self::assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testASecondCatchUpOverALoneLegChangesNothing(): void
+    {
+        $this->loadFixtures('lone_leg.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->detect();
+        $second = $this->detect();
+
+        self::assertSame(0, $second['matched']);
+        self::assertSame([], $second['loneLegs']);
+    }
 }

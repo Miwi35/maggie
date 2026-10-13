@@ -6,9 +6,11 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Message\DeleteTransactionCommand;
 use Maggie\Finance\Message\UpdateTransactionCommand;
@@ -113,7 +115,7 @@ class TransactionEffectsTest extends KernelTestCase
     {
         $out = $this->getFixture('transfer_out');
         $in = $this->getFixture('transfer_in');
-        $out->markAsInternalTransfer($in, \Maggie\Finance\Enum\TransferSource::Auto);
+        $out->markAsInternalTransfer($in, TransferSource::Auto);
         $this->em()->flush();
         $this->resetMercure();
         $this->resetAsyncTransport();
@@ -126,5 +128,75 @@ class TransactionEffectsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/transactions/'.$remaining->getId());
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $remaining->getId());
         $this->assertElasticsearchDeleteDispatched();
+    }
+
+    private function revolut(): Account
+    {
+        $user = $this->em()->getReference(\Maggie\Core\Entity\User::class, $this->getFixture('test_user')->getId());
+        $user->setName('Meven Cadare');
+        $account = (new Account())->setName('Revolut')->setBank('Revolut')->setCurrency('EUR')->setUser($user);
+        $this->em()->persist($account);
+        $this->em()->flush();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        return $account;
+    }
+
+    private function land(string $accountId, int $amountCents, string $label, string $bookedAt): void
+    {
+        $this->dispatch(new CreateTransactionCommand(
+            userId: $this->userId(),
+            accountId: $accountId,
+            amountCents: $amountCents,
+            label: $label,
+            bookedAt: $bookedAt,
+        ));
+    }
+
+    public function testALegNamingTheHolderIsMarkedInternalAsItLandsAndTellsTheScreens(): void
+    {
+        $this->revolut();
+
+        $this->land((string) $this->getFixture('checking')->getId(), 20000, 'VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare', '2026-09-29');
+
+        $this->em()->clear();
+        $leg = $this->em()->getRepository(Transaction::class)->findOneBy(['label' => 'VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare']);
+        self::assertSame(TransferKind::Internal, $leg->getTransferKind());
+        self::assertSame(TransferSource::Auto, $leg->getTransferSource());
+        self::assertNull($leg->getCounterpart());
+        $this->assertMercureUpdatePublished('/transactions/'.$leg->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $leg->getId());
+    }
+
+    public function testATransferFromAThirdPartyOfTheSameSurnameStaysAnIncome(): void
+    {
+        $this->revolut();
+
+        $this->land((string) $this->getFixture('checking')->getId(), 20000, 'VIR INST de MR CADARE ALEX', '2026-09-29');
+
+        $this->em()->clear();
+        $leg = $this->em()->getRepository(Transaction::class)->findOneBy(['label' => 'VIR INST de MR CADARE ALEX']);
+        self::assertSame(TransferKind::None, $leg->getTransferKind());
+    }
+
+    public function testTheLegThatArrivesLaterIsPairedWithTheLoneOneAndBothTellTheScreens(): void
+    {
+        $revolut = $this->revolut();
+        $this->land((string) $this->getFixture('checking')->getId(), 20000, 'VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare', '2026-09-29');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->land((string) $revolut->getId(), -20000, 'Transfer to Meven Cadare', '2026-09-29');
+
+        $this->em()->clear();
+        $repository = $this->em()->getRepository(Transaction::class);
+        $lone = $repository->findOneBy(['label' => 'VIREMENT EN VOTRE FAVEUR VIR INST de Meven Cadare']);
+        $out = $repository->findOneBy(['label' => 'Transfer to Meven Cadare']);
+        self::assertSame(TransferKind::Internal, $lone->getTransferKind());
+        self::assertSame((string) $out->getId(), (string) $lone->getCounterpart()?->getId());
+        self::assertSame((string) $lone->getId(), (string) $out->getCounterpart()?->getId());
+        $this->assertMercureUpdatePublished('/transactions/'.$lone->getId());
+        $this->assertMercureUpdatePublished('/transactions/'.$out->getId());
     }
 }
