@@ -113,12 +113,12 @@ class TestTheMove:
         assert [p["prompt"] for p in api.of("user-2")] == ["Rappelle le chien"]
         assert not table_exists(engine)
 
-    async def test_one_that_fell_due_during_the_deploy_still_runs_a_minute_later(self, engine, api):
+    async def test_one_that_fell_due_during_the_deploy_still_runs_a_few_minutes_later(self, engine, api):
         seed(engine, "late", at=datetime(2030, 11, 13, 10, 55, tzinfo=UTC))
 
         await legacy.migrate_legacy_proactions()
 
-        assert [p["scheduledAt"] for p in api.of("user-1")] == ["2030-11-13T11:01:00+00:00"]
+        assert [p["scheduledAt"] for p in api.of("user-1")] == ["2030-11-13T11:03:00+00:00"]
 
     async def test_an_unreachable_api_keeps_the_table_and_the_next_attempt_resumes_without_doubles(self, engine, api):
         seed(engine, "a", at=datetime(2030, 11, 13, 17, 0, tzinfo=UTC), prompt="Rappelle le pain")
@@ -154,7 +154,7 @@ class TestTheMove:
         api.down = False
         assert await legacy.migrate_legacy_proactions() is True
 
-        assert [p["scheduledAt"] for p in api.of("user-1")] == ["2030-11-13T11:06:00+00:00"]
+        assert [p["scheduledAt"] for p in api.of("user-1")] == ["2030-11-13T11:08:00+00:00"]
 
     async def test_a_row_scheduled_but_not_deleted_is_not_scheduled_twice(self, engine, api, monkeypatch):
         seed(engine, "late", at=datetime(2030, 11, 13, 10, 55, tzinfo=UTC))
@@ -171,6 +171,9 @@ class TestTheMove:
         with pytest.raises(RuntimeError):
             await legacy.migrate_legacy_proactions()
 
+        # The executor's next minute.
+        monkeypatch.setattr(legacy, "_utcnow", lambda: datetime(2030, 11, 13, 11, 1, tzinfo=UTC))
+        api.now = datetime(2030, 11, 13, 11, 1, tzinfo=UTC)
         monkeypatch.setattr(legacy, "agent_engine", real_engine)
         assert await legacy.migrate_legacy_proactions() is True
 

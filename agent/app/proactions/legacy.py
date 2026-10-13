@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 LEGACY_TABLE = "proaction"
 # The API refuses a time already passed: one that fell due while the agent was being
-# deployed runs as soon as it can, a minute later, rather than never.
-OVERDUE_DELAY = timedelta(minutes=1)
+# deployed runs a few minutes later rather than never — long enough for the instant to
+# outlive a couple of the executor's one-minute attempts (see `_earliest`).
+OVERDUE_DELAY = timedelta(minutes=3)
 
 _done = False
 # Kept from one attempt to the next while it is still ahead, so an overdue row scheduled
