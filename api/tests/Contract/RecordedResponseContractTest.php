@@ -7,7 +7,9 @@ namespace App\Tests\Contract;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\UseCase\GetAnnualPlan;
 use Maggie\Finance\UseCase\GetRecurringOperations;
+use Maggie\Finance\UseCase\GetTreasuryOutlook;
 use Maggie\Finance\UseCase\SuggestRecurringOperations;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -128,6 +130,39 @@ final class RecordedResponseContractTest extends WebTestCase
             self::stabilise($body),
             'GET /api/finance/recurring-operations/overview no longer returns what it used to. The mobile DTOs (RecurringOperation.kt) are written against this response.',
         );
+    }
+
+    /**
+     * The treasury and the annual plan project the series' occurrences
+     * (MAG-307): read at a fixed day and year, as the controllers send them,
+     * so the recording does not move with the clock. The outlook is read on
+     * 2026-04-30 with April's salary still awaited, so it runs to the 24th of
+     * May and holds the rent expected on the 5th.
+     */
+    public function testTheProjectionsRecordingsAreCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedTreasury.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+
+        $outlook = self::getContainer()->get(GetTreasuryOutlook::class)->execute($user, new \DateTimeImmutable('2026-04-30'));
+        $sources = array_merge(...array_map(static fn (array $row): array => array_column($row['movements'], 'source'), $outlook['projection']));
+        self::assertContains('recurring', $sources, 'The recorded treasury holds no expected occurrence, so it proves nothing about `source`.');
+
+        $plan = self::getContainer()->get(GetAnnualPlan::class)->execute($user, 2026);
+        self::assertNotSame([], array_filter(array_column($plan['categories'], 'recurringCents')), 'The recorded plan holds no recurring debit.');
+
+        foreach (['finance_treasury_outlook.read' => $outlook, 'finance_annual_plan.read' => $plan] as $name => $read) {
+            $body = json_decode((string) json_encode($read, \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+            self::assertIsArray($body);
+
+            $this->assertMatchesContract(
+                'responses/'.$name.'.json',
+                self::stabilise($body),
+                sprintf('The %s read no longer returns what it used to.', $name),
+            );
+        }
     }
 
     /**

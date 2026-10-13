@@ -6,7 +6,6 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
-use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -18,9 +17,11 @@ use Maggie\Finance\Repository\TreasurySettingsRepository;
  *
  * It only reads what is entered (shape decision 17): the balances of the open
  * checking accounts, their planned and committed movements from today on,
- * and the expected salary. No average, no extrapolation — every balance of
- * the projection is yesterday's plus the day's movements, and an overdraft
- * one cannot recompute by hand is one nobody believes.
+ * the occurrences the owner's confirmed recurring series still expect
+ * (MAG-307, `source` = `recurring`; one with a line attached is that line's,
+ * never counted twice) and the expected salary. No average, no extrapolation
+ * — every balance of the projection is yesterday's plus the day's movements,
+ * and an overdraft one cannot recompute by hand is one nobody believes.
  *
  * The projection runs from today to the day before the salary is expected,
  * {@see MAX_DAYS} days at most. A late salary has no date left: it runs to the
@@ -46,6 +47,7 @@ class GetTreasuryOutlook
         private readonly TreasurySettingsRepository $settingsRepository,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
+        private readonly GetRecurringOccurrences $getRecurringOccurrences,
     ) {
     }
 
@@ -54,7 +56,7 @@ class GetTreasuryOutlook
      *     today: string,
      *     salary: array{isConfigured: bool, expectedOn: string|null, referenceCents: int|null, isReceived: bool, isLate: bool, delayDays: int, shortfallCents: int},
      *     balanceCents: int,
-     *     projection: list<array{date: string, balanceCents: int, movements: list<array{id: string, label: string, amountCents: int, status: string, accountId: string, accountName: string}>}>,
+     *     projection: list<array{date: string, balanceCents: int, movements: list<array{id: string, label: string, amountCents: int, status: string, accountId: string, accountName: string, source: string}>}>,
      *     balanceBeforeSalary: array{onDate: string, balanceCents: int}|null,
      *     overdraft: array{isForecast: bool, onDate: string|null, worstBalanceCents: int, limitCents: int},
      *     advice: array{amountCents: int, sourceAccountId: string|null, sourceAccountName: string|null, sourceBalanceCents: int, sourceAmountCents: int, isCushion: bool, alternatives: list<array{accountId: string, accountName: string, balanceCents: int, amountCents: int, isCushion: bool}>, uncoveredCents: int, touchesCushion: bool}|null,
@@ -114,7 +116,7 @@ class GetTreasuryOutlook
             $arrival = $expectedOn;
         }
 
-        $projection = $this->project($user, $today, $arrival, $balance);
+        $projection = $this->project($user, $today, $arrival, $balance, $accounts);
         $overdraft = self::overdraft($today, $balance, $projection, $limit);
 
         return [
@@ -141,37 +143,68 @@ class GetTreasuryOutlook
 
     /**
      * One row per day from today to the day before $arrival, at most
-     * {@see MAX_DAYS}: the day's balance is the previous one plus the day's movements.
+     * {@see MAX_DAYS}: the day's balance is the previous one plus the day's
+     * movements — the entered lines first (`source` = `transaction`), then the
+     * occurrences still expected (`source` = `recurring`, `status` = `expected`,
+     * `id` = the series') on the open checking accounts, like the lines.
      *
-     * @return list<array{date: string, balanceCents: int, movements: list<array{id: string, label: string, amountCents: int, status: string, accountId: string, accountName: string}>}>
+     * @param list<Account> $accounts
+     *
+     * @return list<array{date: string, balanceCents: int, movements: list<array{id: string, label: string, amountCents: int, status: string, accountId: string, accountName: string, source: string}>}>
      */
-    private function project(User $user, \DateTimeImmutable $today, \DateTimeImmutable $arrival, int $balance): array
+    private function project(User $user, \DateTimeImmutable $today, \DateTimeImmutable $arrival, int $balance, array $accounts): array
     {
         $end = min($arrival, $today->modify(sprintf('+%d days', self::MAX_DAYS)));
         if ($end <= $today) {
             return [];
         }
 
+        $checking = [];
+        foreach ($accounts as $account) {
+            if (AccountType::Checking === $account->getType()) {
+                $checking[(string) $account->getId()] = $account;
+            }
+        }
+
+        /** @var array<string, list<array{id: string, label: string, amountCents: int, status: string, accountId: string, accountName: string, source: string}>> $byDay */
         $byDay = [];
         foreach ($this->transactionRepository->findForecastMovementsBetween($user, $today, $end) as $movement) {
-            $byDay[$movement->getBookedAt()->format('Y-m-d')][] = $movement;
+            $byDay[$movement->getBookedAt()->format('Y-m-d')][] = [
+                'id' => (string) $movement->getId(),
+                'label' => $movement->getLabel(),
+                'amountCents' => $movement->getAmountCents(),
+                'status' => $movement->getStatus()->value,
+                'accountId' => (string) $movement->getAccount()->getId(),
+                'accountName' => $movement->getAccount()->getName(),
+                'source' => 'transaction',
+            ];
+        }
+
+        foreach ($this->getRecurringOccurrences->execute($user, $today, $end) as $occurrence) {
+            $account = $checking[$occurrence['accountId']] ?? null;
+            if (null === $account) {
+                continue;
+            }
+
+            $byDay[$occurrence['date']][] = [
+                'id' => $occurrence['recurringOperationId'],
+                'label' => $occurrence['label'],
+                'amountCents' => $occurrence['amountCents'],
+                'status' => 'expected',
+                'accountId' => $occurrence['accountId'],
+                'accountName' => $account->getName(),
+                'source' => 'recurring',
+            ];
         }
 
         $rows = [];
         for ($date = $today; $date < $end; $date = $date->modify('+1 day')) {
             $movements = $byDay[$date->format('Y-m-d')] ?? [];
-            $balance += array_sum(array_map(static fn (Transaction $movement): int => $movement->getAmountCents(), $movements));
+            $balance += array_sum(array_column($movements, 'amountCents'));
             $rows[] = [
                 'date' => $date->format('Y-m-d'),
                 'balanceCents' => $balance,
-                'movements' => array_map(static fn (Transaction $movement): array => [
-                    'id' => (string) $movement->getId(),
-                    'label' => $movement->getLabel(),
-                    'amountCents' => $movement->getAmountCents(),
-                    'status' => $movement->getStatus()->value,
-                    'accountId' => (string) $movement->getAccount()->getId(),
-                    'accountName' => $movement->getAccount()->getName(),
-                ], $movements),
+                'movements' => $movements,
             ];
         }
 
