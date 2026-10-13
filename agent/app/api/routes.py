@@ -925,7 +925,12 @@ async def accept_style_proposal(
     accepted = await style_proposal_repo.decide(user_id, proposal_id, StyleProposalStatus.ACCEPTED, content)
     if accepted is None:
         raise HTTPException(status_code=409, detail="Proposal is not pending")
-    instruction = await instruction_repo.store(user_id, accepted.content, kind=InstructionKind.BEHAVIOR)
+    try:
+        instruction = await instruction_repo.store(user_id, accepted.content, kind=InstructionKind.BEHAVIOR)
+    except Exception:
+        # Accepted without a directive would be a proposal consumed for nothing: offer it again.
+        await style_proposal_repo.reopen(user_id, proposal_id)
+        raise
     return {"proposal": accepted.to_dict(), "instruction": instruction.to_dict()}
 
 

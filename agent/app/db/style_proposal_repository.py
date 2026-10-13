@@ -60,5 +60,17 @@ class StyleProposalRepository:
             await session.refresh(proposal)
             return proposal
 
+    async def reopen(self, user_id: str, proposal_id: str) -> None:
+        """Put a decided proposal back to pending — an acceptance whose directive could not be written."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(StyleProposal).where(StyleProposal.id == proposal_id, StyleProposal.user_id == user_id)
+            )
+            proposal = result.scalar_one_or_none()
+            if proposal is not None:
+                proposal.status = StyleProposalStatus.PENDING
+                proposal.decided_at = None
+                await session.commit()
+
 
 style_proposal_repo = StyleProposalRepository()

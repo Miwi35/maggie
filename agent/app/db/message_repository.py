@@ -296,15 +296,17 @@ class MessageRepository:
             return msg
 
     async def find_rated(self, user_id: str, since: datetime | None = None, limit: int = 50) -> list[Message]:
-        """The answers the user rated after `since`, oldest first — what the style synthesis reads (MAG-23)."""
+        """The first `limit` answers rated after `since`, oldest first — what the style synthesis reads (MAG-23).
+
+        Oldest first, so a backlog is read in batches: the synthesis moves its marker to the last
+        one read, and the rest follows on the next pass instead of falling behind the marker.
+        """
         async with agent_session() as session:
             query = select(Message).where(Message.user_id == user_id, Message.feedback.is_not(None))
             if since is not None:
                 query = query.where(Message.feedback_at > since)
-            result = await session.execute(query.order_by(Message.feedback_at.desc()).limit(limit))
-            messages = list(result.scalars().all())
-            messages.reverse()
-            return messages
+            result = await session.execute(query.order_by(Message.feedback_at.asc()).limit(limit))
+            return list(result.scalars().all())
 
     async def find_rated_user_ids(self) -> list[str]:
         """Every user with at least one rated answer."""

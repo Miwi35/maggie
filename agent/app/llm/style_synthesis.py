@@ -13,6 +13,7 @@ Best-effort like the context summary: it runs in the background, nobody waits on
 and a failure leaves the thumbs unread for the next pass rather than raising.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -81,6 +82,9 @@ class StyleSynthesizer:
 
     def __init__(self):
         self.client = create_llm_client() if llm_configured() else None
+        # One pass per user at a time: « Analyser mes retours » during the daily pass would
+        # read the same thumbs twice and store every proposal twice.
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def synthesize(self, user_id: str, *, min_feedback: int | None = None) -> list[StyleProposal]:
         """Read the thumbs given since the last pass and store what the model proposes.
@@ -91,7 +95,10 @@ class StyleSynthesizer:
         if self.client is None:
             return []
         threshold = settings.style_synthesis_min_feedback if min_feedback is None else min_feedback
+        async with self._locks.setdefault(user_id, asyncio.Lock()):
+            return await self._synthesize(user_id, threshold)
 
+    async def _synthesize(self, user_id: str, threshold: int) -> list[StyleProposal]:
         try:
             setting = await user_setting_repo.get(user_id)
             since = setting.style_synthesized_at if setting else None

@@ -223,6 +223,36 @@ class TestSynthesis:
         assert "Seconde réponse" in sent
         assert "Première réponse" not in sent
 
+    async def test_a_backlog_is_read_in_batches_oldest_first_and_nothing_is_skipped(self, db):
+        synthesizer = StyleSynthesizer()
+        synthesizer.client = _model_answering("[]")
+        for index in range(5):
+            _, answer = await _exchange(OWNER, f"Q{index}", f"Réponse {index}")
+            await message_repo.set_feedback(answer.id, OWNER, "down")
+
+        with patch.object(style_synthesis, "MAX_RATED_PER_PASS", 3):
+            await synthesizer.synthesize(OWNER, min_feedback=1)
+            first = synthesizer.client.messages.create.await_args.kwargs["messages"][0]["content"]
+            await synthesizer.synthesize(OWNER, min_feedback=1)
+            second = synthesizer.client.messages.create.await_args.kwargs["messages"][0]["content"]
+
+        assert [f"Réponse {i}" in first for i in range(5)] == [True, True, True, False, False]
+        assert [f"Réponse {i}" in second for i in range(5)] == [False, False, False, True, True]
+
+    async def test_two_passes_at_once_read_the_thumbs_once(self, db):
+        import asyncio
+
+        synthesizer = StyleSynthesizer()
+        synthesizer.client = _model_answering('[{"directive": "Sois brève"}]')
+        _, answer = await _exchange(OWNER, "Q", "R")
+        await message_repo.set_feedback(answer.id, OWNER, "down")
+
+        await asyncio.gather(
+            synthesizer.synthesize(OWNER, min_feedback=1), synthesizer.synthesize(OWNER, min_feedback=1)
+        )
+
+        assert len(await _rows(db, StyleProposal, user_id=OWNER)) == 1
+
     async def test_a_refused_proposal_and_the_current_directives_are_shown_to_the_model(self, db):
         synthesizer = StyleSynthesizer()
         synthesizer.client = _model_answering("[]")
@@ -304,6 +334,22 @@ class TestProposals:
 
         assert response.status_code == 422
         assert await _rows(db, Instruction, user_id=OWNER) == []
+
+    async def test_a_directive_that_cannot_be_written_leaves_the_proposal_pending(self, db):
+        proposal = await style_proposal_repo.store(OWNER, "Sois brève")
+        app = FastAPI()
+        app.include_router(router)
+
+        with (
+            patch("app.auth._get_public_key", return_value=_public_key_pem),
+            patch("app.api.routes.instruction_repo.store", AsyncMock(side_effect=RuntimeError("db down"))),
+            TestClient(app, raise_server_exceptions=False) as client,
+        ):
+            response = client.post(f"/style-proposals/{proposal.id}/accept", headers=_as(OWNER))
+
+        assert response.status_code == 500
+        [stored] = await _rows(db, StyleProposal, id=proposal.id)
+        assert (stored.status, stored.decided_at) == (StyleProposalStatus.PENDING, None)
 
     async def test_refusing_writes_nothing(self, db, api):
         proposal = await style_proposal_repo.store(OWNER, "Sois brève")
