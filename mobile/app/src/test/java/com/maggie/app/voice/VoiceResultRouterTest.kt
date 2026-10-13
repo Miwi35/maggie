@@ -16,6 +16,9 @@ class VoiceResultRouterTest {
     private val chat = mockk<ChatViewModel>(relaxed = true)
     private val voice = mockk<VoiceManager>(relaxed = true)
 
+    @get:Rule
+    val folder = TemporaryFolder()
+
     @Test
     fun `a spoken answer decides the card, frees the microphone and sends nothing`() {
         every { chat.answerApprovalByVoice("oui") } returns true
@@ -50,9 +53,6 @@ class VoiceResultRouterTest {
 
         verify(exactly = 1) { chat.sendMessage("c'est quoi ?", null, image) }
     }
-
-    @get:Rule
-    val folder = TemporaryFolder()
 
     /**
      * The owner's refusal (12 Oct.), from the session to the request: the overlay

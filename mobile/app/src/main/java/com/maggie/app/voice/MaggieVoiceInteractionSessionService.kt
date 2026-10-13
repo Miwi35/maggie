@@ -134,6 +134,13 @@ private class MaggieVoiceInteractionSession(
      */
     override fun onHide() {
         handler.removeCallbacks(giveUp)
+        // Hidden while waiting for a late screenshot: Android will not deliver it
+        // now, and a session left alive would swallow the next invocation.
+        if (coordinator.waitingForScreenshot) {
+            handler.removeCallbacks(stopWaitingForScreenshot)
+            coordinator.onScreenshotAbandoned()
+            finish()
+        }
         if (!coordinator.hasLaunched) ScreenshotEncoder.file(service).delete()
         coordinator.onDismissed()
         super.onHide()
