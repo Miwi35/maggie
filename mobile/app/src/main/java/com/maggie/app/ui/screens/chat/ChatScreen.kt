@@ -28,13 +28,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.ui.components.ChatMessageList
+import com.maggie.app.ui.components.ChatTab
+import com.maggie.app.ui.components.ChatTabs
 import com.maggie.app.ui.components.FeedbackCommentDialog
+import com.maggie.app.ui.components.MindContent
 import com.maggie.app.ui.components.rememberChatListState
 
 @Composable
@@ -46,6 +50,7 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
         if (draft.isNotEmpty()) input = draft
     }
     val listState = rememberChatListState(viewModel)
+    var tab by rememberSaveable { mutableStateOf(ChatTab.CHAT) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (uiState.isSearchMode) {
@@ -87,20 +92,33 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
                 }
             }
 
-            ChatMessageList(
-                displayItems = uiState.displayItems,
-                listState = listState,
-                isLoadingHistory = uiState.isLoadingHistory,
-                onLoadMore = viewModel::loadOlderMessages,
-                onMessageTapped = viewModel::onMessageTapped,
-                onRetry = viewModel::retry,
-                modifier = Modifier.weight(1f),
-                approvals = uiState.pendingApprovals,
-                onApprove = viewModel::approve,
-                onDeny = viewModel::deny,
-                onDismissApproval = viewModel::dismissApproval,
-                onRateMessage = viewModel::rateMessage,
-            )
+            ChatTabs(selected = tab, onSelect = { tab = it }, awaitingCount = uiState.awaitingApprovalCount)
+
+            when (tab) {
+                ChatTab.CHAT -> ChatMessageList(
+                    displayItems = uiState.displayItems,
+                    listState = listState,
+                    isLoadingHistory = uiState.isLoadingHistory,
+                    onLoadMore = viewModel::loadOlderMessages,
+                    onMessageTapped = viewModel::onMessageTapped,
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.weight(1f),
+                    approvals = uiState.pendingApprovals,
+                    onApprove = viewModel::approve,
+                    onDeny = viewModel::deny,
+                    onDismissApproval = viewModel::dismissApproval,
+                    onRateMessage = viewModel::rateMessage,
+                )
+                ChatTab.MIND -> MindContent(
+                    agentState = uiState.agentState,
+                    toolCalls = uiState.toolCalls,
+                    approvals = uiState.pendingApprovals,
+                    onApprove = viewModel::approve,
+                    onDeny = viewModel::deny,
+                    onDismissApproval = viewModel::dismissApproval,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             // Keyed on the answer: a new thumb down opens an empty field.
             uiState.commentingMessageId?.let { id ->

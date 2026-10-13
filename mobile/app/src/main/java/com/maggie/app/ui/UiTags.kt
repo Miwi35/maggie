@@ -53,6 +53,18 @@ object UiTags {
      */
     const val CHAT_THREADS = "chat_threads"
 
+    /**
+     * The two tabs at the top of the chatbox, and what the Mind one holds (MAG-403): the badge
+     * of held actions, Maggie's state, the activity list and one row per tool call.
+     */
+    const val CHAT_TAB = "chat_tab"
+    const val MIND_TAB = "mind_tab"
+    const val MIND_BADGE = "mind_badge"
+    const val MIND_CONTENT = "mind_content"
+    const val MIND_STATE = "mind_state"
+    const val MIND_ACTIVITY = "mind_activity"
+    const val MIND_TOOL_CALL = "mind_tool_call"
+
     /** The « Supprimer » of the confirmation that a thread takes its messages with it. */
     const val THREAD_DELETE_CONFIRM = "thread_delete_confirm"
 

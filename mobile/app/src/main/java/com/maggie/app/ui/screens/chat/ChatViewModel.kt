@@ -74,6 +74,10 @@ data class ChatUiState(
     val replyToSpeak: ChatMessage? = null,
     /** Actions Maggie holds until the user answers, oldest first (MAG-4). */
     val pendingApprovals: List<ApprovalItem> = emptyList(),
+    /** What Maggie is doing, for the Mind tab (MAG-403). */
+    val agentState: AgentState = AgentState.IDLE,
+    /** The tool calls of the open session, oldest first: the turn in progress and the last ones before it. */
+    val toolCalls: List<ToolCallItem> = emptyList(),
     /**
      * Why the last question got no answer: a mention under the question with a « Réessayer »
      * (MAG-363) — information about the message, never a bubble of Maggie's, and never stored.
@@ -102,7 +106,10 @@ data class ChatUiState(
      * why (MAG-23); `null` once it is sent or skipped. The comment dialog renders from it.
      */
     val commentingMessageId: String? = null,
-)
+) {
+    /** The badge of the Mind tab: the held actions that can still be answered. */
+    val awaitingApprovalCount: Int get() = pendingApprovals.count { it.isAwaitingAnswer() }
+}
 
 @OptIn(FlowPreview::class)
 class ChatViewModel(
@@ -190,6 +197,7 @@ class ChatViewModel(
         /** How long « Message supprimé · Annuler » stays, and so how long the server hears nothing. */
         const val UNDO_WINDOW_MS = 6_000L
         private const val PAGE_SIZE = 20
+        private const val ACTIVITY_HISTORY = 10
         private const val TAG = "ChatViewModel"
         private const val PENDING_PREFIX = "pending_"
         private const val RECOVERY_WINDOW_MS = 60_000L
@@ -485,6 +493,10 @@ class ChatViewModel(
         rebuildDisplayItems()
     }
 
+    /** A call still running when its turn is cut short will never report: it must not spin for ever. */
+    private fun List<ToolCallItem>.stopped(): List<ToolCallItem> =
+        map { if (it.status == ToolCallStatus.RUNNING) it.copy(status = ToolCallStatus.ERROR) else it }
+
     private fun fail() {
         awaitingReply = false
         _uiState.value = _uiState.value.copy(
@@ -493,6 +505,8 @@ class ChatViewModel(
             streamingText = "",
             streamingMessageId = null,
             failure = NO_ANSWER,
+            agentState = AgentState.IDLE,
+            toolCalls = _uiState.value.toolCalls.stopped(),
         )
         rebuildDisplayItems()
     }
@@ -532,6 +546,8 @@ class ChatViewModel(
             streamingText = "",
             streamingMessageId = null,
             replyToSpeak = null,
+            agentState = AgentState.IDLE,
+            toolCalls = state.toolCalls.stopped(),
         )
         rebuildDisplayItems()
 
@@ -605,6 +621,7 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     streamingMessageId = event.messageId,
                     streamingText = "",
+                    agentState = AgentState.THINKING,
                 )
                 rebuildDisplayItems()
             }
@@ -649,11 +666,42 @@ class ChatViewModel(
                 // Not the end of the request: the answer may be stored, see [recoverReply].
                 Log.w(TAG, "Stream error: ${event.message}")
             }
-            is AgUiEvent.RunStarted,
-            is AgUiEvent.ToolCallStart,
-            is AgUiEvent.ToolCallEnd,
+            is AgUiEvent.RunStarted -> {
+                // Only the finished calls of earlier turns stay as history, the last ones.
+                _uiState.value = _uiState.value.copy(
+                    agentState = AgentState.THINKING,
+                    toolCalls = _uiState.value.toolCalls
+                        .filter { it.status != ToolCallStatus.RUNNING }
+                        .takeLast(ACTIVITY_HISTORY),
+                )
+            }
+            is AgUiEvent.ToolCallStart -> {
+                _uiState.value = _uiState.value.copy(
+                    agentState = AgentState.ACTING,
+                    toolCalls = _uiState.value.toolCalls +
+                        ToolCallItem(event.toolCallId, event.toolName, ToolCallStatus.RUNNING),
+                )
+            }
+            is AgUiEvent.ToolCallEnd -> {
+                // The outcome comes with the ToolResult; until then a call that ended is a success.
+                _uiState.value = _uiState.value.copy(
+                    agentState = AgentState.THINKING,
+                    toolCalls = _uiState.value.toolCalls.map {
+                        if (it.id == event.toolCallId && it.status == ToolCallStatus.RUNNING) {
+                            it.copy(status = ToolCallStatus.SUCCESS)
+                        } else {
+                            it
+                        }
+                    },
+                )
+            }
             is AgUiEvent.ToolResult -> {
-                // Acknowledged but no UI action in v1
+                val status = ToolCallStatus.fromWire(event.status) ?: return
+                _uiState.value = _uiState.value.copy(
+                    toolCalls = _uiState.value.toolCalls.map {
+                        if (it.id == event.toolCallId) it.copy(status = status) else it
+                    },
+                )
             }
         }
     }
@@ -682,7 +730,7 @@ class ChatViewModel(
         val reply = if (awaitingReply) _uiState.value.messages.lastOrNull { !it.isDecision }?.takeIf { it.role == "assistant" } else null
         awaitingReply = false
         unanswered = null
-        _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply)
+        _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply, agentState = AgentState.IDLE)
     }
 
     /** Called by whoever read [ChatUiState.replyToSpeak]: it is offered once. */

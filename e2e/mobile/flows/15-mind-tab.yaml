@@ -1,0 +1,87 @@
+appId: com.maggie.app.e2e
+name: 15-mind-tab
+tags:
+  - chat
+---
+# The Mind tab of the chatbox (MAG-403), the mobile twin of the admin's: a deletion Maggie
+# holds back for the owner's word puts « 1 » on the tab, the tab shows it in plain words
+# — the readable summary, never the tool's name — and refusing it takes the badge away
+# while the event stays.
+#
+# The tab, its badge, the activity rows and every state transition are `MindTabScreenTest`,
+# `MindStateTest` and `ChatViewModelTest` (JVM); this flow proves the live chain: agent →
+# held action → Mercure → the open chatbox. The badge is read through the tab's own
+# description (« Mind, 1 en attente de validation »): Compose merges the badge into the tab,
+# so its tag is out of Maestro's reach.
+#
+# The fake model holds `delete_event` as the real one does (`73-delete-event-held.yaml`).
+#
+# Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/15-mind-tab.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: create
+      SUMMARY: Test validation MAG-403
+
+- runFlow: ../subflows/open-chat.yaml
+- extendedWaitUntil:
+    visible:
+      id: "mind_tab"
+    timeout: 20000
+- tapOn:
+    id: "chat_input"
+- inputText: "Supprime l'événement Test validation ${output.eventId}"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*Je te demande ton accord pour supprimer.*"
+    timeout: 60000
+
+# The badge, then what it counts — in words, without the tool's name.
+- extendedWaitUntil:
+    visible: ".*Mind, 1 en attente de validation.*"
+    timeout: 30000
+- tapOn:
+    id: "mind_tab"
+- extendedWaitUntil:
+    visible:
+      id: "mind_content"
+    timeout: 10000
+- assertVisible: ".*Supprimer l'événement.*"
+- assertVisible: "Suppression d'un événement"
+- assertVisible: "En attente de validation"
+- assertNotVisible: ".*delete_event.*"
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: expect
+      STATE: present
+      EVENT_ID: ${output.eventId}
+
+# Refusing: the badge and the card go, the event stays.
+- tapOn: "Refuser"
+- extendedWaitUntil:
+    visible: "Aucune validation en attente"
+    timeout: 30000
+- assertNotVisible: ".*Mind, 1 en attente de validation.*"
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: expect
+      STATE: present
+      EVENT_ID: ${output.eventId}
+
+# The thread card followed: back on Chat, there is nothing left to answer.
+- tapOn:
+    id: "chat_tab"
+- assertNotVisible: "Refuser"
