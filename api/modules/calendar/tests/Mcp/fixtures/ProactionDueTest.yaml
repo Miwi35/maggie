@@ -1,0 +1,48 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: proaction-due@example.com
+    googleId: google-proaction-due
+    name: Due User
+  other_user:
+    email: proaction-due-other@example.com
+    googleId: google-proaction-due-other
+    name: Other Due User
+
+Maggie\Calendar\Entity\Agenda:
+  maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@test_user'
+  other_maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Proaction:
+  due_first:
+    prompt: Rappelle de déposer Ael à l'école
+    summary: Dépose Ael
+    startAt: '<(new \DateTimeImmutable("-20 minutes"))>'
+    agenda: '@maggie_agenda'
+  due_second:
+    prompt: Rappelle de prendre le pain
+    summary: Pain
+    startAt: '<(new \DateTimeImmutable("-5 minutes"))>'
+    agenda: '@maggie_agenda'
+  other_due:
+    prompt: Rappelle de sortir le chien
+    summary: Chien
+    startAt: '<(new \DateTimeImmutable("-10 minutes"))>'
+    agenda: '@other_maggie_agenda'
+  future:
+    prompt: Rappelle la réunion de demain
+    summary: Réunion
+    startAt: '<(new \DateTimeImmutable("+1 day"))>'
+    agenda: '@maggie_agenda'
+  already_running:
+    prompt: Déjà en cours
+    summary: En cours
+    startAt: '<(new \DateTimeImmutable("-1 hour"))>'
+    agenda: '@maggie_agenda'
+    __calls:
+      - markRunning: []

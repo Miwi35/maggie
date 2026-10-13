@@ -21,6 +21,9 @@ framework:
             'Maggie\Calendar\Message\CreateEventCommand': sync
             'Maggie\Calendar\Message\UpdateEventCommand': sync
             'Maggie\Calendar\Message\DeleteEventCommand': sync
+            'Maggie\Calendar\Message\ScheduleProactionCommand': sync
+            'Maggie\Calendar\Message\ClaimDueProactionsCommand': sync
+            'Maggie\Calendar\Message\RecordProactionResultCommand': sync
             'Maggie\Calendar\Message\CreateAgendaCommand': sync
             'Maggie\Calendar\Message\UpdateAgendaCommand': sync
             'Maggie\Calendar\Message\DeleteAgendaCommand': sync

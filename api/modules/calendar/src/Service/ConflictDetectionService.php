@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Core\Entity\User;
 
@@ -42,6 +43,11 @@ class ConflictDetectionService
 
             // Skip all-day events — they don't create time conflicts
             if ($event->isAllDay()) {
+                continue;
+            }
+
+            // Nor do Maggie's proactions: a reminder at 8:30 does not take the user's 8:30 (MAG-326)
+            if ($event instanceof Proaction) {
                 continue;
             }
 

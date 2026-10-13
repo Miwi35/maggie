@@ -41,7 +41,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\InheritanceType('JOINED')]
 #[ORM\DiscriminatorColumn(name: 'dtype', type: 'string', length: 20)]
-#[ORM\DiscriminatorMap(['event' => Event::class])]
+#[ORM\DiscriminatorMap(['event' => Event::class, 'proaction' => Proaction::class])]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['start_date', 'end_date'], name: 'idx_event_days')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]

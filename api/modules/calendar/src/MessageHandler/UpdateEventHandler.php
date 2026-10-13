@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Message\DeleteEventFromGoogleCommand;
 use Maggie\Calendar\Message\PushEventToGoogleCommand;
@@ -32,6 +33,15 @@ class UpdateEventHandler
         $event = $this->eventRepository->find($command->eventId);
         if (null === $event) {
             throw new \DomainException("Event not found: {$command->eventId}");
+        }
+
+        // A proaction is one run at one instant (ADR-012): moving it is fine,
+        // making it repeat or last a whole day is not.
+        if ($event instanceof Proaction && null !== $command->rrule) {
+            throw new \DomainException('A proaction never repeats: a lasting rule is an instruction for Maggie, not an RRULE.');
+        }
+        if ($event instanceof Proaction && (true === $command->allDay || null !== $command->startDate)) {
+            throw new \DomainException('A proaction runs at an instant: it cannot be an all-day event.');
         }
 
         if (null !== $command->summary) {

@@ -29,7 +29,7 @@ class ModuleAgendas
      * @return array{Agenda, bool} the agenda, and whether this call created or took it over
      *                             (persisted, not flushed — the caller announces it once it has flushed)
      */
-    public function forUser(User $user, string $module, string $name, ?string $color = null): array
+    public function forUser(User $user, string $module, string $name, ?string $color = null, bool $adoptLegacy = true): array
     {
         $agenda = $this->agendaRepository->findOneByModule($user, $module);
         if (null !== $agenda) {
@@ -37,8 +37,10 @@ class ModuleAgendas
         }
 
         // Meals filed before the attribute existed sit in an ordinary agenda created under
-        // the module's name: take it over rather than leave the user with two.
-        $legacy = $this->agendaRepository->findOrdinaryNamed($user, $name);
+        // the module's name: take it over rather than leave the user with two. A module that
+        // never filed anything in an ordinary agenda says so, and the user's own agenda of
+        // the same name stays theirs.
+        $legacy = $adoptLegacy ? $this->agendaRepository->findOrdinaryNamed($user, $name) : null;
         if (null !== $legacy) {
             $legacy->setModule($module);
 
