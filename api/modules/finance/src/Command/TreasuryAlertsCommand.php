@@ -122,8 +122,11 @@ class TreasuryAlertsCommand extends Command
             $lines[] = sprintf('Il manquerait encore %s une fois cette source vidée.', self::euros($advice['uncoveredCents']));
         }
 
-        $lines[] = 'Écris à l\'utilisateur un message court : dis le retard, la date du découvert et propose l\'avance depuis cette source, '
-            .'avec son montant, et rappelle qu\'il pourra la rendre dès que le salaire arrivera. '
+        $ask = null !== $advice['sourceAccountName']
+            ? 'Écris à l\'utilisateur un message court : dis le retard, la date du découvert et propose l\'avance depuis cette source, '
+                .'avec son montant, et rappelle qu\'il pourra la rendre dès que le salaire arrivera. '
+            : 'Écris à l\'utilisateur un message court : dis le retard et la date du découvert, et dis qu\'aucune avance n\'est possible depuis ses comptes d\'épargne. ';
+        $lines[] = $ask
             .'Tu ne fais que proposer : n\'exécute aucun virement, ne dis jamais qu\'il est fait ou en cours, c\'est l\'utilisateur qui le passe. '
             .'Vérifie les chiffres avec get_treasury_outlook avant de répondre. '
             .'Ne parle ni du score ni de la revue mensuelle.';
