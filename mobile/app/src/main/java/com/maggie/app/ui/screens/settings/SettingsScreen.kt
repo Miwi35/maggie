@@ -221,7 +221,7 @@ private fun SettingsList(
 
             SettingsRow(
                 icon = Icons.Outlined.AutoAwesome,
-                title = "Agent",
+                title = uiState.agentName,
                 subtitle = "Proactions, comportement",
                 onClick = { onSectionClick(SettingsSection.AGENT) },
             )
@@ -666,7 +666,7 @@ private fun AgentSection(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Agent") },
+                title = { Text(uiState.agentName) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")

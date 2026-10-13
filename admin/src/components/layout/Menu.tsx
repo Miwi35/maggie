@@ -41,6 +41,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import EventRepeatIcon from '@mui/icons-material/EventRepeat'
 import { ModuleIcon } from './ModuleIcon'
 import type { ModuleName } from '../../theme'
+import { useAgentName } from '../../hooks/useAgentName'
 
 const tinted = (module: ModuleName, icon: ReactElement) => <ModuleIcon module={module}>{icon}</ModuleIcon>
 
@@ -53,6 +54,7 @@ export const CustomMenu = () => {
   const [cuisineRawOpen, setCuisineRawOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [open] = useSidebarState()
+  const agentName = useAgentName()
 
   return (
     <Box sx={{ mt: 1 }}>
@@ -321,7 +323,7 @@ export const CustomMenu = () => {
               />
               <MenuItemLink
                 to="/settings/agent"
-                primaryText="Agent"
+                primaryText={agentName}
                 leftIcon={<SmartToyIcon />}
                 sx={{ pl: 4 }}
               />

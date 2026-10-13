@@ -45,7 +45,11 @@ const BEHAVIOR: Record<string, unknown> = {
 const PERSONALITY = { name: 'Maggie', language: 'fr', backstory: 'Assistante.' }
 
 /** The four parallel GETs `loadData` fires, answered by path. */
-function stubAgentApi(instructions: unknown[], overrides: Record<string, Response> = {}) {
+function stubAgentApi(
+  instructions: unknown[],
+  overrides: Record<string, Response> = {},
+  personality: typeof PERSONALITY = PERSONALITY,
+) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const key = `${init?.method ?? 'GET'} ${url}`
@@ -56,7 +60,7 @@ function stubAgentApi(instructions: unknown[], overrides: Record<string, Respons
         status: 201,
       })
     }
-    if (url === '/agent/personality') return new Response(JSON.stringify(PERSONALITY))
+    if (url === '/agent/personality') return new Response(JSON.stringify(personality))
     if (url === '/agent/instructions') return new Response(JSON.stringify(instructions))
     return new Response(JSON.stringify([]))
   })
@@ -145,5 +149,25 @@ describe('AgentSettings — instruction kinds', () => {
     await waitFor(() =>
       expect(notify).toHaveBeenCalledWith("Erreur lors de l'ajout", { type: 'error' }),
     )
+  })
+})
+
+describe('AgentSettings — title', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('is the name of the agent: Maggie by default', async () => {
+    stubAgentApi([])
+    render(<AgentSettings />)
+
+    expect(await screen.findByRole('heading', { name: 'Maggie' })).toBeInTheDocument()
+  })
+
+  test('follows the name the user gave her', async () => {
+    stubAgentApi([], {}, { ...PERSONALITY, name: 'Alfred' })
+    render(<AgentSettings />)
+
+    expect(await screen.findByRole('heading', { name: 'Alfred' })).toBeInTheDocument()
   })
 })

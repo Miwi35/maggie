@@ -8,7 +8,8 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
-import { recordName, resolveTrail } from './navigation'
+import { useAgentName } from '../../hooks/useAgentName'
+import { AGENT_SETTINGS_PATH, recordName, resolveTrail } from './navigation'
 import type { SxProps, Theme } from '@mui/material/styles'
 
 const legend: SxProps<Theme> = {
@@ -49,6 +50,7 @@ const NameSkeleton = () => (
 export const Breadcrumbs = () => {
   const { pathname } = useLocation()
   const isNarrow = useNarrowScreen()
+  const agentName = useAgentName()
   const trail = useMemo(() => resolveTrail(pathname), [pathname])
   const record = trail.find((crumb) => crumb.record)?.record
 
@@ -62,10 +64,11 @@ export const Breadcrumbs = () => {
     return null
   }
 
-  const crumbs = trail.map((crumb) => ({
-    to: crumb.to,
-    label: crumb.record ? (isLoading ? undefined : recordName(data)) : crumb.label,
-  }))
+  const labelOf = (crumb: (typeof trail)[number]): string | undefined => {
+    if (crumb.record) return isLoading ? undefined : recordName(data)
+    return crumb.to === AGENT_SETTINGS_PATH ? agentName : crumb.label
+  }
+  const crumbs = trail.map((crumb) => ({ to: crumb.to, label: labelOf(crumb) }))
   const last = crumbs.length - 1
 
   const text = (label: string | undefined, current: boolean) =>
