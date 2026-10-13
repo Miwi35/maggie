@@ -450,6 +450,8 @@ mobile:
       reason: Red then green on a re-run with no change (7-8 Oct.).
   e2e/mobile/flows/08-grocery-realtime.yaml:
     areas: [grocery, realtime]
+  e2e/mobile/flows/15-recurring-grocery.yaml:
+    areas: [grocery, realtime]
   e2e/mobile/flows/09-finance-banks.yaml:
     areas: [finance]
   e2e/mobile/flows/10-finance-recurring.yaml:
