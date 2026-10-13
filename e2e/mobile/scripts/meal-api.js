@@ -6,7 +6,7 @@
 // polling as `recipe-api.js`.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create (sets output.recipeId) | expect-chosen | remove
+//   ACTION  create (sets output.recipeId) | expect-single | expect-chosen | expect-deleted | remove
 //
 // Everything carries the ticket's number and is gone after `remove`, meal and
 // grocery lines included (deleting the meal takes its lines off the list).
@@ -118,6 +118,23 @@ if (ACTION === 'create') {
     pause(300)
   }
   output.recipeId = recipe.id
+} else if (ACTION === 'expect-single') {
+  // « Créer » was tapped twice (MAG-378): one meal, titled with the recipe alone.
+  for (;;) {
+    const planned = meals()
+    if (planned.length === 1 && planned[0].summary === recipeName) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('expected one meal titled "' + recipeName + '", found ' + JSON.stringify(meals().map(function (row) { return row.summary })))
+    }
+    pause(300)
+  }
+  // A second request would still be in flight: look again after a moment.
+  pause(2000)
+  if (meals().length !== 1) {
+    fail('the double tap created ' + meals().length + ' meals')
+  }
 } else if (ACTION === 'expect-chosen') {
   for (;;) {
     const planned = meals()
@@ -126,6 +143,16 @@ if (ACTION === 'create') {
     }
     if (Date.now() >= deadline) {
       fail('the meal "' + recipeName + '" never carried a grocery choice within 30 s (found ' + meals().length + ' meal(s))')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'expect-deleted') {
+  for (;;) {
+    if (meals().length === 0) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the meal "' + recipeName + '" is still there after its deletion from the phone')
     }
     pause(300)
   }

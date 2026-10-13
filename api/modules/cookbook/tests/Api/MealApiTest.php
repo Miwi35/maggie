@@ -112,6 +112,55 @@ class MealApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Meal::class);
     }
 
+    public function testTheTitleIsTheNamesOfTheRecipesAndNothingTheClientSends(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $salad = $this->getFixture('salad');
+
+        $data = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'summary' => 'Un titre du client',
+            'recipes' => ['/api/recipes/'.$pasta->getId(), '/api/recipes/'.$salad->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('Pâtes à la tomate, Salade verte', $data['summary']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($data['id']);
+        self::assertSame('Pâtes à la tomate, Salade verte', $stored->getSummary());
+    }
+
+    public function testAMealWithNoRecipeIsTitledAfterItsSlot(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $data = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner']);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('Dîner', $data['summary']);
+    }
+
+    public function testPatchingATitleIsIgnored(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $created = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'recipes' => ['/api/recipes/'.$pasta->getId()],
+        ]);
+
+        $data = $this->patchMeal($created['id'], ['summary' => 'Autre chose', 'slot' => 'dinner']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Pâtes à la tomate', $data['summary']);
+    }
+
     public function testADayThatIsNotADayIsRefused(): void
     {
         $this->authenticateFixtureUser();
@@ -226,7 +275,7 @@ class MealApiTest extends WebTestCase
             [(string) $recipe->getId()],
             $stored->getRecipes()->map(static fn ($r) => (string) $r->getId())->getValues(),
         );
-        self::assertSame('Dîner : Pâtes à la tomate', $stored->getSummary());
+        self::assertSame('Pâtes à la tomate', $stored->getSummary());
 
         $this->assertMercureUpdatePublished('/meals/');
         $this->assertElasticsearchIndexDispatched(Meal::class);
@@ -389,10 +438,6 @@ class MealApiTest extends WebTestCase
         if (!isset($body['agenda'])) {
             $body['agenda'] = '/api/agendas/'.$this->getFixture('test_agenda')->getId();
         }
-        // An Event needs one, and the week view sends it; the handler then
-        // rebuilds it from the slot and the recipes.
-        $body['summary'] ??= 'Déjeuner';
-
         $this->client->request('POST', '/api/meals', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',

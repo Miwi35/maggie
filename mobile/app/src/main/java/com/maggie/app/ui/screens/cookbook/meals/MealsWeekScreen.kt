@@ -1,5 +1,7 @@
 package com.maggie.app.ui.screens.cookbook.meals
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,16 +22,22 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -39,6 +48,26 @@ fun MealsWeekScreen(
     onCreateMeal: (day: String, slot: String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var mealToDelete by remember { mutableStateOf<Meal?>(null) }
+
+    mealToDelete?.let { meal ->
+        AlertDialog(
+            onDismissRequest = { mealToDelete = null },
+            modifier = Modifier.uiTagRoot(),
+            title = { Text("Supprimer ce repas ?") },
+            text = { Text(meal.summary) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMeal(meal)
+                        mealToDelete = null
+                    },
+                    modifier = Modifier.testTag(UiTags.MEAL_DELETE_CONFIRM),
+                ) { Text("Supprimer") }
+            },
+            dismissButton = { TextButton(onClick = { mealToDelete = null }) { Text("Annuler") } },
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Week navigation
@@ -56,6 +85,22 @@ fun MealsWeekScreen(
             )
             IconButton(onClick = { viewModel.nextWeek() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Semaine suivante")
+            }
+        }
+
+        uiState.deleteError?.let { message ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = viewModel::dismissDeleteError) { Text("Fermer") }
             }
         }
 
@@ -114,6 +159,7 @@ fun MealsWeekScreen(
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.LUNCH] ?: emptyList(),
                                 onClick = { onCreateMeal(dayStr, "lunch") },
+                                onLongPress = { mealToDelete = it },
                                 modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("lunch", dayOffset.toInt())),
                             )
 
@@ -121,6 +167,7 @@ fun MealsWeekScreen(
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.DINNER] ?: emptyList(),
                                 onClick = { onCreateMeal(dayStr, "dinner") },
+                                onLongPress = { mealToDelete = it },
                                 modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("dinner", dayOffset.toInt())),
                             )
                         }
@@ -131,10 +178,12 @@ fun MealsWeekScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MealSlotCell(
-    meals: List<com.maggie.app.data.model.Meal>,
+    meals: List<Meal>,
     onClick: () -> Unit,
+    onLongPress: (Meal) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -163,6 +212,10 @@ private fun MealSlotCell(
                         text = meal.summary,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 2,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(onClick = onClick, onLongClick = { onLongPress(meal) })
+                            .testTag(UiTags.MEAL_ROW),
                     )
                 }
             }

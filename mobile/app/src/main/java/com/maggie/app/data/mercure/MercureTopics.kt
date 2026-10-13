@@ -64,6 +64,7 @@ object MercureTopics {
         CATEGORIES,
         EVENTS,
         GROCERY_LISTS,
+        MEALS,
         NOTIFICATIONS,
         RECIPES,
         TASKS,

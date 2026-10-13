@@ -57,7 +57,6 @@ import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.EventRepository
-import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.api.MaggieApiService
@@ -116,6 +115,7 @@ import com.maggie.app.ui.screens.grocery.ProductViewModel
 import com.maggie.app.ui.screens.grocery.StoreListScreen
 import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
+import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
@@ -394,6 +394,7 @@ fun NavGraph() {
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
+    val mealCreateViewModel: MealCreateViewModel = koinViewModel()
     val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
     val subtasksViewModel: SubtasksViewModel = koinViewModel()
@@ -410,7 +411,6 @@ fun NavGraph() {
     val taskRepository: TaskRepository = koinInject()
     val agendaRepository: AgendaRepository = koinInject()
     val recipeRepository: RecipeRepository = koinInject()
-    val mealRepository: MealRepository = koinInject()
     val apiService: MaggieApiService = koinInject()
 
     // Notification unread count
@@ -1307,17 +1307,15 @@ fun NavGraph() {
         MealCreateDialog(
             date = day,
             slot = slot,
+            viewModel = mealCreateViewModel,
             recipeListViewModel = recipeListViewModel,
-            onConfirm = { request ->
-                scope.launch {
-                    val created = mealRepository.createMeal(request).getOrNull()
-                    mealCreateState = null
-                    mealsWeekViewModel.refresh()
-                    // A meal with no recipe has no ingredient to choose from.
-                    if (created != null && request.recipes.isNotEmpty()) {
-                        mealToChooseIngredientsOf = created.id
-                        navController.navigate(Screen.MealIngredientChoice.route)
-                    }
+            onCreated = { mealId, withRecipes ->
+                mealCreateState = null
+                mealsWeekViewModel.refresh()
+                // A meal with no recipe has no ingredient to choose from.
+                if (withRecipes) {
+                    mealToChooseIngredientsOf = mealId
+                    navController.navigate(Screen.MealIngredientChoice.route)
                 }
             },
             onDismiss = { mealCreateState = null },

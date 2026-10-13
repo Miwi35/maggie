@@ -2,7 +2,9 @@
 #
 # `create_event` takes `status`: "provisoire", "à confirmer" and "peut-être" are
 # `tentative`. 2098, so that this event stays clear of the 2099 appointments the
-# other scenarios count. The 26th is a Thursday.
+# other scenarios count. The 26th is a Thursday. The agenda is named: the title says
+# "déjeuner", and which agenda the history deduces from that depends on the events the
+# specs ran before have left, which this scenario is not about.
 name: create-event-tentative
 description: Book a lunch as tentative through the calendar MCP tool.
 
@@ -19,4 +21,5 @@ turns:
           end_date: "2098-03-26"
           end_time: "13:00"
           status: "tentative"
+          agenda_id: "Perso"
   - text: "C'est noté, provisoirement : déjeuner jeudi 26 mars à midi. Il reste à confirmer."

@@ -75,9 +75,12 @@ class Meal extends Event implements MercurePublishable
      * the meals' module agenda, and a client that still names one is ignored
      * (MAG-324).
      *
+     * Nor is the title: the API names a meal after its recipes, and a client
+     * that still sends one is ignored (MAG-378).
+     *
      * @var array<string, list<string>>
      */
-    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'startDate', 'endDate', 'originalStartAt', 'agenda']];
+    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'startDate', 'endDate', 'originalStartAt', 'agenda', 'summary']];
 
     /** What `Event::$timeZone` defaults to, and what an unresolvable one falls back on. */
     private const DEFAULT_TIME_ZONE = 'Europe/Paris';
@@ -126,6 +129,9 @@ class Meal extends Event implements MercurePublishable
     {
         parent::__construct();
         $this->recipes = new ArrayCollection();
+        // An event needs a title to validate, and a client sends none: the
+        // handler replaces this one with the recipes' names (MAG-378).
+        $this->setSummary('Repas');
     }
 
     /**
