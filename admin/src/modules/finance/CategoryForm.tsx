@@ -9,13 +9,11 @@ import {
   AutocompleteInput,
   required,
 } from 'react-admin'
-import Box from '@mui/material/Box'
 import { FormSection } from '../../components/form/FormSection'
 import { OBLIGATION_CHOICES } from './obligationFlags'
+import { ColorInput } from './ColorInput'
 
 const formSx = { maxWidth: 680 }
-const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
-const halfSx = { flex: '1 1 240px' }
 
 interface CategoryFormProps {
   withDefaults?: boolean
@@ -98,9 +96,12 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
 
     <FormSection title="Repères visuels" description="Facultatif, pour repérer la catégorie d'un coup d'œil." />
 
-    <Box sx={rowSx}>
-      <TextInput source="color" label="Couleur" sx={halfSx} helperText="Code hexadécimal, par exemple #4CAF50." />
-      <TextInput source="icon" label="Icône" sx={halfSx} helperText="Nom d'icône, par exemple shopping-cart." />
-    </Box>
+    <ColorInput
+      source="color"
+      label="Couleur"
+      helperText="Cliquez sur une couleur, ou sur la pastille de droite pour en choisir une autre."
+    />
+
+    <TextInput source="icon" label="Icône" fullWidth helperText="Nom d'icône, par exemple shopping-cart." />
   </SimpleForm>
 )

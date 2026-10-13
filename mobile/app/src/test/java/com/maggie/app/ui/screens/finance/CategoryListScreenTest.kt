@@ -6,7 +6,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -80,8 +83,62 @@ class CategoryListScreenTest {
         compose.onNodeWithText("Rattacher à une catégorie").assertIsDisplayed()
         compose.onNodeWithText("Nature de la dépense").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Couleur").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Code hexadécimal, par exemple #4CAF50.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Touchez une couleur, ou « Autre couleur » pour la composer.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Icône").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the colour is picked from a palette, not typed`() {
+        val state = form()
+
+        compose.onNodeWithContentDescription("Couleur #4CAF50").performScrollTo().performClick()
+
+        assertEquals("#4CAF50", state.color)
+        assertEquals("#4CAF50", state.toRequest().color)
+        compose.onNodeWithContentDescription("Couleur #4CAF50").assertIsSelected()
+    }
+
+    @Test
+    fun `the colour can be taken away again`() {
+        val state = form(Category(id = "cat-1", name = "Courses", color = "#4CAF50"))
+
+        compose.onNodeWithContentDescription("Couleur #4CAF50").performScrollTo().assertIsSelected()
+        compose.onNodeWithContentDescription("Aucune couleur").performScrollTo().performClick()
+
+        assertEquals("", state.color)
+        assertEquals(null, state.toRequest().color)
+        assertEquals(
+            JsonObject(mapOf("color" to JsonNull)),
+            state.changes(),
+        )
+    }
+
+    @Test
+    fun `a colour outside the palette is kept and shown as chosen`() {
+        val state = form(Category(id = "cat-1", name = "Courses", color = "#123456"))
+
+        compose.onNodeWithContentDescription("Couleur #123456").performScrollTo().assertIsSelected()
+        assertEquals(JsonObject(emptyMap()), state.changes())
+    }
+
+    @Test
+    fun `another colour is composed with sliders and leaves as a hex code`() {
+        val state = form()
+
+        compose.onNodeWithText("Autre couleur").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Teinte").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Saturation").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Luminosité").assertIsDisplayed()
+        assertEquals("", state.color)
+
+        compose.onNodeWithContentDescription("Teinte").performSemanticsAction(SemanticsActions.SetProgress) { it(120f) }
+        compose.waitForIdle()
+
+        assertEquals("#00FF00", state.color)
+        compose.onNodeWithContentDescription("Luminosité").performSemanticsAction(SemanticsActions.SetProgress) { it(0.5f) }
+        compose.waitForIdle()
+
+        assertEquals("#008000", state.color)
     }
 
     @Test
