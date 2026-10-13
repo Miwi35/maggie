@@ -52,6 +52,10 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  * intermediate flush — `isHeldByAnotherMeal()` excludes its own contribution,
  * and the unique index allows one contribution per meal and line.
  *
+ * A meal whose day has gone has nothing left to buy (MAG-400): `sync()` and
+ * `syncChoice()` add nothing for it, and `release()` takes back what it still
+ * held — its unbought share only, a line already in the basket staying as it is.
+ *
  * Nothing is broadcast from here: the list's lines are read from Doctrine's
  * change set, and the projection announces the list once the handler is done.
  */
@@ -76,6 +80,10 @@ class MealGrocerySync
      */
     public function sync(Meal $meal): ?GroceryList
     {
+        if ($this->isPast($meal)) {
+            return $this->releaseAndFlush($meal);
+        }
+
         if (null !== $meal->getGroceryChoiceMadeAt()) {
             return $this->followMeal($meal);
         }
@@ -104,6 +112,10 @@ class MealGrocerySync
      */
     public function syncChoice(Meal $meal, array $chosenLines): ?GroceryList
     {
+        if ($this->isPast($meal)) {
+            return $this->release($meal);
+        }
+
         $wanted = [];
 
         foreach ($chosenLines as $line) {
@@ -292,6 +304,69 @@ class MealGrocerySync
         return $list;
     }
 
+    /**
+     * Takes back what a meal whose day has gone still holds on the list.
+     *
+     * Only its own share of each line that is not in the basket yet: the other
+     * meals' shares stay, a line that falls to zero with nothing else holding it
+     * goes, and a checked line keeps its quantity *and* its link to the meal.
+     * Idempotent — a second call finds nothing left to take back.
+     *
+     * Returns the list it touched, null when there was nothing to take back.
+     * Does not flush, but the caller must before releasing another meal: the
+     * lines two past meals share are told apart by the contributions the
+     * database still holds.
+     */
+    public function release(Meal $meal): ?GroceryList
+    {
+        $list = null;
+
+        foreach ($this->contributionRepository->findByMeal($meal) as $contribution) {
+            $item = $contribution->getGroceryItem();
+
+            if ($item->isChecked()) {
+                continue;
+            }
+
+            $list ??= $item->getGroceryList();
+            $this->takeBack($contribution);
+        }
+
+        $list?->setUpdatedAt(new \DateTimeImmutable());
+
+        return $list;
+    }
+
+    /** A meal planned or moved onto a day already gone: its shopping is not wanted. */
+    private function releaseAndFlush(Meal $meal): ?GroceryList
+    {
+        $list = $this->release($meal);
+
+        if (null !== $list) {
+            $this->em->flush();
+        }
+
+        return $list;
+    }
+
+    /** The meal's day is before today, where the owner lives. */
+    private function isPast(Meal $meal): bool
+    {
+        $date = $meal->getDate();
+
+        return null !== $date && $date < $this->today();
+    }
+
+    private function today(): \DateTimeImmutable
+    {
+        // Both sides are plain days, so this compares days: today where the
+        // owner lives, not where the server runs.
+        return new \DateTimeImmutable(
+            (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            new \DateTimeZone('UTC'),
+        );
+    }
+
     /** Drops one contribution and subtracts its share from the line it held. */
     private function takeBack(MealGroceryContribution $contribution): void
     {
@@ -454,14 +529,7 @@ class MealGrocerySync
 
         $buyAfter = $mealDate->modify("-{$shelfLifeDays} days");
 
-        // Both sides are plain days, so this compares days: today where the
-        // owner lives, not where the server runs.
-        $today = new \DateTimeImmutable(
-            (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
-            new \DateTimeZone('UTC'),
-        );
-
-        return $buyAfter > $today ? $buyAfter : null;
+        return $buyAfter > $this->today() ? $buyAfter : null;
     }
 
     private function keepEarliestBuyAfter(GroceryItem $item, ?\DateTimeImmutable $buyAfter): void
