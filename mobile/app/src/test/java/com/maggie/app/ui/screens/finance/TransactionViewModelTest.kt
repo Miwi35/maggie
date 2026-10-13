@@ -547,4 +547,58 @@ class TransactionViewModelTest {
         assertEquals("tx-rej", viewModel.uiState.value.detail!!.transaction.id)
         assertEquals(6240, viewModel.uiState.value.detail!!.transaction.amountCents)
     }
+
+    @Test
+    fun `filing the open line puts its category on the detail and refreshes the list`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        val filed = sampleTransactions[0].copy(category = "/api/categories/cat-2")
+        var served = sampleTransactions
+        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.setCategory("tx-1", "cat-2") } answers {
+            served = listOf(filed, sampleTransactions[1])
+            Result.success(filed)
+        }
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setCategory("cat-2")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("cat-2", detail.transaction.categoryId)
+        assertFalse(detail.isSaving)
+        assertNull(detail.error)
+        coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    @Test
+    fun `a refused filing says why on the detail and keeps the category`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.setCategory("tx-1", "cat-2") } returns Result.failure(RuntimeException("422"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setCategory("cat-2")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("422", detail.error)
+        assertNull(detail.transaction.categoryId)
+        assertFalse(detail.isSaving)
+    }
+
+    @Test
+    fun `filing with no line open does nothing`() = runTest {
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.setCategory("cat-2")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { transactionRepository.setCategory(any(), any()) }
+    }
 }

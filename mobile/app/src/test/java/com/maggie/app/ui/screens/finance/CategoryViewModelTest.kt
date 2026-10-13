@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
@@ -348,5 +349,194 @@ class CategoryViewModelTest {
 
         assertEquals("Loisirs", viewModel.uiState.value.editing?.category?.name)
         assertEquals("Sorties", viewModel.uiState.value.categories.first { it.id == "cat-2" }.name)
+    }
+
+    // Loisirs › Bars › Obsydian beside Alimentation › Restaurants.
+    private val threeLevels = sampleCategories + listOf(
+        Category(id = "cat-4", name = "Bars", parent = "/api/categories/cat-2"),
+        Category(id = "cat-5", name = "Obsydian", parent = "/api/categories/cat-4"),
+    )
+
+    private fun loadThreeLevels() {
+        coEvery { categoryRepository.getCategories() } returns Result.success(threeLevels)
+    }
+
+    @Test
+    fun `the first load opens the main categories and builds the three levels`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(setOf("cat-1", "cat-2"), state.expanded)
+        assertEquals(
+            listOf("Alimentation" to 1, "Restaurants" to 2, "Loisirs" to 1, "Bars" to 2),
+            state.rows.map { it.category.name to it.level },
+        )
+    }
+
+    @Test
+    fun `toggleExpanded shows then hides the children of a node`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleExpanded("cat-4")
+        assertEquals("Obsydian", viewModel.uiState.value.rows.last().category.name)
+        assertEquals(3, viewModel.uiState.value.rows.last().level)
+
+        viewModel.toggleExpanded("cat-4")
+        assertEquals("Bars", viewModel.uiState.value.rows.last().category.name)
+    }
+
+    @Test
+    fun `a reload keeps the tree as the user left it`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+        viewModel.toggleExpanded("cat-2")
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse("cat-2" in viewModel.uiState.value.expanded)
+    }
+
+    @Test
+    fun `the parent choice offers levels 1 and 2 and leaves out the third`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startCreating()
+
+        assertEquals(
+            listOf("cat-1", "cat-3", "cat-2", "cat-4").sorted(),
+            viewModel.uiState.value.parentCandidates.map { it.id }.sorted(),
+        )
+    }
+
+    @Test
+    fun `the parent choice of a category leaves out itself and its descendants`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startEditing("cat-4")
+
+        // Bars carries Obsydian: under Alimentation it would still fit, under Restaurants it would not.
+        assertEquals(listOf("cat-1", "cat-2"), viewModel.uiState.value.parentCandidates.map { it.id }.sorted())
+    }
+
+    @Test
+    fun `startCreating under a node opens the form on that parent`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+
+        viewModel.startCreating("cat-4")
+
+        val editing = viewModel.uiState.value.editing
+        assertNull(editing?.category)
+        assertEquals("/api/categories/cat-4", editing?.parent)
+    }
+
+    @Test
+    fun `startCreating under a third level node opens nothing`() = runTest {
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+
+        viewModel.startCreating("cat-5")
+
+        assertNull(viewModel.uiState.value.editing)
+    }
+
+    @Test
+    fun `creating under a collapsed node opens it and its ancestors`() = runTest {
+        loadThreeLevels()
+        coEvery { categoryRepository.createCategory(any()) } returns Result.success(
+            Category(id = "cat-6", name = "Karaoké", parent = "/api/categories/cat-4"),
+        )
+        viewModel()
+        advanceUntilIdle()
+        viewModel.toggleExpanded("cat-2")
+        viewModel.startCreating("cat-4")
+
+        viewModel.createCategory(CategoryCreateRequest(name = "Karaoké", parent = "/api/categories/cat-4"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue("cat-2" in state.expanded)
+        assertTrue("cat-4" in state.expanded)
+        assertNull(state.editing)
+    }
+
+    @Test
+    fun `a refused level keeps the form open and carries the server's sentence`() = runTest {
+        val sentence = "Une catégorie ne peut pas dépasser trois niveaux."
+        coEvery { categoryRepository.createCategory(any()) } returns Result.failure(ApiRefusalException(422, sentence))
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startCreating("cat-4")
+
+        viewModel.createCategory(CategoryCreateRequest(name = "Trop", parent = "/api/categories/cat-4"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(sentence, state.error)
+        assertTrue(state.errorIsRefusal)
+        assertEquals("/api/categories/cat-4", state.editing?.parent)
+        assertFalse(state.isSaving)
+
+        viewModel.clearError()
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.errorIsRefusal)
+    }
+
+    @Test
+    fun `a refused move keeps the form open`() = runTest {
+        val sentence = "Déplacement impossible."
+        coEvery { categoryRepository.updateCategory(any(), any()) } returns Result.failure(ApiRefusalException(422, sentence))
+        loadThreeLevels()
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startEditing("cat-2")
+
+        viewModel.updateCategory("cat-2", JsonObject(mapOf("parent" to JsonPrimitive("/api/categories/cat-3"))))
+        advanceUntilIdle()
+
+        assertEquals(sentence, viewModel.uiState.value.error)
+        assertTrue(viewModel.uiState.value.errorIsRefusal)
+        assertEquals("cat-2", viewModel.uiState.value.editing?.category?.id)
+    }
+
+    @Test
+    fun `a plain failure is not a refusal`() = runTest {
+        coEvery { categoryRepository.createCategory(any()) } returns Result.failure(RuntimeException("offline"))
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startCreating()
+
+        viewModel.createCategory(CategoryCreateRequest(name = "X"))
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.errorIsRefusal)
+    }
+
+    @Test
+    fun `deleting a main category takes the three levels with it`() = runTest {
+        loadThreeLevels()
+        coEvery { categoryRepository.deleteCategory("cat-2") } returns Result.success(Unit)
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startEditing("cat-2")
+        viewModel.askDelete()
+        advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.deletion?.impact?.subCategories)
+
+        viewModel.confirmDelete()
+        advanceUntilIdle()
+
+        assertEquals(listOf("cat-1", "cat-3"), viewModel.uiState.value.categories.map { it.id }.sorted())
     }
 }

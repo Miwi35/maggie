@@ -132,6 +132,13 @@ object Seed {
         Category(id = "cat-vie-courante", name = "Vie courante"),
     )
 
+    /** Loisirs › Bars, and Salaire beside it: two levels, room for a third under Bars. */
+    val financeTree: List<Category> = listOf(
+        Category(id = "cat-loisirs", name = "Loisirs"),
+        Category(id = "cat-bars", name = "Bars", parent = "/api/categories/cat-loisirs"),
+        Category(id = "cat-salaire", name = "Salaire"),
+    )
+
     /**
      * « LECLERC RENNES », three debits no rule covers — the one suggestion the
      * pristine seed yields, and it arrives with **no** `categoryId`:

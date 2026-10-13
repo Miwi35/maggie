@@ -1104,6 +1104,7 @@ fun NavGraph() {
                     CategoryListScreen(
                         viewModel = categoryViewModel,
                         onBack = { navController.backInFinance() },
+                        showsDetailPane = paneShown,
                         onOpenRules = {
                             navController.navigate(Screen.CategorizationRuleList.route) {
                                 launchSingleTop = true

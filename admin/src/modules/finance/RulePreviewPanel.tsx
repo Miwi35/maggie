@@ -19,6 +19,7 @@ import {
   type RulePreviewCriteria,
   type RulePreviewMatch,
 } from './useCategorizationRulePreview'
+import { categoryLabel } from './categoryTree'
 
 const NO_CATEGORY = 'Sans catégorie'
 
@@ -68,7 +69,7 @@ export const RulePreviewPanel = () => {
   })
 
   const categoryNames = Object.fromEntries(
-    (categories ?? []).map((category) => [idOf(category.id as string), category.name as string]),
+    (categories ?? []).map((category) => [idOf(category.id as string), categoryLabel(category)]),
   )
 
   const criteria: RulePreviewCriteria = {

@@ -2,20 +2,27 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryRow
+import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.MAX_CATEGORY_DEPTH
+import com.maggie.app.data.model.categoryIri
 import com.maggie.app.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
-/** The category the form is open on: [category] is null for a new one. */
-data class CategoryEditing(val category: Category? = null)
+/** The category the form is open on: [category] is null for a new one, [parent] the IRI it starts under. */
+data class CategoryEditing(val category: Category? = null, val parent: String? = null)
 
 /**
  * What a deletion takes with it, as far as it could be counted. A `null` count is one that
@@ -40,10 +47,18 @@ data class CategoryUiState(
     val editing: CategoryEditing? = null,
     val isSaving: Boolean = false,
     val deletion: CategoryDeletion? = null,
-)
+    // The ids whose children are shown in the tree.
+    val expanded: Set<String> = emptySet(),
+    // [error] is the server's own sentence (a refused level), fit to show as it is.
+    val errorIsRefusal: Boolean = false,
+) {
+    val tree: CategoryTree get() = CategoryTree(categories)
 
-/** The identifier API Platform hands out for a category, as a relation points at it. */
-fun categoryIri(id: String): String = "/api/categories/$id"
+    val rows: List<CategoryRow> get() = tree.rows(expanded)
+
+    /** What the open form can be attached to: levels 1 and 2, never itself nor its descendants. */
+    val parentCandidates: List<Category> get() = tree.parentCandidates(editing?.category?.id)
+}
 
 class CategoryViewModel(
     private val categoryRepository: CategoryRepository,
@@ -53,6 +68,9 @@ class CategoryViewModel(
 
     private val _uiState = MutableStateFlow(CategoryUiState())
     val uiState: StateFlow<CategoryUiState> = _uiState
+
+    // The first load opens the main categories; after that the tree stays as the user left it.
+    private var expansionSeeded = false
 
     init {
         refresh()
@@ -71,13 +89,16 @@ class CategoryViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorIsRefusal = false)
             try {
                 val categories = categoryRepository.getCategories().getOrThrow()
                 val current = _uiState.value
                 val open = current.editing?.category
+                val seed = if (expansionSeeded) emptySet() else CategoryTree(categories).children(null).map { it.id }
+                expansionSeeded = true
                 _uiState.value = current.copy(
                     categories = categories.sortedBy { it.name },
+                    expanded = current.expanded + seed,
                     isLoading = false,
                     // The form never overwrites what is being typed, but a category deleted
                     // elsewhere leaves nothing to save onto.
@@ -89,8 +110,30 @@ class CategoryViewModel(
         }
     }
 
-    fun startCreating() {
-        _uiState.value = _uiState.value.copy(editing = CategoryEditing())
+    /** Opens the form for a new category, under [parentId] when given and still room under it. */
+    fun startCreating(parentId: String? = null) {
+        val tree = _uiState.value.tree
+        if (parentId != null && tree.level(parentId) >= MAX_CATEGORY_DEPTH) return
+        _uiState.value = _uiState.value.copy(editing = CategoryEditing(parent = parentId?.let(::categoryIri)))
+    }
+
+    fun toggleExpanded(id: String) {
+        val expanded = _uiState.value.expanded
+        _uiState.value = _uiState.value.copy(expanded = if (id in expanded) expanded - id else expanded + id)
+    }
+
+    // The new node must be in sight when the list comes back.
+    private fun withParentOpen(parentIri: String?): Set<String> {
+        val parentId = parentIri?.substringAfterLast('/') ?: return _uiState.value.expanded
+        return _uiState.value.expanded + parentId + _uiState.value.tree.ancestors(parentId)
+    }
+
+    private fun fail(e: Exception) {
+        _uiState.value = _uiState.value.copy(
+            isSaving = false,
+            error = e.message,
+            errorIsRefusal = e is ApiRefusalException,
+        )
     }
 
     fun startEditing(id: String) {
@@ -107,10 +150,14 @@ class CategoryViewModel(
             _uiState.value = _uiState.value.copy(isSaving = true)
             try {
                 categoryRepository.createCategory(request).getOrThrow()
-                _uiState.value = _uiState.value.copy(isSaving = false, editing = null)
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    editing = null,
+                    expanded = withParentOpen(request.parent),
+                )
                 refresh()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isSaving = false, error = e.message)
+                fail(e)
             }
         }
     }
@@ -125,10 +172,14 @@ class CategoryViewModel(
             _uiState.value = _uiState.value.copy(isSaving = true)
             try {
                 categoryRepository.updateCategory(id, changes).getOrThrow()
-                _uiState.value = _uiState.value.copy(isSaving = false, editing = null)
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    editing = null,
+                    expanded = withParentOpen((changes["parent"] as? JsonPrimitive)?.contentOrNull),
+                )
                 refresh()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isSaving = false, error = e.message)
+                fail(e)
             }
         }
     }
@@ -138,10 +189,10 @@ class CategoryViewModel(
         val category = _uiState.value.editing?.category ?: return
         _uiState.value = _uiState.value.copy(deletion = CategoryDeletion(category))
         viewModelScope.launch {
-            // The database takes the sub-categories down with it, and their transactions
+            // The database takes the whole subtree down with it, and its transactions
             // and rules with them: all of it counts.
-            val children = _uiState.value.categories.filter { it.parent == categoryIri(category.id) }
-            val ids = (listOf(category) + children).map { it.id }
+            val children = _uiState.value.tree.descendants(category.id)
+            val ids = listOf(category.id) + children
             val counts = ids.map { categoryRepository.countTransactions(it).getOrNull() }
             val transactions = if (counts.any { it == null }) null else counts.sumOf { it ?: 0 }
             val rules = categoryRepository.countRules(ids.toSet()).getOrNull()
@@ -160,23 +211,23 @@ class CategoryViewModel(
 
     fun confirmDelete() {
         val id = _uiState.value.deletion?.category?.id ?: return
+        val gone = _uiState.value.tree.descendants(id) + id
         // The question is closed first: a second tap finds nothing to confirm.
         _uiState.value = _uiState.value.copy(deletion = null)
         viewModelScope.launch {
             try {
                 categoryRepository.deleteCategory(id).getOrThrow()
                 _uiState.value = _uiState.value.copy(
-                    // The database takes the sub-categories down with it.
-                    categories = _uiState.value.categories.filter { it.id != id && it.parent != categoryIri(id) },
+                    categories = _uiState.value.categories.filter { it.id !in gone },
                     editing = null,
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                fail(e)
             }
         }
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.value = _uiState.value.copy(error = null, errorIsRefusal = false)
     }
 }

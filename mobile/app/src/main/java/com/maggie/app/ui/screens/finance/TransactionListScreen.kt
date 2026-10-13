@@ -51,6 +51,12 @@ import com.maggie.app.ui.components.DateField
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.transactionNature
+import com.maggie.app.ui.components.CategorySearchDialog
+import com.maggie.app.ui.components.CategorySearchNone
+import com.maggie.app.ui.components.CategorySearchScreen
+import androidx.compose.ui.semantics.Role
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
@@ -77,6 +83,8 @@ fun TransactionListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
     var searchingCounterpart by remember { mutableStateOf(false) }
+    var searchingCategory by remember { mutableStateOf(false) }
+    val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     val detail = uiState.detail
@@ -91,12 +99,34 @@ fun TransactionListScreen(
                 },
                 onBack = { searchingCounterpart = false },
             )
+        } else if (searchingCategory) {
+            val nature = transactionNature(detail.transaction.amountCents)
+            CategorySearchScreen(
+                title = "Choisir la catégorie",
+                candidates = uiState.categories.filter { categoryMatchesNature(it, nature) },
+                pathOf = tree::path,
+                selectedId = detail.transaction.categoryId,
+                onPick = {
+                    viewModel.setCategory(it.id)
+                    searchingCategory = false
+                },
+                onBack = { searchingCategory = false },
+                searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+                none = CategorySearchNone("Aucune catégorie", "Retirer la catégorie de cette transaction")
+                    .takeIf { detail.transaction.category != null },
+                onPickNone = {
+                    viewModel.setCategory(null)
+                    searchingCategory = false
+                },
+            )
         } else {
             TransactionDetailScreen(
                 state = detail,
                 onBack = viewModel::closeDetail,
                 onSearchCounterpart = { searchingCounterpart = true },
                 onRelease = viewModel::releaseTransfer,
+                categoryPath = tree.pathOf(detail.transaction.categoryId),
+                onPickCategory = { searchingCategory = true },
             )
         }
         return
@@ -194,6 +224,13 @@ fun TransactionListScreen(
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
+                                            tree.pathOf(transaction.categoryId)?.let { path ->
+                                                Text(
+                                                    text = path,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                             TransferBadge(transaction)
                                         }
                                         Text(
@@ -254,6 +291,8 @@ private fun TransactionCreateDialog(
     var nature by remember { mutableStateOf(TransactionNature.Expense) }
     var status by remember { mutableStateOf("spent") }
     var categoryId by remember { mutableStateOf<String?>(null) }
+    var searchingCategory by remember { mutableStateOf(false) }
+    val tree = remember(categories) { CategoryTree(categories) }
     var date by remember { mutableStateOf(LocalDate.now()) }
 
     val canSubmit = label.isNotBlank() &&
@@ -325,18 +364,43 @@ private fun TransactionCreateDialog(
                 }
                 val offered = categories.filter { categoryMatchesNature(it, nature) }
                 if (offered.isNotEmpty()) {
-                    Text("Catégorie", style = MaterialTheme.typography.bodySmall)
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        offered.forEach { category ->
-                            FilterChip(
-                                selected = categoryId == category.id,
-                                onClick = { categoryId = if (categoryId == category.id) null else category.id },
-                                label = { Text(category.name) },
-                            )
-                        }
+                    // A tap opens the full-screen search, never a dropdown or a wall of chips.
+                    Box {
+                        OutlinedTextField(
+                            value = tree.pathOf(categoryId).orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Catégorie") },
+                            placeholder = { Text("Aucune catégorie") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .testTag(UiTags.TRANSACTION_CATEGORY)
+                                .clickable(role = Role.Button) { searchingCategory = true },
+                        )
+                    }
+                    if (searchingCategory) {
+                        CategorySearchDialog(
+                            title = "Choisir la catégorie",
+                            candidates = offered,
+                            pathOf = tree::path,
+                            selectedId = categoryId,
+                            onPick = {
+                                categoryId = it.id
+                                searchingCategory = false
+                            },
+                            onDismiss = { searchingCategory = false },
+                            searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+                            none = CategorySearchNone("Aucune catégorie", "Laisser la transaction sans catégorie")
+                                .takeIf { categoryId != null },
+                            onPickNone = {
+                                categoryId = null
+                                searchingCategory = false
+                            },
+                        )
                     }
                 }
             }

@@ -28,6 +28,7 @@ import {
 } from './transactionStatuses'
 import type { RaRecord } from 'react-admin'
 import type { TransactionNature } from './transactionStatuses'
+import { categoryLabel, orderedCategories } from './categoryTree'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -132,7 +133,7 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
   // Filtered here rather than by the API: "every kind but income" is not a
   // filter it offers. A category the line already carries stays in the list so
   // an old line, saved before the rule, does not show an empty field.
-  const choices = categories.filter((c) => matchesNature(c, nature) || c.id === current)
+  const choices = orderedCategories(categories).filter((c) => matchesNature(c, nature) || c.id === current)
 
   // Same for a status the nature no longer offers: an income saved as
   // "Engagée" before the form knew better must not open on a blank field.
@@ -193,7 +194,7 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
           source="category"
           label="Catégorie"
           choices={choices}
-          optionText="name"
+          optionText={categoryLabel}
           sx={halfSx}
           helperText={
             nature === 'income'

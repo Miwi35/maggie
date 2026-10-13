@@ -4,7 +4,6 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import {
   Datagrid,
-  TextField,
   DateField,
   FunctionField,
   ReferenceField,
@@ -28,6 +27,7 @@ import { AccountIncidents } from './AccountIncidents'
 import { MakeRecurringButton, RecurringBadge } from './RecurringTransactionActions'
 import { useAccountIncidents } from './useAccountIncidents'
 import type { RaRecord } from 'react-admin'
+import { CategoryPathField } from './CategoryPathField'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -77,7 +77,7 @@ const TransactionDatagrid = () => {
         )}
       />
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
-        <TextField source="name" />
+        <CategoryPathField />
       </ReferenceField>
       <FunctionField
         label="Statut"

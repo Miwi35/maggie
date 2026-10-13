@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -21,6 +22,8 @@ import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.screentest.FakeCategories
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.Seed
+import com.maggie.app.ui.UiTags
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -347,5 +350,78 @@ class CategoryListScreenTest {
                 "Cette action est définitive.",
             categoryDeletionBody(CategoryDeletionImpact(transactions = null, rules = null, subCategories = 0)),
         )
+    }
+
+    @Test
+    fun `the list is a tree, main categories open and their sub-categories one tap away`() {
+        list(FakeCategories(Seed.financeTree + Category(id = "cat-obs", name = "Obsydian", parent = "/api/categories/cat-bars")))
+
+        compose.onNodeWithText("Loisirs").assertIsDisplayed()
+        compose.onNodeWithText("Bars").assertIsDisplayed()
+        compose.onNodeWithText("Obsydian").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Déplier Bars").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Obsydian").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("Replier Loisirs").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Bars").assertDoesNotExist()
+        compose.onNodeWithText("Obsydian").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a third level line offers no sub-category`() {
+        list(FakeCategories(Seed.financeTree + Category(id = "cat-obs", name = "Obsydian", parent = "/api/categories/cat-bars")))
+        compose.onNodeWithContentDescription("Déplier Bars").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Ajouter une sous-catégorie à Bars").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Ajouter une sous-catégorie à Obsydian").assertDoesNotExist()
+    }
+
+    @Test
+    fun `adding under Bars sends the parent and the tree shows Loisirs, Bars, Obsydian`() {
+        val categories = FakeCategories(Seed.financeTree)
+        list(categories)
+
+        compose.onNodeWithContentDescription("Ajouter une sous-catégorie à Bars").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Loisirs › Bars").assertIsDisplayed()
+        compose.onNodeWithText("Nom").performTextInput("Obsydian")
+        compose.onNodeWithText("Créer").performClick()
+        compose.waitForIdle()
+
+        assertEquals("/api/categories/cat-bars", categories.created.single().parent)
+        compose.onNodeWithText("Obsydian").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the parent search offers the first two levels, by path, and not the third`() {
+        list(FakeCategories(Seed.financeTree + Category(id = "cat-obs", name = "Obsydian", parent = "/api/categories/cat-bars")))
+
+        compose.onNodeWithContentDescription("Nouvelle catégorie").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.CATEGORY_PARENT).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Loisirs › Bars").assertIsDisplayed()
+        compose.onNodeWithText("Loisirs › Bars › Obsydian").assertDoesNotExist()
+        compose.onNodeWithText("Aucune").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a refused level shows the server's sentence and keeps the form`() {
+        val sentence = "Une catégorie ne peut pas dépasser trois niveaux."
+        list(FakeCategories(Seed.financeTree, refuseWith = sentence))
+
+        compose.onNodeWithContentDescription("Ajouter une sous-catégorie à Bars").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Nom").performTextInput("Trop")
+        compose.onNodeWithText("Créer").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText(sentence).assertIsDisplayed()
+        compose.onNodeWithText("Nouvelle catégorie").assertIsDisplayed()
     }
 }

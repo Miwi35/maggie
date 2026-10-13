@@ -7,6 +7,7 @@ import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
+import com.maggie.app.data.model.categoryIri
 
 class TransactionRepository(
     private val apiService: MaggieApiService,
@@ -21,6 +22,11 @@ class TransactionRepository(
 
     suspend fun createTransaction(request: TransactionCreateRequest): Result<Transaction> = runCatching {
         apiService.createTransaction(request)
+    }
+
+    /** [categoryId] null takes the category away. */
+    suspend fun setCategory(id: String, categoryId: String?): Result<Transaction> = runCatching {
+        apiService.updateTransactionCategory(id, categoryId?.let(::categoryIri))
     }
 
     suspend fun deleteTransaction(id: String): Result<Unit> = runCatching {

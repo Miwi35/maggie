@@ -20,6 +20,8 @@ import { useGetList, useNotify } from 'react-admin'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
 import { idOf } from './categorizationRules'
+import { categoryLabel, orderedCategories } from './categoryTree'
+import type { CategoryNode } from './categoryTree'
 
 interface Suggestion {
   pattern: string
@@ -232,9 +234,9 @@ export const RuleSuggestions = () => {
                       <MenuItem value="">
                         <em>À choisir</em>
                       </MenuItem>
-                      {(categories ?? []).map((category) => (
-                        <MenuItem key={category.id as string} value={idOf(category.id as string)}>
-                          {category.name as string}
+                      {orderedCategories((categories ?? []) as unknown as CategoryNode[]).map((category) => (
+                        <MenuItem key={category.id} value={idOf(category.id as string)}>
+                          {categoryLabel(category)}
                         </MenuItem>
                       ))}
                     </TextField>

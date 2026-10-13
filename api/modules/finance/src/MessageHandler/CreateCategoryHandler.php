@@ -8,6 +8,7 @@ use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Message\CreateCategoryCommand;
+use Maggie\Finance\Service\CategoryTreeGuard;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CreateCategory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ class CreateCategoryHandler
         private readonly CreateCategory $createCategory,
         private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
+        private readonly CategoryTreeGuard $tree,
     ) {
     }
 
@@ -42,9 +44,7 @@ class CreateCategoryHandler
         if (null !== $command->parentId) {
             $parent = $this->references->category($command->parentId, $user, 'Parent category');
 
-            if (null !== $parent->getParent()) {
-                throw new \DomainException('Categories support only two levels: a sub-category cannot have children.');
-            }
+            $this->tree->assertCanSitUnder($category, $parent);
 
             $category->setParent($parent);
         }

@@ -113,7 +113,7 @@ describe('TransactionForm', () => {
 
     const options = await openCategories(user)
 
-    expect(options.map((o) => o.textContent)).toEqual(['Netflix', 'Loyer'])
+    expect(options.map((o) => o.textContent)).toEqual(['Loyer', 'Netflix'])
   })
 
   test('a recette offers only the income categories', async () => {

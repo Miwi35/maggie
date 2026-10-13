@@ -2,6 +2,7 @@ import Alert from '@mui/material/Alert'
 import { useGetOne } from 'react-admin'
 import { formatCents } from './accountTypes'
 import { formatPeriod } from './budgetModes'
+import { categoryLabel } from './categoryTree'
 
 interface EnvelopeSummaryProps {
   category?: string
@@ -38,7 +39,7 @@ export const EnvelopeSummary = ({
     )
   }
 
-  const categoryName = (categoryRecord?.name as string) ?? 'cette catégorie'
+  const categoryName = categoryLabel(categoryRecord) || 'cette catégorie'
   const period = formatPeriod(mode, year, month)
   const pace =
     mode === 'annual'

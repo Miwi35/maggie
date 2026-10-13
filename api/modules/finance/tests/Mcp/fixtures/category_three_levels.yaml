@@ -1,0 +1,25 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-test@example.com
+    googleId: google-finance-test
+    name: Finance Test User
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  bars:
+    name: Bars
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@leisure'
+    user: '@test_user'
+  obsydian:
+    name: Obsydian
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@bars'
+    user: '@test_user'

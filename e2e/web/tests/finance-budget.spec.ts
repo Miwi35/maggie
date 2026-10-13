@@ -1,8 +1,11 @@
-import { test, expect, seedAnchorDate, seedId } from '../fixtures/index.js'
+import type { APIRequestContext } from '@playwright/test'
+import { test, expect, seedAnchorDate, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { euros, overBudget } from '../helpers/money.js'
 import { MONTH_LABELS, SCORE_LABELS, periodLabel } from '../pages/financeLabels.js'
+import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
 import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
+import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 
 /**
  * Envelopes, the day's score, and carrying a budget into the next month
@@ -38,6 +41,41 @@ const [ANCHOR_YEAR, ANCHOR_MONTH] = seedAnchorDate().split('-').map(Number)
 const NEXT = 12 === ANCHOR_MONTH
   ? { year: ANCHOR_YEAR + 1, month: 1 }
   : { year: ANCHOR_YEAR, month: ANCHOR_MONTH + 1 }
+
+/**
+ * Categories on three levels (MAG-411): Obsydian is an ordinary sub-category
+ * of Bars, itself under Loisirs — nothing about it is specific to a merchant.
+ *
+ * As the **neighbour**, with categories of its own: the owner's figures
+ * (gauges, score) must not move because a sub-category appears on a shard.
+ */
+const TREE_NAMES = ['Obsydian', 'Bars', 'Loisirs'] as const
+const OBSYDIAN_PATH = 'Loisirs › Bars › Obsydian'
+const treeAccountIds: string[] = []
+
+/** Deepest first: the API refuses to delete a category that still has children. */
+async function removeTree(api: APIRequestContext): Promise<void> {
+  const categories = await getCollection<{ id?: string; name?: string }>(api, '/api/categories?itemsPerPage=200')
+  for (const name of TREE_NAMES) {
+    for (const category of categories.filter((candidate) => candidate.name === name)) {
+      await api.delete(`/api/categories/${category.id}`)
+    }
+  }
+}
+
+async function createdId(api: APIRequestContext, path: string, data: Record<string, unknown>): Promise<string> {
+  const response = await api.post(path, { headers: { 'Content-Type': 'application/ld+json' }, data })
+  expect(response.status(), await response.text()).toBe(201)
+
+  return String(((await response.json()) as { id?: string }).id ?? '')
+}
+
+test.afterEach(async ({ otherUser }) => {
+  for (const id of treeAccountIds.splice(0)) {
+    await otherUser.api.delete(`/api/accounts/${id}`)
+  }
+  await removeTree(otherUser.api)
+})
 
 test('the annual envelope is consumed by the whole year, the monthly one by its month', async ({
   page,
@@ -145,4 +183,85 @@ test('a monthly envelope is carried into the next month, once and no more', asyn
       (envelope) => envelope.year === NEXT.year && envelope.month === NEXT.month,
     ),
   ).toHaveLength(1)
+})
+
+test('a category created under Bars sits on a third level, and a transaction can be filed in it', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  await removeTree(api)
+
+  // Given Loisirs › Bars.
+  const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+  await createdId(api, '/api/categories', {
+    name: 'Bars',
+    obligation: 'optional',
+    parent: `/api/categories/${loisirsId}`,
+  })
+  await waitForIndexed<{ path?: string }>(api, '/api/categories', (c) => c.path === 'Loisirs › Bars', {
+    what: 'The category Loisirs › Bars',
+  })
+
+  // When I create « Obsydian » under Bars.
+  const categories = new FinanceCategoriesPage(page)
+  await categories.open()
+  await expect(categories.addUnder('Loisirs')).toBeVisible()
+  await categories.addUnder('Bars').click()
+  await expect(
+    categories.content.getByLabel('Rattacher à une catégorie'),
+    'the form opens with the parent already chosen',
+  ).toHaveValue('Loisirs › Bars')
+  await categories.content.getByLabel('Nom').fill('Obsydian')
+  await categories.content.getByLabel('Obligation').click()
+  await page.getByRole('option', { name: 'Non-obligatoire' }).click()
+  await categories.content.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.waitForURL((url) => !url.hash.includes('/create'))
+
+  // Then the tree shows Loisirs › Bars › Obsydian, with nothing to add under the third level.
+  const stored = await waitForIndexed<{ id?: string; path?: string; depth?: number }>(
+    api,
+    '/api/categories',
+    (c) => c.path === OBSYDIAN_PATH,
+    { what: `The category ${OBSYDIAN_PATH}` },
+  )
+  expect(stored.depth).toBe(3)
+
+  await categories.open()
+  await expect.poll(() => categories.tree()).toEqual([
+    { name: 'Loisirs', depth: 1 },
+    { name: 'Bars', depth: 2 },
+    { name: 'Obsydian', depth: 3 },
+  ])
+  await expect(categories.addUnder('Bars')).toBeVisible()
+  await expect(categories.addUnder('Obsydian')).toHaveCount(0)
+
+  // And a transaction can be filed in Obsydian, which the list names by its path.
+  const accountId = await createdId(api, '/api/accounts', {
+    name: 'Compte MAG-411',
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  treeAccountIds.push(accountId)
+
+  const label = 'PAIEMENT PAR CARTE OBSYDIAN MAG-411'
+  const accounts = new FinanceAccountsPage(page)
+  await accounts.openTransactions(accountId)
+  await accounts.createTransaction({
+    label,
+    amountEuros: 12,
+    date: seedDate(),
+    category: OBSYDIAN_PATH,
+  })
+
+  const transaction = await waitForIndexed<{ category?: string }>(
+    api,
+    '/api/transactions',
+    (t: { label?: string; category?: string }) => t.label === label,
+    { what: 'The transaction filed in Obsydian' },
+  )
+  expect(transaction.category).toBe(`/api/categories/${stored.id}`)
+
+  await accounts.openTransactions(accountId)
+  await expect(accounts.row(label)).toContainText(OBSYDIAN_PATH)
 })

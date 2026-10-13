@@ -13,6 +13,7 @@ import type { LiveConfig } from '../../hooks/liveList'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
+import { CategoryPathField } from './CategoryPathField'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -46,7 +47,7 @@ const TransactionDatagrid = () => {
         <TextField source="name" />
       </ReferenceField>
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
-        <TextField source="name" />
+        <CategoryPathField />
       </ReferenceField>
       <FunctionField
         label="Statut"

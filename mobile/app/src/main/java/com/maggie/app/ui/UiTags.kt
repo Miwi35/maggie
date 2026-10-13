@@ -113,6 +113,10 @@ object UiTags {
     const val CATEGORY_PARENT_SEARCH = "category_parent_search"
     const val CATEGORY_DELETE = "category_delete"
 
+    /** A transaction's category on its detail screen, and the full-screen search it opens (MAG-411). */
+    const val TRANSACTION_CATEGORY = "transaction_category"
+    const val TRANSACTION_CATEGORY_SEARCH = "transaction_category_search"
+
     /** The list and the detail of a screen drawn side by side on a wide window (MAG-263). */
     const val LIST_PANE = "list_pane"
     const val DETAIL_PANE = "detail_pane"
