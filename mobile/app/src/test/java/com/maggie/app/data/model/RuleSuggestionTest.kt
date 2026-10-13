@@ -26,7 +26,7 @@ class RuleSuggestionTest {
     @Test
     fun `an acceptance says what it wrote and what it filed`() {
         assertEquals(
-            "2 règle(s) créée(s), 7 opération(s) rangée(s).",
+            "2 règle(s) créée(s), 7 transaction(s) rangée(s).",
             acceptedRulesSummary(
                 AcceptRuleSuggestionsResult(success = true, created = 2, categorized = 7),
             ),

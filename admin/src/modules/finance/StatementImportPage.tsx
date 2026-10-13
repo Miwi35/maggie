@@ -101,7 +101,7 @@ export const StatementImportPage = () => {
       return
     }
 
-    notify(`${written.imported} opération(s) importée(s).`, { type: 'info' })
+    notify(`${written.imported} transaction(s) importée(s).`, { type: 'info' })
   }
 
   return (
@@ -186,8 +186,8 @@ export const StatementImportPage = () => {
               title={report.dryRun ? 'Rapport de simulation' : 'Import effectué'}
               description={
                 report.dryRun
-                  ? `Rien n'a été écrit. ${report.account.name} recevrait les opérations ci-dessous.`
-                  : `${report.imported} opération(s) écrite(s) sur ${report.account.name}.`
+                  ? `Rien n'a été écrit. ${report.account.name} recevrait les transactions ci-dessous.`
+                  : `${report.imported} transaction(s) écrite(s) sur ${report.account.name}.`
               }
             />
 
@@ -261,12 +261,12 @@ export const StatementImportPage = () => {
             <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
               {pending && (
                 <Button variant="contained" disabled={running} onClick={onConfirm}>
-                  Importer {report.imported} opération(s)
+                  Importer {report.imported} transaction(s)
                 </Button>
               )}
               {report.dryRun && report.imported === 0 && (
                 <Alert severity="info" sx={{ flexGrow: 1 }}>
-                  Toutes les opérations de ce fichier sont déjà sur le compte : il n'y a rien à
+                  Toutes les transactions de ce fichier sont déjà sur le compte : il n'y a rien à
                   importer.
                 </Alert>
               )}

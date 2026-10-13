@@ -100,7 +100,7 @@ fun AccountListScreen(
                 EmptyState(
                     modifier = Modifier.padding(paddingValues),
                     title = "Aucun compte pour l'instant",
-                    description = "Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les opérations et le matelas.",
+                    description = "Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les transactions et le matelas.",
                     actionLabel = "Ajouter un compte",
                     onAction = { showCreateDialog = true },
                 )

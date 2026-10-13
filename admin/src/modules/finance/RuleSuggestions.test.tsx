@@ -99,7 +99,7 @@ describe('RuleSuggestions', () => {
       })
     })
 
-    expect(await screen.findByText(/4 opération\(s\) rangée\(s\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/4 transaction\(s\) rangée\(s\)/)).toBeInTheDocument()
   })
 
   test('nothing to propose is said plainly', async () => {

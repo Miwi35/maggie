@@ -57,7 +57,7 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
     <FormSection
       first
       title="La catégorie"
-      description="Les catégories classent vos opérations : elles portent les budgets, les règles automatiques et la revue mensuelle."
+      description="Les catégories classent vos transactions : elles portent les budgets, les règles automatiques et la revue mensuelle."
     />
 
     <TextInput

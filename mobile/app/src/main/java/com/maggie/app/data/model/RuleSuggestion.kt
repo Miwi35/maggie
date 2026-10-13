@@ -51,4 +51,4 @@ fun suggestionWeight(suggestion: RuleSuggestion): String =
 
 /** What was accepted, and what it did to the history straight away. */
 fun acceptedRulesSummary(result: AcceptRuleSuggestionsResult): String =
-    "${result.created} règle(s) créée(s), ${result.categorized} opération(s) rangée(s)."
+    "${result.created} règle(s) créée(s), ${result.categorized} transaction(s) rangée(s)."

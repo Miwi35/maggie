@@ -90,7 +90,7 @@ class BankConnectionViewModelTest {
 
         val state = viewModel.uiState.value
         assertFalse(state.isSyncing)
-        assertEquals("2 opération(s) importée(s), 1 déjà présente(s).", state.message)
+        assertEquals("2 transaction(s) importée(s), 1 déjà présente(s).", state.message)
         // The dates and the statuses moved with the fetch.
         coVerify(atLeast = 2) { repository.getConnections() }
     }

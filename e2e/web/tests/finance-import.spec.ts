@@ -112,7 +112,7 @@ test.describe('Importing a statement', () => {
     await importPage.dropStatement(STATEMENT)
     await importPage.simulate.click()
 
-    await expect(importPage.confirm).toHaveText('Importer 2 opération(s)')
+    await expect(importPage.confirm).toHaveText('Importer 2 transaction(s)')
     await importPage.confirm.click()
 
     await expect(importPage.content.getByText('Import effectué')).toBeVisible()

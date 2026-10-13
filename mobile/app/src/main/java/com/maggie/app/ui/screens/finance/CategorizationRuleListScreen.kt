@@ -119,7 +119,7 @@ fun CategorizationRuleListScreen(
                 EmptyState(
                     modifier = Modifier.padding(paddingValues),
                     title = "Aucune règle pour l'instant",
-                    description = "Une règle classe toute seule les opérations dont le libellé correspond, et vaut aussi pour l'historique.",
+                    description = "Une règle classe toute seule les transactions dont le libellé correspond, et vaut aussi pour l'historique.",
                     actionLabel = "Écrire une règle",
                     onAction = { showCreateDialog = true },
                 )

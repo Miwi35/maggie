@@ -145,7 +145,7 @@ describe('StatementImportPage', () => {
     await fillIn()
     await userEvent.click(screen.getByRole('button', { name: "Simuler l'import" }))
 
-    const importButton = await screen.findByRole('button', { name: 'Importer 1 opération(s)' })
+    const importButton = await screen.findByRole('button', { name: 'Importer 1 transaction(s)' })
     fetchMock.mockResolvedValue(json({ ...REHEARSAL, dryRun: false }))
     await userEvent.click(importButton)
 
@@ -153,7 +153,7 @@ describe('StatementImportPage', () => {
       expect(lastSent()).toEqual({ account: '01JACC0000000000000000001', confirm: '1' }),
     )
     expect(await screen.findByText('Import effectué')).toBeInTheDocument()
-    expect(await screen.findByText('1 opération(s) importée(s).')).toBeInTheDocument()
+    expect(await screen.findByText('1 transaction(s) importée(s).')).toBeInTheDocument()
 
     // What is written cannot be written again from the same report.
     expect(screen.queryByRole('button', { name: /^Importer/ })).not.toBeInTheDocument()

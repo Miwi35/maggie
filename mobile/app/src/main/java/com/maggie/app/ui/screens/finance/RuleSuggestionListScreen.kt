@@ -103,7 +103,7 @@ fun RuleSuggestionListScreen(
                 uiState.suggestions.isEmpty() -> {
                     EmptyState(
                         title = "Rien à proposer pour l'instant",
-                        description = "Les suggestions viennent des opérations déjà importées : un commerçant qui revient au moins deux fois et qu'aucune règle ne couvre encore.",
+                        description = "Les suggestions viennent des transactions déjà importées : un commerçant qui revient au moins deux fois et qu'aucune règle ne couvre encore.",
                     )
                 }
                 else -> {

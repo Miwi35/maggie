@@ -127,7 +127,7 @@ class BankConnectionTest {
     @Test
     fun `a fetch says what it brought and what it already had`() {
         assertEquals(
-            "2 opération(s) importée(s), 5 déjà présente(s).",
+            "2 transaction(s) importée(s), 5 déjà présente(s).",
             bankSyncSummary(
                 BankSyncResult(
                     imported = 2,
@@ -141,7 +141,7 @@ class BankConnectionTest {
     @Test
     fun `a fetch that found nothing new says so`() {
         assertEquals(
-            "Aucune nouvelle opération.",
+            "Aucune nouvelle transaction.",
             bankSyncSummary(
                 BankSyncResult(
                     skipped = 3,
@@ -177,7 +177,7 @@ class BankConnectionTest {
         )
     }
 
-    /** « Aucune nouvelle opération » would read as « tout est à jour » here. */
+    /** « Aucune nouvelle transaction » would read as « tout est à jour » here. */
     @Test
     fun `nothing asked because the consent expired is not nothing to fetch`() {
         assertEquals(
@@ -198,7 +198,7 @@ class BankConnectionTest {
     @Test
     fun `one expired bank does not hide what the others brought`() {
         assertEquals(
-            "1 opération(s) importée(s), 0 déjà présente(s).",
+            "1 transaction(s) importée(s), 0 déjà présente(s).",
             bankSyncSummary(
                 BankSyncResult(
                     imported = 1,

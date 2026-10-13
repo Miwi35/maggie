@@ -53,7 +53,7 @@ export const AccountList = () => (
     empty={
       <ListEmpty
         title="Aucun compte pour l'instant"
-        description="Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les opérations, le matelas et la vue d'ensemble."
+        description="Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les transactions, le matelas et la vue d'ensemble."
         action="Ajouter un compte"
       />
     }

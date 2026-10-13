@@ -135,7 +135,7 @@ export const RuleSuggestions = () => {
         created: number
         categorized: number
       }
-      notify(`${result.created} règle(s) créée(s), ${result.categorized} opération(s) rangée(s).`, {
+      notify(`${result.created} règle(s) créée(s), ${result.categorized} transaction(s) rangée(s).`, {
         type: 'info',
       })
       await load()
@@ -156,7 +156,7 @@ export const RuleSuggestions = () => {
         <CardContent>
           <Placeholder
             title="Rien à proposer pour l'instant"
-            description="Les suggestions viennent des opérations déjà importées : un commerçant qui revient au moins deux fois et qu'aucune règle ne couvre encore."
+            description="Les suggestions viennent des transactions déjà importées : un commerçant qui revient au moins deux fois et qu'aucune règle ne couvre encore."
           />
         </CardContent>
       </Card>
@@ -167,7 +167,7 @@ export const RuleSuggestions = () => {
     <Card>
       <CardContent>
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-          Règles déduites de vos opérations
+          Règles déduites de vos transactions
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Chaque ligne est un commerçant qui revient dans vos relevés. Vérifiez la catégorie,
