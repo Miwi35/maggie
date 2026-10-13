@@ -803,6 +803,7 @@ async def delete_instruction(instruction_id: str, user_id: str = Depends(get_cur
 @router.get("/skills")
 async def get_skills(_user_id: str = Depends(get_current_user_id)):
     """List all skills (name, description, tags)."""
+    await skill_index.refresh()
     entries = skill_index.list_all()
     return [{"name": e.name, "description": e.description, "tags": e.tags} for e in entries]
 

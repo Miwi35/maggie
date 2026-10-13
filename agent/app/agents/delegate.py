@@ -55,7 +55,10 @@ class ScopedToolRouter:
 
 async def _system_prompt(definition: SubagentDefinition, user_id: str, tools: list[dict]) -> str:
     memory_context = await AgentMemory().get_memory_context(user_id)
-    skills = skill_index.get_skills_index() if any(t["name"] == "get_skill" for t in tools) else ""
+    skills = ""
+    if any(t["name"] == "get_skill" for t in tools):
+        await skill_index.refresh()
+        skills = skill_index.get_skills_index()
     return f"{definition.prompt}{skills}{memory_context}\n\n{current_datetime_line()}"
 
 

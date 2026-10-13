@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -239,6 +240,7 @@ class TestSkillRoutes:
     @patch("app.api.routes.skill_index")
     def test_list_skills_with_auth(self, mock_index, authed_client):
         """GET /skills with valid auth returns skills list."""
+        mock_index.refresh = AsyncMock()
         mock_index.list_all.return_value = [
             SkillEntry(name="s1", description="Skill 1", tags=["a"]),
         ]
@@ -249,6 +251,87 @@ class TestSkillRoutes:
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "s1"
+        mock_index.refresh.assert_awaited_once()
+
+
+class TestSkillsCreatedByAnotherProcess:
+    """MAG-432: each worker process holds its own index, so a read must reload it before answering."""
+
+    async def test_two_indexes_on_one_database_disagree_until_refreshed(self, agent_db):
+        one, other = _index(), _index()
+        await other.rebuild()
+
+        await one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u")
+
+        assert other.list_all() == []
+        await other.refresh()
+        assert [e.name for e in other.list_all()] == ["gestion-des-dates"]
+
+    def test_get_skills_lists_a_skill_created_by_another_process(self, agent_db, authed_client):
+        one, other = _index(), _index()
+        asyncio.run(other.rebuild())
+        asyncio.run(one.create("chercher-dans-les-agendas", "Agendas", ["moment:chat"], "Corps", user_id="u"))
+        asyncio.run(one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u"))
+
+        with patch("app.api.routes.skill_index", other):
+            listing = authed_client.get("/skills")
+
+        assert listing.status_code == 200
+        assert [s["name"] for s in listing.json()] == ["chercher-dans-les-agendas", "gestion-des-dates"]
+
+    def test_get_skills_does_not_change_the_database(self, agent_db, authed_client):
+        one, other = _index(), _index()
+        asyncio.run(one.create("s", "d", ["t"], "Corps", user_id="u"))
+
+        def stored() -> list[tuple]:
+            with agent_db() as session:
+                return [(s.name, s.description, list(s.tags), s.content) for s in session.query(Skill).all()]
+
+        before = stored()
+        with patch("app.api.routes.skill_index", other):
+            authed_client.get("/skills")
+
+        assert stored() == before
+
+    def test_get_skills_drops_a_skill_deleted_by_another_process(self, agent_db, authed_client):
+        one, other = _index(), _index()
+        asyncio.run(one.create("gone", "d", [], "Corps", user_id="u"))
+        asyncio.run(other.rebuild())
+        asyncio.run(one.delete("gone"))
+
+        with patch("app.api.routes.skill_index", other):
+            listing = authed_client.get("/skills")
+
+        assert listing.json() == []
+
+    async def test_list_skills_tool_sees_a_skill_created_by_another_process(self, agent_db):
+        from app.llm.tools import ToolRouter
+
+        one, other = _index(), _index()
+        await other.rebuild()
+        await one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u")
+
+        with patch("app.llm.tools.skill_index", other):
+            listed = await ToolRouter().call_tool("list_skills", {}, user_id="u")
+
+        assert [s["name"] for s in json.loads(listed)] == ["gestion-des-dates"]
+
+    async def test_sub_agent_prompt_lists_a_skill_created_by_another_process(self, agent_db):
+        from app.agents.delegate import _system_prompt
+
+        one, other = _index(), _index()
+        await other.rebuild()
+        await one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u")
+        definition = MagicMock(prompt="BASE")
+
+        with (
+            patch("app.agents.delegate.skill_index", other),
+            patch("app.agents.delegate.AgentMemory") as memory,
+        ):
+            memory.return_value.get_memory_context = AsyncMock(return_value="")
+            prompt = await _system_prompt(definition, "u", [{"name": "get_skill"}])
+
+        assert "- gestion-des-dates: Dates" in prompt
 
 
 class TestSkillToolsAfterRestart:
