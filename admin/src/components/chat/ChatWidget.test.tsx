@@ -464,6 +464,31 @@ describe('ChatWidget', () => {
     })
   })
 
+  test('shows the sources of a web answer as links to open', async () => {
+    const page = 'https://www.education.gouv.fr/le-calendrier-scolaire-2026-2027'
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({
+        '/agent/messages': [
+          { id: 'msg-1', role: 'user', content: 'Vacances de la Toussaint ?', createdAt: '2026-10-13T10:00:00Z' },
+          {
+            id: 'msg-2',
+            role: 'assistant',
+            content: `Du 17 octobre au 1er novembre.\n\nSource : education.gouv.fr — ${page}`,
+            createdAt: '2026-10-13T10:00:01Z',
+          },
+        ],
+      }),
+    )
+
+    renderWithTheme(<ChatWidget {...defaultProps} />)
+
+    const link = await screen.findByRole('link', { name: page })
+    expect(link).toHaveAttribute('href', page)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(screen.getByText(/Du 17 octobre au 1er novembre/)).toBeInTheDocument()
+  })
+
   test('flags the message list once the history is in', async () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [{ id: 'msg-1', role: 'user', content: 'Hello', createdAt: '2026-01-01T10:00:00Z' }] }))
 

@@ -185,6 +185,14 @@ The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
 one and change the other.
 
+**The web** (MAG-384). A turn may carry `web_search`, the search the model runs on Anthropic's
+side before answering: `query`, the `results` found (`title`, `url`) and the pages `cited` (they
+default to all the results; none cited means no sources line). The fake emits what the API does — a
+`server_tool_use`, a `web_search_tool_result`, then the text with its `citations` — and the agent
+turns the citations into the last line of the answer, `Source : domaine — lien`.
+`96-web-search-holidays.yaml` is the journey's scenario, `96-web-search-nothing.yaml` the search that
+finds nothing. The fake logs an error when a scenario searches while `web_search` was not offered.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

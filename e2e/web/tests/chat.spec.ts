@@ -605,6 +605,45 @@ test('asking for the weather runs get_weather against the simulated Open-Meteo',
   await expect(chat.bubbles(WEATHER.answer)).toHaveCount(1)
 })
 
+/** 96-web-search-holidays.yaml — the model searches the web; the answer ends on its source line (MAG-384). */
+const WEB_SEARCH = {
+  question: 'Quelles sont les dates des vacances de la Toussaint 2026 à Rennes ?',
+  dates: 'du samedi 17 octobre au dimanche 1er novembre 2026',
+  link: 'https://www.education.gouv.fr/le-calendrier-scolaire-2026-2027',
+}
+
+test('a question about the web runs the web search and the answer shows its source as a link', async ({ page }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(WEB_SEARCH.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+
+  // The search runs on the model's side: it reports as a tool call that ended well, and no MCP tool was needed.
+  expect(calledTools(events)).toEqual(['web_search'])
+  expect(toolResults(events)).toContainEqual({ toolName: 'web_search', status: 'success' })
+
+  // The answer holds the dates and closes on one line: the domain, then the link.
+  const answer = assistantText(events)
+  expect(answer).toContain(WEB_SEARCH.dates)
+  expect(answer.trimEnd().split('\n').pop()).toBe(`Source : education.gouv.fr — ${WEB_SEARCH.link}`)
+
+  // Shown once, with the link clickable.
+  await expect(chat.message(WEB_SEARCH.dates)).toBeVisible()
+  const link = chat.panel.getByRole('link', { name: WEB_SEARCH.link })
+  await expect(link).toHaveCount(1)
+  await expect(link).toHaveAttribute('href', WEB_SEARCH.link)
+  await expect(link).toHaveAttribute('target', '_blank')
+
+  // And it is still there, once, from a fresh tab.
+  await page.reload()
+  await dashboard.expectReady()
+  await chat.open()
+  await expect(chat.panel.getByRole('link', { name: WEB_SEARCH.link })).toHaveCount(1)
+})
+
 /**
  * The voice path, from the microphone to the database (MAG-145).
  *

@@ -76,3 +76,24 @@ tags:
 # file is renamed, this is the step that names the cause instead of leaving a
 # timeout to be read as a broken chat.
 - assertNotVisible: ".*aucun scénario.*"
+
+# The web (MAG-384): `96-web-search-holidays.yaml` scripts a `web_search` on the model's
+# side, so the answer holds the dates and ends on its source line — the domain and the
+# link, which the bubble draws as a link.
+- tapOn:
+    id: "chat_input"
+
+- inputText: "Quelles sont les dates des vacances de la Toussaint 2026 à Rennes ?"
+
+- tapOn:
+    id: "chat_send"
+
+- extendedWaitUntil:
+    visible: ".*17 octobre au dimanche 1er novembre 2026.*"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible: ".*education\\.gouv\\.fr — https://www\\.education\\.gouv\\.fr/le-calendrier-scolaire-2026-2027.*"
+    timeout: 20000
+
+- assertNotVisible: ".*aucun scénario.*"

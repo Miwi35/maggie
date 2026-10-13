@@ -33,6 +33,7 @@ import { subscribeAgentFeed } from '../../hooks/agentFeed'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
+import { Linkified } from './Linkified'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
 import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
@@ -1258,7 +1259,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                 Capture d'écran (non conservée)
                               </Typography>
                             )}
-                            {saidInMessage(msg.content)}
+                            <Linkified text={saidInMessage(msg.content)} />
                           </ChatBubble>
                           {msg.id === unansweredId && (
                             <Box
@@ -1278,7 +1279,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     })}
                     {/* Streaming bubble */}
                     {streamingMsgId && streamingText && (
-                      <ChatBubble role="assistant">{streamingText}</ChatBubble>
+                      <ChatBubble role="assistant">
+                        <Linkified text={streamingText} />
+                      </ChatBubble>
                     )}
                     {approvals.map((approval) => (
                       <ApprovalCard key={approval.id} approval={approval} onApprove={approve} onDeny={deny} />

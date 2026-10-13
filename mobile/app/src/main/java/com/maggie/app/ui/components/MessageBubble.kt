@@ -127,8 +127,9 @@ fun MessageBubble(
                         ScreenshotThumbnail(thumbnail)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+                    val linkColor = MaterialTheme.colorScheme.primary
                     Text(
-                        text = message.content,
+                        text = remember(message.content, linkColor) { linkified(message.content, linkColor) },
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

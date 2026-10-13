@@ -1,0 +1,18 @@
+# A public fact is looked up on the web, with her sources (MAG-384). The dates of the
+# school holidays are nothing Maggie owns: `search` only reads her own data, and the
+# answer must come from Anthropic's `web_search`, not from memory and not from « je n'ai
+# pas accès à Internet ». Real model, nightly (`task e2e:eval`), outside CI.
+name: recherche-web
+description: A public fact is searched on the web and answered with dates and an official source.
+channel: chat
+
+steps:
+  - user_message: "Quelles sont les dates des vacances de la Toussaint 2026 à Rennes ?"
+    expected_tools: [web_search]
+    forbidden_tools: [search]
+    expected_absent: ["je n'ai pas accès", "je ne peux pas accéder", "pas accès à internet"]
+    expected_behavior: >
+      Elle cherche sur le web, puis donne les dates des vacances de la Toussaint 2026
+      (zone B : du samedi 17 octobre au dimanche 1er novembre, reprise le lundi
+      2 novembre) en français, en peu de mots. La réponse se termine par une ligne de
+      source avec le domaine d'un site officiel (education.gouv.fr) et son lien.

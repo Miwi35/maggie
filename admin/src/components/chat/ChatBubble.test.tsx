@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react'
 import { renderWithTheme } from '../../test/renderWithTheme'
 import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
 import { ChatBubble } from './ChatBubble'
+import { Linkified } from './Linkified'
 
 describe.each([
   ['dark', veilleuseDarkTheme],
@@ -35,5 +36,33 @@ describe.each([
     )
 
     expect(screen.getByText('Trouvé')).toHaveStyle({ boxShadow: `0 0 0 2px ${theme.palette.warning.main}` })
+  })
+})
+
+describe('a message with a web address', () => {
+  test('shows it as a link that opens in a new tab, without handing over the opener', () => {
+    renderWithTheme(
+      <ChatBubble role="assistant">
+        <Linkified text="Source : education.gouv.fr — https://www.education.gouv.fr/calendrier" />
+      </ChatBubble>,
+      veilleuseLightTheme,
+    )
+
+    const link = screen.getByRole('link', { name: 'https://www.education.gouv.fr/calendrier' })
+    expect(link).toHaveAttribute('href', 'https://www.education.gouv.fr/calendrier')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  test('leaves a message without address as it is', () => {
+    renderWithTheme(
+      <ChatBubble role="assistant">
+        <Linkified text="Bonjour" />
+      </ChatBubble>,
+      veilleuseLightTheme,
+    )
+
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText('Bonjour')).toBeInTheDocument()
   })
 })

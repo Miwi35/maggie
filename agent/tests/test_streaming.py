@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.config import settings
 from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.streaming import StreamingGateway, tool_result_status
@@ -617,3 +618,150 @@ class TestToolResultStatus:
 
     def test_plain_text_is_a_success(self):
         assert tool_result_status("Event created successfully") == "success"
+
+
+class TestWebSearchStreamed:
+    """The web search Anthropic runs inside a streamed turn (MAG-384)."""
+
+    PAGE = "https://www.education.gouv.fr/le-calendrier-scolaire-2026-2027"
+
+    @classmethod
+    def _gateway(cls, steps=None):
+        from app.llm.fake import FakeCitation, FakeCitedTextBlock, FakeServerToolUseBlock, FakeWebSearchResultBlock
+
+        steps = steps or [
+            FakeMessage(
+                content=[
+                    FakeTextBlock(text="Je cherche."),
+                    FakeServerToolUseBlock(id="srvtoolu_1", input={"query": "vacances Toussaint 2026"}),
+                    FakeWebSearchResultBlock(
+                        tool_use_id="srvtoolu_1",
+                        content=[{"type": "web_search_result", "title": "Calendrier", "url": cls.PAGE}],
+                    ),
+                    FakeCitedTextBlock(
+                        text="Du 17 octobre au 1er novembre.",
+                        citations=[FakeCitation(url=cls.PAGE, title="Calendrier")],
+                    ),
+                ],
+                stop_reason="end_turn",
+                usage=FakeUsage(input_tokens=10, output_tokens=5),
+            )
+        ]
+        sent = []
+
+        def stream(**kwargs):
+            sent.append(kwargs)
+            return FakeStream(steps.pop(0))
+
+        gw = TestSummaryTrigger._gateway()
+        gw.client.messages.stream = stream
+        gw.tool_router.get_tool_definitions = AsyncMock(return_value=[{"name": "search"}])
+        return gw, sent
+
+    async def _run(self, gw):
+        events = []
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.streaming.context_repo"),
+            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Toussaint ?"}])),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.context_summarizer") as summarizer,
+            patch("app.llm.streaming.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
+            messages.create = AsyncMock()
+            summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+            async for event in gw.chat_stream("Toussaint ?", "user-1", "msg-1"):
+                events.append(event)
+            await asyncio.gather(*gw._background)
+            return events, messages.create.await_args.kwargs
+
+    async def test_the_main_turn_offers_the_web_search_with_a_ceiling(self):
+        gw, sent = self._gateway()
+
+        await self._run(gw)
+
+        tools = sent[0]["tools"]
+        web = next(tool for tool in tools if tool["name"] == "web_search")
+        assert web["type"] == "web_search_20250305"
+        assert web["max_uses"] == settings.web_search_max_uses
+        assert web["user_location"] == {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}
+        assert tools[-1]["name"] == "search"
+
+    async def test_the_answer_is_the_text_after_the_search_closed_by_its_sources(self):
+        gw, _ = self._gateway()
+
+        events, stored = await self._run(gw)
+
+        expected = f"Du 17 octobre au 1er novembre.\n\nSource : education.gouv.fr — {self.PAGE}"
+        assert stored["content"] == expected
+        shown = ""
+        for event in events:
+            if event["type"] == "TEXT_MESSAGE_START":
+                shown = ""
+            elif event["type"] == "TEXT_MESSAGE_CONTENT":
+                shown += event["delta"]
+        assert shown == expected
+
+    async def test_the_search_is_a_tool_call_the_clients_see_end(self):
+        gw, _ = self._gateway()
+
+        events, _ = await self._run(gw)
+
+        assert {"type": "TOOL_CALL_START", "toolCallId": "srvtoolu_1", "toolName": "web_search"} in events
+        assert {"type": "TOOL_CALL_END", "toolCallId": "srvtoolu_1", "toolName": "web_search"} in events
+        assert {
+            "type": "CUSTOM",
+            "name": "tool_result",
+            "value": {"toolCallId": "srvtoolu_1", "toolName": "web_search", "status": "success"},
+        } in events
+
+    async def test_the_search_is_never_routed_to_a_tool_handler(self):
+        gw, _ = self._gateway()
+
+        await self._run(gw)
+
+        gw.tool_router.call_tool.assert_not_called()
+
+    async def test_an_answer_without_citation_has_no_sources_line(self):
+        gw, _ = self._gateway(
+            [
+                FakeMessage(
+                    content=[FakeTextBlock(text="Rien de fiable trouvé.")],
+                    stop_reason="end_turn",
+                    usage=FakeUsage(input_tokens=10, output_tokens=5),
+                )
+            ]
+        )
+
+        _, stored = await self._run(gw)
+
+        assert stored["content"] == "Rien de fiable trouvé."
+
+    async def test_a_paused_turn_is_sent_back_to_go_on(self):
+        from app.llm.fake import FakeServerToolUseBlock
+
+        gw, sent = self._gateway(
+            [
+                FakeMessage(
+                    content=[FakeServerToolUseBlock(id="srvtoolu_1", input={"query": "x"})],
+                    stop_reason="pause_turn",
+                    usage=FakeUsage(input_tokens=10, output_tokens=5),
+                ),
+                FakeMessage(
+                    content=[FakeTextBlock(text="Voilà.")],
+                    stop_reason="end_turn",
+                    usage=FakeUsage(input_tokens=10, output_tokens=5),
+                ),
+            ]
+        )
+
+        _, stored = await self._run(gw)
+
+        assert len(sent) == 2
+        assert sent[1]["messages"][-1]["role"] == "assistant"
+        assert stored["content"] == "Voilà."

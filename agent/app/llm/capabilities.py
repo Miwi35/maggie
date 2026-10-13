@@ -24,7 +24,11 @@ _CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "skill": ("Compétences", "apprendre de nouvelles procédures"),
     "proaction": ("Proactions", "programmer des rappels et tâches autonomes"),
     "delegate": ("Délégation", "confier une tâche de recherche à un sous-agent"),
-    "search": ("Recherche", "recherche plein texte dans toutes les données"),
+    "search": ("Recherche", "recherche plein texte dans les données de Maggie (pas Internet)"),
+    "web_search": (
+        "Web",
+        "chercher sur Internet les faits publics (dates officielles, horaires, adresses) et citer ses sources",
+    ),
 }
 
 

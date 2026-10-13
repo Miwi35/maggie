@@ -6,6 +6,7 @@ import anthropic
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.prompt_cache import cache_tools
 from app.llm.tool_blocks import record
+from app.llm.web_search import PAUSE_TURN, answer_text, with_sources
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,9 @@ async def run_tool_loop(
     An answer announcing a reminder or something learned that no tool backed this turn, or
     giving a date to a question about the agenda that no reading backed, is sent back to the
     model once, then replaced with the truth (MAG-339, MAG-340, MAG-349, `app.llm.claim_guard`).
+
+    A response may carry web searches Anthropic ran on its side (`app.llm.web_search`): the
+    answer is the text after the last one, closed by the line of the sources it cites (MAG-384).
 
     The result carries `blocks`: the `tool_use` / `tool_result` rounds this run went
     through, in the shape the API takes them (MAG-211). The caller stores them on the
@@ -84,8 +88,14 @@ async def run_tool_loop(
 
         logger.info(f"Claude response: stop_reason={response.stop_reason}, blocks={len(response.content)}")
 
+        if response.stop_reason == PAUSE_TURN:
+            # A long web search stopped on the server's own limit: the response goes back as it
+            # is, and the model carries on from where it paused (MAG-384).
+            messages.append({"role": "assistant", "content": response.content})
+            continue
+
         if response.stop_reason != "tool_use":
-            text_response = "".join(block.text for block in response.content if hasattr(block, "text"))
+            text_response = answer_text(response.content)
             verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
             if verdict is Verdict.RETRY:
                 logger.warning("Action announced, nothing backs it: sending the model back")
@@ -94,6 +104,8 @@ async def run_tool_loop(
             if verdict is Verdict.GIVE_UP:
                 logger.warning("Action announced twice, never done: answering it is not")
                 text_response = guard.honest_answer()
+            else:
+                text_response = with_sources(text_response, response.content)
             return {"response": text_response, "tool_calls": tool_calls_made, "blocks": blocks}
 
         messages.append({"role": "assistant", "content": response.content})
