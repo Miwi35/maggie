@@ -23,7 +23,7 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  * - **Everything happens on the anchor's own day** (`seedDate()`), and chips are
  *   asserted in the day view. The grid opens on the current month, so an event a
  *   day later can fall into the next one and be invisible without anyone
- *   navigating; and month view folds a day holding more than three events behind
+ *   navigating; and month view folds the events a cell has no room for behind
  *   "+N autres", which makes a count there a count of what fitted.
  */
 
@@ -368,4 +368,106 @@ test('an event created in one window appears in the other without a reload', asy
       await expect(observerCalendar.chip(created.summary)).toHaveCount(1)
     },
   )
+})
+
+/**
+ * A free day of the anchor's month, for the journeys that fill a cell.
+ *
+ * The anchor's own day already holds seeded events, the weekly series sits on its
+ * weekday, and the other seeded events fall on fixed offsets (-21, -14, -10, -7, 1,
+ * 2, 4, 5, 9, 16, 23). Offsets -3/-2 (3/8 in the first days of the month, so as not
+ * to leave it) are clear of all of them.
+ */
+function freeOffsets(): [number, number] {
+  return Number(DAY.slice(8, 10)) > 3 ? [-3, -2] : [3, 8]
+}
+
+async function postEvent(api: APIRequestContext, data: Record<string, unknown>): Promise<void> {
+  const response = await api.post('/api/events', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`, ...data },
+  })
+  expect(response.status(), `POST /api/events answered ${response.status()}: ${await response.text()}`).toBe(201)
+}
+
+function attempt(label: string): string {
+  const { retry } = test.info()
+
+  return 0 === retry ? label : `${label} essai ${retry}`
+}
+
+/**
+ * The month cell is as tall as the screen allows, not three events (MAG-323).
+ *
+ * `dayMaxEvents` was a fixed 3, so a day with four events wrote
+ * « +1 autre » with room left under it. And the planned meal, a row of the event
+ * table, came back from `/api/events` as well as `/api/meals`, so the grid drew it
+ * twice. On a 1080 px screen the four events must all be on the cell,
+ * the meal once, and the API must not list the meal among the events.
+ */
+test('a day with four events and a meal fits its month cell, the meal drawn once', async ({ page, api }) => {
+  await page.setViewportSize({ width: 1440, height: 1080 })
+  const [offset] = freeOffsets()
+  const day = seedDate(offset)
+  const titles = ['Matin', 'Midi', 'Après-midi', 'Soir'].map((part) => attempt(`${part} MAG-323`))
+  const recipe = attempt('Gratin MAG-323')
+
+  for (const [index, title] of titles.entries()) {
+    const hour = 8 + index * 3
+    await postEvent(api, { summary: title, startAt: `${day}T${String(hour).padStart(2, '0')}:00:00+00:00`, endAt: `${day}T${String(hour + 1).padStart(2, '0')}:00:00+00:00` })
+  }
+
+  const createdRecipe = await api.post('/api/recipes', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name: recipe, servings: 2 },
+  })
+  expect(createdRecipe.status(), `POST /api/recipes answered ${createdRecipe.status()}`).toBe(201)
+  const meal = await api.post('/api/meals', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: {
+      summary: 'Dîner',
+      date: day,
+      slot: 'dinner',
+      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+      recipes: [((await createdRecipe.json()) as { '@id': string })['@id']],
+    },
+  })
+  expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+
+  await waitForIndexed<StoredEvent>(api, '/api/events?itemsPerPage=200', (event) => event.summary === titles[3], { what: 'The last event' })
+  await waitForIndexed<StoredEvent>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipe), { what: 'The planned meal' })
+
+  // The meal is the meals' collection's, not the events'.
+  const events = await getCollection<StoredEvent>(api, '/api/events?itemsPerPage=200')
+  expect(events.filter((event) => String(event.summary).includes(recipe)), 'the meal is listed among the events').toHaveLength(0)
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Mois')
+  const cell = calendar.monthCell(day)
+
+  for (const title of titles) {
+    await expect(cell.getByText(title, { exact: true }), `${title} missing from its cell`).toHaveCount(1)
+  }
+  await expect(cell.getByText(new RegExp(`${recipe}$`)), 'the meal must be drawn once').toHaveCount(1)
+  await expect(cell.locator('.fc-daygrid-more-link'), 'a « +N autres » with room left').toHaveCount(0)
+})
+
+test('a day with more events than its month cell holds folds the rest behind « +N autres »', async ({ page, api }) => {
+  await page.setViewportSize({ width: 1440, height: 1080 })
+  const day = seedDate(freeOffsets()[1])
+  const last = attempt('Créneau 14 MAG-323')
+
+  for (let index = 1; index <= 14; index++) {
+    const title = 14 === index ? last : attempt(`Créneau ${index} MAG-323`)
+    const hour = String(6 + index).padStart(2, '0')
+    await postEvent(api, { summary: title, startAt: `${day}T${hour}:00:00+00:00`, endAt: `${day}T${hour}:30:00+00:00` })
+  }
+  await waitForIndexed<StoredEvent>(api, '/api/events?itemsPerPage=200', (event) => event.summary === last, { what: 'The last event' })
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Mois')
+
+  await expect(calendar.monthCell(day).locator('.fc-daygrid-more-link')).toHaveCount(1)
 })

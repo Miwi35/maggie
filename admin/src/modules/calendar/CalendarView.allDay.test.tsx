@@ -107,7 +107,6 @@ describe('CalendarView — all-day events are dates', { timeout: 60_000 }, () =>
     expect(cell(container, '2037-01-01')).toContainElement(bar)
     // One segment, starting and ending there — not a bar laid across into the 2nd.
     expect(bar).toHaveClass('fc-event-start', 'fc-event-end')
-    expect(bar.closest('.fc-daygrid-event-harness-abs')).toBeNull()
     expect(screen.getAllByText('Nouvel an')).toHaveLength(1)
   })
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Core\Elasticsearch\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\IndexManager;
@@ -88,9 +89,7 @@ final class ElasticsearchReindexCommand extends Command
 
             $io->text("Reindexing <info>{$entityClass}</info> → <comment>{$indexName}</comment>");
 
-            $count = (int) $this->em->createQueryBuilder()
-                ->select('COUNT(e.id)')
-                ->from($entityClass, 'e')
+            $count = (int) $this->rowsOf($entityClass, 'COUNT(e.id)')
                 ->getQuery()
                 ->getSingleScalarResult();
 
@@ -99,9 +98,7 @@ final class ElasticsearchReindexCommand extends Command
 
             $offset = 0;
             while ($offset < $count) {
-                $entities_batch = $this->em->createQueryBuilder()
-                    ->select('e')
-                    ->from($entityClass, 'e')
+                $entities_batch = $this->rowsOf($entityClass, 'e')
                     ->setFirstResult($offset)
                     ->setMaxResults(self::BATCH_SIZE)
                     ->getQuery()
@@ -149,7 +146,7 @@ final class ElasticsearchReindexCommand extends Command
             $documentIds = $this->indexManager->documentIds($indexName);
 
             $rowIds = [];
-            foreach ($this->em->createQueryBuilder()->select('e.id')->from($entityClass, 'e')->getQuery()->getArrayResult() as $row) {
+            foreach ($this->rowsOf($entityClass, 'e.id')->getQuery()->getArrayResult() as $row) {
                 $rowIds[CanonicalId::of((string) $row['id'])] = true;
             }
             $this->em->clear();
@@ -164,6 +161,17 @@ final class ElasticsearchReindexCommand extends Command
         $io->success(sprintf('%d orphan document(s) removed', $removed));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * The rows the index holds: a Meal is an Event for the database, but a document of `meals` only.
+     */
+    private function rowsOf(string $entityClass, string $select): QueryBuilder
+    {
+        $queryBuilder = $this->em->createQueryBuilder()->select($select)->from($entityClass, 'e');
+        IndexMetadataReader::restrictToOwnRows($queryBuilder, 'e', $entityClass);
+
+        return $queryBuilder;
     }
 
     /**

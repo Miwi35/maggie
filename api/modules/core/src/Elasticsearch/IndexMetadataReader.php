@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Elasticsearch;
 
+use Doctrine\ORM\QueryBuilder;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
@@ -148,6 +149,46 @@ final class IndexMetadataReader
         }
 
         return array_values(array_unique($indices));
+    }
+
+    /**
+     * The one index a row of this class is written to: its own, else its nearest
+     * ancestor's. A Meal is a row of `events` for the database, not a document of
+     * it — it would be served to the agenda a second time, next to `meals`.
+     */
+    public function indexOf(string $className): ?string
+    {
+        return $this->indicesOf($className)[0] ?? null;
+    }
+
+    /**
+     * Of these classes, those that declare an index of their own: their rows are
+     * not documents of the index of the class they extend.
+     *
+     * @param list<class-string> $classes
+     *
+     * @return list<class-string>
+     */
+    public static function subclassesWithOwnIndex(array $classes): array
+    {
+        return array_values(array_filter(
+            $classes,
+            static fn (string $class) => [] !== (new \ReflectionClass($class))->getAttributes(Indexed::class),
+        ));
+    }
+
+    /**
+     * Narrows a query on an indexed class to the rows its index holds: no row of a
+     * subclass that has an index of its own.
+     */
+    public static function restrictToOwnRows(QueryBuilder $queryBuilder, string $alias, string $className): void
+    {
+        $metadata = $queryBuilder->getEntityManager()->getClassMetadata($className); // @phpstan-ignore argument.templateType
+        $subclasses = self::subclassesWithOwnIndex($metadata->subClasses);
+
+        if ([] !== $subclasses) {
+            $queryBuilder->andWhere(sprintf('%s NOT INSTANCE OF (%s)', $alias, implode(', ', $subclasses)));
+        }
     }
 
     public function getIndexName(string $className): ?string

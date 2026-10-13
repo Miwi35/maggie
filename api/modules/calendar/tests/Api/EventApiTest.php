@@ -41,6 +41,24 @@ class EventApiTest extends WebTestCase
         self::assertCount(2, $data['member']);
     }
 
+    /** MAG-323: a meal is drawn by the meals layer; the events collection must not serve it a second time. */
+    public function testEventCollectionDoesNotReturnMeals(): void
+    {
+        $this->loadFixtures('EventApiMealTest.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/events', [], [], array_merge(
+            ['HTTP_ACCEPT' => 'application/ld+json'],
+            $this->authHeaders(),
+        ));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['Event 1'], array_column($data['member'], 'summary'));
+    }
+
     public function testGetSingleEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');

@@ -52,6 +52,22 @@
             "@id": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "@type": "Event",
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "summary": "Recorded all-day event",
+            "allDay": true,
+            "startDate": "2026-03-12",
+            "endDate": "2026-03-13",
+            "timeZone": "Europe/Paris",
+            "status": "confirmed",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ownerRelation": "agenda",
+            "recurring": false,
+            "exception": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Event",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "summary": "Recorded recurring event",
             "allDay": false,
             "startAt": "2026-03-09T09:00:00+00:00",
@@ -64,27 +80,6 @@
             "ownerRelation": "agenda",
             "recurring": false,
             "exception": true,
-            "googleSynced": false
-        },
-        {
-            "@id": "/api/meals/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "@type": "Meal",
-            "date": "2026-03-16",
-            "slot": "dinner",
-            "recipes": [
-                "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV"
-            ],
-            "startDate": "2026-03-16",
-            "endDate": "2026-03-17",
-            "allDay": true,
-            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "summary": "Recorded meal",
-            "timeZone": "Europe/Paris",
-            "status": "confirmed",
-            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "ownerRelation": "agenda",
-            "recurring": false,
-            "exception": false,
             "googleSynced": false
         }
     ],

@@ -9,6 +9,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Time\DayBound;
 
@@ -23,13 +24,17 @@ class EventRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find a user's non-cancelled events within a date range (non-recurring + recurring masters).
+     * Find a user's non-cancelled events (meals excluded) within a date range (non-recurring + recurring masters).
      *
      * @return Event[]
      */
     public function findByDateRange(User $user, \DateTimeImmutable $start, \DateTimeImmutable $end): array
     {
-        return $this->dateRangeQueryBuilder($start, $end)
+        $queryBuilder = $this->dateRangeQueryBuilder($start, $end);
+        // The meals are the meals tool's: listed here too, Maggie would count each one twice.
+        IndexMetadataReader::restrictToOwnRows($queryBuilder, 'e', Event::class);
+
+        return $queryBuilder
             ->join('e.agenda', 'a')
             ->andWhere('a.user = :user')
             ->setParameter('user', $user->getId(), 'ulid')

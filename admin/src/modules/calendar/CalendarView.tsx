@@ -2133,7 +2133,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             eventResize={handleEventUpdate}
             headerToolbar={false}
             height="100%"
-            dayMaxEvents={3}
+            dayMaxEvents={true}
             moreLinkText={(n) => `+${n} autre${n > 1 ? 's' : ''}`}
             eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             fixedWeekCount={false}
