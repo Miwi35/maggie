@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * every existing row — any negative balance is an overdraft until the owner
  * says otherwise. Additive only.
  */
-final class Version20261013140000 extends AbstractMigration
+final class Version20261013210000 extends AbstractMigration
 {
     public function getDescription(): string
     {
