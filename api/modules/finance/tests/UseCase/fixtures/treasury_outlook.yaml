@@ -1,0 +1,110 @@
+# Treasury outlook (MAG-279). The salary is expected on the 25th and the
+# reference is declared on the cushion (4 950 €), so nothing moves with the
+# day the suite runs; each read passes its own « today ». The cushion account
+# holds the most, to show it still comes last.
+Maggie\Core\Entity\User:
+  test_user:
+    email: treasury-outlook@example.com
+    googleId: google-treasury-outlook
+    name: Treasury Outlook User
+  other_user:
+    email: treasury-outlook-other@example.com
+    googleId: google-treasury-outlook-other
+    name: Someone Else
+  bare_user:
+    email: treasury-outlook-bare@example.com
+    googleId: google-treasury-outlook-bare
+    name: No Expected Day
+
+Maggie\Finance\Entity\TreasurySettings:
+  settings:
+    salaryExpectedDay: 25
+    user: '@test_user'
+  other_settings:
+    salaryExpectedDay: 25
+    user: '@other_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@test_user'
+  other_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@other_user'
+  bare_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@bare_user'
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: -12000
+    isCushion: false
+    user: '@test_user'
+  livret:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 600000
+    isCushion: false
+    user: '@test_user'
+  pea:
+    name: PEA
+    type: '<(Maggie\Finance\Enum\AccountType::Investment)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+  safety:
+    name: Matelas
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 900000
+    isCushion: true
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@other_user'
+  other_livret:
+    name: Livret de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 5000000
+    isCushion: false
+    user: '@other_user'
+  bare_checking:
+    name: Courant sans jour
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: -50000
+    isCushion: false
+    user: '@bare_user'
+  bare_livret:
+    name: Livret sans jour
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@bare_user'
+
+Maggie\Finance\Entity\Category:
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@test_user'

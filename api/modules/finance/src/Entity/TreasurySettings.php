@@ -45,6 +45,14 @@ class TreasurySettings implements MercurePublishable, OwnedByUserInterface
     #[Assert\Range(min: 1, max: 31)]
     private ?int $salaryExpectedDay = null;
 
+    /**
+     * The overdraft the bank allows, positive cents. 0 means any negative
+     * balance is an overdraft — the safe default for someone who never said.
+     */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    #[Assert\PositiveOrZero]
+    private int $overdraftLimitCents = 0;
+
     public function __construct()
     {
         $this->id = new Ulid();
@@ -79,11 +87,24 @@ class TreasurySettings implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getOverdraftLimitCents(): int
+    {
+        return $this->overdraftLimitCents;
+    }
+
+    public function setOverdraftLimitCents(int $overdraftLimitCents): static
+    {
+        $this->overdraftLimitCents = $overdraftLimitCents;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
         return self::filterPayload([
             'salaryExpectedDay' => $this->salaryExpectedDay,
+            'overdraftLimitCents' => $this->overdraftLimitCents,
         ], $changedProperties);
     }
 }

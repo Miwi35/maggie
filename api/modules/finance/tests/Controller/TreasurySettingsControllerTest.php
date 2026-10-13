@@ -100,6 +100,45 @@ class TreasurySettingsControllerTest extends WebTestCase
         self::assertSame(25, $this->settingsOf('other_user')?->getSalaryExpectedDay());
     }
 
+    public function testPatchWritesTheOverdraftLimitAloneAndKeepsTheDay(): void
+    {
+        $this->signIn();
+
+        $data = $this->patch('{"overdraftLimitCents": 30000}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(30000, $data['overdraftLimitCents']);
+        self::assertSame(25, $data['salaryExpectedDay']);
+        $stored = $this->settingsOf('test_user');
+        self::assertSame(30000, $stored?->getOverdraftLimitCents());
+        self::assertSame(25, $stored->getSalaryExpectedDay());
+        self::assertSame(['@id' => '/api/treasury_settings/'.$stored->getId(), 'overdraftLimitCents' => 30000], $this->mercurePayloadsOn('/api/treasury_settings/'.$stored->getId())[0]);
+        $this->assertNoElasticsearchIndexDispatched(TreasurySettings::class);
+        self::assertSame(0, $this->settingsOf('other_user')?->getOverdraftLimitCents());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function badLimits(): iterable
+    {
+        yield 'negative' => ['{"overdraftLimitCents": -1}'];
+        yield 'not an integer' => ['{"overdraftLimitCents": 300.5}'];
+        yield 'a string' => ['{"overdraftLimitCents": "30000"}'];
+        yield 'null' => ['{"overdraftLimitCents": null}'];
+    }
+
+    #[DataProvider('badLimits')]
+    public function testABadOverdraftLimitIsA400AndChangesNothing(string $body): void
+    {
+        $this->signIn();
+
+        $data = $this->patch($body);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('overdraftLimitCents', $data['error']);
+        self::assertSame(0, $this->settingsOf('test_user')?->getOverdraftLimitCents());
+        $this->assertMercureUpdateCount(0);
+    }
+
     public function testNullForgetsTheDay(): void
     {
         $this->signIn();

@@ -31,11 +31,11 @@ class ManageTreasurySettingsToolTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function call(string $action, ?int $salaryExpectedDay = null, ?bool $clearSalaryExpectedDay = null): array
+    private function call(string $action, ?int $salaryExpectedDay = null, ?bool $clearSalaryExpectedDay = null, ?int $overdraftLimitCents = null): array
     {
         $tool = self::getContainer()->get(ManageTreasurySettingsTool::class);
 
-        return json_decode($tool($action, $salaryExpectedDay, $clearSalaryExpectedDay), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($tool($action, $salaryExpectedDay, $clearSalaryExpectedDay, $overdraftLimitCents), true, 512, JSON_THROW_ON_ERROR);
     }
 
     private function em(): EntityManagerInterface
@@ -124,6 +124,31 @@ class ManageTreasurySettingsToolTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/users/'.$this->getFixture('test_user')->getId().$topic);
         self::assertSame(28, $this->mercurePayloadsOn($topic)[0]['salaryExpectedDay']);
         $this->assertNoElasticsearchIndexDispatched(TreasurySettings::class);
+    }
+
+    public function testUpdateWritesTheOverdraftLimitAloneAndKeepsTheDay(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->call('update', overdraftLimitCents: 30000);
+
+        self::assertTrue($data['success']);
+        self::assertSame(30000, $data['overdraftLimitCents']);
+        self::assertSame(25, $data['salaryExpectedDay']);
+        $stored = $this->settingsOf('test_user');
+        self::assertSame(30000, $stored?->getOverdraftLimitCents());
+        self::assertSame(25, $stored->getSalaryExpectedDay());
+        self::assertSame(30000, $this->mercurePayloadsOn('/api/treasury_settings/'.$stored->getId())[0]['overdraftLimitCents']);
+        $this->assertNoElasticsearchIndexDispatched(TreasurySettings::class);
+    }
+
+    public function testANegativeOverdraftLimitIsRefused(): void
+    {
+        $this->loginFixtureUser();
+
+        self::assertStringContainsString('overdraftLimitCents', $this->call('update', overdraftLimitCents: -100)['error']);
+        self::assertSame(0, $this->settingsOf('test_user')?->getOverdraftLimitCents());
+        $this->assertMercureUpdateCount(0);
     }
 
     public function testClearForgetsTheDay(): void

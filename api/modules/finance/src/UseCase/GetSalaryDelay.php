@@ -161,7 +161,7 @@ class GetSalaryDelay
     }
 
     /** The expected day of a month, brought back to its last day when the month is shorter. */
-    private static function expectedOn(\DateTimeImmutable $month, int $day): \DateTimeImmutable
+    public static function expectedOn(\DateTimeImmutable $month, int $day): \DateTimeImmutable
     {
         $first = $month->modify('first day of this month');
 

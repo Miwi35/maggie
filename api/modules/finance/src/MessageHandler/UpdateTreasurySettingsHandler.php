@@ -24,11 +24,20 @@ class UpdateTreasurySettingsHandler
         $settings = $this->repository->findOneBy(['id' => $command->treasurySettingsId, 'user' => $command->userId])
             ?? throw new \DomainException("Treasury settings not found: {$command->treasurySettingsId}");
 
-        $day = $command->salaryExpectedDay;
-        if (null !== $day && ($day < 1 || $day > 31)) {
-            throw new \DomainException('salaryExpectedDay is a day of the month, from 1 to 31.');
+        if ($command->changesSalaryExpectedDay) {
+            $day = $command->salaryExpectedDay;
+            if (null !== $day && ($day < 1 || $day > 31)) {
+                throw new \DomainException('salaryExpectedDay is a day of the month, from 1 to 31.');
+            }
+            $settings->setSalaryExpectedDay($day);
         }
-        $settings->setSalaryExpectedDay($day);
+
+        if (null !== $command->overdraftLimitCents) {
+            if ($command->overdraftLimitCents < 0) {
+                throw new \DomainException('overdraftLimitCents is the overdraft the bank allows, 0 or more cents.');
+            }
+            $settings->setOverdraftLimitCents($command->overdraftLimitCents);
+        }
 
         return $this->updateTreasurySettings->execute($settings);
     }

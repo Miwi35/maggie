@@ -80,7 +80,7 @@ class TreasurySettingsTest extends KernelTestCase
         });
 
         $this->assertMercureUpdatePublished('/users/'.$user->getId().$this->topicOf($settings));
-        self::assertSame(['@id' => $this->topicOf($settings), 'salaryExpectedDay' => 26], $this->mercurePayloadsOn($this->topicOf($settings))[0]);
+        self::assertSame(['@id' => $this->topicOf($settings), 'salaryExpectedDay' => 26, 'overdraftLimitCents' => 0], $this->mercurePayloadsOn($this->topicOf($settings))[0]);
         $this->assertNoElasticsearchIndexDispatched(TreasurySettings::class);
     }
 
@@ -94,6 +94,18 @@ class TreasurySettingsTest extends KernelTestCase
         });
 
         self::assertSame(1, $this->mercurePayloadsOn($this->topicOf($settings))[0]['salaryExpectedDay']);
+    }
+
+    public function testAChangedOverdraftLimitIsPublished(): void
+    {
+        $settings = $this->em()->find(TreasurySettings::class, $this->getFixture('settings')->getId());
+
+        $this->project(function () use ($settings) {
+            $settings->setOverdraftLimitCents(30000);
+            $this->em()->flush();
+        });
+
+        self::assertSame(['@id' => $this->topicOf($settings), 'overdraftLimitCents' => 30000], $this->mercurePayloadsOn($this->topicOf($settings))[0]);
     }
 
     public function testADeletionIsPublished(): void

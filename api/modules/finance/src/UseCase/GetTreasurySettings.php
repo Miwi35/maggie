@@ -38,12 +38,13 @@ class GetTreasurySettings
         return $created;
     }
 
-    /** @return array{id: string, salaryExpectedDay: int|null} */
+    /** @return array{id: string, salaryExpectedDay: int|null, overdraftLimitCents: int} */
     public static function describe(TreasurySettings $settings): array
     {
         return [
             'id' => (string) $settings->getId(),
             'salaryExpectedDay' => $settings->getSalaryExpectedDay(),
+            'overdraftLimitCents' => $settings->getOverdraftLimitCents(),
         ];
     }
 }
