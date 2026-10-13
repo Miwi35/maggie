@@ -8,17 +8,13 @@ import DialogTitle from '@mui/material/DialogTitle'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
+import { localDay } from '../../dates'
 
 interface TaskCreateDialogProps {
   open: boolean
   onClose: () => void
   onCreated: () => void
   defaultDueDate?: Date
-}
-
-const toLocalDate = (d: Date): string => {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: TaskCreateDialogProps) => {
@@ -39,7 +35,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
     setDescription('')
     setPriority('medium')
     setCriticality('low')
-    setDueDate(defaultDueDate ? toLocalDate(defaultDueDate) : '')
+    setDueDate(defaultDueDate ? localDay(defaultDueDate) : '')
     setTitleError(false)
   }, [open, defaultDueDate])
 
@@ -58,7 +54,8 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
           ...(description.trim() ? { description: description.trim() } : {}),
           priority,
           criticality,
-          ...(dueDate ? { dueDate: `${dueDate}T00:00:00Z` } : {}),
+          // A plain day, the field's own type: no zone can move it (MAG-404).
+          ...(dueDate ? { dueDate } : {}),
         },
       })
       .then(() => {
@@ -90,7 +87,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
             autoFocus
           />
           <TextField
-            label="Description"
+            label="Notes"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             multiline

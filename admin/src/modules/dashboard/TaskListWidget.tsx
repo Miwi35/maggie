@@ -9,6 +9,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import { parseDay } from '../../dates'
 import { criticalityColor } from '../../design/tokens'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 
@@ -16,6 +17,7 @@ export interface DashboardTask {
   id: string
   title: string
   criticality: string
+  /** The due day, `YYYY-MM-DD` (MAG-404). */
   dueDate?: string
   completedAt?: string
 }
@@ -138,7 +140,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
                       color="text.secondary"
                       sx={{ ml: 1, flexShrink: 0 }}
                     >
-                      {new Date(task.dueDate).toLocaleDateString('fr-FR', {
+                      {parseDay(task.dueDate).toLocaleDateString('fr-FR', {
                         day: 'numeric',
                         month: 'short',
                       })}

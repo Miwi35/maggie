@@ -54,7 +54,7 @@ import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventInput } from '@fullcalendar/core'
 import { EventCreateDialog } from './EventCreateDialog'
 import { TaskCreateDialog } from './TaskCreateDialog'
-import { TaskEditDialog } from './TaskEditDialog'
+import { TaskEditDialog, type TaskData } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { EventEditDialog } from './EventEditDialog'
 import type { EventEditValues } from './EventEditDialog'
@@ -158,15 +158,8 @@ interface CalendarEvent {
   reminders?: EventReminders | null
 }
 
-interface CalendarTask {
-  id: string
-  title: string
-  description?: string
-  priority: string
-  criticality: string
-  dueDate?: string
-  completedAt?: string
-}
+/** `dueDate` is a day, `YYYY-MM-DD`: FullCalendar draws it on that day as is (MAG-404). */
+type CalendarTask = TaskData
 
 interface CalendarMeal {
   id: string
@@ -790,11 +783,12 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         filter: { 'endAt[after]': start, 'startAt[strictly_before]': start },
       })
 
-      // Fetch tasks with due dates in visible range
+      // Fetch tasks due in the visible range. By day, like meals: `dueDate` is a
+      // day-typed field since MAG-404.
       const rangeTasks = moduleCalendar ? nothing : dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'dueDate[after]': start, 'dueDate[before]': end },
+        filter: { 'dueDate[after]': localDay(new Date(start)), 'dueDate[before]': localDay(new Date(end)) },
       })
 
       // Fetch meals in visible range. By day, not by instant: a meal is a day

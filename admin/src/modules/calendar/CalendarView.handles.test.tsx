@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CalendarView } from './CalendarView'
+import { localDay } from '../../dates'
 
 /**
  * The handles `e2e/web/pages/CalendarPage.ts` reaches for.
@@ -73,7 +74,7 @@ const TASK = {
   title: 'Sortir les poubelles',
   priority: 'low',
   criticality: 'low',
-  dueDate: noon.toISOString(),
+  dueDate: localDay(noon),
   completedAt: new Date(noon.getTime() + 900_000).toISOString(),
 }
 

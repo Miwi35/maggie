@@ -95,7 +95,8 @@ export const Dashboard = () => {
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'exists[completedAt]': false, 'dueDate[before]': month.end },
+        // `dueDate` is a day (MAG-404): the bound is one too.
+        filter: { 'exists[completedAt]': false, 'dueDate[before]': localDay(new Date(month.end)) },
       }),
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
@@ -246,7 +247,9 @@ export const Dashboard = () => {
         .filter((t) => {
           if (t.completedAt) return false
           if (!t.dueDate) return false
-          const due = new Date(t.dueDate)
+          // Local midnight of the day: `new Date('2026-03-20')` is UTC midnight,
+          // the evening before in Paris (MAG-404).
+          const due = parseDay(t.dueDate)
           return due >= start && due < end
         })
         .map((t) => ({
@@ -293,7 +296,7 @@ export const Dashboard = () => {
       .filter((t) => {
         if (t.completedAt) return false
         if (!t.dueDate) return false
-        return new Date(t.dueDate) < todayEnd
+        return parseDay(t.dueDate) < todayEnd
       })
       .map((t) => ({
         id: t.id,
