@@ -97,7 +97,29 @@ export const neighbourCellCoordinates =
 
 /**
  * The cell under the pointer, and nothing when it is over none: releasing a
- * meal on the header or in the gap between two cells must not move it. The
- * keyboard has no pointer, so it takes the cell nearest to the dragged row.
+ * meal on the header or in the gap between two cells must not move it.
+ *
+ * The keyboard has no pointer: it is over the cell its last arrow chose, kept
+ * in `drag`, and before the first arrow over the cell the meal sits in. The
+ * nearest centre would do on a grid of equal cells, but a cell holding three
+ * meals is taller than its neighbours and the meal at its top is nearer the
+ * centre of the cell beside it — announced, then dropped, in the wrong one.
  */
-export const mealCollision: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : closestCenter(args))
+export const mealCollision =
+  (drag: { current: KeyboardDrag | null }): CollisionDetection =>
+  (args) => {
+    if (args.pointerCoordinates) {
+      return pointerWithin(args)
+    }
+
+    const { collisionRect, droppableContainers, droppableRects } = args
+    const centre = { x: collisionRect.left + collisionRect.width / 2, y: collisionRect.top + collisionRect.height / 2 }
+    const over =
+      droppableContainers.find((container) => drag.current && String(container.id) === drag.current.cell) ??
+      droppableContainers.find((container) => {
+        const rect = droppableRects.get(container.id)
+        return rect && centre.x >= rect.left && centre.x <= rect.right && centre.y >= rect.top && centre.y <= rect.bottom
+      })
+
+    return over ? [{ id: over.id, data: { droppableContainer: over, value: 0 } }] : closestCenter(args)
+  }
