@@ -34,7 +34,8 @@ tags:
     env:
       ACTION: create
 
-# When I plan the meal from the week: the first free slot, the recipe, « Créer ».
+# When I plan the meal from the week: Sunday lunch (never a day gone: a past meal
+# adds nothing to the list, MAG-400), the recipe, « Créer ».
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
@@ -44,8 +45,7 @@ tags:
     visible: "Déjeuner"
     timeout: 20000
 - tapOn:
-    text: "\\+"
-    index: 0
+    id: "meal_slot_lunch_6"
 - extendedWaitUntil:
     visible: "Riz au curry MAG-297"
     timeout: 20000

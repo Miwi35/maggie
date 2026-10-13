@@ -201,6 +201,9 @@ object UiTags {
     const val CALENDAR_MONTH_SLOT_PREFIX = "calendar_month_slot_"
     const val CALENDAR_MONTH_MORE_PREFIX = "calendar_month_more_"
 
+    /** Cuisine › Repas — one cell of the week: `meal_slot_<lunch|dinner>_<0 = Monday … 6 = Sunday>`. */
+    const val MEAL_SLOT_PREFIX = "meal_slot_"
+
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
     const val APPROVAL_CARD_PREFIX = "approval_card_"
     const val APPROVAL_ALLOW_PREFIX = "approval_allow_"
@@ -243,6 +246,8 @@ object UiTags {
     fun calendarMonthSlot(date: LocalDate, slot: Int) = "$CALENDAR_MONTH_SLOT_PREFIX${date}_$slot"
 
     fun calendarMonthMore(date: LocalDate) = CALENDAR_MONTH_MORE_PREFIX + date
+
+    fun mealSlot(slot: String, dayIndex: Int) = "$MEAL_SLOT_PREFIX${slot}_$dayIndex"
 
     /**
      * The drawer entry the grocery journeys open. Covered by [DRAWER_ITEM_PREFIX]

@@ -24,9 +24,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.MealSlot
+import com.maggie.app.ui.UiTags
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -112,14 +114,14 @@ fun MealsWeekScreen(
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.LUNCH] ?: emptyList(),
                                 onClick = { onCreateMeal(dayStr, "lunch") },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("lunch", dayOffset.toInt())),
                             )
 
                             // Dinner
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.DINNER] ?: emptyList(),
                                 onClick = { onCreateMeal(dayStr, "dinner") },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("dinner", dayOffset.toInt())),
                             )
                         }
                     }
