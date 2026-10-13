@@ -100,6 +100,28 @@ class WorkCollector implements ResetInterface
         $work->record($change);
     }
 
+    /**
+     * A row whose own columns did not change but whose projection did (a
+     * category's path follows its parent's name): announced with the properties
+     * that moved, like a row the flush had touched.
+     *
+     * @param list<string> $properties
+     */
+    public function touched(MercurePublishable|IndexableInterface $entity, array $properties): void
+    {
+        $work = end($this->stack);
+        if (false === $work) {
+            return;
+        }
+
+        $change = $this->change($entity, ChangeKind::Updated);
+        if (null === $change) {
+            return;
+        }
+        $change->properties = $properties;
+        $work->record($change);
+    }
+
     public function onFlush(OnFlushEventArgs $args): void
     {
         $this->pending = null;

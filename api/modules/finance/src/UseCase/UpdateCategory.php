@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Mercure\EntityBroadcaster;
+use Maggie\Core\Projection\WorkCollector;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Repository\CategoryRepository;
 
@@ -14,7 +14,7 @@ class UpdateCategory
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly CategoryRepository $categoryRepository,
-        private readonly EntityBroadcaster $broadcaster,
+        private readonly WorkCollector $projection,
     ) {
     }
 
@@ -32,7 +32,7 @@ class UpdateCategory
         // Their path runs through this category: the screens and the index must hear of the new one.
         if ($pathChanged) {
             foreach ($this->categoryRepository->findDescendants($category) as $descendant) {
-                $this->broadcaster->broadcast($descendant);
+                $this->projection->touched($descendant, ['name', 'parent']);
             }
         }
 
