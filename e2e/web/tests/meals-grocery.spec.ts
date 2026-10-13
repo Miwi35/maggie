@@ -259,7 +259,7 @@ test('a planned meal adds nothing, Maggie prepares the week with the recurring i
     await shell.goto(ROUTES.meals)
     await shell.content.getByTestId('meal-cell-lunch-5').click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByLabel('Recettes').click()
+    await dialog.getByLabel('Menu').click()
     await page.getByRole('option', { name: recipeName }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
     await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
