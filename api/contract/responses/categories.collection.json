@@ -2,7 +2,7 @@
     "@context": "/api/contexts/Category",
     "@id": "/api/categories",
     "@type": "Collection",
-    "totalItems": 2,
+    "totalItems": 3,
     "member": [
         {
             "@id": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -23,6 +23,16 @@
             "passiveIncome": false,
             "color": "#aa3344",
             "icon": "cart",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        },
+        {
+            "@id": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Category",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Salaire",
+            "obligation": "income",
+            "passiveIncome": false,
+            "standardKey": "salary",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
         }
     ]

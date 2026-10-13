@@ -180,6 +180,9 @@ class SafetyCushionApiTest extends WebTestCase
         self::assertSame(750000, $data['targetCents']);
         self::assertSame(15000, $data['monthlyRechargeCents']);
         self::assertTrue($data['blocksGreenScore']);
+        self::assertSame(250000, $data['monthlyNetIncomeCents']);
+        self::assertSame('declared', $data['referenceSalarySource']);
+        self::assertTrue($data['isConfigured']);
     }
 
     public function testStatusEndpointRequiresAuthentication(): void

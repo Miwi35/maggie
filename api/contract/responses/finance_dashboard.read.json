@@ -1,0 +1,179 @@
+{
+    "year": 2026,
+    "month": 3,
+    "score": {
+        "score": "neutral",
+        "year": 2026,
+        "month": 3,
+        "reasons": [
+            {
+                "code": "no_budget"
+            }
+        ],
+        "budget": {
+            "totalBudgetedCents": 0,
+            "totalConsumedCents": 0,
+            "totalPlannedCents": 0,
+            "totalAvailableCents": 0,
+            "overspentCategories": []
+        },
+        "cushion": {
+            "state": "building",
+            "blocksGreenScore": true
+        },
+        "comparison": {
+            "thisMonthCents": 0,
+            "sameMonthLastYearCents": 0,
+            "differenceCents": 0,
+            "isBetter": false
+        },
+        "referenceSalary": {
+            "monthlyCents": 495000,
+            "source": "expected"
+        }
+    },
+    "balance": {
+        "totalCents": 123456,
+        "cushionCents": 123456,
+        "availableCents": 0,
+        "accounts": [
+            {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "name": "Recorded Account",
+                "type": "checking",
+                "balanceCents": 123456,
+                "currency": "EUR",
+                "isCushion": true
+            }
+        ]
+    },
+    "monthlyFlows": [
+        {
+            "month": "2025-04",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-05",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-06",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-07",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-08",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-09",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-10",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-11",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2025-12",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2026-01",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2026-02",
+            "incomeCents": 0,
+            "expenseCents": 0,
+            "netCents": 0
+        },
+        {
+            "month": "2026-03",
+            "incomeCents": 0,
+            "expenseCents": 4250,
+            "netCents": -4250
+        }
+    ],
+    "budgets": [],
+    "topPosts": [
+        {
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "spentCents": 4250,
+            "previousMonthCents": 0,
+            "changeCents": 4250
+        }
+    ],
+    "savingCapacity": {
+        "monthlyNetIncomeCents": 495000,
+        "loanPaymentsCents": 0,
+        "estimatedLifestyleCents": 0,
+        "netCapacityCents": 495000,
+        "isIncomeKnown": true
+    },
+    "independence": {
+        "coveragePercent": 0,
+        "lifestyleCents": 0,
+        "passiveIncomeCents": 0,
+        "gapCents": 0,
+        "sampleMonths": 3,
+        "isMeasurable": false,
+        "hasPassiveIncomeCategories": false,
+        "isReached": false,
+        "loanPaymentsCents": 0,
+        "monthlyNeedCents": 0,
+        "coverageWithDebtPercent": 0,
+        "nextMilestonePercent": null,
+        "nextMilestoneGapCents": null,
+        "milestones": [
+            {
+                "percent": 25,
+                "isReached": false,
+                "monthlyIncomeNeededCents": 0
+            },
+            {
+                "percent": 50,
+                "isReached": false,
+                "monthlyIncomeNeededCents": 0
+            },
+            {
+                "percent": 75,
+                "isReached": false,
+                "monthlyIncomeNeededCents": 0
+            },
+            {
+                "percent": 100,
+                "isReached": false,
+                "monthlyIncomeNeededCents": 0
+            }
+        ],
+        "byCategory": []
+    }
+}

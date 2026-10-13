@@ -191,6 +191,12 @@ Maggie\Finance\Entity\Category:
     icon: cart
     user: '@recorded_user'
 
+  recorded_salary_category:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@recorded_user'
+
 Maggie\Finance\Entity\Transaction:
   recorded_transaction:
     account: '@recorded_account'
@@ -200,4 +206,18 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<(new \DateTimeImmutable("2026-03-17"))>'
     label: Recorded transaction
     isExceptional: true
+    user: '@recorded_user'
+
+# The reference salary the finance reads are judged on: a 4 950 € series
+# running since 2025, so the mark is the same on whatever day this runs.
+Maggie\Finance\Entity\RecurringOperation:
+  recorded_salary_series:
+    label: Recorded salary
+    counterpartyName: RECORDED EMPLOYER
+    category: '@recorded_salary_category'
+    account: '@recorded_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2025-01-25"))>'
+    referenceAmountCents: 495000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
     user: '@recorded_user'

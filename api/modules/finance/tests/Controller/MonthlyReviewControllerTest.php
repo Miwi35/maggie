@@ -50,6 +50,12 @@ class MonthlyReviewControllerTest extends WebTestCase
         self::assertNull($data['optimisationScore']);
         self::assertSame(110000, $data['comparison']['thisMonthCents']);
         self::assertSame(60000, $data['comparison']['previousMonthCents']);
+        // The fixture declares nothing and has no « Salaire » series: no mark, so no share of it.
+        self::assertSame(['monthlyCents' => null, 'source' => 'unknown'], $data['referenceSalary']);
+        self::assertSame(
+            ['consumedCents' => 110000, 'differenceCents' => null, 'percentOfReference' => null],
+            $data['consumedVsReference'],
+        );
     }
 
     public function testDefaultsToTheMonthJustEnded(): void
