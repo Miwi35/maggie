@@ -1,0 +1,82 @@
+appId: com.maggie.app.e2e
+name: finance-treasury
+tags:
+  - finance
+---
+# The treasury until the salary comes, from the phone (MAG-280, extends MAG-102).
+#
+# Étant donné un salaire attendu aujourd'hui et pas encore reçu ce mois-ci ni le mois dernier,
+#   un Courant de 200,00 € et un loyer de 900,00 € prévu dans trois jours,
+#   un Livret de 5 000,00 €
+# Quand j'ouvre les finances
+# Alors le bandeau « Découvert prévu » est là
+# Quand je l'ouvre
+# Alors l'écran dit « Salaire en retard de » N jours, le découvert prévu
+#   et l'avance conseillée depuis le Livret
+#
+# The data is set by `scripts/treasury-api.js` on the treasury account (`e2e_email`), whose
+# salary day no other journey reads, relative to TODAY: the day expected is today's, so the
+# delay is last month's whole length whatever the day the suite runs. The amounts are not
+# asserted — they are drawn with the phone's locale; `TreasuryScreenTest` reads them.
+#
+# What is not here: the savings advances screen (MAG-278), the overdraft limit field and
+# « Préparer l'avance » opening the new transaction pre-filled (`TreasuryViewModelTest`,
+# `TreasuryScreenTest`, `TransactionPrefillScreenTest`), and the admin's side of the same
+# API (`finance-treasury.spec.ts`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/finance-treasury.yaml
+      e2e_email: e2e-treasury@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/treasury-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance"
+
+- extendedWaitUntil:
+    visible:
+      id: "treasury_banner"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Découvert prévu le.*"
+    timeout: 10000
+
+- tapOn:
+    id: "treasury_banner"
+
+- extendedWaitUntil:
+    visible: "Trésorerie"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Salaire en retard de.*"
+    timeout: 20000
+
+- scrollUntilVisible:
+    element: ".*Découvert prévu le.*"
+    timeout: 30000
+
+# The advance comes from the Livret, the only savings account of the table.
+- scrollUntilVisible:
+    element: ".*depuis Livret MAG-280.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*reste à rendre.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "treasury_prepare_advance"
+    timeout: 30000
+
+# Left as found.
+- runScript:
+    file: ../scripts/treasury-api.js
+    env:
+      ACTION: remove

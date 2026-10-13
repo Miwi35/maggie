@@ -26,6 +26,11 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the treasury screen opens from finance treasury`() {
+        assertEquals(listOf("$scheme://finance/treasury"), DeepLinks.patternsFor(Screen.Treasury.route))
+    }
+
+    @Test
     fun `every finance screen can be opened from outside`() {
         val financeRoutes = listOf(
             Screen.FinanceDashboard,
@@ -36,6 +41,7 @@ class DeepLinksTest {
             Screen.RuleSuggestions,
             Screen.BankConnectionList,
             Screen.Cushion,
+            Screen.Treasury,
             Screen.LoanList,
             Screen.MonthlyReview,
             Screen.RecurringOperations,

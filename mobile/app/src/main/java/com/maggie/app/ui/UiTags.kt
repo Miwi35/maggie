@@ -127,6 +127,13 @@ object UiTags {
     const val LIST_PANE = "list_pane"
     const val DETAIL_PANE = "detail_pane"
 
+    /** The « Découvert prévu » banner, wherever a screen draws it (MAG-280). */
+    const val TREASURY_BANNER = "treasury_banner"
+
+    /** Trésorerie — the advice's « Préparer l'avance », and the field of the overdraft limit. */
+    const val TREASURY_PREPARE_ADVANCE = "treasury_prepare_advance"
+    const val TREASURY_OVERDRAFT_LIMIT = "treasury_overdraft_limit"
+
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
 

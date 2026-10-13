@@ -43,6 +43,8 @@ import com.maggie.app.data.model.recurringOperationIri
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.TreasuryOutlook
+import com.maggie.app.data.model.TreasurySettings
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
@@ -386,6 +388,12 @@ data class CushionConfigRequest(
 )
 
 @Serializable
+data class TreasurySettingsRequest(
+    val overdraftLimitCents: Int? = null,
+    val salaryExpectedDay: Int? = null,
+)
+
+@Serializable
 data class RollOverRequest(
     val fromYear: Int,
     val year: Int,
@@ -519,10 +527,10 @@ class ApiRefusalException(val status: Int, message: String) : Exception(message)
 
 private val REFUSAL_JSON = Json { ignoreUnknownKeys = true; isLenient = true }
 
-/** The `detail` (or `hydra:description`) of an error body, falling back to a generic sentence. */
+/** The `detail` (or `hydra:description`, `message`, `error`) of an error body, falling back to a generic sentence. */
 internal fun refusalMessage(status: Int, body: String): String {
     val parsed = runCatching { REFUSAL_JSON.parseToJsonElement(body).jsonObject }.getOrNull()
-    val text = listOf("detail", "hydra:description", "message")
+    val text = listOf("detail", "hydra:description", "message", "error")
         .firstNotNullOfOrNull { key -> (parsed?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } }
     return text ?: "Le serveur a refusé la modification (HTTP $status)."
 }
@@ -1462,6 +1470,18 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    // Finance — Treasury until the salary comes
+    suspend fun getTreasuryOutlook(): TreasuryOutlook {
+        return client.get("$baseUrl/api/finance/treasury-outlook").orRefusal().body()
+    }
+
+    suspend fun updateTreasurySettings(request: TreasurySettingsRequest): TreasurySettings {
+        return client.patch("$baseUrl/api/finance/treasury-settings") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     // Grocery Add Item

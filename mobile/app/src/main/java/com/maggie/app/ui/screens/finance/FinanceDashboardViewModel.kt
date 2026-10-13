@@ -3,7 +3,11 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.TreasuryBannerState
+import com.maggie.app.data.model.toBanner
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.TreasuryRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,10 +19,13 @@ data class FinanceDashboardUiState(
     val month: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
+    // Null when no overdraft is forecast, or when the outlook could not be loaded: the dashboard goes on without it.
+    val treasuryBanner: TreasuryBannerState? = null,
 )
 
 class FinanceDashboardViewModel(
     private val dashboardRepository: FinanceDashboardRepository,
+    private val treasuryRepository: TreasuryRepository,
     today: LocalDate = LocalDate.now(),
 ) : ViewModel() {
 
@@ -27,8 +34,19 @@ class FinanceDashboardViewModel(
     )
     val uiState: StateFlow<FinanceDashboardUiState> = _uiState
 
+    private var treasuryJob: Job? = null
+
     init {
         refresh()
+        refreshTreasury()
+    }
+
+    fun refreshTreasury() {
+        treasuryJob?.cancel()
+        treasuryJob = viewModelScope.launch {
+            val banner = treasuryRepository.getOutlook().getOrNull()?.toBanner()
+            _uiState.value = _uiState.value.copy(treasuryBanner = banner)
+        }
     }
 
     fun refresh() {
