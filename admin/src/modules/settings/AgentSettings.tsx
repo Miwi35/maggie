@@ -3,6 +3,8 @@ import { useNotify } from 'react-admin'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { announceAgentName, useAgentName } from '../../hooks/useAgentName'
+import { agentFetch } from './agentFetch'
+import { StyleProposals } from './StyleProposals'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -99,18 +101,6 @@ const statusColors: Record<string, 'default' | 'warning' | 'success' | 'error' |
   running: 'info',
   completed: 'success',
   failed: 'error',
-}
-
-function agentFetch(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('token')
-  return fetch(`/agent${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
 }
 
 function formatDateTime(iso: string | null): string {
@@ -504,6 +494,12 @@ export const AgentSettings = () => {
               Directives de planification (quand Maggie agit d&apos;elle-même) et préférences de
               comportement (comment elle te répond, appliquées à chaque message).
             </Typography>
+
+            <StyleProposals
+              onAccepted={(instruction: Instruction) =>
+                setInstructions((prev) => [instruction, ...prev.filter((i) => i.id !== instruction.id)])
+              }
+            />
 
             {instructions.length > 0 && (
               <TableContainer sx={{ mb: 2 }}>
