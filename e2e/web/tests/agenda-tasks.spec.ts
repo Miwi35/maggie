@@ -131,7 +131,12 @@ test('a late task heads « Aujourd\'hui », says how late it is, and leaves when
   const dashboard = new DashboardPage(page)
   await dashboard.open()
 
-  const rows = dashboard.content.getByRole('heading', { name: "Aujourd'hui" }).locator('..').getByRole('listitem')
+  // The column lists the day's events before its tasks: only a task line has a checkbox.
+  const rows = dashboard.content
+    .getByRole('heading', { name: "Aujourd'hui" })
+    .locator('..')
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('checkbox') })
   await expect(dashboard.line(title)).toHaveCount(1)
   await expect(rows.first(), 'the late task should come before the one due today').toContainText(title)
   await expect(rows.first()).toContainText('En retard de 2 j')
