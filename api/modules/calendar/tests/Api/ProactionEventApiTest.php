@@ -48,6 +48,29 @@ class ProactionEventApiTest extends WebTestCase
         return $em->find(Proaction::class, $this->getFixture('proaction')->getId());
     }
 
+    /** Its own index is `proactions`, like a meal's: the agenda reads one through the event item route, not `/api/events`. */
+    public function testTheEventRouteServesItAtItsTimeInTheMaggieAgenda(): void
+    {
+        $this->client->request('GET', '/api/events/'.$this->getFixture('proaction')->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertEquals(new \DateTimeImmutable('2037-01-15T08:30:00+01:00'), new \DateTimeImmutable($body['startAt']));
+        self::assertEquals(new \DateTimeImmutable('2037-01-15T08:35:00+01:00'), new \DateTimeImmutable($body['endAt']));
+        self::assertSame('/api/agendas/'.$this->reload()->getAgenda()->getId(), $body['agenda']);
+    }
+
+    public function testAnotherUserCannotReadIt(): void
+    {
+        $this->authenticateAsUser($this->getFixture('other_user'));
+
+        $this->client->request('GET', '/api/events/'.$this->getFixture('proaction')->getId(), [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testMovingAProactionKeepsItFiveMinutesLongAndInItsAgenda(): void
     {
         $this->patch(['startAt' => '2037-01-15T09:15:00+01:00', 'endAt' => '2037-01-15T10:00:00+01:00']);

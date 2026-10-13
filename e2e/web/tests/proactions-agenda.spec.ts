@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/index.js'
-import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { waitForIndexed } from '../helpers/api.js'
 import { callMcpTool } from '../helpers/mcp.js'
 import { e2eNow, parisDay } from '../fixtures/clock.js'
 
@@ -7,9 +7,10 @@ import { e2eNow, parisDay } from '../fixtures/clock.js'
  * A proaction is an event of the internal « Maggie » agenda — MAG-326 (extends MAG-103).
  *
  * Scheduled the way Maggie does, through the MCP tool, it is served by the
- * agenda's own route at the time asked, in the module agenda and not in Google;
- * deleted through that route, it is gone for Maggie too. Asserted on the API,
- * served from Elasticsearch like the grid: drawing it on the web agenda is MAG-328.
+ * event route at the time asked, in the module agenda and not in Google;
+ * deleted through that route, it is gone for Maggie too. Asserted on the API:
+ * like a meal, it has its own index (`proactions`), so the `/api/events`
+ * collection never lists it, and drawing it on the web agenda is MAG-328.
  */
 
 interface StoredEvent {
@@ -50,25 +51,23 @@ test('a proaction scheduled for tomorrow 8:30 sits in the « Maggie » agenda, a
   expect(scheduled.error, JSON.stringify(scheduled)).toBeUndefined()
   const id = String((scheduled.proaction as { id: string }).id)
 
-  const event = await waitForIndexed<StoredEvent>(api, '/api/events?itemsPerPage=200', (e) => e.id === id, { what: 'The proaction' })
+  const read = await api.get(`/api/events/${id}`, { headers: { Accept: 'application/ld+json' } })
+  expect(read.status()).toBe(200)
+  const event = (await read.json()) as StoredEvent
   expect(event.summary).toBe(prompt)
   expect(inParis(event.startAt)).toBe('08:30')
   expect(inParis(event.endAt)).toBe('08:35')
 
-  const [agenda] = await getCollection<StoredAgenda>(api, '/api/agendas?module=agent')
+  // Created by this first proaction, so indexed after it: waited for, never read once.
+  const agenda = await waitForIndexed<StoredAgenda>(api, '/api/agendas?module=agent', (a) => a['@id'] === event.agenda, { what: 'The « Maggie » agenda' })
   expect(agenda.name).toBe('Maggie')
+  expect(agenda.module).toBe('agent')
   expect(agenda.googleCalendarId ?? null).toBeNull()
-  expect(event.agenda).toBe(agenda['@id'])
 
   const deleted = await api.delete(`/api/events/${id}`)
   expect(deleted.status()).toBe(204)
 
-  await expect
-    .poll(async () => (await getCollection<StoredEvent>(api, '/api/events?itemsPerPage=200')).some((e) => e.id === id), {
-      timeout: 30_000,
-      message: 'the deleted proaction should leave the agenda',
-    })
-    .toBe(false)
+  expect((await api.get(`/api/events/${id}`)).status(), 'the deleted proaction should leave the agenda').toBe(404)
 
   const listed = await callMcpTool(api, 'list_proactions', {})
   expect((listed.proactions as { id: string }[]).map((p) => p.id)).not.toContain(id)
