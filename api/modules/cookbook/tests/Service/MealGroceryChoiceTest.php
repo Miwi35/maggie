@@ -21,6 +21,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -149,6 +150,35 @@ class MealGroceryChoiceTest extends KernelTestCase
         ));
 
         self::assertSame([['Riz', 3.0, 'pack']], $this->list());
+    }
+
+    /** @return iterable<string, array{float, float}> */
+    public static function forcedCounts(): iterable
+    {
+        yield 'a fraction is rounded up' => [1.5, 2.0];
+        yield 'less than one is one' => [0.2, 1.0];
+    }
+
+    #[DataProvider('forcedCounts')]
+    public function testAForcedCountOfPackagingsIsAWholeNumber(float $forced, float $expected): void
+    {
+        $mealId = $this->planMeal('curry');
+
+        $this->bus()->dispatch(new ChooseMealGroceriesCommand(
+            mealId: $mealId,
+            userId: (string) $this->user()->getId(),
+            chosen: [(string) $this->getFixture('rice')->getId() => $forced],
+        ));
+
+        self::assertSame([['Riz', $expected, 'pack']], $this->list());
+    }
+
+    public function testTwoRecipeLinesOfOnePackagedProductAreRoundedUpOnce(): void
+    {
+        $mealId = $this->planMeal('rice_twice');
+        $this->choose($mealId, ['rice']);
+
+        self::assertSame([['Riz', 1.0, 'pack']], $this->list());
     }
 
     public function testALineAlreadyInTheBasketStaysAndTheChosenPackIsNotBoughtTwice(): void

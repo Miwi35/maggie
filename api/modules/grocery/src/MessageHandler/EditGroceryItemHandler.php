@@ -97,6 +97,10 @@ class EditGroceryItemHandler
                     null !== $command->unit ? Unit::from($command->unit) : $packagingUnit,
                 ));
                 $item->setUnit($packagingUnit);
+            } elseif ($item->getUnit() !== $packagingUnit) {
+                // A line renamed onto a packaged product ("300 g" becoming "Riz") is counted in its packagings too.
+                $item->setQuantity((float) $this->packaging->inPackagings($product, $item->getQuantity(), $item->getUnit()));
+                $item->setUnit($packagingUnit);
             }
         } else {
             // Quantity change

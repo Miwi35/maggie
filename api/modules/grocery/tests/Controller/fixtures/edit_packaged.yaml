@@ -26,3 +26,11 @@ Maggie\Grocery\Entity\GroceryItem:
     checked: false
     source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
     position: 1
+  item_custom_grams:
+    groceryList: '@grocery_list'
+    customLabel: Pâte
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
