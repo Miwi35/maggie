@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -242,7 +243,9 @@ internal fun CategoryEditScreen(
                         if (form.canSave) onSave(form)
                     },
                     enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    // Under a tablet's taskbar otherwise: the Scaffold does not reserve the
+                    // navigation bar for its bottom bar.
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
                 ) {
                     Text(if (form.isNew) "Créer" else "Enregistrer")
                 }
