@@ -27,11 +27,24 @@ export interface WiremockJournal {
   count(method: string, pathPattern: RegExp): Promise<number>
   /** Waits until that count reaches `target`, or fails the test. */
   waitForCount(method: string, pathPattern: RegExp, target: number, timeout?: number): Promise<void>
+  /** The bodies of the requests so far whose method and path match, oldest first. */
+  bodies(method: string, pathPattern: RegExp): Promise<string[]>
+  /**
+   * Registers a stub for this journey alone and returns its id.
+   *
+   * `DELETE /__admin/mappings` would reset every stub to what is on disk, other
+   * journeys' included — a journey that needs a one-off answer removes only its own,
+   * with {@link removeStub}.
+   */
+  addStub(mapping: Record<string, unknown>): Promise<string>
+  removeStub(id: string): Promise<void>
+  /** Puts every stateful stub back in its first state. */
+  resetScenarios(): Promise<void>
   dispose(): Promise<void>
 }
 
 interface JournalEntry {
-  request?: { method?: string; url?: string }
+  request?: { method?: string; url?: string; body?: string }
 }
 
 export async function openWiremockJournal(playwright: PlaywrightWorkerArgs['playwright']): Promise<WiremockJournal> {
@@ -46,16 +59,38 @@ export async function openWiremockJournal(playwright: PlaywrightWorkerArgs['play
     return body.requests ?? []
   }
 
-  const count = async (method: string, pathPattern: RegExp): Promise<number> =>
+  const matching = async (method: string, pathPattern: RegExp): Promise<JournalEntry[]> =>
     (await entries()).filter(
       (entry) =>
         entry.request?.method === method &&
         typeof entry.request.url === 'string' &&
         pathPattern.test(entry.request.url),
-    ).length
+    )
+
+  const count = async (method: string, pathPattern: RegExp): Promise<number> =>
+    (await matching(method, pathPattern)).length
 
   return {
     count,
+
+    async bodies(method, pathPattern) {
+      return (await matching(method, pathPattern)).map((entry) => entry.request?.body ?? '').reverse()
+    },
+
+    async addStub(mapping) {
+      const response = await api.post('/__admin/mappings', { data: mapping })
+      expect(response.status(), `WireMock refused the stub: ${await response.text()}`).toBe(201)
+
+      return ((await response.json()) as { id: string }).id
+    },
+
+    async removeStub(id) {
+      await api.delete(`/__admin/mappings/${id}`)
+    },
+
+    async resetScenarios() {
+      await api.post('/__admin/scenarios/reset')
+    },
 
     async waitForCount(method, pathPattern, target, timeout = 30_000) {
       await expect

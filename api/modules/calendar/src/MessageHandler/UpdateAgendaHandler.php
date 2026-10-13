@@ -39,7 +39,11 @@ class UpdateAgendaHandler
         }
 
         if (null !== $command->name) {
-            $agenda->setName($command->name);
+            if ($command->fromGoogle) {
+                $agenda->adoptGoogleName($command->name);
+            } else {
+                $agenda->setName($command->name);
+            }
         }
         if (null !== $command->description) {
             $agenda->setDescription($command->description);

@@ -185,6 +185,16 @@ class GoogleCalendarApiClient
         return $service->calendars->insert($calendar);
     }
 
+    /** `calendars.patch` with the one field: Google keeps the description and the rest as they are. */
+    public function renameCalendar(User $user, string $calendarId, string $name): void
+    {
+        $service = $this->getCalendarService($user);
+        $calendar = new GoogleCalendarService\Calendar();
+        $calendar->setSummary($name);
+
+        $service->calendars->patch($calendarId, $calendar);
+    }
+
     public function deleteCalendar(User $user, string $calendarId): void
     {
         $service = $this->getCalendarService($user);

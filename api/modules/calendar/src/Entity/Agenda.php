@@ -32,6 +32,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -104,6 +105,12 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
+    // Not stored: what the current name's origin and fate are, for the length of one
+    // request. A name that came from Google is not sent back to it, and a rename
+    // Google refused is reported to the door that asked for it (MAG-385).
+    private bool $nameFromGoogle = false;
+    private ?string $renameRefusal = null;
+
     /** @var Collection<int, Event> */
     #[ORM\OneToMany(targetEntity: Event::class, mappedBy: 'agenda', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $events;
@@ -139,8 +146,43 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
     public function setName(string $name): static
     {
         $this->name = $name;
+        $this->nameFromGoogle = false;
+        $this->renameRefusal = null;
 
         return $this;
+    }
+
+    /** Google owns the name of a connected agenda: this one is Google's, so it has nothing to send. */
+    public function adoptGoogleName(string $name): static
+    {
+        $this->name = $name;
+        $this->nameFromGoogle = true;
+
+        return $this;
+    }
+
+    #[Ignore]
+    public function isNameFromGoogle(): bool
+    {
+        return $this->nameFromGoogle;
+    }
+
+    public function refuseRename(string $reason): static
+    {
+        $this->renameRefusal = $reason;
+
+        return $this;
+    }
+
+    public function clearRenameRefusal(): void
+    {
+        $this->renameRefusal = null;
+    }
+
+    #[Ignore]
+    public function getRenameRefusal(): ?string
+    {
+        return $this->renameRefusal;
     }
 
     public function getDescription(): ?string

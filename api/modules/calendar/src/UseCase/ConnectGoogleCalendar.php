@@ -99,6 +99,7 @@ class ConnectGoogleCalendar
             agendaId: (string) $agenda->getId(),
             name: $name,
             color: $color,
+            fromGoogle: true,
         ));
     }
 

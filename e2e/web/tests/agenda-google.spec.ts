@@ -75,6 +75,21 @@ const EXPORTED_PREFIX = 'Agenda à exporter'
  * whether the Google client percent-encodes a path segment is its business.
  */
 const LIST_EVENTS = /\/google\/calendar\/v3\/calendars\/e2e(%40|@)maggie\.local\/events(\?|$)/
+
+/**
+ * The calendar the rename journey makes for itself (MAG-385).
+ *
+ * Not the stub's primary one: Google keeps the primary calendar's name, so
+ * renaming it is refused by design. The journey registers its own stateful stubs
+ * at runtime and removes them afterwards — the calendar list the other journeys
+ * read is left as it is on disk.
+ */
+const RENAMED_CALENDAR_ID = 'garde-ael-e2e@group.calendar.google.com'
+const RENAMED_FROM = "Garde d'Ael E2E"
+const RENAMED_TO = 'Ael E2E'
+const RENAMED_CALENDAR_PATH = '/google/calendar/v3/calendars/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com'
+const RENAME_CALENDAR = /\/google\/calendar\/v3\/calendars\/garde-ael-e2e(%40|@)group\.calendar\.google\.com(\?|$)/
+const RENAMED_CALENDAR_EVENTS = /\/google\/calendar\/v3\/calendars\/garde-ael-e2e(%40|@)group\.calendar\.google\.com\/events(\?|$)/
 const CREATE_CALENDAR = /\/google\/calendar\/v3\/calendars(\?|$)/
 
 interface StoredEvent {
@@ -328,6 +343,156 @@ test.describe('Importing the Google calendar', () => {
         message: 'the agenda list should show the Google calendar once',
       })
       .toBe(1)
+  })
+  /**
+   * Renaming an agenda connected to Google sends the name to Google — MAG-385.
+   *
+   * « Renomme l'agenda Garde Ael en "Ael" » was answered « c'est fait », and the
+   * next sync put « Garde Ael » back: Google owns the name on the way in and nothing
+   * sent the new one on the way out. The stubs are stateful so that the far side
+   * behaves like Google: its calendar keeps the old name until it has been patched,
+   * and answers the new one afterwards. Without the push, the pull below would bring
+   * the old name back and this journey would fail on it.
+   *
+   * Renamed through the API: the admin and the mobile app both PATCH the agenda, and
+   * the sidebar has no rename field to drive.
+   */
+  test('an agenda renamed in Maggie is renamed in Google and keeps its name after a sync', async ({
+    api,
+    playwright,
+  }) => {
+    const journal = await openWiremockJournal(playwright)
+    const stubs: string[] = []
+    const entry = (summary: string) => ({
+      kind: 'calendar#calendarListEntry',
+      id: RENAMED_CALENDAR_ID,
+      summary,
+      timeZone: 'Europe/Paris',
+      backgroundColor: '#8e24aa',
+      primary: false,
+      accessRole: 'owner',
+    })
+
+    try {
+      await forgetAgendasNamed(api, RENAMED_FROM)
+      await forgetAgendasNamed(api, RENAMED_TO)
+      await journal.resetScenarios()
+
+      stubs.push(
+        // Offered for import — the one place the calendar list is read.
+        await journal.addStub({
+          priority: 1,
+          request: { method: 'GET', urlPathPattern: '/google/calendar/v3/users/me/calendarList' },
+          response: {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+            jsonBody: { kind: 'calendar#calendarList', items: [entry(RENAMED_FROM)] },
+          },
+        }),
+        // What a pull reads: the old name until the calendar has been patched.
+        await journal.addStub({
+          priority: 1,
+          scenarioName: 'e2e-rename-calendar',
+          requiredScenarioState: 'Started',
+          request: {
+            method: 'GET',
+            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com`,
+          },
+          response: {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+            jsonBody: entry(RENAMED_FROM),
+          },
+        }),
+        await journal.addStub({
+          priority: 1,
+          scenarioName: 'e2e-rename-calendar',
+          requiredScenarioState: 'Renamed',
+          request: {
+            method: 'GET',
+            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com`,
+          },
+          response: {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+            jsonBody: entry(RENAMED_TO),
+          },
+        }),
+        // `calendars.patch`: the call this ticket adds.
+        await journal.addStub({
+          priority: 1,
+          scenarioName: 'e2e-rename-calendar',
+          newScenarioState: 'Renamed',
+          request: { method: 'PATCH', urlPathPattern: RENAMED_CALENDAR_PATH },
+          response: {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+            jsonBody: { kind: 'calendar#calendar', id: RENAMED_CALENDAR_ID, summary: RENAMED_TO },
+          },
+        }),
+      )
+
+      // The journal outlives a run: everything below is counted from here.
+      const initialPulls = await journal.count('GET', RENAMED_CALENDAR_EVENTS)
+      const patchesBefore = (await journal.bodies('PATCH', RENAME_CALENDAR)).length
+
+      // Given an agenda connected to Google.
+      const imported = await api.post('/api/calendar/google/import', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { googleCalendarId: RENAMED_CALENDAR_ID },
+      })
+      expect(imported.status(), `the import answered ${imported.status()}`).toBe(201)
+      const agenda = (await imported.json()) as { id: string; name: string }
+      expect(agenda.name).toBe(RENAMED_FROM)
+
+      // The initial pull runs through the worker: let it finish, so the pull counted
+      // below is the one the webhook asks for.
+      await journal.waitForCount('GET', RENAMED_CALENDAR_EVENTS, initialPulls + 1)
+      await waitForIndexed<StoredAgenda>(api, '/api/agendas', (candidate) => candidate.id === agenda.id, {
+        what: 'The imported agenda',
+      })
+
+      // When I rename it.
+      const renamed = await api.patch(`/api/agendas/${agenda.id}`, {
+        headers: { 'Content-Type': 'application/merge-patch+json' },
+        data: { name: RENAMED_TO },
+      })
+      expect(renamed.ok(), `PATCH /api/agendas/${agenda.id} answered ${renamed.status()}`).toBe(true)
+
+      // Then Google was sent the new name…
+      const patches = (await journal.bodies('PATCH', RENAME_CALENDAR)).slice(patchesBefore)
+      expect(patches, 'Google should have received exactly one calendars.patch').toHaveLength(1)
+      expect(JSON.parse(patches[0]), 'the patch carries the name as summary').toMatchObject({ summary: RENAMED_TO })
+
+      // …and after a sync the agenda still has it.
+      const pullsBefore = await journal.count('GET', RENAMED_CALENDAR_EVENTS)
+      const notified = await api.post('/api/calendar/google/webhook', {
+        headers: {
+          'X-Goog-Channel-ID': `e2e-channel-${RENAMED_CALENDAR_ID}`,
+          'X-Goog-Channel-Token': 'e2e-webhook-token',
+          'X-Goog-Resource-State': 'exists',
+        },
+        data: '',
+      })
+      expect(notified.ok(), `the webhook answered ${notified.status()}`).toBe(true)
+      // The name is read from Google before the events are listed: asserted once the
+      // pull has gone that far, not on a sync that has not happened yet.
+      await journal.waitForCount('GET', RENAMED_CALENDAR_EVENTS, pullsBefore + 1)
+
+      await expect
+        .poll(async () => (await agendas(api)).find((candidate) => candidate.id === agenda.id)?.name, {
+          timeout: 30_000,
+          message: 'the new name must outlive the sync that followed the rename',
+        })
+        .toBe(RENAMED_TO)
+    } finally {
+      for (const id of stubs) {
+        await journal.removeStub(id)
+      }
+      await forgetAgendasNamed(api, RENAMED_FROM)
+      await forgetAgendasNamed(api, RENAMED_TO)
+      await journal.dispose()
+    }
   })
 })
 
