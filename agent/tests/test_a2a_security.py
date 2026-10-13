@@ -130,7 +130,7 @@ class TestA2AToolRestriction:
         assert not native & A2A_ALLOWED_TOOLS
         assert not {n for n in A2A_ALLOWED_TOOLS if n.startswith(("create_", "update_", "delete_", "manage_"))}
 
-    @pytest.mark.parametrize("name", ["store_memory", "schedule_proaction", "create_skill", "create_event", "manage_accounts"])
+    @pytest.mark.parametrize("name", ["memory_write_fiche", "schedule_proaction", "create_skill", "create_event", "manage_accounts"])
     async def test_a2a_call_to_a_write_tool_is_refused_without_reaching_it(self, name):
         with patch("app.llm.tools.mcp_client") as mock_mcp_client:
             mock_mcp_client.call_tool = AsyncMock(return_value="{}")
@@ -156,7 +156,7 @@ class TestA2AToolRestriction:
 
         names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
 
-        assert {"create_event", "store_memory", "schedule_proaction"} <= names
+        assert {"create_event", "memory_write_fiche", "schedule_proaction"} <= names
 
     async def test_gateway_chat_asks_for_a2a_tools_only_when_called_from_a2a(self):
         with patch.object(LLMGateway, "__init__", lambda _self: None):

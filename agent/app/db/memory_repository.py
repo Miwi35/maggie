@@ -1,75 +1,25 @@
 import logging
-from datetime import UTC, datetime
 
 from sqlalchemy import select
 
 from app.db.agent_engine import agent_session
-from app.db.memory_model import Memory, MemoryType
+from app.db.memory_model import Memory
 
 logger = logging.getLogger(__name__)
 
 
 class MemoryRepository:
-    """Async memory persistence in agent-owned DB."""
+    """What is left of the old memory table: read, to be turned into fiches. Nothing writes to it any more."""
 
-    async def store(self, user_id: str, content: str, memory_type: str, metadata: dict | None = None) -> Memory:
+    async def find_by_user(self, user_id: str) -> list[Memory]:
         async with agent_session() as session:
-            memory = Memory(
-                user_id=user_id,
-                type=MemoryType(memory_type),
-                content=content,
-                metadata_=metadata,
-            )
-            session.add(memory)
-            await session.commit()
-            await session.refresh(memory)
-            return memory
+            stmt = select(Memory).where(Memory.user_id == user_id).order_by(Memory.created_at, Memory.id)
+            return list((await session.execute(stmt)).scalars().all())
 
-    async def search(self, user_id: str, query: str, memory_type: str | None = None) -> list[Memory]:
-        """Search memories by content (case-insensitive substring match)."""
+    async def user_ids(self) -> list[str]:
         async with agent_session() as session:
-            stmt = select(Memory).where(Memory.user_id == user_id)
-            if memory_type:
-                stmt = stmt.where(Memory.type == MemoryType(memory_type))
-            stmt = stmt.where(Memory.content.ilike(f"%{query}%"))
-            stmt = stmt.order_by(Memory.created_at.desc())
-            result = await session.execute(stmt)
-            return list(result.scalars().all())
-
-    async def find_by_user(self, user_id: str, memory_type: str | None = None) -> list[Memory]:
-        """Get all memories for a user, optionally filtered by type."""
-        async with agent_session() as session:
-            stmt = select(Memory).where(Memory.user_id == user_id)
-            if memory_type:
-                stmt = stmt.where(Memory.type == MemoryType(memory_type))
-            stmt = stmt.order_by(Memory.created_at.desc())
-            result = await session.execute(stmt)
-            return list(result.scalars().all())
-
-    async def update(self, user_id: str, memory_id: str, content: str, metadata: dict | None = None) -> Memory | None:
-        """Update a memory owned by user_id; None if it does not exist or belongs to someone else."""
-        async with agent_session() as session:
-            result = await session.execute(select(Memory).where(Memory.id == memory_id, Memory.user_id == user_id))
-            memory = result.scalar_one_or_none()
-            if memory:
-                memory.content = content
-                if metadata is not None:
-                    memory.metadata_ = metadata
-                memory.updated_at = datetime.now(UTC)
-                await session.commit()
-                await session.refresh(memory)
-            return memory
-
-    async def delete(self, user_id: str, memory_id: str) -> bool:
-        """Delete a memory owned by user_id; False if it does not exist or belongs to someone else."""
-        async with agent_session() as session:
-            result = await session.execute(select(Memory).where(Memory.id == memory_id, Memory.user_id == user_id))
-            memory = result.scalar_one_or_none()
-            if memory:
-                await session.delete(memory)
-                await session.commit()
-                return True
-            return False
+            rows = await session.execute(select(Memory.user_id).distinct())
+            return [row[0] for row in rows.all()]
 
 
 memory_repo = MemoryRepository()

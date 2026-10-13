@@ -13,9 +13,9 @@
 # rather than silently allowing everything.
 default: allow
 rules:
-  # Maggie's own notes about the user: hers to write and to correct, or she
-  # would ask permission to forget a thing she herself got wrong.
-  - tools: ["delete_memory", "delete_instruction", "update_*memory*"]
+  # Maggie's own notes: hers to correct, or she would ask permission to forget
+  # a thing she herself got wrong. Her memory has no delete tool at all (MAG-17).
+  - tools: ["delete_instruction"]
     mode: allow
 
   # Everything else named « delete » destroys something the user made: an

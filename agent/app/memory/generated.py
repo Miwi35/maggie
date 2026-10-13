@@ -61,18 +61,24 @@ avec n'importe quel éditeur. **Tes corrections font foi** : Maggie relit ce que
 
 - `{paths.SUMMARY}` — une ligne par fiche : le plus rapide pour s'y retrouver.
 - `{paths.JOURNAL}` — ce que Maggie a changé, quand et pourquoi.
-- `{paths.CONVERSATIONS_DIR}/AAAA/MM/` — les échanges, entiers, un fichier chacun : `AAAA-MM-JJ HHhMM — sujet.md`.
-  Ils ne sont jamais réécrits : ce sont les souvenirs bruts.
-- Les autres dossiers contiennent les **fiches** : ce que Maggie sait de toi, un fait ou une histoire par fichier,
-  classées par sujet. Le nom d'une fiche est une phrase vraie : `Françoise n'aime pas les roses.md`.
+- `{paths.CONVERSATIONS_DIR}/AAAA/MM/` — **première couche** : chaque échange, entier, un fichier par conversation
+  (`AAAA-MM-JJ HHhMM — sujet.md`), chaque message à sa minute. Maggie les écrit au fil de la conversation et n'y
+  revient jamais : on ajoute à la suite, rien n'est résumé, coupé ni réécrit. Ce sont les souvenirs bruts.
+- Les autres dossiers contiennent les **fiches** — **seconde couche** : ce que Maggie en a retenu, un fait ou une
+  histoire par fichier, classées par sujet. Le nom d'une fiche est une phrase vraie :
+  `Françoise n'aime pas les roses.md`.
 - `{paths.CONFLICTS_DIR}/` — les versions de Maggie mises de côté quand tu avais modifié le même fichier
   avant elle. Rien n'y est perdu ; garde ce qui te convient.
 
 ## Lire une fiche
 
 Chaque fiche commence par une **carte** (en-tête YAML entre deux lignes `---`) : `resume`, `personnes`,
-`evoque` (les situations où elle doit revenir à l'esprit), `sources` (d'où vient chaque affirmation, et si c'est
-`dit`, `observé` ou `déduit`). Puis le texte.
+`evoque` (les situations où elle doit revenir à l'esprit), `sources`. Puis le texte, en deux listes :
+
+- « Ce qu'on sait » : une ligne par affirmation, avec sa **provenance** et sa **source** ouvrable (la conversation et
+  l'heure, ou une donnée de l'application). `dit` : tu l'as dit. `observé` : lu dans les données de l'application.
+  `déduit` : Maggie l'a conclu elle-même — elle te le dit chaque fois qu'elle s'en sert.
+- « Ce qui n'est plus vrai » : ce qui a été remplacé, barré, avec la date et la raison. Rien n'est effacé en silence.
 
 ## Corriger
 
@@ -97,14 +103,22 @@ Ce dossier est la mémoire d'une personne, en Markdown. Si tu es un agent, voici
 2. Juge la pertinence sur la **carte** (l'en-tête YAML) : `resume`, `personnes`, `evoque`. N'ouvre le texte que
    pour un détail.
 3. Ne réponds jamais sur ce que tu sais sans avoir ouvert la fiche. Pas de fiche, pas d'affirmation.
-4. Une source `déduit` s'annonce comme telle ; `dit` = la personne l'a dit, `observé` = lu dans l'application.
+4. Une affirmation `déduit` s'annonce comme telle ; `dit` = la personne l'a dit, `observé` = lu dans l'application.
+5. Pour savoir d'où vient une affirmation, ouvre la conversation citée à l'heure citée : c'est la source.
 
 ## Écrire
 
-- Une fiche = un fait ou une histoire. Nom = une phrase vraie, avec ses accents. Dossiers peu profonds, par sujet.
+- Une fiche = un fait ou une histoire. Nom = une phrase vraie, avec ses accents. Dossiers peu profonds, par sujet,
+  choisis selon ce que tu écris : aucune catégorie n'est imposée.
 - Chaque fiche a une carte avec un `id` (identité stable à travers les renommages) et ses `sources`.
-- Ce qui n'est plus vrai est **daté et marqué remplacé**, jamais effacé en silence.
-- Ne touche pas aux fichiers de `{paths.CONVERSATIONS_DIR}/` : ils sont conservés tels quels.
+- Chaque affirmation cite sa **source** (la conversation et l'heure, ou la donnée de l'application) et sa
+  **provenance** : `dit`, `observé` ou `déduit`.
+- N'ajoute jamais de ton chef un fait que la personne n'a pas dit : ce que tu déduis est `déduit`, annoncé comme
+  tel, ou demandé.
+- Ce qui n'est plus vrai est **daté et marqué remplacé** (section « Ce qui n'est plus vrai »), jamais effacé en silence.
+- Écris tout de suite ce que la personne demande de retenir : sans attendre une consolidation.
+- Ne touche pas aux fichiers de `{paths.CONVERSATIONS_DIR}/` : on n'y ajoute qu'à la suite, jamais de résumé ni de
+  réécriture.
 - Les fichiers `{paths.README}`, `{paths.AGENTS}`, `{paths.SUMMARY}` et `{paths.JOURNAL}` sont générés.
 - Ne mets dans ce dossier que ce qui est vrai de la personne : ni état de conversation, ni compteurs d'usage.
 

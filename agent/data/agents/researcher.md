@@ -5,6 +5,8 @@ model: haiku
 tools:
   - "search*"
   - "list_*"
+  - memory_search
+  - memory_open
   - check_conflicts
   - get_daily_score
   - get_events_by_date

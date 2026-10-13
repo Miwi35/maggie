@@ -182,7 +182,7 @@ class TestPersonalityEngine:
         assert "get_events_by_date" in prompt and "get_upcoming_events" in prompt
         assert "de mémoire ni d'après l'historique" in prompt
         assert "— le mardi 6 octobre —" in prompt
-        assert "search_memory" in prompt and "n'en invente jamais" in prompt
+        assert "memory_open" in prompt and "n'en invente jamais" in prompt
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):

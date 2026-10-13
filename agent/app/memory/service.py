@@ -184,6 +184,16 @@ class MemoryService:
         paths.check_user_id(user_id)
         return await memory_index_repo.search(user_id, query, limit)
 
+    async def indexed(self, user_id: str, rel: str) -> IndexedFile | None:
+        """What the index holds of one file (its card id, its summary), None when it is not there."""
+        paths.check_user_id(user_id)
+        return await memory_index_repo.get(user_id, paths.clean_relative(rel))
+
+    async def fiches(self, user_id: str) -> list[IndexedFile]:
+        """Every fiche of this user, by path: what the prompt lists so that Maggie can open them."""
+        paths.check_user_id(user_id)
+        return await memory_index_repo.list_files(user_id, kind="fiche")
+
     async def write(
         self,
         user_id: str,
@@ -192,21 +202,28 @@ class MemoryService:
         *,
         reason: str = "",
         conversation: bool = False,
+        journal: bool = True,
     ) -> str:
         """Write a file to the local copy and queue it for the bucket. Returns the path written.
 
         Local first, bucket after the answer: this never waits for the network. The compare-before-push
         happens when the outbox is flushed, so an edit of the owner's made meanwhile still wins.
+        `journal=False` is for the conversations, which have a file of their own to say what happened.
         """
         rel = paths.check_writable(rel, conversation=conversation)
         paths.check_user_id(user_id)
+        if paths.kind_of(rel) == "conversation":
+            current = self.folder(user_id).read(rel)
+            if current is not None and not text.startswith(current):
+                raise paths.UnsafePath(f"{rel!r} is a conversation: it can only grow, never be rewritten")
         existed = await self._save_local_and_queue(user_id, rel, text)
         indexed = await index_file(user_id, rel, text)
         if indexed.stamped is not None:
             await self._save_local_and_queue(user_id, rel, indexed.stamped)
             await index_file(user_id, rel, indexed.stamped)
-        verb = "modifié" if existed else "créé"
-        await self.journal(user_id, f"{verb} `{rel}`" + (f" — {reason}" if reason else ""))
+        if journal:
+            verb = "modifié" if existed else "créé"
+            await self.journal(user_id, f"{verb} `{rel}`" + (f" — {reason}" if reason else ""))
         self.schedule(user_id)
         return rel
 

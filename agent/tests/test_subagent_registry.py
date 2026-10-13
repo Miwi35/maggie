@@ -183,4 +183,4 @@ class TestShippedAgents:
         # get_grocery_list is the one read that may create the user's (empty) list, which dry-run does not allow
         # but the « courses » of a weekly review needs.
         assert reachable - READ_ONLY_TOOLS == {"get_grocery_list"}
-        assert {"get_upcoming_events", "get_finance_dashboard", "search_memory", "get_skill"} <= reachable
+        assert {"get_upcoming_events", "get_finance_dashboard", "memory_search", "memory_open", "get_skill"} <= reachable

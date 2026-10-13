@@ -1,0 +1,15 @@
+# The next turn after a fiche is written (MAG-17): her prompt lists it, she opens it before answering.
+# Without the fiche in the prompt nothing matches, and the journey fails on « aucun scénario ».
+name: memory-fiche-recall
+description: Open the fiche the prompt lists, then answer from it.
+
+match:
+  user_contains: "que sais-tu de la salle de concert"
+  system_contains: "Sorties/Les concerts commencent à 19 heures à l'UBU.md"
+
+turns:
+  - tools:
+      - name: memory_open
+        input:
+          chemin: "Sorties/Les concerts commencent à 19 heures à l'UBU.md"
+  - text: "Les concerts commencent à 19 heures et la salle s'appelle l'UBU : tu me l'as dit."

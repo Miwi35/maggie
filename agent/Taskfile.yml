@@ -58,3 +58,8 @@ tasks:
     desc: Rebuild the memory index from the Markdown files (counters kept). `-- --user <ULID>` to narrow
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec agent python -m app.memory.rebuild {{.CLI_ARGS}}
+
+  memory:import-legacy:
+    desc: Bring the old memory rows and the message history into the memory folder (MAG-17). `-- --user <ULID>` to narrow
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent python -m app.memory.legacy {{.CLI_ARGS}}

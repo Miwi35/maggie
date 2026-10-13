@@ -68,7 +68,7 @@ class TestDryRunToolRouter:
         ("name", "arguments"),
         [
             ("list_proactions", {}),
-            ("search_memory", {"query": "x"}),
+            ("memory_search", {"requete": "x"}),
             ("get_events_by_date", {"date": "2026-10-06"}),
             ("get_weather", {"location": "Rennes"}),
             ("manage_tasks", {"action": "list"}),
@@ -89,7 +89,7 @@ class TestDryRunToolRouter:
         ("name", "arguments"),
         [
             ("schedule_proaction", PLUMBER),
-            ("store_memory", {"content": "x"}),
+            ("memory_write_fiche", {"titre": "x", "affirmations": []}),
             ("get_grocery_list", {}),
             ("manage_tasks", {"action": "create", "title": "x"}),
             ("manage_tasks", {"action": ["list"]}),
