@@ -1,0 +1,42 @@
+# « Le vendredi de la première semaine des vacances, lundi et vendredi de la deuxième »
+# (MAG-431): Maggie called the 24th of October a Monday, and the event landed on a Saturday.
+# She now reads the holidays with `get_events_by_date`, whose answer carries the day of the
+# week of each date, and books the three days from it.
+#
+# 2097-10-19 is a Saturday, like the 17th of October 2026: the holidays run from that Saturday
+# to the Monday 4 November 2097 included (end excluded: the 5th). First week, the Friday is the
+# 25th; second week, the Monday is the 28th and the Friday 1 November. 2097 so that nothing
+# else in the suite ever sees these events.
+name: create-event-weekdays
+description: Read holidays through MCP, then book three days of them from the weekdays the tool gives.
+
+match:
+  user_matches: "cheval.*Toussaint 2097"
+
+turns:
+  - tools:
+      - name: get_events_by_date
+        input: {date: "2097-10-19"}
+  - tools:
+      - name: create_event
+        input:
+          title: "Cheval"
+          start_date: "2097-10-25"
+          start_time: "18:00"
+          end_date: "2097-10-25"
+          end_time: "19:00"
+      - name: create_event
+        input:
+          title: "Cheval"
+          start_date: "2097-10-28"
+          start_time: "18:00"
+          end_date: "2097-10-28"
+          end_time: "19:00"
+      - name: create_event
+        input:
+          title: "Cheval"
+          start_date: "2097-11-01"
+          start_time: "18:00"
+          end_date: "2097-11-01"
+          end_time: "19:00"
+  - text: "C'est noté : cheval le vendredi 25 octobre, le lundi 28 octobre et le vendredi 1er novembre 2097, à 18 h."

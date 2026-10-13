@@ -107,6 +107,22 @@ const HOLIDAY = {
 }
 
 /**
+ * 35-create-event-weekdays.yaml — MAG-431: « le vendredi de la première semaine des vacances, lundi et
+ * vendredi de la deuxième ». The holidays start on Saturday 19 October 2097 (2097, so that nothing else
+ * sees them); the days Maggie books come from the weekdays the agenda tool gives, not from her head.
+ */
+const WEEKDAYS = {
+  question: 'Mets cheval le vendredi de la première semaine des vacances de la Toussaint 2097, et le lundi et le vendredi de la deuxième',
+  holidays: { title: 'Vacances de la Toussaint (MAG-431)', startDate: '2097-10-19', endDate: '2097-11-05' },
+  booked: [
+    { day: '2097-10-25', weekday: 'vendredi' },
+    { day: '2097-10-28', weekday: 'lundi' },
+    { day: '2097-11-01', weekday: 'vendredi' },
+  ],
+}
+const WEEKDAYS_URL = '/api/events?startAt%5Bafter%5D=2097-10-01&startAt%5Bbefore%5D=2097-12-31'
+
+/**
  * 31 to 34-create-event-*.yaml — MAG-150: the agenda **nobody named**. Each question
  * sends `create_event` with no `agenda_id` at all, so where the event lands is the API's
  * deduction and nothing else. Dated 2099 like the writes above, which also keeps them out
@@ -383,6 +399,59 @@ test('a stretch of days asked for is one whole-day event, not a series', async (
 
   const calendar = new CalendarPage(page)
   await calendar.openEvent(String(booked.id), HOLIDAY.title)
+})
+
+test('the days booked in holidays come from the weekdays the agenda gives, not from the model', async ({
+  page,
+  api,
+}) => {
+  const created = await api.post('/api/events', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: {
+      summary: WEEKDAYS.holidays.title,
+      allDay: true,
+      startDate: WEEKDAYS.holidays.startDate,
+      endDate: WEEKDAYS.holidays.endDate,
+      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+    },
+  })
+  expect(created.status()).toBe(201)
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(WEEKDAYS.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+
+  // The holidays were read through the real tool, then the three days were written.
+  expect(calledTools(events).filter((tool) => ['get_events_by_date', 'create_event'].includes(tool))).toEqual([
+    'get_events_by_date',
+    'create_event',
+    'create_event',
+    'create_event',
+  ])
+  expect(toolResults(events).filter((result) => result.toolName === 'create_event')).toEqual([
+    { toolName: 'create_event', status: 'success' },
+    { toolName: 'create_event', status: 'success' },
+    { toolName: 'create_event', status: 'success' },
+  ])
+
+  // The data: three events, on the Friday, the Monday and the Friday asked for. Polled, because
+  // the search index follows the write.
+  const weekday = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long' })
+  for (const expected of WEEKDAYS.booked) {
+    const booked = await waitForIndexed<SeededEvent>(
+      api,
+      WEEKDAYS_URL,
+      (event) => event.summary === 'Cheval' && parisDay(new Date(String(event.startAt))) === expected.day,
+      { what: `The Cheval Maggie booked on ${expected.day}` },
+    )
+    expect(weekday.format(new Date(String(booked.startAt)))).toBe(expected.weekday)
+  }
+  const cheval = (await getCollection<SeededEvent>(api, WEEKDAYS_URL)).filter((event) => event.summary === 'Cheval')
+  expect(cheval, 'one event per day asked for, no more').toHaveLength(WEEKDAYS.booked.length)
 })
 
 test('changing the subject opens a second context', async ({ page }) => {
