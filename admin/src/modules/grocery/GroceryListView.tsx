@@ -45,7 +45,7 @@ import { QuantityStepper } from './QuantityStepper'
 import { LineRecurrence } from './LineRecurrence'
 import { RecurringTab } from './RecurringTab'
 import { formatBuyAfter } from './groceryDates'
-import { bareId } from './recurring'
+import { RECURRING_TOPIC, bareId, isRecurringUpdate } from './recurring'
 import type { Frequency } from './recurring'
 import { useRecurringItems } from './useRecurringItems'
 import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
@@ -122,7 +122,8 @@ const isDeferred = (item: GroceryItem, today: string) => !!item.buyAfter && item
 // Taps on − / + within this delay become one request.
 const QUANTITY_SAVE_DELAY_MS = 400
 
-const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
+// One stream for both: the page already holds five, and a browser allows six per origin.
+const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}', RECURRING_TOPIC]
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 // The product behind a line, as the bare ULID the recurring items point at (REST sends an `@id`, Mercure an `id`).
@@ -383,8 +384,18 @@ export const GroceryListView = () => {
     },
     [fetchList],
   )
-  useMercure(GROCERY_LIST_TOPICS, handleMercure)
-  const recurring = useRecurringItems()
+  const recurring = useRecurringItems({ live: false })
+  const reloadRecurring = recurring.reload
+  useMercure(
+    GROCERY_LIST_TOPICS,
+    useCallback(
+      (data?: string) => {
+        if (isRecurringUpdate(data)) reloadRecurring()
+        else handleMercure(data)
+      },
+      [handleMercure, reloadRecurring],
+    ),
+  )
   const [tab, setTab] = useState<'list' | 'recurring'>('list')
 
   // Fetch products & stores when add dialog opens

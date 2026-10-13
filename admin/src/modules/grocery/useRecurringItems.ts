@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { bareId } from './recurring'
+import { RECURRING_TOPIC, bareId } from './recurring'
 import type { Frequency, RecurringItem } from './recurring'
 
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 const COLLECTION = `${entrypoint}/recurring_grocery_items`
-const RECURRING_TOPICS = ['/api/recurring_grocery_items/{id}']
+const RECURRING_TOPICS = [RECURRING_TOPIC]
+const NO_TOPICS: string[] = []
 
 const call = (url: string, method: string, body?: unknown) => {
   const token = localStorage.getItem('token')
@@ -51,10 +52,13 @@ async function fetchItems(): Promise<RecurringItem[]> {
 
 /**
  * The owner's recurring items, kept in step with the API: any Mercure event for
- * one of them re-reads the collection. Writes are not optimistic — the state is
+ * one of them re-reads the collection. `live: false` leaves the subscription to
+ * the caller, which calls `reload` — a screen already holding Mercure streams
+ * shares one with the list, because a browser keeps six connections per origin
+ * and a seventh stream starves the screen's own requests. Writes are not optimistic — the state is
  * what the API answered, so a refusal leaves everything where it was.
  */
-export function useRecurringItems() {
+export function useRecurringItems({ live = true }: { live?: boolean } = {}) {
   const notify = useNotify()
   const [items, setItems] = useState<RecurringItem[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -71,7 +75,7 @@ export function useRecurringItems() {
   useEffect(() => {
     load()
   }, [load])
-  useMercure(RECURRING_TOPICS, () => {
+  useMercure(live ? RECURRING_TOPICS : NO_TOPICS, () => {
     load()
   })
 

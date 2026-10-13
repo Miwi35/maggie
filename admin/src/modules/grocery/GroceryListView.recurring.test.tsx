@@ -324,6 +324,36 @@ describe('GroceryListView — recurring items', () => {
       expect(decodeURIComponent(recurringSource()!.url)).toContain('/users/user-1/api/recurring_grocery_items/:id')
     })
 
+    test('shares one stream with the list: a browser keeps six per origin, and a seventh starves the page', async () => {
+      await open([])
+
+      const url = decodeURIComponent(recurringSource()!.url)
+      expect(url).toContain('/users/user-1/api/grocery_lists/:id')
+      expect(eventSources.filter((source) => source.url.includes('recurring_grocery_items'))).toHaveLength(1)
+    })
+
+    test("an item's update reads the items only, and the list's update reads the list only", async () => {
+      const api = await open([])
+      const itemReads = () =>
+        api.fetchMock.mock.calls.filter(([url, init]) => String(url).includes('/recurring_grocery_items') && init?.method === 'GET').length
+      const itemReadsBefore = itemReads()
+      const listReadsBefore = mockGetOne.mock.calls.length
+
+      act(() => {
+        recurringSource()!.onmessage?.({
+          data: JSON.stringify({ '@id': '/api/recurring_grocery_items/R1', label: 'Lait', frequency: 'weekly' }),
+        } as MessageEvent)
+      })
+      await waitFor(() => expect(itemReads()).toBe(itemReadsBefore + 1))
+      expect(mockGetOne.mock.calls.length).toBe(listReadsBefore)
+
+      act(() => {
+        recurringSource()!.onmessage?.({ data: JSON.stringify({ '@id': '/api/grocery_lists/list-1' }) } as MessageEvent)
+      })
+      await waitFor(() => expect(mockGetOne.mock.calls.length).toBe(listReadsBefore + 1))
+      expect(itemReads()).toBe(itemReadsBefore + 1)
+    })
+
     test('an item created elsewhere shows on the line and in the tab', async () => {
       const user = userEvent.setup()
       const api = await open([])
@@ -332,7 +362,7 @@ describe('GroceryListView — recurring items', () => {
 
       api.members.push(lait)
       act(() => {
-        recurringSource()!.onmessage?.({ data: JSON.stringify({ label: 'Lait', frequency: 'weekly' }) } as MessageEvent)
+        recurringSource()!.onmessage?.({ data: JSON.stringify({ '@id': '/api/recurring_grocery_items/R1', label: 'Lait', frequency: 'weekly' }) } as MessageEvent)
       })
 
       expect(await within(tab).findByText('Prochaine échéance : 08/01/2099')).toBeInTheDocument()
@@ -346,7 +376,7 @@ describe('GroceryListView — recurring items', () => {
 
       api.members.length = 0
       act(() => {
-        recurringSource()!.onmessage?.({ data: JSON.stringify({ deleted: true }) } as MessageEvent)
+        recurringSource()!.onmessage?.({ data: JSON.stringify({ '@id': '/api/recurring_grocery_items/R1', deleted: true }) } as MessageEvent)
       })
 
       expect(await within(row('Lait')).findByRole('button', { name: 'Rendre Lait récurrent' })).toBeInTheDocument()
