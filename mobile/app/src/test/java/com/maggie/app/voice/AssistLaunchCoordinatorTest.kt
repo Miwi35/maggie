@@ -14,7 +14,7 @@ import org.junit.Test
 class AssistLaunchCoordinatorTest {
 
     private val launches = mutableListOf<ScreenContext>()
-    private val coordinator = AssistLaunchCoordinator { launches += it }
+    private val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it })
 
     @Test
     fun `a session shown with no assist flag opens at once, with nothing`() {
@@ -89,14 +89,62 @@ class AssistLaunchCoordinatorTest {
         assertNull(launches.single().appLabel)
     }
 
-    /** Nothing will send a screenshot taken after the launch: the session deletes it. */
+    /**
+     * The owner's refusal (12 Oct.): the text came at once, the screenshot after the
+     * deadline, and it was deleted — both sentences left with `has_image = false`.
+     */
     @Test
-    fun `a screenshot arriving after the launch is refused, so its file can go`() {
+    fun `a screenshot delivered after the text and after the deadline is still taken`() {
+        val late = mutableListOf<Boolean>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
+        coordinator.onTimeout()
+
+        assertTrue("the overlay knows one is on its way", launches.single().screenshotPending)
+        assertFalse(launches.single().hasScreenshot)
+        assertTrue(coordinator.waitingForScreenshot)
+
+        assertTrue("kept for the overlay, not deleted", coordinator.onScreenshot(kept = true))
+
+        assertEquals(listOf(true), late)
+        assertFalse(coordinator.waitingForScreenshot)
+        assertEquals(1, launches.size)
+    }
+
+    @Test
+    fun `a late screenshot Android refused still ends the wait`() {
+        val late = mutableListOf<Boolean>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
         coordinator.onShow(withAssist = false, withScreenshot = true)
         coordinator.onTimeout()
 
+        coordinator.onScreenshot(kept = false)
+
+        assertEquals(listOf(false), late)
+        assertFalse(coordinator.waitingForScreenshot)
+    }
+
+    /** Past the session's last wait, nothing will send it: the session deletes it. */
+    @Test
+    fun `a screenshot arriving once the wait is abandoned is refused, so its file can go`() {
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+        coordinator.onScreenshotAbandoned()
+
+        assertFalse(coordinator.waitingForScreenshot)
         assertFalse(coordinator.onScreenshot(kept = true))
-        assertFalse(launches.single().hasScreenshot)
+    }
+
+    @Test
+    fun `a screenshot that came in time is not pending`() {
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onScreenshot(kept = true)
+        coordinator.onTimeout()
+
+        assertFalse(launches.single().screenshotPending)
+        assertFalse(coordinator.waitingForScreenshot)
+        assertFalse("a second delivery is not a late one", coordinator.onScreenshot(kept = true))
     }
 
     @Test

@@ -15,10 +15,20 @@ package com.maggie.app.voice
  * arrived. Exactly one launch happens, whichever path gets there first — a late
  * callback after the timeout must not open a second overlay.
  *
+ * The screenshot is the exception (MAG-214): it routinely comes after the
+ * deadline — and after the text — so the overlay opens with it marked
+ * [ScreenContext.screenshotPending], and the one that follows is still taken and
+ * handed to [onLateScreenshot] instead of being deleted. The session stays alive
+ * for it while [waitingForScreenshot]: a finished session gets nothing more from
+ * Android.
+ *
  * Kept free of Android types so every one of those paths is a unit test; the
  * session owns the clock.
  */
-class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
+class AssistLaunchCoordinator(
+    private val onLaunch: (ScreenContext) -> Unit,
+    private val onLateScreenshot: (kept: Boolean) -> Unit = {},
+) {
 
     private var shown = false
     private var awaitingAssist = false
@@ -29,6 +39,10 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
 
     var hasLaunched: Boolean = false
         private set
+
+    /** The overlay is open and the screenshot the show flags promised has not come yet. */
+    val waitingForScreenshot: Boolean
+        get() = hasLaunched && awaitingScreenshot && !screenshotReceived
 
     /**
      * Returns true when the caller must arm the timeout — i.e. the overlay did
@@ -58,11 +72,17 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
 
     /**
      * [kept] is whether the screenshot was written to [ScreenshotEncoder.file] —
-     * false when Android refused it, which still ends the wait. Returns false when
-     * the file was not taken (too late, or for a dismissed invocation): nothing will
-     * send it, so the caller deletes it.
+     * false when Android refused it, which still ends the wait. After the launch it
+     * goes to [onLateScreenshot]. Returns false when the file was not taken (not
+     * awaited, given up on, or for a dismissed invocation): nothing will send it, so
+     * the caller deletes it.
      */
     fun onScreenshot(kept: Boolean): Boolean {
+        if (waitingForScreenshot) {
+            screenshotReceived = true
+            onLateScreenshot(kept)
+            return true
+        }
         if (hasLaunched || !shown) return false
         screenshotReceived = true
         context = context.copy(hasScreenshot = context.hasScreenshot || kept)
@@ -73,6 +93,11 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
     fun onTimeout() {
         if (hasLaunched || !shown) return
         launch()
+    }
+
+    /** The session stops waiting: a screenshot that still comes is refused. */
+    fun onScreenshotAbandoned() {
+        if (waitingForScreenshot) screenshotReceived = true
     }
 
     /**
@@ -105,6 +130,6 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
 
     private fun launch() {
         hasLaunched = true
-        onLaunch(context)
+        onLaunch(context.copy(screenshotPending = awaitingScreenshot && !screenshotReceived))
     }
 }

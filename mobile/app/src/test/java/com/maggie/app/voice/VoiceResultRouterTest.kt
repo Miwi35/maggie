@@ -6,7 +6,10 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 
 class VoiceResultRouterTest {
 
@@ -46,5 +49,44 @@ class VoiceResultRouterTest {
         routeVoiceResult("c'est quoi ?", chat, voice, null) { image }
 
         verify(exactly = 1) { chat.sendMessage("c'est quoi ?", null, image) }
+    }
+
+    @get:Rule
+    val folder = TemporaryFolder()
+
+    /**
+     * The owner's refusal (12 Oct.), from the session to the request: the overlay
+     * opened on the text alone, the screenshot came after — the sentence carries it.
+     */
+    @Test
+    fun `a screenshot delivered after the deadline goes with the sentence`() {
+        every { chat.answerApprovalByVoice("c'est quoi ce produit ?") } returns false
+        val file = File(folder.root, "screenshot.jpg")
+        var overlay: ScreenContext? = null
+        val coordinator = AssistLaunchCoordinator(
+            onLaunch = { overlay = it },
+            onLateScreenshot = { kept -> if (kept) overlay = overlay?.withArrivedScreenshot() },
+        )
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
+        coordinator.onTimeout()
+
+        file.writeBytes(byteArrayOf(4, 5, 6))
+        coordinator.onScreenshot(kept = true)
+
+        val screen = overlay
+        val pending = PendingScreenshot(file)
+        routeVoiceResult("c'est quoi ce produit ?", chat, voice, screen) {
+            if (screen?.hasScreenshot == true) pending.take() else null
+        }
+
+        verify(exactly = 1) {
+            chat.sendMessage(
+                "c'est quoi ce produit ?",
+                screen?.toPromptBlock(imageAttached = true),
+                match { it.contentEquals(byteArrayOf(4, 5, 6)) },
+            )
+        }
+        assertFalse("sent, then gone", file.exists())
     }
 }

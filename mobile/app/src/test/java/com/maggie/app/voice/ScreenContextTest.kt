@@ -201,7 +201,35 @@ class ScreenContextTest {
         every { incoming.getStringExtra(ScreenContext.EXTRA_WEB_URI) } returns "https://boutique.example/cafe"
         every { incoming.getStringArrayListExtra(ScreenContext.EXTRA_TEXTS) } returns arrayListOf("Café moulu 250 g")
         every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT, false) } returns true
+        every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT_PENDING, false) } returns false
 
         assertEquals(sent, ScreenContext.fromIntent(incoming))
+    }
+
+    @Test
+    fun `an overlay opened with only a screenshot on its way still has a context`() {
+        val incoming = mockk<Intent>()
+        every { incoming.getStringExtra(any()) } returns null
+        every { incoming.getStringArrayListExtra(any()) } returns null
+        every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT, false) } returns false
+        every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT_PENDING, false) } returns true
+
+        assertEquals(ScreenContext(screenshotPending = true), ScreenContext.fromIntent(incoming))
+    }
+
+    @Test
+    fun `a late screenshot joins the context that waits for it, and only that one`() {
+        val waiting = ScreenContext(appLabel = "Boutique", screenshotPending = true)
+
+        assertEquals(
+            ScreenContext(appLabel = "Boutique", hasScreenshot = true),
+            waiting.withArrivedScreenshot(),
+        )
+        assertNull(ScreenContext(appLabel = "Boutique").withArrivedScreenshot())
+    }
+
+    @Test
+    fun `a screenshot still on its way is not announced to the model`() {
+        assertNull(ScreenContext(screenshotPending = true).toPromptBlock())
     }
 }
