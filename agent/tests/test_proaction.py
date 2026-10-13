@@ -392,6 +392,28 @@ class TestProactionConsumer:
         assert topic.endswith("proactions/user-1")
         assert (data["id"], data["status"], data["response"]) == ("pro-1", "completed", "Pense au plombier.")
 
+    async def test_a_summary_that_fails_does_not_turn_a_delivered_message_into_a_failure(self):
+        from app.queue.proaction_consumer import execute_proaction
+
+        proaction = Proaction.from_api(API_PROACTION | {"status": "running"})
+        gateway = MagicMock()
+        gateway.proaction = AsyncMock(return_value={"response": "Pense au plombier.", "tool_calls": [], "context_id": "ctx-1"})
+        with (
+            patch("app.queue.proaction_consumer.message_repo") as messages,
+            patch("app.queue.proaction_consumer.proactions_api") as proactions,
+            patch("app.queue.proaction_consumer.publisher") as publisher,
+            patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
+        ):
+            messages.create = AsyncMock()
+            proactions.record = AsyncMock(return_value=proaction)
+            publisher.publish = AsyncMock()
+            summarizer.maybe_summarize = AsyncMock(side_effect=RuntimeError("model down"))
+
+            result = await execute_proaction(gateway, proaction)
+
+        assert result["status"] == "completed"
+        assert proactions.record.await_args.args[1] == "completed"
+
     async def test_a_run_that_fails_is_recorded_failed_with_its_error(self):
         consumed = await _consume(RuntimeError("LLM timeout"))
 

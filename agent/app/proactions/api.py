@@ -58,7 +58,8 @@ class Proaction:
         )
 
     def to_dict(self) -> dict:
-        """The shape `GET /agent/proactions` and the `proactions` Mercure topic always had."""
+        """What `GET /agent/proactions` and the `proactions` Mercure topic carry: their former shape, but
+        `createdAt`, which the API does not describe (the screens move to the agenda in MAG-328)."""
         return {
             "id": self.id,
             "userId": self.user_id,
@@ -114,10 +115,9 @@ async def record(
     return Proaction.from_api(data.get("proaction") or {"id": proaction.id}, proaction.user_id)
 
 
-async def list_for_user(user_id: str, *, day: str | None = None) -> list[Proaction]:
-    """The user's proactions by time, every one or those of one day (`YYYY-MM-DD`)."""
-    arguments = {"from": day, "to": day} if day else {}
-    data = await _call(LIST_TOOL, arguments, user_id)
+async def list_for_user(user_id: str) -> list[Proaction]:
+    """Every one of the user's proactions, by time."""
+    data = await _call(LIST_TOOL, {}, user_id)
     return [Proaction.from_api(p, user_id) for p in data.get("proactions", [])]
 
 

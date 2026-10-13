@@ -172,14 +172,15 @@ class TestTheGuard:
 
     def test_a_pending_reminder_from_an_earlier_turn_backs_the_claim(self):
         guard = ClaimGuard(OFFERED)
-        guard.record("list_proactions", json.dumps([{"id": "pro-1", "status": "pending"}]))
+        # The API's answer since MAG-327: the proactions under a key, with their count.
+        guard.record("list_proactions", json.dumps({"proactions": [{"id": "pro-1", "status": "pending"}], "count": 1}))
 
         assert guard.review("Oui, je vous rappellerai à 16h05.") is Verdict.ACCEPT
 
     @pytest.mark.parametrize("listed", [[], [{"id": "pro-1", "status": "completed"}]])
     def test_no_pending_reminder_listed_does_not(self, listed):
         guard = ClaimGuard(OFFERED)
-        guard.record("list_proactions", json.dumps(listed))
+        guard.record("list_proactions", json.dumps({"proactions": listed, "count": len(listed)}))
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 

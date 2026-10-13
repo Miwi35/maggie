@@ -74,6 +74,7 @@ def api():
 @pytest.fixture(autouse=True)
 def wired(engine, api, monkeypatch):
     monkeypatch.setattr(legacy, "_done", False)
+    monkeypatch.setattr(legacy, "_earliest", None)
     monkeypatch.setattr(legacy, "_utcnow", lambda: NOW)
     with (
         patch.object(legacy, "agent_engine", _SyncEngineAsAsync(engine)),

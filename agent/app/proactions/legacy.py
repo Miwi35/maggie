@@ -24,6 +24,9 @@ LEGACY_TABLE = "proaction"
 OVERDUE_DELAY = timedelta(minutes=1)
 
 _done = False
+# Taken once: an overdue row scheduled again after a failed DELETE lands on the same
+# instant, which the API recognises as the one it already holds.
+_earliest: datetime | None = None
 
 
 def _utcnow() -> datetime:
@@ -44,7 +47,7 @@ async def migrate_legacy_proactions() -> bool:
 
     Cheap once done: the executor calls it every minute until it returns True.
     """
-    global _done
+    global _done, _earliest
     if _done:
         return True
 
@@ -61,7 +64,8 @@ async def migrate_legacy_proactions() -> bool:
             )
         ).all()
 
-    earliest = _utcnow() + OVERDUE_DELAY
+    _earliest = _earliest or (_utcnow() + OVERDUE_DELAY).replace(second=0, microsecond=0)
+    earliest = _earliest
     for row in rows:
         try:
             await proactions_api.schedule(row.user_id, row.prompt, max(_as_utc(row.scheduled_at), earliest))

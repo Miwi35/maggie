@@ -76,11 +76,6 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 # (MAG-211).
                 blocks=result.get("blocks"),
             )
-            # Awaited, unlike on the streamed path: nobody is holding a stream
-            # open here, and the reply to a reminder is the next thing to be
-            # routed against this thread's summary.
-            if context_id:
-                await context_summarizer.maybe_summarize(context_id)
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Proaction {proaction_id} failed: {error_msg}")
@@ -90,6 +85,16 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
         return {"status": "failed", "message": None, "error": error_msg, "toolCalls": []}
 
     await _record(proaction, "completed", response=result["response"])
+
+    # Awaited, unlike on the streamed path: nobody is holding a stream open here, and the
+    # reply to a reminder is the next thing to be routed against this thread's summary.
+    # After the record: the message is delivered, a summary that fails does not undo it.
+    context_id = result.get("context_id")
+    if result["response"] and context_id:
+        try:
+            await context_summarizer.maybe_summarize(context_id)
+        except Exception as e:
+            logger.warning(f"Could not summarize thread {context_id} after proaction {proaction_id}: {e}")
     logger.info(f"Proaction {proaction_id} completed")
     return {"status": "completed", "message": result["response"], "toolCalls": result.get("tool_calls", [])}
 
