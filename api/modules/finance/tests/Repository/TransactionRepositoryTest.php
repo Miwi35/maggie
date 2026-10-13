@@ -160,12 +160,6 @@ class TransactionRepositoryTest extends KernelTestCase
         );
 
         self::assertSame(8000, $byStatus[TransactionStatus::Spent->value]);
-        self::assertSame(8000, $this->repository->sumSpentForCategoryBetween(
-            $this->user(),
-            $this->category('leisure'),
-            $this->from(),
-            $this->until(),
-        ));
     }
 
     public function testATransferLeavesTheMonthlyReviewQueue(): void

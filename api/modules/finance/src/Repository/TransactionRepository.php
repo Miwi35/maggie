@@ -144,17 +144,6 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Total spent on a category over a half-open period, as positive cents.
-     * Only debits (negative amounts) count against a budget.
-     */
-    public function sumSpentForCategoryBetween(User $user, Category $category, \DateTimeImmutable $from, \DateTimeImmutable $until): int
-    {
-        $byStatus = $this->sumByStatusForCategoriesBetween($user, [$category->getId()], $from, $until);
-
-        return $byStatus[TransactionStatus::Spent->value];
-    }
-
-    /**
      * Debits on a set of categories (a category and its descendants, for an
      * envelope that takes its sub-categories along) over a half-open period,
      * split by status, as positive cents. Every status is present, zero when

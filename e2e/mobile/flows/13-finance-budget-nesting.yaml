@@ -53,7 +53,11 @@ tags:
     env:
       ACTION: spend-bars
       TODAY: ${TODAY}
+# One reload at a time: the previous month is empty, then the shown one is read again.
 - tapOn: "Mois précédent"
+- extendedWaitUntil:
+    visible: "Aucune enveloppe pour cette période.*"
+    timeout: 30000
 - tapOn: "Mois suivant"
 
 - extendedWaitUntil:

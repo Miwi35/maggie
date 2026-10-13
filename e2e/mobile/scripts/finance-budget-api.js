@@ -5,6 +5,10 @@
 // files a second spend while the screen is open. Same login as `meal-api.js`, as the
 // seed's second user, who holds no finance data of its own.
 //
+// Collections are served from Elasticsearch, which trails a write: what the script has
+// just made is addressed by the id its POST returned, and what an earlier action made is
+// polled for, never read once.
+//
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €) | remove
 //   TODAY   the seed's anchor day, YYYY-MM-DD: the month the screen opens on
@@ -55,19 +59,32 @@ function named(path, name) {
   return collection(path).filter(function (row) { return row.name === name })
 }
 
-function categoryId(name) {
-  const rows = named('/api/categories?itemsPerPage=200', name)
-  if (rows.length !== 1) {
-    fail('expected one category "' + name + '", found ' + rows.length)
+function pause(ms) {
+  const end = Date.now() + ms
+  while (Date.now() < end) {
+    // The script sandbox has no timers.
   }
-  return rows[0].id
 }
 
-function spend(categoryName, label, amountCents) {
-  const account = named('/api/accounts?itemsPerPage=200', accountName)[0]
+// Polled until exactly one row of that name is findable.
+function awaitOne(path, name) {
+  const deadline = Date.now() + 30000
+  for (;;) {
+    const rows = named(path, name)
+    if (rows.length === 1) {
+      return rows[0]
+    }
+    if (Date.now() >= deadline) {
+      fail('"' + name + '" never became findable within 30 s (found ' + rows.length + ')')
+    }
+    pause(300)
+  }
+}
+
+function spend(accountId, categoryId, label, amountCents) {
   post('/api/transactions', {
-    account: '/api/accounts/' + account.id,
-    category: '/api/categories/' + categoryId(categoryName),
+    account: '/api/accounts/' + accountId,
+    category: '/api/categories/' + categoryId,
     label: label,
     amountCents: -amountCents,
     currency: 'EUR',
@@ -121,10 +138,15 @@ if (ACTION === 'create') {
       month: month,
     })
   })
-  post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
-  spend('Obsydian', 'OBSYDIAN MAG-412', 4000)
+  const account = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
+  spend(account.id, obsydian.id, 'OBSYDIAN MAG-412', 4000)
+  // The next action looks the tree up by name: leave only once it is findable.
+  awaitOne('/api/categories?itemsPerPage=200', 'Bars')
+  awaitOne('/api/accounts?itemsPerPage=200', accountName)
 } else if (ACTION === 'spend-bars') {
-  spend('Bars', 'BARS MAG-412', 2500)
+  const account = awaitOne('/api/accounts?itemsPerPage=200', accountName)
+  const bars = awaitOne('/api/categories?itemsPerPage=200', 'Bars')
+  spend(account.id, bars.id, 'BARS MAG-412', 2500)
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {
