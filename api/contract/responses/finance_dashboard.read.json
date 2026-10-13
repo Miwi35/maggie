@@ -22,9 +22,9 @@
             "blocksGreenScore": true
         },
         "comparison": {
-            "thisMonthCents": 0,
+            "thisMonthCents": 121349,
             "sameMonthLastYearCents": 0,
-            "differenceCents": 0,
+            "differenceCents": 121349,
             "isBetter": false
         },
         "referenceSalary": {
@@ -105,20 +105,20 @@
         {
             "month": "2026-01",
             "incomeCents": 0,
-            "expenseCents": 0,
-            "netCents": 0
+            "expenseCents": 91349,
+            "netCents": -91349
         },
         {
             "month": "2026-02",
             "incomeCents": 0,
-            "expenseCents": 0,
-            "netCents": 0
+            "expenseCents": 91349,
+            "netCents": -91349
         },
         {
             "month": "2026-03",
             "incomeCents": 0,
-            "expenseCents": 4250,
-            "netCents": -4250
+            "expenseCents": 125599,
+            "netCents": -125599
         }
     ],
     "budgets": [],
@@ -126,9 +126,9 @@
         {
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "categoryName": "Recorded Category",
-            "spentCents": 4250,
-            "previousMonthCents": 0,
-            "changeCents": 4250
+            "spentCents": 125599,
+            "previousMonthCents": 91349,
+            "changeCents": 34250
         }
     ],
     "savingCapacity": {

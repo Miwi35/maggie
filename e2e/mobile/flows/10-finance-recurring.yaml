@@ -1,0 +1,85 @@
+appId: com.maggie.app.e2e
+name: 10-finance-recurring
+tags:
+  - finance
+---
+# Recurring operations on the phone (MAG-309, extends MAG-102).
+#
+# Étant donné l'opération récurrente « Loyer MAG-309 », 900,00 € le 5 de chaque mois,
+#   dont la ligne « LOYER SCI VERDA » est arrivée huit jours après l'échéance
+# Quand j'ouvre les opérations récurrentes
+# Alors elle coûte 900.00 EUR par mois, le 5 de chaque mois, et « Échéance manquée » le dit
+#   et le rattachement de « LOYER SCI VERDA » m'est proposé
+# Quand je l'accepte
+# Alors la ligne est rattachée en base et la proposition disparaît
+#
+# The data is set by `scripts/recurring-api.js` on an account of its own, relative to
+# TODAY (the series starts two months back, so there is always a due date that never came).
+# Amounts are drawn the way the app draws them: « 900.00 EUR ».
+#
+# What is not here: the creation form and the full-screen category and account searches
+# (`RecurringOperationViewModelTest`, `RecurringOperationScreenTest`), and the admin's
+# side of the same API (`finance-recurring.spec.ts`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/10-finance-recurring.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/recurring-operations"
+
+- extendedWaitUntil:
+    visible: "Opérations récurrentes"
+    timeout: 20000
+
+- scrollUntilVisible:
+    element: "Loyer MAG-309"
+    timeout: 30000
+
+- extendedWaitUntil:
+    visible: ".*900[.,]00 EUR par mois.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*le 5 de chaque mois.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "recurring_missed_badge"
+      below: "Loyer MAG-309"
+    timeout: 10000
+
+# The late line is only proposed, with the reason it broke.
+- scrollUntilVisible:
+    element: "Rattacher à « Loyer MAG-309 »"
+    direction: UP
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*après l'échéance.*"
+    timeout: 10000
+
+- tapOn: "Rattacher à « Loyer MAG-309 »"
+
+# The phone sent the attachment: the line says so in the database, and the list no
+# longer proposes it.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: expect-attached
+- extendedWaitUntil:
+    notVisible: "Rattacher à « Loyer MAG-309 »"
+    timeout: 30000
+
+# Left as found.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: remove

@@ -7,6 +7,8 @@ namespace App\Tests\Contract;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\UseCase\GetRecurringOperations;
+use Maggie\Finance\UseCase\SuggestRecurringOperations;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -62,6 +64,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'accounts.collection' => '/api/accounts',
         'categories.collection' => '/api/categories',
         'transactions.collection' => '/api/transactions',
+        'recurring_operations.collection' => '/api/recurring_operations',
         'users.me' => '/api/users/me',
         'user_preferences.me' => '/api/user_preferences/me',
         'finance_monthly_review.read' => '/api/finance/monthly-review?year=2026&month=3',
@@ -102,6 +105,51 @@ final class RecordedResponseContractTest extends WebTestCase
                 sprintf('GET %s no longer returns what it used to. The mobile DTOs are written against this response; check mobile/app/src/main/java/com/maggie/app/data/model/ before regenerating.', $path),
             );
         }
+    }
+
+    /**
+     * The overview is read at a fixed day: its next due dates and its overdue
+     * days move with the clock, and a recording that moved every morning would
+     * be noise. Same JSON as the controller sends, produced by the same use case.
+     */
+    public function testTheOverviewRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+
+        $overview = self::getContainer()->get(GetRecurringOperations::class)->execute($user, new \DateTimeImmutable('2026-04-22'));
+        $body = json_decode((string) json_encode($overview, \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+
+        $this->assertMatchesContract(
+            'responses/recurring_operations.overview.json',
+            self::stabilise($body),
+            'GET /api/finance/recurring-operations/overview no longer returns what it used to. The mobile DTOs (RecurringOperation.kt) are written against this response.',
+        );
+    }
+
+    /**
+     * What the statement implies, read as the controller sends it: an offer, with no series behind it.
+     */
+    public function testTheSuggestionsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+
+        $suggestions = self::getContainer()->get(SuggestRecurringOperations::class)->suggest($user);
+        $body = json_decode((string) json_encode(['suggestions' => $suggestions], \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty($body['suggestions'], 'The recorded world implies no recurring operation, so the recording proves nothing about a suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/recurring_operations.suggestions.json',
+            self::stabilise($body),
+            'GET /api/finance/recurring-operations/suggestions no longer returns what it used to. The mobile DTOs (RecurringOperation.kt) are written against this response.',
+        );
     }
 
     /**

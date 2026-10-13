@@ -19,6 +19,10 @@ class DeepLinksTest {
         assertEquals(listOf("$scheme://recipe/{id}"), DeepLinks.patternsFor(DeepLinks.RECIPE_ROUTE))
         assertEquals(listOf("$scheme://chat?message={message}"), DeepLinks.patternsFor(Screen.Chat.route))
         assertEquals(listOf("$scheme://finance"), DeepLinks.patternsFor(Screen.FinanceDashboard.route))
+        assertEquals(
+            listOf("$scheme://finance/recurring-operations"),
+            DeepLinks.patternsFor(Screen.RecurringOperations.route),
+        )
     }
 
     @Test
@@ -34,6 +38,7 @@ class DeepLinksTest {
             Screen.Cushion,
             Screen.LoanList,
             Screen.MonthlyReview,
+            Screen.RecurringOperations,
         ).map { it.route }
 
         financeRoutes.forEach { route ->

@@ -1,6 +1,8 @@
 package com.maggie.app.data.api
 
 import com.maggie.app.BuildConfig
+import com.maggie.app.data.model.AcceptRecurringSuggestionsRequest
+import com.maggie.app.data.model.AcceptRecurringSuggestionsResult
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
@@ -31,6 +33,13 @@ import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.targetsCategory
+import com.maggie.app.data.model.RecurringAttachReport
+import com.maggie.app.data.model.RecurringAttachRequest
+import com.maggie.app.data.model.RecurringOperationRecord
+import com.maggie.app.data.model.RecurringOperationsOverview
+import com.maggie.app.data.model.RecurringSuggestion
+import com.maggie.app.data.model.RecurringSuggestionsResponse
+import com.maggie.app.data.model.recurringOperationIri
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
@@ -389,6 +398,34 @@ data class CategorizationRuleCreateRequest(
     val maxAmountCents: Int? = null,
     val priority: Int = 0,
     val isActive: Boolean = true,
+)
+
+/**
+ * A recurring operation as the form writes it. No defaults: the client does not encode them,
+ * and a PATCH must be able to clear `endsOn` or `labelPattern` by sending null.
+ */
+@Serializable
+data class RecurringOperationWriteRequest(
+    val label: String,
+    val counterpartyName: String?,
+    val labelPattern: String?,
+    val account: String,
+    val category: String,
+    val period: String,
+    val dayRule: String,
+    val anchorOn: String,
+    val referenceAmountCents: Int,
+    val referenceSource: String,
+    val amountTolerancePercent: Int,
+    val dateToleranceDays: Int,
+    val endsOn: String?,
+)
+
+/** Attach a transaction to a due date of a series, or detach it with two nulls. */
+@Serializable
+data class TransactionRecurrenceRequest(
+    val recurringOperation: String?,
+    val recurringOccurrenceOn: String?,
 )
 
 @Serializable
@@ -1283,6 +1320,71 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    // Finance — Recurring operations
+    suspend fun getRecurringOperationsOverview(): RecurringOperationsOverview {
+        return client.get("$baseUrl/api/finance/recurring-operations/overview").body()
+    }
+
+    suspend fun getRecurringOperationSuggestions(): List<RecurringSuggestion> {
+        return client.get("$baseUrl/api/finance/recurring-operations/suggestions")
+            .body<RecurringSuggestionsResponse>().suggestions
+    }
+
+    suspend fun acceptRecurringOperationSuggestions(
+        suggestions: List<RecurringSuggestion>,
+    ): AcceptRecurringSuggestionsResult {
+        return client.post("$baseUrl/api/finance/recurring-operations/suggestions/accept") {
+            contentType(ContentType.Application.Json)
+            setBody(AcceptRecurringSuggestionsRequest(suggestions))
+        }.body()
+    }
+
+    /** The catch-up over the history; with `dryRun` it only says what it would attach. */
+    suspend fun attachRecurringOperations(dryRun: Boolean): RecurringAttachReport {
+        return client.post("$baseUrl/api/finance/recurring-operations/attach") {
+            contentType(ContentType.Application.Json)
+            setBody(RecurringAttachRequest(dryRun = dryRun))
+        }.body()
+    }
+
+    suspend fun getRecurringOperationRecords(): List<RecurringOperationRecord> {
+        return client.get("$baseUrl/api/recurring_operations") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<RecurringOperationRecord>>().member
+    }
+
+    suspend fun createRecurringOperation(request: RecurringOperationWriteRequest): RecurringOperationRecord {
+        return client.post("$baseUrl/api/recurring_operations") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun updateRecurringOperation(id: String, request: RecurringOperationWriteRequest): RecurringOperationRecord {
+        return client.patch("$baseUrl/api/recurring_operations/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteRecurringOperation(id: String) {
+        client.delete("$baseUrl/api/recurring_operations/$id")
+    }
+
+    suspend fun setTransactionRecurrence(transactionId: String, seriesId: String?, occurrenceOn: String?) {
+        client.patch("$baseUrl/api/transactions/$transactionId") {
+            contentType(MERGE_PATCH)
+            setBody(
+                TransactionRecurrenceRequest(
+                    recurringOperation = seriesId?.let(::recurringOperationIri),
+                    recurringOccurrenceOn = occurrenceOn,
+                ),
+            )
+        }
     }
 
     // Finance — Bank connections
