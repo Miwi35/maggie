@@ -607,6 +607,22 @@ A2A_ALLOWED_TOOLS = frozenset(
     }
 )
 
+# The API's tools for the proaction executor (MAG-326): claiming the due proactions and
+# recording their results is the executor's job, never a conversation's — offered to the
+# model, a claim would leave the user's proactions running forever.
+EXECUTOR_ONLY_MCP_TOOLS = frozenset({"claim_due_proactions", "record_proaction_result"})
+
+
+def _native_tool_names() -> frozenset[str]:
+    """Every tool the agent serves itself: an MCP tool by the same name is not offered.
+
+    The API now serves `schedule_proaction` and `list_proactions` too (MAG-326), and the
+    Anthropic API refuses a request that names a tool twice. The agent's own stay until
+    the switch to the API's (MAG-327) — `call_tool` routes those names to them anyway.
+    """
+    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, *PROACTION_TOOLS]
+    return frozenset({tool["name"] for tool in native} | {"delegate"})
+
 
 class ToolRouter:
     """Routes tool calls to native handlers or MCP server.
@@ -643,9 +659,12 @@ class ToolRouter:
         if not a2a and subagent_registry.agents:
             tools.append(delegate_tool_definition())
 
+        native = _native_tool_names()
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:
             if a2a and tool["name"] not in A2A_ALLOWED_TOOLS:
+                continue
+            if tool["name"] in native or tool["name"] in EXECUTOR_ONLY_MCP_TOOLS:
                 continue
             tools.append(
                 {

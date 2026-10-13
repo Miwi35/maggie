@@ -198,6 +198,7 @@ class ProactionToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $this->call(ListProactionsTool::class, status: 'done'));
         self::assertArrayHasKey('error', $this->call(ListProactionsTool::class, from: 'hier soir peut-être'));
+        self::assertArrayHasKey('error', $this->call(ListProactionsTool::class, to: '2037-02-30'));
     }
 
     public function testCancelDeletesTheProactionPublishesAndLeavesTheIndices(): void

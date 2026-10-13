@@ -54,6 +54,11 @@ class ListProactionsTool
             throw new \DomainException("{$name} is not a date: \"{$value}\". Use ISO 8601 or YYYY-MM-DD.", 0, $e);
         }
 
+        // `2037-02-30` would roll over to March: what was named has to be what was read.
+        if (1 === preg_match('/^\d{4}-\d{2}-\d{2}/', trim($value)) && $read->format('Y-m-d') !== substr(trim($value), 0, 10)) {
+            throw new \DomainException("{$name} is not a date: \"{$value}\".");
+        }
+
         return $isEnd && 1 === preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($value)) ? $read->modify('+1 day -1 second') : $read;
     }
 }
