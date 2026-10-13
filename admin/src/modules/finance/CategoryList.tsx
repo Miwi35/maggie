@@ -6,7 +6,6 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import {
   Datagrid,
-  TextField,
   FunctionField,
   EditButton,
   DeleteButton,
@@ -21,6 +20,7 @@ import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { CategorizationRuleList } from './CategorizationRuleList'
 import { ListEmpty } from '../../components/list/ListEmpty'
+import { CategoryGlyph } from './CategoryGlyph'
 import { StandardCategoriesButton } from './StandardCategoriesButton'
 import { RuleSuggestions } from './RuleSuggestions'
 import { OBLIGATION_LABELS } from './obligationFlags'
@@ -95,6 +95,7 @@ const CategoryDatagrid = () => {
                 sx={{ pl: (depth - 1) * 3, fontWeight: depth === 1 ? 600 : 400 }}
               >
                 {depth > 1 && <span aria-hidden="true">› </span>}
+                <CategoryGlyph color={record.color as string | null} icon={record.icon as string | null} />
                 <span>{record.name as string}</span>
               </Box>
             )
@@ -112,7 +113,6 @@ const CategoryDatagrid = () => {
               : (OBLIGATION_LABELS[record.obligation as string] ?? record.obligation)
           }
         />
-        <TextField source="color" label="Couleur" sortable={false} />
         <FunctionField
           label=""
           sortable={false}
