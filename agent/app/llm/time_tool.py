@@ -108,11 +108,6 @@ def _describe(local: datetime) -> dict:
     }
 
 
-def spoken_local_time(instant: datetime, tz: ZoneInfo) -> str:
-    """An instant as the user says it in their own timezone: « mercredi 7 octobre 2026, 16h05 »."""
-    return _describe(instant.astimezone(tz))["local"]
-
-
 def _hours(later: timedelta | None, earlier: timedelta | None) -> float:
     return ((later or timedelta(0)) - (earlier or timedelta(0))).total_seconds() / 3600
 

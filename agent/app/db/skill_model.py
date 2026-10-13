@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 
 class Skill(AgentBase):

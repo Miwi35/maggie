@@ -18,7 +18,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * one user at a time through X-Maggie-User-Id. A caller acting for a user only
  * ever claims that user's.
  */
-#[McpTool(name: 'claim_due_proactions', description: 'Reserved for the proaction executor — never call it in a conversation. Claims the pending proactions whose time has come and marks them running, atomically: a proaction is claimed once, however many executors ask. Each comes with its userId and prompt; report the outcome with record_proaction_result.')]
+#[McpTool(name: 'claim_due_proactions', description: 'Reserved for the proaction executor — never call it in a conversation. Claims the pending proactions whose time has come and marks them running, atomically: a proaction is claimed once, however many executors ask. Each comes with its userId and prompt; report the outcome with record_proaction_result. With id, claims that one pending proaction now, whether its time has come or not (the manual trigger); an empty list when it is not pending.')]
 class ClaimDueProactionsTool
 {
     public function __construct(
@@ -27,12 +27,13 @@ class ClaimDueProactionsTool
     ) {
     }
 
-    public function __invoke(?int $limit = null): string
+    public function __invoke(?int $limit = null, ?string $id = null): string
     {
         $user = $this->userContext->getUser();
         $envelope = $this->bus->dispatch(new ClaimDueProactionsCommand(
             userId: null !== $user ? (string) $user->getId() : null,
             limit: $limit ?? Proactions::CLAIM_LIMIT,
+            proactionId: null !== $id && '' !== trim($id) ? trim($id) : null,
         ));
 
         /** @var Proaction[] $claimed */

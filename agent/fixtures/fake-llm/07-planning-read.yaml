@@ -1,0 +1,23 @@
+# The daily planning (MAG-327), what it reads first: the planning instructions, the
+# agenda of the day it plans and the proactions already there (the day is in the
+# prompt, `\1` carries it into the calls). Then one harmless round, so the next call
+# sees those results in its history — 06-planning-custody-day.yaml takes over when the
+# agenda shows a custody day; otherwise there is nothing to schedule.
+name: planning-read
+description: The daily planning reads its instructions, the day's agenda and proactions, and schedules nothing on an ordinary day.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: '\1'}
+      - name: list_proactions
+        input: {from: '\1', to: '\1'}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - text: "Rien à poser aujourd'hui."

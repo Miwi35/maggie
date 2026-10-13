@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.config import settings
@@ -9,9 +9,10 @@ from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
-from app.db.proaction_repository import proaction_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
+from app.proactions import api as proactions_api
+from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
 from app.user_timezone import resolve_user_timezone
 
@@ -20,40 +21,80 @@ logger = logging.getLogger(__name__)
 EXECUTION_INTERVAL = 60  # seconds
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
 
-DAILY_PLANNING_PROMPT = (
-    "C'est le début de la journée. "
-    '1. Appelle list_instructions avec kind="planning" pour lire les directives de planification. '
-    "2. Appelle list_proactions pour voir les proactions déjà planifiées. "
-    "3. Planifie de nouvelles proactions avec schedule_proaction en te basant sur "
-    "les instructions de l'utilisateur, son calendrier et ses habitudes. "
-    "Respecte les contraintes horaires indiquées dans les instructions."
-)
+
+def daily_planning_prompt(today: date) -> str:
+    """What the daily planning is asked: today's proactions, from the planning instructions and the agenda.
+
+    Named by date, so a second run the same day (a restart, the manual trigger) reads what the first
+    one scheduled and leaves it be (MAG-327).
+    """
+    day = today.isoformat()
+    return (
+        f"C'est le début de la journée du {day}. "
+        '1. Appelle list_instructions avec kind="planning" pour lire tes consignes de planification. '
+        f"2. Lis l'agenda de l'utilisateur pour ce jour (get_events_by_date, date={day}) : "
+        "une consigne qui dépend de l'agenda (« les jours où j'ai Ael… ») ne vaut que les jours où il le dit. "
+        f'3. Appelle list_proactions avec from="{day}" et to="{day}" pour voir les proactions déjà posées ce jour-là. '
+        "4. Pose avec schedule_proaction les proactions du jour que demandent les consignes, et seulement celles-là, "
+        "sans recréer celles qui existent déjà ce jour-là. "
+        "Respecte les contraintes horaires indiquées dans les consignes."
+    )
+
 
 _tasks: list[asyncio.Task] = []
 
 
+async def dispatch_due_proactions() -> int:
+    """Claim the due proactions on the API and queue them for execution; how many were queued.
+
+    The API marks them running as it hands them over (MAG-326), so a proaction deleted from the
+    agenda before its time is never claimed, and none is claimed twice. One that cannot be queued
+    is recorded failed: left running, it would never run nor say why. An API that does not answer
+    raises — the loop logs it and asks again a minute later.
+    """
+    due = await proactions_api.claim_due()
+    if due:
+        logger.info(f"Claimed {len(due)} due proactions")
+    for proaction in due:
+        try:
+            await publish_proaction(proaction)
+        except Exception as e:
+            logger.error(f"Could not queue proaction {proaction.id}: {e}")
+            try:
+                await proactions_api.record(proaction, "failed", error=f"Could not queue the run: {e}")
+            except Exception as record_error:
+                logger.error(f"Could not record proaction {proaction.id} as failed: {record_error}")
+    return len(due)
+
+
+async def run_execution_tick() -> None:
+    """One minute of the execution loop; never raises, so the next minute always comes."""
+    try:
+        # Until the old table is gone, its pending proactions are moved first (MAG-327).
+        await migrate_legacy_proactions()
+    except Exception as e:
+        logger.error(f"Could not move the legacy proactions: {e}")
+
+    try:
+        await dispatch_due_proactions()
+    except Exception as e:
+        logger.error(f"Execution loop error: {e}")
+
+    try:
+        await pending_action_repo.expire_overdue()
+    except Exception as e:
+        logger.error(f"Could not expire overdue pending actions: {e}")
+
+
 async def _execution_loop() -> None:
-    """Poll for due proactions every 60s, publish them to RabbitMQ, and retire stale approvals.
+    """Claim the due proactions every 60s, queue them on RabbitMQ, and retire stale approvals.
 
     The two are unrelated but share a minute-grained clock, and an action nobody answered
     in 24 h is retired here rather than on read: the card has to leave the user's screen
     on its own (MAG-4).
     """
     while True:
-        try:
-            due = await proaction_repo.find_due()
-            if due:
-                logger.info(f"Found {len(due)} due proactions")
-            for proaction in due:
-                await publish_proaction(proaction.id)
-        except Exception as e:
-            logger.error(f"Execution loop error: {e}")
-
-        try:
-            await pending_action_repo.expire_overdue()
-        except Exception as e:
-            logger.error(f"Could not expire overdue pending actions: {e}")
-
+        await run_execution_tick()
         await asyncio.sleep(EXECUTION_INTERVAL)
 
 
@@ -75,15 +116,19 @@ def next_planning_time(now: datetime, tz: ZoneInfo | None = None) -> datetime:
     return target.astimezone(UTC)
 
 
-async def generate_proactions(gateway: LLMGateway, user_id: str, *, dry_run: bool = False) -> dict:
+async def generate_proactions(
+    gateway: LLMGateway, user_id: str, *, dry_run: bool = False, now: datetime | None = None
+) -> dict:
     """Run the daily planning for one user and return what came out — the planner's and the manual trigger's one path.
 
     With `dry_run` the run plans nothing for real: `schedule_proaction` is simulated and the result lists it.
     """
     logger.info(f"Running daily proaction planning for user {user_id}")
+    today = (now or datetime.now(UTC)).astimezone(await resolve_user_timezone(user_id)).date()
+    prompt = daily_planning_prompt(today)
     if dry_run:
-        return await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True, dry_run=True)
-    return await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True)
+        return await gateway.proaction(prompt, user_id, silent=True, dry_run=True)
+    return await gateway.proaction(prompt, user_id, silent=True)
 
 
 async def plan_user(gateway: LLMGateway, user_id: str) -> None:

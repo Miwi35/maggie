@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.a2a import setup_a2a
 from app.config import settings
 from app.llm.gateway import LLMGateway
-from app.llm.tools import A2A_ALLOWED_TOOLS, MEMORY_TOOLS, PROACTION_TOOLS, ToolRouter
+from app.llm.tools import A2A_ALLOWED_TOOLS, MEMORY_TOOLS, ToolRouter
 
 A2A_TOKEN = "a2a-secret-token"
 
@@ -125,9 +125,10 @@ class TestA2AToolRestriction:
         assert [t["name"] for t in tools] == ["get_upcoming_events"]
 
     def test_allowlist_holds_no_native_and_no_mutating_tool(self):
-        native = {t["name"] for t in [*MEMORY_TOOLS, *PROACTION_TOOLS]}
+        native = {t["name"] for t in MEMORY_TOOLS}
 
         assert not native & A2A_ALLOWED_TOOLS
+        assert not {"schedule_proaction", "cancel_proaction"} & A2A_ALLOWED_TOOLS
         assert not {n for n in A2A_ALLOWED_TOOLS if n.startswith(("create_", "update_", "delete_", "manage_"))}
 
     @pytest.mark.parametrize("name", ["memory_write_fiche", "schedule_proaction", "create_skill", "create_event", "manage_accounts"])
@@ -151,7 +152,10 @@ class TestA2AToolRestriction:
     @patch("app.llm.tools.mcp_client")
     async def test_other_sources_keep_every_tool(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(
-            return_value=[{"name": "create_event", "description": "w", "inputSchema": {"type": "object"}}]
+            return_value=[
+                {"name": "create_event", "description": "w", "inputSchema": {"type": "object"}},
+                {"name": "schedule_proaction", "description": "w", "inputSchema": {"type": "object"}},
+            ]
         )
 
         names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
@@ -171,4 +175,4 @@ class TestA2AToolRestriction:
             patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "salut"}])),
         ):
             await gateway.chat("salut", "a2a", source="a2a")
-            definitions.assert_awaited_once_with(include_native=True, source="a2a")
+            definitions.assert_awaited_once_with(source="a2a")

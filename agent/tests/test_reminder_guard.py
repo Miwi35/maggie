@@ -237,15 +237,15 @@ def fake_client() -> FakeAnthropicClient:
 
 @pytest.fixture()
 def proactions():
-    """The proaction table: the real `schedule_proaction` handler runs, only the repository is replaced."""
-    created = MagicMock()
-    created.to_dict.return_value = {"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T14:05:00+00:00"}
+    """The API's `schedule_proaction` (MAG-327): only the MCP call is replaced; `create` is that call."""
+    scheduled = {"success": True, "proaction": {"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T16:05:00+02:00"}}
     with (
-        patch("app.llm.tools.proaction_repo") as repo,
+        patch("app.llm.tools.mcp_client") as mcp,
         patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
     ):
-        repo.create = AsyncMock(return_value=created)
-        yield repo
+        mcp.call_tool = AsyncMock(return_value=json.dumps(scheduled))
+        mcp.create = mcp.call_tool
+        yield mcp
 
 
 class TestTheToolLoop:
@@ -270,9 +270,10 @@ class TestTheToolLoop:
 
         assert [call["name"] for call in result["tool_calls"]] == ["date_time", SCHEDULE_TOOL]
         proactions.create.assert_awaited_once()
-        kwargs = proactions.create.await_args.kwargs
-        assert kwargs["user_id"] == "user-1"
-        assert kwargs["scheduled_at"] == datetime(2099, 10, 7, 14, 5, tzinfo=UTC)
+        name, arguments = proactions.create.await_args.args
+        assert name == SCHEDULE_TOOL
+        assert proactions.create.await_args.kwargs["user_id"] == "user-1"
+        assert datetime.fromisoformat(arguments["scheduled_at"]) == datetime(2099, 10, 7, 14, 5, tzinfo=UTC)
         assert result["response"] == SCHEDULED_ANSWER
         # The relaunch went out as a round of the loop, after the claim it corrects.
         assert messages[4] == REMINDER_NUDGE
@@ -314,20 +315,6 @@ class TestTheToolLoop:
 
         assert client.messages.create.await_count == 2
         assert result["response"] == "Je vous rappellerai de boire de l'eau à 16h05."
-
-
-class TestTheConfirmedTime:
-    async def test_the_result_carries_the_users_local_time(self, proactions):
-        result = await ToolRouter().call_tool(
-            SCHEDULE_TOOL,
-            {"prompt": "Boire de l'eau", "scheduled_at": "2026-10-07T14:05:00+00:00"},
-            user_id="user-1",
-        )
-
-        data = json.loads(result)
-        assert data["id"] == "pro-1"
-        assert data["scheduledAtLocal"] == "mercredi 7 octobre 2026, 16h05"
-        assert data["timezone"] == "Europe/Paris"
 
 
 def the_bubble(events: list[dict]) -> str:

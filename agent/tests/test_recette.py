@@ -1,7 +1,6 @@
 """The Recette account's triggers (MAG-249): permission, real execution, dry run, reset."""
 
 import json
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
@@ -22,14 +21,14 @@ from app.db.instruction_model import Instruction
 from app.db.memory_model import Memory
 from app.db.models import Message
 from app.db.personality_model import PersonalityConfig
-from app.db.proaction_model import AgentBase, Proaction, ProactionStatus
+from app.db.base import AgentBase
 from app.db.skill_model import Skill
 from app.db.user_setting_model import UserSetting
 from app.llm.dry_run import SIMULATED_RESULT, DryRunToolRouter, is_read_only
 from app.llm.gateway import LLMGateway
-from app.queue.scheduler import DAILY_PLANNING_PROMPT
 
 from tests.conftest import _SyncSessionAsAsync
+from tests.fake_proaction_api import FakeProactionApi
 
 _private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _PUBLIC_PEM = (
@@ -43,7 +42,7 @@ _PRIVATE_PEM = _private_key.private_bytes(
 
 RECETTE = "recette-user"
 OTHER = "other-user"
-PLUMBER = {"prompt": "Rappelle-moi d'appeler le plombier", "scheduled_at": "2026-10-06T09:00:00+02:00"}
+PLUMBER = {"prompt": "Rappelle-moi d'appeler le plombier", "scheduled_at": "2030-11-14T09:00:00+01:00"}
 
 
 def bearer(user_id: str = RECETTE, roles: list[str] | None = None) -> dict:
@@ -110,14 +109,26 @@ class TestDryRunToolRouter:
     async def test_the_model_sees_the_same_tools(self, router):
         dry, _ = router
 
-        assert await dry.get_tool_definitions(include_native=True) == [{"name": "x"}]
+        assert await dry.get_tool_definitions() == [{"name": "x"}]
 
     def test_is_read_only_does_not_trust_a_bare_name_prefix(self):
         assert not is_read_only("delete_everything", {"action": "list"})
 
 
 @pytest.fixture()
-def recette_db():
+def proaction_api():
+    """The API's proaction tools, simulated: the model's calls and the agent's own reach it (MAG-327)."""
+    fake = FakeProactionApi()
+    with (
+        patch("app.proactions.api.mcp_client", fake),
+        patch("app.llm.tools.mcp_client", fake),
+        patch("app.queue.proaction_consumer.publisher.publish", new=AsyncMock()),
+    ):
+        yield fake
+
+
+@pytest.fixture()
+def recette_db(proaction_api):
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     AgentBase.metadata.create_all(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
@@ -126,10 +137,8 @@ def recette_db():
         return _SyncSessionAsAsync(factory())
 
     with (
-        patch("app.db.proaction_repository.agent_session", open_session),
         patch("app.db.message_repository.agent_session", open_session),
         patch("app.db.user_data.agent_session", open_session),
-        patch("app.db.proaction_repository.proaction_repo.publisher.publish", new=AsyncMock()),
         patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
         patch("app.queue.proaction_consumer.context_summarizer.maybe_summarize", new=AsyncMock()),
         patch("app.api.routes.context_summarizer.maybe_summarize", new=AsyncMock()),
@@ -138,23 +147,16 @@ def recette_db():
     engine.dispose()
 
 
-def snapshot(factory) -> dict:
-    """Every row of every agent table, to compare the database before and after."""
-    with factory() as session:
-        return {t.name: sorted(map(tuple, session.execute(select(t)).all()), key=repr) for t in AgentBase.metadata.sorted_tables}
+def snapshot(client) -> dict:
+    """Every row of every agent table and every proaction of the API, to compare before and after."""
+    with client.db() as session:
+        rows = {t.name: sorted(map(tuple, session.execute(select(t)).all()), key=repr) for t in AgentBase.metadata.sorted_tables}
+    return rows | {"api proactions": client.proaction_api.snapshot()}
 
 
-def seed_proaction(factory, user_id: str = RECETTE, status: ProactionStatus = ProactionStatus.PENDING) -> str:
-    with factory() as session:
-        proaction = Proaction(
-            user_id=user_id,
-            prompt="Rappelle-moi le plombier",
-            status=status,
-            scheduled_at=datetime(2026, 10, 6, 7, 0, tzinfo=UTC),
-        )
-        session.add(proaction)
-        session.commit()
-        return proaction.id
+def seed_proaction(client, user_id: str = RECETTE) -> str:
+    """A pending proaction in the API's agenda, due tomorrow morning."""
+    return client.proaction_api.seed(user_id, at="2030-11-14T08:00:00+01:00")
 
 
 @pytest.fixture()
@@ -164,7 +166,7 @@ def model_script():
 
 
 @pytest.fixture()
-def api(recette_db, model_script):
+def api(recette_db, proaction_api, model_script):
     """The agent's routes, with a real gateway whose model is scripted and whose tools write to SQLite."""
     gateway = LLMGateway()
     gateway.client = object()
@@ -189,6 +191,7 @@ def api(recette_db, model_script):
     ):
         client.prompts = prompts
         client.db = recette_db
+        client.proaction_api = proaction_api
         yield client
 
 
@@ -196,13 +199,13 @@ class TestPermission:
     @pytest.mark.parametrize("path", ["/proactions/generate", "/proactions/abc/execute"])
     @pytest.mark.parametrize("query", ["", "?dry_run=true"])
     def test_without_the_role_both_routes_answer_403_and_touch_nothing(self, api, path, query):
-        seed_proaction(api.db)
-        before = snapshot(api.db)
+        seed_proaction(api)
+        before = snapshot(api)
 
         for headers in (bearer(roles=["ROLE_USER"]), bearer()):
             assert api.post(path + query, headers=headers).status_code == 403
 
-        assert snapshot(api.db) == before
+        assert snapshot(api) == before
         assert api.prompts == []
 
     @pytest.mark.parametrize("path", ["/proactions/generate", "/proactions/abc/execute"])
@@ -227,7 +230,8 @@ class TestGenerate:
 
         assert response.status_code == 200
         body = response.json()
-        assert api.prompts == [DAILY_PLANNING_PROMPT]
+        assert len(api.prompts) == 1
+        assert api.prompts[0].startswith("C'est le début de la journée du ")
         assert body["dryRun"] is False
         assert body["response"] == "Pense au plombier."
         assert [(p["prompt"], p["status"], p["userId"]) for p in body["planned"]] == [
@@ -241,19 +245,27 @@ class TestGenerate:
 
         assert len(listed) == 1
         assert listed[0]["prompt"] == PLUMBER["prompt"]
-        assert listed[0]["scheduledAt"].startswith("2026-10-06T")
+        assert listed[0]["scheduledAt"].startswith("2030-11-14T")
         assert listed[0]["status"] == "pending"
 
+    def test_a_second_run_the_same_day_schedules_nothing_twice(self, api):
+        api.post("/proactions/generate", headers=bearer(roles=TRIGGER))
+
+        body = api.post("/proactions/generate", headers=bearer(roles=TRIGGER)).json()
+
+        assert body["planned"] == []
+        assert [p["prompt"] for p in api.proaction_api.of(RECETTE)] == [PLUMBER["prompt"]]
+
     def test_only_what_this_run_planned_is_returned(self, api):
-        seed_proaction(api.db)
+        seed_proaction(api)
 
         body = api.post("/proactions/generate", headers=bearer(roles=TRIGGER)).json()
 
         assert len(body["planned"]) == 1
 
     def test_dry_run_records_nothing_and_says_what_it_would_have_planned(self, api):
-        seed_proaction(api.db)
-        before = snapshot(api.db)
+        seed_proaction(api)
+        before = snapshot(api)
 
         response = api.post("/proactions/generate?dry_run=true", headers=bearer(roles=TRIGGER))
 
@@ -264,7 +276,7 @@ class TestGenerate:
             {"prompt": PLUMBER["prompt"], "scheduledAt": PLUMBER["scheduled_at"], "simulated": True}
         ]
         assert [t["name"] for t in body["simulatedTools"]] == ["schedule_proaction"]
-        assert snapshot(api.db) == before
+        assert snapshot(api) == before
 
     def test_a_failing_run_is_a_502_not_a_silent_success(self, api):
         with patch("app.api.routes.generate_proactions", AsyncMock(side_effect=RuntimeError("boom"))):
@@ -275,7 +287,7 @@ class TestGenerate:
 
 class TestExecute:
     def test_it_runs_the_proaction_the_way_the_consumer_does_and_returns_the_message(self, api):
-        proaction_id = seed_proaction(api.db)
+        proaction_id = seed_proaction(api)
 
         response = api.post(f"/proactions/{proaction_id}/execute", headers=bearer(roles=TRIGGER))
 
@@ -285,16 +297,18 @@ class TestExecute:
         assert body["message"] == "Pense au plombier."
         assert body["dryRun"] is False
         with api.db() as session:
-            proaction = session.get(Proaction, proaction_id)
             messages = session.execute(select(Message)).scalars().all()
-        assert proaction.status == ProactionStatus.COMPLETED
-        assert proaction.response == "Pense au plombier."
+        proaction = api.proaction_api.proactions[proaction_id]
+        assert proaction["status"] == "completed"
+        assert proaction["response"] == "Pense au plombier."
+        # Claimed by its id, before its time, for the caller only (MAG-327).
+        assert ("claim_due_proactions", {"id": proaction_id}, RECETTE) in api.proaction_api.calls
         assert [(m.user_id, m.role, m.content, m.context_id) for m in messages] == [
             (RECETTE, "assistant", "Pense au plombier.", "ctx-1")
         ]
 
     def test_a_proaction_already_taken_is_not_run_twice(self, api):
-        proaction_id = seed_proaction(api.db)
+        proaction_id = seed_proaction(api)
         api.post(f"/proactions/{proaction_id}/execute", headers=bearer(roles=TRIGGER))
         prompts_after_first = list(api.prompts)
 
@@ -304,19 +318,19 @@ class TestExecute:
         assert api.prompts == prompts_after_first
 
     def test_a_proaction_of_someone_else_is_not_found(self, api):
-        proaction_id = seed_proaction(api.db, user_id=OTHER)
-        before = snapshot(api.db)
+        proaction_id = seed_proaction(api, user_id=OTHER)
+        before = snapshot(api)
 
         response = api.post(f"/proactions/{proaction_id}/execute", headers=bearer(roles=TRIGGER))
 
         assert response.status_code == 404
-        assert snapshot(api.db) == before
+        assert snapshot(api) == before
 
     def test_an_unknown_proaction_is_not_found(self, api):
         assert api.post("/proactions/nope/execute", headers=bearer(roles=TRIGGER)).status_code == 404
 
     def test_a_failing_run_marks_the_proaction_failed_like_the_consumer(self, api, model_script):
-        proaction_id = seed_proaction(api.db)
+        proaction_id = seed_proaction(api)
 
         async def boom(*args, **kwargs):
             raise RuntimeError("model down")
@@ -326,12 +340,12 @@ class TestExecute:
 
         assert body["status"] == "failed"
         assert body["error"] == "model down"
-        with api.db() as session:
-            assert session.get(Proaction, proaction_id).status == ProactionStatus.FAILED
+        assert api.proaction_api.proactions[proaction_id]["status"] == "failed"
+        assert api.proaction_api.proactions[proaction_id]["error"] == "model down"
 
     def test_dry_run_leaves_the_database_exactly_as_it_was(self, api):
-        proaction_id = seed_proaction(api.db)
-        before = snapshot(api.db)
+        proaction_id = seed_proaction(api)
+        before = snapshot(api)
 
         response = api.post(f"/proactions/{proaction_id}/execute?dry_run=true", headers=bearer(roles=TRIGGER))
 
@@ -341,10 +355,10 @@ class TestExecute:
         assert body["message"] == "Pense au plombier."
         assert body["status"] == "pending"
         assert [t["name"] for t in body["simulatedTools"]] == ["schedule_proaction"]
-        assert snapshot(api.db) == before
+        assert snapshot(api) == before
 
     def test_dry_run_can_be_repeated_to_calibrate(self, api):
-        proaction_id = seed_proaction(api.db)
+        proaction_id = seed_proaction(api)
 
         statuses = [
             api.post(f"/proactions/{proaction_id}/execute?dry_run=true", headers=bearer(roles=TRIGGER)).status_code
@@ -354,13 +368,13 @@ class TestExecute:
         assert statuses == [200, 200]
 
     def test_dry_run_publishes_nothing(self, api):
-        proaction_id = seed_proaction(api.db)
+        proaction_id = seed_proaction(api)
         from app.db.message_repository import message_repo
-        from app.db.proaction_repository import proaction_repo
+        from app.queue.proaction_consumer import publisher
 
         api.post(f"/proactions/{proaction_id}/execute?dry_run=true", headers=bearer(roles=TRIGGER))
 
-        proaction_repo.publisher.publish.assert_not_awaited()
+        publisher.publish.assert_not_awaited()
         message_repo.publisher.publish.assert_not_awaited()
 
 
@@ -368,7 +382,6 @@ def seed_everything(factory, user_id: str) -> None:
     with factory() as session:
         session.add_all(
             [
-                Proaction(user_id=user_id, prompt="p", scheduled_at=datetime(2026, 10, 6, tzinfo=UTC)),
                 Message(user_id=user_id, role="user", content="salut"),
                 ConversationContext(user_id=user_id, label="plomberie"),
                 PersonalityConfig(user_id=user_id),
@@ -414,7 +427,7 @@ class TestReset:
 
         assert response.status_code == 200
         deleted = response.json()["deleted"]
-        assert deleted["proaction"] == deleted["agent_message"] == deleted["memory"] == 1
+        assert deleted["agent_message"] == deleted["memory"] == 1
         assert all(not rows for rows in rows_of(api.db, RECETTE).values())
         assert rows_of(api.db, OTHER) == others
         with api.db() as session:
@@ -430,20 +443,20 @@ class TestReset:
 
     def test_dry_run_counts_and_deletes_nothing(self, api):
         seed_everything(api.db, RECETTE)
-        before = snapshot(api.db)
+        before = snapshot(api)
 
         response = self.reset(api, dry_run=True)
 
-        assert response.json()["deleted"]["proaction"] == 1
-        assert snapshot(api.db) == before
+        assert response.json()["deleted"]["agent_message"] == 1
+        assert snapshot(api) == before
 
     @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer wrong"}])
     def test_it_is_closed_without_the_service_token(self, api, headers):
         seed_everything(api.db, RECETTE)
-        before = snapshot(api.db)
+        before = snapshot(api)
 
         assert self.reset(api, headers=headers).status_code in (401, 403)
-        assert snapshot(api.db) == before
+        assert snapshot(api) == before
 
     def test_a_user_token_is_not_the_service_token(self, api):
         assert self.reset(api, headers=bearer(roles=TRIGGER)).status_code == 401

@@ -13,16 +13,27 @@ class TestToolDefinitions:
     async def test_an_mcp_tool_named_like_one_of_the_agent_s_own_is_not_offered(self):
         router = ToolRouter()
         with patch("app.llm.tools.mcp_client") as mcp:
-            mcp.list_tools = AsyncMock(
-                return_value=[_mcp("schedule_proaction"), _mcp("list_proactions"), _mcp("cancel_proaction")]
-            )
+            mcp.list_tools = AsyncMock(return_value=[_mcp("store_memory"), _mcp("cancel_proaction")])
             tools = await router.get_tool_definitions()
 
         names = [tool["name"] for tool in tools]
         assert len(names) == len(set(names))
         assert "cancel_proaction" in names
-        schedule = next(tool for tool in tools if tool["name"] == "schedule_proaction")
-        assert schedule["description"] != "API's schedule_proaction"
+        memory = next(tool for tool in tools if tool["name"] == "store_memory")
+        assert memory["description"] != "API's store_memory"
+
+    async def test_the_proaction_tools_offered_are_the_api_s_once_each(self):
+        # MAG-327: the agent no longer serves schedule_proaction nor list_proactions itself.
+        router = ToolRouter()
+        with patch("app.llm.tools.mcp_client") as mcp:
+            mcp.list_tools = AsyncMock(return_value=[_mcp("schedule_proaction"), _mcp("list_proactions")])
+            tools = await router.get_tool_definitions()
+
+        proactions = [tool for tool in tools if tool["name"] in {"schedule_proaction", "list_proactions"}]
+        assert [tool["description"] for tool in proactions] == [
+            "API's schedule_proaction",
+            "API's list_proactions",
+        ]
 
     async def test_the_executor_s_tools_are_never_offered(self):
         router = ToolRouter()
@@ -34,11 +45,3 @@ class TestToolDefinitions:
 
         assert "get_event" in names
         assert not names & {"claim_due_proactions", "record_proaction_result"}
-
-    async def test_without_the_native_proaction_tools_the_mcp_ones_are_still_not_doubled(self):
-        router = ToolRouter()
-        with patch("app.llm.tools.mcp_client") as mcp:
-            mcp.list_tools = AsyncMock(return_value=[_mcp("schedule_proaction")])
-            names = [tool["name"] for tool in await router.get_tool_definitions(include_native=False)]
-
-        assert len(names) == len(set(names))

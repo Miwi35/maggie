@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, func, or_, select, text, update
 
 from app.db.agent_engine import agent_engine, agent_session
+from app.db.base import AgentBase
 from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
-from app.db.proaction_model import AgentBase
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 

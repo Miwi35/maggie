@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from app.db.agent_engine import agent_engine, agent_session
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 from app.db.user_setting_model import UserSetting
 
 

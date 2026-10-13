@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Text
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 
 class PersonalityConfig(AgentBase):

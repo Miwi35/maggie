@@ -12,6 +12,7 @@ use Maggie\Calendar\Repository\ProactionRepository;
 use Maggie\Core\Entity\User;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -75,6 +76,13 @@ class Proactions
             throw new \DomainException('prompt is required: what Maggie does when the proaction runs.');
         }
 
+        // A planning run again the same day (a restart, the manual trigger) asks for the
+        // same one again: it gets the one already there, not a second (MAG-327).
+        $twin = $this->repository->findPendingTwin($user, $at, trim($prompt));
+        if (null !== $twin) {
+            return $twin;
+        }
+
         // Never the user's own agenda named « Maggie »: proactions were never filed in one.
         [$agenda] = $this->moduleAgendas->forUser($user, Proaction::AGENDA_MODULE, Proaction::AGENDA_NAME, Proaction::AGENDA_COLOR, adoptLegacy: false);
 
@@ -109,14 +117,20 @@ class Proactions
      * The pending proactions whose start has come, marked running in the same
      * transaction that locked them: two executors never get the same one.
      *
+     * With `$id`, that pending proaction alone, whether its start has come or
+     * not: the manual trigger runs one now (MAG-249, MAG-327).
+     *
      * @return Proaction[]
      */
-    public function claimDue(?User $user, int $limit = self::CLAIM_LIMIT): array
+    public function claimDue(?User $user, int $limit = self::CLAIM_LIMIT, ?string $id = null): array
     {
         $now = $this->clock->now();
+        if (null !== $id && !Ulid::isValid($id)) {
+            return [];
+        }
 
-        return $this->em->wrapInTransaction(function () use ($now, $user, $limit): array {
-            $ids = $this->repository->lockDueIds($now, $user, max(1, min($limit, self::CLAIM_LIMIT)));
+        return $this->em->wrapInTransaction(function () use ($now, $user, $limit, $id): array {
+            $ids = $this->repository->lockDueIds($now, $user, max(1, min($limit, self::CLAIM_LIMIT)), null !== $id ? Ulid::fromString($id) : null);
             if ([] === $ids) {
                 return [];
             }

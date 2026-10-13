@@ -80,7 +80,7 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
         return json.dumps({"error": "AI service is not configured"})
 
     router = ToolRouter()
-    tools = select_tools(definition, await router.get_tool_definitions(include_native=True))
+    tools = select_tools(definition, await router.get_tool_definitions())
     if WEB_SEARCH_TOOL in definition.tools:
         # Anthropic's server tool, not one the router knows: offered, never routed (MAG-384).
         tools = with_web_search(tools, await resolve_user_timezone(user_id))
