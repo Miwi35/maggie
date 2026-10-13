@@ -9,11 +9,12 @@ use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Message\UpdateCategoryCommand;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** @implements ProcessorInterface<Category, Category> */
 class UpdateCategoryProcessor implements ProcessorInterface
 {
+    use DispatchesCategoryCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -33,7 +34,7 @@ class UpdateCategoryProcessor implements ProcessorInterface
             }
         }
 
-        $envelope = $this->bus->dispatch(new UpdateCategoryCommand(
+        return $this->dispatchForCategory($this->bus, new UpdateCategoryCommand(
             userId: (string) $data->getUser()->getId(),
             categoryId: (string) $data->getId(),
             name: $data->getName(),
@@ -44,7 +45,5 @@ class UpdateCategoryProcessor implements ProcessorInterface
             icon: $data->getIcon(),
             clearFields: $clearFields,
         ));
-
-        return $envelope->last(HandledStamp::class)->getResult();
     }
 }

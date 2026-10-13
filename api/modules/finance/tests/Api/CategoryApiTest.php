@@ -279,6 +279,45 @@ class CategoryApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
+    /** A sub-category cannot have children: a refused body (422), not a 500. */
+    public function testPatchUnderASubCategoryIsRefused(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $groceries = $this->getFixture('groceries');
+        $concerts = $this->getFixture('concerts');
+
+        $this->patch((string) $groceries->getId(), ['parent' => '/api/categories/'.$concerts->getId()]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Category::class, $groceries->getId())?->getParent());
+    }
+
+    public function testCreateUnderASubCategoryIsRefused(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $concerts = $this->getFixture('concerts');
+
+        $this->client->request('POST', '/api/categories', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Trop profond',
+            'obligation' => 'optional',
+            'parent' => '/api/categories/'.$concerts->getId(),
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
     public function testPatchWithNullColorAndIconClearsThemAndKeepsTheParent(): void
     {
         $this->loadFixtures('category_with_parent.yaml');
