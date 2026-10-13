@@ -16,7 +16,7 @@ const QUESTION = 'Crée un événement test à elle demain'
 const CORRECTED = 'Crée un événement test à Ael demain'
 const FIRST_WORDS = /Je regarde ton agenda/
 const FROZEN_END = 'FIN DE LA RÉPONSE'
-const CORRECTED_ANSWER = "C'est noté : un événement test à Ael demain. Je m'en occupe."
+const CORRECTED_ANSWER = "Compris : un événement test à Ael demain. Quelle heure te convient ?"
 
 // The second account, like chat-send-failed.spec.ts, under the chat lock for the same reason:
 // an answer to another run of the account reaching this window would muddy the counts.
@@ -29,6 +29,7 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
     await chat.open()
     // The thread is shared with earlier runs, which leave their corrected exchange behind.
     const answersBefore = await chat.bubbles(CORRECTED_ANSWER).count()
+    const correctedBefore = await chat.bubbles(CORRECTED).count()
 
     const sent: { replaces?: string }[] = []
     page.on('request', (request) => {
@@ -71,7 +72,7 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
     expect(sent[0].replaces).toBeUndefined()
     expect(sent[1].replaces, 'the correction does not say which message it replaces').toBeTruthy()
 
-    await expect(chat.bubbles(CORRECTED)).toHaveCount(1)
+    await expect(chat.bubbles(CORRECTED)).toHaveCount(correctedBefore + 1)
     await expect(chat.bubbles(CORRECTED_ANSWER)).toHaveCount(answersBefore + 1)
     await expect(chat.panel.getByText(/à elle/)).toHaveCount(0)
     await expect(chat.panel.getByText(FIRST_WORDS)).toHaveCount(0)
@@ -80,6 +81,6 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
     const stored = (await (await api.get('/agent/messages?limit=10')).json()) as { content: string }[]
     expect(stored.some((m) => m.content.includes('à elle'))).toBe(false)
     expect(stored.some((m) => m.content.includes(FROZEN_END))).toBe(false)
-    expect(stored.filter((m) => m.content === CORRECTED)).toHaveLength(1)
+    expect(stored.filter((m) => m.content === CORRECTED)).toHaveLength(correctedBefore + 1)
   })
 })

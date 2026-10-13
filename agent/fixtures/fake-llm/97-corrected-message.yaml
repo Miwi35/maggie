@@ -7,4 +7,4 @@ match:
   user_matches: "événement test à Ael demain"
 
 turns:
-  - text: "C'est noté : un événement test à Ael demain. Je m'en occupe."
+  - text: "Compris : un événement test à Ael demain. Quelle heure te convient ?"

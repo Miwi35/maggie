@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.db.context_model import ContextStatus, ConversationContext
 from app.llm import fake as fake_module
+from app.llm.claim_guard import claims_learning
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section
 from app.llm.directives import HEADER
@@ -579,7 +580,11 @@ class TestMatching:
         )
 
         assert "FIN DE LA RÉPONSE" in text_of(stopped)
-        assert text_of(corrected) == "C'est noté : un événement test à Ael demain. Je m'en occupe."
+        assert text_of(corrected) == "Compris : un événement test à Ael demain. Quelle heure te convient ?"
+        # A « c'est noté » with no tool behind it is sent back by the claim guard, and the one-turn
+        # scenario then answers « n'a pas de tour 2 » on screen.
+        assert not claims_learning(text_of(corrected))
+        assert not claims_learning(text_of(after_action))
         assert "je le garde ou je le supprime" in text_of(after_action)
 
 

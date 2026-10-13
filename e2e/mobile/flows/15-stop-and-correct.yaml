@@ -65,7 +65,7 @@ tags:
     id: "chat_send"
 
 - extendedWaitUntil:
-    visible: ".*C'est noté : un événement test à Ael demain.*"
+    visible: ".*Compris : un événement test à Ael demain.*"
     timeout: 60000
 - assertNotVisible: ".*aucun scénario.*"
 - assertNotVisible: ".*à elle demain.*"
