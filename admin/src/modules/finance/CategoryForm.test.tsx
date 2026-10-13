@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
@@ -41,14 +41,14 @@ const renderCreate = () => {
 }
 
 /** The edit screen of a category already declared a rente. */
-const renderEdit = () => {
+const renderEdit = (record: Record<string, unknown> = RENTE) => {
   // The id in the route is the record's own — an IRI, as the API Platform data
   // provider gives them — and it has to match what `getOne` returns.
   render(
     <MemoryRouter initialEntries={[`/categories/${encodeURIComponent(RENTE.id)}`]}>
       <AdminContext
         dataProvider={testDataProvider({
-          getOne: (() => Promise.resolve({ data: RENTE })) as unknown as DataProvider['getOne'],
+          getOne: (() => Promise.resolve({ data: record })) as unknown as DataProvider['getOne'],
           getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
         })}
         i18nProvider={i18nProvider}
@@ -131,6 +131,54 @@ describe('CategoryForm', () => {
       obligation: 'optional',
       passiveIncome: false,
     })
+  })
+
+  /** MAG-353 recette: the colour is picked, not typed as a hex code. */
+  test('the colour is picked from a palette and is what the API is sent', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    expect(screen.queryByRole('textbox', { name: /Couleur/ })).not.toBeInTheDocument()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    await user.click(screen.getByRole('button', { name: 'Couleur #4CAF50' }))
+    expect(screen.getByRole('button', { name: 'Couleur #4CAF50' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({ name: 'Courses', color: '#4CAF50' })
+  })
+
+  test('another colour comes from the browser colour picker', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    fireEvent.change(screen.getByLabelText('Autre couleur'), { target: { value: '#123456' } })
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({ color: '#123456' })
+  })
+
+  test('the colour can be taken away again', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    await user.click(screen.getByRole('button', { name: 'Couleur #4CAF50' }))
+    await user.click(screen.getByRole('button', { name: 'Aucune couleur' }))
+    expect(screen.getByRole('button', { name: 'Aucune couleur' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data.color ?? null).toBeNull()
+  })
+
+  test('an existing colour is shown as chosen, even outside the palette', async () => {
+    renderEdit({ ...RENTE, color: '#123456' })
+
+    expect(await screen.findByRole('button', { name: 'Couleur #123456' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   /**

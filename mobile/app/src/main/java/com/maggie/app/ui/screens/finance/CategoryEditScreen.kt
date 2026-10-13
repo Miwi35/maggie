@@ -394,14 +394,9 @@ internal fun CategoryFormFields(
         SectionTitle("Repères visuels", "Facultatif, pour repérer la catégorie d'un coup d'œil.")
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedTextField(
-                value = form.color,
-                onValueChange = { form.color = it },
-                label = { Text("Couleur") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Helper("Code hexadécimal, par exemple #4CAF50.")
+            Text("Couleur", style = MaterialTheme.typography.bodyLarge)
+            CategoryColorPicker(value = form.color, onChange = { form.color = it })
+            Helper("Touchez une couleur, ou « Autre couleur » pour la composer.")
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
