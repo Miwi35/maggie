@@ -80,11 +80,11 @@ class PushActionReceiverTest {
     }
 
     @Test
-    fun `pressing OK hands the button to the handler and removes the notification`() {
+    fun `pressing C'est noté hands the button to the handler and removes the notification`() {
         coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Closed
         PushNotifier(app).show(payload("reminder"))
 
-        press("OK")
+        press("C'est noté")
         await { shown() == null }
 
         assertNull(shown())
@@ -108,11 +108,11 @@ class PushActionReceiverTest {
         coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
         PushNotifier(app).show(payload("reminder"))
 
-        press("OK")
+        press("C'est noté")
         await { shown()?.extras?.getString("android.text") == "Maggie est injoignable. Réessayez." }
 
         assertEquals("Maggie est injoignable. Réessayez.", shown().extras.getString("android.text"))
-        assertEquals(listOf("OK"), shown().actions.map { it.title.toString() })
+        assertEquals(listOf("C'est noté"), shown().actions.map { it.title.toString() })
     }
 
     @Test
@@ -120,7 +120,7 @@ class PushActionReceiverTest {
         coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Settled("Cette demande n'est plus en attente.")
         PushNotifier(app).show(payload("reminder"))
 
-        press("OK")
+        press("C'est noté")
         await { shown()?.actions.isNullOrEmpty() }
 
         assertNotNull(shown())

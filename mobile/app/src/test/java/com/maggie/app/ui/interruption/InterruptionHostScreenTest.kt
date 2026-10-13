@@ -94,7 +94,7 @@ class InterruptionHostScreenTest {
         center.offer(message("a", type = "finance", link = "maggie://finance/accounts"))
         compose.waitForIdle()
 
-        compose.onNodeWithTag(UiTags.INTERRUPTION_ACTION).performClick()
+        compose.onNodeWithTag(UiTags.INTERRUPTION_SECOND).performClick()
         compose.waitForIdle()
 
         assertEquals(listOf("a"), links.map { it.notificationId })

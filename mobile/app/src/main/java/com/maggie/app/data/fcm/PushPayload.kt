@@ -14,7 +14,7 @@ data class PushInteraction(
 /** One button of a notification, and what it does when pressed. */
 enum class PushActionKind(val label: String) {
     REPLY("Répondre"),
-    OK("OK"),
+    OK("C'est noté"),
     DONE("Fait"),
     LATER("Plus tard"),
     GO("Y aller"),
@@ -43,22 +43,28 @@ data class PushPayload(
      * `interaction.kind` decides when the server provides it; otherwise the type does. A
      * form whose answer has no endpoint yet (a choice, a yes/no that is not an approval)
      * carries no button: tapping the notification opens `link`, as for a series.
+     *
+     * A notification with a `link` carries « C'est noté », the link and « Plus tard » — three
+     * buttons, the most Android shows. « C'est noté » says it was seen without opening or
+     * postponing it; a task that falls due keeps « Fait », which is its acknowledgement.
      */
     fun actions(): List<PushActionKind> {
         val kind = interaction?.kind
         return when {
             kind == "ack" -> if (interaction?.completable == true) listOf(PushActionKind.DONE, PushActionKind.LATER) else listOf(PushActionKind.OK)
-            kind == "action" -> if (link != null) listOf(PushActionKind.GO, PushActionKind.LATER) else listOf(PushActionKind.OK)
+            kind == "action" -> seenOrOpened()
             kind == "confirm" -> approvalButtons()
             kind != null -> emptyList()
             type == "approval" -> approvalButtons()
             type == "task_due" -> listOf(PushActionKind.DONE, PushActionKind.LATER)
-            type == "reminder" -> listOf(PushActionKind.OK)
+            type == "reminder" -> seenOrOpened()
             channel == PushChannels.CHAT -> listOf(PushActionKind.REPLY)
-            link != null -> listOf(PushActionKind.GO, PushActionKind.LATER)
-            else -> listOf(PushActionKind.OK)
+            else -> seenOrOpened()
         }
     }
+
+    private fun seenOrOpened(): List<PushActionKind> =
+        if (link != null) listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER) else listOf(PushActionKind.OK)
 
     // « Autoriser » / « Refuser » answer a held action: without its id there is nothing to answer.
     private fun approvalButtons(): List<PushActionKind> =

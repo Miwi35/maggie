@@ -1,7 +1,10 @@
 import { test, expect } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
+import { NotificationBell } from '../pages/NotificationBell.js'
 
 /**
  * Maggie speaking first (MAG-311, extends MAG-97 / MAG-99).
@@ -94,6 +97,53 @@ test('an event reminder interrupts the open admin, and « Plus tard » closes it
   await expect(interruption).toContainText('Dans 15 min')
   await interruption.getByRole('button', { name: 'Plus tard' }).click()
   await expect(interruption).toBeHidden()
+})
+
+test('« C\'est noté » on an event reminder marks it read and closes it, and the bell stops counting it', async ({
+  interruptedUser,
+}) => {
+  const { page, api } = interruptedUser
+  const title = `Rappel e2e, c'est noté ${test.info().retry}`
+  const bell = new NotificationBell(page)
+  const unread = async () =>
+    (await getCollection<{ readAt: string | null }>(api, '/api/notifications?itemsPerPage=100')).filter((n) => !n.readAt).length
+
+  const before = await unread()
+  await openSubscribed(page, () => bell.goto('/'))
+  await bell.expectUnreadCount(before, 5_000)
+
+  expect(
+    (
+      await callMcpTool(api, 'manage_notifications', {
+        action: 'create',
+        type: 'reminder',
+        title,
+        body: '15',
+        relatedEntityIri: '/api/events/e2e-reminder-ack',
+      })
+    ).error,
+  ).toBeUndefined()
+
+  const interruption = page.getByRole('alertdialog').filter({ hasText: title })
+  await expect(interruption).toBeVisible({ timeout: 5_000 })
+  await expect(interruption.getByRole('button', { name: "C'est noté" })).toBeVisible()
+  await expect(interruption.getByRole('button', { name: "Voir l'événement" })).toBeVisible()
+  await expect(interruption.getByRole('button', { name: 'Plus tard' })).toBeVisible()
+  await bell.expectUnreadCount(before + 1, 5_000)
+
+  const marked = page.waitForRequest((request) => request.method() === 'PATCH' && request.url().includes('/api/notifications/'))
+  await interruption.getByRole('button', { name: "C'est noté" }).click()
+  expect(JSON.parse((await marked).postData() ?? '{}')).toEqual({ readAt: expect.any(String) })
+
+  await expect(interruption).toBeHidden()
+  await bell.expectUnreadCount(before, 5_000)
+  // Still on the dashboard: acknowledging does not open the event.
+  await expect(page).not.toHaveURL(/calendar/)
+  // Read for good — not only hidden until the « Plus tard » delay is up.
+  await waitForIndexed(api, '/api/notifications?itemsPerPage=100', (n) => {
+    const row = n as { title?: string; readAt?: string | null }
+    return row.title === title && Boolean(row.readAt)
+  }, { what: `The notification "${title}" marked read` })
 })
 
 test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {
