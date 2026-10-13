@@ -49,6 +49,7 @@ const deleteEvent = {
   id: 'a1',
   toolName: 'delete_event',
   arguments: { title: 'Dentiste' },
+  summary: 'Supprimer l’événement « Dentiste »',
   status: 'pending',
   result: null,
   createdAt: '2026-10-06T08:00:00.000Z',
@@ -106,8 +107,8 @@ describe('ChatWidget approvals (MAG-6)', () => {
     renderWidget()
 
     const card = await screen.findByTestId('approval-card')
-    expect(within(card).getByText('delete_event')).toBeInTheDocument()
-    expect(within(card).getByText('Dentiste')).toBeInTheDocument()
+    expect(within(card).getByText('Supprimer l’événement « Dentiste »')).toBeInTheDocument()
+    expect(card).not.toHaveTextContent('delete_event')
   })
 
   test('Autoriser sends the approval and the card ends validée', async () => {
@@ -195,6 +196,16 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
     const badge = await screen.findByTestId('mind-approvals-badge')
     expect(badge).toHaveTextContent('2')
+    expect(badge).toBeVisible()
+  })
+
+  test('the badge sits inside the Mind tab, not on its edge', async () => {
+    stubFetch([deleteEvent])
+    renderWidget()
+
+    const badge = await screen.findByTestId('mind-approvals-badge')
+    expect(screen.getByRole('tab', { name: /Mind/ })).toContainElement(badge)
+    expect(badge).toHaveTextContent(/^1$/)
   })
 
   test('the badge counts only the actions still waiting', async () => {

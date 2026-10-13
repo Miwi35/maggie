@@ -11,7 +11,6 @@ import Chip from '@mui/material/Chip'
 import Portal from '@mui/material/Portal'
 import Snackbar from '@mui/material/Snackbar'
 import Divider from '@mui/material/Divider'
-import Badge from '@mui/material/Badge'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import SendIcon from '@mui/icons-material/Send'
@@ -1085,14 +1084,31 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   value="mind"
                   label={
                     awaitingCount > 0 ? (
-                      <Badge
-                        badgeContent={awaitingCount}
-                        color="warning"
-                        data-testid="mind-approvals-badge"
-                        sx={{ '& .MuiBadge-badge': { right: -14 } }}
-                      >
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
                         Mind
-                      </Badge>
+                        <Box
+                          component="span"
+                          data-testid="mind-approvals-badge"
+                          role="status"
+                          aria-label={`${awaitingCount} en attente de validation`}
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: 18,
+                            height: 18,
+                            px: 0.5,
+                            borderRadius: 9,
+                            bgcolor: 'warning.main',
+                            color: 'warning.contrastText',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            lineHeight: 1,
+                          }}
+                        >
+                          {awaitingCount}
+                        </Box>
+                      </Box>
                     ) : (
                       'Mind'
                     )

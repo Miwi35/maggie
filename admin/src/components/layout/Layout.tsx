@@ -54,18 +54,6 @@ export const Layout = (props: LayoutProps) => {
     triggerResize()
   }, [chatOpen, sidebarTab, triggerResize])
 
-  const handleMindToggle = useCallback(() => {
-    if (!chatOpen) {
-      setChatOpen(true)
-      setSidebarTab('mind')
-    } else if (sidebarTab === 'mind') {
-      setChatOpen(false)
-    } else {
-      setSidebarTab('mind')
-    }
-    triggerResize()
-  }, [chatOpen, sidebarTab, triggerResize])
-
   const handleOpenChatFromInterruption = useCallback(() => {
     setChatOpen(true)
     setSidebarTab('chat')
@@ -105,7 +93,6 @@ export const Layout = (props: LayoutProps) => {
       chatOpen,
       sidebarTab,
       onChatToggle: handleChatToggle,
-      onMindToggle: handleMindToggle,
       unreadChat,
       onVoiceMessage: handleVoiceMessage,
     }),
@@ -113,7 +100,6 @@ export const Layout = (props: LayoutProps) => {
       chatOpen,
       sidebarTab,
       handleChatToggle,
-      handleMindToggle,
       unreadChat,
       handleVoiceMessage,
     ],

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { test, expect, seedId } from '../fixtures/index.js'
 import { toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -17,8 +18,8 @@ import type { APIRequestContext } from '@playwright/test'
  * Extends the chat journey (MAG-99). It runs as the fifth account, which every test
  * and every repeat shares: the badge counts what waits for the whole account, the
  * cards are shown in every window the user has open, and the thread holds the
- * other runs' messages. So each test looks only at what carries its own event's id
- * (the card, the announcement) and never at a count of the account (MAG-394).
+ * other runs' messages. So each test looks only at what carries its own event (the
+ * card, by the unique title its summary quotes; the announcement, by the id) and never at a count of the account (MAG-394).
  */
 
 test.describe.configure({ retries: 0 })
@@ -27,6 +28,9 @@ const AGENDA = 'e2e_approvals_agenda'
 
 /** 74-delete-event-approved.yaml puts the event's id in the sentence: it is this test's announcement alone. */
 const announcement = (id: string): string => `C'est fait : l'événement Test validation est supprimé (${id}).`
+
+/** The card shows the agent's sentence, which quotes the title and never the id: a title of its own tells the runs apart. */
+const uniqueTitle = (label: string): string => `${label} ${randomUUID().slice(0, 8)}`
 
 async function createEvent(api: APIRequestContext, summary: string): Promise<string> {
   const created = await api.post('/api/events', {
@@ -49,7 +53,8 @@ async function eventStatus(api: APIRequestContext, id: string): Promise<number> 
 
 test('Autoriser runs the held deletion and Maggie announces it', async ({ approvalsUser }) => {
   const { page, api } = approvalsUser
-  const id = await createEvent(api, 'Recette validation MAG-6 autorisée')
+  const title = uniqueTitle('Recette validation MAG-6 autorisée')
+  const id = await createEvent(api, title)
 
   await new DashboardPage(page).open()
   const chat = new ChatPanel(page)
@@ -59,7 +64,7 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
   // Held, not failed: a third outcome next to success and error.
   expect(toolResults(events)).toContainEqual({ toolName: 'delete_event', status: 'pending_approval' })
 
-  const card = chat.approvalCard(id)
+  const card = chat.approvalCard(title)
   await expect(card).toHaveAttribute('data-status', 'pending')
   expect(await eventStatus(api, id), 'the event was deleted before anyone allowed it').toBe(200)
 
@@ -82,14 +87,15 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
 
 test('Refuser leaves the event in place', async ({ approvalsUser }) => {
   const { page, api } = approvalsUser
-  const id = await createEvent(api, 'Recette validation MAG-6 refusée')
+  const title = uniqueTitle('Recette validation MAG-6 refusée')
+  const id = await createEvent(api, title)
 
   await new DashboardPage(page).open()
   const chat = new ChatPanel(page)
   await chat.open()
   await chat.send(`Supprime l'événement ${id}`)
 
-  const card = chat.approvalCard(id)
+  const card = chat.approvalCard(title)
   await expect(card).toHaveAttribute('data-status', 'pending')
 
   await card.getByRole('button', { name: 'Refuser' }).click()

@@ -11,6 +11,7 @@ function approval(overrides: Partial<ApprovalItem> = {}): ApprovalItem {
     id: 'a1',
     toolName: 'delete_event',
     arguments: { id: 'evt-42', title: 'Dentiste' },
+    summary: 'Supprimer l’événement « Dentiste » — le 15 octobre',
     status: 'pending',
     result: null,
     createdAt: '2026-10-06T08:00:00.000Z',
@@ -31,22 +32,30 @@ describe('ApprovalCard', () => {
     vi.useRealTimers()
   })
 
-  test('shows the tool, its arguments and both dates', () => {
+  test('shows the readable summary and both dates', () => {
     renderCard(approval())
 
-    expect(screen.getByText('delete_event')).toBeInTheDocument()
-    expect(screen.getByText('title')).toBeInTheDocument()
-    expect(screen.getByText('Dentiste')).toBeInTheDocument()
+    expect(screen.getByText('Supprimer l’événement « Dentiste » — le 15 octobre')).toBeInTheDocument()
     expect(screen.getByText(/Demandée le .+ · expire le /)).toBeInTheDocument()
     expect(screen.getByText('En attente')).toBeInTheDocument()
     expect(screen.getByTestId('approval-card')).toHaveAttribute('data-status', 'pending')
   })
 
-  test('writes non-string arguments as JSON', () => {
-    renderCard(approval({ arguments: { ids: ['a', 'b'], notify: false } }))
+  test('never shows the tool name, its raw arguments or the identifier', () => {
+    renderCard(approval({ arguments: { id: '01M4S6K9ABCDEF', notify: false } }))
 
-    expect(screen.getByText('["a","b"]')).toBeInTheDocument()
-    expect(screen.getByText('false')).toBeInTheDocument()
+    const card = screen.getByTestId('approval-card')
+    expect(card).not.toHaveTextContent('delete_event')
+    expect(card).not.toHaveTextContent('01M4S6K9ABCDEF')
+    expect(card).not.toHaveTextContent('notify')
+  })
+
+  test.each([[''], [null], [undefined], ['   ']])('falls back on a generic label when the summary is %j', (summary) => {
+    renderCard(approval({ summary }))
+
+    const card = screen.getByTestId('approval-card')
+    expect(screen.getByText('Action en attente de validation')).toBeInTheDocument()
+    expect(card).not.toHaveTextContent('delete_event')
   })
 
   test('Autoriser and Refuser answer with the action id', async () => {
