@@ -13,6 +13,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -296,5 +297,52 @@ class SavingsAdvancesViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 2) { transactionRepository.createTransaction(any()) }
+    }
+
+    @Test
+    fun `a tap while the screen reloads after booking is ignored`() = runTest {
+        coEvery { transactionRepository.createTransaction(any()) } returns Result.success(Transaction(id = "t", label = "x"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val reload = CompletableDeferred<Result<SavingsAdvances>>()
+        coEvery { advancesRepository.getSavingsAdvances() } coAnswers { reload.await() }
+
+        viewModel.recordCounterTransfer(proposal)
+        advanceUntilIdle()
+        assertEquals("adv-1", viewModel.uiState.value.recordingAdvanceId)
+
+        viewModel.recordCounterTransfer(proposal)
+        advanceUntilIdle()
+        coVerify(exactly = 2) { transactionRepository.createTransaction(any()) }
+
+        reload.complete(Result.success(loaded.copy(proposals = emptyList())))
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.recordingAdvanceId)
+        assertTrue(viewModel.uiState.value.advances?.proposals.orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `the screen is loading until the first answer`() = runTest {
+        val viewModel = viewModel()
+
+        assertTrue(viewModel.uiState.value.isLoading)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a second save of the salary day while one is running is ignored`() = runTest {
+        val gate = CompletableDeferred<Result<SalaryDelay>>()
+        coEvery { advancesRepository.setSalaryExpectedDay(any()) } coAnswers { gate.await() }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.saveSalaryDay("12")
+        viewModel.saveSalaryDay("13")
+        advanceUntilIdle()
+        gate.complete(Result.success(loaded.salaryDelay))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { advancesRepository.setSalaryExpectedDay(any()) }
     }
 }

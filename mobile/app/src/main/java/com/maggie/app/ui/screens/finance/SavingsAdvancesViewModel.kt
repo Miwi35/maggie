@@ -14,7 +14,7 @@ import java.time.LocalDate
 
 data class SavingsAdvancesUiState(
     val advances: SavingsAdvances? = null,
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val loadError: String? = null,
     val isSavingDay: Boolean = false,
     /** The advance whose counter-transfer is being recorded: one at a time, a double tap must not book it twice. */
@@ -56,8 +56,10 @@ class SavingsAdvancesViewModel(
             return
         }
 
+        if (_uiState.value.isSavingDay) return
+
+        _uiState.value = _uiState.value.copy(isSavingDay = true, actionError = null, message = null)
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSavingDay = true, actionError = null, message = null)
             advancesRepository.setSalaryExpectedDay(day)
                 .onSuccess { delay ->
                     _uiState.value = _uiState.value.copy(
@@ -96,7 +98,6 @@ class SavingsAdvancesViewModel(
             }
 
             _uiState.value = _uiState.value.copy(
-                recordingAdvanceId = null,
                 message = if (credit?.isSuccess == true) "Transaction enregistrée" else null,
                 actionError = when {
                     debit.isFailure -> debit.exceptionOrNull()?.message ?: "Erreur"
@@ -106,7 +107,9 @@ class SavingsAdvancesViewModel(
                 },
             )
             // A first leg that went through changes the server's view even when the second failed.
+            // The lock holds until the new state is shown: a tap on the stale proposal would book it twice.
             load()
+            _uiState.value = _uiState.value.copy(recordingAdvanceId = null)
         }
     }
 

@@ -124,7 +124,7 @@ describe('useSavingsAdvances', () => {
       ok = await result.current.giveBack(DATA.proposals[0])
     })
 
-    expect(ok).toBe(true)
+    expect(ok).toBe('ok')
     const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
     expect(posts.map(([path]) => path)).toEqual(['/api/transactions', '/api/transactions'])
     const [debit, credit] = posts.map(([, init]) => JSON.parse(init.body))
@@ -149,14 +149,83 @@ describe('useSavingsAdvances', () => {
     const { result } = renderHook(() => useSavingsAdvances())
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    let ok
+    let outcome
     await act(async () => {
-      ok = await result.current.giveBack(DATA.proposals[0])
+      outcome = await result.current.giveBack(DATA.proposals[0])
     })
 
-    expect(ok).toBe(false)
+    expect(outcome).toBe('debit_failed')
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
     expect(result.current.givingBack).toBeNull()
+  })
+
+  test('when the credit is refused after the debit, it says so and reads again', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(DATA))
+      .mockResolvedValueOnce(json({}))
+      .mockResolvedValueOnce(json({}, false))
+      .mockResolvedValue(json(DATA))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useSavingsAdvances())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.giveBack(DATA.proposals[0])
+    })
+
+    expect(outcome).toBe('credit_failed')
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  test('the lock holds until the screen has read the new state', async () => {
+    let finishRead: (value: unknown) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(DATA))
+      .mockResolvedValueOnce(json({}))
+      .mockResolvedValueOnce(json({}))
+      .mockImplementationOnce(() => new Promise((resolve) => (finishRead = resolve)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useSavingsAdvances())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let pending: Promise<unknown> = Promise.resolve()
+    act(() => {
+      pending = result.current.giveBack(DATA.proposals[0])
+    })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    expect(result.current.givingBack).toBe('adv-1')
+
+    await act(async () => {
+      finishRead(json({ ...DATA, proposals: [] }))
+      await pending
+    })
+
+    expect(result.current.givingBack).toBeNull()
+    expect(result.current.data?.proposals).toEqual([])
+  })
+
+  test('a late answer never overwrites a more recent one', async () => {
+    let answerFirst: (value: unknown) => void = () => {}
+    const settled = { ...DATA, totalOutstandingCents: 0 }
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)))
+      .mockResolvedValue(json(settled))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useSavingsAdvances())
+    await act(async () => mercureListeners.at(-1)?.('{}'))
+    await waitFor(() => expect(result.current.data?.totalOutstandingCents).toBe(0))
+
+    await act(async () => answerFirst(json(DATA)))
+
+    expect(result.current.data?.totalOutstandingCents).toBe(0)
   })
 
   test('localDay writes the calendar day with zero padding', () => {

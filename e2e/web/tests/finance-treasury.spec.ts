@@ -436,7 +436,7 @@ test("the admin screen shows the advance and « Je l'ai fait » settles it", asy
   await proposal.getByRole('button', { name: /Je l'ai fait/ }).click()
 
   // Then the advance is settled: 0,00 € left, nothing proposed any more.
-  await expect(page.getByTestId('savings-total-outstanding')).toContainText('0,00')
+  await expect(page.getByTestId('savings-total-outstanding')).toHaveText(/^0,00/)
   await expect(page.getByTestId('savings-proposal')).toHaveCount(0)
   const settled = await savingsAdvances(api)
   expect(settled.advances).toEqual([

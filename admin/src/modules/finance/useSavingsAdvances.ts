@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../hooks/useMercure'
 
 export interface SavingsAdvance {
@@ -81,6 +81,8 @@ const request = async (path: string, init: RequestInit = {}) => {
   })
 }
 
+export type GiveBackResult = 'ok' | 'debit_failed' | 'credit_failed'
+
 /**
  * What was taken from the savings while the salary was late, what is left to
  * give back, and the transfers that would. Read again whenever a transaction
@@ -92,20 +94,27 @@ export function useSavingsAdvances() {
   const [error, setError] = useState<string | null>(null)
   const [givingBack, setGivingBack] = useState<string | null>(null)
 
+  const latestRead = useRef(0)
+
   const load = useCallback(async () => {
+    const read = ++latestRead.current
+    const current = () => read === latestRead.current
     try {
       const res = await request('/api/finance/savings-advances')
       if (!res.ok) {
-        setError("Impossible de lire les avances d'épargne")
+        if (current()) setError("Impossible de lire les avances d'épargne")
 
         return
       }
-      setData((await res.json()) as SavingsAdvancesData)
-      setError(null)
+      const body = (await res.json()) as SavingsAdvancesData
+      if (current()) {
+        setData(body)
+        setError(null)
+      }
     } catch {
-      setError("Impossible de lire les avances d'épargne")
+      if (current()) setError("Impossible de lire les avances d'épargne")
     } finally {
-      setLoading(false)
+      if (current()) setLoading(false)
     }
   }, [])
 
@@ -129,7 +138,7 @@ export function useSavingsAdvances() {
    * sent to a bank: these are transactions.
    */
   const giveBack = useCallback(
-    async (proposal: RepaymentProposal): Promise<boolean> => {
+    async (proposal: RepaymentProposal): Promise<GiveBackResult> => {
       setGivingBack(proposal.advanceId)
       const bookedAt = localDay()
       const leg = async (accountId: string, amountCents: number) => {
@@ -149,18 +158,21 @@ export function useSavingsAdvances() {
         return res.ok
       }
 
+      let result: GiveBackResult = 'debit_failed'
       try {
-        const done =
-          (await leg(proposal.fromAccountId, -proposal.amountCents)) &&
-          (await leg(proposal.toAccountId, proposal.amountCents))
-
-        return done
+        if (await leg(proposal.fromAccountId, -proposal.amountCents)) {
+          result = 'credit_failed'
+          if (await leg(proposal.toAccountId, proposal.amountCents)) result = 'ok'
+        }
       } catch {
-        return false
-      } finally {
-        setGivingBack(null)
-        await load()
+        // `result` already says how far the transfer got.
       }
+      // The lock holds until the screen shows the new state: a second tap on a
+      // stale proposal would record the transfer twice.
+      await load()
+      setGivingBack(null)
+
+      return result
     },
     [load],
   )

@@ -256,10 +256,15 @@ export const SavingsAdvancesPage = () => {
   }
 
   const onGiveBack = async (proposal: RepaymentProposal) => {
-    const ok = await giveBack(proposal)
+    const result = await giveBack(proposal)
     notify(
-      ok ? 'Transaction enregistrée : l’avance est soldée' : "Impossible d'enregistrer la transaction",
-      { type: ok ? 'info' : 'error' },
+      {
+        ok: 'Transaction enregistrée : l’avance est soldée',
+        debit_failed: "Impossible d'enregistrer la transaction",
+        credit_failed:
+          "Le débit est enregistré, pas le crédit : ajoutez la transaction du compte d'épargne à la main avant de recommencer",
+      }[result],
+      { type: result === 'ok' ? 'info' : 'error' },
     )
   }
 

@@ -79,6 +79,8 @@ const json = (body: unknown, ok = true) => Promise.resolve({ ok, json: async () 
 
 const fetchMock = vi.fn()
 
+const ZERO = /^0,00\s*€$/
+
 const renderPage = () =>
   render(
     <AdminContext dataProvider={testDataProvider()}>
@@ -133,7 +135,7 @@ describe('SavingsAdvancesPage', () => {
     renderPage()
 
     expect(await screen.findByText(/Aucune avance en cours : rien à remettre/)).toBeInTheDocument()
-    expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent('0,00')
+    expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent(ZERO)
     expect(screen.getByText('Aucune avance en cours.')).toBeInTheDocument()
     expect(screen.queryByText('Contre-virements proposés')).not.toBeInTheDocument()
     expect(screen.queryByText('Avances soldées')).not.toBeInTheDocument()
@@ -178,7 +180,7 @@ describe('SavingsAdvancesPage', () => {
     expect(proposal).toHaveTextContent('Livret')
     await userEvent.click(within(proposal).getByRole('button', { name: /Je l'ai fait/ }))
 
-    await waitFor(() => expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent('0,00'))
+    await waitFor(() => expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent(ZERO))
     expect(screen.queryByTestId('savings-proposal')).not.toBeInTheDocument()
     expect(transfers).toBe(2)
     const posts = fetchMock.mock.calls.filter(([url]) => url === '/api/transactions').map(([, init]) => JSON.parse(init.body))
@@ -194,6 +196,21 @@ describe('SavingsAdvancesPage', () => {
     expect(await screen.findByText("Impossible d'enregistrer la transaction")).toBeInTheDocument()
     expect(screen.getByTestId('savings-proposal')).toBeInTheDocument()
     expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent('1 000,00')
+  })
+
+  test('a credit refused after the debit says the debit is recorded', async () => {
+    let legs = 0
+    fetchMock.mockImplementation((url: string) => {
+      if (url !== '/api/transactions') return json(WITH_ADVANCES)
+      legs += 1
+
+      return json({}, legs === 1)
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Je l'ai fait/ }))
+
+    expect(await screen.findByText(/Le débit est enregistré, pas le crédit/)).toBeInTheDocument()
   })
 
   test('a reduced proposal and what could not be proposed are said', async () => {
@@ -276,6 +293,6 @@ describe('SavingsAdvancesPage', () => {
 
     await act(async () => mercureListeners.at(-1)?.('{}'))
 
-    await waitFor(() => expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent('0,00'))
+    await waitFor(() => expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent(ZERO))
   })
 })
