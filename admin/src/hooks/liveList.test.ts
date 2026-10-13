@@ -125,12 +125,20 @@ describe('applyOverlay', () => {
     expect(data.map((r) => r.name)).toEqual(['Alpha', 'Bravo'])
   })
 
+  test('a created row pushed off the page is not added to the total', () => {
+    const listed = [row('A', 'Alpha'), row('B', 'Bravo')]
+    const { data, added } = applyOverlay(listed, events(created('Z', 'Zulu')), config, { ...view, perPage: 2 })
+
+    expect(data.map((r) => r.name)).toEqual(['Alpha', 'Bravo'])
+    expect(added).toBe(0)
+  })
+
   test('on a later page, what sorts before the page belongs to an earlier one', () => {
     const listed = [row('M', 'Mike'), row('N', 'November')]
     const { data, added } = applyOverlay(listed, events(created('A', 'Alpha'), created('P', 'Papa')), config, { ...view, page: 2 })
 
     expect(data.map((r) => r.name)).toEqual(['Mike', 'November', 'Papa'])
-    expect(added).toBe(2)
+    expect(added).toBe(1)
   })
 
   test('on a filtered list a new row is not inserted, but a known one is still updated or dropped', () => {

@@ -150,5 +150,9 @@ export function applyOverlay(listed: Row[], overlay: Overlay, config: LiveConfig
     while (sorted.length > 0 && addedIds.has(sorted[0].id)) sorted = sorted.slice(1)
   }
 
-  return { data: sorted.slice(0, view.perPage), added: added.length, removed }
+  const data = sorted.slice(0, view.perPage)
+  // A row pushed off the page is not counted: once the index holds it, the read's total does.
+  const shown = new Set(data.map((r) => r.id))
+
+  return { data, added: added.filter((r) => shown.has(r.id)).length, removed }
 }

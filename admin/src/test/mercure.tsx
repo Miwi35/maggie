@@ -39,6 +39,7 @@ export function renderLiveList(
   const getList = vi.fn(() => Promise.resolve({ data: listed, total: listed.length }))
   const dataProvider = testDataProvider({
     getList: getList as unknown as DataProvider['getList'],
+    getOne: (() => Promise.resolve({ data: { id: 'stub' } })) as unknown as DataProvider['getOne'],
     getMany: (() => Promise.resolve({ data: [] })) as unknown as DataProvider['getMany'],
     getManyReference: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getManyReference'],
   })

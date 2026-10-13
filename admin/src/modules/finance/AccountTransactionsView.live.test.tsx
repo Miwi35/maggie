@@ -41,6 +41,20 @@ liveListSuite({
   updated: { payload: { label: 'Courses Carrefour City' }, text: 'Courses Carrefour City' },
 })
 
+describe('AccountTransactionsView — recurring series', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('a transaction attached to a series by an event carries the badge without a reload', async () => {
+    renderLiveList(<AccountTransactionsView />, 'transactions', [listed], route)
+    await screen.findByText('Courses Carrefour')
+    expect(screen.queryByText(/Série \u00b7/)).not.toBeInTheDocument()
+
+    await emitMercure('/api/transactions/{id}', { '@id': listed.id, recurringOperationId: '01SERIES' })
+
+    expect(await screen.findByText(/Série \u00b7/)).toBeInTheDocument()
+  })
+})
+
 describe('AccountTransactionsView — another account', () => {
   afterEach(() => vi.unstubAllGlobals())
 

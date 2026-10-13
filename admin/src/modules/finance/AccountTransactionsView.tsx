@@ -37,6 +37,7 @@ const transactionLive = (accountIri: string): LiveConfig => ({
   references: {
     accountId: { field: 'account', collection: '/api/accounts' },
     categoryId: { field: 'category', collection: '/api/categories' },
+    recurringOperationId: { field: 'recurringOperation', collection: '/api/recurring_operations' },
   },
   accept: (row) => row.account === accountIri,
 })

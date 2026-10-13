@@ -22,6 +22,7 @@ const TRANSACTION_LIVE: LiveConfig = {
   references: {
     accountId: { field: 'account', collection: '/api/accounts' },
     categoryId: { field: 'category', collection: '/api/categories' },
+    recurringOperationId: { field: 'recurringOperation', collection: '/api/recurring_operations' },
   },
 }
 
