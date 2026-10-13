@@ -14,6 +14,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Repository\GroceryListRepository;
+use Maggie\Grocery\Service\Packaging;
 
 /**
  * Keeps the grocery list in step with the meals that feed it.
@@ -68,6 +69,7 @@ class MealGrocerySync
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly MealGroceryContributionRepository $contributionRepository,
+        private readonly Packaging $packaging,
     ) {
     }
 
@@ -440,17 +442,30 @@ class MealGrocerySync
 
     /**
      * What the meal needs, keyed by product and unit, the quantities of its
-     * recipes already added up.
+     * recipes already added up. A packaged product is one line in its packaging,
+     * the recipes' quantities only proposing how many (MAG-299).
      *
      * @return array<string, array{ingredient: Ingredient, unit: Unit, quantity: float}>
      */
     private function wantedLines(Meal $meal): array
     {
         $lines = [];
+        $packaged = [];
 
         foreach ($meal->getRecipes() as $recipe) {
             foreach ($recipe->getIngredients() as $ri) {
-                $key = $this->key((string) $ri->getIngredient()->getId(), $ri->getUnit());
+                $ingredient = $ri->getIngredient();
+                $packagingUnit = $ingredient->getPackagingUnit();
+
+                if (null !== $packagingUnit) {
+                    $key = $this->key((string) $ingredient->getId(), $packagingUnit);
+                    $packaged[$key]['quantities'][] = [$ri->getQuantity(), $ri->getUnit()];
+                    $lines[$key] = ['ingredient' => $ingredient, 'unit' => $packagingUnit, 'quantity' => 0.0];
+
+                    continue;
+                }
+
+                $key = $this->key((string) $ingredient->getId(), $ri->getUnit());
 
                 if (isset($lines[$key])) {
                     $lines[$key]['quantity'] += $ri->getQuantity();
@@ -459,11 +474,15 @@ class MealGrocerySync
                 }
 
                 $lines[$key] = [
-                    'ingredient' => $ri->getIngredient(),
+                    'ingredient' => $ingredient,
                     'unit' => $ri->getUnit(),
                     'quantity' => $ri->getQuantity(),
                 ];
             }
+        }
+
+        foreach ($packaged as $key => $line) {
+            $lines[$key]['quantity'] = (float) $this->packaging->packagedTotal($lines[$key]['ingredient'], $line['quantities']);
         }
 
         return $lines;

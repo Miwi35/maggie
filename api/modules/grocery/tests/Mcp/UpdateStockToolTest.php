@@ -183,15 +183,18 @@ class UpdateStockToolTest extends KernelTestCase
         self::assertSame(2.0, $items[0]->getQuantity());
     }
 
-    public function testARestockInAnotherUnitThanTheOpenLineIsStillReportedAsAdded(): void
+    public function testARestockOnALegacyLineInKilosRaisesItAsPackagings(): void
     {
         $this->loadAndLogin();
         $this->putRiceOnTheList(false, unit: Unit::Kilogram);
 
         $data = $this->call('Riz', 'out');
 
-        self::assertSame(['added' => true, 'quantity' => 2, 'unit' => 'pack', 'lineQuantity' => 2], $data['restock']);
-        self::assertCount(2, $this->listItems(), 'the kilos line is kept, the packs go on their own line');
+        // The 1 kg line of a 500 g pack is 2 packs, the restock adds its 2.
+        self::assertSame(['added' => true, 'quantity' => 2, 'unit' => 'pack', 'lineQuantity' => 4], $data['restock']);
+        $items = $this->listItems();
+        self::assertCount(1, $items);
+        self::assertSame(Unit::Pack, $items[0]->getUnit());
     }
 
     public function testTheProductCanBeGivenByItsId(): void

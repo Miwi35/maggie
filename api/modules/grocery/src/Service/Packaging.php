@@ -36,20 +36,66 @@ final class Packaging
             return null;
         }
 
+        $fraction = $this->fraction($product, $packagingUnit, $quantity, $unit);
+
+        return null === $fraction
+            ? new PackagedQuantity(1, $packagingUnit, false)
+            : new PackagedQuantity($this->roundUp($fraction), $packagingUnit, true);
+    }
+
+    /**
+     * What a line of a packaged product holds: a whole number of packagings,
+     * at least one, whatever the unit the quantity arrives in. No unit reads as
+     * the packaging, no quantity as one. Null when the product has no packaging.
+     */
+    public function inPackagings(Product $product, ?float $quantity, ?Unit $unit): ?int
+    {
+        $packagingUnit = $product->getPackagingUnit();
+        if (null === $packagingUnit) {
+            return null;
+        }
+
+        if (null === $quantity) {
+            return 1;
+        }
+
+        return max(1, $this->packagedQuantity($product, $quantity, $unit ?? $packagingUnit)->count);
+    }
+
+    /**
+     * The packagings that cover several quantities of one product together,
+     * rounded up once: 300 g and 300 g of rice in 500 g packs are 2 packs. A
+     * quantity that cannot be computed counts as one packaging.
+     *
+     * @param iterable<array{0: float|int, 1: Unit}> $quantities quantity, unit
+     */
+    public function packagedTotal(Product $product, iterable $quantities): ?int
+    {
+        $packagingUnit = $product->getPackagingUnit();
+        if (null === $packagingUnit) {
+            return null;
+        }
+
+        $total = 0.0;
+        foreach ($quantities as [$quantity, $unit]) {
+            $total += $this->fraction($product, $packagingUnit, (float) $quantity, $unit) ?? 1.0;
+        }
+
+        return max(1, $this->roundUp($total));
+    }
+
+    /** The quantity as a fraction of packagings, null when its unit cannot be turned into them. */
+    private function fraction(Product $product, Unit $packagingUnit, float $quantity, Unit $unit): ?float
+    {
         // Asked directly in what the product is bought in: 2 jars are 2 jars.
         if ($unit === $packagingUnit) {
-            return new PackagedQuantity($this->roundUp($quantity), $packagingUnit, true);
+            return $quantity;
         }
 
         $size = $product->getPackagingSize();
         $sizeUnit = $product->getPackagingSizeUnit();
-        $ratio = null !== $size && null !== $sizeUnit && $size > 0 ? $this->ratio($quantity, $unit, $size, $sizeUnit) : null;
 
-        if (null === $ratio) {
-            return new PackagedQuantity(1, $packagingUnit, false);
-        }
-
-        return new PackagedQuantity($this->roundUp($ratio), $packagingUnit, true);
+        return null !== $size && null !== $sizeUnit && $size > 0 ? $this->ratio($quantity, $unit, $size, $sizeUnit) : null;
     }
 
     private function ratio(float $quantity, Unit $unit, float $size, Unit $sizeUnit): ?float

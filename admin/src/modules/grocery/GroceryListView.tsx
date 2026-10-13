@@ -40,7 +40,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { QuantityStepper } from './QuantityStepper'
-import { lineUnit, packagingContent } from './groceryQuantity'
+import { isPackaged, lineUnit, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
 
 interface ProductOption {
@@ -221,15 +221,23 @@ function SortableGroceryItem({
           variant="outlined"
           sx={{ flexShrink: 0, mr: 1 }}
         />
-        <QuantityStepper
-          label={label}
-          quantity={item.quantity}
-          unit={lineUnit(item.unit, item.product)}
-          packaging={packagingContent(item.unit, item.product)}
-          disabled={isRemoving}
-          onChange={(quantity) => onQuantityChange(item, quantity)}
-          onInvalid={onQuantityInvalid}
-        />
+        {isPackaged(item.product) ? (
+          <QuantityStepper
+            label={label}
+            quantity={item.quantity}
+            unit={lineUnit(item.product)}
+            packaging={packagingContent(item.product)}
+            disabled={isRemoving}
+            onChange={(quantity) => onQuantityChange(item, quantity)}
+            onInvalid={onQuantityInvalid}
+          />
+        ) : (
+          quantityHint(item.quantity, item.unit) && (
+            <Typography variant="caption" color="text.secondary" data-testid="quantity-hint" sx={{ whiteSpace: 'nowrap', mr: 1 }}>
+              {quantityHint(item.quantity, item.unit)}
+            </Typography>
+          )
+        )}
         <IconButton
           size="small"
           aria-label={`Supprimer ${label}`}
@@ -271,7 +279,6 @@ export const GroceryListView = () => {
   const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editQuantity, setEditQuantity] = useState('')
-  const [editUnit, setEditUnit] = useState('')
   const [editCategory, setEditCategory] = useState('')
   const [editSelectedStore, setEditSelectedStore] = useState<StoreOption | null>(null)
   const [editStoreInput, setEditStoreInput] = useState('')
@@ -374,7 +381,6 @@ export const GroceryListView = () => {
     if (!detailItem) return
     setEditLabel(detailItem.label)
     setEditQuantity(detailItem.quantity != null ? String(detailItem.quantity) : '')
-    setEditUnit(detailItem.unit ?? '')
     setEditCategory('')
     const s = detailItem.store
     if (s) {
@@ -521,8 +527,11 @@ export const GroceryListView = () => {
       const token = localStorage.getItem('token')
       const payload: Record<string, unknown> = {
         label: editLabel,
-        quantity: editQuantity ? parseFloat(editQuantity) : null,
-        unit: editUnit || null,
+      }
+      // A product with a packaging has a number of packagings to set, the
+      // others no quantity at all (MAG-299).
+      if (isPackaged(detailItem.product) && editQuantity) {
+        payload.quantity = parseInt(editQuantity, 10)
       }
       if (editCategory) {
         payload.category = editCategory
@@ -1093,7 +1102,6 @@ export const GroceryListView = () => {
               onChange={(_e, value) => {
                 if (value && typeof value !== 'string') {
                   setEditLabel(value.name)
-                  if (value.defaultUnit) setEditUnit(value.defaultUnit)
                   if (value.category) setEditCategory(value.category)
                   if (value.preferredStore) {
                     const ps = value.preferredStore
@@ -1125,30 +1133,15 @@ export const GroceryListView = () => {
               filterOptions={(x) => x}
               noOptionsText={editLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
-            <TextField
-              label="Quantité"
-              type="number"
-              value={editQuantity}
-              onChange={(e) => setEditQuantity(e.target.value)}
-            />
-            <FormControl>
-              <InputLabel>Unité</InputLabel>
-              <Select value={editUnit} onChange={(e) => setEditUnit(e.target.value)} label="Unité">
-                <MenuItem value="">Aucune</MenuItem>
-                <MenuItem value="g">g</MenuItem>
-                <MenuItem value="kg">kg</MenuItem>
-                <MenuItem value="ml">ml</MenuItem>
-                <MenuItem value="l">l</MenuItem>
-                <MenuItem value="cl">cl</MenuItem>
-                <MenuItem value="piece">pièce</MenuItem>
-                <MenuItem value="bunch">botte</MenuItem>
-                <MenuItem value="can">boîte</MenuItem>
-                <MenuItem value="bottle">bouteille</MenuItem>
-                <MenuItem value="pack">paquet</MenuItem>
-                <MenuItem value="sachet">sachet</MenuItem>
-                <MenuItem value="jar">bocal</MenuItem>
-              </Select>
-            </FormControl>
+            {isPackaged(detailItem?.product) && (
+              <TextField
+                label={`Nombre de ${unitLabel(lineUnit(detailItem?.product), 2) || 'conditionnements'}`}
+                type="number"
+                value={editQuantity}
+                onChange={(e) => setEditQuantity(e.target.value)}
+                slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              />
+            )}
             <FormControl>
               <InputLabel>Catégorie</InputLabel>
               <Select

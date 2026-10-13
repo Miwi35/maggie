@@ -17,6 +17,7 @@ use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -28,6 +29,7 @@ class AddGroceryItemHandler
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
         private readonly UserRepository $userRepository,
+        private readonly Packaging $packaging,
     ) {
     }
 
@@ -113,10 +115,11 @@ class AddGroceryItemHandler
         $unit = null !== $command->unit ? Unit::from($command->unit) : null;
         $quantity = $command->quantity;
 
-        // A product with a packaging is counted in it: « Riz » alone is one pack.
-        if (null === $unit && null !== $matched && null !== $matched->getPackagingUnit()) {
+        // A product with a packaging is counted in it, whatever the unit it is
+        // asked in: « Riz » alone, or 300 g of it, is one pack.
+        if (null !== $matched && null !== $matched->getPackagingUnit()) {
+            $quantity = (float) $this->packaging->inPackagings($matched, $quantity, $unit);
             $unit = $matched->getPackagingUnit();
-            $quantity ??= 1.0;
         }
 
         $mergeable = null !== $matched ? $this->findMergeable($list, $matched, $unit) : null;
@@ -147,9 +150,11 @@ class AddGroceryItemHandler
     }
 
     /**
-     * The line an added product joins instead of doubling: same product, same
-     * unit, not yet in the basket — a ticked line is never merged, the new need
-     * must not hide in it (same key as `MealGrocerySync::findMergeable()`).
+     * The line an added product joins instead of doubling: same product, not
+     * yet in the basket — a ticked line is never merged, the new need must not
+     * hide in it (same key as `MealGrocerySync::findMergeable()`). Without a
+     * packaging the unit must match too; with one, every line counts in the
+     * packaging, whatever an older line says.
      */
     private function findMergeable(GroceryList $list, Product $product, ?Unit $unit): ?GroceryItem
     {
@@ -158,9 +163,8 @@ class AddGroceryItemHandler
                 continue;
             }
 
-            // A line with no unit of a packaged product reads as that packaging (« 2 » is 2 packs).
             if ((string) $existing->getProduct()?->getId() === (string) $product->getId()
-                && ($existing->getUnit() ?? $product->getPackagingUnit()) === $unit) {
+                && (null !== $product->getPackagingUnit() || $existing->getUnit() === $unit)) {
                 return $existing;
             }
         }
@@ -170,12 +174,17 @@ class AddGroceryItemHandler
 
     private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit): void
     {
-        $existing->setUnit($unit);
+        $product = $existing->getProduct();
 
-        // Without a quantity on either side there is nothing to count: the line is already there.
-        if (null !== $quantity || null !== $existing->getQuantity()) {
+        if (null !== $product && null !== $product->getPackagingUnit()) {
+            $current = $this->packaging->inPackagings($product, $existing->getQuantity(), $existing->getUnit());
+            $existing->setQuantity((float) $current + ($quantity ?? 1.0));
+        } elseif (null !== $quantity || null !== $existing->getQuantity()) {
+            // Without a quantity on either side there is nothing to count: the line is already there.
             $existing->setQuantity(($existing->getQuantity() ?? 1.0) + ($quantity ?? 1.0));
         }
+
+        $existing->setUnit($unit);
 
         // Added by hand, so wanted now: a line deferred by a meal's shelf life comes back.
         $existing->setBuyAfter(null);

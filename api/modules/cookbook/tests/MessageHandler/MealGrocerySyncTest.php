@@ -605,11 +605,11 @@ class MealGrocerySyncTest extends KernelTestCase
     {
         $this->planChosenPasta();
 
-        // A meal that has not chosen still derives, on lines of its own: grams
-        // do not join a line in packs.
+        // A meal that has not chosen still derives, and a packaged product is
+        // counted in its packaging on the derived path too: it joins the line in packs.
         $this->planMeal('pasta');
 
-        self::assertSame(['Pâtes 1 pack', 'Pâtes 400 g', 'Tomate 4 piece'], $this->unitList());
+        self::assertSame(['Pâtes 2 pack', 'Tomate 4 piece'], $this->unitList());
         self::assertSame(3, $this->contributionCount());
     }
 
@@ -681,6 +681,41 @@ class MealGrocerySyncTest extends KernelTestCase
         // The pasta is already in the basket; the tomatoes are the gratin's alone now.
         self::assertSame(['Parmesan' => 80.0, 'Pâtes' => 400.0, 'Tomate' => 2.0], $this->list());
         $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
+    }
+
+    public function testAPackagedIngredientLandsOnTheListInPackagingsWhateverTheRecipeUnit(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+
+        $this->planMeal('pasta');
+
+        // 400 g in 500 g packs: one pack. The recipe only proposes the count.
+        self::assertSame(['Pâtes 1 pack', 'Tomate 4 piece'], $this->unitList());
+    }
+
+    public function testEditingARecipeMovesAPackagedLineByWholePackagings(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+        $this->planMeal('pasta');
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+        self::assertSame(['Pâtes 2 pack', 'Tomate 4 piece'], $this->unitList());
+
+        $this->editRecipe('pasta', [['pasta_product', 1.1, 'kg'], ['tomato', 4, 'piece']]);
+        self::assertSame(['Pâtes 3 pack', 'Tomate 4 piece'], $this->unitList());
+    }
+
+    public function testTwoMealsOnOnePackagedLineAddUpTheirPackagingsAndGiveThemBack(): void
+    {
+        $this->givePackaging('pasta_product', 500);
+        $this->planMeal('pasta');
+        $second = $this->planMealOn('pasta', '+2 days');
+
+        self::assertSame(['Pâtes 2 pack', 'Tomate 8 piece'], $this->unitList());
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $second));
+
+        self::assertSame(['Pâtes 1 pack', 'Tomate 4 piece'], $this->unitList());
     }
 
     /** Plans tomorrow's pasta, then chooses only the pasta — 400 g, 1 pack of 500 g. */

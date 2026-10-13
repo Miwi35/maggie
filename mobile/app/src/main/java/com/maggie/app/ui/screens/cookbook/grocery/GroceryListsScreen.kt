@@ -60,6 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import sh.calvin.reorderable.ReorderableItem
@@ -356,9 +358,9 @@ fun GroceryScreen(
             item = item,
             products = uiState.products,
             stores = uiState.stores,
-            onSave = { label, quantity, unit, storeId, storeName, category ->
+            onSave = { label, quantity, storeId, storeName, category ->
                 item.id?.let { itemId ->
-                    viewModel.updateItem(itemId, label, quantity, unit, storeId, storeName, category)
+                    viewModel.updateItem(itemId, label, quantity, null, storeId, storeName, category)
                 }
                 detailItem = null
             },
@@ -598,13 +600,22 @@ private fun GroceryItemRow(
                 },
             )
         }
-        if (item.id != null) {
+        if (item.id != null && item.isPackaged) {
             QuantityStepper(
                 item = item,
                 onIncrement = onIncrement,
                 onDecrement = onDecrement,
                 onSetQuantity = onSetQuantity,
             )
+        } else {
+            item.quantityHint()?.let { hint ->
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { contentDescription = "Quantité indicative de ${item.label} : $hint" },
+                )
+            }
         }
     }
 }

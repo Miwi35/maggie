@@ -71,6 +71,11 @@ Maggie\Cookbook\Entity\Recipe:
     name: Cabillaud au four
     servings: 2
     user: '@test_user'
+  # The same rice twice, in two units: 300 g and 0.2 kg make exactly one 500 g pack together, not two.
+  rice_twice:
+    name: Riz deux fois
+    servings: 2
+    user: '@test_user'
   other_recipe:
     name: Riz cantonais
     servings: 2
@@ -97,6 +102,16 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     ingredient: '@fish'
     quantity: 300
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_twice_g:
+    recipe: '@rice_twice'
+    ingredient: '@rice'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_twice_kg:
+    recipe: '@rice_twice'
+    ingredient: '@rice'
+    quantity: 0.2
+    unit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
   ri_other_rice:
     recipe: '@other_recipe'
     ingredient: '@other_rice'

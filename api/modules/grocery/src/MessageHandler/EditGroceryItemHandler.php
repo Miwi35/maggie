@@ -14,6 +14,7 @@ use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -23,6 +24,7 @@ class EditGroceryItemHandler
         private readonly EntityManagerInterface $em,
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
+        private readonly Packaging $packaging,
     ) {
     }
 
@@ -82,17 +84,37 @@ class EditGroceryItemHandler
             }
         }
 
-        // Quantity change
-        if (null !== $command->quantity) {
-            $item->setQuantity($command->quantity);
-        }
+        $packagingUnit = $product?->getPackagingUnit();
 
-        // Unit change
-        if (null !== $command->unit) {
-            $unit = Unit::from($command->unit);
-            $item->setUnit($unit);
-            if (null !== $product && $product->getDefaultUnit() !== $unit) {
-                $product->setDefaultUnit($unit);
+        if (null !== $packagingUnit) {
+            // A packaged product's line is a count of packagings, whatever the
+            // unit the quantity is sent in: 600 g of a 500 g pack is 2 packs.
+            // A unit alone changes nothing: there is no other unit to count in.
+            if (null !== $command->quantity) {
+                $item->setQuantity((float) $this->packaging->inPackagings(
+                    $product,
+                    $command->quantity,
+                    null !== $command->unit ? Unit::from($command->unit) : $packagingUnit,
+                ));
+                $item->setUnit($packagingUnit);
+            } elseif ($item->getUnit() !== $packagingUnit) {
+                // A line renamed onto a packaged product ("300 g" becoming "Riz") is counted in its packagings too.
+                $item->setQuantity((float) $this->packaging->inPackagings($product, $item->getQuantity(), $item->getUnit()));
+                $item->setUnit($packagingUnit);
+            }
+        } else {
+            // Quantity change
+            if (null !== $command->quantity) {
+                $item->setQuantity($command->quantity);
+            }
+
+            // Unit change
+            if (null !== $command->unit) {
+                $unit = Unit::from($command->unit);
+                $item->setUnit($unit);
+                if (null !== $product && $product->getDefaultUnit() !== $unit) {
+                    $product->setDefaultUnit($unit);
+                }
             }
         }
 

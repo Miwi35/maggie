@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryItemSource
 import com.maggie.app.data.model.Product
@@ -44,7 +43,7 @@ fun ItemDetailSheet(
     item: GroceryItem,
     products: List<Product>,
     stores: List<Store>,
-    onSave: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ItemDetailContent(item = item, products = products, stores = stores, onSave = onSave) { body ->
@@ -66,17 +65,15 @@ fun ItemDetailContent(
     item: GroceryItem,
     products: List<Product>,
     stores: List<Store>,
-    onSave: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
     modifier: Modifier = Modifier,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     var label by remember { mutableStateOf(item.label) }
-    var quantityText by remember { mutableStateOf(item.quantity?.toString() ?: "") }
-    var selectedUnit by remember { mutableStateOf(item.unit) }
+    var quantityText by remember { mutableStateOf(item.quantity?.let(::formatQuantity) ?: "") }
     var selectedCategory by remember { mutableStateOf(item.product?.category) }
     var selectedStoreId by remember { mutableStateOf(item.store?.id) }
     var storeText by remember { mutableStateOf(item.store?.name ?: "") }
-    var unitExpanded by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var showProductPicker by remember { mutableStateOf(false) }
     var showStorePicker by remember { mutableStateOf(false) }
@@ -122,48 +119,16 @@ fun ItemDetailContent(
                 )
             }
 
-            // Quantity + Unit row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            // Only a packaged product has a quantity to set: its number of packagings.
+            if (item.isPackaged) {
                 OutlinedTextField(
                     value = quantityText,
                     onValueChange = { quantityText = it },
-                    label = { Text("Quantité") },
-                    modifier = Modifier.weight(1f),
+                    label = { Text("Nombre de ${unitLabel(item.countedUnit, 2f)}") },
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
-
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    OutlinedTextField(
-                        value = selectedUnit?.name?.lowercase() ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Unité") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false },
-                    ) {
-                        CookbookUnit.entries.forEach { unit ->
-                            DropdownMenuItem(
-                                text = { Text(unit.name.lowercase()) },
-                                onClick = {
-                                    selectedUnit = unit
-                                    unitExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
             }
 
             // Category picker
@@ -249,11 +214,10 @@ fun ItemDetailContent(
             Button(
                 onClick = {
                     if (label.isNotBlank()) {
-                        val qty = quantityText.toFloatOrNull()
-                        val unitStr = selectedUnit?.name?.lowercase()
+                        val qty = if (item.isPackaged) parseQuantity(quantityText) else null
                         val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
                         val catStr = selectedCategory?.name?.lowercase()
-                        onSave(label.trim(), qty, unitStr, selectedStoreId, sName, catStr)
+                        onSave(label.trim(), qty, selectedStoreId, sName, catStr)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -271,7 +235,6 @@ fun ItemDetailContent(
             initialQuery = label,
             onSelectProduct = { product ->
                 label = product.name
-                product.defaultUnit?.let { selectedUnit = it }
                 selectedCategory = product.category
                 resolvePreferredStore(product, stores)?.let { store ->
                     selectedStoreId = store.id

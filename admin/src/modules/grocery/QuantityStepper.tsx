@@ -47,8 +47,8 @@ export function QuantityStepper({ label, quantity, unit, packaging, disabled, on
       <IconButton
         size="small"
         aria-label={`Diminuer la quantité de ${label}`}
-        disabled={disabled || !canDecrease(quantity, unit)}
-        onClick={() => onChange(decreaseQuantity(quantity, unit))}
+        disabled={disabled || !canDecrease(quantity)}
+        onClick={() => onChange(decreaseQuantity(quantity))}
       >
         <RemoveIcon fontSize="small" />
       </IconButton>
@@ -59,7 +59,7 @@ export function QuantityStepper({ label, quantity, unit, packaging, disabled, on
           variant="body2"
           aria-label={`Modifier la quantité de ${label}`}
           disabled={disabled}
-          onClick={() => setDraft(quantity != null ? String(quantity).replace('.', ',') : '')}
+          onClick={() => setDraft(quantity != null ? String(quantity) : '')}
           sx={{
             minWidth: 56,
             textAlign: 'center',
@@ -93,7 +93,7 @@ export function QuantityStepper({ label, quantity, unit, packaging, disabled, on
             }
           }}
           slotProps={{
-            htmlInput: { 'aria-label': `Quantité de ${label}`, inputMode: 'decimal', style: { textAlign: 'center' } },
+            htmlInput: { 'aria-label': `Quantité de ${label}`, inputMode: 'numeric', style: { textAlign: 'center' } },
           }}
           sx={{ width: 72 }}
         />
@@ -107,7 +107,7 @@ export function QuantityStepper({ label, quantity, unit, packaging, disabled, on
         size="small"
         aria-label={`Augmenter la quantité de ${label}`}
         disabled={disabled}
-        onClick={() => onChange(increaseQuantity(quantity, unit))}
+        onClick={() => onChange(increaseQuantity(quantity))}
       >
         <AddIcon fontSize="small" />
       </IconButton>

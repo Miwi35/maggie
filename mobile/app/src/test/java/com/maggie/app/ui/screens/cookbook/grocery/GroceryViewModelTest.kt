@@ -823,12 +823,22 @@ class GroceryViewModelTest {
         assertNull(formatBuyAfter("not a date"))
     }
 
-    // --- MAG-291: − / + and typed quantity on the line ---
+    // --- MAG-291 / MAG-299: − / + and typed count of packagings on the line ---
+
+    private val rice = Product(
+        id = "product-riz",
+        name = "Riz",
+        category = ProductCategory.GRAIN,
+        packagingUnit = CookbookUnit.PACK,
+        packagingSize = 500f,
+        packagingSizeUnit = CookbookUnit.G,
+    )
 
     private val quantityItems = listOf(
-        GroceryItem(id = "item-riz", label = "Riz", quantity = 1f, unit = CookbookUnit.PACK, store = store, position = 0),
-        GroceryItem(id = "item-farine", label = "Farine", quantity = 500f, unit = CookbookUnit.G, store = store, position = 1),
-        GroceryItem(id = "item-sel", label = "Sel", store = store, position = 2),
+        GroceryItem(id = "item-riz", label = "Riz", product = rice, quantity = 1f, unit = CookbookUnit.PACK, store = store, position = 0),
+        GroceryItem(id = "item-semoule", label = "Semoule", product = rice, quantity = 2f, unit = CookbookUnit.PACK, store = store, position = 1),
+        GroceryItem(id = "item-farine", label = "Farine", quantity = 500f, unit = CookbookUnit.G, store = store, position = 2),
+        GroceryItem(id = "item-sel", label = "Sel", store = store, position = 3),
     )
 
     private fun stubQuantities(editResult: Result<Unit> = Result.success(Unit)) {
@@ -851,7 +861,7 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `plus shows the next quantity at once and saves it after the delay`() = runTest {
+    fun `plus shows the next count at once and saves it after the delay`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -871,7 +881,7 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `two taps on plus are one request carrying 3`() = runTest {
+    fun `two taps on plus are one request carrying 3 packs`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -888,7 +898,7 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `plus plus minus is one request carrying the net quantity`() = runTest {
+    fun `plus plus minus is one request carrying the net count`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -902,135 +912,62 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `minus at the minimum changes nothing and sends nothing`() = runTest {
+    fun `minus takes one pack off, never below one, and sends nothing at the minimum`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.decrementQuantity(item("item-riz"))
-        viewModel.decrementQuantity(item("item-sel"))
+        viewModel.decrementQuantity(item("item-semoule"))
+        viewModel.decrementQuantity(item("item-semoule"))
         advanceUntilIdle()
 
         assertEquals(1f, quantityOf("item-riz"))
-        assertNull(quantityOf("item-sel"))
-        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
-        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+        assertEquals(1f, quantityOf("item-semoule"))
+        assertEquals(emptyList<Float?>(), sentQuantities("item-riz"))
+        assertEquals(listOf<Float?>(1f), sentQuantities("item-semoule"))
+        assertEquals(4, viewModel.uiState.value.groceryList!!.items.size)
         coVerify(exactly = 0) { groceryListRepository.deleteItem(any()) }
     }
 
     @Test
-    fun `the step follows the unit and a line without quantity starts at one step`() = runTest {
+    fun `a product without packaging has no quantity to change from the line`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.incrementQuantity(item("item-farine"))
         viewModel.incrementQuantity(item("item-sel"))
+        viewModel.decrementQuantity(item("item-farine"))
+        viewModel.setQuantity(item("item-farine"), "3")
         advanceUntilIdle()
 
-        assertEquals(listOf<Float?>(600f), sentQuantities("item-farine"))
-        assertEquals(listOf<Float?>(1f), sentQuantities("item-sel"))
-    }
-
-    // --- MAG-299: quantities counted in packagings ---
-
-    private val rice = Product(
-        id = "product-riz",
-        name = "Riz",
-        category = ProductCategory.GRAIN,
-        packagingUnit = CookbookUnit.PACK,
-        packagingSize = 500f,
-        packagingSizeUnit = CookbookUnit.G,
-    )
-
-    private fun stubPackaged() {
-        val items = listOf(
-            GroceryItem(id = "item-riz", label = "Riz", product = rice, quantity = 1f, unit = CookbookUnit.PACK, store = store, position = 0),
-            GroceryItem(id = "item-semoule", label = "Semoule", product = rice, quantity = 2f, store = store, position = 1),
-            GroceryItem(id = "item-riz-g", label = "Riz basmati", product = rice, quantity = 300f, unit = CookbookUnit.G, store = store, position = 2),
-        )
-        coEvery { groceryListRepository.getGroceryList() } returns Result.success(GroceryList(id = "list-1", items = items))
-        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+        assertEquals(500f, quantityOf("item-farine"))
+        assertNull(quantityOf("item-sel"))
+        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
-    fun `two taps on plus on a packaged line make 3 packs in a single request`() = runTest {
-        stubPackaged()
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.incrementQuantity(item("item-riz"))
-        viewModel.incrementQuantity(item("item-riz"))
-        runCurrent()
-
-        assertEquals(3f, quantityOf("item-riz"))
-        advanceUntilIdle()
-
-        assertEquals(listOf<Float?>(3f), sentQuantities("item-riz"))
-    }
-
-    @Test
-    fun `minus on a packaged line takes one pack off, never below one`() = runTest {
-        stubPackaged()
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.decrementQuantity(item("item-semoule"))
-        viewModel.decrementQuantity(item("item-semoule"))
-        advanceUntilIdle()
-
-        assertEquals(listOf<Float?>(1f), sentQuantities("item-semoule"))
-        assertEquals(1f, quantityOf("item-semoule"))
-    }
-
-    @Test
-    fun `a line in grams of a packaged product keeps the free step`() = runTest {
-        stubPackaged()
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.incrementQuantity(item("item-riz-g"))
-        advanceUntilIdle()
-
-        assertEquals(listOf<Float?>(400f), sentQuantities("item-riz-g"))
-    }
-
-    @Test
-    fun `a refused change on a packaged line puts the previous packs back and says so`() = runTest {
-        stubPackaged()
-        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns
-            Result.failure(RuntimeException("400"))
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.incrementQuantity(item("item-riz"))
-        advanceUntilIdle()
-
-        assertEquals(1f, quantityOf("item-riz"))
-        assertNotNull(viewModel.uiState.value.quantityMessage)
-    }
-
-    @Test
-    fun `a typed quantity is saved, a comma being a decimal point`() = runTest {
+    fun `a typed count is saved`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.setQuantity(item("item-riz"), "2,5")
+        viewModel.setQuantity(item("item-riz"), "4")
         runCurrent()
-        assertEquals(2.5f, quantityOf("item-riz"))
+        assertEquals(4f, quantityOf("item-riz"))
         advanceUntilIdle()
 
-        assertEquals(listOf<Float?>(2.5f), sentQuantities("item-riz"))
+        assertEquals(listOf<Float?>(4f), sentQuantities("item-riz"))
     }
 
     @Test
-    fun `an empty, zero, negative or non numeric quantity is refused and nothing is sent`() = runTest {
+    fun `an empty, zero, negative, decimal or non numeric count is refused and nothing is sent`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        for (typed in listOf("", "0", "-3", "abc")) {
+        for (typed in listOf("", "0", "-3", "2,5", "abc")) {
             viewModel.dismissQuantityMessage()
             viewModel.setQuantity(item("item-riz"), typed)
             assertNotNull("'$typed' should be refused", viewModel.uiState.value.quantityMessage)
@@ -1042,7 +979,7 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `an API refusal puts the previous quantity back with a message`() = runTest {
+    fun `an API refusal puts the previous count back with a message`() = runTest {
         stubQuantities(editResult = Result.failure(RuntimeException("400")))
         viewModel = createViewModel()
         advanceUntilIdle()

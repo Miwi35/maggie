@@ -21,6 +21,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -98,7 +99,7 @@ class MealGroceryChoiceTest extends KernelTestCase
     {
         $mealId = $this->planMeal('curry');
         // Today's behaviour, before the choice: everything, in recipe units.
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 300.0, 'g']], $this->list());
+        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
 
         $this->choose($mealId, ['rice']);
 
@@ -151,16 +152,46 @@ class MealGroceryChoiceTest extends KernelTestCase
         self::assertSame([['Riz', 3.0, 'pack']], $this->list());
     }
 
-    public function testALineAlreadyInTheBasketStaysAndTheChosenLineIsAddedBesideIt(): void
+    /** @return iterable<string, array{float, float}> */
+    public static function forcedCounts(): iterable
+    {
+        yield 'a fraction is rounded up' => [1.5, 2.0];
+        yield 'less than one is one' => [0.2, 1.0];
+    }
+
+    #[DataProvider('forcedCounts')]
+    public function testAForcedCountOfPackagingsIsAWholeNumber(float $forced, float $expected): void
+    {
+        $mealId = $this->planMeal('curry');
+
+        $this->bus()->dispatch(new ChooseMealGroceriesCommand(
+            mealId: $mealId,
+            userId: (string) $this->user()->getId(),
+            chosen: [(string) $this->getFixture('rice')->getId() => $forced],
+        ));
+
+        self::assertSame([['Riz', $expected, 'pack']], $this->list());
+    }
+
+    public function testTwoRecipeLinesOfOnePackagedProductAreRoundedUpOnce(): void
+    {
+        $mealId = $this->planMeal('rice_twice');
+        $this->choose($mealId, ['rice']);
+
+        self::assertSame([['Riz', 1.0, 'pack']], $this->list());
+    }
+
+    public function testALineAlreadyInTheBasketStaysAndTheChosenPackIsNotBoughtTwice(): void
     {
         $mealId = $this->planMeal('curry');
         $this->check('Riz');
 
         $this->choose($mealId, ['rice']);
 
-        // The shopper carried the 300 g home: that line is not taken back,
-        // and the pack goes on a line of its own.
-        self::assertSame([['Riz', 1.0, 'pack'], ['Riz', 300.0, 'g']], $this->list());
+        // The shopper carried the pack home: the derived line was already in
+        // packs, the choice asks for the same one and leaves the bought line be.
+        self::assertSame([['Riz', 1.0, 'pack']], $this->list());
+        self::assertTrue($this->item('Riz')->isChecked());
         self::assertSame([[1.0, 'pack']], $this->contributions());
     }
 
@@ -233,7 +264,7 @@ class MealGroceryChoiceTest extends KernelTestCase
             self::assertInstanceOf(\DomainException::class, $e->getPrevious());
         }
 
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 300.0, 'g']], $this->list());
+        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
         self::assertNull($this->meal($mealId)->getGroceryChoiceMadeAt());
     }
 
@@ -249,7 +280,7 @@ class MealGroceryChoiceTest extends KernelTestCase
         $this->sync()->syncChoice($meal, $lines);
         $this->em()->clear();
 
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 300.0, 'g']], $this->list());
+        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
         self::assertNull($this->meal($mealId)->getGroceryChoiceMadeAt());
     }
 

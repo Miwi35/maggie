@@ -10,7 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. Each line carries `quantity` and `unit` (a packaging unit such as pack or jar reads « 2 paquets »), `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out).')]
+#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. Each line carries `quantity` and `unit`: for a product bought in a packaging the quantity is always a whole number of packagings (« 2 paquets »); a product without packaging has no quantity to adjust, its quantity is only an indication. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out).')]
 class GetGroceryListTool
 {
     public function __construct(

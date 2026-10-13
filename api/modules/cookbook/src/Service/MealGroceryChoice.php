@@ -71,8 +71,9 @@ class MealGroceryChoice
      * The lines the chosen ingredients put on the list, in packagings.
      *
      * `$chosen` maps an ingredient id to the number of packagings to force, or
-     * null for what the recipes ask, rounded up. A product without packaging
-     * goes in its recipe unit, and a forced quantity is then in that unit.
+     * null for what the recipes ask, added up and rounded up. A product without
+     * packaging goes in its recipe units, and a forced quantity is then in the
+     * first of them.
      *
      * @param array<string, float|null> $chosen
      *
@@ -95,20 +96,30 @@ class MealGroceryChoice
         $lines = [];
 
         foreach ($chosen as $ingredientId => $forced) {
-            $ingredientLines = [];
+            $recipeLines = $byIngredient[(string) $ingredientId];
+            $ingredient = $recipeLines[0]['ingredient'];
+            $packagingUnit = $ingredient->getPackagingUnit();
 
-            foreach ($byIngredient[(string) $ingredientId] as $line) {
-                $buy = $this->toBuy($line);
-                $ingredientLines[] = ['ingredient' => $line['ingredient'], 'unit' => $buy['unit'], 'quantity' => (float) $buy['quantity']];
+            if (null !== $packagingUnit) {
+                // A packaged product is one line, a whole number of packagings:
+                // what the recipes ask added up and rounded up once, or the
+                // forced count (rounded up too, at least one).
+                $count = null !== $forced
+                    ? $this->packaging->inPackagings($ingredient, $forced, $packagingUnit)
+                    : $this->packaging->packagedTotal($ingredient, array_map(static fn (array $line) => [$line['quantity'], $line['unit']], $recipeLines));
+                $lines[] = ['ingredient' => $ingredient, 'unit' => $packagingUnit, 'quantity' => (float) $count];
+
+                continue;
             }
 
             if (null !== $forced) {
-                // One quantity for the product, so one line: in its packaging,
-                // or in the first unit its recipes use when it has none.
-                $ingredientLines = [['ingredient' => $ingredientLines[0]['ingredient'], 'unit' => $ingredientLines[0]['unit'], 'quantity' => $forced]];
+                // One quantity for the product, so one line: in the first unit its recipes use.
+                $lines[] = ['ingredient' => $ingredient, 'unit' => $recipeLines[0]['unit'], 'quantity' => $forced];
+
+                continue;
             }
 
-            array_push($lines, ...$ingredientLines);
+            array_push($lines, ...$recipeLines);
         }
 
         return $lines;

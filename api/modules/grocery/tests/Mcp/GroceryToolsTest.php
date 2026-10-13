@@ -117,7 +117,7 @@ class GroceryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
-    public function testAddGroceryItemInAnotherUnitMakesANewLine(): void
+    public function testGramsOfAPackagedProductRaiseItsLineByWholePackagings(): void
     {
         $this->loadFixtures('grocery_packaged.yaml');
         $this->loginFixtureUser();
@@ -126,7 +126,16 @@ class GroceryToolsTest extends KernelTestCase
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         $data = json_decode($tool('Riz', 300, 'g'), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(5, $data['itemCount']);
+        self::assertSame(4, $data['itemCount'], 'no second line for the rice');
+
+        $this->em()->clear();
+        $rice = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
+        ));
+        self::assertCount(1, $rice);
+        self::assertSame(3.0, $rice[0]->getQuantity(), '300 g of a 500 g pack is one more pack');
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
     }
 
     public function testAddGroceryItemCaseInsensitiveMatch(): void

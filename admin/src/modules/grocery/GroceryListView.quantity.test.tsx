@@ -3,7 +3,8 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GroceryListView } from './GroceryListView'
 
-// MAG-291 — − / + and direct entry of a quantity on the line itself.
+// MAG-291 — − / + and direct entry of a quantity on the line itself; MAG-299 — a
+// packaged product is counted in packagings only, the others have no quantity to manage.
 
 const eventSources: MockEventSource[] = []
 class MockEventSource {
@@ -50,7 +51,7 @@ const packaged = (id: string, label: string, quantity: number, unit: string | un
 const list = (items: object[]) => ({ id: 'list-1', '@id': '/api/grocery_lists/list-1', items })
 
 const sampleList = list([
-  line('item-riz', 'Riz', 1, 'pack', 0),
+  packaged('item-riz', 'Riz', 1, 'pack', rice, 0),
   line('item-lait', 'Lait', 1, 'l', 1),
   line('item-farine', 'Farine', 500, 'g', 2),
   line('item-sel', 'Sel', undefined, '', 3),
@@ -92,13 +93,25 @@ describe('GroceryListView — quantity on the line', () => {
     localStorage.removeItem('user')
   })
 
-  test('shows the quantity with its unit, between − and +', async () => {
+  test('a packaged product shows its packagings between − and +', async () => {
     await open()
 
     expect(within(row('Riz')).getByText('1 paquet')).toBeInTheDocument()
-    expect(within(row('Farine')).getByText('500 g')).toBeInTheDocument()
     expect(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' })).toBeInTheDocument()
     expect(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' })).toBeInTheDocument()
+  })
+
+  test('a product without packaging has no quantity to manage: its quantity is an indication only', async () => {
+    await open()
+
+    expect(within(row('Farine')).getByTestId('quantity-hint')).toHaveTextContent('500 g')
+    expect(within(row('Lait')).getByTestId('quantity-hint')).toHaveTextContent('1 l')
+    expect(within(row('Sel')).queryByTestId('quantity-hint')).not.toBeInTheDocument()
+    for (const label of ['Farine', 'Lait', 'Sel']) {
+      expect(within(row(label)).queryByTestId('quantity-stepper')).not.toBeInTheDocument()
+      expect(within(row(label)).queryByRole('button', { name: `Augmenter la quantité de ${label}` })).not.toBeInTheDocument()
+      expect(within(row(label)).queryByRole('button', { name: `Modifier la quantité de ${label}` })).not.toBeInTheDocument()
+    }
   })
 
   test('two taps on + show 3 at once and send a single request with 3', async () => {
@@ -130,33 +143,11 @@ describe('GroceryListView — quantity on the line', () => {
     expect(patches(mockFetch)[0].body).toEqual({ quantity: 2 })
   })
 
-  test('the step follows the unit: 100 g for grams, 0.1 for litres', async () => {
-    await open()
-    const user = userEvent.setup()
-
-    await user.click(within(row('Farine')).getByRole('button', { name: 'Augmenter la quantité de Farine' }))
-    await user.click(within(row('Lait')).getByRole('button', { name: 'Augmenter la quantité de Lait' }))
-
-    await waitFor(() => expect(patches(mockFetch)).toHaveLength(2))
-    const byItem = Object.fromEntries(patches(mockFetch).map((p) => [p.url.split('/').pop(), p.body.quantity]))
-    expect(byItem).toEqual({ 'item-farine': 600, 'item-lait': 1.1 })
-  })
-
-  test('− at the minimum is disabled: it never removes the line', async () => {
+  test('− at one packaging is disabled: it never removes the line', async () => {
     await open()
 
     expect(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' })).toBeDisabled()
-    expect(within(row('Sel')).getByRole('button', { name: 'Diminuer la quantité de Sel' })).toBeDisabled()
     expect(screen.getByText('Riz')).toBeInTheDocument()
-  })
-
-  test('+ on a line without quantity starts it at one step', async () => {
-    await open()
-
-    await userEvent.setup().click(within(row('Sel')).getByRole('button', { name: 'Augmenter la quantité de Sel' }))
-
-    await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 1 })
   })
 
   test('typing a quantity and pressing Enter sends it', async () => {
@@ -173,24 +164,25 @@ describe('GroceryListView — quantity on the line', () => {
     expect(patches(mockFetch)[0].body).toEqual({ quantity: 7 })
   })
 
-  test('typing a quantity and leaving the field sends it, a comma being a decimal point', async () => {
+  test('typing a number of packagings and leaving the field sends it', async () => {
     await open()
     const user = userEvent.setup()
 
-    await user.click(within(row('Lait')).getByRole('button', { name: 'Modifier la quantité de Lait' }))
-    const input = screen.getByRole('textbox', { name: 'Quantité de Lait' })
+    await user.click(within(row('Riz')).getByRole('button', { name: 'Modifier la quantité de Riz' }))
+    const input = screen.getByRole('textbox', { name: 'Quantité de Riz' })
     await user.clear(input)
-    await user.type(input, '2,5')
+    await user.type(input, '4')
     await user.tab()
 
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 2.5 })
+    expect(patches(mockFetch)[0].body).toEqual({ quantity: 4 })
   })
 
   test.each([
     ['empty', ''],
     ['zero', '0'],
     ['negative', '-3'],
+    ['not a whole number', '2,5'],
     ['not a number', 'abc'],
   ])('an invalid quantity (%s) is refused and nothing is sent', async (_name, typed) => {
     await open()
@@ -248,7 +240,7 @@ describe('GroceryListView — quantity on the line', () => {
     expect(eventSources.length).toBeGreaterThan(0)
 
     const changed = list([
-      line('item-riz', 'Riz', 4, 'pack', 0),
+      packaged('item-riz', 'Riz', 4, 'pack', rice, 0),
       line('item-lait', 'Lait', 1, 'l', 1),
       line('item-farine', 'Farine', 500, 'g', 2),
       line('item-sel', 'Sel', undefined, '', 3),
@@ -273,7 +265,6 @@ describe('GroceryListView — quantity on the line', () => {
       packaged('item-riz', 'Riz', 1, 'pack', rice, 0),
       packaged('item-confiture', 'Confiture', 2, 'jar', jam, 1),
       packaged('item-semoule', 'Semoule', 2, undefined, rice, 2),
-      packaged('item-riz-g', 'Riz basmati', 300, 'g', rice, 3),
     ])
 
     beforeEach(() => {
@@ -295,18 +286,6 @@ describe('GroceryListView — quantity on the line', () => {
 
       expect(within(row('Semoule')).getByText('2 paquets')).toBeInTheDocument()
       expect(within(row('Semoule')).getByTestId('quantity-packaging')).toHaveTextContent('(500 g)')
-    })
-
-    test('a line in grams keeps the free step and shows no pack content', async () => {
-      await open()
-      const user = userEvent.setup()
-
-      expect(within(row('Riz basmati')).getByText('300 g')).toBeInTheDocument()
-      expect(within(row('Riz basmati')).queryByTestId('quantity-packaging')).not.toBeInTheDocument()
-
-      await user.click(within(row('Riz basmati')).getByRole('button', { name: 'Augmenter la quantité de Riz basmati' }))
-      await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-      expect(patches(mockFetch)[0].body).toEqual({ quantity: 400 })
     })
 
     test('+ adds one pack and − takes one off: « 3 paquets » after two taps, one request', async () => {
@@ -355,6 +334,56 @@ describe('GroceryListView — quantity on the line', () => {
 
       await waitFor(() => expect(within(row('Riz')).getByText('4 paquets')).toBeInTheDocument())
       expect(within(row('Riz')).getByTestId('quantity-packaging')).toHaveTextContent('(500 g)')
+    })
+  })
+
+  describe('the edit dialog (MAG-299)', () => {
+    beforeEach(() => {
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve(resource === 'stores' || resource === 'products' ? { data: [], total: 0 } : { data: [sampleList], total: 1 }),
+      )
+    })
+
+    const openDialog = async (label: string) => {
+      await open()
+      await userEvent.setup().click(screen.getByText(label))
+      return screen.findByRole('dialog')
+    }
+
+    test('a packaged product offers a number of packagings and no unit', async () => {
+      const dialog = await openDialog('Riz')
+
+      expect(within(dialog).getByLabelText('Nombre de paquets')).toHaveValue(1)
+      expect(within(dialog).queryByLabelText('Unité')).not.toBeInTheDocument()
+    })
+
+    test('a product without packaging offers no quantity and no unit, and saving sends none', async () => {
+      const user = userEvent.setup()
+      await open()
+      await user.click(screen.getByText('Farine'))
+      const dialog = await screen.findByRole('dialog')
+
+      expect(within(dialog).queryByLabelText(/Quantité|Nombre de/)).not.toBeInTheDocument()
+      expect(within(dialog).queryByLabelText('Unité')).not.toBeInTheDocument()
+
+      await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+      await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
+      expect(patches(mockFetch)[0].body).not.toHaveProperty('quantity')
+      expect(patches(mockFetch)[0].body).not.toHaveProperty('unit')
+    })
+
+    test('saving a packaged product sends its number of packagings and no unit', async () => {
+      const user = userEvent.setup()
+      const dialog = await openDialog('Riz')
+
+      const field = within(dialog).getByLabelText('Nombre de paquets')
+      await user.clear(field)
+      await user.type(field, '3')
+      await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
+      expect(patches(mockFetch)[0].body).toMatchObject({ quantity: 3 })
+      expect(patches(mockFetch)[0].body).not.toHaveProperty('unit')
     })
   })
 })

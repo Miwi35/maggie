@@ -10,6 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -630,23 +631,74 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertSame(1.0, $fresh[0]->getQuantity());
     }
 
-    public function testAnotherUnitMakesANewLine(): void
+    public function testAnotherUnitMakesANewLineForAProductWithoutPackaging(): void
     {
         $this->loadMergeFixtures();
 
         $this->addItem(['label' => 'Farine', 'quantity' => 1, 'unit' => 'pack']);
         self::assertResponseIsSuccessful();
 
+        $flour = $this->itemsOf('Farine');
+        self::assertCount(2, $flour);
+    }
+
+    public function testGramsOfAPackagedProductAreAPackagingCountOnItsLine(): void
+    {
+        $this->loadMergeFixtures();
+
+        // The refused recette: « 300 g » of rice with a 500 g pack is one pack, and + makes two.
         $this->addItem(['label' => 'Riz', 'quantity' => 300, 'unit' => 'g']);
         self::assertResponseIsSuccessful();
 
-        $flour = $this->itemsOf('Farine');
-        self::assertCount(2, $flour);
         $rice = $this->itemsOf('Riz');
-        self::assertCount(2, $rice);
-        $quantities = array_map(static fn (GroceryItem $i) => [$i->getUnit()?->value, $i->getQuantity()], $rice);
-        sort($quantities);
-        self::assertSame([['g', 300.0], ['pack', 1.0]], $quantities);
+        self::assertCount(1, $rice);
+        self::assertSame(2.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+    }
+
+    public function testKilogramsOfAPackagedProductRoundUpToWholePackagings(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 1.2, 'unit' => 'kg']);
+        self::assertResponseIsSuccessful();
+
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(4.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+    }
+
+    public function testAPackagedProductOfUnknownContentAddedInGramsIsOneJar(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Semoule', 'quantity' => 300, 'unit' => 'g']);
+        self::assertResponseIsSuccessful();
+
+        $semolina = $this->itemsOf('Semoule');
+        self::assertCount(1, $semolina);
+        self::assertSame(1.0, $semolina[0]->getQuantity());
+        self::assertSame('jar', $semolina[0]->getUnit()?->value);
+    }
+
+    public function testALegacyLineInGramsOfAPackagedProductIsNotKeptAside(): void
+    {
+        $this->loadMergeFixtures();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $rice = $em->getRepository(GroceryItem::class)->findOneBy(['product' => $this->getFixture('product_riz')]);
+        $rice->setQuantity(300);
+        $rice->setUnit(Unit::Gram);
+        $em->flush();
+        $em->clear();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 1, 'unit' => 'pack']);
+        self::assertResponseIsSuccessful();
+
+        $lines = $this->itemsOf('Riz');
+        self::assertCount(1, $lines, 'a pack added to a line still in grams joins it instead of making a second line');
+        self::assertSame(2.0, $lines[0]->getQuantity());
+        self::assertSame('pack', $lines[0]->getUnit()?->value);
     }
 
     public function testMergingMatchesTheProductNameCaseInsensitively(): void
