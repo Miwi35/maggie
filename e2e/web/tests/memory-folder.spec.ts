@@ -16,7 +16,7 @@ import { DashboardPage } from '../pages/DashboardPage.js'
 const TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 const headers = { 'X-E2E-Token': TOKEN, 'Content-Type': 'application/json' }
 
-const FICHE = 'Famille/Françoise aime les pivoines.md'
+const FICHE = 'Famille/Françoise et les fleurs.md'
 const GIFT = 'Famille/Un cadeau pour Françoise.md'
 
 const fiche = (text: string, resume: string): string => `---\nresume: ${resume}\nevoque: [fleurs, cadeau]\n---\n\n${text}\n`
