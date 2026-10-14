@@ -41,10 +41,10 @@ export const RecurrenceSection = ({ record }: { record: RaRecord }) => {
     { id: link.recurringOperation ?? '' },
     { enabled: link.recurringOperation !== null },
   )
-  const { data: allSeries = [] } = useGetList<RaRecord & { label: string }>('recurring_operations', {
+  const { data: seriesList = [] } = useGetList<RaRecord & { label: string }>('recurring_operations', {
     pagination: { page: 1, perPage: 100 },
-    sort: { field: 'label', order: 'ASC' },
   })
+  const allSeries = [...seriesList].sort((a, b) => a.label.localeCompare(b.label, 'fr'))
 
   const reload = useCallback(async () => {
     try {

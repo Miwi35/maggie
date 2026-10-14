@@ -77,7 +77,8 @@ export class FinanceAccountsPage extends AdminShell {
    * button any more. `index` picks among rows sharing a label, latest first.
    */
   async openTransaction(label: string, index = 0): Promise<void> {
-    await this.row(label).nth(index).getByRole('cell').first().click()
+    // The first cell holds the bulk-select checkbox, which does not open the sheet.
+    await this.row(label).nth(index).getByText(label).first().click()
     await expect(this.content.getByRole('button', { name: 'Enregistrer' })).toBeVisible()
   }
 

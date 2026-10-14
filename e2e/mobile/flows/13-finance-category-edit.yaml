@@ -187,8 +187,10 @@ tags:
 - scrollUntilVisible:
     element:
       id: "sheet_section_note"
-- assertVisible:
-    id: "sheet_section_recurrence"
+- extendedWaitUntil:
+    visible:
+      id: "sheet_section_recurrence"
+    timeout: 10000
 - assertVisible:
     id: "sheet_section_partage"
 - assertVisible:
