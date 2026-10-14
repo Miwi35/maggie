@@ -399,7 +399,7 @@ tasks:
     # leaves its own writes and the last scenario's conversation behind — run
     # `task e2e:seed` before a journey. And unless you export ANTHROPIC_MODEL, the
     # agent falls back to its own default rather than what production serves — the
-    # nightly reads that from infra/k8s/configmap.yaml, and the two have differed.
+    # eval workflow reads that from infra/k8s/configmap.yaml, and the two have differed.
     # The report header prints whichever model answered.
     vars:
       BASE_URL:
