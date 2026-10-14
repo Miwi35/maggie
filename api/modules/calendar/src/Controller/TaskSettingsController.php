@@ -80,7 +80,13 @@ final class TaskSettingsController
                 orderWeights: $body['orderWeights'],
             ));
         } catch (HandlerFailedException $e) {
-            return new JsonResponse(['error' => ($e->getPrevious() ?? $e)->getMessage()], Response::HTTP_BAD_REQUEST);
+            // A refused weight is the caller's; anything else is ours, and not theirs to read.
+            $cause = $e->getPrevious() ?? $e;
+            if (!$cause instanceof \DomainException) {
+                throw $e;
+            }
+
+            return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
         }
 
         return new JsonResponse(GetTaskSettings::describe($this->getTaskSettings->forUser($user)));

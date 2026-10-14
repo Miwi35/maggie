@@ -116,7 +116,7 @@ test('ticking a task off on the dashboard completes it and takes it out of the d
  * day, and ticking it takes it out of the day. The lateness comes from the API (`overdueDays`), counted in the
  * user's timezone: the page only draws it.
  */
-test('a late task heads « Aujourd\'hui », says how late it is, and leaves when ticked', async ({ page, api }) => {
+test('a late task stays in « Aujourd\'hui » before the day\'s own, says how late it is, and leaves when ticked', async ({ page, api }) => {
   const title = 'Renvoyer le formulaire de la mutuelle'
   const taskId = seedId('e2e_task_late')
 
