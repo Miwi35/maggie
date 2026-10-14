@@ -47,8 +47,6 @@ frontend:
     description: Veilleuse, the admin's identity — one accent, pills, Geist with tabular figures, contrast tested, radiant merge pitfalls, Maggie's interruption and the chat
 
 global:
-  agent-guard-rails:
-    description: What an agent may merge alone — needs-human triggers, diff size limit, two red CIs, AGENT_ENABLED emergency stop, task guard:*
   design-system:
     description: One identity, two platforms — design/tokens.json as the source, a typed mirror and a contract test per platform, the two colour families, what is deliberately not a token
   e2e-environment:

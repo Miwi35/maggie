@@ -8,10 +8,11 @@ user-invocable: false
 
 One line per event in the Actions list (MAG-244), each with a `run-name`:
 
-- PR push → `ci.yml` (`Pull request`): path detection, guard, lint, tests, e2e, mobile unit tests
-- Merge on `main` → `main.yml` (`Main`): CI (calls `ci.yml`) → gate → build → deploy → smoke → lift the freeze → release the held PRs, or rollback
+- PR push → `ci.yml` (`Pull request`): path detection, lint, tests, e2e, mobile unit tests
+- Merge on `main` → `main.yml` (`Main`): CI (calls `ci.yml`) → gate → build → deploy → smoke → publish the mobile app, or rollback
 - Night → `nightly.yml`: CI with no path filter + real-model eval
-- No `workflow_run`, no 10-minute cron (an hourly safety net, `incident-gate-release.yml`)
+- No `workflow_run`, no cron on the pipeline
+- The agent guard and the freeze after a failed deploy live in Cyrus (`cyrus-pilot`), not in this repository's workflows
 
 ## CI Workflow (`.github/workflows/ci.yml`)
 

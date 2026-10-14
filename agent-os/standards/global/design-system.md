@@ -59,7 +59,7 @@ data, not the identity.
   `readableTextOn` / `getEventTextColor` pick between the first two.
 - **`admin/src/auth/`** — the sign-in and loading screens are drawn on the night
   surface and still say so in hex. Every change under that path is handed to a
-  human by the guard (`agent-guard-rails.md`, `permissions`), so a background
+  human by Cyrus's guard (auth), so a background
   colour travels with the next ticket that has a reason to be there.
 - **The colour a picker starts on** — a new agenda's `#1976D2`
   (`CalendarView.tsx`), the `#4CAF50` in a field's help text. The owner replaces

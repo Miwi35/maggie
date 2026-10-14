@@ -1,14 +1,13 @@
 name: Pull request
 
 # One line per push on a pull request (MAG-244): this workflow is the whole
-# pipeline of a PR — path detection, the agent guard, the CI jobs, the mobile
-# unit tests and the incident gate. A job that has nothing to
-# do is skipped, not a workflow. Job names are the required checks, so they do
+# pipeline of a PR — path detection, the CI jobs and the mobile unit tests.
+# A job that has nothing to do is skipped, not a workflow. Job names are the required checks, so they do
 # not change when a job moves here.
 #
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
-# runs every job, a merge applies the path filters, and neither runs the jobs that
-# only mean something on a pull request (guard, Incident gate).
+# runs every job, a merge applies the path filters, and neither runs the job that
+# only means something on a pull request (PR checks passed).
 #
 # The merge queue (owner's decision, 9 Oct.) runs it a second time on
 # `merge_group`: the commit GitHub builds from main, the PRs ahead in the queue
@@ -1358,129 +1357,6 @@ jobs:
           format: jacoco
           report: mobile/app/build/reports/kover/reportProdRelease.xml
 
-  # Guard rails of the autonomous agent (MAG-128). Not a required check: a pull
-  # request that trips a rail is not blocked, it is handed to a human — labelled
-  # `needs-human`, auto-merge switched off, the reason in a comment. The diff
-  # touches infra, the CD, secrets, auth, permissions, a destructive migration or
-  # policy.yaml; is bigger than the limit; disables a test or skips the hooks
-  # (scripts/agent-guard/check.sh). A batch of the merge train (label `batch`,
-  # MAG-262) is judged PR by PR, each listed PR with these same rules, and must be
-  # exactly their sum (scripts/agent-guard/judge.sh). AGENT_ENABLED=false hands
-  # every agent pull request over. The fix of an « Emergency » ticket merges its infra change alone
-  # (emergency.sh, MAG-184).
-  #
-  # This job runs the pull request's own copy of the scripts, so a PR could edit
-  # its own guard: `agent-guard.yml` re-runs the same check from the default
-  # branch when auto-merge is switched on or the PR enters the merge queue, which
-  # is the one that cannot be edited.
-  #
-  # Drafts included (9 Oct.): a rail tripped on the first push is said at once.
-  # Not on a merge group: the group is main plus PRs this job already judged one
-  # by one, and the guard is not a required check, so its absence blocks nothing.
-  guard:
-    name: Sensitive changes and limits
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      PR: ${{ github.event.pull_request.number }}
-      BRANCH: ${{ github.event.pull_request.head.ref }}
-      AGENT_ENABLED: ${{ vars.AGENT_ENABLED }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check the diff
-        env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-        run: |
-          # A pull request labelled `batch` is judged PR by PR (judge.sh, MAG-262).
-          status=0
-          scripts/agent-guard/judge.sh "$PR" > findings.txt || status=$?
-          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* || "$BRANCH" == train/batch-* ]]; then
-            echo "agent-disabled: AGENT_ENABLED is false, the autonomous agent is stopped" >> findings.txt
-            status=10
-          fi
-          [ "$status" -eq 0 ] || [ "$status" -eq 10 ] || exit "$status"
-          # The fix of an « Emergency » ticket merges its infra change alone; any
-          # other finding, or any doubt, still goes to a human.
-          if [ "$status" -eq 10 ] && scripts/agent-guard/emergency.sh "$BRANCH" < findings.txt > waived.txt; then
-            mv waived.txt findings.txt
-            status=0
-          fi
-          grep -v '^info: ' findings.txt > reasons.txt || true
-          echo "status=$status" >> "$GITHUB_ENV"
-
-      - name: Hand over to a human
-        if: env.status == '10'
-        run: |
-          {
-            echo "A human has to merge this pull request: auto-merge is off and \`needs-human\` is set."
-            echo
-            sed 's/^/- /' reasons.txt
-          } | scripts/agent-guard/hand-over.sh "$PR" guard
-
-  # While production is frozen (MAG-184) — a ticket in « Emergency » after a
-  # failed deploy, or an open `incident` ticket — only the PR that carries one
-  # of those keys may merge. A required check; it fails closed when Linear does
-  # not answer, and the last job of main.yml (or the hourly incident-gate-release.yml)
-  # re-runs it once the freeze lifts.
-  #
-  # It runs last, after every other job: checked at the start, it could pass a
-  # PR whose slow jobs end after a deploy failed, and the armed auto-merge would
-  # merge it into a frozen production. Last, that window shrinks to seconds.
-  #
-  # On a merge group it is the check that counts, minutes before main moves: it
-  # judges the PR the group was built for (`gh-readonly-queue/main/pr-<n>-<sha>`).
-  # Each PR ahead was judged by its own group: with « only merge non-failing pull
-  # requests » (the queue's default), a PR never merges on a later group's green.
-  # A PR it holds leaves the queue and is enqueued again once the freeze lifts.
-  incident-gate:
-    name: Incident gate
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
-    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v4
-      - name: Hold the PR while production is frozen, unless it is the fix
-        env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BRANCH: ${{ github.head_ref || github.event.merge_group.head_ref }}
-          GROUP_REF: ${{ github.event.merge_group.head_ref }}
-        run: |
-          # A merge group carries no PR: its title and branch are read from the
-          # number in the group's ref. Unreadable, the gate judges the group's ref
-          # alone, which carries no ticket key: held while frozen, open otherwise.
-          if [ -n "$GROUP_REF" ]; then
-            pr="$(sed -n 's|.*gh-readonly-queue/[^/]*/pr-\([0-9][0-9]*\)-.*|\1|p' <<<"$GROUP_REF")"
-            if [ -n "$pr" ] && view="$(gh pr view "$pr" --json title,headRefName)"; then
-              PR_TITLE="$(jq -r .title <<<"$view")"
-              PR_BRANCH="$(jq -r .headRefName <<<"$view")"
-              echo "Merge group of #$pr ($PR_BRANCH): $PR_TITLE"
-            else
-              echo "::warning::could not read the pull request of $GROUP_REF"
-            fi
-          fi
-          export PR_TITLE PR_BRANCH
-          if [ -n "$GROUP_REF" ] && ! bash infra/scripts/incident-gate.sh; then
-            # The gate's « re-runs by itself » does not hold on a merge group:
-            # a held group drops its PR from the queue, nothing puts it back.
-            echo "::error::On a merge group the gate does not re-run: enqueue the PR again once the freeze lifts."
-            exit 1
-          fi
-          [ -n "$GROUP_REF" ] || bash infra/scripts/incident-gate.sh
-
   # The one check that cannot be skipped (MAG-267). GitHub counts a skipped
   # required check as green, so a run that tested nothing, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
@@ -1495,7 +1371,7 @@ jobs:
   # in step. The old required checks stay required beside this one.
   pr-checks:
     name: PR checks passed
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts, incident-gate]
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
     if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1508,8 +1384,8 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: bash infra/scripts/pr-checks-gate.sh
 
-  # Lints the workflows and the scripts the CD workflow runs on the VPS (MAG-106),
-  # the agent guard rails (MAG-128) included. Tooling is not unit-tested (owner,
+  # Lints the workflows and the scripts the CD workflow runs on the VPS (MAG-106).
+  # Tooling is not unit-tested (owner,
   # 14 Oct.): its use in CI and deploys checks it.
   infra-scripts:
     name: Infra scripts and workflows
@@ -1543,8 +1419,8 @@ jobs:
       - name: Lint workflows
         run: |
           actionlint -color -ignore 'SC2129' .github/workflows/ci.yml \
-            .github/workflows/main.yml .github/workflows/nightly.yml .github/workflows/nightly-e2e.yml .github/workflows/agent-guard.yml \
-            .github/workflows/incident-gate-release.yml .github/workflows/mirror-images.yml
+            .github/workflows/main.yml .github/workflows/nightly.yml .github/workflows/nightly-e2e.yml \
+            .github/workflows/mirror-images.yml
       # No third-party image from Docker Hub: Dockerfiles, the compose files CI
       # starts, the workflows (exceptions in .github/docker-hub-allowlist.txt).
       - name: No image pulled from Docker Hub
@@ -1552,7 +1428,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -x --severity=warning \
-            infra/scripts/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh scripts/e2e/coverage/collect.d/*.sh \
+            infra/scripts/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh scripts/e2e/coverage/collect.d/*.sh \
             e2e/*.sh e2e/mobile/*.sh
       # Every journey of e2e/ is in e2e/impact-map.yml, and the map is sound: a
       # journey forgotten there would only ever play on the nightly run.

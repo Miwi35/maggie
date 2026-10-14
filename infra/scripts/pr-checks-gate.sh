@@ -42,7 +42,6 @@ REQUIRED=(
   e2e-stack:-
   e2e-mobile:-
   infra-scripts:-
-  incident-gate:-
 )
 
 problems=0
