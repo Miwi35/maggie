@@ -1,0 +1,17 @@
+# « Ne me parle que de Défaut et Garde Ael » (MAG-325): a rule she gives herself, so a
+# standing directive and not a one-off filter. Filed as `behavior`: it is read in the system
+# prompt of every answer, which is what lets the next thread apply it. Its pair is
+# 96-agenda-limit-applied.yaml, unreachable until this directive is in the prompt.
+name: agenda-limit-directive
+description: Store the owner's « only these agendas » rule as a behaviour directive.
+
+match:
+  user_matches: "ne me parle que (de|des événements de) Défaut et Garde Ael"
+
+turns:
+  - tools:
+      - name: add_instruction
+        input:
+          content: "Ne me parle que des événements des agendas Défaut et Garde Ael"
+          kind: behavior
+  - text: "J'ai ajouté une directive : je ne lis plus que les agendas Défaut et Garde Ael."

@@ -1397,6 +1397,45 @@ class TestTheShippedFixtures:
         # reads it — the exact bug MAG-22 fixed, and invisible from the answer.
         assert stored.input == {"content": "Tutoie-moi et évite les emojis", "kind": "behavior"}
 
+    async def test_limiting_her_to_some_agendas_is_filed_as_a_behaviour_directive(self):
+        """A rule she gives herself is read in every answer, so it is `behavior`, not `planning` (MAG-325)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        for wording in ("Ne me parle que de Défaut et Garde Ael", "Ne me parle que des événements de Défaut et Garde Ael"):
+            answer = await ask(client, wording)
+            assert answer.stop_reason == "tool_use", wording
+
+        stored = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert stored.name == "add_instruction"
+        assert stored.input["kind"] == "behavior"
+        assert "Défaut et Garde Ael" in stored.input["content"]
+
+    async def test_tomorrow_is_read_with_the_agendas_the_directive_limits_her_to(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        without = await ask(client, "Qu'est-ce que j'ai demain ?", system="Tu es Maggie.")
+        assert "[fake-llm]" in text_of(without)
+
+        with_directive = await ask(
+            client,
+            "Qu'est-ce que j'ai demain ?",
+            system=f"Tu es Maggie.{HEADER}\n- Ne me parle que des événements des agendas Défaut et Garde Ael",
+        )
+
+        call = next(block for block in with_directive.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "get_upcoming_events"
+        assert call.input["agendas"] == ["Défaut", "Garde Ael"]
+
+    async def test_an_event_named_by_the_owner_is_searched_by_title_with_no_window(self):
+        """The 7 Oct. conversation: `days: 7` missed a series starting in 8 days (MAG-325)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Supprime le piano du jeudi")
+
+        call = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "get_upcoming_events"
+        assert call.input == {"query": "piano"}
+
     async def test_a_product_nearly_out_is_told_to_update_stock_not_added_to_the_list(self):
         """Telling the stock is not adding a line: update_stock restocks by itself (MAG-294)."""
         client = build_client(DEFAULT_FIXTURES_DIR)

@@ -39,6 +39,28 @@ class AgendaResolver
     }
 
     /**
+     * The agendas a list of references names, each one of the user's own — for a read that
+     * narrows to some agendas (MAG-325). One reference naming none fails the whole call: a
+     * partial answer would pass for the complete one.
+     *
+     * @param list<string> $references
+     *
+     * @return list<Agenda>
+     *
+     * @throws \DomainException when a reference matches no agenda, or several
+     */
+    public function resolveAll(User $user, array $references): array
+    {
+        $agendas = [];
+        foreach ($references as $reference) {
+            $agenda = $this->resolve($user, (string) $reference);
+            $agendas[(string) $agenda->getId()] = $agenda;
+        }
+
+        return array_values($agendas);
+    }
+
+    /**
      * The one agenda this reference names exactly, or null when it names none.
      *
      * @throws \DomainException when several of the user's agendas carry that name

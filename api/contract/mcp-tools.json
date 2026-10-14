@@ -352,7 +352,7 @@
                 "id"
             ]
         },
-        "description": "Delete a calendar event by its ID. Returns confirmation of deletion."
+        "description": "Delete a calendar event by its ID. Returns confirmation of deletion. When the user names the event rather than gives its id (« supprime le piano du jeudi »), find it first with get_upcoming_events and query (the distinctive word(s) of its title, no days: it searches the next year), or search with types events — never from a 7-day window, and never answer that it is not found before that search came back empty. A recurring series is designated by its master event: the id the search returns is the series' own, and deleting it removes every occurrence."
     },
     "delete_recipe": {
         "name": "delete_recipe",
@@ -479,13 +479,28 @@
             "properties": {
                 "date": {
                     "type": "string"
+                },
+                "agendas": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "names or ids of the agendas to read",
+                    "default": null
+                },
+                "query": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "date"
             ]
         },
-        "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself."
+        "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself. Pass agendas (a list of agenda names as the user says them — case, accents and approximations do not matter — or ids) whenever the user asked to be told only about some agendas (« ne me parle que de Défaut et Garde Ael », a rule to apply to every read from then on): only their events come back, and a name matching no agenda returns an error listing the user's agendas and no events at all. Omit it to read every agenda. Each event carries the name of its agenda (agenda) and its times in its own time zone (timeZone): announce those. To find an event by its name on that day, pass query, the distinctive word(s) of its title. When the day is not known, use get_upcoming_events with query instead, never guess a date."
     },
     "get_finance_dashboard": {
         "name": "get_finance_dashboard",
@@ -611,12 +626,30 @@
             "type": "object",
             "properties": {
                 "days": {
-                    "type": "integer",
-                    "default": 7
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "agendas": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "names or ids of the agendas to read",
+                    "default": null
+                },
+                "query": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             }
         },
-        "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself."
+        "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself. Pass agendas (a list of agenda names as the user says them — case, accents and approximations do not matter — or ids) whenever the user asked to be told only about some agendas (« ne me parle que de Défaut et Garde Ael », a rule to apply to every read from then on): only their events come back, and a name matching no agenda returns an error listing the user's agendas and no events at all. Omit it to read every agenda. Each event carries the name of its agenda (agenda) and its times in its own time zone (timeZone): announce those. To find an event by its name — before deleting or moving it, or before saying it does not exist — pass query, the distinctive word(s) of its title (case, accents and typos do not matter), and no days: the search then covers the next year, not a week; a recurring series comes back once, as its master event (id, rrule, first coming occurrence in startAt). Never conclude that an event does not exist from a short window; pass that id to update_event or delete_event."
     },
     "get_user_timezone": {
         "name": "get_user_timezone",
@@ -2206,7 +2239,7 @@
                 "query"
             ]
         },
-        "description": "Full-text search across the user's own data stored in Maggie (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights. Bank transactions are not searched by default: to find a transaction, pass types=transactions or use the finance tools. Every event result carries the day of the week of its local dates (data.startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one, whose endDate is EXCLUDED — lastDay is its last day): say the weekday from those fields or from the date_time tool, never work it out yourself. It does NOT search the Internet: for public facts (official dates, opening hours, addresses, news) use the web_search tool."
+        "description": "Full-text search across the user's own data stored in Maggie (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights, with no limit of date: to find an event by its name, pass types events. Bank transactions are not searched by default: to find a transaction, pass types=transactions or use the finance tools. Every event result carries the day of the week of its local dates (data.startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one, whose endDate is EXCLUDED — lastDay is its last day): say the weekday from those fields or from the date_time tool, never work it out yourself. It does NOT search the Internet: for public facts (official dates, opening hours, addresses, news) use the web_search tool."
     },
     "search_ciqual_foods": {
         "name": "search_ciqual_foods",
@@ -2407,7 +2440,7 @@
                 "id"
             ]
         },
-        "description": "Update an existing calendar event. Only provided fields will be updated. To change when it happens, always give the whole schedule — a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date, where end_date is EXCLUDED — the day after the last day, as in Google Calendar's API: the 1st of January alone is start_date 2037-01-01 and end_date 2037-01-02, « du 26 au 28 janvier » is start_date the 26th and end_date the 29th. For \"du X au Y\", holidays, a trip or any stretch of several days, make ONE whole-day event with all_day true, start_date and end_date: never simulate a range with rrule (that makes one event per day) or with a long timed event. Nothing is deduced from the current schedule: moving an event to another day means giving its start and its end again. An incomplete schedule, or an end that is not after the start, changes nothing and returns an error with currentSchedule, the schedule the event has now — complete it from there instead of guessing. The result gives the schedule that was saved, in the event's own time zone (event.allDay; event.startAt and event.endAt for a timed event; for a whole-day event, whose startAt and endAt are null, event.startDate, event.endDate excluded and event.lastDay — tell the user the days it covers, « le 1er janvier » or « du 26 au 28 », from startDate to lastDay, never « jusqu'au » the excluded end): announce exactly that to the user, not what you meant to do. The result also gives the day of the week of what was saved (event.weekday, and startWeekday, endWeekday or lastDayWeekday next to each date): check that it is the day you announced to the user — « lundi 26 » must come back lundi — and if it is not, fix the event before confirming. Never work out a day of the week yourself: take it from these fields, from the weekday of a read tool, or from the date_time tool. Title, location, description, agenda and reminders change on their own, without touching the schedule. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Use status to mark the event 'tentative' (\"provisoire\", \"à confirmer\", \"peut-être\") or back to 'confirmed' (\"confirme\", \"c'est validé\"): it changes on its own, without touching the schedule, and event.status gives the status that was saved — say so when the event is tentative. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear \"reminders\" to leave none."
+        "description": "Update an existing calendar event. When the user names the event rather than gives its id, find its id first with get_upcoming_events and query (the distinctive word(s) of its title, no days: it searches the next year) or search with types events — never conclude it does not exist from a 7-day window. A recurring series is designated by its master event, the id that search returns, not by one occurrence. Only provided fields will be updated. To change when it happens, always give the whole schedule — a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date, where end_date is EXCLUDED — the day after the last day, as in Google Calendar's API: the 1st of January alone is start_date 2037-01-01 and end_date 2037-01-02, « du 26 au 28 janvier » is start_date the 26th and end_date the 29th. For \"du X au Y\", holidays, a trip or any stretch of several days, make ONE whole-day event with all_day true, start_date and end_date: never simulate a range with rrule (that makes one event per day) or with a long timed event. Nothing is deduced from the current schedule: moving an event to another day means giving its start and its end again. An incomplete schedule, or an end that is not after the start, changes nothing and returns an error with currentSchedule, the schedule the event has now — complete it from there instead of guessing. The result gives the schedule that was saved, in the event's own time zone (event.allDay; event.startAt and event.endAt for a timed event; for a whole-day event, whose startAt and endAt are null, event.startDate, event.endDate excluded and event.lastDay — tell the user the days it covers, « le 1er janvier » or « du 26 au 28 », from startDate to lastDay, never « jusqu'au » the excluded end): announce exactly that to the user, not what you meant to do. The result also gives the day of the week of what was saved (event.weekday, and startWeekday, endWeekday or lastDayWeekday next to each date): check that it is the day you announced to the user — « lundi 26 » must come back lundi — and if it is not, fix the event before confirming. Never work out a day of the week yourself: take it from these fields, from the weekday of a read tool, or from the date_time tool. Title, location, description, agenda and reminders change on their own, without touching the schedule. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Use status to mark the event 'tentative' (\"provisoire\", \"à confirmer\", \"peut-être\") or back to 'confirmed' (\"confirme\", \"c'est validé\"): it changes on its own, without touching the schedule, and event.status gives the status that was saved — say so when the event is tentative. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear \"reminders\" to leave none."
     },
     "update_recipe": {
         "name": "update_recipe",

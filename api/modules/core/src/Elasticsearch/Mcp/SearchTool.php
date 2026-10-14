@@ -11,7 +11,7 @@ use Maggie\Core\Time\DayBound;
 use Maggie\Core\Time\Weekday;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'search', description: "Full-text search across the user's own data stored in Maggie (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights. Bank transactions are not searched by default: to find a transaction, pass types=transactions or use the finance tools. Every event result carries the day of the week of its local dates (data.startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one, whose endDate is EXCLUDED — lastDay is its last day): say the weekday from those fields or from the date_time tool, never work it out yourself. It does NOT search the Internet: for public facts (official dates, opening hours, addresses, news) use the web_search tool.")]
+#[McpTool(name: 'search', description: "Full-text search across the user's own data stored in Maggie (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights, with no limit of date: to find an event by its name, pass types events. Bank transactions are not searched by default: to find a transaction, pass types=transactions or use the finance tools. Every event result carries the day of the week of its local dates (data.startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one, whose endDate is EXCLUDED — lastDay is its last day): say the weekday from those fields or from the date_time tool, never work it out yourself. It does NOT search the Internet: for public facts (official dates, opening hours, addresses, news) use the web_search tool.")]
 class SearchTool
 {
     public function __construct(
