@@ -91,13 +91,32 @@ for file in mobile/gradle/libs.versions.toml mobile/app/build.gradle.kts mobile/
 done
 
 printf '\n\033[1mA mobile finance screen plays the finance flows and the core, quarantine last\033[0m\n'
+# The rule, not a list: every flow named *finance* on disk, plus the flows that play
+# with any finance change (the core, and the deep links whose areas include finance).
+# A new finance flow is picked up here without touching this file.
+finance_flows="$(find "$REPO/e2e/mobile/flows" -maxdepth 1 -name '*finance*.yaml' -printf '%f\n' | sort | tr '\n' ' ' | sed 's/ $//')"
+expected_flows="$(printf '%s\n' 01-login-chat.yaml 05-deep-links.yaml $finance_flows | sort -u | tr '\n' ' ' | sed 's/ $//')"
+[ -n "$finance_flows" ] && ok "finance flows on disk: $finance_flows" || bad "no *finance* flow in e2e/mobile/flows"
 select_files mobile/app/src/main/java/com/maggie/app/ui/screens/finance/BudgetScreen.kt
-[ "$(names mobile)" = "01-login-chat.yaml 05-deep-links.yaml 09-finance-banks.yaml 10-finance-recurring.yaml 12-finance-rente.yaml 13-finance-category-edit.yaml finance-treasury.yaml" ] \
-  && ok "01, 05, 09, 10-finance-recurring, 12-finance-rente, 13-finance-category-edit and finance-treasury" || bad "flows: $(names mobile)"
+[ "$(names mobile)" = "$expected_flows" ] \
+  && ok "the core, the deep links and every *finance* flow" || bad "flows: $(names mobile) — expected: $expected_flows"
+for flow in $expected_flows; do
+  [[ " $(names mobile) " == *" $flow "* ]] || bad "$flow is not selected"
+done
 [ "$(count web)" -eq 0 ] && ok "no web journey" || bad "web: $(names web)"
 lot_of_05="$(jq -r '.mobile_lots[] | select(.flows | contains("05-deep-links")) | .flows' <<<"$SEL")"
 [[ "$lot_of_05" == *"05-deep-links.yaml" ]] && ok "05-deep-links, in quarantine, ends its lot ($lot_of_05)" || bad "lot of 05: $lot_of_05"
-[ "$(jq -c '[.mobile_lots[].index]' <<<"$SEL")" = '[1,2]' ] && ok "the lots are numbered again from 1" || bad "lots $(jq -c .mobile_lots <<<"$SEL")"
+# One lot per shard of shards.txt that holds a selected flow able to block (a shard
+# of quarantined flows alone is folded into another lot); the lots are numbered from 1.
+quarantined_flows="$(jq -r '.quarantined[] | split("/") | last' <<<"$SEL")"
+expected_lots=0
+while read -r _ shard_flows; do
+  for flow in $shard_flows; do
+    [[ " $expected_flows " == *" $flow.yaml "* && " $quarantined_flows " != *" $flow.yaml "* ]] && { expected_lots=$((expected_lots + 1)); break; }
+  done
+done < <(grep -E '^[0-9]+:' "$REPO/e2e/mobile/shards.txt")
+[ "$(jq -c '[.mobile_lots[].index]' <<<"$SEL")" = "$(jq -nc "[range(1; $expected_lots + 1)]")" ] \
+  && ok "$expected_lots lots, numbered again from 1" || bad "lots $(jq -c .mobile_lots <<<"$SEL"), expected $expected_lots"
 jq -e '.quarantined == ["e2e/mobile/flows/05-deep-links.yaml"]' >/dev/null <<<"$SEL" && ok "reports 05 in quarantine" || bad "quarantined: $(jq -c .quarantined <<<"$SEL")"
 
 printf '\n\033[1mThe API of a module plays its journeys on both platforms\033[0m\n'
