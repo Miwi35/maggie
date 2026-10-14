@@ -329,7 +329,7 @@ if [ -n "$provider_reason" ]; then
   # The model's provider refused the call — an exhausted credit, a refused key, an
   # overload. Neither the code nor the deployment is at fault: rolling back would
   # freeze production and the merge train for nothing, as it did all one night
-  # (MAG-448). The agent itself pushes the owner a notification.
+  # (MAG-448). The owner hears of it from the agent, by a push on their own next turn.
   printf '::warning::Maggie : fournisseur indisponible (%s) — the release is not at fault, not rolled back\n' "$provider_reason"
   printf '  \033[33m!\033[0m Maggie : fournisseur indisponible (%s)\n' "$provider_reason"
 elif [ -z "$answer" ] || [ -z "$tool_name" ]; then

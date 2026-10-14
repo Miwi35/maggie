@@ -154,6 +154,13 @@ class TestWhichErrorsAreTheProviders:
 class TestTheOwnerIsTold:
     NOW = datetime(2026, 10, 14, 8, 0, tzinfo=ZoneInfo("Europe/Paris"))
 
+    @pytest.fixture(autouse=True)
+    def _paris(self):
+        with patch(
+            "app.llm.provider_status.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))
+        ):
+            yield
+
     @staticmethod
     def _mcp(existing: list[dict]) -> MagicMock:
         async def call_tool(name, arguments, user_id=None):

@@ -144,7 +144,8 @@ class LLMGateway:
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
-            await self._alert_if_provider(e, user_id)
+            if not dry_run:
+                await self._alert_if_provider(e, user_id)
             return {"response": f"AI service error: {e.message}", "tool_calls": []}
         except anthropic.APIConnectionError as e:
             logger.error(f"Proaction connection error: {e}")
