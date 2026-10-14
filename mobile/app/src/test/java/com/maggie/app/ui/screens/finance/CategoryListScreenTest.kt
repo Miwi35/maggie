@@ -215,6 +215,39 @@ class CategoryListScreenTest {
     }
 
     @Test
+    fun `a row shows the colour and the icon the category was given`() {
+        list(
+            FakeCategories(
+                listOf(
+                    Category(id = "cat-courses", name = "Courses", color = "#4CAF50", icon = "shopping-cart"),
+                    Category(id = "cat-loisirs", name = "Loisirs", color = "#ff9800"),
+                    Category(id = "cat-divers", name = "Divers", icon = "not-an-icon"),
+                    Category(id = "cat-nu", name = "Nu"),
+                ),
+            ),
+        )
+
+        compose.onNodeWithContentDescription("Repère : couleur #4CAF50, icône shopping-cart").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Repère : couleur #FF9800").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Repère : icône not-an-icon").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Repère : sans couleur ni icône").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the names the standard categories use all have an icon to draw`() {
+        val names = listOf(
+            "home", "shopping-cart", "repeat", "water-drop", "bolt", "wifi", "tv", "cloud", "sports-esports",
+            "trending-up", "local-gas-station", "account-balance", "error-outline", "payments", "star",
+            "volunteer-activism", "undo", "redeem",
+        )
+
+        assertEquals(emptyList<String>(), names.filter { categoryIcon(it) == null })
+        assertEquals(null, categoryIcon("not-an-icon"))
+        assertEquals(null, categoryIcon(null))
+        assertEquals(null, categoryColorOrNull("not a colour"))
+    }
+
+    @Test
     fun `the rows have no delete icon any more`() {
         list(FakeCategories())
 

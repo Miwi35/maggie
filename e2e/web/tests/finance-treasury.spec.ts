@@ -34,7 +34,9 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * `retries: 0` because a retry would start on what the first attempt left.
  */
 
-test.describe.configure({ retries: 0 })
+// Serial: both tests lay accounts on the same user, and the outlook adds every balance up — in
+// parallel the outlook read 388 000 instead of -12 000 (MAG-443's race again).
+test.describe.configure({ mode: 'serial', retries: 0 })
 
 const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 

@@ -8,7 +8,7 @@ import { CategoryList } from './CategoryList'
 import { CategoryCreate } from './CategoryCreate'
 
 const CATEGORIES = [
-  { id: '/api/categories/1', name: 'Alimentation', obligation: 'mandatory' },
+  { id: '/api/categories/1', name: 'Alimentation', obligation: 'mandatory', color: '#4CAF50', icon: 'shopping-cart' },
   {
     id: '/api/categories/2',
     name: 'Loyers perçus',
@@ -63,6 +63,21 @@ describe('CategoryList', () => {
     expect(await screen.findByRole('tab', { name: 'Catégories' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Règles de catégorisation' })).toBeInTheDocument()
     expect(await screen.findByText('Alimentation')).toBeInTheDocument()
+  })
+
+  test('a row shows the colour and the icon the category was given, not a hex code', async () => {
+    renderPage()
+
+    await screen.findByText('Alimentation')
+    const glyphs = screen.getAllByTestId('category-glyph')
+    const colored = glyphs.find((glyph) => glyph.dataset.color === '#4CAF50')
+
+    expect(colored).toBeDefined()
+    expect(colored?.dataset.icon).toBe('shopping-cart')
+    expect(colored).toHaveStyle({ backgroundColor: 'rgb(76, 175, 80)' })
+    expect(screen.queryByText('#4CAF50')).not.toBeInTheDocument()
+    expect(glyphs.some((glyph) => glyph.dataset.color === '' && glyph.dataset.icon === '')).toBe(true)
+    expect(screen.getByRole('cell', { name: 'Alimentation' })).toBeInTheDocument()
   })
 
   /** Which categories feed the independence counter has to be readable here. */

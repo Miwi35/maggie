@@ -211,6 +211,8 @@ private fun CategoryTreeRow(
             } else {
                 Spacer(Modifier.size(48.dp))
             }
+            CategoryGlyph(color = category.color, icon = category.icon)
+            Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = category.name, style = MaterialTheme.typography.bodyLarge)
                 Text(
