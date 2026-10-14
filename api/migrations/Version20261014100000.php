@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * keep a null `needed` until a meal touches them or the consolidation command
  * (`maggie:grocery:consolidate-lines`) runs.
  */
-final class Version20261013213000 extends AbstractMigration
+final class Version20261014100000 extends AbstractMigration
 {
     public function getDescription(): string
     {

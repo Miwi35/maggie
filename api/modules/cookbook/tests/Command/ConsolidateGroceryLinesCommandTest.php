@@ -11,6 +11,7 @@ use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
+use Maggie\Cookbook\Message\ChooseMealGroceriesCommand;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -121,9 +122,8 @@ final class ConsolidateGroceryLinesCommandTest extends KernelTestCase
         $this->em()->flush();
         $this->em()->clear();
 
-        $light = $this->planMeal('light_pasta', '+1 day');
+        $this->planMeal('light_pasta', '+1 day');
         $big = $this->planMeal('big_pasta', '+2 days');
-        unset($light);
 
         $first = $this->pastaLines()[0];
         $list = $first->getGroceryList();
@@ -180,9 +180,16 @@ final class ConsolidateGroceryLinesCommandTest extends KernelTestCase
             recipeIds: [(string) $this->getFixture($recipeRef)->getId()],
             userId: (string) $this->getFixture('test_user')->getId(),
         ));
+        $mealId = (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+
+        $this->bus()->dispatch(new ChooseMealGroceriesCommand(
+            mealId: $mealId,
+            userId: (string) $this->getFixture('test_user')->getId(),
+            chosen: [(string) $this->getFixture('pasta_product')->getId() => null],
+        ));
         $this->em()->clear();
 
-        return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        return $mealId;
     }
 
     private function em(): EntityManagerInterface

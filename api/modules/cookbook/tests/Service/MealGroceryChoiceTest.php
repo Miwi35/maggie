@@ -79,7 +79,7 @@ class MealGroceryChoiceTest extends KernelTestCase
 
     public function testThePreviewOfASecondMealSaysWhatTheListAlreadyHoldsAndTheTotalInPackagings(): void
     {
-        $this->planMeal('curry');
+        $this->choose($this->planMeal('curry'), ['rice']);
         $second = $this->planMealOn('big_rice', '+2 days');
 
         $rice = $this->previewOf($second, 'Riz');
@@ -98,19 +98,21 @@ class MealGroceryChoiceTest extends KernelTestCase
 
     public function testThePreviewAnswersTheSameBeforeAndAfterTheMealJoinsTheList(): void
     {
-        $this->planMeal('curry');
+        $this->choose($this->planMeal('curry'), ['rice']);
         $second = $this->planMealOn('big_rice', '+2 days');
 
+        $before = $this->previewOf($second, 'Riz');
+        $this->choose($second, ['rice']);
         $after = $this->previewOf($second, 'Riz');
-        $this->em()->clear();
 
-        self::assertSame(['quantity' => 300.0, 'unit' => 'g'], $after['onList']['needed'][0]);
+        self::assertSame($before['onList'], $after['onList']);
+        self::assertSame($before['withThisMeal'], $after['withThisMeal']);
         self::assertSame(2, $after['withThisMeal']['packagesTotal']);
     }
 
     public function testChoosingTheSecondMealAddsTheMissingPackagingTheSamePreviewAnnounced(): void
     {
-        $this->planMeal('curry');
+        $this->choose($this->planMeal('curry'), ['rice']);
         $second = $this->planMealOn('big_rice', '+2 days');
         $announced = $this->previewOf($second, 'Riz')['withThisMeal']['packagesTotal'];
 
