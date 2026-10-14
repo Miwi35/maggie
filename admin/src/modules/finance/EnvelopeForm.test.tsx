@@ -1,7 +1,8 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { AdminContext, Edit, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { EnvelopeForm } from './EnvelopeForm'
 
@@ -28,6 +29,47 @@ const renderForm = () =>
       </ResourceContextProvider>
     </AdminContext>,
   )
+
+const envelope = {
+  id: '/api/envelopes/e1',
+  category: '/api/categories/1',
+  mode: 'monthly',
+  amountCents: 30000,
+  currency: 'EUR',
+  year: 2026,
+  month: 10,
+  alertThresholdPercent: null,
+}
+
+const renderEdit = () => {
+  const update = vi.fn().mockResolvedValue({ data: envelope })
+  render(
+    <MemoryRouter initialEntries={['/envelopes/' + encodeURIComponent(envelope.id)]}>
+      <AdminContext
+        dataProvider={testDataProvider({
+          ...dataProvider,
+          getOne: vi.fn().mockResolvedValue({ data: envelope }),
+          update,
+        })}
+      >
+        <ResourceContextProvider value="envelopes">
+          <Routes>
+            <Route
+              path="/envelopes/:id"
+              element={
+                <Edit mutationMode="pessimistic">
+                  <EnvelopeForm />
+                </Edit>
+              }
+            />
+            <Route path="/envelopes" element={null} />
+          </Routes>
+        </ResourceContextProvider>
+      </AdminContext>
+    </MemoryRouter>,
+  )
+  return update
+}
 
 describe('EnvelopeForm', () => {
   test('groups the fields under explained sections', async () => {
@@ -115,5 +157,40 @@ describe('EnvelopeForm', () => {
     await user.click(screen.getByRole('button', { name: /Enregistrer|Save|ra\.action\.save/ }))
 
     expect((await screen.findAllByText(/requis|required/i)).length).toBeGreaterThan(0)
+  })
+
+  test('offers the alert threshold, 80 % when left empty', async () => {
+    renderForm()
+
+    const threshold = await screen.findByLabelText(/Seuil d'alerte/i)
+    expect(threshold).toHaveValue(null)
+    expect(screen.getByText(/Vide : 80 %/)).toBeInTheDocument()
+    expect(screen.getByText(/une seconde fois à 100 %/)).toBeInTheDocument()
+  })
+
+  test('saves the threshold set on an envelope', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    const threshold = await screen.findByLabelText(/Seuil d'alerte/i)
+    await waitFor(() => expect(screen.getByDisplayValue('300')).toBeInTheDocument())
+    await user.type(threshold, '90')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][1].data.alertThresholdPercent).toBe(90)
+  })
+
+  test('refuses a threshold at or past the limit', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    const threshold = await screen.findByLabelText(/Seuil d'alerte/i)
+    await waitFor(() => expect(screen.getByDisplayValue('300')).toBeInTheDocument())
+    await user.type(threshold, '100')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(threshold).toBeInvalid())
+    expect(update).not.toHaveBeenCalled()
   })
 })
