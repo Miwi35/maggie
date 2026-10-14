@@ -1,6 +1,7 @@
 package com.maggie.app.screentest
 
 import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.EndErrandRemainingStore
@@ -25,6 +26,10 @@ import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealGroceryToBuy
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.PendingApproval
+import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.RulePreview
+import com.maggie.app.data.model.RulePreviewMatch
+import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.AccountIncident
@@ -45,6 +50,7 @@ import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProductRepository
+import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.TransactionRepository
@@ -326,6 +332,9 @@ class FakeTransactionTransfers(
     /** The counterpart ids the screen asked to mark with, `null` for « none ». */
     val marked = mutableListOf<String?>()
     val released = mutableListOf<String>()
+    val detached = mutableListOf<String>()
+    val notes = mutableListOf<String>()
+    val rules = mutableListOf<CategorizationRuleCreateRequest>()
 
     val viewModel: TransactionViewModel by lazy {
         val repository = mockk<TransactionRepository>()
@@ -378,7 +387,38 @@ class FakeTransactionTransfers(
             )
         }
 
-        TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth)
+        val recurringRepository = mockk<RecurringOperationRepository>()
+        coEvery { recurringRepository.getRecords() } returns Result.success(emptyList())
+        coEvery { recurringRepository.detachTransaction(any()) } answers {
+            val index = lines.indexOfFirst { it.id == firstArg<String>() }
+            lines[index] = lines[index].copy(recurringOperation = null, recurringOccurrenceOn = null)
+            detached += firstArg<String>()
+            Result.success(Unit)
+        }
+        coEvery { repository.setNote(any(), any()) } answers {
+            val index = lines.indexOfFirst { it.id == firstArg<String>() }
+            lines[index] = lines[index].copy(note = secondArg<String>().trim().ifEmpty { null })
+            notes += secondArg<String>()
+            Result.success(lines[index])
+        }
+        val ruleRepository = mockk<CategorizationRuleRepository>()
+        coEvery { ruleRepository.previewRule(any()) } answers {
+            val pattern = firstArg<RulePreviewRequest>().labelPattern
+            val caught = lines.filter { it.label.contains(pattern, ignoreCase = true) }
+            Result.success(
+                RulePreview(
+                    total = caught.size,
+                    changeCount = caught.size,
+                    matches = caught.map { RulePreviewMatch(it.id, it.label, it.amountCents, it.bookedAt.orEmpty(), wouldChange = true) },
+                ),
+            )
+        }
+        coEvery { ruleRepository.createRule(any()) } answers {
+            rules += firstArg<CategorizationRuleCreateRequest>()
+            Result.success(CategorizationRule(id = "rule-1", labelPattern = firstArg<CategorizationRuleCreateRequest>().labelPattern))
+        }
+
+        TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth, recurringRepository, ruleRepository)
     }
 
     /** One incident per rejected debit, with the credit that gave it back when this account has it. */

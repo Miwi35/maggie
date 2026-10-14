@@ -29,6 +29,11 @@ class TransactionRepository(
         apiService.updateTransactionCategory(id, categoryId?.let(::categoryIri))
     }
 
+    /** A blank [note] erases it. */
+    suspend fun setNote(id: String, note: String): Result<Transaction> = runCatching {
+        apiService.updateTransactionNote(id, note.trim().ifEmpty { null })
+    }
+
     suspend fun deleteTransaction(id: String): Result<Unit> = runCatching {
         apiService.deleteTransaction(id)
     }

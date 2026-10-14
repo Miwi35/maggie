@@ -63,6 +63,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 {
     use MercurePayloadFilterTrait;
 
+    public const int NOTE_MAX_LENGTH = 2000;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -218,6 +220,12 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[Assert\NotNull]
     #[IndexedField(type: 'keyword')]
     private RecurringLinkSource $recurringSource = RecurringLinkSource::Auto;
+
+    /** What the owner wants to remember about this line; blank means none. */
+    #[ORM\Column(type: 'text', nullable: true)]
+    #[Assert\Length(max: self::NOTE_MAX_LENGTH)]
+    #[IndexedField(type: 'text')]
+    private ?string $note = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -609,6 +617,26 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getNote(): ?string
+    {
+        return $this->note;
+    }
+
+    /** The REST door is validated before it gets here; the MCP tool is not. */
+    public static function assertNoteFits(?string $note): void
+    {
+        if (null !== $note && mb_strlen($note) > self::NOTE_MAX_LENGTH) {
+            throw new \DomainException(sprintf('note is at most %d characters.', self::NOTE_MAX_LENGTH));
+        }
+    }
+
+    public function setNote(?string $note): static
+    {
+        $this->note = null === $note || '' === trim($note) ? null : $note;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -645,6 +673,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
+            'note' => $this->note,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -672,6 +701,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
+            'note' => $this->note,
         ], $changedProperties, [
             'account' => 'accountId',
             'category' => 'categoryId',

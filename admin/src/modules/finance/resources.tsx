@@ -24,7 +24,7 @@ import { EnvelopeCreate } from './EnvelopeCreate'
 import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
 import { TransactionCreate } from './TransactionCreate'
-import { TransactionEdit } from './TransactionEdit'
+import { TransactionSheet } from './TransactionSheet'
 import { TransactionList } from './TransactionList'
 import { TreasuryPage } from './TreasuryPage'
 
@@ -76,7 +76,7 @@ export const financeResources = (
       name="transactions"
       list={TransactionList}
       create={TransactionCreate}
-      edit={TransactionEdit}
+      edit={TransactionSheet}
     />
   </>
 )

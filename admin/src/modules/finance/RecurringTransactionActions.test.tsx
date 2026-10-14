@@ -1,9 +1,9 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, ListContextProvider, Notification, testDataProvider } from 'react-admin'
+import { AdminContext, Notification, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
-import { MakeRecurringButton, RecurringBadge } from './RecurringTransactionActions'
+import { MakeRecurringButton } from './RecurringTransactionActions'
 
 interface Call {
   method: string
@@ -12,7 +12,7 @@ interface Call {
 }
 
 const calls: Call[] = []
-const refetch = vi.fn()
+const onChanged = vi.fn()
 let attachReport: unknown
 
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -26,7 +26,6 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 })
 let refuse = false
 
-const getOne = vi.fn(async () => ({ data: { id: '/api/recurring_operations/01FLIXO', label: 'Abonnement Flixo' } }))
 const getList = vi.fn(async (resource: string) =>
   resource === 'accounts'
     ? { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
@@ -40,12 +39,11 @@ const renderWith = (ui: React.ReactNode) =>
   render(
     <AdminContext
       dataProvider={testDataProvider({
-        getOne: getOne as unknown as DataProvider['getOne'],
         getList: getList as unknown as DataProvider['getList'],
         create: create as unknown as DataProvider['create'],
       })}
     >
-      <ListContextProvider value={{ refetch } as never}>{ui}</ListContextProvider>
+      {ui}
       <Notification />
     </AdminContext>,
   )
@@ -81,58 +79,13 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   calls.length = 0
-  refetch.mockClear()
-  getOne.mockClear()
+  onChanged.mockClear()
   create.mockClear()
-})
-
-describe('RecurringBadge', () => {
-  test('a line with no series shows nothing', () => {
-    renderWith(<RecurringBadge record={TRANSACTION} />)
-
-    expect(screen.queryByText(/Série ·/)).not.toBeInTheDocument()
-    expect(getOne).not.toHaveBeenCalled()
-  })
-
-  test('a line of a series carries the name of the series', async () => {
-    renderWith(<RecurringBadge record={{ ...TRANSACTION, recurringOperation: '/api/recurring_operations/01FLIXO' }} />)
-
-    expect(await screen.findByText('Série · Abonnement Flixo')).toBeInTheDocument()
-    expect(getOne).toHaveBeenCalledWith('recurring_operations', expect.objectContaining({ id: '/api/recurring_operations/01FLIXO' }))
-  })
-
-  test('detaching patches the line free and refreshes the list', async () => {
-    renderWith(<RecurringBadge record={{ ...TRANSACTION, recurringOperation: '/api/recurring_operations/01FLIXO' }} />)
-    await screen.findByText('Série · Abonnement Flixo')
-
-    await userEvent.click(screen.getByLabelText('Détacher PRLV FLIXO de la série'))
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: 'PATCH',
-        url: '/api/transactions/01TX',
-        body: { recurringOperation: null, recurringOccurrenceOn: null },
-      }),
-    )
-    await waitFor(() => expect(refetch).toHaveBeenCalled())
-    expect(await screen.findByText(/n’est plus rattachée à « Abonnement Flixo »/)).toBeInTheDocument()
-  })
-
-  test('a refused detachment says so and keeps the list as it is', async () => {
-    refuse = true
-    renderWith(<RecurringBadge record={{ ...TRANSACTION, recurringOperation: '/api/recurring_operations/01FLIXO' }} />)
-    await screen.findByText('Série · Abonnement Flixo')
-
-    await userEvent.click(screen.getByLabelText('Détacher PRLV FLIXO de la série'))
-
-    expect(await screen.findByText('Impossible de détacher cette transaction')).toBeInTheDocument()
-    expect(refetch).not.toHaveBeenCalled()
-  })
 })
 
 describe('MakeRecurringButton', () => {
   const open = async () => {
-    await userEvent.click(screen.getByRole('button', { name: 'En faire une opération récurrente : PRLV FLIXO' }))
+    await userEvent.click(screen.getByRole('button', { name: 'En faire une opération récurrente' }))
 
     return screen.findByRole('dialog')
   }
@@ -144,7 +97,7 @@ describe('MakeRecurringButton', () => {
   })
 
   test('opens the form filled from the line: payee, amount, day, account and category', async () => {
-    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+    renderWith(<MakeRecurringButton record={TRANSACTION} onChanged={onChanged} />)
 
     const dialog = await open()
 
@@ -184,26 +137,12 @@ describe('MakeRecurringButton', () => {
   })
 
   test('a line with a payee leaves the label pattern empty', async () => {
-    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+    renderWith(<MakeRecurringButton record={TRANSACTION} onChanged={onChanged} />)
 
     const dialog = await open()
 
     expect(within(dialog).getByLabelText('Contrepartie attendue')).toHaveValue('Flixo')
     expect(within(dialog).getByLabelText(/Motif du libellé/)).toHaveValue('')
-  })
-
-  test('clicking inside the dialog does not reach the row, whose click opens the edit page', async () => {
-    const rowClick = vi.fn()
-    renderWith(
-      <div onClick={rowClick}>
-        <MakeRecurringButton record={TRANSACTION} />
-      </div>,
-    )
-
-    const dialog = await open()
-    await userEvent.click(within(dialog).getByLabelText(/Libellé/))
-
-    expect(rowClick).not.toHaveBeenCalled()
   })
 
   test('a line on the last day of its month opens the series on « last day of the month »', async () => {
@@ -223,7 +162,7 @@ describe('MakeRecurringButton', () => {
       attachments: [line('01A', '2026-01-12'), line('01B', '2026-02-12'), line('01C', '2026-03-12')],
       proposals: [],
     }
-    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+    renderWith(<MakeRecurringButton record={TRANSACTION} onChanged={onChanged} />)
     const form = await open()
     await waitFor(() => expect(within(form).getByRole('combobox', { name: /Compte/ })).toHaveTextContent('Courant'))
     await userEvent.clear(within(form).getByLabelText(/Libellé/))
@@ -240,11 +179,11 @@ describe('MakeRecurringButton', () => {
       expect(calls.filter((c) => c.url.endsWith('/attach')).map((c) => c.body)).toEqual([{ dryRun: true }, { dryRun: false }]),
     )
     expect(await screen.findByText('Opération récurrente créée, 3 transaction(s) rattachée(s)')).toBeInTheDocument()
-    expect(refetch).toHaveBeenCalled()
+    expect(onChanged).toHaveBeenCalled()
   })
 
   test('with no past line to attach, the series is created without a preview', async () => {
-    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+    renderWith(<MakeRecurringButton record={TRANSACTION} onChanged={onChanged} />)
     const form = await open()
     await waitFor(() => expect(within(form).getByRole('combobox', { name: /Compte/ })).toHaveTextContent('Courant'))
     await userEvent.click(within(form).getByRole('button', { name: 'Créer la série' }))
@@ -256,7 +195,7 @@ describe('MakeRecurringButton', () => {
 
   test('closing the preview writes nothing', async () => {
     attachReport = { dryRun: true, scanned: 5, attached: 1, proposed: 0, attachments: [line('01A', '2026-01-12')], proposals: [] }
-    renderWith(<MakeRecurringButton record={TRANSACTION} />)
+    renderWith(<MakeRecurringButton record={TRANSACTION} onChanged={onChanged} />)
     const form = await open()
     await waitFor(() => expect(within(form).getByRole('combobox', { name: /Compte/ })).toHaveTextContent('Courant'))
     await userEvent.click(within(form).getByRole('button', { name: 'Créer la série' }))

@@ -7,7 +7,6 @@ import {
   DateField,
   FunctionField,
   ReferenceField,
-  EditButton,
   DeleteButton,
   CreateButton,
   TopToolbar,
@@ -21,10 +20,10 @@ import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
-import { TransferBadge, TransferCounterpart } from './TransferBadge'
+import { TransferCounterpart } from './TransferBadge'
+import { TransactionPills } from './TransactionPills'
 import { isBetweenAccounts, transactionIdOf } from './useTransactionTransfer'
 import { AccountIncidents } from './AccountIncidents'
-import { MakeRecurringButton, RecurringBadge } from './RecurringTransactionActions'
 import { useAccountIncidents } from './useAccountIncidents'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
@@ -51,11 +50,7 @@ const TransactionDatagrid = () => {
         render={(record: RaRecord) => (
           <>
             <span>{record.label as string}</span>
-            <TransferBadge
-              transferKind={record.transferKind as string | undefined}
-              amountCents={record.amountCents as number}
-            />
-            <RecurringBadge record={record} />
+            <TransactionPills record={record} />
             {(isBetweenAccounts(record.transferKind as string | undefined) || record.transferKind === 'rejected') && (
               <TransferCounterpart
                 transactionId={transactionIdOf(record.id as string)}
@@ -85,8 +80,6 @@ const TransactionDatagrid = () => {
           statusLabel(record.status as string, record.amountCents as number)
         }
       />
-      <FunctionField render={(record: RaRecord) => <MakeRecurringButton record={record} />} />
-      <EditButton />
       <DeleteButton />
     </Datagrid>
   )

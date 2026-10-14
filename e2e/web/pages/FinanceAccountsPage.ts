@@ -73,6 +73,23 @@ export class FinanceAccountsPage extends AdminShell {
   }
 
   /**
+   * Opens a line on its sheet (MAG-464): the row opens it, there is no edit
+   * button any more. `index` picks among rows sharing a label, latest first.
+   */
+  async openTransaction(label: string, index = 0): Promise<void> {
+    // The first cell holds the bulk-select checkbox, which does not open the sheet.
+    await this.row(label).nth(index).getByText(label).first().click()
+    await expect(this.content.getByRole('button', { name: 'Enregistrer' })).toBeVisible()
+  }
+
+  /** The sections of the open sheet, in the order they are drawn. */
+  async sheetSections(): Promise<string[]> {
+    return this.content
+      .locator('[data-section]')
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-section') ?? ''))
+  }
+
+  /**
    * Reopens the account list and waits for the row.
    *
    * Call it *after* `waitForIndexed` confirmed the write: the list is served

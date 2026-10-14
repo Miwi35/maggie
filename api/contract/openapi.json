@@ -16560,6 +16560,14 @@
                             "manual"
                         ]
                     },
+                    "note": {
+                        "maxLength": 2000,
+                        "description": "What the owner wants to remember about this line; blank means none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -16757,6 +16765,14 @@
                         "enum": [
                             "auto",
                             "manual"
+                        ]
+                    },
+                    "note": {
+                        "maxLength": 2000,
+                        "description": "What the owner wants to remember about this line; blank means none.",
+                        "type": [
+                            "string",
+                            "null"
                         ]
                     },
                     "user": {
@@ -16958,6 +16974,14 @@
                             "manual"
                         ]
                     },
+                    "note": {
+                        "maxLength": 2000,
+                        "description": "What the owner wants to remember about this line; blank means none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -17148,6 +17172,14 @@
                                 "enum": [
                                     "auto",
                                     "manual"
+                                ]
+                            },
+                            "note": {
+                                "maxLength": 2000,
+                                "description": "What the owner wants to remember about this line; blank means none.",
+                                "type": [
+                                    "string",
+                                    "null"
                                 ]
                             },
                             "user": {

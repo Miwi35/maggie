@@ -1,10 +1,26 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, Notification, RecordContextProvider, testDataProvider } from 'react-admin'
-import { TransferPanel } from './TransferPanel'
+import { AdminContext, Form, Notification, testDataProvider } from 'react-admin'
+import { NatureSection } from './NatureSection'
+import { useTransactionTransfer } from './useTransactionTransfer'
 
 const RECORD = { id: '/api/transactions/01OUT', label: 'Virement vers Courant', amountCents: -300000 }
+
+/** The section as the sheet mounts it: the transfer state read once, above, and the form around. */
+const Harness = () => {
+  const transferApi = useTransactionTransfer(RECORD.id)
+
+  return (
+    <Form defaultValues={{ nature: 'expense' }}>
+      <NatureSection
+        transferApi={transferApi}
+        kind={transferApi.transfer?.transferKind ?? 'none'}
+        amountCents={RECORD.amountCents}
+      />
+    </Form>
+  )
+}
 
 const LEG = {
   id: '01IN',
@@ -27,9 +43,7 @@ const respond = (status: number, body: unknown) =>
 const renderPanel = () =>
   render(
     <AdminContext dataProvider={testDataProvider()}>
-      <RecordContextProvider value={RECORD}>
-        <TransferPanel />
-      </RecordContextProvider>
+      <Harness />
       <Notification />
     </AdminContext>,
   )
@@ -39,7 +53,7 @@ const bodiesOf = (method: string) =>
     .filter(([, init]) => (init as RequestInit | undefined)?.method === method)
     .map(([url, init]) => ({ url, body: JSON.parse((init as RequestInit).body as string) }))
 
-describe('TransferPanel', () => {
+describe('NatureSection', () => {
   beforeEach(() => {
     localStorage.setItem('token', 'jwt')
     vi.stubGlobal('fetch', fetchMock)
@@ -180,6 +194,7 @@ describe('TransferPanel', () => {
       expect(screen.getByText('Marqué à la main')).toBeInTheDocument()
       expect(screen.getByText(/Rendu par :/)).toBeInTheDocument()
       expect(screen.getByText(/Livret · 13\/09\/2026 · Rejet virement Courant/)).toBeInTheDocument()
+      expect(screen.getByText('Régularisé')).toBeInTheDocument()
 
       await userEvent.click(screen.getByRole('button', { name: 'Ce n’est pas un rejet' }))
 
@@ -243,6 +258,7 @@ describe('TransferPanel', () => {
 
       await waitFor(() => expect(bodiesOf('PUT')[0].body).toEqual({ transferKind: 'rejected' }))
       expect(await screen.findByText('Sans contrepartie')).toBeInTheDocument()
+      expect(screen.getByText('Non régularisé')).toBeInTheDocument()
     })
 
     test('a refused rejection is shown and the dialog stays open', async () => {

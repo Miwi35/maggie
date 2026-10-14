@@ -21,6 +21,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 import com.maggie.app.data.model.RecurringSuggestion
+import com.maggie.app.data.model.RulePreviewRequest
 
 class MaggieApiServiceTest {
 
@@ -1066,5 +1067,56 @@ class MaggieApiServiceTest {
         val failed = runCatching { service.getTreasuryOutlook() }.exceptionOrNull()
 
         assertTrue(failed is ApiRefusalException)
+    }
+
+    @Test
+    fun `updateTransactionNote patches the note, and null erases it`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        var url: String? = null
+        var contentType: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                contentType = request.body.contentType?.toString()
+                bodies += String(request.body.toByteArray())
+                """{"id":"t1","label":"Cadeau","note":"Pour Léa"}"""
+            },
+        )
+
+        val updated = service.updateTransactionNote("t1", "Pour Léa")
+        service.updateTransactionNote("t1", null)
+
+        assertTrue(url!!.endsWith("/api/transactions/t1"))
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        assertEquals("Pour Léa", updated.note)
+        assertEquals(listOf("""{"note":"Pour Léa"}""", """{"note":null}"""), bodies)
+    }
+
+    @Test
+    fun `previewCategorizationRule posts the criteria and reads the lines caught`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                body = String(request.body.toByteArray())
+                """{"total":3,"changeCount":1,"matches":[{"transactionId":"t1","label":"CARREFOUR","amountCents":-4250,""" +
+                    """"bookedAt":"2026-03-17T00:00:00+00:00","currentCategoryId":null,"wouldChange":true}]}"""
+            },
+        )
+
+        val preview = service.previewCategorizationRule(
+            RulePreviewRequest(labelPattern = "CARREFOUR", direction = "debit", categoryId = "c1"),
+        )
+
+        assertEquals(HttpMethod.Post, method)
+        assertTrue(url!!.endsWith("/api/finance/categorization-rules/preview"))
+        assertEquals("""{"labelPattern":"CARREFOUR","direction":"debit","categoryId":"c1"}""", body)
+        assertEquals(3, preview.total)
+        assertEquals(1, preview.changeCount)
+        assertEquals("CARREFOUR", preview.matches.single().label)
+        assertTrue(preview.matches.single().wouldChange)
     }
 }

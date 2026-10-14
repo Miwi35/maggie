@@ -5,7 +5,6 @@ import {
   BooleanField,
   ReferenceField,
   FunctionField,
-  EditButton,
   DeleteButton,
 } from 'react-admin'
 import { LiveList } from '../../components/list/LiveList'
@@ -14,6 +13,7 @@ import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
+import { TransactionPills } from './TransactionPills'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -31,7 +31,15 @@ const TransactionDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <DateField source="bookedAt" label="Date" />
-      <TextField source="label" label="Libellé" />
+      <FunctionField
+        label="Libellé"
+        render={(record: RaRecord) => (
+          <>
+            <span>{record.label as string}</span>
+            <TransactionPills record={record} />
+          </>
+        )}
+      />
       <FunctionField
         label="Montant"
         textAlign="right"
@@ -56,7 +64,6 @@ const TransactionDatagrid = () => {
         }
       />
       <BooleanField source="isExceptional" label="Exceptionnel" />
-      <EditButton />
       <DeleteButton />
     </Datagrid>
   )

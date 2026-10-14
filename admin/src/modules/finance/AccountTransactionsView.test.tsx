@@ -129,6 +129,72 @@ describe('AccountTransactionsView', () => {
     expect(screen.getAllByText('Dépensée')).toHaveLength(1)
   })
 
+  describe('one line of pills, one sheet', () => {
+    const rows = [
+      { id: '/api/transactions/01A', label: 'Courses', amountCents: -2000, currency: 'EUR', status: 'spent', bookedAt: '2026-09-14', transferKind: 'none', category: null },
+      { id: '/api/transactions/01B', label: 'Loyer', amountCents: -50000, currency: 'EUR', status: 'spent', bookedAt: '2026-09-01', transferKind: 'none', category: '/api/categories/01C', recurringOperation: '/api/recurring_operations/01S' },
+    ]
+    const provider = testDataProvider({
+      getList: (() => Promise.resolve({ data: rows, total: rows.length })) as unknown as DataProvider['getList'],
+      getOne: ((resource: string) =>
+        Promise.resolve({
+          data: resource === 'recurring_operations' ? { id: '/api/recurring_operations/01S', label: 'Loyer mensuel' } : { id: ACCOUNT_IRI, name: 'Compte joint' },
+        })) as unknown as DataProvider['getOne'],
+    })
+
+    afterEach(() => vi.unstubAllGlobals())
+
+    const renderView = () => {
+      stubFetch()
+
+      return render(
+        <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
+          <AdminContext dataProvider={provider}>
+            <Routes>
+              <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+              <Route path="*" element={<LocationState />} />
+            </Routes>
+          </AdminContext>
+        </MemoryRouter>,
+      )
+    }
+
+    test('a line without category is « À trier », a line of a series names it, and nothing else sits on the row', async () => {
+      renderView()
+
+      const sorted = (await screen.findByText('Courses')).closest('tr')!
+      expect(within(sorted).getByText('À trier')).toBeInTheDocument()
+      const series = (await screen.findByText('Loyer')).closest('tr')!
+      expect(await within(series).findByText('Série · Loyer mensuel')).toBeInTheDocument()
+      expect(within(series).queryByText('À trier')).not.toBeInTheDocument()
+      // The pencil, the « make recurring » button and the detachable chip are gone: the sheet holds them.
+      expect(screen.queryByRole('link', { name: /Modifier|Éditer/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /En faire une opération récurrente/ })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/Détacher/)).not.toBeInTheDocument()
+      expect(within(series).getByRole('button', { name: /delete/i })).toBeInTheDocument()
+    })
+
+    test('a click on a pill opens the sheet of the line, like the row', async () => {
+      const user = userEvent.setup()
+      renderView()
+
+      await user.click(await screen.findByText('À trier'))
+
+      const location = JSON.parse((await screen.findByTestId('location')).textContent ?? '{}')
+      expect(location.pathname).toBe('/transactions/%2Fapi%2Ftransactions%2F01A')
+    })
+
+    test('a click on the row opens the sheet', async () => {
+      const user = userEvent.setup()
+      renderView()
+
+      await user.click(await screen.findByText('Courses'))
+
+      const location = JSON.parse((await screen.findByTestId('location')).textContent ?? '{}')
+      expect(location.pathname).toBe('/transactions/%2Fapi%2Ftransactions%2F01A')
+    })
+  })
+
   describe('internal transfers', () => {
     const rows = [
       {
@@ -314,7 +380,7 @@ describe('Incidents tab', () => {
     const dialog = await screen.findByRole('dialog', { name: /EDF · Prélèvement rejeté/ })
     expect(await within(dialog).findByText(/05\/09\/2026 · PRELEVEMENT EDF/)).toBeInTheDocument()
     expect(await within(dialog).findByText(/06\/09\/2026 · REJET PRLV ELECTRICITE DE FRANCE/)).toBeInTheDocument()
-    expect(within(dialog).getAllByRole('link', { name: 'Éditer' })).toHaveLength(2)
+    expect(within(dialog).getAllByRole('link', { name: 'Ouvrir la fiche' })).toHaveLength(2)
   })
 
   test('an account with no rejection says so', async () => {

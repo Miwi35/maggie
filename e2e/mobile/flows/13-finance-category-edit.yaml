@@ -178,6 +178,27 @@ tags:
     visible:
       id: "transaction_category"
     timeout: 10000
+
+# One sheet for every line (MAG-464): an ordinary line opens on its six sections, in order.
+- assertVisible:
+    id: "sheet_section_nature"
+- assertVisible:
+    id: "sheet_section_classement"
+- scrollUntilVisible:
+    element:
+      id: "sheet_section_note"
+- extendedWaitUntil:
+    visible:
+      id: "sheet_section_recurrence"
+    timeout: 10000
+- assertVisible:
+    id: "sheet_section_partage"
+- assertVisible:
+    id: "sheet_section_jugement"
+- scrollUntilVisible:
+    direction: UP
+    element:
+      id: "transaction_category"
 - tapOn:
     id: "transaction_category"
 - tapOn:

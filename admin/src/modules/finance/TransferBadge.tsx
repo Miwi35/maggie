@@ -18,6 +18,14 @@ const BETWEEN_ACCOUNTS_LABEL: Record<string, string> = {
 export const REJECTED_DEBIT_LABEL = 'Rejeté'
 export const REJECTED_CREDIT_LABEL = 'Rejet'
 
+/** What a line that counts in no figure is called, or null for an ordinary one. */
+export const transferLabel = (transferKind: string | null | undefined, amountCents: number | null | undefined) => {
+  if (transferKind && isBetweenAccounts(transferKind)) return BETWEEN_ACCOUNTS_LABEL[transferKind]
+  if (transferKind === 'rejected') return (amountCents ?? 0) > 0 ? REJECTED_CREDIT_LABEL : REJECTED_DEBIT_LABEL
+
+  return null
+}
+
 const asDay = (iso: string) => iso.split('-').reverse().join('/')
 
 /**
@@ -39,7 +47,7 @@ export const TransferBadge = ({
         color="info"
         variant="outlined"
         icon={<SwapHorizIcon />}
-        label={BETWEEN_ACCOUNTS_LABEL[transferKind]}
+        label={transferLabel(transferKind, amountCents)}
         sx={{ ml: 1 }}
       />
     )
@@ -51,7 +59,7 @@ export const TransferBadge = ({
         color="warning"
         variant="outlined"
         icon={<UndoIcon />}
-        label={(amountCents ?? 0) > 0 ? REJECTED_CREDIT_LABEL : REJECTED_DEBIT_LABEL}
+        label={transferLabel(transferKind, amountCents)}
         sx={{ ml: 1 }}
       />
     )

@@ -6,6 +6,8 @@ import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.RulePreview
+import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.util.rethrowCancellation
 
@@ -19,6 +21,10 @@ class CategorizationRuleRepository(
     suspend fun createRule(request: CategorizationRuleCreateRequest): Result<CategorizationRule> = runCatching {
         apiService.createCategorizationRule(request)
     }
+
+    suspend fun previewRule(request: RulePreviewRequest): Result<RulePreview> = runCatching {
+        apiService.previewCategorizationRule(request)
+    }.rethrowCancellation()
 
     suspend fun deleteRule(id: String): Result<Unit> = runCatching {
         apiService.deleteCategorizationRule(id)

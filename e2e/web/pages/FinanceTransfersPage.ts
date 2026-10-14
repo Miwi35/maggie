@@ -9,7 +9,7 @@ import { FinanceCategoriesPage } from './FinanceCategoriesPage.js'
  *
  * Three screens, one journey. The detection button sits on the rules tab of
  * the categories screen, the badge and the counterpart in the account-scoped
- * list, the correction on the edit screen reached from that list.
+ * list, the correction on the transaction's sheet reached from that list.
  */
 export class FinanceTransfersPage extends FinanceAccountsPage {
   readonly detect: Locator
@@ -36,12 +36,6 @@ export class FinanceTransfersPage extends FinanceAccountsPage {
   /** The badge of a row of the account's list. */
   badge(label: string): Locator {
     return this.row(label).getByText('Virement interne', { exact: true })
-  }
-
-  /** Opens a line on its own screen, where the marking can be corrected. */
-  async openTransaction(label: string): Promise<void> {
-    await this.row(label).getByRole('link', { name: 'Éditer' }).click()
-    await expect(this.content.getByRole('button', { name: 'Enregistrer' })).toBeVisible()
   }
 
   /** The « Incidents (n) » tab of an account: the rejected payments, one line each (MAG-375). */

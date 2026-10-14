@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
@@ -40,45 +43,43 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.incidentRegularisationLabel
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.data.model.transferBadgeLabel
 import com.maggie.app.data.model.transferLegSummary
+import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.ui.UiTags
 
-/**
- * The « Virement interne » or « Rejet » chip, shared by the list and the detail screen;
- * nothing on an ordinary line. [counterpartLabel] names the rejected payment once the detail knows it.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TransferBadge(transaction: Transaction, modifier: Modifier = Modifier, counterpartLabel: String? = null) {
-    val label = transferBadgeLabel(transaction.transferKind, transaction.amountCents, counterpartLabel) ?: return
-    AssistChip(
-        onClick = {},
-        label = { Text(label) },
-        modifier = modifier.testTag(if (transaction.isRejected) UiTags.REJECTION_BADGE else UiTags.TRANSFER_BADGE),
-    )
-}
+/** What the sheet does for the owner; each gesture acts at once, there is no « Enregistrer » for the whole sheet. */
+class TransactionSheetActions(
+    val onBack: () -> Unit,
+    val onSearchCounterpart: () -> Unit,
+    val onRelease: () -> Unit,
+    val onPickCategory: (() -> Unit)? = null,
+    val onCreateRule: (() -> Unit)? = null,
+    val onMakeRecurring: (() -> Unit)? = null,
+    val onDetach: () -> Unit = {},
+    val onSaveNote: (String) -> Unit = {},
+)
 
 /**
- * One line and what makes it neutral: the badge, the other leg, and the toggle.
- * Marking an internal transfer opens a full-screen search for the counterpart, never an
- * inline dropdown; a rejection is only released here — the admin marks it.
+ * The one sheet of a transaction, in six ordered sections: Nature, Classement, Récurrence,
+ * Partage, Jugement, Note. The nature decides the rest: an internal transfer, an advance, a
+ * repayment, a top-up or an incident keeps only Nature and Note. Marking an internal transfer
+ * opens a full-screen search for the counterpart, never an inline dropdown.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionDetailScreen(
     state: TransferDetailState,
-    onBack: () -> Unit,
-    onSearchCounterpart: () -> Unit,
-    onRelease: () -> Unit,
+    actions: TransactionSheetActions,
     categoryPath: String? = null,
-    onPickCategory: (() -> Unit)? = null,
-    onMakeRecurring: (() -> Unit)? = null,
+    seriesName: String? = null,
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(onBack = actions.onBack)
     val transaction = state.transaction
 
     Scaffold(
@@ -86,7 +87,7 @@ fun TransactionDetailScreen(
             TopAppBar(
                 title = { Text("Transaction") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = actions.onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
@@ -94,8 +95,13 @@ fun TransactionDetailScreen(
         },
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+                .widthIn(max = 720.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(transaction.label, style = MaterialTheme.typography.titleLarge)
             Text(
@@ -111,73 +117,22 @@ fun TransactionDetailScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            HorizontalDivider()
-
             if (state.isLoading && state.info == null) {
                 CircularProgressIndicator()
             }
 
-            if (transaction.isRejected) {
-                TransferBadge(transaction, counterpartLabel = state.info?.counterpart?.label)
-                Text(
-                    text = if (transaction.transferSource == "manual") "Marqué à la main" else "Détecté automatiquement",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                state.info?.counterpart?.let {
-                    Text(
-                        text = "${if (transaction.amountCents < 0) "Recrédité par" else "Paiement rejeté"} : ${transferLegSummary(it)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+            visibleSheetSections(transaction.transferKind).forEach { section ->
+                HorizontalDivider()
+                SheetSection(section) {
+                    when (section) {
+                        TransactionSheetSection.Nature -> NatureSection(state, actions)
+                        TransactionSheetSection.Classement -> ClassementSection(state, actions, categoryPath)
+                        TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
+                        TransactionSheetSection.Partage -> EmptySlot("Pas encore disponible")
+                        TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
+                        TransactionSheetSection.Note -> NoteSection(state, actions)
+                    }
                 }
-                OutlinedButton(
-                    onClick = onRelease,
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.REJECTION_RELEASE),
-                ) { Text("Ce n'est pas un rejet") }
-            } else if (transaction.isInternalTransfer) {
-                TransferBadge(transaction)
-                Text(
-                    text = if (transaction.transferSource == "manual") "Marqué à la main" else "Détecté automatiquement",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val counterpart = state.info?.counterpart
-                if (state.info != null) {
-                    Text(
-                        text = counterpart?.let { "Contrepartie : ${transferLegSummary(it)}" }
-                            ?: "Sans contrepartie : l'autre compte n'est pas suivi",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onRelease,
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
-                ) { Text("Ce n'est pas un virement interne") }
-            } else {
-                if (onPickCategory != null) {
-                    CategoryField(path = categoryPath, enabled = !state.isSaving, onClick = onPickCategory)
-                }
-                Button(
-                    onClick = onSearchCounterpart,
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
-                ) { Text("C'est un virement interne") }
-            }
-
-            if (transaction.isAttachedToRecurring) {
-                Text(
-                    text = "Rattachée à une opération récurrente",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.testTag(UiTags.RECURRING_ATTACHED),
-                )
-            } else if (onMakeRecurring != null && !transaction.isInternalTransfer && !transaction.isRejected) {
-                OutlinedButton(
-                    onClick = onMakeRecurring,
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_FROM_TRANSACTION),
-                ) { Text("En faire une opération récurrente") }
             }
 
             state.error?.let {
@@ -186,6 +141,153 @@ fun TransactionDetailScreen(
         }
     }
 }
+
+/** A named slot of the sheet: later lots plug their content into it by its tag. */
+@Composable
+private fun SheetSection(section: TransactionSheetSection, content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.sheetSection(section.key)),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(section.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        content()
+    }
+}
+
+@Composable
+private fun EmptySlot(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun SourceText(transaction: Transaction) {
+    Text(
+        text = if (transaction.transferSource == "manual") "Marqué à la main" else "Détecté automatiquement",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NatureChip(label: String, tag: String) {
+    AssistChip(onClick = {}, label = { Text(label) }, modifier = Modifier.testTag(tag))
+}
+
+/** What the line is: ordinary, an internal move, or an incident; the only section a non-ordinary line keeps with the note. */
+@Composable
+private fun NatureSection(state: TransferDetailState, actions: TransactionSheetActions) {
+    val transaction = state.transaction
+    if (transaction.isRejected) {
+        val label = transferBadgeLabel(transaction.transferKind, transaction.amountCents, state.info?.counterpart?.label)
+        label?.let { NatureChip(it, UiTags.REJECTION_BADGE) }
+        if (state.info != null) {
+            Text(incidentRegularisationLabel(state.info.counterpart), style = MaterialTheme.typography.bodyMedium)
+        }
+        SourceText(transaction)
+        state.info?.counterpart?.let {
+            Text(
+                text = "${if (transaction.amountCents < 0) "Recrédité par" else "Paiement rejeté"} : ${transferLegSummary(it)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        OutlinedButton(
+            onClick = actions.onRelease,
+            enabled = !state.isSaving,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.REJECTION_RELEASE),
+        ) { Text("Ce n'est pas un rejet") }
+    } else if (transaction.isInternalTransfer) {
+        transferBadgeLabel(transaction.transferKind, transaction.amountCents)?.let { NatureChip(it, UiTags.TRANSFER_BADGE) }
+        SourceText(transaction)
+        if (state.info != null) {
+            Text(
+                text = state.info.counterpart?.let { "Contrepartie : ${transferLegSummary(it)}" }
+                    ?: "Sans contrepartie : l'autre compte n'est pas suivi",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        OutlinedButton(
+            onClick = actions.onRelease,
+            enabled = !state.isSaving,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
+        ) { Text("Ce n'est pas un virement interne") }
+    } else {
+        Text("Ligne ordinaire", style = MaterialTheme.typography.bodyMedium)
+        Button(
+            onClick = actions.onSearchCounterpart,
+            enabled = !state.isSaving,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSFER_TOGGLE),
+        ) { Text("C'est un virement interne") }
+    }
+}
+
+@Composable
+private fun ClassementSection(state: TransferDetailState, actions: TransactionSheetActions, categoryPath: String?) {
+    val transaction = state.transaction
+    Text(
+        text = "État : ${transactionStatusLabel(transaction.status, transaction.amountCents)}",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    actions.onPickCategory?.let { CategoryField(path = categoryPath, enabled = !state.isSaving, onClick = it) }
+    actions.onCreateRule?.let {
+        OutlinedButton(
+            onClick = it,
+            enabled = !state.isSaving,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_OPEN),
+        ) { Text("Créer un filtre") }
+    }
+}
+
+@Composable
+private fun RecurrenceSection(state: TransferDetailState, actions: TransactionSheetActions, seriesName: String?) {
+    val transaction = state.transaction
+    if (transaction.isAttachedToRecurring) {
+        Text(
+            text = "Série : ${seriesName ?: "opération récurrente"}",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(UiTags.RECURRING_ATTACHED),
+        )
+        transaction.recurringOccurrenceOn?.let {
+            Text("Échéance : ${it.take(10)}", style = MaterialTheme.typography.bodyMedium)
+        }
+        OutlinedButton(
+            onClick = actions.onDetach,
+            enabled = !state.isSaving,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_DETACH),
+        ) { Text("Détacher de la série") }
+    } else {
+        Text("Aucune série", style = MaterialTheme.typography.bodyMedium)
+        actions.onMakeRecurring?.let {
+            OutlinedButton(
+                onClick = it,
+                enabled = !state.isSaving,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_FROM_TRANSACTION),
+            ) { Text("En faire une opération récurrente") }
+        }
+    }
+}
+
+@Composable
+private fun NoteSection(state: TransferDetailState, actions: TransactionSheetActions) {
+    val saved = state.transaction.note.orEmpty()
+    var text by rememberSaveable(state.transaction.id, saved) { mutableStateOf(saved) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { if (it.length <= NOTE_MAX_LENGTH) text = it },
+        label = { Text("Note") },
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSACTION_NOTE),
+        minLines = 3,
+        maxLines = 8,
+        supportingText = { Text("${text.length} / $NOTE_MAX_LENGTH") },
+    )
+    Button(
+        onClick = { actions.onSaveNote(text) },
+        enabled = !state.isSaving && text != saved,
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSACTION_NOTE_SAVE),
+    ) { Text("Enregistrer la note") }
+}
+
+private const val NOTE_MAX_LENGTH = 2000
 
 /** The line's category, written as its path; a tap opens the full-screen search, never a dropdown. */
 @Composable

@@ -280,6 +280,8 @@ object UiTags {
 
     fun googleImport(calendarId: String) = GOOGLE_IMPORT_PREFIX + calendarId
 
+    fun sheetSection(key: String) = SHEET_SECTION_PREFIX + key
+
     fun calendarDay(date: LocalDate) = CALENDAR_DAY_PREFIX + date
 
     fun calendarSpan(first: LocalDate, last: LocalDate) = "$CALENDAR_SPAN_PREFIX${first}_$last"
@@ -320,6 +322,29 @@ object UiTags {
 
     /** The search field of the counterpart picker, a screen of its own. */
     const val TRANSFER_SEARCH = "transfer_search"
+
+    /**
+     * The transaction sheet's six sections (MAG-464), suffixed by the section key — nature,
+     * classement, recurrence, partage, jugement, note — built by [sheetSection].
+     */
+    const val SHEET_SECTION_PREFIX = "sheet_section_"
+
+    /** The pills of a line in the lists; « Virement interne » and « Rejeté » keep [TRANSFER_BADGE] and [REJECTION_BADGE]. */
+    const val PILL_SERIES = "pill_series"
+    const val PILL_SHARED = "pill_shared"
+    const val PILL_TO_SORT = "pill_to_sort"
+
+    /** The sheet's « Détacher de la série », its note field and « Enregistrer la note ». */
+    const val RECURRING_DETACH = "recurring_detach"
+    const val TRANSACTION_NOTE = "transaction_note"
+    const val TRANSACTION_NOTE_SAVE = "transaction_note_save"
+
+    /** « Créer un filtre » (MAG-464): the sheet's action, then the screen's pattern, category, lines caught and save. */
+    const val RULE_DRAFT_OPEN = "rule_draft_open"
+    const val RULE_DRAFT_PATTERN = "rule_draft_pattern"
+    const val RULE_DRAFT_CATEGORY = "rule_draft_category"
+    const val RULE_DRAFT_MATCH = "rule_draft_match"
+    const val RULE_DRAFT_SAVE = "rule_draft_save"
 
     /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
     const val REJECTION_BADGE = "rejection_badge"

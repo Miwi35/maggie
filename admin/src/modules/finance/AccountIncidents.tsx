@@ -42,7 +42,7 @@ const Leg = ({ title, id }: { title: string; id: string | null }) => {
             {asDay(String(data.bookedAt).slice(0, 10))} · {data.label as string}
           </span>
           <Amount cents={data.amountCents as number} currency={data.currency as string} signed />
-          <Link to={createPath({ resource: 'transactions', type: 'edit', id: data.id })}>Éditer</Link>
+          <Link to={createPath({ resource: 'transactions', type: 'edit', id: data.id })}>Ouvrir la fiche</Link>
         </Box>
       )}
     </Box>

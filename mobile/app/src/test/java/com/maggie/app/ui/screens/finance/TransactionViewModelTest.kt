@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.auth.AuthRepository
@@ -7,10 +8,19 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.RecurringOperationRecord
+import com.maggie.app.data.model.RulePreview
+import com.maggie.app.data.model.RulePreviewMatch
+import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.TransactionSheetSection
+import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -44,6 +54,8 @@ class TransactionViewModelTest {
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
+    private lateinit var recurringRepository: RecurringOperationRepository
+    private lateinit var ruleRepository: CategorizationRuleRepository
     private lateinit var viewModel: TransactionViewModel
 
     private val accountId = "acc-1"
@@ -64,6 +76,9 @@ class TransactionViewModelTest {
         categoryRepository = mockk()
         mercureService = mockk()
         authRepository = mockk()
+        recurringRepository = mockk()
+        ruleRepository = mockk()
+        coEvery { recurringRepository.getRecords() } returns Result.success(emptyList())
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
@@ -72,7 +87,10 @@ class TransactionViewModelTest {
     }
 
     private fun newViewModel() =
-        TransactionViewModel(transactionRepository, categoryRepository, accountId, mercureService, authRepository)
+        TransactionViewModel(
+            transactionRepository, categoryRepository, accountId, mercureService, authRepository,
+            recurringRepository, ruleRepository,
+        )
 
     @After
     fun tearDown() {
@@ -600,5 +618,327 @@ class TransactionViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { transactionRepository.setCategory(any(), any()) }
+    }
+
+    // MAG-464: the single sheet — one gesture, one transition, one test.
+
+    private fun kotlinx.coroutines.test.TestScope.openSheet(id: String = "tx-1") {
+        coEvery { transactionRepository.getTransfer(id) } returns Result.success(TransferInfo())
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail(id)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `the series names are read once so the pills can name the series`() = runTest {
+        coEvery { recurringRepository.getRecords() } returns Result.success(
+            listOf(RecurringOperationRecord(id = "s1", label = "Loyer")),
+        )
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assertEquals(mapOf("s1" to "Loyer"), viewModel.uiState.value.seriesNames)
+    }
+
+    @Test
+    fun `unreadable series names leave the list working`() = runTest {
+        coEvery { recurringRepository.getRecords() } returns Result.failure(RuntimeException("offline"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.seriesNames.isEmpty())
+        assertEquals(2, viewModel.uiState.value.transactions.size)
+    }
+
+    @Test
+    fun `writing a note saves it at once and the sheet shows it`() = runTest {
+        coEvery { transactionRepository.setNote("tx-1", "Cadeau Léa") } returns
+            Result.success(sampleTransactions[0].copy(note = "Cadeau Léa"))
+        openSheet()
+
+        viewModel.setNote("Cadeau Léa")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("Cadeau Léa", detail.transaction.note)
+        assertFalse(detail.isSaving)
+        assertNull(detail.error)
+    }
+
+    @Test
+    fun `erasing a note clears it on the sheet`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+            listOf(sampleTransactions[0].copy(note = "Ancienne"), sampleTransactions[1]),
+        )
+        coEvery { transactionRepository.setNote("tx-1", "") } returns Result.success(sampleTransactions[0])
+        openSheet()
+        assertEquals("Ancienne", viewModel.uiState.value.detail!!.transaction.note)
+
+        viewModel.setNote("")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail!!.transaction.note)
+    }
+
+    @Test
+    fun `a refused note says why and stops saving`() = runTest {
+        coEvery { transactionRepository.setNote("tx-1", "x") } returns Result.failure(RuntimeException("note is at most 2000 characters."))
+        openSheet()
+
+        viewModel.setNote("x")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("note is at most 2000 characters.", detail.error)
+        assertFalse(detail.isSaving)
+        assertNull(detail.transaction.note)
+    }
+
+    private val attached = sampleTransactions[0].copy(
+        recurringOperation = "/api/recurring_operations/s1",
+        recurringOccurrenceOn = "2026-09-05",
+    )
+
+    @Test
+    fun `detaching from the series frees the line and reloads the list`() = runTest {
+        var served = listOf(attached, sampleTransactions[1])
+        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { recurringRepository.detachTransaction("tx-1") } answers {
+            served = sampleTransactions
+            Result.success(Unit)
+        }
+        openSheet()
+        assertTrue(viewModel.uiState.value.detail!!.transaction.isAttachedToRecurring)
+
+        viewModel.detachFromSeries()
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertFalse(detail.transaction.isAttachedToRecurring)
+        assertNull(detail.transaction.recurringOccurrenceOn)
+        assertFalse(detail.isSaving)
+        assertFalse(viewModel.uiState.value.transactions.first { it.id == "tx-1" }.isAttachedToRecurring)
+    }
+
+    @Test
+    fun `a refused detach keeps the line attached and says why`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(attached, sampleTransactions[1]))
+        coEvery { recurringRepository.detachTransaction("tx-1") } returns Result.failure(RuntimeException("offline"))
+        openSheet()
+
+        viewModel.detachFromSeries()
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("offline", detail.error)
+        assertTrue(detail.transaction.isAttachedToRecurring)
+        assertFalse(detail.isSaving)
+    }
+
+    @Test
+    fun `marking a line internal leaves only its nature and its note on the sheet`() = runTest {
+        coEvery { transactionRepository.setTransfer("tx-1", true, null) } returns
+            Result.success(TransferInfo(transferKind = "internal", transferSource = "manual"))
+        openSheet()
+        assertEquals(6, visibleSheetSections(viewModel.uiState.value.detail!!.transaction.transferKind).size)
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+            listOf(sampleTransactions[0].copy(transferKind = "internal"), sampleTransactions[1]),
+        )
+
+        viewModel.markAsTransfer(null)
+        advanceUntilIdle()
+
+        val kind = viewModel.uiState.value.detail!!.transaction.transferKind
+        assertEquals(listOf(TransactionSheetSection.Nature, TransactionSheetSection.Note), visibleSheetSections(kind))
+    }
+
+    @Test
+    fun `releasing a line brings its sections back`() = runTest {
+        val internal = sampleTransactions[0].copy(transferKind = "internal")
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(internal, sampleTransactions[1]))
+        coEvery { transactionRepository.setTransfer("tx-1", false, null) } returns
+            Result.success(TransferInfo(transferKind = "none", transferSource = "manual"))
+        openSheet()
+        assertEquals(2, visibleSheetSections(viewModel.uiState.value.detail!!.transaction.transferKind).size)
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(sampleTransactions)
+
+        viewModel.releaseTransfer()
+        advanceUntilIdle()
+
+        assertEquals(6, visibleSheetSections(viewModel.uiState.value.detail!!.transaction.transferKind).size)
+    }
+
+    private val drawn = RulePreview(
+        total = 2,
+        changeCount = 2,
+        matches = listOf(
+            RulePreviewMatch("tx-1", "Supermarché", -4599, "2026-09-12", wouldChange = true),
+            RulePreviewMatch("tx-9", "Supermarché", -1200, "2026-08-02", wouldChange = true),
+        ),
+    )
+
+    @Test
+    fun `opening the filter fills it from the line and lists what it catches`() = runTest {
+        val requests = mutableListOf<RulePreviewRequest>()
+        coEvery { ruleRepository.previewRule(capture(requests)) } returns Result.success(drawn)
+        openSheet()
+
+        viewModel.openRuleDraft()
+        assertTrue(viewModel.uiState.value.ruleDraft!!.isPreviewing)
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertEquals("Supermarché", draft.labelPattern)
+        assertEquals("debit", draft.direction)
+        assertNull(draft.categoryId)
+        assertEquals(drawn, draft.preview)
+        assertFalse(draft.isPreviewing)
+        assertEquals("debit", requests.single().direction)
+    }
+
+    @Test
+    fun `the filter of an income takes the credit direction and the category of the line`() = runTest {
+        val salary = sampleTransactions[1].copy(category = "/api/categories/cat-1")
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(sampleTransactions[0], salary))
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(RulePreview())
+        openSheet("tx-2")
+
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertEquals("credit", draft.direction)
+        assertEquals("cat-1", draft.categoryId)
+    }
+
+    @Test
+    fun `changing the pattern asks for a new preview once typing pauses, and only the last one counts`() = runTest {
+        val requests = mutableListOf<String>()
+        coEvery { ruleRepository.previewRule(any()) } answers {
+            requests += firstArg<RulePreviewRequest>().labelPattern
+            Result.success(drawn.copy(total = requests.size))
+        }
+        openSheet()
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+        requests.clear()
+
+        viewModel.changeRulePattern("Super")
+        advanceTimeBy(100)
+        viewModel.changeRulePattern("Supermarc")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Supermarc"), requests)
+        assertEquals("Supermarc", viewModel.uiState.value.ruleDraft!!.labelPattern)
+        assertEquals(1, viewModel.uiState.value.ruleDraft!!.preview!!.total)
+    }
+
+    @Test
+    fun `a blank pattern asks for nothing and empties the list`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        viewModel.changeRulePattern("  ")
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertNull(draft.preview)
+        assertFalse(draft.isPreviewing)
+        coVerify(exactly = 1) { ruleRepository.previewRule(any()) }
+    }
+
+    @Test
+    fun `a failing preview is reported on the filter, not on the list`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.failure(RuntimeException("L'aperçu est indisponible"))
+        openSheet()
+
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        assertEquals("L'aperçu est indisponible", viewModel.uiState.value.ruleDraft!!.error)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `choosing the filter category previews again with it`() = runTest {
+        val requests = mutableListOf<RulePreviewRequest>()
+        coEvery { ruleRepository.previewRule(capture(requests)) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        assertEquals("cat-1", viewModel.uiState.value.ruleDraft!!.categoryId)
+        assertEquals("cat-1", requests.last().categoryId)
+    }
+
+    @Test
+    fun `saving the filter creates the rule, closes the screen and reloads the list`() = runTest {
+        val created = slot<CategorizationRuleCreateRequest>()
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        coEvery { ruleRepository.createRule(capture(created)) } returns
+            Result.success(CategorizationRule(id = "r1", labelPattern = "Supermarché"))
+        openSheet()
+        viewModel.openRuleDraft()
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        viewModel.saveRule()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.ruleDraft)
+        assertEquals("Supermarché", created.captured.labelPattern)
+        assertEquals("/api/categories/cat-1", created.captured.category)
+        assertEquals("debit", created.captured.direction)
+        coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    @Test
+    fun `a refused filter stays open with the reason and stops saving`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        coEvery { ruleRepository.createRule(any()) } returns Result.failure(RuntimeException("422"))
+        openSheet()
+        viewModel.openRuleDraft()
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        viewModel.saveRule()
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertEquals("422", draft.error)
+        assertFalse(draft.isSaving)
+    }
+
+    @Test
+    fun `a filter without a category is not saved`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        viewModel.saveRule()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { ruleRepository.createRule(any()) }
+        assertEquals("Supermarché", viewModel.uiState.value.ruleDraft!!.labelPattern)
+    }
+
+    @Test
+    fun `closing the filter goes back to the sheet`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        advanceUntilIdle()
+
+        viewModel.closeRuleDraft()
+
+        assertNull(viewModel.uiState.value.ruleDraft)
+        assertEquals("tx-1", viewModel.uiState.value.detail!!.transaction.id)
     }
 }

@@ -34,6 +34,8 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.targetsCategory
 import com.maggie.app.data.model.RecurringAttachReport
+import com.maggie.app.data.model.RulePreview
+import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.RecurringAttachRequest
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
@@ -1317,6 +1319,15 @@ class MaggieApiService(
         }.orRefusal().body()
     }
 
+    /** Writes the transaction's note; null (or blank) erases it. */
+    suspend fun updateTransactionNote(id: String, note: String?): Transaction {
+        return client.patch("$baseUrl/api/transactions/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("note", note?.let(::JsonPrimitive) ?: JsonNull) })
+        }.orRefusal().body()
+    }
+
     suspend fun rateTransaction(id: String, verdict: String) {
         client.patch("$baseUrl/api/transactions/$id") {
             contentType(ContentType("application", "merge-patch+json"))
@@ -1350,6 +1361,14 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             setBody(request)
         }.body()
+    }
+
+    /** What a rule still being written would catch; nothing is stored. */
+    suspend fun previewCategorizationRule(request: RulePreviewRequest): RulePreview {
+        return client.post("$baseUrl/api/finance/categorization-rules/preview") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     suspend fun deleteCategorizationRule(id: String) {

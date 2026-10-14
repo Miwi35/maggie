@@ -211,6 +211,70 @@ class TransactionToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
+    public function testCreateAndUpdateCarryTheNote(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $created = json_decode($tool('create', accountId: (string) $account->getId(), amountCents: -1599, label: 'Boulangerie', bookedAt: '2026-07-08', note: 'Pour le brunch'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Pour le brunch', $created['transaction']['note']);
+        $id = $created['transaction']['id'];
+
+        // An update that omits the note leaves it alone.
+        $untouched = json_decode($tool('update', transactionId: $id, status: 'committed'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Pour le brunch', $untouched['transaction']['note']);
+
+        $updated = json_decode($tool('update', transactionId: $id, note: 'Finalement pour Léa'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Finalement pour Léa', $updated['transaction']['note']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Finalement pour Léa', $em->find(Transaction::class, $id)->getNote());
+
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testTheNoteIsClearedByClearOrByABlankValue(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('groceries')->getId();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $tool('update', transactionId: $id, note: 'À effacer');
+        $data = json_decode($tool('update', transactionId: $id, clear: ['note']), true, 512, JSON_THROW_ON_ERROR);
+        self::assertNull($data['transaction']['note']);
+        $em->clear();
+        self::assertNull($em->find(Transaction::class, $id)->getNote());
+
+        $tool('update', transactionId: $id, note: 'À effacer');
+        $tool('update', transactionId: $id, note: '  ');
+        $em->clear();
+        self::assertNull($em->find(Transaction::class, $id)->getNote());
+    }
+
+    public function testANoteOverTwoThousandCharactersIsRefused(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $transaction = $this->getFixture('groceries');
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $update = json_decode($tool('update', transactionId: (string) $transaction->getId(), note: str_repeat('a', 2001)), true, 512, JSON_THROW_ON_ERROR);
+        $create = json_decode($tool('create', accountId: (string) $this->getFixture('checking')->getId(), amountCents: -100, label: 'Trop long', note: str_repeat('a', 2001)), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('2000', $update['error']);
+        self::assertStringContainsString('2000', $create['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Transaction::class, $transaction->getId())->getNote());
+        self::assertNull($em->getRepository(Transaction::class)->findOneBy(['label' => 'Trop long']));
+    }
+
     public function testClearOnAnUnknownTransactionReturnsAnError(): void
     {
         $this->loadFixtures('transaction.yaml');

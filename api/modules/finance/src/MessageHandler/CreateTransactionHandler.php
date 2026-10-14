@@ -43,6 +43,8 @@ class CreateTransactionHandler
         $transaction->setStatus(TransactionStatus::from($command->status));
         $transaction->setCurrency($command->currency);
         $transaction->setIsExceptional($command->isExceptional);
+        Transaction::assertNoteFits($command->note);
+        $transaction->setNote($command->note);
 
         if (null !== $command->categoryId) {
             $category = $this->references->category($command->categoryId, $user);

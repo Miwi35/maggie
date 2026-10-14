@@ -31,21 +31,21 @@ import type { TransactionNature } from './transactionStatuses'
 import { categoryLabel, orderedCategories } from './categoryTree'
 
 const formSx = { maxWidth: 680 }
-const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
-const halfSx = { flex: '1 1 240px' }
+export const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
+export const halfSx = { flex: '1 1 240px' }
 
 interface TransactionFormProps {
   withDefaults?: boolean
 }
 
-interface CategoryOption extends RaRecord {
+export interface CategoryOption extends RaRecord {
   name: string
   obligation: string
 }
 
 const isIncomeCategory = (category: { obligation?: string }) => category.obligation === 'income'
 
-const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
+export const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
   nature === 'income' ? isIncomeCategory(category) : !isIncomeCategory(category)
 
 /**
@@ -65,7 +65,7 @@ export const toTransactionPayload = (data: Record<string, unknown>) => {
 }
 
 /** The amount is typed in euros and without a sign — the nature carries it. */
-const absoluteCentsInput = {
+export const absoluteCentsInput = {
   format: (v?: number) => (v == null ? null : Math.abs(v) / 100),
   parse: (v?: number) => {
     const cents = centsInput.parse(v)
@@ -78,7 +78,7 @@ const NATURE_HELP: Record<TransactionNature, string> = {
   income: 'De l’argent qui entre sur le compte — un salaire, une rente, un remboursement.',
 }
 
-const NatureInput = ({ categories }: { categories: CategoryOption[] }) => {
+export const NatureInput = ({ categories }: { categories: CategoryOption[] }) => {
   const { setValue, getValues } = useFormContext()
   const { field } = useController({ name: 'nature' })
   const nature: TransactionNature = field.value ?? 'expense'
@@ -121,68 +121,141 @@ const NatureInput = ({ categories }: { categories: CategoryOption[] }) => {
   )
 }
 
-const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
-  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
-  const current = useWatch({ name: 'category' }) as string | null | undefined
-  const status = useWatch({ name: 'status' }) as string | undefined
-  const { data: categories = [] } = useGetList<CategoryOption>('categories', {
+/** Every category, the dépense / recette rule of the form applies to what is offered. */
+export const useTransactionCategories = () =>
+  useGetList<CategoryOption>('categories', {
     pagination: { page: 1, perPage: 200 },
     sort: { field: 'name', order: 'ASC' },
-  })
+  }).data ?? []
+
+/** The account, label, amount and date: what identifies a line, whatever else it is. */
+export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency?: boolean }) => (
+  <>
+    <ReferenceInput source="account" reference="accounts">
+      <AutocompleteInput
+        label="Compte"
+        optionText="name"
+        validate={required()}
+        fullWidth
+        helperText="Le compte sur lequel la transaction est passée."
+      />
+    </ReferenceInput>
+
+    <TextInput
+      source="label"
+      label="Libellé"
+      validate={required()}
+      fullWidth
+      helperText="Ce que vous lirez sur votre relevé — c'est aussi ce que lisent les règles de catégorisation."
+    />
+
+    <Box sx={rowSx}>
+      <NumberInput
+        source="amountCents"
+        label="Montant (€)"
+        validate={[
+          required(),
+          (v: number | null) => (v === 0 ? 'Saisissez un montant supérieur à 0' : undefined),
+        ]}
+        {...absoluteCentsInput}
+        sx={halfSx}
+        helperText="Toujours positif : le choix Dépense / Recette donne le sens."
+      />
+      <DateInput
+        source="bookedAt"
+        label="Date"
+        validate={required()}
+        sx={halfSx}
+        helperText="La date à laquelle l'argent bouge, pas celle de l'événement."
+      />
+      {withCurrency && <CurrencyInput sx={halfSx} />}
+    </Box>
+  </>
+)
+
+/** Only the categories that fit the nature; the one the line already carries stays offered. */
+export const CategoryChoiceInput = ({ sx }: { sx?: object }) => {
+  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
+  const current = useWatch({ name: 'category' }) as string | null | undefined
+  const categories = useTransactionCategories()
 
   // Filtered here rather than by the API: "every kind but income" is not a
   // filter it offers. A category the line already carries stays in the list so
   // an old line, saved before the rule, does not show an empty field.
   const choices = orderedCategories(categories).filter((c) => matchesNature(c, nature) || c.id === current)
 
-  // Same for a status the nature no longer offers: an income saved as
-  // "Engagée" before the form knew better must not open on a blank field.
+  return (
+    <AutocompleteInput
+      source="category"
+      label="Catégorie"
+      choices={choices}
+      optionText={categoryLabel}
+      sx={sx}
+      fullWidth={sx === undefined}
+      helperText={
+        nature === 'income'
+          ? 'Facultatif. Seules les catégories de recette sont proposées.'
+          : 'Facultatif. Les catégories de recette sont réservées aux recettes.'
+      }
+    />
+  )
+}
+
+export const CurrencyInput = ({ withDefaults, sx }: { withDefaults?: boolean; sx?: object }) => (
+  <TextInput
+    source="currency"
+    label="Devise"
+    defaultValue={withDefaults ? 'EUR' : undefined}
+    sx={sx}
+    helperText="Code ISO 4217."
+  />
+)
+
+export const StatusInput = ({ withDefaults }: { withDefaults?: boolean }) => {
+  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
+  const status = useWatch({ name: 'status' }) as string | undefined
+
+  // A status the nature no longer offers: an income saved as "Engagée" before
+  // the form knew better must not open on a blank field.
   const statusChoices = STATUS_CHOICES[nature].some((c) => c.id === status)
     ? STATUS_CHOICES[nature]
     : [...STATUS_CHOICES[nature], ...(status ? [{ id: status, name: statusLabel(status, nature === 'income' ? 1 : -1) }] : [])]
 
   return (
+    <SelectInput
+      source="status"
+      label="Statut"
+      choices={statusChoices}
+      defaultValue={withDefaults ? 'spent' : undefined}
+      validate={required()}
+      fullWidth
+      helperText={STATUS_HELP[nature]}
+    />
+  )
+}
+
+export const ExceptionalInput = ({ withDefaults }: { withDefaults?: boolean }) => {
+  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
+
+  return (
+    <BooleanInput
+      source="isExceptional"
+      label={EXCEPTIONAL_LABEL[nature]}
+      defaultValue={withDefaults ? false : undefined}
+      helperText={EXCEPTIONAL_HELP[nature]}
+    />
+  )
+}
+
+const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
+  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
+  const categories = useTransactionCategories()
+
+  return (
     <>
       <NatureInput categories={categories} />
 
-      <ReferenceInput source="account" reference="accounts">
-        <AutocompleteInput
-          label="Compte"
-          optionText="name"
-          validate={required()}
-          fullWidth
-          helperText="Le compte sur lequel la transaction est passée."
-        />
-      </ReferenceInput>
-
-      <TextInput
-        source="label"
-        label="Libellé"
-        validate={required()}
-        fullWidth
-        helperText="Ce que vous lirez sur votre relevé — c'est aussi ce que lisent les règles de catégorisation."
-      />
-
-      <Box sx={rowSx}>
-        <NumberInput
-          source="amountCents"
-          label="Montant (€)"
-          validate={[
-            required(),
-            (v: number | null) => (v === 0 ? 'Saisissez un montant supérieur à 0' : undefined),
-          ]}
-          {...absoluteCentsInput}
-          sx={halfSx}
-          helperText="Toujours positif : le choix Dépense / Recette donne le sens."
-        />
-        <DateInput
-          source="bookedAt"
-          label="Date"
-          validate={required()}
-          sx={halfSx}
-          helperText="La date à laquelle l'argent bouge, pas celle de l'événement."
-        />
-      </Box>
+      <TransactionHeaderFields />
 
       <FormSection
         title="Classement"
@@ -190,25 +263,8 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
       />
 
       <Box sx={rowSx}>
-        <AutocompleteInput
-          source="category"
-          label="Catégorie"
-          choices={choices}
-          optionText={categoryLabel}
-          sx={halfSx}
-          helperText={
-            nature === 'income'
-              ? 'Facultatif. Seules les catégories de recette sont proposées.'
-              : 'Facultatif. Les catégories de recette sont réservées aux recettes.'
-          }
-        />
-        <TextInput
-          source="currency"
-          label="Devise"
-          defaultValue={withDefaults ? 'EUR' : undefined}
-          sx={halfSx}
-          helperText="Code ISO 4217."
-        />
+        <CategoryChoiceInput sx={halfSx} />
+        <CurrencyInput withDefaults={withDefaults} sx={halfSx} />
       </Box>
 
       <FormSection
@@ -216,22 +272,9 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
         description={`C'est ce qui décide du poids de la ${nature === 'income' ? 'recette' : 'dépense'} sur l'enveloppe de sa catégorie.`}
       />
 
-      <SelectInput
-        source="status"
-        label="Statut"
-        choices={statusChoices}
-        defaultValue={withDefaults ? 'spent' : undefined}
-        validate={required()}
-        fullWidth
-        helperText={STATUS_HELP[nature]}
-      />
+      <StatusInput withDefaults={withDefaults} />
 
-      <BooleanInput
-        source="isExceptional"
-        label={EXCEPTIONAL_LABEL[nature]}
-        defaultValue={withDefaults ? false : undefined}
-        helperText={EXCEPTIONAL_HELP[nature]}
-      />
+      <ExceptionalInput withDefaults={withDefaults} />
     </>
   )
 }
