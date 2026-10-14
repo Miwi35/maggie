@@ -12,3 +12,6 @@ JSON field: `{"useDefault": bool, "overrides": [{"method": "popup", "minutes": 6
 
 ## Status
 Enum: `confirmed`, `tentative`, `cancelled`
+
+## Entity
+`api/modules/calendar/src/Entity/Event.php`, a `MercurePublishable` like every entity ([api/entities](../api/entities.md)).

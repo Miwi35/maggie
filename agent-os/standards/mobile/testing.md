@@ -1,8 +1,14 @@
 # Mobile Testing (JUnit + MockK)
 
-Every ViewModel touched owes one test per state transition — loading, success, error. See
-the Definition of Done in [global/testing](../global/testing.md) for the rest, including
-the mandatory Maestro flow.
+Every ViewModel touched owes one test per state transition, asserting `uiState`:
+
+- loading → success: the data lands in the state
+- loading → error: the message is exposed, `isLoading` back to false
+- each user action the screen offers (send, check, refresh, select)
+
+A repository or API service change gets a deserialization test on a real recorded response (`DtoContractTest` checks every declared DTO field against the recorded responses of `api/contract/`) — a renamed API field must fail here, not in production.
+
+See the Definition of Done in [global/testing](../global/testing.md) for the rest (red-first bug fixes, the mandatory Maestro flow in `e2e/mobile/`).
 
 ## File Location & Naming
 
@@ -62,3 +68,11 @@ assertEquals(expected, viewModel.uiState.value.messages.size)
 assertTrue(viewModel.uiState.value.isLoading)
 assertNull(viewModel.uiState.value.error)
 ```
+
+## Run command
+
+```
+task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.chat.*'
+```
+
+The JVM unit tests (`testProdDebugUnitTest`) of the worktree's code, one Gradle build at a time on the machine. Locally, mobile means this command only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI builds the APK, lints and runs the journeys; its `Mobile Unit Tests (release)` job runs the shipped variant (`prodRelease`). See [android-app](android-app.md) and [global/worktree-checks](../global/worktree-checks.md).

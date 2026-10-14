@@ -1,9 +1,20 @@
 # Agent Testing (pytest)
 
-Every route, gateway or service touched owes a happy path and every error branch (401,
-422, upstream failure, timeout). See the Definition of Done in
-[global/testing](../global/testing.md) for the rest, including the e2e journey on the
-deterministic fake LLM.
+Every route, gateway or service touched owes:
+
+- a happy path, asserting the response body or the returned object
+- every error branch: upstream 4xx/5xx, timeout, malformed payload
+- for a route: unauthenticated → 401, invalid body → 422
+- for the tool loop: the MCP call is issued with the arguments the model asked for
+
+Mock HTTP with `respx`; a unit test never calls Claude or the API for real.
+
+See the Definition of Done in [global/testing](../global/testing.md) for the rest
+(red-first bug fixes, the e2e journey). Chat journeys run on the deterministic fake LLM
+(`LLM_PROVIDER=fake`, scenarios in `agent/fixtures/fake-llm/`, ADR-005, MAG-95): touching
+the tool loop, the streaming gateway or `create_llm_client()` means checking those
+fixtures still drive them (`task e2e:up && task e2e:seed && task e2e:smoke`, step 9 of
+`e2e/smoke/smoke.sh`). See [global/e2e-environment](../global/e2e-environment.md), *The fake LLM*.
 
 ## File Location & Naming
 

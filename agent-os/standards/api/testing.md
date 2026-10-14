@@ -74,6 +74,8 @@ Maggie\Calendar\Entity\Task:
 - One YAML per test class, shared across all test methods
 - `loadFixtures()` purges + loads (each test starts clean)
 - `purgeDatabase()` for tests needing empty DB
+- Do NOT set `createdAt`/`updatedAt` — the constructors set them
+- Call `$this->em()->clear()` before a tool call that reads fixture data, so it reads from the database and not the identity map
 
 ## Enforcement: MCP Tool Tests
 
@@ -141,9 +143,15 @@ Reference: `modules/grocery/tests/Controller/CheckGroceryItemControllerTest.php`
 Never declare a `Patch` on an `uriTemplate` without an identifier (`/…/me`) — it
 instantiates a new entity and returns 500. Use a dedicated controller and test it here.
 
+## Enforcement: Services and Repositories
+
+A service or repository touched owes its happy path **and** every error branch.
+
 ## Enforcement: Mercure Publication Tests
 
 **Every entity MUST have its Mercure publication tested** by dispatching its commands on the bus (`KernelTestCase`), not by mocking the Hub: `ProjectionMiddleware` publishes what each command changed (`agent-os/standards/backend/projection.md`).
+
+A test class that asserts publication uses `MercureAssertionTrait` and `ElasticsearchAssertionTrait` (`App\Tests\Support`) and starts with `self::bootKernel(); $this->resetMercure(); $this->resetAsyncTransport();` in `setUp`. Publication does not need a logged-in user: `ProjectionMiddleware` publishes to the owner of each row, so Delete commands and `OwnedThroughInterface` entities are covered by dispatching the command.
 
 ```php
 public function testDeleteStorePublishesTheDeletionToTheOwner(): void

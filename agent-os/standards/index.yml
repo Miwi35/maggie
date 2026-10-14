@@ -1,34 +1,34 @@
 admin:
   google-oauth:
-    description: Google OAuth 2.0 login — authorization code flow, JWT exchange, handleAuthCallback
+    description: Google OAuth 2.0 login — authorization code flow, JWT exchange, handleAuthCallback, refresh cookie and Mercure cookie renewal
   react-admin:
-    description: React Admin with HydraAdmin, ResourceGuesser, Mercure SSE
+    description: React Admin with HydraAdmin, ResourceGuesser, Mercure SSE — stack versions, i18n, Bearer httpClient
   taskfile:
     description: Admin task commands — npm, dev/build, lint/typecheck
   testing:
-    description: Vitest + Testing Library — co-located .test.tsx, jsdom, vi.mock patterns
+    description: Vitest + Testing Library — what a component owes (render, interaction, error, Mercure), co-located .test.tsx, jsdom, vi.mock patterns
 
 agenda:
   google-calendar-model:
-    description: Event entity follows Google Calendar API structure (RRULE, exceptions, reminders)
+    description: Event entity follows Google Calendar API structure (RRULE, exceptions, reminders), entity location
 
 agent:
   architecture:
-    description: Python FastAPI agent hub — MCP client, LLM gateway and shared tool loop, skills on demand, Markdown sub-agents and delegate, tool policy and pending approvals, uv
+    description: Python FastAPI agent hub — MCP client, LLM gateway and shared tool loop, skills on demand, Markdown sub-agents and delegate, tool policy and pending approvals, app/ layout, uv and ruff
   memory:
     description: Memory folder (ADR-011) — Markdown files per user in an S3 bucket as the only truth, two-way sync, owner wins, outbox, degraded mode, disposable Postgres index, path validation
   testing:
-    description: pytest — async auto mode, respx HTTP mocking, conftest fixtures
+    description: pytest — what a route or gateway owes (error branches, 401/422, tool-loop arguments), async auto mode, respx HTTP mocking, fake-LLM e2e check
 
 api:
   entities:
-    description: Entity conventions — ULID keys, MercurePublishable interface, Messenger commands per entity
+    description: Entity conventions — ULID keys, MercurePublishable interface, modular bundles, ownership interfaces, Messenger commands and routing per entity
   mcp-tools:
-    description: MCP tools — CRUD tools per entity enforced, write via bus, read via repo, new entity checklist
+    description: MCP tools — CRUD tools per entity enforced, write via bus, read via repo filtered by user, new entity checklist with migration step
   taskfile:
     description: API task commands — composer, console passthrough, testing
   testing:
-    description: PHPUnit — fixtures (nelmio/alice), MCP tool tests enforced, Mercure publication tests enforced
+    description: PHPUnit — fixtures (nelmio/alice), MCP tool tests enforced, endpoint and service tests, Mercure publication tests enforced
 
 backend:
   projection:
@@ -36,11 +36,15 @@ backend:
   domain-events:
     description: A business effect is the consequence of a domain event — Doctrine listener → Specification → event on event.bus → event handler → command → use case → service, postFlush dispatch, identifiers only
 
+deployment:
+  ci-cd-pipeline:
+    description: GitHub Actions — ci.yml, main.yml (build, k3s deploy, smoke, rollback), nightlies, branch protection, GHCR registry and image mirror, secrets
+
 docker:
   dockerfiles:
-    description: Multi-stage Dockerfile pattern — base/dev/prod stages, UID/GID matching
+    description: Multi-stage Dockerfile pattern — base/dev/(e2e)/prod stages, UID/GID matching, ghcr mirror for every FROM
   traefik-routing:
-    description: Traefik edge router with Docker label-based path routing
+    description: Traefik edge router — Docker label routing in dev (websecure, maggie.stack=dev), full route map, k3s Ingress in production
 
 frontend:
   veilleuse:
@@ -52,20 +56,20 @@ global:
   e2e-environment:
     description: The e2e stack — task e2e:*, per-worktree isolation, APP_ENV=e2e, test login, app:e2e:seed and anchored fixtures, simulated external services
   real-time:
-    description: Mercure SSE for all real-time — native API Platform integration
+    description: Mercure SSE for all real-time — topics, private updates, 1.0 protocol, differential updates and action payloads, client patch-or-refetch, useMercure
   worktree-checks:
     description: task wt:* — minimal one-shot containers for lint, PHPStan and tests in a worktree, load guard, lockfile-keyed shared dependency cache
   taskfile:
-    description: Task runner rules — Docker-first enforcement, naming, quick reference
+    description: Task runner rules — Docker-first enforcement, naming, quick reference, agent and mobile commands, worktree caveat
   ux:
     description: UX rules for every module, admin and mobile — one menu entry per module entered by its dashboard, frequency-of-use order, forms, French empty/loading/error states, 48 dp and thumb reach, phone/Z Flip/tablet formats, real-time signalling, Maggie in the interface, accessibility
   testing:
-    description: Definition of done and cross-component testing strategy — required coverage per unit touched, mandatory e2e journey, red-first bug fixes, coverage ratchet (baseline.json, task coverage:ratchet), pyramid, run commands
+    description: Definition of done and cross-component testing strategy — required coverage per unit touched, mandatory e2e journey, red-first bug fixes, coverage ratchet (baseline.json, task coverage:ratchet), pyramid, run commands, lint and targeted tests per component before commit
 
 mobile:
   android-app:
-    description: Android app — Kotlin/Compose, Koin DI, Ktor HTTP, repository pattern
+    description: Android app — Kotlin/Compose, Koin DI, Ktor HTTP, Room, repository pattern, SDK versions, signing, dev/prod/e2e flavors
   screen-tests:
     description: Where a mobile verification lives — Compose on the JVM (Robolectric, ScreenRule, faked repositories) for screen logic, Maestro on an emulator only for what needs a real Android
   testing:
-    description: JUnit + MockK — coroutine testing, backtick names, state verification
+    description: JUnit + MockK — one test per ViewModel state transition, DTO deserialization, coroutine testing, backtick names, run command

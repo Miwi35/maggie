@@ -128,15 +128,20 @@ This will evolve toward a CQRS Query pattern (TBD).
 #[McpTool(name: 'get_tasks', description: 'Get tasks by status.')]
 class GetTasksTool
 {
-    public function __construct(private readonly TaskRepository $taskRepository) {}
+    public function __construct(
+        private readonly TaskRepository $taskRepository,
+        private readonly McpUserContext $userContext,
+    ) {}
 
     public function __invoke(string $status = 'pending'): string
     {
-        $tasks = match ($status) {
-            'pending' => $this->taskRepository->findPending(),
-            'done' => $this->taskRepository->findDone(),
-            // ...
-        };
+        try {
+            $user = $this->userContext->requireUser();
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        $tasks = $this->taskRepository->findByStatus($user, $status);
 
         return json_encode([
             'status' => $status,
@@ -165,6 +170,8 @@ When adding a new entity to the API:
 8. Make sure the module is in `discovery.scan_dirs` (`config/packages/mcp.yaml`)
 9. Add Mercure publication tests (see [testing](testing.md))
 10. Add MCP tool tests, including the no-user case (see [testing](testing.md))
+11. Write the Doctrine migration: additive, with a version newer than the latest one on `main` (`api/migrations/`), and the `lock:migration` label on the ticket. `task api:console -- doctrine:migrations:diff` runs against the dev stack, which mounts the main checkout — from a worktree use `task e2e:console -- doctrine:migrations:diff` (the e2e stack mounts the worktree's `./api`) or write the migration by hand
+12. Verify: `task api:lint` and the targeted `task api:test -- --testsuite {Module}` (`task wt:*` in a worktree, see [global/taskfile](../global/taskfile.md))
 
 ## Current tools
 

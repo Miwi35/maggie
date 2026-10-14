@@ -111,14 +111,30 @@ and the test keeps its ticket reference in the test name or a one-line comment.
 
 ### 4. CI green on a PR
 
-One ticket = one branch = one PR that links the ticket. Lint and tests of every touched
-component pass before committing — see the [pre-commit](../../../.claude/skills/pre-commit/SKILL.md)
-skill for the commands.
+One ticket = one branch = one PR that links the ticket. **Before every `git commit`,
+lint and the targeted tests of every touched component pass** — fix any failure first,
+never push broken code.
+
+| Component | Lint | Test |
+|---|---|---|
+| API | `task api:lint` | `task api:test` |
+| Agent | `task agent:lint && task agent:format:check` | `task agent:test` |
+| Admin | `task admin:lint && task admin:typecheck` | `task admin:test` |
+| Mobile | CI only | `task wt:test:mobile -- --tests '<class or package>'` — the only local Gradle build |
+
+`task lint:all` lints API + Admin + Agent (not mobile). **Tests: only the targeted ones** —
+those of what you changed (`task api:test -- --filter …`, one spec file, one pytest path).
+The full suites run in CI on every PR; never run them locally. The same goes for the e2e
+stack: start it locally only to write or debug a journey (`task e2e:up && task e2e:seed &&
+task e2e:smoke`, then `task e2e:down`).
 
 **In a git worktree** (parallel agents), `task api:test` runs against the dev stack, which
-mounts the main checkout — it would test the wrong code. Use `task wt:test:api` instead:
-a throwaway Postgres and this worktree's code. See
-[global/worktree-checks](worktree-checks.md).
+mounts the main checkout — it would test the wrong code. Use the worktree-local tasks:
+`task fix:all` before every push (all fixers, all linters, PHPStan on changed files),
+`task wt:test:api` (a throwaway Postgres and this worktree's code, ~30 s),
+`task wt:up` / `task wt:down` for a test loop, `task wt:lint:*` / `task wt:test:*` for the
+other components. Exit code 75 means the machine is busy: push and let CI run it, your
+change is not broken. See [global/worktree-checks](worktree-checks.md).
 
 **Coverage may not drop (MAG-105).** Every test job measures its component's line coverage
 — PHPUnit with pcov, pytest-cov (agent, ciqual), Vitest v8, Kover (mobile) — and fails when

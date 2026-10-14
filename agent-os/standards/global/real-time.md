@@ -12,8 +12,8 @@ All real-time updates use **Mercure** (SSE), not WebSockets.
 
 ## Topic conventions
 - Entity updates: `/api/{resource}/{id}` (auto from API Platform)
-- User-scoped: `/users/{userId}/api/{resource}/{id}`
-- Agent: `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}` — `userId` is the API user's ULID (the `sub` claim of the JWT the agent authenticates; the `user_id` the mobile sends is ignored). Spelled once in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`, read by the mobile and admin contract tests.
+- User-scoped: `/users/{userId}/api/{resource}/{id}` (the middleware adds the prefix; an entity MUST implement `MercurePublishable`, see [api/entities](../api/entities.md) and [backend/projection](../backend/projection.md))
+- Agent: `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}` — `userId` is the API user's ULID (the `sub` claim of the JWT the agent authenticates; the `user_id` the mobile sends is ignored). Spelled once in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`, read by the mobile and admin contract tests. Clients build them with `MercureTopics.agentScoped` (mobile, `MercureTopics.kt`) and `agentTopic()` (admin, `hooks/agentTopics.ts`).
 - A client topic never carries a literal `{userId}`: nothing substitutes it, so the subscription connects and receives nothing.
 
 ## Hub version: pinned by tag and digest, never untagged
@@ -31,5 +31,27 @@ A public update ignores the subscriber's token grants. Publish with `private: tr
 ## `MERCURE_JWT_SECRET` is at least 32 bytes
 HS256 refuses a key under 256 bits, and the publisher swallows the error: the request succeeds, the entity is written, **no update is ever published** — nothing looks broken. The API therefore refuses every request and console command (worker included) when the secret is shorter than 32 bytes (`MercureSecretGuard`), and `ProjectionMiddleware` logs an unsignable secret as `critical`. Generate with `openssl rand -hex 32`; the API, the agent and the hub must share the same value, so redeploy the three together. Example values in `.env.prod.example` and `infra/k8s/secrets.example.yaml` are already long enough — replace them, never shorten them.
 
+## Differential updates
+
+**Publish only what changed, never a full snapshot for an update.**
+
+- **CRUD Update** — automatic: `WorkCollector` keeps one change per row (kind + changed field names) from `onFlush`, `ProjectionMiddleware` projects the work of the root message and calls `toMercurePayload($changedProperties)`. The entity uses `MercurePayloadFilterTrait::filterPayload($payload, $changedProperties, $propertyMap)`; `$propertyMap` renames a Doctrine field to its payload key (`'completedAt' => 'isDone'`, `'preferredStore' => 'preferredStoreId'`). If no changed property maps to a payload key (an unmapped collection change), the full payload is published.
+- **Non-CRUD command** (Reorder, Check, Remove, Move…) — the command implements `MercureActionPayload` (`api/modules/core/src/Contract/MercureActionPayload.php`, `toMercureActionPayload(): array`) and its payload replaces the entity's. Always an `action` field plus only the changed fields or identifiers: `{action: "reorder", items: [{id, position}]}`, `{action: "check", itemId, checked}`, `{action: "remove", itemId}`.
+
+| Scenario | Mechanism | Payload |
+|---|---|---|
+| CRUD Create | `toMercurePayload(null)` | every entity field |
+| CRUD Update | `toMercurePayload($changedProperties)` | changed fields only |
+| CRUD Delete | middleware | `{@id, deleted: true}` |
+| Non-CRUD mutation | `MercureActionPayload` | changed fields + `action` |
+
 ## Client pattern
 Use native `EventSource` API. No library needed.
+
+**Apply the patch inline, fall back to a refetch.** A client parses `action` and updates its local state; an unparseable payload or an unknown action triggers `refresh()` (mobile) / a refetch (admin) — never an ignored message. A payload with no `action` is a create or update: use its `items` array if present, else refetch.
+
+- Admin: `useMercure(topics, onMessage)` in `admin/src/hooks/useMercure.ts` subscribes to user-scoped topics. The callback lives in a ref, not in the effect deps, so the `EventSource` is not recreated on every render. A refetch-only caller passes `() => { refetch() }`; a patch-aware one parses `data`. Reference: `admin/src/modules/grocery/GroceryListView.tsx`.
+- Mobile: `json.parseToJsonElement(event.data).jsonObject`, `when (payload["action"]…)`, `else → refresh()`. Reference: `GroceryViewModel.kt` (`mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/`).
+
+## Health check
+There is no `/healthz`: `curl http://maggie.local/.well-known/mercure`.

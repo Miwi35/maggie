@@ -6,37 +6,13 @@ user-invocable: false
 
 # Agenda Event Model
 
-Events follow the **Google Calendar API** structure.
+**Use when** working on events, recurrence, reminders, exception instances or status in `api/modules/calendar`.
 
-## Recurrence
+**Read** `agent-os/standards/agenda/google-calendar-model.md`; entity rules: `agent-os/standards/api/entities.md`.
 
-- RRULE stored as string (RFC 5545 format) on the Event entity
-- Expanded at query time via `simshaun/recurr` — no separate Occurrence table
-- Exception instances: separate Event records with `recurringEvent` + `originalStartAt`
+## Gotchas
 
-## Reminders
-
-JSON field on Event:
-
-```json
-{
-  "useDefault": true,
-  "overrides": [
-    {"method": "popup", "minutes": 60}
-  ]
-}
-```
-
-## Status
-
-Enum: `confirmed`, `tentative`, `cancelled`
-
-## Entity Location
-
-`api/modules/calendar/src/Entity/Event.php`
-
-Implements `MercurePublishable` — see `api-entities` skill for entity conventions.
-
-## Reference
-
-For full details, read `agent-os/standards/agenda/google-calendar-model.md`
+- Recurrence is an RFC 5545 RRULE string on the Event, expanded at query time with `simshaun/recurr`: there is no Occurrence table.
+- An exception instance is a separate Event with `recurringEvent` + `originalStartAt`.
+- Status is `confirmed`, `tentative` or `cancelled`; reminders are `{useDefault, overrides: [{method, minutes}]}`.
+- The MCP schedule contract (start and end, never a duration; all-day end excluded) is in `agent-os/standards/api/mcp-tools.md`.

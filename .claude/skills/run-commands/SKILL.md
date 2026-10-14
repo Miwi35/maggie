@@ -4,68 +4,16 @@ description: "Docker-first command enforcement. Use when running any development
 user-invocable: false
 ---
 
-# Docker-First Command Enforcement
+# Docker-First Commands
 
-**NEVER run runtime commands directly on the host.** Host PHP is 8.1, project needs 8.4+. All runtimes live in Docker containers.
+**Use when** running any development command, test, build, lint or install.
 
-## Forbidden on host
+**Read** `agent-os/standards/global/taskfile.md`; per component: `agent-os/standards/api/taskfile.md`, `agent-os/standards/admin/taskfile.md`.
 
-`composer`, `php`, `bin/console`, `symfony`, `npm`, `npx`, `node`, `python`, `pip`, `uv`, `pytest`
+## Gotchas
 
-## Always use `task` commands
-
-### API (Symfony)
-```
-task api:test                    # PHPUnit
-task api:test -- --filter=MyTest # Specific test
-task api:lint                    # PHPStan (level 6)
-task api:console -- <command>    # Symfony console
-task api:install                 # composer install
-task api:require -- <pkg>        # composer require
-task api:update                  # composer update
-```
-
-### Admin (React)
-```
-task admin:test       # Vitest
-task admin:lint       # ESLint
-task admin:typecheck  # tsc --noEmit
-task admin:dev        # Vite dev server
-task admin:build      # Production build
-task admin:add -- <pkg>  # npm install
-```
-
-### Agent (Python)
-```
-task agent:test          # pytest
-task agent:lint          # ruff check
-task agent:lint:fix      # ruff check --fix
-task agent:format        # ruff format
-task agent:format:check  # ruff format --check
-task agent:install       # uv pip install
-```
-
-### Mobile
-```
-task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.chat.*'   # JVM unit tests, one Gradle build at a time
-```
-Locally, mobile = `task wt:test:mobile -- --tests …` only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI does the rest.
-
-### Infrastructure
-```
-task up              # Start all containers
-task up:dev          # Start all + Node dev server
-task down            # Stop all
-task build           # Build all images
-task shell:php       # Shell into PHP container
-task shell:node      # Shell into Node container
-task shell:agent     # Shell into Agent container
-task shell:db        # Open psql shell
-task test:all        # Run all tests (API + Admin + Agent)
-task lint:all        # Run all linters
-task ci              # Full CI locally
-```
-
-## Reference
-
-For full details, read `agent-os/standards/global/taskfile.md`
+- Never run `composer`, `php`, `bin/console`, `symfony`, `npm`, `npx`, `node`, `python`, `pip`, `uv` or `pytest` on the host (its PHP is 8.1, the project needs 8.4+): use `task <namespace>:<command>`.
+- Symfony console: `task api:console -- <args>`, the one passthrough; dependencies: `task api:require -- <pkg>`, `task admin:add -- <pkg>`.
+- In a worktree, `task api:*`, `admin:*`, `agent:*` hit the main checkout: use `task fix:all` and `task wt:*`.
+- Mobile locally is `task wt:test:mobile -- --tests …` only.
+- `task test:all` and `task ci` are for CI; run targeted tests locally.

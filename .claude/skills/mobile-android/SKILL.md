@@ -6,44 +6,14 @@ user-invocable: false
 
 # Android Mobile App
 
-Kotlin + Jetpack Compose + Material 3.
+**Use when** creating or changing Kotlin code in `mobile/` (Compose, Ktor, Koin, Room, signing, flavors).
 
-## Stack
+**Read** `agent-os/standards/mobile/android-app.md`; screen logic tests: `agent-os/standards/mobile/screen-tests.md`.
 
-- **Koin** for DI (lightweight, less boilerplate than Hilt)
-- **Ktor** for HTTP client (built-in SSE support for Mercure)
-- **Navigation Compose** for routing
-- **Room** for local database (KSP)
-- BuildConfig fields for `API_BASE_URL` and `MERCURE_URL`
+## Gotchas
 
-## Architecture Pattern
-
-Repository pattern: `ApiService` → `Repository` → `ViewModel`
-
-Hydra JSON-LD parsed via `HydraCollection<T>` wrapper.
-
-## Build Environment
-
-- **JAVA_HOME:** `/opt/android-studio-for-platform/jbr` (Java 21) — host Java is 11
-- `gradle.properties` has `org.gradle.java.home` set
-- **adb:** `~/Android/Sdk/platform-tools/adb`
-- compileSdk 35, minSdk 29, targetSdk 35
-
-## Signing & Google Credentials
-
-- Release keystore: `mobile/release.keystore` (alias `maggie`, config in `keystore.properties`)
-- Release SHA1: `C5:AD:BF:94:9F:08:68:09:44:78:F1:F0:8B:A2:41:CA:B1:78:4C:DA`
-- Google OAuth credentials ONLY work with release signing key
-- **Always build `prodRelease`** for device testing
-- Do NOT use `devDebug` or `prodDebug`
-
-## Product Flavors
-
-| Flavor | API URL | App ID suffix |
-|--------|---------|---------------|
-| dev | `http://10.0.2.2` (emulator alias for host) | `.dev` |
-| prod | `https://maggieai.fr` | — |
-
-## Reference
-
-For full details, read `agent-os/standards/mobile/android-app.md`
+- Pattern: `ApiService` → `Repository` → `ViewModel`; Hydra JSON-LD through `HydraCollection<T>`.
+- Google OAuth only works with the release key: device testing is `task mobile:install` (`prodRelease`), never `devDebug` or `prodDebug`. That is the owner's phone.
+- Agents build no APK: their one Gradle command is `task wt:test:mobile -- --tests …`; CI does the rest.
+- The `e2e` flavor signs in through `/api/auth/e2e/login`; its code lives in `app/src/e2e/`, never `src/main/`.
+- Autocomplete opens a dedicated full-screen search, never an inline dropdown.

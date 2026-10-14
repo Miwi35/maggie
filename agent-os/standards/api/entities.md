@@ -50,14 +50,28 @@ Backed enums live in the module's `src/Enum/`, never in `src/Entity/` — that
 directory is the Doctrine mapping root. Reference them from the entity with a
 `use` statement and `enumType:` on the column.
 
+## Modular Bundles
+
+Local Symfony bundles live in `api/modules/{name}/` — `calendar`, `core`, `cookbook`, `grocery`, `finance`, `notification`:
+
+- `AbstractBundle` with `prependExtension()` for the Doctrine mappings
+- Namespace `Maggie\{ModuleName}\`; each module has its own `src/`, `config/`, `tests/`
+- `src/Entity/` holds entities only; backed enums go in `src/Enum/`
+- Register the bundle in `config/bundles.php`, the path repository and the test namespace in `composer.json`, a testsuite in `phpunit.dist.xml`, and the module's `src` in `discovery.scan_dirs` of `config/packages/mcp.yaml`
+
+## Ownership
+
+- `OwnedByUserInterface` — direct FK to User
+- `OwnedThroughInterface` — indirect ownership (e.g. Task owned through Agenda)
+
 ## Messenger Commands
 
 **Every entity MUST have Create/Update/Delete commands for the write path:**
 
 ```
 Message/Create{Entity}Command.php    — readonly DTO with named constructor args
-Message/Update{Entity}Command.php    — entityId + nullable fields (partial update)
-Message/Delete{Entity}Command.php    — entityId only
+Message/Update{Entity}Command.php    — {entity}Id + nullable fields (partial update)
+Message/Delete{Entity}Command.php    — {entity}Id only
 MessageHandler/Create{Entity}Handler.php  — #[AsMessageHandler], returns entity
 MessageHandler/Update{Entity}Handler.php  — #[AsMessageHandler], returns entity
 MessageHandler/Delete{Entity}Handler.php  — #[AsMessageHandler], returns void
@@ -66,7 +80,7 @@ UseCase/Update{Entity}.php           — persistence logic
 UseCase/Delete{Entity}.php           — persistence logic
 ```
 
-Commands MUST be registered in `config/packages/messenger.yaml` with sync transport:
+Commands MUST be registered in the application's `api/config/packages/messenger.yaml` (not in a module) with sync transport:
 
 ```yaml
 framework:
