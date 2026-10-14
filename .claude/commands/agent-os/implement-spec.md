@@ -19,8 +19,7 @@ Never guess.
 ## Prerequisites
 
 Run this in **normal mode, not plan mode** — this command writes code and
-commits. Run `task guard:enabled` first: exit 20 means the emergency stop is
-on — comment on the ticket, add `needs-human`, stop.
+commits.
 
 Resolve `$ARGUMENTS` to a spec folder under `agent-os/specs/`:
 

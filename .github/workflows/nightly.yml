@@ -61,14 +61,13 @@ jobs:
     # retry and a report of their own: not twice a night.
     with:
       suite: no-e2e
-    # The ceiling of the pull-request-only jobs the called file also holds
-    # (guard): a called workflow may not ask for more than its caller.
+    # The ceiling of the jobs the called file also holds (the coverage comment):
+    # a called workflow may not ask for more than its caller.
     permissions:
       contents: read
       packages: write
       actions: read
       pull-requests: write
-      issues: write
 
   alert:
     name: Alert on failure

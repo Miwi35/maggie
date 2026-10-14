@@ -45,12 +45,11 @@ Writing costs as much time as coding: say things once, where they belong.
 What any session needs to ship here, and what Cyrus's skills look up:
 
 - **Before every push**: `task fix:all` (see *Commands*).
-- **Guard**: `task guard:check -- <number>` — exit 0: the PR may merge itself; otherwise a human merges it (see *Guard rails*).
 - **A Cyrus session does not wait for CI** (owner, 13 Oct.): it opens its PR as a **draft**, moves the ticket to In Review and stops. The dispatcher's train does the rest — a green PR that needs no rebase merges directly, one behind `main` is rebased one at a time, after the PRs its ticket depends on; a red PR gets a repair session from the CI lane. Never `gh pr ready`, never auto-merge, never `gh pr merge` from a session. **Merging deploys to production.**
 - **CI runs from the first push, drafts included** (`agent-os/standards/deployment/ci-cd-pipeline.md`). GitHub's merge queue is out of reach on this personal repository: the train replaces it.
-- **Emergency only** (ticket in « Emergency », or labelled `incident`), or when the train is off: ready PR, `gh pr merge <number> --squash --auto` once `task guard:check` exits 0, then **wait for CI** with `task ci:watch -- <number>` — the only way to wait, never a hand-written `until`/`sleep` loop: it stops at once on a conflicting PR (rebase, resolve, `git push --force-with-lease`, run it again), gives up if no CI run starts within 2 minutes, then watches the checks. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Red twice in a row → `gh pr merge <number> --disable-auto`, comment the failure, `needs-human`, stop.
+- **Wait for CI** (only when a session must, e.g. an emergency): check first that the PR is not conflicting (`gh pr view <n> --json mergeable` — `CONFLICTING`: GitHub runs no CI; rebase, resolve, `git push --force-with-lease`), then `gh pr checks <n> --watch --fail-fast`. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Red twice in a row → comment the failure, `needs-human`, stop. The merge still goes through the dispatcher's train: the session opens the PR and stops.
 - **Nothing reaches the owner's acceptance without a green e2e**: the e2e jobs are required checks, and every `Feature` or `Bug` is `blockedBy` the ticket that made them required (MAG-96).
-- A ticket in « Emergency » stays there when its PR opens — never In Review: the freeze (`Incident gate`) would lift before the fix is deployed. A green deploy moves it out by itself.
+- A ticket in « Emergency » stays there when its PR opens — never In Review: the dispatcher freezes the train meanwhile and lifts the freeze once the fix is deployed green.
 - A merged `Feature` or `Bug` goes to « Recette », where the owner accepts it in production; a `Task` goes to Done. Each `Feature` or `Bug` gets a **Recette** comment (format: Cyrus's `recette-comment` skill).
 
 ## Creating Linear tickets
@@ -81,11 +80,7 @@ To ask: reply in the ticket's agent thread with short questions, each as options
 
 ## Guard rails
 
-Full rules: `agent-os/standards/global/agent-guard-rails.md`.
-
-- **First step of every session: `task guard:enabled`.** Exit 20 = the owner stopped the agent (`AGENT_ENABLED=false`): comment on the ticket, `needs-human`, do nothing.
-- **A human merges, auto-merge stays off, `needs-human` is set** when the PR touches `infra/`, `.github/`, secrets, auth or permissions, a destructive migration or a `policy.yaml`; disables a test; or skips the hooks. The guard job of `ci.yml` (and `agent-guard.yml` when auto-merge is armed) enforces it; `task guard:check -- <pr>` tells you before.
-- **Exception — the ambulance (MAG-184):** a PR from the ticket in « Emergency » whose only finding is `infra-path` merges itself: `task guard:check` says so (exit 0). Secrets, permissions and the guard's or the freeze's own files are still handed to the owner.
+- The guard of agent PRs and the freeze after a failed deploy live in Cyrus (`cyrus-pilot`: `guard/guard.py`, the dispatcher); a PR that touches a destructive migration, secrets or authentication is merged by a human.
 - Never `--no-verify`, never a test disabled to get green.
 
 ## Review loop — before opening the PR

@@ -83,7 +83,6 @@ jobs:
       packages: write
       actions: read
       pull-requests: write
-      issues: write
 
   report:
     name: Nightly e2e report
