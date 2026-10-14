@@ -36,15 +36,19 @@ class AssistantActivity : ComponentActivity() {
      */
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
+    /** The zone of the screenshot the user circled (MAG-316); null sends the whole screen. */
+    private var screenshotRegion by mutableStateOf<CropRegion?>(null)
+
     /** Always the session's own file: the intent only says whether there is one (MAG-214). */
     private val screenshot by lazy { PendingScreenshot(ScreenshotEncoder.file(this)) }
 
     private val sendVoiceResult: (String) -> Unit = { text ->
         val screen = pendingContext
         // Read, then deleted: the screenshot goes with this sentence and nowhere else (MAG-214).
-        val takeImage = { if (screen?.hasScreenshot == true) screenshot.take() else null }
+        val takeImage = { if (screen?.hasScreenshot == true) screenshot.take(screenshotRegion) else null }
         if (routeVoiceResult(text, chatViewModel, voiceManager, screen, takeImage)) {
             pendingContext = null
+            screenshotRegion = null
         }
     }
 
@@ -55,6 +59,8 @@ class AssistantActivity : ComponentActivity() {
     private fun replaceContext(next: ScreenContext?) {
         if (pendingContext?.hasScreenshot == true && next?.hasScreenshot != true) screenshot.discard()
         pendingContext = next
+        // A zone circled on the previous screen means nothing on this one.
+        screenshotRegion = null
     }
 
     /**
@@ -93,6 +99,8 @@ class AssistantActivity : ComponentActivity() {
                     voiceManager = voiceManager,
                     onDismiss = { finish() },
                     pendingContext = pendingContext,
+                    screenshotRegion = screenshotRegion,
+                    onSelectScreenshotRegion = { screenshotRegion = it },
                     onVoiceResult = sendVoiceResult,
                     onListen = { requestMicAndListen() },
                 )

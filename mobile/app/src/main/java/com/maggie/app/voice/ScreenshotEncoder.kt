@@ -45,6 +45,21 @@ object ScreenshotEncoder {
         return out.toByteArray()
     }
 
+    /**
+     * Only [region] of an encoded screenshot, encoded again under the same rules (MAG-316).
+     * Null when the bytes cannot be read: a zone the user chose must not turn into the
+     * whole screen they chose not to send.
+     */
+    fun crop(bytes: ByteArray, region: CropRegion): ByteArray? {
+        val full = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val rect = region.toPixels(full.width, full.height)
+        val zone = Bitmap.createBitmap(full, rect.x, rect.y, rect.width, rect.height)
+        val encoded = encode(zone)
+        if (zone !== full) zone.recycle()
+        full.recycle()
+        return encoded
+    }
+
     /** The largest power-of-two subsampling that keeps the height at least [maxHeight]. */
     fun sampleSize(height: Int, maxHeight: Int): Int {
         var sample = 1
