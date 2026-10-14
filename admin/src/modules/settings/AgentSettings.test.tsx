@@ -171,3 +171,111 @@ describe('AgentSettings — title', () => {
     expect(await screen.findByRole('heading', { name: 'Alfred' })).toBeInTheDocument()
   })
 })
+
+/**
+ * The Proactions tab reads `/api/proactions` and follows its Mercure topic (MAG-328): the
+ * same rows as the agenda, no longer the agent's own list.
+ */
+const PROACTIONS_URL = '/api/proactions?order[startAt]=asc&pagination=false'
+
+const proactionRow = (id: string, prompt: string, executionStatus: string, extra: Record<string, unknown> = {}) => ({
+  id: `/api/proactions/${id}`,
+  prompt,
+  summary: prompt,
+  executionStatus,
+  startAt: '2026-10-15T08:30:00+02:00',
+  completedAt: null,
+  ...extra,
+})
+
+const jsonLd = (member: unknown[]) => new Response(JSON.stringify({ member }), { status: 200 })
+
+async function openProactionsTab() {
+  render(<AgentSettings />)
+  await waitFor(() => expect(screen.getByRole('tab', { name: 'Proactions' })).toBeInTheDocument())
+  await userEvent.click(screen.getByRole('tab', { name: 'Proactions' }))
+}
+
+describe('AgentSettings — proactions', () => {
+  const sources: { url: string; onmessage: ((event: MessageEvent) => void) | null }[] = []
+
+  beforeEach(() => {
+    notify.mockClear()
+    sources.length = 0
+    localStorage.clear()
+    localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+    vi.stubGlobal(
+      'EventSource',
+      class {
+        onmessage: ((event: MessageEvent) => void) | null = null
+        close = vi.fn()
+        constructor(public url: string) {
+          sources.push(this)
+        }
+      },
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.stubGlobal('EventSource', SilentEventSource)
+  })
+
+  test('lists the runs of the API with their status in French', async () => {
+    stubAgentApi([], {
+      [`GET ${PROACTIONS_URL}`]: jsonLd([
+        proactionRow('01A', 'Résumer la journée', 'completed', { completedAt: '2026-10-15T08:31:00+02:00' }),
+        proactionRow('01B', 'Relancer le plombier', 'failed'),
+        proactionRow('01C', 'Préparer le menu', 'pending'),
+      ]),
+    })
+
+    await openProactionsTab()
+
+    const done = (await screen.findByText('Résumer la journée')).closest('tr') as HTMLElement
+    expect(within(done).getByText('Faite')).toBeInTheDocument()
+    const failed = screen.getByText('Relancer le plombier').closest('tr') as HTMLElement
+    expect(within(failed).getByText('Échouée')).toBeInTheDocument()
+    const pending = screen.getByText('Préparer le menu').closest('tr') as HTMLElement
+    expect(within(pending).getByText('En attente')).toBeInTheDocument()
+  })
+
+  test('does not ask the agent for the list any more', async () => {
+    const fetchMock = stubAgentApi([], { [`GET ${PROACTIONS_URL}`]: jsonLd([]) })
+
+    await openProactionsTab()
+
+    expect(await screen.findByText('Aucune proaction pour le moment.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain('/agent/proactions')
+  })
+
+  test('says so when the list cannot be read', async () => {
+    stubAgentApi([], { [`GET ${PROACTIONS_URL}`]: new Response('{}', { status: 500 }) })
+
+    await openProactionsTab()
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith('Erreur lors du chargement des proactions', { type: 'error' }),
+    )
+  })
+
+  test('shows a proaction scheduled meanwhile once the API publishes it', async () => {
+    let rows = [proactionRow('01A', 'Résumer la journée', 'pending')]
+    const fetchMock = stubAgentApi([], {})
+    const base = fetchMock.getMockImplementation() as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    fetchMock.mockImplementation(async (input, init) =>
+      String(input) === PROACTIONS_URL ? jsonLd(rows) : base(input, init),
+    )
+
+    await openProactionsTab()
+    await screen.findByText('Résumer la journée')
+    await waitFor(() =>
+      expect(sources.some((source) => decodeURIComponent(source.url).includes('/users/u1/api/proactions/:id'))).toBe(true),
+    )
+
+    rows = [...rows, proactionRow('01D', 'Appeler la crèche', 'pending')]
+    sources.find((source) => decodeURIComponent(source.url).includes('/api/proactions/:id'))?.onmessage?.({ data: '{}' } as MessageEvent)
+
+    expect(await screen.findByText('Appeler la crèche')).toBeInTheDocument()
+  })
+})

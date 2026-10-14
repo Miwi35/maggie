@@ -219,6 +219,16 @@ object UiTags {
     /** Calendar — the options menu and its Google import entry. */
     const val CALENDAR_OPTIONS = "calendar_options"
     const val CALENDAR_MEALS_FILTER = "calendar_meals_filter"
+    const val CALENDAR_PROACTIONS_FILTER = "calendar_proactions_filter"
+
+    /** The detail of one of Maggie's proactions, opened from the agenda (MAG-328). */
+    const val PROACTION_DETAIL_TITLE = "proaction_detail_title"
+    const val PROACTION_DETAIL_STATUS = "proaction_detail_status"
+    const val PROACTION_DETAIL_EDIT = "proaction_detail_edit"
+    const val PROACTION_DETAIL_DELETE = "proaction_detail_delete"
+    const val PROACTION_DETAIL_DATE = "proaction_detail_date"
+    const val PROACTION_DETAIL_TIME = "proaction_detail_time"
+    const val PROACTION_DETAIL_SAVE = "proaction_detail_save"
     const val CALENDAR_MODULE_TITLE = "calendar_module_title"
     const val CALENDAR_IMPORT_GOOGLE = "calendar_import_google"
 

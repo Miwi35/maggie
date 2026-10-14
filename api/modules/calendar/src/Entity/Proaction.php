@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\ProactionStatus;
@@ -12,6 +17,8 @@ use Maggie\Calendar\Repository\ProactionRepository;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -25,13 +32,20 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 // Its run status is `executionStatus` and not `status`: the inherited event
 // status (confirmed, tentative) keeps that name on the wire.
 //
-// No resource of its own yet: the agenda moves and deletes one through
-// `/api/events/{id}`, Maggie reads them through the MCP tools.
+// Read through `/api/proactions` (MAG-328): its own index, so `/api/events`
+// never lists it, the way a meal has `/api/meals`. The agenda moves and
+// deletes one through `/api/events/{id}`; Maggie reads them through the MCP
+// tools.
 //
 // Comments and not a docblock: see Meal.
 #[ORM\Entity(repositoryClass: ProactionRepository::class)]
 #[ORM\Index(columns: ['execution_status'], name: 'idx_proaction_execution_status')]
+#[ApiFilter(SearchFilter::class, properties: ['executionStatus' => 'exact'])]
 #[Indexed(index: 'proactions', module: 'calendar')]
+#[ApiResource(operations: [
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
+])]
 class Proaction extends Event implements MercurePublishable
 {
     /** The agenda module a proaction is filed in, and the agenda's name when it is created. */

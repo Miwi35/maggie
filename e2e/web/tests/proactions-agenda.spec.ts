@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/index.js'
+import { CalendarPage } from '../pages/CalendarPage.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { callMcpTool } from '../helpers/mcp.js'
 import { e2eNow, parisDay } from '../fixtures/clock.js'
@@ -10,7 +11,9 @@ import { e2eNow, parisDay } from '../fixtures/clock.js'
  * event route at the time asked, in the module agenda and not in Google;
  * deleted through that route, it is gone for Maggie too. Asserted on the API:
  * like a meal, it has its own index (`proactions`), so the `/api/events`
- * collection never lists it, and drawing it on the web agenda is MAG-328.
+ * collection never lists it. The second journey is the web agenda drawing it
+ * (MAG-328): at its time, under a « Maggie » line, with her instruction in the
+ * detail card, and cancelled from there.
  */
 
 interface StoredEvent {
@@ -71,4 +74,32 @@ test('a proaction scheduled for tomorrow 8:30 sits in the « Maggie » agenda, a
 
   const listed = await callMcpTool(api, 'list_proactions', {})
   expect((listed.proactions as { id: string }[]).map((p) => p.id)).not.toContain(id)
+})
+
+test('the web agenda draws the proaction at its time, shows what Maggie was asked, and cancels it', async ({ api, page }) => {
+  const prompt = `${promptOfThisAttempt()} agenda web`
+
+  const scheduled = await callMcpTool(api, 'schedule_proaction', { prompt, scheduled_at: `${tomorrowInParis()}T08:30:00` })
+  expect(scheduled.error, JSON.stringify(scheduled)).toBeUndefined()
+  const id = String((scheduled.proaction as { id: string }).id)
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Jour')
+  await calendar.goForward()
+
+  await expect(calendar.maggieAgendaRow()).toBeVisible()
+  await expect(calendar.chip(prompt)).toBeVisible()
+  await expect(calendar.eventBar(prompt)).toContainText('08:30')
+
+  await calendar.openChip(prompt)
+  await expect(calendar.popover).toContainText('En attente')
+  await expect(calendar.popover).toContainText('Instruction')
+  await expect(calendar.popover).toContainText('Maggie')
+  await expect(calendar.popover.getByRole('button', { name: 'Modifier' })).toHaveCount(0)
+
+  await calendar.deleteFromPopover()
+  await expect(calendar.chip(prompt)).toHaveCount(0)
+
+  expect((await api.get(`/api/events/${id}`)).status(), 'the cancelled proaction should leave the agenda').toBe(404)
 })

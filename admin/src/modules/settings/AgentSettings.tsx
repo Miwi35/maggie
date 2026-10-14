@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { announceAgentName, useAgentName } from '../../hooks/useAgentName'
 import { agentFetch } from './agentFetch'
 import { StyleProposals } from './StyleProposals'
+import { useMercure } from '../../hooks/useMercure'
+import { PROACTION_STATUS_LABELS } from '../calendar/proaction'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -44,13 +46,17 @@ interface PersonalityConfig {
   backstory: string
 }
 
+/** A run of Maggie filed in the « Maggie » agenda, as `/api/proactions` serves it (MAG-328). */
 interface Proaction {
   id: string
   prompt: string
-  status: string | null
-  scheduledAt: string | null
-  createdAt: string | null
+  executionStatus: string | null
+  startAt: string | null
+  completedAt: string | null
 }
+
+const PROACTION_TOPICS = ['/api/proactions/{id}']
+const PROACTION_REFETCH_DELAYS_MS = [1500, 5000]
 
 type InstructionKind = 'planning' | 'behavior'
 
@@ -103,6 +109,16 @@ const statusColors: Record<string, 'default' | 'warning' | 'success' | 'error' |
   failed: 'error',
 }
 
+async function fetchProactions(): Promise<Proaction[]> {
+  const token = localStorage.getItem('token')
+  const res = await fetch('/api/proactions?order[startAt]=asc&pagination=false', {
+    headers: { Accept: 'application/ld+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+  if (!res.ok) throw new Error(`proactions ${res.status}`)
+  const body = (await res.json()) as { member?: Proaction[] }
+  return body.member ?? []
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('fr-FR', {
@@ -142,17 +158,24 @@ export const AgentSettings = () => {
   const [savingSkill, setSavingSkill] = useState(false)
   const [tab, setTab] = useState(0)
 
+  const loadProactions = useCallback(async () => {
+    try {
+      setProactions(await fetchProactions())
+    } catch {
+      notify('Erreur lors du chargement des proactions', { type: 'error' })
+    }
+  }, [notify])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [persRes, proRes, instrRes, skillRes] = await Promise.all([
+      const [persRes, , instrRes, skillRes] = await Promise.all([
         agentFetch('/personality'),
-        agentFetch('/proactions'),
+        loadProactions(),
         agentFetch('/instructions'),
         agentFetch('/skills'),
       ])
       if (persRes.ok) setPersonality(await persRes.json())
-      if (proRes.ok) setProactions(await proRes.json())
       if (instrRes.ok) setInstructions(await instrRes.json())
       if (skillRes.ok) setSkills(await skillRes.json())
     } catch {
@@ -160,11 +183,21 @@ export const AgentSettings = () => {
     } finally {
       setLoading(false)
     }
-  }, [notify])
+  }, [notify, loadProactions])
 
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // The list is served from the search index, which trails the update: refetch again after it.
+  const proactionTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const onProactionUpdate = useCallback(() => {
+    void loadProactions()
+    proactionTimers.current.forEach(clearTimeout)
+    proactionTimers.current = PROACTION_REFETCH_DELAYS_MS.map((delay) => setTimeout(loadProactions, delay))
+  }, [loadProactions])
+  useEffect(() => () => proactionTimers.current.forEach(clearTimeout), [])
+  useMercure(PROACTION_TOPICS, onProactionUpdate)
 
   // Mercure subscriptions for live updates
   useEffect(() => {
@@ -172,7 +205,6 @@ export const AgentSettings = () => {
     if (!userId) return
 
     const url = mercureUrl(MERCURE_URL, [
-      agentTopic(AGENT_STREAMS.proactions, userId),
       agentTopic(AGENT_STREAMS.instructions, userId),
       agentTopic(AGENT_STREAMS.skills, userId),
     ])
@@ -183,18 +215,7 @@ export const AgentSettings = () => {
         const data = JSON.parse(event.data)
 
         // Detect type by shape
-        if ('prompt' in data && 'status' in data) {
-          // Proaction
-          setProactions((prev) => {
-            const idx = prev.findIndex((p) => p.id === data.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = data
-              return next
-            }
-            return [data, ...prev]
-          })
-        } else if ('tags' in data || (data.deleted && 'name' in data)) {
+        if ('tags' in data || (data.deleted && 'name' in data)) {
           // Skill
           if (data.deleted) {
             setSkills((prev) => prev.filter((s) => s.name !== data.name))
@@ -741,7 +762,7 @@ export const AgentSettings = () => {
                       <TableCell>Prompt</TableCell>
                       <TableCell>Statut</TableCell>
                       <TableCell>Planifiée</TableCell>
-                      <TableCell>Créée</TableCell>
+                      <TableCell>Terminée</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -754,16 +775,16 @@ export const AgentSettings = () => {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={p.status ?? 'unknown'}
-                            color={statusColors[p.status ?? ''] ?? 'default'}
+                            label={PROACTION_STATUS_LABELS[p.executionStatus ?? ''] ?? 'Inconnue'}
+                            color={statusColors[p.executionStatus ?? ''] ?? 'default'}
                             size="small"
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{formatDateTime(p.scheduledAt)}</Typography>
+                          <Typography variant="body2">{formatDateTime(p.startAt)}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{formatDateTime(p.createdAt)}</Typography>
+                          <Typography variant="body2">{formatDateTime(p.completedAt)}</Typography>
                         </TableCell>
                       </TableRow>
                     ))}

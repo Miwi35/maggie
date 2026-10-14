@@ -51,6 +51,7 @@ import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
@@ -278,7 +279,9 @@ class FakeCalendar(private val events: List<Event>) {
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))
         val mealRepository = mockk<MealRepository>()
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
-        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository)
+        val proactionRepository = mockk<ProactionRepository>()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository, proactionRepository)
     }
 }
 

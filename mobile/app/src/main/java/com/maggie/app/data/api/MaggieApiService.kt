@@ -1627,9 +1627,16 @@ class MaggieApiService(
         }.body()
     }
 
-    // Proactions — agent endpoint
-    suspend fun getProactions(): List<Proaction> {
-        return client.get("$baseUrl/agent/proactions").body()
+    // Proactions — Maggie's runs, events of her own agenda (MAG-328)
+    /** [from] and [to] are ISO-8601 instants with their offset, both ends included. */
+    suspend fun getProactions(from: String? = null, to: String? = null): List<Proaction> {
+        return client.get("$baseUrl/api/proactions") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("order[startAt]", "asc")
+            from?.let { url.parameters.append("startAt[after]", it) }
+            to?.let { url.parameters.append("startAt[before]", it) }
+        }.body<ApiCollection<Proaction>>().member
     }
 
     // Approvals — agent endpoints

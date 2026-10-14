@@ -8,15 +8,18 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
+import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.util.DateRanges
 import com.maggie.app.util.DayPeriod
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -41,6 +45,9 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelTest {
@@ -49,6 +56,7 @@ class CalendarViewModelTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mealRepository: MealRepository
+    private lateinit var proactionRepository: ProactionRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var userPreferenceRepository: UserPreferenceRepository
@@ -66,6 +74,8 @@ class CalendarViewModelTest {
         agendaRepository = mockk()
         mealRepository = mockk()
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
+        proactionRepository = mockk()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
         every { eventRepository.observeEvents() } returns cachedEvents
         every { agendaRepository.observeAgendas() } returns cachedAgendas
         mercureService = mockk()
@@ -78,7 +88,7 @@ class CalendarViewModelTest {
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(RuntimeException("offline"))
     }
 
-    private fun createViewModel(module: String? = null) = FullCalendarViewModel(
+    private fun createViewModel(module: String? = null, clock: Clock = Clock.systemUTC()) = FullCalendarViewModel(
         eventRepository,
         taskRepository,
         agendaRepository,
@@ -86,7 +96,9 @@ class CalendarViewModelTest {
         authRepository,
         userPreferenceRepository,
         mealRepository,
+        proactionRepository,
         module,
+        clock,
     )
 
     @After
@@ -154,7 +166,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun `subscribes to the tasks and the meals once the user has logged in, the events go through the cache feed`() = runTest {
+    fun `subscribes to the tasks, the meals and the proactions once the user has logged in, the events go through the cache feed`() = runTest {
         stubRepositories()
         val token = MutableStateFlow<String?>(null)
         every { authRepository.token } returns token
@@ -168,7 +180,7 @@ class CalendarViewModelTest {
         token.value = "jwt"
         advanceUntilIdle()
 
-        listOf(MercureTopics.TASKS, MercureTopics.MEALS).forEach { collection ->
+        listOf(MercureTopics.TASKS, MercureTopics.MEALS, MercureTopics.PROACTIONS).forEach { collection ->
             verify(exactly = 1) { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) }
         }
         listOf(MercureTopics.EVENTS, MercureTopics.AGENDAS).forEach { collection ->
@@ -178,7 +190,7 @@ class CalendarViewModelTest {
 
     private fun mercureTopics(): Map<String, MutableSharedFlow<MercureEvent>> {
         coEvery { authRepository.getUserId() } returns "u1"
-        return listOf(MercureTopics.TASKS, MercureTopics.MEALS).associateWith { collection ->
+        return listOf(MercureTopics.TASKS, MercureTopics.MEALS, MercureTopics.PROACTIONS).associateWith { collection ->
             MutableSharedFlow<MercureEvent>().also {
                 every { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) } returns it
             }
@@ -474,6 +486,249 @@ class CalendarViewModelTest {
 
         assertTrue(viewModel.uiState.value.mealsEnabled)
         assertEquals(2, viewModel.uiState.value.expandedEvents.size)
+    }
+
+    private val june15 = java.time.LocalDate.of(2026, 6, 15)
+    private val juneNoon = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneOffset.UTC)
+    private fun proaction(
+        id: String = "01PRO",
+        summary: String = "Rappel école",
+        startAt: String = "2026-06-15T08:30:00+02:00",
+        executionStatus: String = Proaction.STATUS_PENDING,
+    ) = Proaction(
+        id = id,
+        summary = summary,
+        startAt = startAt,
+        endAt = java.time.OffsetDateTime.parse(startAt).plusMinutes(5).toString(),
+        prompt = "Rappelle de déposer Ael à l'école",
+        executionStatus = executionStatus,
+    )
+
+    private fun TestScope.openJune(clock: Clock = juneNoon): FullCalendarViewModel {
+        val viewModel = createViewModel(clock = clock)
+        advanceUntilIdle()
+        viewModel.navigateToDate(june15)
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `the proactions of the visible range are read and drawn as timed events of the Maggie line`() = runTest {
+        stubRepositories(events = listOf(event))
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(proaction()))
+
+        val viewModel = openJune()
+
+        val range = DateRanges.periodOfMonthGrid(june15).asRange()
+        coVerify { proactionRepository.getProactions(range.start.toString(), range.end.toString()) }
+        val drawn = viewModel.uiState.value.expandedEvents.single { it.agendaIri == "__proactions__" }
+        assertEquals("01PRO", drawn.id)
+        assertEquals("08:30 Rappel école", drawn.summary)
+        assertEquals("#7C4DFF", drawn.agendaColor)
+        assertEquals("Maggie", drawn.agendaName)
+        assertFalse(drawn.allDay)
+        assertEquals("2026-06-15T06:30:00Z", drawn.startAt)
+        assertEquals("2026-06-15T06:35:00Z", drawn.endAt)
+        assertTrue("Dentiste" in viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `a past run shows a tick when completed and a warning when failed, a pending or future one nothing`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(
+            listOf(
+                proaction(id = "01DONE", summary = "Faite", startAt = "2026-06-14T08:30:00+02:00", executionStatus = Proaction.STATUS_COMPLETED),
+                proaction(id = "01FAIL", summary = "Ratée", startAt = "2026-06-14T09:30:00+02:00", executionStatus = Proaction.STATUS_FAILED),
+                proaction(id = "01LATE", summary = "Attend", startAt = "2026-06-14T10:30:00+02:00", executionStatus = Proaction.STATUS_PENDING),
+                proaction(id = "01NEXT", summary = "Demain", startAt = "2026-06-16T08:30:00+02:00", executionStatus = Proaction.STATUS_COMPLETED),
+            ),
+        )
+
+        val viewModel = openJune()
+
+        val summaries = viewModel.uiState.value.expandedEvents.associate { it.id to it.summary }
+        assertEquals("08:30 Faite ✓", summaries["01DONE"])
+        assertEquals("09:30 Ratée ⚠", summaries["01FAIL"])
+        assertEquals("10:30 Attend", summaries["01LATE"])
+        assertEquals("08:30 Demain", summaries["01NEXT"])
+    }
+
+    @Test
+    fun `unticking Maggie hides the proactions and leaves the events, ticking it brings them back`() = runTest {
+        stubRepositories(events = listOf(event))
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(proaction()))
+        val viewModel = openJune()
+
+        viewModel.toggleProactions()
+
+        assertFalse(viewModel.uiState.value.proactionsEnabled)
+        assertEquals(listOf("Dentiste"), viewModel.uiState.value.expandedEvents.map { it.summary })
+
+        viewModel.toggleProactions()
+
+        assertTrue(viewModel.uiState.value.proactionsEnabled)
+        assertEquals(2, viewModel.uiState.value.expandedEvents.size)
+    }
+
+    @Test
+    fun `a proaction outside the visible range is not drawn`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns
+            Result.success(listOf(proaction(startAt = "2026-08-15T08:30:00+02:00")))
+
+        val viewModel = openJune()
+
+        assertTrue(viewModel.uiState.value.expandedEvents.isEmpty())
+    }
+
+    @Test
+    fun `moving to another range reads the proactions of that range`() = runTest {
+        stubRepositories()
+        val viewModel = openJune()
+
+        viewModel.setViewType(CalendarViewType.DAY)
+        advanceUntilIdle()
+
+        val day = DateRanges.periodOfDate(june15).asRange()
+        coVerify { proactionRepository.getProactions(day.start.toString(), day.end.toString()) }
+    }
+
+    @Test
+    fun `a slow reply for a range the user has left does not replace the proactions on screen`() = runTest {
+        stubRepositories()
+        val juneReplies = CompletableDeferred<Unit>()
+        val juneRange = DateRanges.periodOfMonthGrid(june15).asRange()
+        coEvery { proactionRepository.getProactions(juneRange.start.toString(), juneRange.end.toString()) } coAnswers {
+            juneReplies.await()
+            Result.success(listOf(proaction(summary = "Juin")))
+        }
+        val julyRange = DateRanges.periodOfMonthGrid(java.time.LocalDate.of(2026, 7, 15)).asRange()
+        coEvery { proactionRepository.getProactions(julyRange.start.toString(), julyRange.end.toString()) } returns
+            Result.success(listOf(proaction(id = "01JULY", summary = "Juillet", startAt = "2026-07-15T08:30:00+02:00")))
+        val viewModel = createViewModel(clock = juneNoon)
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(june15)
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 7, 15))
+        advanceUntilIdle()
+        juneReplies.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("08:30 Juillet"), viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `a proactions failure is reported and keeps the user's own calendar`() = runTest {
+        stubRepositories(events = listOf(event), agendas = listOf(work))
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.failure(RuntimeException("proactions down"))
+
+        val viewModel = openJune()
+
+        val state = viewModel.uiState.value
+        assertEquals("proactions down", state.error)
+        assertEquals(listOf("Work"), state.agendas.map { it.name })
+        assertEquals(listOf("Dentiste"), state.expandedEvents.map { it.summary })
+        assertFalse(state.isLoading)
+    }
+
+    @Test
+    fun `moving a proaction patches its start as an instant, then reads the range again`() = runTest {
+        stubRepositories()
+        var onServer = proaction()
+        coEvery { proactionRepository.getProactions(any(), any()) } answers { Result.success(listOf(onServer)) }
+        coEvery { proactionRepository.move("01PRO", any()) } answers {
+            onServer = proaction(startAt = "2026-06-16T09:15:00+02:00")
+            Result.success(Unit)
+        }
+        val viewModel = openJune()
+        assertEquals(listOf("08:30 Rappel école"), viewModel.uiState.value.expandedEvents.map { it.summary })
+
+        viewModel.moveProaction("01PRO", Instant.parse("2026-06-16T07:15:00Z"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { proactionRepository.move("01PRO", "2026-06-16T07:15:00Z") }
+        val moved = viewModel.uiState.value.expandedEvents.single()
+        assertEquals("09:15 Rappel école", moved.summary)
+        assertEquals("2026-06-16T07:15:00Z", moved.startAt)
+    }
+
+    @Test
+    fun `a move the API refuses is reported and the proaction stays where it was`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(proaction()))
+        coEvery { proactionRepository.move(any(), any()) } returns Result.failure(RuntimeException("move refused"))
+        val viewModel = openJune()
+
+        viewModel.moveProaction("01PRO", Instant.parse("2026-06-16T07:15:00Z"))
+        advanceUntilIdle()
+
+        assertEquals("move refused", viewModel.uiState.value.error)
+        assertEquals(listOf("08:30 Rappel école"), viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `deleting a proaction removes it from the agenda`() = runTest {
+        stubRepositories(events = listOf(event))
+        var onServer = listOf(proaction())
+        coEvery { proactionRepository.getProactions(any(), any()) } answers { Result.success(onServer) }
+        coEvery { proactionRepository.delete("01PRO") } answers {
+            onServer = emptyList()
+            Result.success(Unit)
+        }
+        val viewModel = openJune()
+        assertEquals(2, viewModel.uiState.value.expandedEvents.size)
+
+        viewModel.deleteProaction("01PRO")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { proactionRepository.delete("01PRO") }
+        assertEquals(listOf("Dentiste"), viewModel.uiState.value.expandedEvents.map { it.summary })
+        assertTrue(viewModel.uiState.value.proactions.isEmpty())
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a delete the API refuses is reported and the proaction stays`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(proaction()))
+        coEvery { proactionRepository.delete(any()) } returns Result.failure(RuntimeException("delete refused"))
+        val viewModel = openJune()
+
+        viewModel.deleteProaction("01PRO")
+        advanceUntilIdle()
+
+        assertEquals("delete refused", viewModel.uiState.value.error)
+        assertEquals(listOf("08:30 Rappel école"), viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `a proaction pushed on Mercure reloads the proactions and not the period`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+        var onServer = emptyList<Proaction>()
+        coEvery { proactionRepository.getProactions(any(), any()) } answers { Result.success(onServer) }
+        val viewModel = openJune()
+        assertTrue(viewModel.uiState.value.expandedEvents.isEmpty())
+        val periodReads = 2
+
+        onServer = listOf(proaction())
+        topics.getValue(MercureTopics.PROACTIONS).emit(MercureEvent())
+        advanceTimeBy(600)
+
+        assertEquals(listOf("08:30 Rappel école"), viewModel.uiState.value.expandedEvents.map { it.summary })
+        coVerify(exactly = periodReads) { eventRepository.loadPeriod(any(), any()) }
+    }
+
+    @Test
+    fun `a module view reads no proaction`() = runTest {
+        val viewModel = createViewModel(module = "cookbook")
+        advanceUntilIdle()
+        viewModel.navigateToDate(june15)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { proactionRepository.getProactions(any(), any()) }
+        assertTrue(viewModel.uiState.value.expandedEvents.isEmpty())
     }
 
     @Test

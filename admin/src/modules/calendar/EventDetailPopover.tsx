@@ -13,9 +13,18 @@ import ScheduleIcon from '@mui/icons-material/Schedule'
 import Chip from '@mui/material/Chip'
 import { lastDayOf, parseDay } from '../../dates'
 import { rruleToFrenchText } from './recurrenceUtils'
+import { PROACTION_STATUS_LABELS } from './proaction'
 import { remindersToFrenchText } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
 import type { EventStatus } from './eventStatus'
+
+/** What a run of Maggie adds to the card: her instruction, how it went, what she answered (MAG-328). */
+export interface PopoverProaction {
+  prompt: string
+  executionStatus: string
+  response: string | null
+  error: string | null
+}
 
 export interface PopoverEvent {
   id: string
@@ -35,6 +44,7 @@ export interface PopoverEvent {
   masterEventId?: string
   isVirtualOccurrence?: boolean
   calendarIri?: string
+  proaction?: PopoverProaction
 }
 
 interface EventDetailPopoverProps {
@@ -77,6 +87,42 @@ const formatDateTime = (start: string, end: string, allDay: boolean): string => 
   return `${capitalize(dateStr)}, ${startTime} – ${endTime}`
 }
 
+const STATUS_CHIP_COLORS: Record<string, 'default' | 'warning' | 'success' | 'error' | 'info'> = {
+  pending: 'warning',
+  running: 'info',
+  completed: 'success',
+  failed: 'error',
+}
+
+const ProactionText = ({ label, text, error = false }: { label: string; text: string; error?: boolean }) => (
+  <Box sx={{ mb: 1 }}>
+    <Typography variant="caption" color="text.secondary" component="div">
+      {label}
+    </Typography>
+    <Typography
+      variant="body2"
+      color={error ? 'error' : 'text.primary'}
+      sx={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto' }}
+    >
+      {text}
+    </Typography>
+  </Box>
+)
+
+const ProactionDetail = ({ proaction }: { proaction: PopoverProaction }) => (
+  <Box sx={{ mt: 1.5 }}>
+    <Chip
+      label={PROACTION_STATUS_LABELS[proaction.executionStatus] ?? proaction.executionStatus}
+      color={STATUS_CHIP_COLORS[proaction.executionStatus] ?? 'default'}
+      size="small"
+      sx={{ mb: 1 }}
+    />
+    <ProactionText label="Instruction" text={proaction.prompt} />
+    {proaction.response && <ProactionText label="Réponse" text={proaction.response} />}
+    {proaction.error && <ProactionText label="Erreur" text={proaction.error} error />}
+  </Box>
+)
+
 export const EventDetailPopover = ({
   event,
   anchorEl,
@@ -106,9 +152,11 @@ export const EventDetailPopover = ({
     >
       {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 0.5 }}>
-        <IconButton size="small" aria-label="Modifier" onClick={() => onEdit(event.id)}>
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
+        {!event.proaction && (
+          <IconButton size="small" aria-label="Modifier" onClick={() => onEdit(event.id)}>
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        )}
         <IconButton
           size="small"
           aria-label="Supprimer"
@@ -199,6 +247,8 @@ export const EventDetailPopover = ({
             </Typography>
           </Box>
         )}
+
+        {event.proaction && <ProactionDetail proaction={event.proaction} />}
 
         {/* Calendar name */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>

@@ -67,6 +67,10 @@ class DtoContractTest {
         assertCollectionContract("tasks", serializer<Task>(), "Task")
 
     @Test
+    fun `proactions deserialise from the recorded response`() =
+        assertCollectionContract("proactions", serializer<Proaction>(), "Proaction")
+
+    @Test
     fun `meals deserialise from the recorded response`() =
         assertCollectionContract("meals", serializer<Meal>(), "Meal")
 

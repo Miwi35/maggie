@@ -62,6 +62,57 @@ class ProactionEventApiTest extends WebTestCase
         self::assertSame('/api/agendas/'.$this->reload()->getAgenda()->getId(), $body['agenda']);
     }
 
+    /** @return array{member: list<array<string, mixed>>} */
+    private function collection(string $query = ''): array
+    {
+        $this->client->request('GET', '/api/proactions'.$query, [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function testTheCollectionRequiresAuthentication(): void
+    {
+        $this->client->request('GET', '/api/proactions', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testTheCollectionListsOnlyTheUsersOwnByStartWithWhatTheAgendaShows(): void
+    {
+        $members = $this->collection('?order[startAt]=asc')['member'];
+
+        self::assertCount(2, $members);
+        self::assertSame(['Rappelle de déposer Ael à l\'école', 'Prépare le résumé de la semaine'], array_column($members, 'prompt'));
+        self::assertSame(['pending', 'failed'], array_column($members, 'executionStatus'));
+        self::assertSame('Le modèle ne répond pas', $members[1]['error']);
+        self::assertEquals(new \DateTimeImmutable('2037-01-15T08:35:00+01:00'), new \DateTimeImmutable($members[0]['endAt']));
+    }
+
+    public function testTheCollectionIsReadOverAPeriod(): void
+    {
+        $members = $this->collection('?startAt[after]=2037-01-17T00:00:00%2B01:00&startAt[before]=2037-01-17T23:59:59%2B01:00')['member'];
+
+        self::assertSame(['Prépare le résumé de la semaine'], array_column($members, 'prompt'));
+    }
+
+    public function testTheCollectionIsFilteredByExecutionStatus(): void
+    {
+        $members = $this->collection('?executionStatus=failed')['member'];
+
+        self::assertSame(['Prépare le résumé de la semaine'], array_column($members, 'prompt'));
+    }
+
+    public function testTheEventCollectionStillNeverListsThem(): void
+    {
+        $this->client->request('GET', '/api/events', [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], array_column($body['member'], 'prompt'));
+    }
+
     public function testAnotherUserCannotReadIt(): void
     {
         $this->authenticateAsUser($this->getFixture('other_user'));

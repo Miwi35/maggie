@@ -4853,6 +4853,342 @@
                 }
             }
         },
+        "/api/proactions": {
+            "get": {
+                "operationId": "api_proactions_get_collection",
+                "tags": [
+                    "Proaction"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proaction collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Proaction.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Proaction.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Proaction"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Proaction.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Proaction resources.",
+                "description": "Retrieves the collection of Proaction resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "executionStatus",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "executionStatus[]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "startAt[before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[strictly_before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[strictly_after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[strictly_before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[strictly_after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "exists[rrule]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[startAt]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/proactions/{id}": {
+            "get": {
+                "operationId": "api_proactions_id_get",
+                "tags": [
+                    "Proaction"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proaction resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Proaction.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Proaction"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Proaction.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Proaction resource.",
+                "description": "Retrieves a Proaction resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Proaction identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/products": {
             "get": {
                 "operationId": "api_products_get_collection",
@@ -13722,6 +14058,532 @@
                     }
                 ]
             },
+            "Proaction": {
+                "type": "object",
+                "required": [
+                    "prompt",
+                    "summary"
+                ],
+                "properties": {
+                    "prompt": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "executionStatus": {
+                        "readOnly": true,
+                        "default": "pending",
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "running",
+                            "completed",
+                            "failed"
+                        ]
+                    },
+                    "response": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "error": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "completedAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "location": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "allDay": {
+                        "type": "boolean"
+                    },
+                    "startDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "timeZone": {
+                        "type": "string"
+                    },
+                    "rrule": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "recurringEvent": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "originalStartAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "confirmed",
+                            "tentative",
+                            "cancelled"
+                        ]
+                    },
+                    "reminders": {
+                        "type": "object",
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "googleEventId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "googleEtag": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "googleUpdatedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "ownerRelation": {
+                        "readOnly": true
+                    },
+                    "recurring": {
+                        "readOnly": true
+                    },
+                    "exception": {
+                        "readOnly": true
+                    },
+                    "googleSynced": {
+                        "readOnly": true
+                    }
+                }
+            },
+            "Proaction.html": {
+                "type": "object",
+                "required": [
+                    "prompt",
+                    "summary"
+                ],
+                "properties": {
+                    "prompt": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "executionStatus": {
+                        "readOnly": true,
+                        "default": "pending",
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "running",
+                            "completed",
+                            "failed"
+                        ]
+                    },
+                    "response": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "error": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "completedAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "location": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "allDay": {
+                        "type": "boolean"
+                    },
+                    "startDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "timeZone": {
+                        "type": "string"
+                    },
+                    "rrule": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "recurringEvent": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "originalStartAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "confirmed",
+                            "tentative",
+                            "cancelled"
+                        ]
+                    },
+                    "reminders": {
+                        "type": "object",
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "googleEventId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "googleEtag": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "googleUpdatedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "ownerRelation": {
+                        "readOnly": true
+                    },
+                    "recurring": {
+                        "readOnly": true
+                    },
+                    "exception": {
+                        "readOnly": true
+                    },
+                    "googleSynced": {
+                        "readOnly": true
+                    }
+                }
+            },
+            "Proaction.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "required": [
+                            "prompt",
+                            "summary"
+                        ],
+                        "properties": {
+                            "prompt": {
+                                "readOnly": true,
+                                "type": "string"
+                            },
+                            "executionStatus": {
+                                "readOnly": true,
+                                "default": "pending",
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "running",
+                                    "completed",
+                                    "failed"
+                                ]
+                            },
+                            "response": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "error": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "completedAt": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "startAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "endAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "summary": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "location": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "allDay": {
+                                "type": "boolean"
+                            },
+                            "startDate": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "endDate": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "timeZone": {
+                                "type": "string"
+                            },
+                            "rrule": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "recurringEvent": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "originalStartAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "confirmed",
+                                    "tentative",
+                                    "cancelled"
+                                ]
+                            },
+                            "reminders": {
+                                "type": "object",
+                                "properties": {
+                                    "useDefault": {},
+                                    "overrides": {}
+                                },
+                                "additionalProperties": false
+                            },
+                            "agenda": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "googleEventId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "googleEtag": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "googleUpdatedAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "ownerRelation": {
+                                "readOnly": true
+                            },
+                            "recurring": {
+                                "readOnly": true
+                            },
+                            "exception": {
+                                "readOnly": true
+                            },
+                            "googleSynced": {
+                                "readOnly": true
+                            }
+                        }
+                    }
+                ]
+            },
             "Product": {
                 "type": "object",
                 "properties": {
@@ -17655,6 +18517,10 @@
         {
             "name": "Event",
             "description": "Resource 'Event' operations."
+        },
+        {
+            "name": "Proaction",
+            "description": "Resource 'Proaction' operations."
         },
         {
             "name": "Task",

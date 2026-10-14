@@ -115,6 +115,33 @@ fun FullCalendarScreen(
                             )
                         }
                     }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(UiTags.CALENDAR_PROACTIONS_FILTER)
+                                .clickable { viewModel.toggleProactions() }
+                                .padding(horizontal = 12.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = uiState.proactionsEnabled,
+                                onCheckedChange = { viewModel.toggleProactions() },
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(android.graphics.Color.parseColor(PROACTIONS_COLOR))),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Maggie",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     items(uiState.agendas) { agenda ->
                         val color = try {
                             Color(android.graphics.Color.parseColor(agenda.color))

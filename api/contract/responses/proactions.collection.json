@@ -1,0 +1,133 @@
+{
+    "@context": "/api/contexts/Proaction",
+    "@id": "/api/proactions",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/proactions/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Proaction",
+            "prompt": "Recorded proaction prompt",
+            "executionStatus": "completed",
+            "response": "Recorded answer",
+            "completedAt": "2026-03-17T08:31:00+00:00",
+            "startAt": "2026-03-17T08:30:00+00:00",
+            "endAt": "2026-03-17T08:35:00+00:00",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "summary": "Recorded proaction",
+            "allDay": false,
+            "timeZone": "Europe/Paris",
+            "status": "confirmed",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ownerRelation": "agenda",
+            "recurring": false,
+            "exception": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/proactions/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Proaction",
+            "prompt": "Recorded failed proaction prompt",
+            "executionStatus": "failed",
+            "error": "Recorded error",
+            "completedAt": "2026-03-17T18:01:00+00:00",
+            "startAt": "2026-03-17T18:00:00+00:00",
+            "endAt": "2026-03-17T18:05:00+00:00",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "summary": "Recorded failed proaction",
+            "allDay": false,
+            "timeZone": "Europe/Paris",
+            "status": "confirmed",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ownerRelation": "agenda",
+            "recurring": false,
+            "exception": false,
+            "googleSynced": false
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/proactions{?executionStatus,executionStatus[],startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[id],order[startAt]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "executionStatus",
+                "property": "executionStatus",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "executionStatus[]",
+                "property": "executionStatus",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[rrule]",
+                "property": "rrule",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[id]",
+                "property": "id",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[startAt]",
+                "property": "startAt",
+                "required": false
+            }
+        ]
+    }
+}

@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.ui.theme.MaggieTokens
 import org.koin.androidx.compose.koinViewModel
-import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -111,24 +111,30 @@ private fun ProactionCard(proaction: Proaction) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = proaction.prompt,
+                    text = proaction.summary.ifBlank { proaction.prompt },
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                StatusChip(status = proaction.status)
+                StatusChip(proaction = proaction)
             }
 
-            proaction.scheduledAt?.let { scheduledAt ->
+            proaction.startAt?.let { startAt ->
                 Text(
-                    text = "Planifié : ${formatTimestamp(scheduledAt)}",
+                    text = "Planifié : ${formatTimestamp(startAt)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             if (expanded) {
+                if (proaction.prompt.isNotBlank() && proaction.prompt != proaction.summary) {
+                    Text(
+                        text = proaction.prompt,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 proaction.response?.let { response ->
                     Text(
                         text = response,
@@ -149,13 +155,13 @@ private fun ProactionCard(proaction: Proaction) {
 }
 
 @Composable
-private fun StatusChip(status: String) {
-    val (label, color) = when (status) {
-        "pending" -> "En attente" to MaterialTheme.colorScheme.outline
-        "running" -> "En cours" to MaggieTokens.Signal.info
-        "completed" -> "Terminé" to MaggieTokens.Signal.success
-        "failed" -> "Échoué" to MaterialTheme.colorScheme.error
-        else -> status to MaterialTheme.colorScheme.outline
+private fun StatusChip(proaction: Proaction) {
+    val label = proaction.statusLabel
+    val color = when (proaction.executionStatus) {
+        Proaction.STATUS_RUNNING -> MaggieTokens.Signal.info
+        Proaction.STATUS_COMPLETED -> MaggieTokens.Signal.success
+        Proaction.STATUS_FAILED -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
     }
     SuggestionChip(
         onClick = {},
@@ -169,7 +175,7 @@ private fun StatusChip(status: String) {
 
 private fun formatTimestamp(isoString: String): String {
     return try {
-        val instant = Instant.parse(isoString)
+        val instant = OffsetDateTime.parse(isoString).toInstant()
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault())
         formatter.format(instant)

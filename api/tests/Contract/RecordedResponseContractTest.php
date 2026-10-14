@@ -61,6 +61,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'agendas.collection' => '/api/agendas',
         'recipes.collection' => '/api/recipes',
         'meals.collection' => '/api/meals',
+        'proactions.collection' => '/api/proactions',
         'ingredients.collection' => '/api/ingredients',
         'products.collection' => '/api/products',
         'stores.collection' => '/api/stores',
