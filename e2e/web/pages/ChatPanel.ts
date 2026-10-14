@@ -43,6 +43,8 @@ export class ChatPanel {
   /** The microphone. Its name flips to "Arrêter la dictée" while it records. */
   readonly dictateButton: Locator
   readonly stopDictationButton: Locator
+  /** « Arrêter », which takes the place of « Envoyer » while Maggie answers (MAG-320). */
+  readonly stopButton: Locator
   /** The panel's own way out — the only one once it is a full-screen sheet. */
   readonly closeButton: Locator
 
@@ -51,6 +53,7 @@ export class ChatPanel {
     this.input = this.panel.getByPlaceholder('Demande à Maggie...')
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })
+    this.stopButton = this.panel.getByTestId('chat-stop')
     this.closeButton = this.panel.getByRole('button', { name: 'Fermer la conversation' })
     this.threadsButton = this.panel.getByRole('button', { name: 'Fils de discussion' })
     this.threadsDialog = page.getByRole('dialog', { name: 'Fils de discussion' })

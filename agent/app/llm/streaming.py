@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncGenerator, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from datetime import UTC, datetime
 
 import anthropic
@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
+from app.db.models import NOTHING_SAID
 from app.llm.capabilities import generate_capability_summary
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.client import create_llm_client, llm_configured
@@ -136,8 +137,14 @@ class StreamingGateway:
         *,
         screen_context: str | None = None,
         image: ChatImage | None = None,
+        carried_over: str | None = None,
+        stopped: Callable[[], bool] | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
+
+        `carried_over` is what the turn this message replaces had already done (MAG-320), told to
+        the model on this turn. `stopped` says whether a cancellation is the user's stop: only
+        then is what the turn did kept, a shutdown hands the turn over untouched.
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It joins the conversation in `build_history`, on the turn being answered,
@@ -182,6 +189,7 @@ class StreamingGateway:
             screen_context=screen_context,
             tz=await resolve_user_timezone(user_id),
             image=image,
+            carried_over=carried_over,
         )
 
         # Get tools (contexts are managed by the gateway, not by Claude)
@@ -221,6 +229,7 @@ class StreamingGateway:
 
         for iteration in range(max_iterations):
             logger.info(f"Stream iteration {iteration + 1}, {len(tools)} tools, {len(messages)} messages")
+            round_calls: list[dict] = []
 
             t0 = time.monotonic()
             try:
@@ -327,7 +336,6 @@ class StreamingGateway:
                     messages.append({"role": "assistant", "content": response_content})
 
                     tool_results = []
-                    round_calls = []
                     for block in response_content:
                         if block.type == "tool_use":
                             tool_name = block.name
@@ -337,12 +345,30 @@ class StreamingGateway:
                             logger.info(f"Tool call: {tool_name}({tool_input})")
                             TOOL_CALLS.labels(tool_name=tool_name, source="chat_stream").inc()
 
-                            result = await self.tool_router.call_tool(
-                                tool_name,
-                                tool_input,
-                                user_id=user_id,
-                                source="chat_stream",
-                                context_id=current_context_id,
+                            call = asyncio.ensure_future(
+                                self.tool_router.call_tool(
+                                    tool_name,
+                                    tool_input,
+                                    user_id=user_id,
+                                    source="chat_stream",
+                                    context_id=current_context_id,
+                                )
+                            )
+                            try:
+                                result = await asyncio.shield(call)
+                            except asyncio.CancelledError:
+                                # A tool that may already be acting is let finish: what it did is
+                                # what the next turn is told, and what is not known is not undone.
+                                if stopped is not None and stopped():
+                                    result = await call
+                                    round_calls.append(
+                                        {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
+                                    )
+                                else:
+                                    call.cancel()
+                                raise
+                            round_calls.append(
+                                {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
                             )
                             tool_use_blocks.append(
                                 {
@@ -394,9 +420,6 @@ class StreamingGateway:
                                     "content": result,
                                 }
                             )
-                            round_calls.append(
-                                {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
-                            )
 
                     messages.append({"role": "user", "content": tool_results})
                     # The same round as plain data, which is what a column can hold:
@@ -425,6 +448,11 @@ class StreamingGateway:
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
                 break
 
+            except asyncio.CancelledError:
+                if stopped is not None and stopped():
+                    blocks.extend(record(round_calls))
+                    await self._keep_what_was_done(user_id, msg_id, answer, current_context_id, blocks)
+                raise
             except Exception as e:
                 duration = time.monotonic() - t0
                 record_llm_usage(
@@ -489,6 +517,32 @@ class StreamingGateway:
                 self._in_background(context_summarizer.maybe_summarize(current_context_id))
 
         yield {"type": "RUN_FINISHED", "runId": run_id}
+
+    @staticmethod
+    async def _keep_what_was_done(
+        user_id: str, msg_id: str, shown: str, context_id: str | None, blocks: list[dict]
+    ) -> None:
+        """A stopped turn that had already acted leaves its calls on an interrupted answer (MAG-320).
+
+        Without them the next turn would not know that an event was created, and would create
+        it again. A turn that had done nothing leaves no row: `POST /chat/interrupt` writes it.
+        """
+        if not blocks:
+            return
+        try:
+            await message_repo.create(
+                user_id=user_id,
+                role="assistant",
+                content=shown or NOTHING_SAID,
+                context_id=context_id,
+                message_id=msg_id,
+                blocks=blocks,
+                interrupted=True,
+            )
+        except IntegrityError:
+            logger.info(f"Answer {msg_id} was already stored: the stopped turn's calls are not kept twice")
+        except Exception as exc:
+            logger.warning(f"Could not keep what the stopped turn did: {exc}")
 
     async def _resolve_context(self, message: str, user_id: str, user_msg_id: str) -> dict | None:
         """Route the user's message to an existing or new context, and tag the message with it.

@@ -59,9 +59,15 @@ object UiTags {
     /** The « Supprimer » of the menu a long press on a message opens. */
     const val MESSAGE_DELETE = "message_delete"
 
+    /** The « Modifier » of the same menu, on the last message of the user only (MAG-320). */
+    const val MESSAGE_EDIT = "message_edit"
+
     /** The chat sheet: its input and its two buttons. */
     const val CHAT_INPUT = "chat_input"
     const val CHAT_SEND = "chat_send"
+
+    /** The send button while Maggie answers: it stops her and brings the question back to the input (MAG-320). */
+    const val CHAT_STOP = "chat_stop"
     const val CHAT_CLOSE = "chat_close"
 
     /** The conversation's list, and the « ↓ nouvelle réponse » button shown when the user scrolled away from it (MAG-348). */

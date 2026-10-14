@@ -6,6 +6,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { alpha, keyframes } from '@mui/material/styles'
 import { NARROW_QUERY } from '../../breakpoints'
@@ -31,6 +32,8 @@ interface ChatBubbleProps {
   animate?: boolean
   /** Adds a « more » menu with « Supprimer » beside the bubble (MAG-342). */
   onDelete?: () => void
+  /** Adds « Modifier » to that menu: only the last message of the owner can be rewritten (MAG-320). */
+  onEdit?: () => void
 }
 
 /** One message: the owner's on the right in the accent, Maggie's on the left in her own surface. */
@@ -42,6 +45,7 @@ export const ChatBubble = ({
   highlighted = false,
   animate = true,
   onDelete,
+  onEdit,
 }: ChatBubbleProps) => {
   const isUser = role === 'user'
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -114,6 +118,20 @@ export const ChatBubble = ({
         <MoreVertIcon fontSize="small" />
       </IconButton>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
+        {onEdit && (
+          <MenuItem
+            data-testid="chat-edit-last"
+            onClick={() => {
+              setAnchor(null)
+              onEdit()
+            }}
+          >
+            <ListItemIcon>
+              <EditOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Modifier</ListItemText>
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             setAnchor(null)

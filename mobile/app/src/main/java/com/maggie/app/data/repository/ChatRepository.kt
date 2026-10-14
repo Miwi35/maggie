@@ -131,12 +131,14 @@ class ChatRepository(
         screenContext: String? = null,
         idempotencyKey: String = java.util.UUID.randomUUID().toString(),
         image: ChatImage? = null,
+        replaces: String? = null,
     ): Flow<AgUiEvent> {
         return apiService.sendChatStream(
             message = content,
             screenContext = screenContext,
             idempotencyKey = idempotencyKey,
             image = image,
+            replaces = replaces,
         )
     }
 

@@ -24,7 +24,10 @@ interface AgUiCallbacks {
 interface UseAgUiStreamReturn {
   // [idempotencyKey] is one per message composed: a retry passes the key of the first send, so an
   // agent that already received the message answers it once (MAG-363).
-  send: (message: string, idempotencyKey?: string) => Promise<void>
+  // [replaces] is the id of the last message of the user when this one corrects it (MAG-320).
+  send: (message: string, idempotencyKey?: string, replaces?: string) => Promise<void>
+  /** Closes the stream being read; the run is not an error. */
+  stop: () => void
   isStreaming: boolean
 }
 
@@ -32,15 +35,21 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const callbacksRef = useRef(callbacks)
   callbacksRef.current = callbacks
+  const controllerRef = useRef<AbortController | null>(null)
 
-  const send = useCallback(async (message: string, idempotencyKey: string = newMessageKey()) => {
+  const stop = useCallback(() => controllerRef.current?.abort(), [])
+
+  const send = useCallback(async (message: string, idempotencyKey: string = newMessageKey(), replaces?: string) => {
     setIsStreaming(true)
+    const controller = new AbortController()
+    controllerRef.current = controller
 
     try {
       const response = await fetch(STREAM_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ message, idempotency_key: idempotencyKey }),
+        body: JSON.stringify({ message, idempotency_key: idempotencyKey, replaces }),
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -93,13 +102,16 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
         }
       }
     } catch (error) {
-      callbacksRef.current.onError?.(error instanceof Error ? error.message : 'Stream failed')
+      if (!controller.signal.aborted) {
+        callbacksRef.current.onError?.(error instanceof Error ? error.message : 'Stream failed')
+      }
     } finally {
+      if (controllerRef.current === controller) controllerRef.current = null
       setIsStreaming(false)
     }
   }, [])
 
-  return { send, isStreaming }
+  return { send, stop, isStreaming }
 }
 
 function dispatchEvent(event: Record<string, unknown>, cb: AgUiCallbacks): void {

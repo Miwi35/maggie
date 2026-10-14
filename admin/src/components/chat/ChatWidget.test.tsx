@@ -525,7 +525,7 @@ describe('ChatWidget', () => {
 
     // Verify the streaming send was called
     await waitFor(() => {
-      expect(mockSend).toHaveBeenCalledWith('Hello Maggie', expect.any(String))
+      expect(mockSend).toHaveBeenCalledWith('Hello Maggie', expect.any(String), undefined)
     })
 
     // Verify optimistic user message appears

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +54,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -268,6 +271,8 @@ private fun ChatHistory(
         onDeny = viewModel::deny,
         onDismissApproval = viewModel::dismissApproval,
         onDeleteMessage = viewModel::deleteMessage,
+        editableMessageId = uiState.editableMessageId,
+        onEditMessage = viewModel::editMessage,
     )
 }
 
@@ -350,7 +355,16 @@ private fun ChatInputRow(
     windowIsResizedByKeyboard: Boolean = false,
     leading: @Composable () -> Unit = {},
 ) {
-    var input by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf(TextFieldValue("")) }
+    val uiState by viewModel.uiState.collectAsState()
+
+    // « Arrêter » and « Modifier » bring a question back: the cursor goes after its last word.
+    LaunchedEffect(uiState.inputToRestore) {
+        val text = uiState.inputToRestore ?: return@LaunchedEffect
+        input = TextFieldValue(text, TextRange(text.length))
+        viewModel.consumeInputToRestore()
+        focusRequester?.requestFocus()
+    }
 
     Row(
         modifier = Modifier
@@ -369,7 +383,10 @@ private fun ChatInputRow(
 
         OutlinedTextField(
             value = input,
-            onValueChange = { input = it },
+            onValueChange = {
+                input = it
+                viewModel.onInputChanged(it.text)
+            },
             modifier = Modifier
                 .weight(1f)
                 .testTag(UiTags.CHAT_INPUT)
@@ -378,15 +395,21 @@ private fun ChatInputRow(
             singleLine = true,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        IconButton(
-            onClick = {
-                viewModel.sendMessage(input)
-                input = ""
-            },
-            modifier = Modifier.testTag(UiTags.CHAT_SEND),
-            enabled = input.isNotBlank() && !isSending,
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
+        if (uiState.answering) {
+            IconButton(onClick = viewModel::stop, modifier = Modifier.testTag(UiTags.CHAT_STOP)) {
+                Icon(Icons.Default.Stop, contentDescription = "Arrêter")
+            }
+        } else {
+            IconButton(
+                onClick = {
+                    viewModel.sendMessage(input.text)
+                    input = TextFieldValue("")
+                },
+                modifier = Modifier.testTag(UiTags.CHAT_SEND),
+                enabled = input.text.isNotBlank() && !isSending,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
+            }
         }
     }
 }

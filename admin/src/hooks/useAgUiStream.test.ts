@@ -196,4 +196,47 @@ describe('useAgUiStream', () => {
       { message: 'un', idempotency_key: 'k-1' },
     ])
   })
+
+  test('replaces is on the wire when the message corrects the last one', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => createMockResponse([{ type: 'RUN_FINISHED', runId: 'r1' }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useAgUiStream({}))
+
+    await act(async () => {
+      await result.current.send('corrigé', 'k-2', 'm-9')
+    })
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      message: 'corrigé',
+      idempotency_key: 'k-2',
+      replaces: 'm-9',
+    })
+  })
+
+  test('stop closes the stream without calling it an error', async () => {
+    const onError = vi.fn()
+    const fetchMock = vi.fn((_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useAgUiStream({ onError }))
+
+    let sending: Promise<void> = Promise.resolve()
+    act(() => {
+      sending = result.current.send('long')
+    })
+    expect(result.current.isStreaming).toBe(true)
+
+    await act(async () => {
+      result.current.stop()
+      await sending
+    })
+
+    expect(onError).not.toHaveBeenCalled()
+    expect(result.current.isStreaming).toBe(false)
+  })
 })

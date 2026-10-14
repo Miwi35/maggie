@@ -32,6 +32,7 @@ from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
+from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import StreamingGateway, answer_message_id
@@ -69,6 +70,10 @@ class ChatRequest(BaseModel):
     # The screenshot the assistant was summoned over (MAG-214): read by the model on this
     # turn, never stored — `app/llm/image.py` holds the policy.
     image: ChatImage | None = None
+
+    # The id of the user's last message, when this one is its correction (MAG-320): that
+    # message and its answer are taken back, from the thread and from the model's history.
+    replaces: str | None = Field(default=None, min_length=1, max_length=26)
 
 
 MAX_MESSAGE_ID_CHARS = 26
@@ -224,12 +229,20 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     # Held until the message is stored: two requests at once cannot both pass the look-up.
     async with user_lock(user_id):
         received = await message_repo.find_by_client_key(user_id, key) if key else None
+        carried_over = None
         if received is not None:
             logger.info(f"Message {received.id} already received under key {key}: not answered twice")
-        elif request.image is None and (received := await find_duplicated_turn(user_id, said)) is not None:
-            # No key in common, but the same words while that turn runs or just ended (MAG-386):
-            # not a second message, not a second turn — this response follows the first.
-            logger.info(f"Message {received.id} repeated without its key: not answered twice")
+        else:
+            if request.replaces:
+                # Before the look-up below: the corrected words may be the old ones, and must not
+                # be taken for a repeat of the turn that is being taken back.
+                carried_over = await withdraw_turn(user_id, request.replaces)
+            if request.image is None:
+                received = await find_duplicated_turn(user_id, said)
+            if received is not None:
+                # No key in common, but the same words while that turn runs or just ended (MAG-386):
+                # not a second message, not a second turn — this response follows the first.
+                logger.info(f"Message {received.id} repeated without its key: not answered twice")
         if received is None:
             try:
                 user_msg = await message_repo.create(
@@ -255,6 +268,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                     message=said,
                     screen_context=screen,
                     image=request.image,
+                    carried_over=carried_over,
                 )
     if received is not None:
         events = turn_runner.replay(user_id, received)
@@ -287,6 +301,9 @@ async def reset_smoke_history(smoke_user_id: str = Depends(get_smoke_account_id)
 async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_current_user_id)):
     """The user cut Maggie off: keep of her answer what was said or shown, and mark it interrupted (MAG-223).
 
+    Also the « Arrêter » of the written chat (MAG-320): the turn still running is cancelled, and
+    the approval cards it left waiting are abandoned.
+
     Closing the stream stops what the phone shows; this is what the next turn is told. It is
     idempotent, and works on both orders of events — the answer already stored (a voice reply
     cut while being read) or never stored (the stream was closed first) — so the client does
@@ -305,6 +322,12 @@ async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_c
     question = await message_repo.find_last(user_id, role="user")
     if message_id is None and question is not None:
         message_id = answer_message_id(question.id)
+
+    # A turn still running is stopped, not only left to be ignored (MAG-320): no tool starts after
+    # this, and the ones that had acted are kept on the answer being cut, below.
+    if question is not None and await turn_runner.stop(question.id):
+        stopped = await message_repo.get(answer_message_id(question.id))
+        await abandon_approvals(stopped.blocks if stopped is not None else None)
 
     existing = await message_repo.get(message_id) if message_id else None
     if existing is None:

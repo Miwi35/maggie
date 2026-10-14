@@ -48,6 +48,8 @@ fun ChatMessageList(
     onDeny: (String) -> Unit = {},
     onDismissApproval: (String) -> Unit = {},
     onDeleteMessage: (String) -> Unit = {},
+    editableMessageId: String? = null,
+    onEditMessage: (String) -> Unit = {},
 ) {
     val lazy = listState.lazy
     val scope = rememberCoroutineScope()
@@ -155,6 +157,11 @@ fun ChatMessageList(
                                 isHighlighted = item.isHighlighted,
                                 thumbnail = item.thumbnail,
                                 onDelete = { onDeleteMessage(item.message.id) },
+                                onEdit = if (item.message.id == editableMessageId) {
+                                    { onEditMessage(item.message.id) }
+                                } else {
+                                    null
+                                },
                             )
                         }
                         is ChatListItem.StreamingMessage -> {
