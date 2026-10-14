@@ -17,13 +17,14 @@ fun daughtersOf(mother: BudgetLine, lines: List<BudgetLine>): List<BudgetLine> =
  * Moves the boundary after daughter [index] by [deltaCents]: the daughter on its left
  * grows by what the neighbour on its right loses — the next daughter, or the free part
  * for the last boundary. Neither goes below zero, so the total never moves and never
- * exceeds the mother.
+ * exceeds the mother. A mother already over-allocated has no free part to take: the
+ * last boundary can then only give back.
  */
 fun SplitShares.moveBoundary(index: Int, deltaCents: Int): SplitShares {
     if (index !in amounts.indices) return this
     val neighbourIsFree = index == amounts.lastIndex
     val left = amounts[index]
-    val right = if (neighbourIsFree) freeCents else amounts[index + 1]
+    val right = (if (neighbourIsFree) freeCents else amounts[index + 1]).coerceAtLeast(0)
     val delta = deltaCents.coerceIn(-left, right)
 
     val moved = amounts.mapIndexed { i, amount ->

@@ -26,6 +26,14 @@ describe('envelopeSplit', () => {
     expect(moveBoundary(loisirs, 1, 99999)).toEqual({ amounts: [10000, 20000], freeCents: 0 })
   })
 
+  test('an over-allocated mother can only give back on its last boundary', () => {
+    // Loisirs 100 €, Bars 200 €, Cinéma 10 €: free is -110 €.
+    const over = sharesOf([20000, 1000], 10000)
+
+    expect(moveBoundary(over, 1, 500)).toEqual({ amounts: [20000, 1000], freeCents: -11000 })
+    expect(moveBoundary(over, 1, -500)).toEqual({ amounts: [20000, 500], freeCents: -10500 })
+  })
+
   test('a pointer travel is snapped to whole euros', () => {
     // 200 px bar for 300 €: 1 px = 1,50 €.
     expect(centsForTravel(20, 200, 30000)).toBe(3000)

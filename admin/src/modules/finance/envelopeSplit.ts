@@ -22,7 +22,7 @@ export const sharesOf = (amounts: number[], motherCents: number): SplitShares =>
 export function moveBoundary(shares: SplitShares, index: number, deltaCents: number): SplitShares {
   const neighbourIsFree = index === shares.amounts.length - 1
   const left = shares.amounts[index]
-  const right = neighbourIsFree ? shares.freeCents : shares.amounts[index + 1]
+  const right = Math.max(0, neighbourIsFree ? shares.freeCents : shares.amounts[index + 1])
   const delta = Math.max(-left, Math.min(right, deltaCents))
 
   const amounts = shares.amounts.map((amount, i) => {

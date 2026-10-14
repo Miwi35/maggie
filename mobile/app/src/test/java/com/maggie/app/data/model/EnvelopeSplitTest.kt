@@ -31,6 +31,15 @@ class EnvelopeSplitTest {
     }
 
     @Test
+    fun `an over-allocated mother can only give back on its last boundary`() {
+        // Loisirs 100 €, Bars 200 €, Cinéma 10 €: free is -110 €.
+        val over = splitSharesOf(listOf(20000, 1000), 10000)
+
+        assertEquals(SplitShares(listOf(20000, 1000), -11000), over.moveBoundary(1, 500))
+        assertEquals(SplitShares(listOf(20000, 500), -10500), over.moveBoundary(1, -500))
+    }
+
+    @Test
     fun `an unknown boundary changes nothing`() {
         assertEquals(loisirs, loisirs.moveBoundary(5, 2000))
     }
