@@ -58,13 +58,17 @@ class PendingAction(AgentBase):
     decided_at = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=False, default=_expiry)
 
+    @property
+    def display_summary(self) -> str:
+        return self.summary or action_label(self.tool_name, self.arguments)
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "userId": self.user_id,
             "toolName": self.tool_name,
             "arguments": self.arguments,
-            "summary": self.summary or action_label(self.tool_name, self.arguments),
+            "summary": self.display_summary,
             "source": self.source,
             "contextId": self.context_id,
             "status": self.status.value if self.status else None,

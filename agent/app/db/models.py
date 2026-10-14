@@ -13,6 +13,9 @@ TURN_EXPIRED = "expired"
 # What an interrupted answer holds when the user cut in before a single word of it was said or
 # shown: a message row cannot be empty on the clients' side, and this is what its bubble reads.
 NOTHING_SAID = "…"
+# The role of the line that keeps the user's answer to a request of Maggie's in the thread
+# (MAG-336): neither the user's message nor hers, an information line every client shows apart.
+DECISION_ROLE = "decision"
 
 
 class Message(AgentBase):
@@ -26,7 +29,7 @@ class Message(AgentBase):
 
     id = Column(String(26), primary_key=True, default=lambda: str(uuid.uuid4().hex[:26]))
     user_id = Column(String(36), nullable=False)
-    role = Column(String(20), nullable=False)  # user, assistant
+    role = Column(String(20), nullable=False)  # user, assistant, decision
     content = Column(Text, nullable=False)
     # What the turn did before it said that: its `tool_use` / `tool_result` rounds, in the
     # shape the API takes them (MAG-211, `app.llm.tool_blocks`). `content` stays the whole
@@ -50,6 +53,9 @@ class Message(AgentBase):
     turn_screen_context = Column(Text, nullable=True)
     # An answer the user cut short (MAG-223): `content` is then only what was said or shown.
     interrupted = Column(Boolean, nullable=False, default=False, server_default=false())
+    # On a `decision` line only: what was answered (`approved`, `denied`, `expired`), the action's
+    # summary, the channel it was answered on, and the action itself (MAG-336).
+    decision = Column(JSONB, nullable=True)
 
     def to_dict(self) -> dict:
         """What a client is shown — `GET /agent/messages`, the Mind panel, the phone.
@@ -58,7 +64,7 @@ class Message(AgentBase):
         screen, and adding them would change a payload three clients parse for nothing
         they could display.
         """
-        return {
+        payload = {
             "id": self.id,
             "role": self.role,
             "content": self.content,
@@ -67,3 +73,6 @@ class Message(AgentBase):
             "createdAt": self.created_at.isoformat() if self.created_at else "",
             "interrupted": bool(self.interrupted),
         }
+        if self.decision:
+            payload["decision"] = self.decision
+        return payload

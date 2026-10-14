@@ -36,6 +36,38 @@ interface ChatBubbleProps {
   onEdit?: () => void
 }
 
+/** The trace of the owner's answer to a request of Maggie's (MAG-336): a discreet line in the thread, not a message. */
+export const DecisionLine = ({
+  id,
+  actionId,
+  children,
+}: {
+  id?: string
+  /** The held action it answers — the handle a journey scopes to. */
+  actionId?: string
+  children: ReactNode
+}) => (
+  <Box
+    id={id}
+    data-role="decision"
+    data-testid="chat-decision"
+    data-action-id={actionId}
+    sx={{
+      alignSelf: 'center',
+      maxWidth: '85%',
+      px: 1,
+      py: 0.5,
+      color: 'text.secondary',
+      typography: 'caption',
+      textAlign: 'center',
+      wordBreak: 'break-word',
+      overflowWrap: 'anywhere',
+    }}
+  >
+    {children}
+  </Box>
+)
+
 /** One message: the owner's on the right in the accent, Maggie's on the left in her own surface. */
 export const ChatBubble = ({
   role,

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { test, expect, seedId } from '../fixtures/index.js'
-import { toolResults } from '../helpers/agui.js'
+import { assistantText, toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import type { APIRequestContext } from '@playwright/test'
@@ -75,6 +75,9 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
   await expect(chat.toolCall('delete_event')).toHaveAttribute('data-status', 'pending_approval')
   await chat.openChat()
 
+  await expect(card).toHaveAttribute('data-approval-id', /.+/)
+  const actionId = await card.evaluate((el) => el.getAttribute('data-approval-id') ?? '')
+
   await card.getByRole('button', { name: 'Autoriser' }).click()
 
   await expect(card).toHaveAttribute('data-status', 'approved')
@@ -83,6 +86,21 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
     .toBe(404)
 
   await expect(chat.bubbles(announcement(id))).toHaveCount(1)
+
+  // The answer stays in the thread as one info line (MAG-336) — however it was given, once —
+  // and is still there after a reload (end of the test), because it is stored, not only shown.
+  const line = chat.decisionLines(actionId)
+  await expect(line).toHaveCount(1)
+  await expect(line).toContainText('Vous avez répondu : Autoriser — ')
+
+  // The next turn knows the decision: 77-decision-recalled.yaml answers only when the line
+  // reached the model's history.
+  const recalled = await chat.send("Qu'ai-je décidé ?")
+  expect(assistantText(recalled)).toBe("Tu as autorisé la suppression : je m'en suis occupée.")
+
+  await page.reload()
+  await chat.open()
+  await expect(chat.decisionLines(actionId)).toHaveCount(1)
 })
 
 test('Refuser leaves the event in place', async ({ approvalsUser }) => {
@@ -98,10 +116,17 @@ test('Refuser leaves the event in place', async ({ approvalsUser }) => {
   const card = chat.approvalCard(title)
   await expect(card).toHaveAttribute('data-status', 'pending')
 
+  await expect(card).toHaveAttribute('data-approval-id', /.+/)
+  const actionId = await card.evaluate((el) => el.getAttribute('data-approval-id') ?? '')
+
   await card.getByRole('button', { name: 'Refuser' }).click()
 
   await expect(card).toHaveAttribute('data-status', 'denied')
   await expect(card.getByRole('button', { name: 'Autoriser' })).toHaveCount(0)
   expect(await eventStatus(api, id), 'a refused deletion ran anyway').toBe(200)
   await expect(chat.bubbles(announcement(id))).toHaveCount(0)
+
+  const line = chat.decisionLines(actionId)
+  await expect(line).toHaveCount(1)
+  await expect(line).toContainText('Vous avez répondu : Refuser — ')
 })

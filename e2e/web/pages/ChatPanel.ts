@@ -249,6 +249,11 @@ export class ChatPanel {
     return this.panel.getByText(text, { exact: true })
   }
 
+  /** The info line that keeps the owner's answer to one held action (MAG-336) — scoped by the action, since the thread is shared by repeats. */
+  decisionLines(actionId: string): Locator {
+    return this.panel.locator(`[data-testid="chat-decision"][data-action-id="${actionId}"]`)
+  }
+
   /** Every thread in the open list — the locator to count. */
   get contextItems(): Locator {
     return this.threadsDialog.getByTestId('mind-context')

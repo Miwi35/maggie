@@ -168,7 +168,7 @@ describe('MaggieInterruptionHost', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Autoriser' }))
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/agent/approvals/a1/approve',
+      '/agent/approvals/a1/approve?channel=notification',
       expect.objectContaining({ method: 'POST', headers: { Authorization: 'Bearer jwt' } }),
     )
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
@@ -180,7 +180,7 @@ describe('MaggieInterruptionHost', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Refuser' }))
 
-    expect(fetchMock).toHaveBeenCalledWith('/agent/approvals/a1/deny', expect.objectContaining({ method: 'POST' }))
+    expect(fetchMock).toHaveBeenCalledWith('/agent/approvals/a1/deny?channel=notification', expect.objectContaining({ method: 'POST' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   })
 

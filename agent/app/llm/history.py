@@ -46,11 +46,12 @@ from zoneinfo import ZoneInfo
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import NOTHING_SAID, TURN_EXPIRED, TURN_RUNNING, Message
+from app.db.models import DECISION_ROLE, NOTHING_SAID, TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.image import GONE_MARKER, ChatImage, with_image
 from app.llm.screen_context import attach
 from app.llm.tool_blocks import replay
 from app.personality.engine import TZ_PARIS, french_date
+from app.policy.decision import decision_note
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +300,9 @@ def _turns(
     today = _now(tz)
     announced: datetime | None = None
     for row in rows:
+        if row.role == DECISION_ROLE:
+            _append_decision(turns, row, context_id, labels, current_message_id, today, tz)
+            continue
         if row.role not in ("user", "assistant") or not row.content:
             continue
         if _is_orphan(row, current_message_id):
@@ -358,6 +362,32 @@ def _turns(
         turns.pop(0)
 
     return turns
+
+
+def _append_decision(
+    turns: list[dict],
+    row: Message,
+    context_id: str | None,
+    labels: dict[str, str],
+    current_message_id: str | None,
+    today: datetime,
+    tz: ZoneInfo,
+) -> None:
+    """The user's answer to one of Maggie's requests (MAG-336), told to the model as the user's turn.
+
+    The row is an information line for the clients; the model reads what was decided, on which
+    channel and when, so that its next message takes the decision into account.
+    """
+    if not row.decision or not turns:
+        return
+    moment = _local(row.created_at, tz)
+    when = moment.strftime("%H:%M")
+    if moment.date() != today.date():
+        when = f"{french_date(moment, with_year=moment.year != today.year)}, {when}"
+    note = decision_note(row.decision, when)
+    if _is_foreign(row, context_id, current_message_id):
+        note = _prefix(labels.get(str(row.context_id))) + note
+    _append_user(turns, note)
 
 
 def _dated_today(rows: list[Message], message: str, tz: ZoneInfo) -> str:

@@ -2,6 +2,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from app.db.models import Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 
@@ -395,6 +397,11 @@ def answered(action: PendingAction, status: PendingActionStatus, result: str | N
 
 
 class TestApprovals:
+    @pytest.fixture(autouse=True)
+    def recorded(self):
+        with patch("app.api.routes.record_decision", AsyncMock()) as record:
+            yield record
+
     def test_list_requires_auth(self, client):
         assert client.get("/approvals").status_code in (401, 403)
 
@@ -645,3 +652,73 @@ class TestApprovals:
         mock_repo.decide.assert_awaited_once_with("act-1", PendingActionStatus.DENIED)
         mock_gateway.tool_router.call_tool.assert_not_awaited()
         mock_loop.assert_not_awaited()
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_leaves_the_answer_in_the_thread_once_the_claim_is_won(
+        self, mock_repo, mock_gateway, recorded, authed_client
+    ):
+        pending = held_action()
+        approved = answered(pending, PendingActionStatus.APPROVED)
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=approved)
+        mock_repo.settle = AsyncMock(return_value=approved)
+        mock_gateway.client = None
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value="{}")
+
+        assert authed_client.post("/approvals/act-1/approve").status_code == 200
+
+        recorded.assert_awaited_once_with(approved, "chat")
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_the_channel_the_user_answered_on_is_kept(self, mock_repo, mock_gateway, recorded, authed_client):
+        pending = held_action()
+        approved = answered(pending, PendingActionStatus.APPROVED)
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=approved)
+        mock_repo.settle = AsyncMock(return_value=approved)
+        mock_gateway.client = None
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value="{}")
+
+        authed_client.post("/approvals/act-1/approve", params={"channel": "voice"})
+
+        recorded.assert_awaited_once_with(approved, "voice")
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_a_lost_claim_leaves_no_line(self, mock_repo, mock_gateway, recorded, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action())
+        mock_repo.decide = AsyncMock(return_value=None)
+
+        assert authed_client.post("/approvals/act-1/approve").status_code == 409
+        recorded.assert_not_awaited()
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_an_unknown_channel_is_a_400_and_decides_nothing(self, mock_repo, recorded, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action())
+        mock_repo.decide = AsyncMock()
+
+        assert authed_client.post("/approvals/act-1/approve", params={"channel": "fax"}).status_code == 400
+        assert authed_client.post("/approvals/act-1/deny", params={"channel": "fax"}).status_code == 400
+        mock_repo.decide.assert_not_awaited()
+        recorded.assert_not_awaited()
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_deny_leaves_the_refusal_in_the_thread(self, mock_repo, recorded, authed_client):
+        pending = held_action()
+        denied = answered(pending, PendingActionStatus.DENIED)
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=denied)
+
+        assert authed_client.post("/approvals/act-1/deny", params={"channel": "notification"}).status_code == 200
+
+        recorded.assert_awaited_once_with(denied, "notification")
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_a_refusal_lost_to_a_concurrent_answer_leaves_no_line(self, mock_repo, recorded, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action())
+        mock_repo.decide = AsyncMock(return_value=None)
+
+        assert authed_client.post("/approvals/act-1/deny").status_code == 409
+        recorded.assert_not_awaited()

@@ -201,6 +201,61 @@ describe('ChatWidget', () => {
       })
       expect(defaultProps.onUnread).not.toHaveBeenCalled()
     })
+
+    // MAG-336: the trace of the owner's answer to a request is an info line in the thread.
+    describe('the line that keeps the answer to a request', () => {
+      const decision = {
+        id: 'decision-1',
+        role: 'decision',
+        content: 'Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »',
+        createdAt: '2026-10-01T18:00:00Z',
+        decision: { answer: 'approved', channel: 'chat', actionId: 'act-1' },
+      }
+
+      test('does not flag it unread when the panel is closed', async () => {
+        vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+        renderWithTheme(<ChatWidget {...defaultProps} open={false} />)
+
+        publish(chatSource(), decision)
+
+        expect(defaultProps.onUnread).not.toHaveBeenCalled()
+      })
+
+      test('appends it once to an open chat, whatever the replay', async () => {
+        vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+        const { container } = renderWithTheme(<ChatWidget {...defaultProps} />)
+        await waitFor(() => {
+          expect(container.querySelector('[data-history-loaded="true"]')).not.toBeNull()
+        })
+
+        publish(chatSource(), decision)
+        publish(chatSource(), decision)
+
+        await waitFor(() => {
+          expect(screen.getAllByTestId('chat-decision')).toHaveLength(1)
+        })
+        const line = screen.getByTestId('chat-decision')
+        expect(line).toHaveTextContent(decision.content)
+        expect(line).toHaveStyle({ alignSelf: 'center' })
+        expect(line).toHaveAttribute('data-action-id', 'act-1')
+        expect(screen.queryByRole('button', { name: 'Actions du message' })).not.toBeInTheDocument()
+      })
+
+      test('is rendered from the stored history after a reload', async () => {
+        vi.stubGlobal(
+          'fetch',
+          mockFetch({
+            '/agent/messages': [
+              { id: 'm1', role: 'user', content: 'Supprime la série', createdAt: '2026-10-01T17:58:00Z' },
+              { ...decision },
+            ],
+          }),
+        )
+        renderWithTheme(<ChatWidget {...defaultProps} />)
+
+        expect(await screen.findByTestId('chat-decision')).toHaveTextContent('Vous avez répondu : Autoriser')
+      })
+    })
   })
 
   // The conversations are synchronised, so a question asked from the phone's

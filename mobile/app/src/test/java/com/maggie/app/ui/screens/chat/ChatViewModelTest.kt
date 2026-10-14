@@ -670,6 +670,66 @@ class ChatViewModelTest {
         assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Depuis le web" })
     }
 
+    // --- MAG-336: the user's answer to a request of Maggie's stays in the thread ---
+
+    @Test
+    fun `the decision line is appended once as an information line`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        val line = echo("d-1", "decision", "Vous avez répondu : Autoriser — supprimer l'événement")
+
+        topic.tryEmit(line)
+        topic.tryEmit(line)
+        advanceUntilIdle()
+
+        val lines = viewModel.uiState.value.messages.filter { it.id == "d-1" }
+        assertEquals(1, lines.size)
+        assertTrue(lines.single().isDecision)
+        assertEquals("Vous avez répondu : Autoriser — supprimer l'événement", lines.single().content)
+    }
+
+    @Test
+    fun `a decision line arriving while Maggie is still answering does not end the wait`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            awaitCancellation()
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        viewModel.sendMessage("Supprime le rendez-vous")
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        topic.tryEmit(echo("d-1", "decision", "Vous avez répondu : Refuser — supprimer l'événement"))
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.messages.any { it.id == "d-1" })
+        assertTrue(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `an assistant message still ends the wait`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            awaitCancellation()
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        viewModel.sendMessage("Bonjour")
+        runCurrent()
+
+        topic.tryEmit(echo("a-1", "assistant", "Bonjour !"))
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
     // --- MAG-214: the screenshot goes with the sentence, the thumbnail stays in memory ---
 
     private val jpeg = byteArrayOf(-1, -40, -1, -32, 1, 2, 3)
@@ -907,7 +967,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
     }
 
     @Test
@@ -974,7 +1034,7 @@ class ChatViewModelTest {
         runCurrent()
 
         coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
-        coVerify(exactly = 0) { approvalRepository.deny(any()) }
+        coVerify(exactly = 0) { approvalRepository.deny(any(), any()) }
         assertEquals(ApprovalDecision.APPROVE, viewModel.uiState.value.pendingApprovals.single().decision)
     }
 
@@ -1005,8 +1065,8 @@ class ChatViewModelTest {
         viewModel.deny("ghost")
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
-        coVerify(exactly = 0) { approvalRepository.deny(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
+        coVerify(exactly = 0) { approvalRepository.deny(any(), any()) }
     }
 
     // --- Answering a held action out loud, in the overlay (MAG-310) ---
@@ -1014,7 +1074,7 @@ class ChatViewModelTest {
     @Test
     fun `saying yes authorizes the open card`() = runTest {
         coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
-        coEvery { approvalRepository.approve("ap-1") } returns
+        coEvery { approvalRepository.approve("ap-1", "voice") } returns
             Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED))
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -1024,14 +1084,14 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertTrue(taken)
-        coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
+        coVerify(exactly = 1) { approvalRepository.approve("ap-1", "voice") }
         assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
     }
 
     @Test
     fun `saying no refuses the open card`() = runTest {
         coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
-        coEvery { approvalRepository.deny("ap-1") } returns
+        coEvery { approvalRepository.deny("ap-1", "voice") } returns
             Result.success(approval("ap-1", status = PendingApproval.STATUS_DENIED))
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -1041,8 +1101,8 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertTrue(taken)
-        coVerify(exactly = 1) { approvalRepository.deny("ap-1") }
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 1) { approvalRepository.deny("ap-1", "voice") }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
         assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
     }
 
@@ -1057,8 +1117,8 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertFalse(taken)
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
-        coVerify(exactly = 0) { approvalRepository.deny(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
+        coVerify(exactly = 0) { approvalRepository.deny(any(), any()) }
         val item = viewModel.uiState.value.pendingApprovals.single()
         assertNull(item.decision)
         assertTrue(item.approval.isPending)
@@ -1070,7 +1130,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.answerApprovalByVoice("oui"))
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
     }
 
     @Test
@@ -1078,7 +1138,7 @@ class ChatViewModelTest {
         coEvery { approvalRepository.getPending() } returns Result.success(
             listOf(approval("ap-2", createdAt = "2026-10-06T11:00:00Z"), approval("ap-1")),
         )
-        coEvery { approvalRepository.approve("ap-1") } returns
+        coEvery { approvalRepository.approve("ap-1", "voice") } returns
             Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED))
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -1087,7 +1147,7 @@ class ChatViewModelTest {
         viewModel.answerApprovalByVoice("d'accord")
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
+        coVerify(exactly = 1) { approvalRepository.approve("ap-1", "voice") }
         assertEquals(listOf("ap-2"), viewModel.uiState.value.pendingApprovals.map { it.approval.id })
     }
 
@@ -1097,8 +1157,8 @@ class ChatViewModelTest {
             listOf(approval("ap-1"), approval("ap-2", createdAt = "2026-10-06T11:00:00Z")),
         )
         val answer = CompletableDeferred<Result<PendingApproval>>()
-        coEvery { approvalRepository.approve("ap-1") } coAnswers { answer.await() }
-        coEvery { approvalRepository.approve("ap-2") } coAnswers { answer.await() }
+        coEvery { approvalRepository.approve("ap-1", "voice") } coAnswers { answer.await() }
+        coEvery { approvalRepository.approve("ap-2", "voice") } coAnswers { answer.await() }
         viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.markApprovalAsked("ap-1")
@@ -1109,8 +1169,8 @@ class ChatViewModelTest {
         viewModel.answerApprovalByVoice("oui")
         runCurrent()
 
-        coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
-        coVerify(exactly = 1) { approvalRepository.approve("ap-2") }
+        coVerify(exactly = 1) { approvalRepository.approve("ap-1", "voice") }
+        coVerify(exactly = 1) { approvalRepository.approve("ap-2", "voice") }
     }
 
     @Test
@@ -1120,7 +1180,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.answerApprovalByVoice("oui"))
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
         assertNull(viewModel.uiState.value.pendingApprovals.single().decision)
     }
 
@@ -1134,7 +1194,7 @@ class ChatViewModelTest {
         viewModel.markApprovalAsked("ap-2")
 
         assertFalse(viewModel.answerApprovalByVoice("oui"))
-        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 0) { approvalRepository.approve(any(), any()) }
     }
 
     @Test

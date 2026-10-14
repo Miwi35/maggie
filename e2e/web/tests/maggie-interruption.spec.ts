@@ -193,10 +193,10 @@ test('three notifications arriving together pass one after the other, never twic
 test('an action waiting for the user is asked with Autoriser and Refuser', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
-  await page.route('**/agent/approvals/e2e-approval-1/approve', (route) =>
+  await page.route('**/agent/approvals/e2e-approval-1/approve*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
   )
-  await page.route('**/agent/approvals/e2e-approval-2/deny', (route) =>
+  await page.route('**/agent/approvals/e2e-approval-2/deny*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
   )
   await openSubscribed(page, () => dashboard.open(), `/approvals/${session.user.id}`)
@@ -217,12 +217,12 @@ test('an action waiting for the user is asked with Autoriser and Refuser', async
 
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Supprimer la série « Psychomot »')
-  const approved = page.waitForRequest((request) => request.url().endsWith('/agent/approvals/e2e-approval-1/approve'))
+  const approved = page.waitForRequest((request) => request.url().endsWith('/agent/approvals/e2e-approval-1/approve?channel=notification'))
   await interruption.getByRole('button', { name: 'Autoriser' }).click()
   await approved
 
   await expect(interruption).toContainText('Supprimer l’événement « Dentiste »')
-  const denied = page.waitForRequest((request) => request.url().endsWith('/agent/approvals/e2e-approval-2/deny'))
+  const denied = page.waitForRequest((request) => request.url().endsWith('/agent/approvals/e2e-approval-2/deny?channel=notification'))
   await interruption.getByRole('button', { name: 'Refuser' }).click()
   await denied
   await expect(interruption).toBeHidden()

@@ -6,6 +6,7 @@ has been answered is a second deletion one click away.
 """
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import update as sa_update
@@ -292,6 +293,31 @@ class TestSettle:
 
 
 class TestExpireOverdue:
+    @pytest.fixture(autouse=True)
+    def recorded(self):
+        with patch("app.db.pending_action_repository.record_decision", AsyncMock()) as record:
+            yield record
+
+    async def test_each_expiry_leaves_one_line_in_the_thread_without_a_channel(self, pending_db, recorded):
+        stale = self._overdue(pending_db.session)
+
+        await pending_action_repo.expire_overdue()
+        await pending_action_repo.expire_overdue()
+
+        recorded.assert_awaited_once()
+        action, channel = recorded.await_args.args
+        assert str(action.id) == str(stale.id)
+        assert action.status == PendingActionStatus.EXPIRED
+        assert channel is None
+
+    async def test_an_answered_or_fresh_action_leaves_no_line(self, pending_db, recorded):
+        self._overdue(pending_db.session, status=PendingActionStatus.DENIED)
+        await hold()
+
+        await pending_action_repo.expire_overdue()
+
+        recorded.assert_not_awaited()
+
     def _overdue(self, session_factory, **overrides) -> PendingAction:
         return write(
             session_factory,

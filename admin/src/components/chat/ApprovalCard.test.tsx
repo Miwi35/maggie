@@ -32,6 +32,12 @@ describe('ApprovalCard', () => {
     vi.useRealTimers()
   })
 
+  test('says which action it holds, so the line that keeps the answer can be tied to it (MAG-336)', () => {
+    renderCard(approval())
+
+    expect(screen.getByTestId('approval-card')).toHaveAttribute('data-approval-id', 'a1')
+  })
+
   test('shows the readable summary and both dates', () => {
     renderCard(approval())
 

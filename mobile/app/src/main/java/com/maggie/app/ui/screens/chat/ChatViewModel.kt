@@ -390,7 +390,7 @@ class ChatViewModel(
                     handleStreamEvent(event)
                 }
             if (awaitingReply) {
-                val answered = _uiState.value.messages.lastOrNull()?.role == "assistant"
+                val answered = _uiState.value.messages.lastOrNull { !it.isDecision }?.role == "assistant"
                 if (answered && streamError == null) finishRequest() else recoverReply(anchor, RECOVERY_WINDOW_MS)
             }
         } catch (e: CancellationException) {
@@ -442,7 +442,7 @@ class ChatViewModel(
             } catch (e: Exception) {
                 Log.w(TAG, "Could not fetch the answer: ${e::class.simpleName}: ${e.message}")
             }
-            if (_uiState.value.messages.lastOrNull()?.role == "assistant") {
+            if (_uiState.value.messages.lastOrNull { !it.isDecision }?.role == "assistant") {
                 finishRequest()
                 rebuildDisplayItems()
                 return
@@ -671,7 +671,7 @@ class ChatViewModel(
 
     /** The request is over: its answer, if any, is now the thing to read aloud. */
     private fun finishRequest() {
-        val reply = if (awaitingReply) _uiState.value.messages.lastOrNull()?.takeIf { it.role == "assistant" } else null
+        val reply = if (awaitingReply) _uiState.value.messages.lastOrNull { !it.isDecision }?.takeIf { it.role == "assistant" } else null
         awaitingReply = false
         unanswered = null
         _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply)
@@ -910,7 +910,7 @@ class ChatViewModel(
         // A « oui » answers a question that was heard: a card nobody read out yet is not it.
         if (target.approval.id !in askedApprovals) return false
         val decision = SpokenApprovalAnswer.parse(text) ?: return false
-        decide(target.approval.id, decision)
+        decide(target.approval.id, decision, channel = "voice")
         return true
     }
 
@@ -933,15 +933,15 @@ class ChatViewModel(
         )
     }
 
-    private fun decide(id: String, decision: ApprovalDecision) {
+    private fun decide(id: String, decision: ApprovalDecision, channel: String = "chat") {
         val item = _uiState.value.pendingApprovals.firstOrNull { it.approval.id == id } ?: return
         if (item.decision != null || !item.approval.isPending) return
 
         updateApproval(id) { it.copy(decision = decision, error = false) }
         viewModelScope.launch {
             val outcome = when (decision) {
-                ApprovalDecision.APPROVE -> approvalRepository.approve(id)
-                ApprovalDecision.DENY -> approvalRepository.deny(id)
+                ApprovalDecision.APPROVE -> approvalRepository.approve(id, channel)
+                ApprovalDecision.DENY -> approvalRepository.deny(id, channel)
             }
             outcome
                 .onSuccess { confirmed -> applyApproval(confirmed) }
@@ -1194,8 +1194,10 @@ class ChatViewModel(
                             )
                             rebuildDisplayItems()
                         }
-                        // Clear loading when we receive an assistant/system message
-                        if (message.role != "user") {
+                        // Clear loading when we receive an assistant/system message — not the line
+                        // that keeps the user's own answer to a request (MAG-336): Maggie is still
+                        // working on the question asked before it.
+                        if (message.role != "user" && !message.isDecision) {
                             unanswered = null
                             _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()

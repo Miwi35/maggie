@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithTheme } from '../../test/renderWithTheme'
 import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
-import { ChatBubble } from './ChatBubble'
+import { ChatBubble, DecisionLine } from './ChatBubble'
 import { Linkified } from './Linkified'
 
 describe.each([
@@ -64,5 +64,16 @@ describe('a message with a web address', () => {
 
     expect(screen.queryByRole('link')).toBeNull()
     expect(screen.getByText('Bonjour')).toBeInTheDocument()
+  })
+})
+
+describe('DecisionLine', () => {
+  test('is a centred, discreet line without the bubble surface', () => {
+    renderWithTheme(<DecisionLine>Vous avez répondu : Refuser — supprimer l'événement</DecisionLine>, veilleuseDarkTheme)
+
+    const line = screen.getByTestId('chat-decision')
+    expect(line).toHaveTextContent('Vous avez répondu : Refuser')
+    expect(line).toHaveStyle({ alignSelf: 'center' })
+    expect(getComputedStyle(line).backgroundColor).not.toBe(veilleuseDarkTheme.palette.maggie.reply)
   })
 })

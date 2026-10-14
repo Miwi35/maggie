@@ -42,6 +42,7 @@ class MessageRepository:
         blocks: list[dict] | None = None,
         interrupted: bool = False,
         has_image: bool = False,
+        decision: dict | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -68,6 +69,7 @@ class MessageRepository:
                 blocks=blocks or None,
                 interrupted=interrupted,
                 has_image=has_image,
+                decision=decision,
             )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING

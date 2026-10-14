@@ -38,6 +38,7 @@ from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import StreamingGateway, answer_message_id
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
+from app.policy.decision import CHANNELS, record_decision
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
@@ -444,6 +445,13 @@ async def _pending_action_or_error(user_id: str, action_id: str) -> PendingActio
     return action
 
 
+def _answer_channel(channel: str) -> str:
+    """The surface the answer came from, `chat` unless the client says otherwise."""
+    if channel not in CHANNELS:
+        raise HTTPException(status_code=400, detail=f"Unknown channel, one of {', '.join(CHANNELS)}")
+    return channel
+
+
 async def announce_approved_action(action: PendingAction, result: str) -> None:
     """Have Maggie say what the approved action did, in the thread it was asked in.
 
@@ -498,18 +506,22 @@ async def get_approvals(
 async def approve_action(
     approval_id: str,
     background_tasks: BackgroundTasks,
+    channel: str = Query(default="chat", description="Where the user answered: chat, notification or voice"),
     user_id: str = Depends(get_current_user_id),
 ):
     """Run the held call with its frozen arguments, record the outcome, and announce it in the background.
 
     The row is claimed as approved *before* the call runs: two tabs clicking at once, or the
-    scheduler expiring the action meanwhile, get a 409 instead of a second execution.
+    scheduler expiring the action meanwhile, get a 409 instead of a second execution. The one
+    who wins the claim also leaves the answer in the thread (MAG-336).
     """
+    channel = _answer_channel(channel)
     action = await _pending_action_or_error(user_id, approval_id)
 
     claimed = await pending_action_repo.decide(approval_id, PendingActionStatus.APPROVED)
     if claimed is None:
         raise HTTPException(status_code=409, detail="Approval is not pending")
+    await record_decision(claimed, channel)
 
     try:
         result = await llm_gateway.tool_router.call_tool(
@@ -528,13 +540,19 @@ async def approve_action(
 
 
 @router.post("/approvals/{approval_id}/deny")
-async def deny_action(approval_id: str, user_id: str = Depends(get_current_user_id)):
-    """Refuse the held call: nothing runs and the model is not called."""
+async def deny_action(
+    approval_id: str,
+    channel: str = Query(default="chat", description="Where the user answered: chat, notification or voice"),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Refuse the held call: nothing runs and the model is not called. The refusal stays in the thread (MAG-336)."""
+    channel = _answer_channel(channel)
     await _pending_action_or_error(user_id, approval_id)
 
     denied = await pending_action_repo.decide(approval_id, PendingActionStatus.DENIED)
     if denied is None:
         raise HTTPException(status_code=409, detail="Approval is not pending")
+    await record_decision(denied, channel)
     return denied.to_dict()
 
 

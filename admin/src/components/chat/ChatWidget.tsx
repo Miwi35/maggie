@@ -41,7 +41,7 @@ import { ApprovalCard } from './ApprovalCard'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import { ToolCallList } from '../mind/ToolCallList'
-import { ChatBubble } from './ChatBubble'
+import { ChatBubble, DecisionLine } from './ChatBubble'
 import { ThreadsDialog } from './ThreadsDialog'
 import { VoiceOrb } from './VoiceOrb'
 import { NARROW_QUERY } from '../../breakpoints'
@@ -51,7 +51,7 @@ import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'decision'
   content: string
   createdAt: string
   // A screenshot came with the question (MAG-214). It lived for that turn only and is
@@ -59,6 +59,8 @@ interface ChatMessage {
   hasImage?: boolean
   /** The thread it belongs to — what a thread's deletion takes out of the chat (MAG-342). */
   contextId?: string | null
+  /** On a `decision` line: the held action it answers (MAG-336). */
+  decision?: { actionId?: string } | null
 }
 
 /** A deletion the owner can still take back: nothing is sent to the server before the delay is over. */
@@ -714,10 +716,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   content: data.content,
                   createdAt: data.createdAt || new Date().toISOString(),
                   contextId: data.contextId ?? null,
+                  decision: data.decision ?? null,
                 },
               ]
             })
-            if (data.role !== 'user' && (!open || sidebarTab !== 'chat')) {
+            if (data.role !== 'user' && data.role !== 'decision' && (!open || sidebarTab !== 'chat')) {
               onUnread()
             }
           }
@@ -1062,7 +1065,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const unansweredId = (() => {
       if (!failedSend) return null
       const at = messages.map((m) => m.role === 'user' && m.content.trim() === failedSend.text).lastIndexOf(true)
-      if (at === -1 || messages.slice(at + 1).some((m) => m.role !== 'user')) return null
+      if (at === -1 || messages.slice(at + 1).some((m) => m.role === 'assistant')) return null
       return messages[at].id
     })()
     const voiceError = recorder.error || transcription.error
@@ -1368,6 +1371,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                               {formatDayLabel(new Date(msg.createdAt)) + ' ' + formatTime(new Date(msg.createdAt))}
                             </Typography>
                           )}
+                          {msg.role === 'decision' ? (
+                            <DecisionLine id={`msg-${msg.id}`} actionId={msg.decision?.actionId}>{msg.content}</DecisionLine>
+                          ) : (
                           <ChatBubble
                             id={`msg-${msg.id}`}
                             role={msg.role}
@@ -1390,6 +1396,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             )}
                             <Linkified text={saidInMessage(msg.content)} />
                           </ChatBubble>
+                          )}
                           {msg.id === unansweredId && (
                             <Box
                               data-testid="chat-send-failed"
