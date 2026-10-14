@@ -95,9 +95,9 @@ class UpdateTransactionHandler
 
         $this->natureGuard->assertStillCompatible($transaction);
 
-        $this->applyOneOffEnvelope($transaction, $command);
-
         $this->applyTransfer($transaction, $command);
+        // After the marking: a line made a transfer in the same update is no spend to attribute.
+        $this->applyOneOffEnvelope($transaction, $command);
         $this->applyRepays($transaction, $command);
         $this->applyRecurring($transaction, $command);
 
