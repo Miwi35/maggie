@@ -120,6 +120,16 @@ class TransactionSheetScreenTest {
     }
 
     @Test
+    fun `touching a pill opens the line's sheet`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        compose.onNodeWithTag(UiTags.PILL_TO_SORT).performClick()
+        compose.waitForIdle()
+
+        assertEquals(sections, sectionTagsDrawn())
+    }
+
+    @Test
     fun `a line attached to a series wears the series pill, and the sheet detaches it`() {
         val attached = coffee.copy(
             category = "/api/categories/c1",

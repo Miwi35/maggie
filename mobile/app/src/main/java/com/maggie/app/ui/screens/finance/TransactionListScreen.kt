@@ -271,6 +271,7 @@ fun TransactionListScreen(
                                             }
                                             TransactionPills(
                                                 pills = transactionPills(transaction, seriesNameOf(transaction, uiState.seriesNames)),
+                                                onOpen = { viewModel.openDetail(transaction.id) },
                                                 modifier = Modifier.padding(top = 4.dp),
                                             )
                                         }

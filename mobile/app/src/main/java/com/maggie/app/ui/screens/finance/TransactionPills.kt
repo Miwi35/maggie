@@ -14,10 +14,10 @@ import com.maggie.app.data.model.TransactionPill
 import com.maggie.app.data.model.TransactionPillKind
 import com.maggie.app.ui.UiTags
 
-/** The one row of pills a line wears in the lists; nothing is drawn for a line with none. */
+/** The one row of pills a line wears in the lists; a pill opens the line's sheet. Nothing is drawn for a line with none. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionPills(pills: List<TransactionPill>, modifier: Modifier = Modifier) {
+fun TransactionPills(pills: List<TransactionPill>, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     if (pills.isEmpty()) return
     FlowRow(
         modifier = modifier,
@@ -25,7 +25,7 @@ fun TransactionPills(pills: List<TransactionPill>, modifier: Modifier = Modifier
     ) {
         pills.forEach { pill ->
             AssistChip(
-                onClick = {},
+                onClick = onOpen,
                 label = { Text(pill.label) },
                 modifier = Modifier.testTag(pillTag(pill.kind)),
             )
