@@ -7,6 +7,8 @@ import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.NestedBudgetLine
+import com.maggie.app.data.model.nestBudgetLines
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,11 @@ data class BudgetUiState(
     val isRollingOver: Boolean = false,
     val rollOverMessage: String? = null,
     val error: String? = null,
-)
+) {
+    /** The envelopes in tree order, each nested under its mother. */
+    val nestedBudgets: List<NestedBudgetLine>
+        get() = nestBudgetLines(status?.budgets.orEmpty())
+}
 
 class BudgetViewModel(
     private val budgetRepository: BudgetRepository,

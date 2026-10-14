@@ -144,35 +144,28 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Total spent on a category over a half-open period, as positive cents.
-     * Only debits (negative amounts) count against a budget.
-     */
-    public function sumSpentForCategoryBetween(User $user, Category $category, \DateTimeImmutable $from, \DateTimeImmutable $until): int
-    {
-        $byStatus = $this->sumByStatusForCategoryBetween($user, $category, $from, $until);
-
-        return $byStatus[TransactionStatus::Spent->value];
-    }
-
-    /**
-     * Debits on a category over a half-open period, split by status, as
-     * positive cents. Every status is present, zero when nothing matched.
+     * Debits on a set of categories (a category and its descendants, for an
+     * envelope that takes its sub-categories along) over a half-open period,
+     * split by status, as positive cents. Every status is present, zero when
+     * nothing matched.
+     *
+     * @param list<Ulid> $categoryIds
      *
      * @return array<string, int>
      */
-    public function sumByStatusForCategoryBetween(User $user, Category $category, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    public function sumByStatusForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         $rows = $this->createQueryBuilder('t')
             ->select('t.status AS status, SUM(t.amountCents) AS total')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
-            ->andWhere('t.category = :category')
+            ->andWhere('t.category IN (:categories)')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('noTransfer', TransferKind::None->value)
-            ->setParameter('category', $category->getId(), 'ulid')
+            ->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING)
             ->setParameter('from', $from)
             ->setParameter('until', $until)
             ->groupBy('t.status')

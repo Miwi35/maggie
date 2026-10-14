@@ -1,0 +1,73 @@
+appId: com.maggie.app.e2e
+name: 13-finance-budget-nesting
+tags:
+  - finance
+---
+# Envelopes in nesting dolls on the phone (MAG-412, extends MAG-102).
+#
+# Given Loisirs at 300 € and Obsydian (Loisirs › Bars › Obsydian) at 100 €, no envelope
+# on Bars, when a 40 € spend is filed in Obsydian, then the budget screen reads
+# Obsydian 40 / 100 € nested under Loisirs 40 / 300 €, and Bars is not drawn as an
+# envelope. A 25 € spend on Bars then counts in Loisirs alone: 65 / 300 €, Obsydian
+# unchanged. The same journey over the admin is `finance-budget.spec.ts`.
+#
+# What is not here: the red and orange states with their icon and word, and the totals
+# counting the mother once — `BudgetViewModelTest`, `EnvelopeTest` and the API's
+# `BudgetStatusControllerTest` check them with figures.
+#
+# It signs in as the seed's second user, who holds no finance data of its own, and the
+# script removes what it made. Amounts are matched with either decimal separator: the
+# device's locale is not the journey's concern.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-budget-nesting.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: create
+      TODAY: ${TODAY}
+
+- openLink: "maggie-e2e://finance/budgets"
+
+# Obsydian 40 / 100 € nested under Loisirs 40 / 300 €, in that order.
+- extendedWaitUntil:
+    visible: "Bars › Obsydian"
+    timeout: 30000
+- assertVisible: "Loisirs"
+- assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+- assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
+# Bars has no envelope: it only appears inside Obsydian's path.
+- assertNotVisible: "Bars"
+
+# A 25 € spend on Bars, while the screen is open: the period is reloaded.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: spend-bars
+      TODAY: ${TODAY}
+# One reload at a time: the previous month is empty, then the shown one is read again.
+- tapOn: "Mois précédent"
+- extendedWaitUntil:
+    visible: "Aucune enveloppe pour cette période.*"
+    timeout: 30000
+- tapOn: "Mois suivant"
+
+- extendedWaitUntil:
+    visible: "65[.,]00 EUR / 300[.,]00 EUR"
+    timeout: 30000
+- assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+
+# Left as found.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: remove
+      TODAY: ${TODAY}

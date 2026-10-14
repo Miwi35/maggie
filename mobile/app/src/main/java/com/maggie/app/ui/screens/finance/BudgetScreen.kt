@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,6 +77,7 @@ fun BudgetScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     val budgets = uiState.status?.budgets ?: emptyList()
+    val nested = remember(budgets) { uiState.nestedBudgets }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -159,11 +163,12 @@ fun BudgetScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(budgets, key = { it.id }) { line ->
+                        items(nested, key = { it.line.id }) { row ->
                             BudgetCard(
-                                line = line,
-                                categoryLabel = tree.pathOf(line.categoryId) ?: line.categoryName,
-                                onDelete = { viewModel.deleteEnvelope(line.id) },
+                                line = row.line,
+                                categoryLabel = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
+                                depth = row.depth,
+                                onDelete = { viewModel.deleteEnvelope(row.line.id) },
                             )
                         }
                     }
@@ -245,9 +250,10 @@ private fun PeriodSelector(
 private fun BudgetCard(
     line: BudgetLine,
     categoryLabel: String,
+    depth: Int,
     onDelete: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -297,22 +303,36 @@ private fun BudgetCard(
                 )
             }
 
-            Text(
-                text = when {
-                    line.isOverspent ->
-                        "Dépassement de ${formatCents(-line.remainingCents, line.currency)}"
-                    line.plannedCents > 0 ->
-                        "${formatCents(line.availableCents, line.currency)} encore libres"
-                    else -> "Reste ${formatCents(line.remainingCents, line.currency)}"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = when {
-                    line.isOverspent -> MaterialTheme.colorScheme.error
-                    line.isOvercommitted -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
+            BudgetState(line)
+        }
+    }
+}
+
+/** Overspent or overcommitted: the colour never speaks alone, an icon and a word go with it. */
+@Composable
+private fun BudgetState(line: BudgetLine) {
+    val (icon, color) = when {
+        line.isOverspent -> Icons.Default.ErrorOutline to MaterialTheme.colorScheme.error
+        line.isOvercommitted -> Icons.Default.WarningAmber to MaterialTheme.colorScheme.tertiary
+        else -> null to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val text = when {
+        line.isOverspent -> "Dépassement de ${formatCents(-line.remainingCents, line.currency)}"
+        line.isOvercommitted -> "Surengagement de ${formatCents(-line.availableCents, line.currency)}"
+        line.plannedCents > 0 -> "${formatCents(line.availableCents, line.currency)} encore libres"
+        else -> "Reste ${formatCents(line.remainingCents, line.currency)}"
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.padding(end = 4.dp).size(16.dp),
             )
         }
+        Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
     }
 }
 

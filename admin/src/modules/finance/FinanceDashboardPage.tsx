@@ -12,6 +12,7 @@ import { consumedPercent } from './budgetModes'
 import { DailyScoreBanner } from './DailyScoreBanner'
 import { IndependenceCard } from './IndependenceCard'
 import { MonthlyFlowsChart } from './MonthlyFlowsChart'
+import { nestBudgetLines } from './budgetTree'
 import { PeriodPicker } from './PeriodPicker'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import type { FinanceDashboard } from './useFinanceDashboard'
@@ -138,10 +139,10 @@ const BudgetGaugesCard = ({ dashboard }: { dashboard: FinanceDashboard }) => (
           Aucune enveloppe sur ce mois.
         </Typography>
       )}
-      {dashboard.budgets.map((line) => (
-        <Box key={line.id} sx={{ mb: 1.5 }}>
+      {nestBudgetLines(dashboard.budgets).map(({ line, depth, label }) => (
+        <Box key={line.id} sx={{ mb: 1.5, ml: (depth - 1) * 2 }}>
           <Stack direction="row" justifyContent="space-between">
-            <Typography variant="caption">{line.categoryName}</Typography>
+            <Typography variant="caption">{label}</Typography>
             <Typography variant="caption" color={line.isOverspent ? 'error.main' : 'text.secondary'}>
               {formatCents(line.consumedCents, line.currency)} /{' '}
               {formatCents(line.amountCents, line.currency)}

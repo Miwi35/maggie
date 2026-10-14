@@ -18,6 +18,8 @@ data class BudgetLine(
     val id: String,
     val categoryId: String,
     val categoryName: String,
+    val categoryPath: String = "",
+    val parentEnvelopeId: String? = null,
     val mode: String = "monthly",
     val amountCents: Int = 0,
     val currency: String = "EUR",
@@ -87,3 +89,33 @@ fun budgetBreakdown(line: BudgetLine): String = listOfNotNull(
     line.plannedCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} planifiés" },
     line.toArbitrateCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} à arbitrer" },
 ).joinToString(" · ")
+
+/** An envelope placed in its tree: `depth` is 1 for an envelope with none above it. */
+data class NestedBudgetLine(val line: BudgetLine, val depth: Int, val label: String)
+
+/**
+ * The envelopes in tree order — each followed by the envelopes nested in it, its label
+ * the category as seen from the envelope above (« Bars › Obsydian » under Loisirs).
+ * A line whose mother is not in the list stays at the top.
+ */
+fun nestBudgetLines(lines: List<BudgetLine>): List<NestedBudgetLine> {
+    val ids = lines.map { it.id }.toSet()
+    val children = lines.groupBy { line -> line.parentEnvelopeId?.takeIf { it in ids } }
+    val rows = mutableListOf<NestedBudgetLine>()
+
+    fun walk(key: String?, depth: Int, mother: BudgetLine?) {
+        for (line in children[key].orEmpty()) {
+            val prefix = mother?.let { "${it.categoryPath} › " }
+            val label = if (prefix != null && line.categoryPath.startsWith(prefix)) {
+                line.categoryPath.removePrefix(prefix)
+            } else {
+                line.categoryPath.ifEmpty { line.categoryName }
+            }
+            rows += NestedBudgetLine(line, depth, label)
+            walk(line.id, depth + 1, line)
+        }
+    }
+    walk(null, 1, null)
+
+    return rows
+}

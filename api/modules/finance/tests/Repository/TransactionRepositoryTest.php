@@ -152,20 +152,14 @@ class TransactionRepositoryTest extends KernelTestCase
         $this->addPairedTransfer(categoryRef: 'leisure');
         $this->add('checking', -8000, '2026-09-14', 'Cinéma', 'leisure');
 
-        $byStatus = $this->repository->sumByStatusForCategoryBetween(
+        $byStatus = $this->repository->sumByStatusForCategoriesBetween(
             $this->user(),
-            $this->category('leisure'),
+            [$this->category('leisure')->getId()],
             $this->from(),
             $this->until(),
         );
 
         self::assertSame(8000, $byStatus[TransactionStatus::Spent->value]);
-        self::assertSame(8000, $this->repository->sumSpentForCategoryBetween(
-            $this->user(),
-            $this->category('leisure'),
-            $this->from(),
-            $this->until(),
-        ));
     }
 
     public function testATransferLeavesTheMonthlyReviewQueue(): void

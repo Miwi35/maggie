@@ -102,6 +102,61 @@ class BudgetViewModelTest {
     }
 
     @Test
+    fun `a spend in a sub-category counts in its envelope and in every mother, nested under it`() = runTest {
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } returns Result.success(
+            BudgetStatus(
+                year = 2026,
+                month = 7,
+                totalBudgetedCents = 30000,
+                totalSpentCents = 4000,
+                budgets = listOf(
+                    BudgetLine(
+                        id = "env-obsydian",
+                        categoryId = "cat-obsydian",
+                        categoryName = "Obsydian",
+                        categoryPath = "Loisirs › Bars › Obsydian",
+                        parentEnvelopeId = "env-loisirs",
+                        amountCents = 10000,
+                        spentCents = 4000,
+                        consumedCents = 4000,
+                    ),
+                    BudgetLine(
+                        id = "env-loisirs",
+                        categoryId = "cat-loisirs",
+                        categoryName = "Loisirs",
+                        categoryPath = "Loisirs",
+                        amountCents = 30000,
+                        spentCents = 4000,
+                        consumedCents = 4000,
+                    ),
+                ),
+            ),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.nestedBudgets
+        assertEquals(listOf("env-loisirs", "env-obsydian"), rows.map { it.line.id })
+        assertEquals(listOf(1, 2), rows.map { it.depth })
+        assertEquals("Bars › Obsydian", rows[1].label)
+        assertEquals(30000, viewModel.uiState.value.status?.totalBudgetedCents)
+    }
+
+    @Test
+    fun `nesting follows the period shown, an empty period nests nothing`() = runTest {
+        coEvery { budgetRepository.getBudgetStatus(2026, 6) } returns
+            Result.success(BudgetStatus(year = 2026, month = 6))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.nestedBudgets.size)
+
+        viewModel.shiftPeriod(-1)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.nestedBudgets.isEmpty())
+    }
+
+    @Test
     fun `shiftPeriod moves to the previous month and reloads`() = runTest {
         viewModel = buildViewModel()
         advanceUntilIdle()
