@@ -21,6 +21,22 @@ data class ChatMessage(
     val hasImage: Boolean = false,
     /** The thread the message was filed in, `null` for one that belongs to none (MAG-342). */
     val contextId: String? = null,
+    /** The owner's thumb on an answer of Maggie's: [MessageFeedback.UP], [MessageFeedback.DOWN] or none (MAG-23). */
+    val feedback: String? = null,
+    /** What the owner said went wrong with a thumb down, when he said anything. */
+    val feedbackComment: String? = null,
 ) {
     val isDecision: Boolean get() = role == DECISION_ROLE
+}
+
+/**
+ * The ratings the agent knows. Plain strings, like [ChatMessage.role]: a value this
+ * copy of the app does not know must not make the whole message unreadable.
+ */
+object MessageFeedback {
+    const val UP = "up"
+    const val DOWN = "down"
+
+    /** The agent refuses a longer word (MAG-23). */
+    const val MAX_COMMENT_LENGTH = 1000
 }

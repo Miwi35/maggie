@@ -272,6 +272,65 @@ class MessageRepository:
 
         return deleted
 
+    async def set_feedback(
+        self, message_id: str, user_id: str, rating: str | None, comment: str | None = None
+    ) -> Message | None:
+        """Put the owner's thumb on one of Maggie's answers, or take it off with `rating=None` (MAG-23).
+
+        `None` when the message is not theirs, does not exist, or is not an answer: only what
+        Maggie said can be rated. Not published: the thumb lives on the device that set it,
+        and the next load of the history carries it everywhere else.
+        """
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message).where(Message.id == message_id, Message.user_id == user_id, Message.role == "assistant")
+            )
+            msg = result.scalar_one_or_none()
+            if msg is None:
+                return None
+            msg.feedback = rating
+            msg.feedback_comment = (comment or None) if rating else None
+            msg.feedback_at = datetime.now(UTC) if rating else None
+            await session.commit()
+            await session.refresh(msg)
+            return msg
+
+    async def find_rated(self, user_id: str, since: datetime | None = None, limit: int = 50) -> list[Message]:
+        """The first `limit` answers rated after `since`, oldest first — what the style synthesis reads (MAG-23).
+
+        Oldest first, so a backlog is read in batches: the synthesis moves its marker to the last
+        one read, and the rest follows on the next pass instead of falling behind the marker.
+        """
+        async with agent_session() as session:
+            query = select(Message).where(Message.user_id == user_id, Message.feedback.is_not(None))
+            if since is not None:
+                query = query.where(Message.feedback_at > since)
+            result = await session.execute(query.order_by(Message.feedback_at.asc()).limit(limit))
+            return list(result.scalars().all())
+
+    async def find_rated_user_ids(self) -> list[str]:
+        """Every user with at least one rated answer."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message.user_id).where(Message.feedback.is_not(None)).distinct().order_by(Message.user_id)
+            )
+            return list(result.scalars().all())
+
+    async def find_question_before(self, message: Message) -> Message | None:
+        """The user's message an answer replied to: the last one they sent before it."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(
+                    Message.user_id == message.user_id,
+                    Message.role == "user",
+                    Message.created_at < message.created_at,
+                )
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+            return result.scalars().first()
+
     async def count_by_user_contexts(self, user_id: str) -> dict[str, int]:
         """How many messages each of the user's threads holds, by context id — what a thread's deletion takes away."""
         async with agent_session() as session:

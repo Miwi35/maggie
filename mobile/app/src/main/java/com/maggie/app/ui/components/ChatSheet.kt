@@ -46,6 +46,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -273,7 +274,15 @@ private fun ChatHistory(
         onDeleteMessage = viewModel::deleteMessage,
         editableMessageId = uiState.editableMessageId,
         onEditMessage = viewModel::editMessage,
+        onRateMessage = viewModel::rateMessage,
     )
+
+    // Keyed on the answer: a new thumb down opens an empty field.
+    uiState.commentingMessageId?.let { id ->
+        key(id) {
+            FeedbackCommentDialog(onSend = viewModel::sendFeedbackComment, onSkip = viewModel::skipFeedbackComment)
+        }
+    }
 }
 
 /**
@@ -304,6 +313,13 @@ private fun ChatSnackbarHost(viewModel: ChatViewModel) {
         snackbarHostState = hostState,
         onDismiss = viewModel::consumeMessageDeleteFailed,
         message = "La suppression a échoué. Réessayez.",
+    )
+
+    ErrorSnackbar(
+        error = "feedback".takeIf { uiState.messageFeedbackFailed },
+        snackbarHostState = hostState,
+        onDismiss = viewModel::consumeMessageFeedbackFailed,
+        message = "Votre avis n'a pas été enregistré. Réessayez.",
     )
 
     SnackbarHost(hostState)

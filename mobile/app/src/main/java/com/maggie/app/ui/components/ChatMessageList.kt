@@ -50,6 +50,8 @@ fun ChatMessageList(
     onDeleteMessage: (String) -> Unit = {},
     editableMessageId: String? = null,
     onEditMessage: (String) -> Unit = {},
+    /** Thumbs under Maggie's answers when set: id, rating (`null` to take it back) (MAG-23). */
+    onRateMessage: ((id: String, rating: String?) -> Unit)? = null,
 ) {
     val lazy = listState.lazy
     val scope = rememberCoroutineScope()
@@ -161,6 +163,11 @@ fun ChatMessageList(
                                     { onEditMessage(item.message.id) }
                                 } else {
                                     null
+                                },
+                                // Thumbs on every answer of Maggie's here; ChatViewModel.rateMessage ignores
+                                // one still being written (its `pending_` id), so only a stored answer is rated.
+                                onRate = onRateMessage?.takeIf { item.message.role == "assistant" }?.let { rate ->
+                                    { rating -> rate(item.message.id, rating) }
                                 },
                             )
                         }

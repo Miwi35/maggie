@@ -436,11 +436,12 @@ class TestContextLifecycle:
         monkeypatch.setattr(scheduler, "_context_lifecycle_loop", lambda: started.append("lifecycle") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_execution_loop", lambda: asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_daily_planning_loop", lambda: asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_style_synthesis_loop", lambda: started.append("style") or asyncio.sleep(0))
 
         await scheduler.start_scheduler()
 
-        assert started == ["lifecycle"]
-        assert len(scheduler._tasks) == 3
+        assert started == ["lifecycle", "style"]
+        assert len(scheduler._tasks) == 4
 
 
 class TestExecutionLoop:

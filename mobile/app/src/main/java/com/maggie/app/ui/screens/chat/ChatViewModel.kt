@@ -10,6 +10,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
@@ -94,6 +95,13 @@ data class ChatUiState(
     val editableMessageId: String? = null,
     /** Text for the input to take, cursor at its end, then [ChatViewModel.consumeInputToRestore]. */
     val inputToRestore: String? = null,
+    /** The server did not take a thumb: the answer shows its previous rating again, say so once (MAG-23). */
+    val messageFeedbackFailed: Boolean = false,
+    /**
+     * The answer whose thumb down was just recorded and which is now offered an optional word on
+     * why (MAG-23); `null` once it is sent or skipped. The comment dialog renders from it.
+     */
+    val commentingMessageId: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -1080,6 +1088,90 @@ class ChatViewModel(
             _uiState.value = _uiState.value.copy(messages = restored)
             rebuildDisplayItems()
         }
+    }
+
+    /**
+     * Put the owner's thumb on one of Maggie's answers, or take it off with a null [rating]
+     * (MAG-23). As on the web, a thumb down is recorded at once, then offers an optional word on
+     * why ([commentingMessageId][ChatUiState.commentingMessageId]): a quick tap is never lost to
+     * a form nobody fills.
+     */
+    fun rateMessage(id: String, rating: String?) {
+        val message = rateableMessage(id) ?: return
+        if (message.feedback == rating) return
+
+        recordFeedback(message, rating, null)
+        val commenting = _uiState.value.commentingMessageId
+        _uiState.value = _uiState.value.copy(
+            commentingMessageId = when {
+                rating == MessageFeedback.DOWN -> id
+                commenting == id -> null
+                else -> commenting
+            },
+        )
+    }
+
+    /**
+     * « Envoyer » under a thumb down: the same thumb, now with what the owner wrote. A blank
+     * comment sends nothing — the thumb down is already recorded.
+     */
+    fun sendFeedbackComment(comment: String) {
+        val id = _uiState.value.commentingMessageId ?: return
+        _uiState.value = _uiState.value.copy(commentingMessageId = null)
+        val word = comment.trim().take(MessageFeedback.MAX_COMMENT_LENGTH).ifEmpty { return }
+        val message = rateableMessage(id) ?: return
+        // The thumb down was refused or taken back meanwhile: a comment on nothing is not sent.
+        if (message.feedback != MessageFeedback.DOWN) return
+
+        recordFeedback(message, MessageFeedback.DOWN, word)
+    }
+
+    /** « Passer »: no word on why, the thumb down stays. */
+    fun skipFeedbackComment() {
+        _uiState.value = _uiState.value.copy(commentingMessageId = null)
+    }
+
+    /** A stored answer of Maggie's: the one being written still has its `pending_` id. */
+    private fun rateableMessage(id: String): ChatMessage? =
+        _uiState.value.messages.firstOrNull { it.id == id }
+            ?.takeIf { it.role == "assistant" && !id.startsWith(PENDING_PREFIX) }
+
+    /**
+     * The bubble shows it at once; a refusal puts back what it showed before, unless another tap
+     * changed it since — that tap's own answer settles it.
+     */
+    private fun recordFeedback(message: ChatMessage, rating: String?, comment: String?) {
+        val id = message.id
+        setFeedback(id, rating, comment)
+        viewModelScope.launch {
+            repository.rateMessage(id, rating, comment).onFailure { e ->
+                Log.w(TAG, "Feedback on $id not recorded: ${e.message}")
+                val current = _uiState.value.messages.firstOrNull { it.id == id }
+                if (current != null && current.feedback == rating && current.feedbackComment == comment) {
+                    setFeedback(id, message.feedback, message.feedbackComment)
+                    _uiState.value = _uiState.value.copy(
+                        messageFeedbackFailed = true,
+                        // No thumb down left to say why about.
+                        commentingMessageId = _uiState.value.commentingMessageId
+                            .takeUnless { it == id && message.feedback != MessageFeedback.DOWN },
+                    )
+                }
+            }
+        }
+    }
+
+    fun consumeMessageFeedbackFailed() {
+        _uiState.value = _uiState.value.copy(messageFeedbackFailed = false)
+    }
+
+    private fun setFeedback(id: String, rating: String?, comment: String?) {
+        val rated = { m: ChatMessage -> if (m.id == id) m.copy(feedback = rating, feedbackComment = comment) else m }
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages.map(rated),
+            searchResults = _uiState.value.searchResults.map(rated),
+            messageFeedbackFailed = false,
+        )
+        rebuildDisplayItems()
     }
 
     /** The chat follows the thread list: a thread being deleted takes its messages off the screen. */

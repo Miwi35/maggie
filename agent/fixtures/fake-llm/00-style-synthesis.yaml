@@ -1,0 +1,16 @@
+# What the style synthesis proposes from the owner's thumbs (MAG-23).
+#
+# `StyleSynthesizer` calls the fast model on its own — daily, or when the owner asks
+# for it from the settings — and expects a JSON array of directives. Matched on its
+# own system prompt, which no other caller sends, and numbered 00 so it wins over
+# every scenario matching on the user text: the exchanges it reads are user text.
+# The directive is deliberately unmistakable: `chat-feedback.spec.ts` accepts it and then finds it among the
+# behaviour directives, which is the only place an accepted proposal lands.
+name: style-synthesis
+description: The directive Maggie proposes from the owner's thumbs.
+
+match:
+  system_contains: "tu analyses les retours"
+
+turns:
+  - text: '[{"directive": "Réponds en deux phrases au plus", "raison": "Pouce bas sur une réponse jugée trop longue"}]'

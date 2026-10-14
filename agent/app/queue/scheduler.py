@@ -8,9 +8,11 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app.db.message_repository import message_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
+from app.llm.style_synthesis import style_synthesizer
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
@@ -227,9 +229,29 @@ async def _context_lifecycle_loop() -> None:
         await asyncio.sleep(settings.context_lifecycle_interval_seconds)
 
 
+async def run_style_synthesis() -> int:
+    """Read every user's new thumbs into style proposals (MAG-23); returns how many were proposed."""
+    proposed = 0
+    for user_id in await message_repo.find_rated_user_ids():
+        proposed += len(await style_synthesizer.synthesize(user_id))
+    return proposed
+
+
+async def _style_synthesis_loop() -> None:
+    """Once a day, turn the owner's thumbs into proposed directives. First pass at boot: a deploy must not delay it."""
+    while True:
+        try:
+            await run_style_synthesis()
+        except Exception as e:
+            logger.error(f"Style synthesis loop error: {e}")
+
+        await asyncio.sleep(settings.style_synthesis_interval_hours * 3600)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
     _tasks.append(asyncio.create_task(_daily_planning_loop()))
     _tasks.append(asyncio.create_task(_context_lifecycle_loop()))
+    _tasks.append(asyncio.create_task(_style_synthesis_loop()))
     logger.info("Proaction scheduler started")

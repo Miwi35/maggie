@@ -42,6 +42,8 @@ import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import { ToolCallList } from '../mind/ToolCallList'
 import { ChatBubble, DecisionLine } from './ChatBubble'
+import { MessageFeedback } from './MessageFeedback'
+import type { FeedbackRating } from './MessageFeedback'
 import { ThreadsDialog } from './ThreadsDialog'
 import { VoiceOrb } from './VoiceOrb'
 import { NARROW_QUERY } from '../../breakpoints'
@@ -61,6 +63,8 @@ interface ChatMessage {
   contextId?: string | null
   /** On a `decision` line: the held action it answers (MAG-336). */
   decision?: { actionId?: string } | null
+  /** The owner's thumb on one of Maggie's answers (MAG-23). */
+  feedback?: FeedbackRating | null
 }
 
 /** A deletion the owner can still take back: nothing is sent to the server before the delay is over. */
@@ -77,6 +81,7 @@ interface Notice {
 const UNDO_DELAY_MS = 6000
 const DELETE_FAILED = 'La suppression a échoué. Réessayez.'
 const STOP_UNCONFIRMED = "L'arrêt n'a pas pu être confirmé."
+const FEEDBACK_FAILED = "Votre retour n'a pas pu être enregistré. Réessayez."
 
 const MESSAGES_URL = '/agent/messages'
 const INTERRUPT_URL = '/agent/chat/interrupt'
@@ -814,6 +819,29 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       }
     }, [restorePending])
 
+    // The thumb shows at once and is put back as it was if the server did not take it (MAG-23).
+    const rateMessage = useCallback(async (msg: ChatMessage, rating: FeedbackRating | null, comment?: string) => {
+      const previous = msg.feedback ?? null
+      const setFeedback = (value: FeedbackRating | null) =>
+        setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, feedback: value } : m)))
+      setFeedback(rating)
+      const path = `${MESSAGES_URL}/${encodeURIComponent(msg.id)}/feedback`
+      try {
+        const res = rating
+          ? await fetch(path, {
+              method: 'PUT',
+              headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify(comment ? { rating, comment } : { rating }),
+            })
+          : await fetch(path, { method: 'DELETE', headers: getAuthHeaders() })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (e) {
+        console.error('Failed to rate', path, e)
+        setFeedback(previous)
+        setNotice({ text: FEEDBACK_FAILED, undo: false })
+      }
+    }, [])
+
     const commitPendingRef = useRef(commitPending)
     useEffect(() => {
       commitPendingRef.current = commitPending
@@ -1396,6 +1424,12 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             )}
                             <Linkified text={saidInMessage(msg.content)} />
                           </ChatBubble>
+                          )}
+                          {msg.role === 'assistant' && !msg.id.startsWith('tmp-') && !msg.id.startsWith('err-') && (
+                            <MessageFeedback
+                              feedback={msg.feedback}
+                              onRate={(rating, comment) => void rateMessage(msg, rating, comment)}
+                            />
                           )}
                           {msg.id === unansweredId && (
                             <Box

@@ -9,6 +9,7 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
@@ -2293,5 +2294,205 @@ class ChatViewModelTest {
         assertFalse(state.answering)
         assertEquals("Raconte", state.inputToRestore)
         assertEquals(listOf("msg-1", "msg-2"), shownIds())
+    }
+
+    // --- Thumbs on Maggie's answers (MAG-23) ---
+
+    private fun feedbackOf(id: String): String? =
+        viewModel.uiState.value.displayItems.filterIsInstance<ChatListItem.MessageItem>()
+            .single { it.message.id == id }.message.feedback
+
+    @Test
+    fun `a thumb up shows at once, before the server answers, and is sent`() = runTest {
+        val answer = CompletableDeferred<Result<Unit>>()
+        coEvery { repository.rateMessage(any(), any(), any()) } coAnswers { answer.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", MessageFeedback.UP)
+        assertEquals(MessageFeedback.UP, feedbackOf("msg-2"))
+
+        runCurrent()
+        coVerify(exactly = 1) { repository.rateMessage("msg-2", MessageFeedback.UP, null) }
+        answer.complete(Result.success(Unit))
+        advanceUntilIdle()
+
+        assertEquals(MessageFeedback.UP, feedbackOf("msg-2"))
+        assertFalse(viewModel.uiState.value.messageFeedbackFailed)
+    }
+
+    @Test
+    fun `a thumb the server refused goes back to what the answer had, and says so once`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns listOf(
+            sampleMessages[0],
+            sampleMessages[1].copy(feedback = MessageFeedback.UP),
+        )
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.failure(RuntimeException("HTTP 500"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        assertEquals(MessageFeedback.UP, feedbackOf("msg-2"))
+        assertTrue(viewModel.uiState.value.messageFeedbackFailed)
+
+        viewModel.consumeMessageFeedbackFailed()
+        assertFalse(viewModel.uiState.value.messageFeedbackFailed)
+    }
+
+    @Test
+    fun `tapping the selected thumb again takes it back`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns listOf(
+            sampleMessages[0],
+            sampleMessages[1].copy(feedback = MessageFeedback.UP),
+        )
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", null)
+        advanceUntilIdle()
+
+        assertNull(feedbackOf("msg-2"))
+        coVerify(exactly = 1) { repository.rateMessage("msg-2", null, null) }
+    }
+
+    @Test
+    fun `a thumb down is recorded at once, then offers a word on why`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.commentingMessageId)
+
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        assertEquals(MessageFeedback.DOWN, feedbackOf("msg-2"))
+        coVerify(exactly = 1) { repository.rateMessage("msg-2", MessageFeedback.DOWN, null) }
+        assertEquals("msg-2", viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `a thumb up offers no word on why`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", MessageFeedback.UP)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `sending the comment records it, trimmed, with the thumb down, and closes the field`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        viewModel.sendFeedbackComment("  trop long  ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.rateMessage("msg-2", MessageFeedback.DOWN, null) }
+        coVerify(exactly = 1) { repository.rateMessage("msg-2", MessageFeedback.DOWN, "trop long") }
+        val rated = viewModel.uiState.value.messages.single { it.id == "msg-2" }
+        assertEquals(MessageFeedback.DOWN, rated.feedback)
+        assertEquals("trop long", rated.feedbackComment)
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `skipping the comment keeps the thumb down, sends nothing more and closes the field`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        viewModel.skipFeedbackComment()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.rateMessage(any(), any(), any()) }
+        assertEquals(MessageFeedback.DOWN, feedbackOf("msg-2"))
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `a blank comment sends nothing and keeps the thumb down`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        viewModel.sendFeedbackComment("   ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.rateMessage(any(), any(), any()) }
+        assertEquals(MessageFeedback.DOWN, feedbackOf("msg-2"))
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `taking the thumb down back closes the field`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", null)
+        advanceUntilIdle()
+
+        assertNull(feedbackOf("msg-2"))
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `a refused thumb down closes the field, with nothing left to comment on`() = runTest {
+        coEvery { repository.rateMessage(any(), any(), any()) } returns Result.failure(RuntimeException("HTTP 500"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+
+        assertNull(feedbackOf("msg-2"))
+        assertTrue(viewModel.uiState.value.messageFeedbackFailed)
+        assertNull(viewModel.uiState.value.commentingMessageId)
+    }
+
+    @Test
+    fun `a refusal does not undo a later tap that the server took`() = runTest {
+        val first = CompletableDeferred<Result<Unit>>()
+        coEvery { repository.rateMessage("msg-2", MessageFeedback.UP, any()) } coAnswers { first.await() }
+        coEvery { repository.rateMessage("msg-2", MessageFeedback.DOWN, any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-2", MessageFeedback.UP)
+        runCurrent()
+        viewModel.rateMessage("msg-2", MessageFeedback.DOWN)
+        advanceUntilIdle()
+        first.complete(Result.failure(RuntimeException("HTTP 500")))
+        advanceUntilIdle()
+
+        assertEquals(MessageFeedback.DOWN, feedbackOf("msg-2"))
+        assertFalse(viewModel.uiState.value.messageFeedbackFailed)
+    }
+
+    @Test
+    fun `a question cannot be rated`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.rateMessage("msg-1", MessageFeedback.UP)
+        advanceUntilIdle()
+
+        assertNull(feedbackOf("msg-1"))
+        coVerify(exactly = 0) { repository.rateMessage(any(), any(), any()) }
     }
 }

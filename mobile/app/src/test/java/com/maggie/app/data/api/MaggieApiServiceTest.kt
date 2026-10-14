@@ -377,6 +377,68 @@ class MaggieApiServiceTest {
         assertTrue(body!!.contains("tok-secret"))
     }
 
+    private fun feedbackClient(status: HttpStatusCode, seen: MutableList<Triple<HttpMethod, String, String>>) = HttpClient(
+        MockEngine { request ->
+            seen += Triple(request.method, request.url.toString(), String(request.body.toByteArray()))
+            respond(
+                content = ByteReadChannel("""{"id":"a-1","role":"assistant","content":"x"}"""),
+                status = status,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        },
+    ) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+    }
+
+    @Test
+    fun `a thumb is put on the answer's feedback, with the rating and the comment in the body`() = runBlocking {
+        val seen = mutableListOf<Triple<HttpMethod, String, String>>()
+
+        MaggieApiService(feedbackClient(HttpStatusCode.OK, seen)).rateMessage("a-1", "down", "trop long")
+
+        val (method, url, body) = seen.single()
+        assertEquals(HttpMethod.Put, method)
+        assertTrue(url.endsWith("/agent/messages/a-1/feedback"))
+        assertTrue(body.contains("\"rating\":\"down\""))
+        assertTrue(body.contains("\"comment\":\"trop long\""))
+    }
+
+    @Test
+    fun `a thumb is taken back with a DELETE on the answer's feedback`() = runBlocking {
+        val seen = mutableListOf<Triple<HttpMethod, String, String>>()
+
+        MaggieApiService(feedbackClient(HttpStatusCode.OK, seen)).clearMessageFeedback("a-1")
+
+        assertEquals(HttpMethod.Delete, seen.single().first)
+        assertTrue(seen.single().second.endsWith("/agent/messages/a-1/feedback"))
+    }
+
+    @Test
+    fun `a refused thumb is an error, so the chat does not show it as recorded`() = runBlocking {
+        val client = feedbackClient(HttpStatusCode.NotFound, mutableListOf())
+
+        val put = runCatching { MaggieApiService(client).rateMessage("a-1", "up") }.exceptionOrNull()
+        val delete = runCatching { MaggieApiService(client).clearMessageFeedback("a-1") }.exceptionOrNull()
+
+        assertTrue(put is IllegalStateException)
+        assertTrue(delete is IllegalStateException)
+    }
+
+    @Test
+    fun `ChatMessage reads the thumb and its comment, both absent on a message never rated`() {
+        val json = Json { ignoreUnknownKeys = true }
+
+        val rated = json.decodeFromString<ChatMessage>(
+            """{"id":"a-1","role":"assistant","content":"x","feedback":"down","feedbackComment":"faux"}""",
+        )
+        val unrated = json.decodeFromString<ChatMessage>("""{"id":"a-1","role":"assistant","content":"x","feedback":null}""")
+
+        assertEquals("down", rated.feedback)
+        assertEquals("faux", rated.feedbackComment)
+        assertNull(unrated.feedback)
+        assertNull(unrated.feedbackComment)
+    }
+
     @Test
     fun `getPendingApprovals asks the agent for the pending ones`() = runBlocking {
         val seen = mutableListOf<Pair<HttpMethod, String>>()
