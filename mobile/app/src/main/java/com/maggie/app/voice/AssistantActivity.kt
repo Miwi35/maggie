@@ -13,11 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.AssistantOverlay
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.theme.MaggieTheme
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -53,6 +55,17 @@ class AssistantActivity : ComponentActivity() {
     private fun replaceContext(next: ScreenContext?) {
         if (pendingContext?.hasScreenshot == true && next?.hasScreenshot != true) screenshot.discard()
         pendingContext = next
+    }
+
+    /**
+     * The screenshot the overlay opened without has come (MAG-214): it joins the
+     * context still waiting for it, so it goes with the next sentence. One whose
+     * sentence already left, or whose invocation was replaced, is not kept.
+     */
+    private fun onLateScreenshot() {
+        val next = pendingContext?.withArrivedScreenshot()
+        if (next != null) pendingContext = next else screenshot.discard()
+        LateScreenshot.consume()
     }
 
     private val permissionLauncher = registerForActivityResult(
@@ -96,6 +109,10 @@ class AssistantActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+
+        lifecycleScope.launch {
+            LateScreenshot.hasArrived.collect { if (it) onLateScreenshot() }
         }
 
         requestMicAndListen()

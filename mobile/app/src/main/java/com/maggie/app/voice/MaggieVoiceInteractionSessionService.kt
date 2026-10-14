@@ -33,11 +33,27 @@ private class MaggieVoiceInteractionSession(
 ) : VoiceInteractionSession(service) {
 
     private val handler = Handler(Looper.getMainLooper())
-    private val coordinator = AssistLaunchCoordinator(::launchOverlay)
+    private val coordinator = AssistLaunchCoordinator(::launchOverlay, ::lateScreenshot)
     private val giveUp = Runnable { coordinator.onTimeout() }
+    private val stopWaitingForScreenshot = Runnable {
+        coordinator.onScreenshotAbandoned()
+        finish()
+    }
 
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
+        if (coordinator.waitingForScreenshot) {
+            // Summoned again while still waiting for the last screenshot: that one
+            // is dropped, and the overlay — already open — listens again.
+            handler.removeCallbacks(stopWaitingForScreenshot)
+            coordinator.onScreenshotAbandoned()
+            ScreenshotEncoder.file(service).delete()
+            service.startActivity(
+                Intent(service, AssistantActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            finish()
+            return
+        }
         val waiting = coordinator.onShow(
             withAssist = showFlags and SHOW_WITH_ASSIST != 0,
             withScreenshot = showFlags and SHOW_WITH_SCREENSHOT != 0,
@@ -84,8 +100,9 @@ private class MaggieVoiceInteractionSession(
 
     /**
      * Encoded and written off the main thread (MAG-214): the coordinator keeps the
-     * overlay waiting for it, under the same 1.2 s timeout as the rest. A file and
-     * not an extra, because a screenshot does not fit in an intent.
+     * overlay waiting for it, under the same 1.2 s timeout as the rest, and takes it
+     * after that timeout too ([lateScreenshot]). A file and not an extra, because a
+     * screenshot does not fit in an intent.
      */
     override fun onHandleScreenshot(screenshot: Bitmap?) {
         super.onHandleScreenshot(screenshot)
@@ -117,6 +134,13 @@ private class MaggieVoiceInteractionSession(
      */
     override fun onHide() {
         handler.removeCallbacks(giveUp)
+        // Hidden while waiting for a late screenshot: Android will not deliver it
+        // now, and a session left alive would swallow the next invocation.
+        if (coordinator.waitingForScreenshot) {
+            handler.removeCallbacks(stopWaitingForScreenshot)
+            coordinator.onScreenshotAbandoned()
+            finish()
+        }
         if (!coordinator.hasLaunched) ScreenshotEncoder.file(service).delete()
         coordinator.onDismissed()
         super.onHide()
@@ -124,16 +148,38 @@ private class MaggieVoiceInteractionSession(
 
     override fun onDestroy() {
         handler.removeCallbacks(giveUp)
+        handler.removeCallbacks(stopWaitingForScreenshot)
         super.onDestroy()
     }
 
+    /**
+     * Finished at once, unless the screenshot is still to come (MAG-214): Android
+     * cancels whatever it has not delivered to a finished session, which is how the
+     * screenshot used to be lost. Until it comes, the session stays without a UI, so
+     * nothing of it covers the overlay.
+     */
     private fun launchOverlay(screen: ScreenContext) {
         handler.removeCallbacks(giveUp)
+        if (screen.screenshotPending) LateScreenshot.expect()
         val intent = Intent(service, AssistantActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             screen.putInto(this)
         }
         service.startActivity(intent)
+        if (screen.screenshotPending) {
+            setUiEnabled(false)
+            handler.postDelayed(stopWaitingForScreenshot, LATE_SCREENSHOT_TIMEOUT_MS)
+        } else {
+            finish()
+        }
+    }
+
+    /** The screenshot came after the overlay opened: it goes to the overlay if it is still there. */
+    private fun lateScreenshot(kept: Boolean) {
+        handler.removeCallbacks(stopWaitingForScreenshot)
+        if (kept) {
+            if (AssistantActivity.isShowing) LateScreenshot.arrive() else ScreenshotEncoder.file(service).delete()
+        }
         finish()
     }
 
@@ -155,5 +201,11 @@ private class MaggieVoiceInteractionSession(
          * short enough that a user who long-pressed to talk does not notice.
          */
         private const val ASSIST_TIMEOUT_MS = 1_200L
+
+        /**
+         * How much longer the session waits for the screenshot once the overlay is
+         * open. The user is still speaking by then; past this, it is not coming.
+         */
+        private const val LATE_SCREENSHOT_TIMEOUT_MS = 5_000L
     }
 }
