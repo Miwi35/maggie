@@ -117,8 +117,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         // day on the 1st of the month (MAG-382).
         self::assertSame(17, $this->rowsOf(Event::class));
         self::assertSame(2, $this->rowsOf(Meal::class));
-        // Eight since MAG-405: one task due two days ago, never done.
-        self::assertSame(8, $this->rowsOf(Task::class));
+        // Eight since MAG-405: one task due two days ago, never done. Eleven since
+        // MAG-406: the three whose order « Aujourd'hui » is read in.
+        self::assertSame(11, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
         // Five on the owner's list, three on the shopper's.
         self::assertSame(8, $this->rowsOf(GroceryItem::class));
@@ -146,7 +147,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // nobody would simply be invisible, and the journey would report an
         // empty list without saying why.
         self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
-        self::assertSame(7, $this->rowsOf(Task::class, ['user' => $user]));
+        self::assertSame(10, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
         self::assertSame(16, $this->rowsOf(Transaction::class, ['user' => $user]));

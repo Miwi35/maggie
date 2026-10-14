@@ -60,6 +60,8 @@ interface RawTask {
   completedAt?: string
   /** IRI of the task it belongs to, for a subtask (MAG-404). */
   parent?: string | null
+  urgency?: string | null
+  orderScore?: number | null
 }
 
 /** An undated subtask lives under its task, not on the dashboard; a dated one keeps its own row (as on the phone). */
@@ -270,6 +272,8 @@ export const Dashboard = () => {
           criticality: t.criticality,
           dueDate: t.dueDate,
           completedAt: t.completedAt,
+          urgency: t.urgency ?? null,
+          orderScore: t.orderScore ?? null,
         }))
     },
     [rawTasks],
@@ -301,7 +305,7 @@ export const Dashboard = () => {
     )
   }, [expandEventsForRange, ranges])
 
-  // Today: the API's view — due today or late, the most late first, subtasks under their task.
+  // Today: the API's view — due today or late, by order score, subtasks under their task.
   const todayTasks = useMemo<DashboardTask[]>(
     () =>
       todayView.map((t) => ({
@@ -312,6 +316,8 @@ export const Dashboard = () => {
         completedAt: t.completedAt ?? undefined,
         overdueDays: t.overdueDays ?? null,
         isSubtask: !!t.parent,
+        urgency: t.urgency ?? null,
+        orderScore: t.orderScore ?? null,
       })),
     [todayView],
   )

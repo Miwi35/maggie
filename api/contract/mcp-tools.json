@@ -610,7 +610,7 @@
                 }
             }
         },
-        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. View \"today\" (instead of status) is the Today list: tasks not done that are due today or late, the most overdue first, each followed by its subtasks. Each task has overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD."
+        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. View \"today\" (instead of status) is the Today list: tasks not done that are due today or late, by orderScore, each followed by its subtasks. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD."
     },
     "get_treasury_outlook": {
         "name": "get_treasury_outlook",

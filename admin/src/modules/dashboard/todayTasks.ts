@@ -14,11 +14,15 @@ export interface TodayTask {
   overdueDays?: number | null
   /** IRI of the task it is a subtask of. */
   parent?: string | null
+  /** Computed by the API (MAG-406): `low`, `normal`, `high` or `critical`. */
+  urgency?: string | null
+  /** The order score the view is sorted by (MAG-406). */
+  orderScore?: number | null
 }
 
 /**
- * The tasks not done that are due today or late — the most late first, each
- * followed by its subtasks. The API decides which day it is (the user's
+ * The tasks not done that are due today or late — the highest order score
+ * first (MAG-406), each followed by its subtasks. The API decides which day it is (the user's
  * timezone), so the page does not.
  */
 export async function fetchTodayTasks(): Promise<TodayTask[]> {

@@ -109,11 +109,11 @@ test('ticking a task off on the dashboard completes it and takes it out of the d
 })
 
 /**
- * A task due and not done stays in « Aujourd'hui », first, marked late — MAG-405.
+ * A task due and not done stays in « Aujourd'hui », marked late — MAG-405.
  *
  * The seed has one task due today and one due two days ago: the late one goes
- * first, with its lateness in words and its original day, and ticking it takes it
- * out of the day. The lateness comes from the API (`overdueDays`), counted in the
+ * before it — by score since MAG-406 — with its lateness in words and its original
+ * day, and ticking it takes it out of the day. The lateness comes from the API (`overdueDays`), counted in the
  * user's timezone: the page only draws it.
  */
 test('a late task heads « Aujourd\'hui », says how late it is, and leaves when ticked', async ({ page, api }) => {
@@ -138,9 +138,15 @@ test('a late task heads « Aujourd\'hui », says how late it is, and leaves when
     .getByRole('listitem')
     .filter({ has: page.getByRole('checkbox') })
   await expect(dashboard.line(title)).toHaveCount(1)
-  await expect(rows.first(), 'the late task should come before the one due today').toContainText(title)
-  await expect(rows.first()).toContainText('En retard de 2 j')
-  await expect(rows.first()).toContainText('prévue le')
+  // By score since MAG-406: two days late (65 + 4 + 3 = 72) passes the task due today (55 + 10 + 3 = 68).
+  const titles = await rows.allTextContents()
+  expect(
+    titles.findIndex((row) => row.includes(title)),
+    'the late task should come before the one due today',
+  ).toBeLessThan(titles.findIndex((row) => row.includes('Préparer le déménagement')))
+  const late = rows.filter({ hasText: title })
+  await expect(late).toContainText('En retard de 2 j')
+  await expect(late).toContainText('prévue le')
   await expect(rows.filter({ hasText: 'Préparer le déménagement' })).not.toContainText('En retard')
 
   await dashboard.taskCheckbox(title).click()
@@ -154,6 +160,50 @@ test('a late task heads « Aujourd\'hui », says how late it is, and leaves when
 
   await dashboard.open()
   await expect(dashboard.line(title), 'a completed task is still in the day').toHaveCount(0)
+})
+
+/**
+ * « Aujourd'hui » goes by the order score, each task with its urgency — MAG-406.
+ *
+ * The seed's three witnesses, with the default weights: « Payer la cantine »
+ * (high criticality, medium priority, due today) 78, « Rendre le livre » (low,
+ * low, a day late) 67, « Arroser » (low, low, due today) 55 — urgencies haute,
+ * haute, normale. The API computes both; the page draws the urgency as a word with
+ * an icon and keeps the API's order. Other journeys add tasks to the day, so the
+ * three are compared with each other, not with the row numbers.
+ */
+test('« Aujourd\'hui » goes by score, each task with its urgency in words', async ({ page, api }) => {
+  const witnesses = ['Payer la cantine', 'Rendre le livre', 'Arroser']
+
+  const response = await api.get('/api/tasks/view/today', { headers: { Accept: 'application/ld+json' } })
+  expect(response.ok(), `GET /api/tasks/view/today answered ${response.status()}`).toBe(true)
+  const view = ((await response.json()) as { member: { title: string; orderScore: number; urgency: string }[] }).member
+  const scored = witnesses.map((title) => view.find((task) => task.title === title))
+  expect(scored.map((task) => task?.orderScore)).toEqual([78, 67, 55])
+  expect(scored.map((task) => task?.urgency)).toEqual(['high', 'high', 'normal'])
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+  const rows = dashboard.content
+    .getByRole('heading', { name: "Aujourd'hui" })
+    .locator('..')
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('checkbox') })
+  for (const title of witnesses) await expect(dashboard.line(title)).toHaveCount(1)
+
+  const titles = await rows.allTextContents()
+  const positions = witnesses.map((title) => titles.findIndex((row) => row.includes(title)))
+  expect(positions, `the order of the day: ${titles.join(' | ')}`).toEqual([...positions].sort((a, b) => a - b))
+
+  for (const [title, word] of [
+    ['Payer la cantine', 'haute'],
+    ['Rendre le livre', 'haute'],
+    ['Arroser', 'normale'],
+  ] as const) {
+    const badge = rows.filter({ hasText: title }).getByTestId('urgency-badge')
+    await expect(badge, `the urgency of « ${title} »`).toHaveText(word)
+    await expect(badge.locator('svg'), 'the urgency has its icon, not only a colour').toHaveCount(1)
+  }
 })
 
 /**

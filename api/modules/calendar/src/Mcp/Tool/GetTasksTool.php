@@ -4,19 +4,19 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Repository\TaskRepository;
-use Maggie\Calendar\Service\TaskOverdue;
+use Maggie\Calendar\Service\TaskUrgency;
 use Maggie\Calendar\Service\TodayTasks;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. View "today" (instead of status) is the Today list: tasks not done that are due today or late, the most overdue first, each followed by its subtasks. Each task has overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD.')]
+#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. View "today" (instead of status) is the Today list: tasks not done that are due today or late, by orderScore, each followed by its subtasks. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD.')]
 class GetTasksTool
 {
     public function __construct(
         private readonly TaskRepository $taskRepository,
         private readonly McpUserContext $userContext,
-        private readonly TaskOverdue $overdue,
+        private readonly TaskUrgency $urgency,
         private readonly TodayTasks $todayTasks,
     ) {
     }
@@ -49,7 +49,9 @@ class GetTasksTool
             default => $this->taskRepository->findPending($user),
         };
 
-        $result = array_map(fn ($task) => TaskJson::of($this->overdue->mark($task)), $tasks);
+        $marked = array_values(array_map($this->urgency->mark(...), $tasks));
+        // Done tasks keep the most recently done first; the others go by score.
+        $result = array_map(TaskJson::of(...), 'done' === $status ? $marked : $this->urgency->sort($marked));
 
         return json_encode(['status' => $status, 'tasks' => $result, 'count' => count($result)], JSON_THROW_ON_ERROR);
     }

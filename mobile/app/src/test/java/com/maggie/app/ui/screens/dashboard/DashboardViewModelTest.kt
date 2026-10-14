@@ -230,6 +230,42 @@ class DashboardViewModelTest {
         assertEquals(emptyList<String>(), state.tomorrowTasks.map { it.id })
     }
 
+    /** MAG-406: the other days go by the API's order score, the closest due day at equal score. */
+    @Test
+    fun `the other days list their tasks by score, then by due day`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        coEvery { taskRepository.getUndoneTasks(any()) } returns listOf(
+            Task(id = "in5-low", title = "Basse", dueDate = "${today.plusDays(5)}", urgency = "low", orderScore = 15),
+            Task(id = "in6-critical", title = "Critique", dueDate = "${today.plusDays(6)}", urgency = "high", orderScore = 51),
+            Task(id = "in4-low", title = "Basse plus tôt", dueDate = "${today.plusDays(4)}", urgency = "low", orderScore = 15),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("in6-critical", "in4-low", "in5-low"), state.weekTasks.map { it.id })
+        assertEquals(listOf("high", "low", "low"), state.weekTasks.map { it.urgency })
+    }
+
+    /** MAG-406: « Aujourd'hui » keeps the API's score order, whatever the ids or the criticalities say. */
+    @Test
+    fun `today keeps the API score order and carries the urgency`() = runTest {
+        val today = com.maggie.app.util.DateRanges.todayDate()
+        coEvery { taskRepository.getTodayTasks() } returns listOf(
+            Task(id = "c", title = "Payer la cantine", criticality = "high", dueDate = "$today", urgency = "high", orderScore = 78),
+            Task(id = "b", title = "Rendre le livre", dueDate = "${today.minusDays(1)}", overdueDays = 1, urgency = "high", orderScore = 67),
+            Task(id = "a", title = "Arroser", dueDate = "$today", urgency = "normal", orderScore = 55),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("c", "b", "a"), state.todayTasks.map { it.id })
+        assertEquals(listOf("high", "high", "normal"), state.todayTasks.map { it.urgency })
+    }
+
     @Test
     fun `a task that is done carries no lateness`() {
         assertEquals(null, Task(id = "t", title = "Fait", completedAt = "2026-10-13T08:00:00Z", overdueDays = 2).daysLate)
@@ -274,7 +310,9 @@ class DashboardViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        assertEquals(listOf("parent", "dated"), viewModel.uiState.value.tomorrowTasks.map { it.id })
+        // Which rows, not their order: at equal score the ids decide (MAG-406).
+        assertEquals(setOf("parent", "dated"), viewModel.uiState.value.tomorrowTasks.map { it.id }.toSet())
+        assertEquals(2, viewModel.uiState.value.tomorrowTasks.size)
     }
 
     @Test

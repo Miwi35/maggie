@@ -291,6 +291,9 @@ object UiTags {
 
     fun dashboardTaskCheck(id: String) = DASHBOARD_TASK_CHECK_PREFIX + id
 
+    /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
+    const val TASK_URGENCY = "task_urgency"
+
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
     const val APPROVAL_CARD_PREFIX = "approval_card_"
     const val APPROVAL_ALLOW_PREFIX = "approval_allow_"

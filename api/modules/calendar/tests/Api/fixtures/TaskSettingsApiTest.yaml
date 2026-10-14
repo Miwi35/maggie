@@ -1,0 +1,48 @@
+# The order of « Aujourd'hui » and the weights that set it (MAG-406). The tests pin the clock at 2026-10-13 12:00 UTC.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\TaskSettings:
+  # Another user's weights never reach test_user's order.
+  other_settings:
+    user: '@other_user'
+    orderWeights:
+      timePressure: { overdue: 0, overduePerDay: 0, overdueMax: 0 }
+
+# The journey of the ticket: 78, 67, 55 with the default weights.
+Maggie\Calendar\Entity\Task:
+  pay_the_canteen:
+    title: Payer la cantine
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    position: '00000000000000000003'
+    user: '@test_user'
+
+  return_the_book:
+    title: Rendre le livre
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    position: '00000000000000000002'
+    user: '@test_user'
+
+  water:
+    title: Arroser
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    position: '00000000000000000001'
+    user: '@test_user'

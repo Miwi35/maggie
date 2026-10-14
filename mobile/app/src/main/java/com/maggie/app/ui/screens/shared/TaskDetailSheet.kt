@@ -89,6 +89,18 @@ fun TaskDetailContent(
                 )
             }
 
+            // Urgency: computed by the API, read only (MAG-406).
+            if (task.urgency != null && TaskConstants.URGENCY_LABELS.containsKey(task.urgency)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Urgence :",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    UrgencyBadge(task.urgency)
+                }
+            }
+
             // Priority
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Flag, contentDescription = null, modifier = Modifier.size(20.dp))

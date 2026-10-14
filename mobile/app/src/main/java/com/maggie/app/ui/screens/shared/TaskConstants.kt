@@ -40,6 +40,14 @@ object TaskConstants {
         "low" to 3,
     )
 
+    /** The urgency's word (MAG-406) — the admin says the same. */
+    val URGENCY_LABELS = mapOf(
+        "critical" to "critique",
+        "high" to "haute",
+        "normal" to "normale",
+        "low" to "basse",
+    )
+
     val PRIORITY_LABELS = mapOf(
         "low" to "Basse",
         "medium" to "Moyenne",

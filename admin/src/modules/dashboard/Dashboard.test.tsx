@@ -130,7 +130,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   })
 
   const VIEW: TodayTask[] = [
-    todayTask('01LATE', 'Renvoyer le formulaire', { dueDate: '2037-01-13', overdueDays: 2 }),
+    todayTask('01LATE', 'Renvoyer le formulaire', { dueDate: '2037-01-13', overdueDays: 2, urgency: 'high', orderScore: 72 }),
     todayTask('01MOVING', 'Préparer le déménagement', { dueDate: '2037-01-15', overdueDays: null }),
     todayTask('01BOXES', 'Réserver le camion', { parent: '/api/tasks/01MOVING' }),
   ]
@@ -145,7 +145,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
       if (resource !== 'tasks') return Promise.resolve({ data: [], total: 0 })
       // The other days: an undated subtask never gets a row of its own there.
       const ranged = [
-        { id: '/api/tasks/01WEEK', title: 'Payer la cantine', priority: 'medium', criticality: 'low', dueDate: '2037-01-17' },
+        { id: '/api/tasks/01WEEK', title: 'Payer la cantine', priority: 'medium', criticality: 'low', dueDate: '2037-01-17', urgency: 'low', orderScore: 33 },
         { id: '/api/tasks/01SUB', title: 'Sous-tâche sans date', priority: 'medium', criticality: 'low', parent: '/api/tasks/01WEEK' },
       ]
       return Promise.resolve({ data: ranged, total: ranged.length })
@@ -168,6 +168,15 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
     expect(rows[0]).toContain('Renvoyer le formulaire')
     expect(rows[1]).toContain('Préparer le déménagement')
     expect(rows[2]).toContain('Réserver le camion')
+  })
+
+  test('draws the urgency the API computed, in Today and on the other days (MAG-406)', async () => {
+    render(<Dashboard />)
+
+    const late = (await screen.findByText('Renvoyer le formulaire')).closest('li') as HTMLElement
+    expect(within(late).getByTestId('urgency-badge')).toHaveTextContent('haute')
+    const week = screen.getByText('Payer la cantine').closest('li') as HTMLElement
+    expect(within(week).getByTestId('urgency-badge')).toHaveTextContent('basse')
   })
 
   test('lists a subtask under its task in Today, but not an undated one on the other days', async () => {

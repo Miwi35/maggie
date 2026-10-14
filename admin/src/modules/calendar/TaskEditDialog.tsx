@@ -19,6 +19,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import { UrgencyBadge } from './UrgencyBadge'
 
 /** A link Google Tasks attached to the task (an email, mostly). Read only (MAG-404). */
 export interface TaskLink {
@@ -41,6 +42,8 @@ export interface TaskData {
   /** The order among siblings, compared as a plain string. */
   position?: string | null
   links?: TaskLink[]
+  /** Computed by the API from the criticality and the due day (MAG-406); read only. */
+  urgency?: string | null
 }
 
 interface TaskEditDialogProps {
@@ -205,6 +208,11 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
       <DialogTitle>Modifier la tâche</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {task?.urgency && (
+            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              Urgence <UrgencyBadge urgency={task.urgency} />
+            </Typography>
+          )}
           <TextField
             label="Titre"
             value={title}

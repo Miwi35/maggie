@@ -2,17 +2,19 @@ package com.maggie.app.ui.screens.dashboard
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Task
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** A late task says so in words, with its original day (MAG-405): the colour alone says nothing to everyone. */
+/** A late task says so in words, with its original day (MAG-405), and so does its urgency (MAG-406): the colour alone says nothing to everyone. */
 @RunWith(AndroidJUnit4::class)
 class DashboardTaskItemScreenTest {
 
@@ -60,5 +62,32 @@ class DashboardTaskItemScreenTest {
         assertEquals(null, ticked)
         compose.onNode(isToggleable()).performClick()
         assertEquals(true, ticked)
+    }
+
+    /** MAG-406: the urgency is a word with an icon, beside the lateness. */
+    @Test
+    fun `a task reads its urgency in words, beside its lateness`() {
+        compose.setContent {
+            DashboardTaskItem(
+                task = Task(id = "t", title = "Rendre le livre", dueDate = "2026-10-12", overdueDays = 1, urgency = "high", orderScore = 67),
+                onToggleDone = {},
+            )
+        }
+
+        compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("haute", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("En retard de 1 j").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an urgency the app does not know draws nothing`() {
+        compose.setContent {
+            DashboardTaskItem(
+                task = Task(id = "t", title = "Arroser", dueDate = "2026-10-13", urgency = "whatever-comes-next"),
+                onToggleDone = {},
+            )
+        }
+
+        compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertDoesNotExist()
     }
 }

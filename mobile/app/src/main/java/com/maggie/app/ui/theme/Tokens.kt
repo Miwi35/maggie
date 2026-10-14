@@ -196,6 +196,17 @@ object MaggieTokens {
         "critical" to Signal.critical,
     )
 
+    /**
+     * `urgency` in the token file: a task's computed urgency (MAG-406), always
+     * drawn with its icon and its word too. An unknown urgency reads as `low`.
+     */
+    val urgency: Map<String, Color> = mapOf(
+        "low" to Signal.neutral,
+        "normal" to Signal.info,
+        "high" to Signal.warning,
+        "critical" to Signal.danger,
+    )
+
     /** `contextState` in the token file. An unknown state reads as `closed`. */
     val contextState: Map<String, Color> = mapOf(
         "active" to Signal.success,
@@ -214,6 +225,10 @@ object MaggieTokens {
 /** The colour of a task's criticality; see [MaggieTokens.criticality]. */
 fun criticalityColor(criticality: String?): Color =
     MaggieTokens.criticality[criticality] ?: MaggieTokens.Signal.success
+
+/** The colour of a task's urgency; see [MaggieTokens.urgency]. */
+fun urgencyColor(urgency: String?): Color =
+    MaggieTokens.urgency[urgency] ?: MaggieTokens.Signal.neutral
 
 /** The colour of a conversation thread's state; see [MaggieTokens.contextState]. */
 fun contextStateColor(state: String?): Color =

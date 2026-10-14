@@ -130,11 +130,11 @@ describe('TaskListWidget', () => {
       expect(titles[1]).toContain('Appeler le garage')
     })
 
-    test('sorts by criticality otherwise', () => {
+    test('sorts by score otherwise, and by due day at equal score', () => {
       renderWidget(LATE)
 
       const titles = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
-      expect(titles[0]).toContain('Appeler le garage')
+      expect(titles[0]).toContain('Renvoyer le formulaire')
     })
 
     test('reports the late task that was ticked, as done', async () => {
@@ -151,6 +151,54 @@ describe('TaskListWidget', () => {
       renderWidget([{ ...LATE[0], completedAt: '2026-10-13T08:00:00Z' }], false, { ordered: true })
 
       expect(screen.queryByText(/En retard/)).toBeNull()
+    })
+  })
+
+  // MAG-406: the urgency the API computes, on every row, and the order of its score.
+  describe('the urgency and the order', () => {
+    const SCORED: DashboardTask[] = [
+      { id: '/api/tasks/01WATER', title: 'Arroser', criticality: 'low', dueDate: '2026-10-13', urgency: 'normal', orderScore: 55 },
+      { id: '/api/tasks/01BOOK', title: 'Rendre le livre', criticality: 'low', dueDate: '2026-10-12', overdueDays: 1, urgency: 'high', orderScore: 67 },
+      { id: '/api/tasks/01CANTEEN', title: 'Payer la cantine', criticality: 'high', dueDate: '2026-10-13', urgency: 'high', orderScore: 78 },
+    ]
+
+    test('draws the urgency of each task as a word with an icon', () => {
+      renderWidget(SCORED)
+
+      const urgencyOf = (title: string) =>
+        within(screen.getByText(title).closest('li') as HTMLElement).getByTestId('urgency-badge')
+      expect(urgencyOf('Payer la cantine')).toHaveTextContent('haute')
+      expect(urgencyOf('Rendre le livre')).toHaveTextContent('haute')
+      expect(urgencyOf('Arroser')).toHaveTextContent('normale')
+      expect(urgencyOf('Arroser').querySelector('svg')).not.toBeNull()
+      // The late task keeps its lateness beside its urgency.
+      expect(within(screen.getByText('Rendre le livre').closest('li') as HTMLElement).getByText('En retard de 1 j')).toBeInTheDocument()
+    })
+
+    test('lists the highest score first', () => {
+      renderWidget(SCORED)
+
+      const titles = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
+      expect(titles.map((title) => title.match(/Payer la cantine|Rendre le livre|Arroser/)?.[0])).toEqual([
+        'Payer la cantine',
+        'Rendre le livre',
+        'Arroser',
+      ])
+    })
+
+    test('ticking a task beside its urgency reports that task', async () => {
+      const user = userEvent.setup()
+      renderWidget(SCORED)
+
+      await user.click(within(screen.getByText('Payer la cantine').closest('li') as HTMLElement).getByRole('checkbox'))
+
+      expect(onToggleDone).toHaveBeenCalledExactlyOnceWith('/api/tasks/01CANTEEN', true)
+    })
+
+    test('draws no urgency when the API sent none', () => {
+      renderWidget(TASKS)
+
+      expect(screen.queryByTestId('urgency-badge')).toBeNull()
     })
   })
 

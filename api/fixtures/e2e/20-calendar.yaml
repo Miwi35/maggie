@@ -311,6 +311,30 @@ Maggie\Calendar\Entity\Task:
     position: '00000000000000000001'
     user: '@e2e_user'
 
+  # The order of « Aujourd'hui » (MAG-406), with the default weights: Payer la
+  # cantine 55 + 20 + 3 = 78, Rendre le livre 65 + 2 = 67, Arroser 55; urgencies
+  # haute, haute, normale. Nothing ticks them, so the order holds on a retry.
+  e2e_task_canteen:
+    title: Payer la cantine
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
+    dueDate: '<e2eDate("12:00")>'
+    user: '@e2e_user'
+
+  e2e_task_book:
+    title: Rendre le livre
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<e2eDate("-1 day 12:00")>'
+    user: '@e2e_user'
+
+  e2e_task_water:
+    title: Arroser
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<e2eDate("12:00")>'
+    user: '@e2e_user'
+
   # The neighbour's, due today, so the isolation journey has something that
   # would land in the signed-in user's "today" if a read forgot to filter.
   e2e_other_task_today:

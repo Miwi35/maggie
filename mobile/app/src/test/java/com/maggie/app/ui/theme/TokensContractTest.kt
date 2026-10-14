@@ -193,6 +193,9 @@ class TokensContractTest {
         for ((name, color) in MaggieTokens.criticality) {
             put("criticality.$name", signalNames.getValue(color))
         }
+        for ((name, color) in MaggieTokens.urgency) {
+            put("urgency.$name", signalNames.getValue(color))
+        }
         for ((name, color) in MaggieTokens.contextState) {
             put("contextState.$name", signalNames.getValue(color))
         }

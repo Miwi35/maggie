@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -15,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskLink
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -98,6 +100,24 @@ class TaskDetailScreenTest {
         compose.onNodeWithContentDescription("Ajouter la sous-tâche").performClick()
 
         assertEquals(listOf("tick s1 true", "down s1", "add Acheter des cartons"), calls)
+    }
+
+    /** MAG-406: the urgency the API computed, as a word with an icon, never as something to set. */
+    @Test
+    fun `the urgency is read in words, and absent when the API sent none`() {
+        show(parent.copy(urgency = "critical"))
+
+        compose.onNodeWithText("Urgence :").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("critique", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a task without urgency shows no urgency line`() {
+        show(parent)
+
+        compose.onNodeWithText("Urgence :").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

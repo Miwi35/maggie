@@ -16953,6 +16953,23 @@
                         ],
                         "minimum": 1
                     },
+                    "urgency": {
+                        "readOnly": true,
+                        "description": "How urgent the task is: low, normal, high or critical, from its criticality and how close or how far past its due day is. Computed on read, never entered.",
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "normal",
+                            "high",
+                            "critical"
+                        ]
+                    },
+                    "orderScore": {
+                        "readOnly": true,
+                        "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
+                        "type": "integer",
+                        "minimum": 0
+                    },
                     "googleTaskId": {
                         "type": [
                             "string",
@@ -17083,6 +17100,23 @@
                         ],
                         "minimum": 1
                     },
+                    "urgency": {
+                        "readOnly": true,
+                        "description": "How urgent the task is: low, normal, high or critical, from its criticality and how close or how far past its due day is. Computed on read, never entered.",
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "normal",
+                            "high",
+                            "critical"
+                        ]
+                    },
+                    "orderScore": {
+                        "readOnly": true,
+                        "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
+                        "type": "integer",
+                        "minimum": 0
+                    },
                     "googleTaskId": {
                         "type": [
                             "string",
@@ -17212,6 +17246,23 @@
                             "null"
                         ],
                         "minimum": 1
+                    },
+                    "urgency": {
+                        "readOnly": true,
+                        "description": "How urgent the task is: low, normal, high or critical, from its criticality and how close or how far past its due day is. Computed on read, never entered.",
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "normal",
+                            "high",
+                            "critical"
+                        ]
+                    },
+                    "orderScore": {
+                        "readOnly": true,
+                        "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
+                        "type": "integer",
+                        "minimum": 0
                     },
                     "googleTaskId": {
                         "type": [
@@ -17344,6 +17395,23 @@
                                     "null"
                                 ],
                                 "minimum": 1
+                            },
+                            "urgency": {
+                                "readOnly": true,
+                                "description": "How urgent the task is: low, normal, high or critical, from its criticality and how close or how far past its due day is. Computed on read, never entered.",
+                                "type": "string",
+                                "enum": [
+                                    "low",
+                                    "normal",
+                                    "high",
+                                    "critical"
+                                ]
+                            },
+                            "orderScore": {
+                                "readOnly": true,
+                                "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
+                                "type": "integer",
+                                "minimum": 0
                             },
                             "googleTaskId": {
                                 "type": [

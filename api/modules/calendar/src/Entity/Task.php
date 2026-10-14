@@ -18,6 +18,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
+use Maggie\Calendar\Enum\TaskUrgencyLevel;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\State\CreateTaskProcessor;
 use Maggie\Calendar\State\DeleteTaskProcessor;
@@ -141,9 +142,15 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 
     /**
      * Computed on each read, never stored nor indexed: it depends on the day
-     * (MAG-405). {@see \Maggie\Calendar\Serializer\TaskOverdueNormalizer}
+     * (MAG-405). {@see \Maggie\Calendar\Serializer\TaskComputedFieldsNormalizer}
      */
     private ?int $overdueDays = null;
+
+    /** Computed on each read like `overdueDays` (MAG-406). {@see \Maggie\Calendar\Service\TaskUrgency} */
+    private ?TaskUrgencyLevel $urgency = null;
+
+    /** Computed on each read like `overdueDays` (MAG-406). {@see \Maggie\Calendar\Service\TaskUrgency} */
+    private ?int $orderScore = null;
 
     public function __construct()
     {
@@ -290,6 +297,40 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     public function setOverdueDays(?int $overdueDays): static
     {
         $this->overdueDays = $overdueDays;
+
+        return $this;
+    }
+
+    #[ApiProperty(
+        writable: false,
+        description: 'How urgent the task is: low, normal, high or critical, from its criticality and how close or how far past its due day is. Computed on read, never entered.',
+        openapiContext: ['type' => 'string', 'enum' => ['low', 'normal', 'high', 'critical']],
+    )]
+    public function getUrgency(): ?TaskUrgencyLevel
+    {
+        return $this->urgency;
+    }
+
+    public function setUrgency(?TaskUrgencyLevel $urgency): static
+    {
+        $this->urgency = $urgency;
+
+        return $this;
+    }
+
+    #[ApiProperty(
+        writable: false,
+        description: 'The order score: time pressure + criticality + priority, with the user\'s weights. The highest first. Computed on read.',
+        openapiContext: ['type' => 'integer', 'minimum' => 0],
+    )]
+    public function getOrderScore(): ?int
+    {
+        return $this->orderScore;
+    }
+
+    public function setOrderScore(?int $orderScore): static
+    {
+        $this->orderScore = $orderScore;
 
         return $this;
     }

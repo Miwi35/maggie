@@ -13,6 +13,7 @@ import EventBusyIcon from '@mui/icons-material/EventBusy'
 import { parseDay } from '../../dates'
 import { criticalityColor } from '../../design/tokens'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
+import { UrgencyBadge } from '../calendar/UrgencyBadge'
 
 export interface DashboardTask {
   id: string
@@ -25,20 +26,31 @@ export interface DashboardTask {
   overdueDays?: number | null
   /** A subtask is shown under its task, indented. */
   isSubtask?: boolean
+  /** Computed by the API (MAG-406): `low`, `normal`, `high` or `critical`. */
+  urgency?: string | null
+  /** The API's order score (MAG-406): the highest first. */
+  orderScore?: number | null
 }
 
-const CRITICALITY_ORDER: Record<string, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
+/**
+ * The API's order (MAG-406): the highest score first, then the closest due day,
+ * undated last. Done tasks go to the bottom.
+ */
+export const byOrderScore = (a: DashboardTask, b: DashboardTask): number => {
+  if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1
+  const score = (b.orderScore ?? 0) - (a.orderScore ?? 0)
+  if (score !== 0) return score
+  if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate)
+  if (a.dueDate) return -1
+  if (b.dueDate) return 1
+  return 0
 }
 
 interface TaskListWidgetProps {
   tasks: DashboardTask[]
   loading: boolean
   onToggleDone: (taskId: string, done: boolean) => void
-  /** Keep the order given (the API's « Aujourd'hui »: most late first, subtasks under their task). */
+  /** Keep the order given (the API's « Aujourd'hui »: by score, subtasks under their task). */
   ordered?: boolean
   /** The list could not be read: say it instead of « Aucune tâche ». */
   error?: boolean
@@ -58,19 +70,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
     return [...tasks, ...removingItems.filter((t) => !currentIds.has(t.id))]
   }, [tasks, removingItems])
 
-  const sorted = ordered ? displayTasks : [...displayTasks].sort((a, b) => {
-    // Done tasks at bottom
-    if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1
-    // By criticality
-    const ca = CRITICALITY_ORDER[a.criticality] ?? 4
-    const cb = CRITICALITY_ORDER[b.criticality] ?? 4
-    if (ca !== cb) return ca - cb
-    // By due date
-    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate)
-    if (a.dueDate) return -1
-    if (b.dueDate) return 1
-    return 0
-  })
+  const sorted = ordered ? displayTasks : [...displayTasks].sort(byOrderScore)
 
   if (loading) {
     return (
@@ -141,6 +141,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
                   />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <ListItemText
+                      secondaryTypographyProps={{ component: 'span', sx: { display: 'flex', gap: 1, flexWrap: 'wrap' } }}
                       primary={
                         <Typography
                           variant="body2"
@@ -154,16 +155,21 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
                         </Typography>
                       }
                       secondary={
-                        late ? (
-                          <Typography
-                            component="span"
-                            variant="caption"
-                            color="error"
-                            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                          >
-                            <EventBusyIcon aria-hidden fontSize="inherit" />
-                            En retard de {task.overdueDays} j
-                          </Typography>
+                        late || task.urgency ? (
+                          <>
+                            <UrgencyBadge urgency={task.urgency} />
+                            {late && (
+                              <Typography
+                                component="span"
+                                variant="caption"
+                                color="error"
+                                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                              >
+                                <EventBusyIcon aria-hidden fontSize="inherit" />
+                                En retard de {task.overdueDays} j
+                              </Typography>
+                            )}
+                          </>
                         ) : undefined
                       }
                     />

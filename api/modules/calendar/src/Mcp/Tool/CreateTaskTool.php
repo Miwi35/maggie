@@ -5,7 +5,7 @@ namespace Maggie\Calendar\Mcp\Tool;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Message\CreateTaskCommand;
-use Maggie\Calendar\Service\TaskOverdue;
+use Maggie\Calendar\Service\TaskUrgency;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
@@ -19,7 +19,7 @@ class CreateTaskTool
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly McpUserContext $userContext,
-        private readonly TaskOverdue $overdue,
+        private readonly TaskUrgency $urgency,
     ) {
     }
 
@@ -54,7 +54,7 @@ class CreateTaskTool
 
             return json_encode([
                 'success' => true,
-                'task' => TaskJson::of($this->overdue->mark($task)),
+                'task' => TaskJson::of($this->urgency->mark($task)),
             ], JSON_THROW_ON_ERROR);
         } catch (\InvalidArgumentException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);

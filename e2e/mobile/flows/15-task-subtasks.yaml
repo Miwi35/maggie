@@ -4,7 +4,7 @@ tags:
   - calendar
 ---
 # A task brought from Google Tasks keeps its notes and its subtasks, in Google's
-# order (MAG-404).
+# order (MAG-404); « Aujourd'hui » goes by score, with each task's urgency (MAG-406).
 #
 # The witness is « Préparer le déménagement » (`api/fixtures/e2e/20-calendar.yaml`):
 # note « Les cartons sont à la cave », due on the anchor day so the dashboard lists
@@ -24,23 +24,54 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-# A task due two days ago and never done stays in « Aujourd'hui », first, said late in
-# words and with its original day (MAG-405). Ticking it takes it out of the day.
+# A task due two days ago and never done stays in « Aujourd'hui », said late in words
+# and with its original day (MAG-405). Ticking it takes it out of the day.
 - extendedWaitUntil:
     visible: "Renvoyer le formulaire de la mutuelle"
     timeout: 30000
 - assertVisible: "En retard de 2 j"
 - assertVisible: "prévue le .*"
-# The first box of the list is the late task's: the API puts the most late first.
+# Its own box, the closest one left of its title: since MAG-406 the day goes by score,
+# and « Payer la cantine » (78) comes before it (72).
 - tapOn:
     id: "dashboard_task_check_.*"
+    leftOf: "Renvoyer le formulaire de la mutuelle"
 - extendedWaitUntil:
     notVisible: "Renvoyer le formulaire de la mutuelle"
     timeout: 30000
 
-# The today list holds the late tasks too: the witness may be below the fold.
+# « Aujourd'hui » goes by the order score, each task with its urgency in words (MAG-406):
+# « Payer la cantine » 78 (haute), « Rendre le livre » 67 (haute), « Arroser » 55
+# (normale), from the seed and the default weights.
+- extendedWaitUntil:
+    visible: "Payer la cantine"
+    timeout: 30000
+- assertVisible:
+    text: "haute"
+    below: "Payer la cantine"
+- scrollUntilVisible:
+    element: "Arroser"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Arroser"
+      below: "Rendre le livre"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "En retard de 1 j"
+      below: "Rendre le livre"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "normale"
+      below: "Arroser"
+    timeout: 20000
+
+# The witness scores 68, above « Rendre le livre »: back up to it if it scrolled away.
 - scrollUntilVisible:
     element: "Préparer le déménagement"
+    direction: UP
     timeout: 30000
 - tapOn: "Préparer le déménagement"
 

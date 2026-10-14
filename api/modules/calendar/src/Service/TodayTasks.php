@@ -10,22 +10,23 @@ use Maggie\Core\Entity\User;
 
 /**
  * « Aujourd'hui » (MAG-405): the tasks not done that are due today or late,
- * the most overdue first, then today's, each task followed by its own open
- * subtasks. A task with no due day is never in; a late subtask whose task is
- * not listed keeps a row of its own.
+ * in the order of their score (MAG-406, {@see TaskUrgency::sort()}), each
+ * task followed by its own open subtasks in the same order. A task with no
+ * due day is never in; a late subtask whose task is not listed keeps a row of
+ * its own.
  */
 final class TodayTasks
 {
     public function __construct(
         private readonly TaskRepository $taskRepository,
-        private readonly TaskOverdue $overdue,
+        private readonly TaskUrgency $urgency,
     ) {
     }
 
-    /** @return list<Task> each with its `overdueDays` filled */
+    /** @return list<Task> each with its `overdueDays`, `urgency` and `orderScore` filled */
     public function for(User $user): array
     {
-        $due = $this->taskRepository->findOpenDueUntil($user, $this->overdue->today($user));
+        $due = $this->taskRepository->findOpenDueUntil($user, $this->urgency->today($user));
 
         $dueIds = [];
         foreach ($due as $task) {
@@ -39,14 +40,14 @@ final class TodayTasks
 
         $subtasks = [];
         foreach ($this->taskRepository->findOpenSubtasksOf($user, $heads) as $subtask) {
-            $subtasks[(string) $subtask->getParent()?->getId()][] = $subtask;
+            $subtasks[(string) $subtask->getParent()?->getId()][] = $this->urgency->mark($subtask);
         }
 
         $listed = [];
-        foreach ($heads as $head) {
-            $listed[] = $this->overdue->mark($head);
-            foreach ($subtasks[(string) $head->getId()] ?? [] as $subtask) {
-                $listed[] = $this->overdue->mark($subtask);
+        foreach ($this->urgency->sort(array_map($this->urgency->mark(...), $heads)) as $head) {
+            $listed[] = $head;
+            foreach ($this->urgency->sort($subtasks[(string) $head->getId()] ?? []) as $subtask) {
+                $listed[] = $subtask;
             }
         }
 
