@@ -48,6 +48,16 @@ export class FinanceRecurringPage extends AdminShell {
     return this.table.getByRole('row').filter({ hasText: label })
   }
 
+  /** The toggle of a series' row, by the series' label. */
+  unrollToggle(label: string): Locator {
+    return this.table.getByRole('button', { name: new RegExp(`^(Dérouler|Replier) les transactions de ${label}$`) })
+  }
+
+  /** The transactions a series recognised, once its row is unrolled. */
+  seriesTransactions(): Locator {
+    return this.table.getByRole('table', { name: 'Transactions de la série' })
+  }
+
   /** The « Rattacher » of a proposed line, by the line's label. */
   accept(lineLabel: string): Locator {
     return this.proposals.getByRole('button', { name: `Rattacher ${lineLabel}` })

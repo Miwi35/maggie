@@ -13,6 +13,12 @@ tags:
 # Quand je l'accepte
 # Alors la ligne est rattachée en base et la proposition disparaît
 #
+# MAG-438 — Quand j'ouvre la série
+# Alors « Transactions rattachées » liste la ligne « LOYER SCI VERDA » avec l'échéance qu'elle couvre
+# Quand je la détache
+# Alors la ligne quitte la liste sans recharger, « Aucune transaction reconnue pour l’instant »
+#   s'affiche et la ligne n'est plus rattachée en base
+#
 # The data is set by `scripts/recurring-api.js` on an account of its own, relative to
 # TODAY (the series starts two months back, so there is always a due date that never came).
 # Amounts are drawn the way the app draws them: « 900.00 EUR ».
@@ -77,6 +83,37 @@ tags:
 - extendedWaitUntil:
     notVisible: "Rattacher à « Loyer MAG-309 »"
     timeout: 30000
+
+# MAG-438: the series unrolls its lines, and a line can be taken out of it.
+- scrollUntilVisible:
+    element: "Loyer MAG-309"
+    timeout: 30000
+- tapOn: "Loyer MAG-309"
+- scrollUntilVisible:
+    element: "Transactions rattachées"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "recurring_line"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*échéance du.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "recurring_line_detach"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "recurring_line_detach"
+- extendedWaitUntil:
+    visible:
+      id: "recurring_lines_empty"
+    timeout: 20000
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: expect-detached
 
 # Left as found.
 - runScript:

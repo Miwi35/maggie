@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -52,6 +53,7 @@ import com.maggie.app.data.model.DAY_RULE_CHOICES
 import com.maggie.app.data.model.DEFAULT_AMOUNT_TOLERANCE_PERCENT
 import com.maggie.app.data.model.DEFAULT_DATE_TOLERANCE_DAYS
 import com.maggie.app.data.model.PERIOD_CHOICES
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.describeHistory
@@ -237,6 +239,8 @@ internal fun RecurringOperationEditScreen(
     onDelete: (String) -> Unit,
     onBack: () -> Unit,
     onClearError: () -> Unit,
+    onDetachLine: (String) -> Unit,
+    onRetryLines: () -> Unit,
 ) {
     val form = remember(editing) { RecurringFormState(editing) }
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
@@ -346,12 +350,71 @@ internal fun RecurringOperationEditScreen(
 
             if (editing.record != null) {
                 HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+                SeriesLinesSection(
+                    lines = state.seriesLines,
+                    error = state.seriesLinesError,
+                    detachingId = state.detachingId,
+                    onDetach = onDetachLine,
+                    onRetry = onRetryLines,
+                )
+                HorizontalDivider()
                 OutlinedButton(
                     onClick = { confirmingDelete = true },
                     enabled = !state.isSaving,
                     modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_DELETE),
                 ) {
                     Text("Supprimer l'opération récurrente", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+/** The lines the series recognised, newest first, each with the due date it covers and a way to take it out. */
+@Composable
+internal fun SeriesLinesSection(
+    lines: List<Transaction>?,
+    error: String?,
+    detachingId: String?,
+    onDetach: (String) -> Unit,
+    onRetry: () -> Unit,
+) {
+    Column(modifier = Modifier.uiTagRoot(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Transactions rattachées", style = MaterialTheme.typography.titleMedium)
+
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onRetry) { Text("Réessayer") }
+        }
+
+        when {
+            lines == null -> if (error == null) CircularProgressIndicator()
+            lines.isEmpty() -> Text(
+                "Aucune transaction reconnue pour l’instant",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(UiTags.RECURRING_LINES_EMPTY),
+            )
+            else -> lines.forEach { line ->
+                Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_LINE), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(line.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(formatCents(line.amountCents, line.currency), style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Text(
+                        listOfNotNull(
+                            line.bookedAt?.let { "Le ${formatDay(it)}" },
+                            line.recurringOccurrenceOn?.let { "échéance du ${formatDay(it)}" },
+                            if (line.recurringSource == "manual") "manuel" else "automatique",
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(
+                        onClick = { onDetach(line.id) },
+                        enabled = detachingId == null,
+                        modifier = Modifier.testTag(UiTags.RECURRING_LINE_DETACH),
+                    ) { Text("Détacher") }
                 }
             }
         }

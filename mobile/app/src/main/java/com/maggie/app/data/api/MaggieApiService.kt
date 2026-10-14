@@ -1201,6 +1201,27 @@ class MaggieApiService(
         }.body<ApiCollection<Transaction>>().member
     }
 
+    /**
+     * Every line a series recognised, newest first. The API caps a page at 100, so the pages are
+     * read until the collection's total is reached: a long series shows all of its lines (MAG-438).
+     */
+    suspend fun getTransactionsOfRecurringOperation(seriesId: String): List<Transaction> {
+        val lines = mutableListOf<Transaction>()
+        var page = 1
+        while (true) {
+            val collection = client.get("$baseUrl/api/transactions") {
+                accept(ContentType("application", "ld+json"))
+                url.parameters.append("recurringOperation", "/api/recurring_operations/$seriesId")
+                url.parameters.append("order[bookedAt]", "desc")
+                url.parameters.append("itemsPerPage", "100")
+                url.parameters.append("page", page.toString())
+            }.body<ApiCollection<Transaction>>()
+            lines += collection.member
+            if (collection.member.isEmpty() || lines.size >= (collection.totalItems ?: lines.size)) return lines
+            page++
+        }
+    }
+
     /** The account's rejected payments, one line each; the transaction list leaves them out (MAG-375). */
     suspend fun getAccountIncidents(accountId: String): List<AccountIncident> {
         return client.get("$baseUrl/api/accounts/$accountId/incidents").body<AccountIncidents>().incidents

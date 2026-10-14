@@ -1,0 +1,116 @@
+Maggie\Core\Entity\User:
+  series_user:
+    email: series-filter@example.com
+    googleId: google-series-filter
+    name: Series Filter User
+  series_other_user:
+    email: series-filter-other@example.com
+    googleId: google-series-filter-other
+    name: Series Filter Other User
+
+Maggie\Finance\Entity\Account:
+  series_account:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@series_user'
+  series_other_account:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@series_other_user'
+
+Maggie\Finance\Entity\Category:
+  series_category:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@series_user'
+  series_other_category:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@series_other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  series_gym:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@series_category'
+    account: '@series_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@series_user'
+  series_rent:
+    label: Loyer
+    category: '@series_category'
+    account: '@series_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -80000
+    user: '@series_user'
+  series_secret:
+    label: Série secrète
+    category: '@series_other_category'
+    account: '@series_other_account'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@series_other_user'
+
+Maggie\Finance\Entity\Transaction:
+  series_jan:
+    account: '@series_account'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-02"))>'
+    label: CB CLUB FORME JANVIER
+    recurringOperation: '@series_gym'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    user: '@series_user'
+  series_feb:
+    account: '@series_account'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-02-02"))>'
+    label: CB CLUB FORME FEVRIER
+    recurringOperation: '@series_gym'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-02-01"))>'
+    user: '@series_user'
+  series_mar:
+    account: '@series_account'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-03-02"))>'
+    label: CB CLUB FORME MARS
+    recurringOperation: '@series_gym'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-03-01"))>'
+    user: '@series_user'
+  series_rent_jan:
+    account: '@series_account'
+    amountCents: -80000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-05"))>'
+    label: VIR LOYER JANVIER
+    recurringOperation: '@series_rent'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    user: '@series_user'
+  series_loose:
+    account: '@series_account'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-02-10"))>'
+    label: CB BOULANGERIE
+    user: '@series_user'
+  series_secret_tx:
+    account: '@series_other_account'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-02-02"))>'
+    label: CB SECRETE
+    recurringOperation: '@series_secret'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-02-01"))>'
+    user: '@series_other_user'

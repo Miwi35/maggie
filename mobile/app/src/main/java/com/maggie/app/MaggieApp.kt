@@ -323,7 +323,7 @@ class MaggieApp : Application() {
             viewModel { BudgetViewModel(get(), get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
             viewModel { RuleSuggestionViewModel(get(), get()) }
-            viewModel { RecurringOperationViewModel(get(), get(), get()) }
+            viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }
             viewModel { LoanViewModel(get()) }

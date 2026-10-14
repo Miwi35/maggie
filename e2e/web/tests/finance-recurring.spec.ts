@@ -518,3 +518,63 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   await recurring.open()
   await expect(recurring.row(String(series.label))).toContainText(patternValue)
 })
+
+test('an unrolled series lists the transactions it recognised, newest first, and one can be detached', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-438, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryId = await created(api, '/api/categories', {
+    name: `Abonnements MAG-438, essai ${attempt}`,
+    obligation: 'optional',
+  })
+  createdCategoryIds.push(categoryId)
+
+  // Given a monthly series anchored last month, and its two debits attached.
+  const thisMonth = parisDay().slice(0, 7)
+  const anchorOn = `${monthBefore(thisMonth, 1)}-12`
+  const seriesName = `Abonnement Flixo MAG-438 ${attempt}`
+  await created(api, '/api/recurring_operations', {
+    label: seriesName,
+    counterpartyName: 'Flixo',
+    account: `/api/accounts/${accountId}`,
+    category: `/api/categories/${categoryId}`,
+    period: 'monthly',
+    anchorOn,
+    referenceAmountCents: -1349,
+  })
+  const secondOn = nextMonth(anchorOn)
+  const firstLabel = `PAIEMENT PAR CARTE FLIXO ${anchorOn.slice(8, 10)}/${anchorOn.slice(5, 7)}`
+  const secondLabel = `PAIEMENT PAR CARTE FLIXO ${secondOn.slice(8, 10)}/${secondOn.slice(5, 7)}`
+  const first = await debit(api, accountId, firstLabel, -1349, anchorOn)
+  const second = await debit(api, accountId, secondLabel, -1349, secondOn)
+  expect(first.recurringOperation).toBeTruthy()
+  expect(second.recurringOperation).toBeTruthy()
+
+  // When I unroll its row.
+  const recurring = new FinanceRecurringPage(page)
+  await recurring.open()
+  await recurring.unrollToggle(seriesName).click()
+
+  // Then its transactions are there, the most recent first, with the due date they cover.
+  const lines = recurring.seriesTransactions().getByRole('row')
+  await expect(lines).toHaveCount(3)
+  await expect(lines.nth(1)).toContainText(secondLabel)
+  await expect(lines.nth(1)).toContainText(secondOn.split('-').reverse().join('/'))
+  await expect(lines.nth(2)).toContainText(firstLabel)
+
+  // When I detach one, it leaves the series without a reload.
+  const detaching = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/transactions/'))
+  await recurring.seriesTransactions().getByLabel(`Détacher ${secondLabel} de la série`).click()
+  expect((await detaching).status()).toBe(200)
+  await expect(lines).toHaveCount(2)
+  await expect(recurring.seriesTransactions()).not.toContainText(secondLabel)
+})
