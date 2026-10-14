@@ -134,7 +134,13 @@ class TestContextRepositorySummary:
         """The agent database has no migration tool: a column only in the model never ships."""
         executed = []
         conn = AsyncMock()
-        conn.execute.side_effect = lambda stmt: executed.append(str(stmt))
+
+        async def execute(stmt):
+            executed.append(str(stmt))
+            # The probe for the encoding watermark finds no column: this database predates MAG-15.
+            return MagicMock(first=MagicMock(return_value=None))
+
+        conn.execute.side_effect = execute
         begin = MagicMock()
         begin.__aenter__ = AsyncMock(return_value=conn)
         begin.__aexit__ = AsyncMock(return_value=False)
@@ -157,6 +163,10 @@ class TestContextRepositorySummary:
         # on the first `SELECT` of a message — the column is in the model, so it is in
         # every query the repository builds, read or write.
         assert "agent_message ADD COLUMN IF NOT EXISTS blocks JSONB" in statements
+        # MAG-15. Without the column the encoding pass lists nothing; without the backfill every thread
+        # that already exists would be encoded at once, on the first boot after the deploy.
+        assert "conversation_context ADD COLUMN IF NOT EXISTS encoded_up_to TIMESTAMPTZ" in statements
+        assert "UPDATE conversation_context c SET encoded_up_to" in statements
 
 
 def _back_date(chat_db, context_id: str, **ago) -> None:

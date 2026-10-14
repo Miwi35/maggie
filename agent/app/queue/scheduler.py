@@ -22,6 +22,8 @@ from app.user_timezone import resolve_user_timezone
 logger = logging.getLogger(__name__)
 
 EXECUTION_INTERVAL = 60  # seconds
+ENCODING_PAGE = 20  # threads looked at per query by the encoding pass
+ENCODING_MAX_PAGES = 50  # pages per cycle: what is left is found again at the next one
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
 
 
@@ -258,10 +260,20 @@ async def run_memory_encoding(now: datetime | None = None) -> int:
     now = now or _utcnow()
     silent_before = now - timedelta(seconds=settings.memory_encode_after_seconds)
     encoded = 0
-    for ctx in await context_repo.find_to_encode(silent_before, now):
-        # Never raises: a thread that cannot be encoded now is found again at the next cycle.
-        if await memory_encoder.encode(ctx, silent_before) is not None:
-            encoded += 1
+    offset = 0
+    for _ in range(ENCODING_MAX_PAGES):
+        page = await context_repo.find_to_encode(silent_before, now, ENCODING_PAGE, offset)
+        encoded_here = 0
+        for ctx in page:
+            # Never raises: a thread that cannot be encoded now is found again at the next cycle.
+            if await memory_encoder.encode(ctx, silent_before) is not None:
+                encoded_here += 1
+        encoded += encoded_here
+        if len(page) < ENCODING_PAGE:
+            break
+        # An encoded thread leaves the list; the others (failed, given up, memory off) stay in front and must
+        # not hide the threads behind them.
+        offset += len(page) - encoded_here
     if encoded:
         logger.info(f"Memory encoding: {encoded} thread(s) encoded")
     return encoded

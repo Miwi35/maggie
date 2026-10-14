@@ -201,14 +201,14 @@ class ContextRepository:
             return list(result.scalars().all())
 
     async def find_to_encode(
-        self, silent_before: datetime, now: datetime | None = None, limit: int = 20
+        self, silent_before: datetime, now: datetime | None = None, limit: int = 20, offset: int = 0
     ) -> list[ConversationContext]:
         """The threads of every user with something to encode and silent since `silent_before` (MAG-15).
 
         « Something to encode » is a message after `encoded_up_to`; « silent » is the clock of the
         messages themselves, not `updated_at` (a routed message touches it before it is answered) nor
         the dormancy of MAG-12. A thread whose answer is still being written is not silent. The oldest
-        come first and at most `limit` per call: the rest is found again at the next cycle.
+        come first and at most `limit` per call, from `offset`: the caller pages past the threads it cannot encode.
         """
         now = now or datetime.now(UTC)
         in_context = Message.context_id == ConversationContext.id
@@ -224,6 +224,7 @@ class ContextRepository:
                 .where(ConversationContext.updated_at < silent_before, unencoded, ~recent, ~answering)
                 .order_by(ConversationContext.updated_at.asc())
                 .limit(limit)
+                .offset(offset)
             )
             return list(result.scalars().all())
 

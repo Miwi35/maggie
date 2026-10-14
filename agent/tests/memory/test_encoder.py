@@ -458,6 +458,16 @@ class TestWhenTheModelFails:
 
         assert model.calls == encoder.MAX_ATTEMPTS + 1
 
+    async def test_threads_that_cannot_be_encoded_do_not_hide_the_ones_behind_them(self, env, chat_db):
+        for n in range(25):
+            exchange(chat_db, when=NOW - timedelta(minutes=120 - n), said="Rien d'encodable", user_id="not-a-ulid")
+        context_id = exchange(chat_db, when=NOW - timedelta(minutes=30))
+
+        await run(ScriptedModel(proposal()), env, context_id)
+
+        assert (await context(context_id)).encoded_up_to is not None
+        assert fiche_files(env) == [f"Famille/{CLAIM}.md"]
+
     async def test_a_memory_that_is_off_encodes_nothing(self, env, chat_db):
         context_id = exchange(chat_db)
         model = ScriptedModel(proposal())
