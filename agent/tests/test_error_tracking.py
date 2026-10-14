@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import anthropic
 import httpx
 import pytest
+import respx
 import sentry_sdk
 from aiohttp import WSServerHandshakeError
 from sqlalchemy import select
@@ -21,6 +22,7 @@ from app.db.message_repository import message_repo
 from app.db.models import Message
 from app.error_tracking import capture_signal, init_error_tracking
 from app.llm.claim_guard import ClaimGuard, Verdict
+from app.llm.contexts import _ask_router
 from app.llm.turns import TurnRunner
 from app.mcp.client import McpClient
 from app.queue import proaction_consumer
@@ -216,3 +218,41 @@ class TestAHandledProviderRefusalIsNotAnError:
 
         sentry_sdk.flush()
         assert sent == []
+
+
+class TestTheProviderBillingOutage:
+    """MAG-446: an empty Anthropic account that escapes unhandled is billing, not a defect (GlitchTip maggie/17)."""
+
+    CREDIT_ERROR = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing.",
+        },
+    }
+
+    @staticmethod
+    async def _refused_call(body: dict) -> anthropic.BadRequestError:
+        client = anthropic.AsyncAnthropic(api_key="test", max_retries=0)
+        with respx.mock:
+            respx.post("https://api.anthropic.com/v1/messages").mock(return_value=httpx.Response(400, json=body))
+            with pytest.raises(anthropic.BadRequestError) as refused:
+                await _ask_router(client, "system", "prompt")
+        return refused.value
+
+    @pytest.mark.asyncio
+    async def test_an_empty_credit_balance_is_not_reported_as_an_error(self, sent):
+        sentry_sdk.capture_exception(await self._refused_call(self.CREDIT_ERROR))
+
+        sentry_sdk.flush()
+        assert sent == []
+
+    @pytest.mark.asyncio
+    async def test_any_other_rejected_request_still_is(self, sent):
+        other = {"type": "error", "error": {"type": "invalid_request_error", "message": "messages: bad shape"}}
+
+        sentry_sdk.capture_exception(await self._refused_call(other))
+
+        event = only_event(sent)
+        assert event["level"] == "error"
+        assert event["tags"]["component"] == "agent"

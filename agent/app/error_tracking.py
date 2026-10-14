@@ -12,6 +12,7 @@ or the model wrote.
 
 import logging
 
+import anthropic
 import sentry_sdk
 from sentry_sdk.integrations.anthropic import AnthropicIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -29,7 +30,18 @@ PROACTION_FAILED = "proaction_failed"
 UNANSWERED_MESSAGE = "unanswered_message"
 
 
-def _tag_component(event: dict, _hint: dict) -> dict:
+def _credit_exhausted(hint: dict) -> bool:
+    exc = (hint.get("exc_info") or (None, None, None))[1]
+    return isinstance(exc, anthropic.BadRequestError) and "credit balance is too low" in str(exc.message)
+
+
+def _tag_component(event: dict, hint: dict) -> dict | None:
+    # An empty Anthropic account is billing, not a defect: the SDK's Anthropic integration
+    # reports it on every model call, and no code change makes it go away (MAG-446). The
+    # user already reads the failure in the chat; the log keeps the trace.
+    if _credit_exhausted(hint):
+        logger.warning("Anthropic credit balance exhausted: not reported to GlitchTip")
+        return None
     event.setdefault("tags", {})["component"] = COMPONENT
     # A query string can hold what the user typed (message search `?q=`).
     request = event.get("request")
