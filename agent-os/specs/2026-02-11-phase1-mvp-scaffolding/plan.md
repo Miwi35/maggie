@@ -36,7 +36,7 @@ maggie-v3/
 ├── Taskfile.yml
 ├── .env
 ├── agent-os/              # (existing) specs, standards, product docs
-└── requirements.md        # (existing) functional spec
+└── requirements.md        # (existing) functional spec (retiré le 14 oct.)
 ```
 
 ---
