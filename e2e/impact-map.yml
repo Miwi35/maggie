@@ -57,15 +57,17 @@ ignored:
   - mobile/app/src/testProd/**
   # Tooling, infrastructure and config of the tools: not code the journeys run.
   # Application code and its config (`api/config/**`, `api/modules/core/**`…) and
-  # the harness (`e2e/**`, so `e2e/Taskfile.yml`) keep the rules below.
+  # the harness (`e2e/**`, so `e2e/Taskfile.yml`, plus the e2e stack:
+  # `docker-compose.e2e.yml` and `.docker/e2e/**`, the wiremock stubs) keep the
+  # rules below.
   - infra/**
   - .github/**
   - Taskfile.yml
   - '{admin,agent,api,ciqual,mobile,wt}/Taskfile.yml'
   - wt/**
   - scripts/**
-  - .docker/**
-  - 'docker-compose*.yml'
+  - '.docker/{ciqual,nginx,node,php,postgres,python,traefik}/**'
+  - docker-compose.yml
   - agent-os/**
   - .claude/**
   - CLAUDE.md
@@ -85,8 +87,10 @@ transversal:
   # Authentication on the API and the agent; each client's own login is in its
   # platform's list below: a change to the app's login cannot break the admin.
   - agent/app/auth.py
-  # The harness.
+  # The harness: its runner and the stack the journeys run on (compose file, wiremock stubs).
   - e2e/Taskfile.yml
+  - docker-compose.e2e.yml
+  - .docker/e2e/**
   # Dependencies of the API and the agent, which both clients use. Those of one
   # client (npm, Gradle) are in its platform's list below.
   - '**/composer.{json,lock}'
@@ -178,8 +182,6 @@ areas:
     - agent/**
     - ciqual/**
     - design/**
-    # `e2e:eval:check` runs beside the smoke journey: a typo in a scenario fails there.
-    - scripts/prompt-lab/**
   chat:
     - agent/**
     - admin/src/components/{chat,mind}/**
