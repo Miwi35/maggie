@@ -60,6 +60,20 @@ class UpdateTransactionProcessor implements ProcessorInterface
         if ($oneOffChanged && null === $oneOff) {
             $clearFields[] = 'oneOffEnvelope';
         }
+        $accountId = (string) $data->getAccount()->getId();
+
+        // API Platform reads every IRI of the PATCH through the item provider —
+        // Elasticsearch, whose copies Doctrine does not manage and would take
+        // for new entities on flush. The changes are known by now and go to the
+        // handler as ids, which it resolves itself: the line keeps the stored
+        // relations until then.
+        if (null !== $previous) {
+            $data->setAccount($previous->getAccount());
+            $data->setCategory($previous->getCategory());
+            $data->setRecurringOperation($previous->getRecurringOperation());
+            $data->setOneOffEnvelope($previous->getOneOffEnvelope());
+        }
+
         // The merged line carries the note whether or not the PATCH named it: null is an explicit clear.
         if (null === $data->getNote()) {
             $clearFields[] = 'note';
@@ -68,7 +82,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
         $envelope = $this->dispatch(new UpdateTransactionCommand(
             userId: (string) $data->getUser()->getId(),
             transactionId: (string) $data->getId(),
-            accountId: (string) $data->getAccount()->getId(),
+            accountId: $accountId,
             amountCents: $data->getAmountCents(),
             label: $data->getLabel(),
             bookedAt: $data->getBookedAt()->format(\DateTimeInterface::ATOM),
