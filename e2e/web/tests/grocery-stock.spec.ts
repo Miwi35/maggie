@@ -1,7 +1,9 @@
-import { test, expect } from '../fixtures/index.js'
+import type { APIRequestContext } from '@playwright/test'
+import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { CalendarPage } from '../pages/CalendarPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ROUTES } from '../pages/routes.js'
 
@@ -263,3 +265,149 @@ type StockRow = {
   restockQuantity?: number | null
   autoRestock?: boolean
 }
+
+type ListRow = { items: Array<{ label: string; quantity: number | null; unit: string | null }> }
+
+type Created = { '@id': string; id: string }
+
+async function createdOk(api: APIRequestContext, path: string, data: Record<string, unknown>): Promise<Created> {
+  const response = await api.post(path, { headers: LD, data })
+  expect(response.status(), `POST ${path} answered ${response.status()}: ${await response.text()}`).toBe(201)
+
+  return (await response.json()) as Created
+}
+
+test('one product is one line in packs, with what the meals need as a reminder, and it follows the meals — MAG-380', async ({
+  twoWindows,
+  api,
+}) => {
+  // Extends MAG-101. « Pâtes » bought in 500 g packs, in two recipes (300 g and
+  // 500 g): the list holds one line, not one per meal.
+  const { actor, observer } = twoWindows
+  const acting = new AdminShell(actor)
+  const calendar = new CalendarPage(actor)
+  const watching = new GroceryListPage(observer)
+  const suffix = `${Date.now()}`
+  const pastaName = `Pâtes MAG-380 ${suffix}`
+  const smallRecipeName = `Bolognaise MAG-380 ${suffix}`
+  const bigRecipeName = `Gratin de pâtes MAG-380 ${suffix}`
+  const cleanup: string[] = []
+
+  try {
+    // Given « Pâtes », out of stock, bought in 500 g packs, and two recipes using it.
+    const pasta = await createdOk(api, '/api/ingredients', {
+      name: pastaName,
+      category: 'grain',
+      packagingUnit: 'pack',
+      packagingSize: 500,
+      packagingSizeUnit: 'g',
+      stockState: 'out',
+    })
+    cleanup.push(pasta['@id'])
+    const small = await createdOk(api, '/api/recipes', {
+      name: smallRecipeName,
+      servings: 2,
+      ingredients: [{ ingredient: pasta['@id'], quantity: 300, unit: 'g' }],
+    })
+    cleanup.unshift(small['@id'])
+    const big = await createdOk(api, '/api/recipes', {
+      name: bigRecipeName,
+      servings: 2,
+      ingredients: [{ ingredient: pasta['@id'], quantity: 500, unit: 'g' }],
+    })
+    cleanup.unshift(big['@id'])
+    await waitForIndexed<{ name: string }>(api, '/api/recipes?itemsPerPage=200', (row) => row.name === bigRecipeName, {
+      what: 'The recipe to plan',
+    })
+
+    // And the 300 g meal planned, its pasta on the list: 1 pack.
+    const first = await createdOk(api, '/api/meals', {
+      summary: 'Dîner',
+      date: seedDate(20),
+      slot: 'dinner',
+      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+      recipes: [small['@id']],
+    })
+    cleanup.unshift(first['@id'])
+    const chosen = await api.post(`/api/meals/${first.id}/grocery_items`, {
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      data: { ingredients: [{ ingredientId: pasta.id }] },
+    })
+    expect(chosen.ok(), `POST grocery_items answered ${chosen.status()}: ${await chosen.text()}`).toBeTruthy()
+    await waitForIndexed<ListRow>(
+      api,
+      '/api/grocery_lists',
+      (list) => list.items.filter((item) => item.label === pastaName && item.quantity === 1 && item.unit === 'pack').length === 1,
+      { what: 'A single « Pâtes — 1 paquet » line' },
+    )
+    await openSubscribed(observer, () => watching.open())
+    await expect(watching.line(pastaName)).toHaveCount(1)
+    await expect(watching.line(pastaName)).toContainText('1 paquet')
+
+    // When I plan the 500 g meal, on Sunday dinner…
+    await acting.goto(ROUTES.meals)
+    await acting.content.getByTestId('meal-cell-dinner-6').click()
+    const dialog = actor.getByRole('dialog')
+    await dialog.getByLabel('Menu').click()
+    await actor.getByRole('option', { name: bigRecipeName }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+
+    // …then the box « Courses du repas » says what the list already holds and
+    // what it will hold.
+    await expect(dialog.getByText('Courses du repas')).toBeVisible()
+    const pastaRow = dialog.getByRole('listitem').filter({ hasText: pastaName })
+    await expect(pastaRow.getByTestId('already-planned')).toContainText('déjà prévu : 300 g')
+    await expect(pastaRow.getByTestId('packages-total')).toHaveText('2 paquets au total (+1)')
+
+    // When I add it to the list…
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await dialog.getByRole('button', { name: 'Ajouter aux courses' }).click()
+        await expect(dialog).toBeHidden()
+        await waitForIndexed<ListRow>(
+          api,
+          '/api/grocery_lists',
+          (list) => list.items.filter((item) => item.label === pastaName && item.quantity === 2 && item.unit === 'pack').length === 1,
+          { what: 'A single « Pâtes — 2 paquets » line' },
+        )
+      },
+      // …then the list shows ONE line, « Pâtes · 2 paquets », without reloading,
+      // with « 800 g pour les repas » as a reminder.
+      async () => {
+        await expect(watching.line(pastaName)).toHaveCount(1)
+        await expect(watching.line(pastaName).getByRole('button', { name: `Modifier la quantité de ${pastaName}` })).toContainText(
+          '2 paquets',
+        )
+        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('800 g pour les repas')
+      },
+    )
+
+    // When the 500 g meal is deleted from the agenda…
+    const second = await waitForIndexed<{ '@id': string; id: string; summary: string }>(
+      api,
+      '/api/meals?itemsPerPage=200',
+      (meal) => String(meal.summary).includes(bigRecipeName),
+      { what: 'The planned 500 g meal' },
+    )
+    cleanup.unshift(second['@id'])
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await calendar.openEvent(second.id, second.summary)
+        await calendar.deleteFromPopover()
+        await expect(calendar.detailTitle(second.summary)).toBeHidden()
+      },
+      // …then the line is back to « 1 paquet ».
+      async () => {
+        await expect(watching.line(pastaName)).toHaveCount(1)
+        await expect(watching.line(pastaName).getByRole('button', { name: `Modifier la quantité de ${pastaName}` })).toContainText(
+          '1 paquet',
+        )
+        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('300 g pour les repas')
+      },
+    )
+  } finally {
+    for (const iri of cleanup) await api.delete(iri)
+  }
+})

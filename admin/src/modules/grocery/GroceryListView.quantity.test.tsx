@@ -114,6 +114,44 @@ describe('GroceryListView — quantity on the line', () => {
     }
   })
 
+  test('a packaged line shows what the meals need as a small reminder, never editable (MAG-380)', async () => {
+    const withNeeds = list([
+      { ...packaged('item-pates', 'Pâtes', 2, 'pack', rice, 0), needed: [{ quantity: 800, unit: 'g' }] },
+      packaged('item-riz', 'Riz', 1, 'pack', rice, 1),
+    ])
+    mockGetList.mockResolvedValue({ data: [withNeeds], total: 1 })
+    mockGetOne.mockResolvedValue({ data: withNeeds })
+    render(<GroceryListView />)
+    await waitFor(() => expect(screen.getByText('Pâtes')).toBeInTheDocument())
+
+    expect(within(row('Pâtes')).getByText('2 paquets')).toBeInTheDocument()
+    expect(within(row('Pâtes')).getByTestId('needed-reminder')).toHaveTextContent('800 g pour les repas')
+    expect(within(row('Riz')).queryByTestId('needed-reminder')).not.toBeInTheDocument()
+  })
+
+  test('a line without packaging shows what the meals need, several units joined (MAG-380)', async () => {
+    const withNeeds = list([
+      { ...line('item-farine', 'Farine', 800, 'g', 0), needed: [{ quantity: 800, unit: 'g' }] },
+      {
+        ...line('item-oeufs', 'Oeufs', 300, 'g', 1),
+        needed: [
+          { quantity: 300, unit: 'g' },
+          { quantity: 2, unit: 'piece' },
+        ],
+      },
+      { ...line('item-lait', 'Lait', 1, 'l', 2), needed: null },
+    ])
+    mockGetList.mockResolvedValue({ data: [withNeeds], total: 1 })
+    mockGetOne.mockResolvedValue({ data: withNeeds })
+    render(<GroceryListView />)
+    await waitFor(() => expect(screen.getByText('Farine')).toBeInTheDocument())
+
+    expect(within(row('Farine')).getByTestId('quantity-hint')).toHaveTextContent('800 g')
+    expect(within(row('Oeufs')).getByTestId('quantity-hint')).toHaveTextContent('300 g + 2 pièces')
+    expect(within(row('Lait')).getByTestId('quantity-hint')).toHaveTextContent('1 l')
+    expect(within(row('Farine')).queryByTestId('quantity-stepper')).not.toBeInTheDocument()
+  })
+
   test('two taps on + show 3 at once and send a single request with 3', async () => {
     await open()
     const user = userEvent.setup()

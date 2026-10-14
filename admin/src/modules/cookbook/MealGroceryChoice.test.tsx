@@ -83,6 +83,43 @@ describe('MealGroceryChoice', () => {
     expect(screen.queryByText('En stock')).not.toBeInTheDocument()
   })
 
+  test('says what the list already holds from other meals, and the packs once this meal is added (MAG-380)', async () => {
+    const planned = {
+      ...pasta,
+      quantity: 500,
+      onList: { needed: [{ quantity: 300, unit: 'g' }], packages: 1 },
+      otherMeals: [{ mealId: '01OTHER', name: 'Bolognaise', date: '2026-10-15', quantity: 300, unit: 'g' }],
+      withThisMeal: { needed: [{ quantity: 800, unit: 'g' }], packagesTotal: 2, packagesToAdd: 1 },
+    }
+    await renderStep(planned)
+
+    expect(screen.getByTestId('already-planned')).toHaveTextContent('déjà prévu : 300 g (Bolognaise, jeu.)')
+    expect(screen.getByTestId('packages-total')).toHaveTextContent('2 paquets au total (+1)')
+  })
+
+  test('lists several other meals, and leaves out « (+N) » when no pack is added', async () => {
+    const planned = {
+      ...pasta,
+      onList: { needed: [{ quantity: 400, unit: 'g' }], packages: 1 },
+      otherMeals: [
+        { mealId: '01A', name: 'Bolognaise', date: '2026-10-15', quantity: 300, unit: 'g' },
+        { mealId: '01B', name: 'Gratin', date: '2026-10-17', quantity: 100, unit: 'g' },
+      ],
+      withThisMeal: { needed: [{ quantity: 600, unit: 'g' }], packagesTotal: 1, packagesToAdd: 0 },
+    }
+    await renderStep(planned)
+
+    expect(screen.getByTestId('already-planned')).toHaveTextContent('déjà prévu : 400 g (Bolognaise, jeu., Gratin, sam.)')
+    expect(screen.getByTestId('packages-total')).toHaveTextContent(/^1 paquet au total$/)
+  })
+
+  test('shows nothing more for a product the list does not hold', async () => {
+    await renderStep({ ...rice, onList: null, otherMeals: [], withThisMeal: { needed: [{ quantity: 300, unit: 'g' }], packagesTotal: null, packagesToAdd: null } })
+
+    expect(screen.queryByTestId('already-planned')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('packages-total')).not.toBeInTheDocument()
+  })
+
   test('ticks only the products that are low or out', async () => {
     await renderStep(rice, vegetables, pasta)
 

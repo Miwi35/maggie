@@ -12,7 +12,7 @@ namespace Maggie\Cookbook\Event;
  */
 final readonly class MealRemoved
 {
-    /** @param list<array{groceryItemId: string, quantity: float}> $contributions what the meal had put on the list */
+    /** @param list<array{groceryItemId: string, quantity: float, unit: ?string}> $contributions what the meal had put on the list */
     public function __construct(
         public string $mealId,
         public string $userId,

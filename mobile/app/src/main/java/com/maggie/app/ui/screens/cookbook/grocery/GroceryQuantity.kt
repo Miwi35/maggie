@@ -4,6 +4,7 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.formatQuantity as formatSize
 import com.maggie.app.data.model.frenchLabel
+import com.maggie.app.data.model.neededLabel
 import kotlin.math.roundToInt
 
 // A packaged product's line is a whole number of packagings (MAG-299): − and +
@@ -63,9 +64,19 @@ fun GroceryItem.packagingContent(): String? {
     return "(${formatSize(size)} ${sizeUnit.frenchLabel(size)})"
 }
 
-/** « 300 g »: the quantity a recipe asked for, shown as an indication on a line with nothing to adjust. */
+/**
+ * « 800 g », « 300 g + 2 pièces »: what the meals need, shown on a line with nothing to adjust
+ * (MAG-380). Falls back to the line's own quantity when the API sent no need.
+ */
 fun GroceryItem.quantityHint(): String? {
+    needed.neededLabel()?.let { return it }
     val quantity = quantity ?: return null
     val unitText = unitLabel(unit, quantity)
     return formatQuantity(quantity) + if (unitText.isNotEmpty()) " $unitText" else ""
+}
+
+/** « 800 g pour les repas »: the reminder under a packaged line, never edited (MAG-380). */
+fun GroceryItem.neededReminder(): String? {
+    if (!isPackaged) return null
+    return needed.neededLabel()?.let { "$it pour les repas" }
 }

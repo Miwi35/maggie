@@ -13,6 +13,10 @@ use Symfony\Component\Uid\Ulid;
 /**
  * What one meal put on the grocery list, and how much of it.
  *
+ * A meal's need of a product, in the base unit of what the recipes ask (grams,
+ * millilitres or the counted unit itself) — or in packagings when the owner
+ * forced a count (MAG-380). One row per meal, line and unit.
+ *
  * A grocery line is shared: two meals needing tomatoes add up into a single
  * "Tomate 5" the shopper reads once. Without this row nothing knows how much
  * of that 5 came from Monday's dinner, so moving or cancelling the dinner left
@@ -24,7 +28,7 @@ use Symfony\Component\Uid\Ulid;
  */
 #[ORM\Entity(repositoryClass: MealGroceryContributionRepository::class)]
 #[ORM\Table(name: 'meal_grocery_contribution')]
-#[ORM\UniqueConstraint(name: 'uniq_meal_grocery_contribution', columns: ['meal_id', 'grocery_item_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_meal_grocery_contribution', columns: ['meal_id', 'grocery_item_id', 'unit'])]
 class MealGroceryContribution
 {
     #[ORM\Id]

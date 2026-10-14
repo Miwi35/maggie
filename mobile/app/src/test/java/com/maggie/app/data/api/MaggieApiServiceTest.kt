@@ -1,5 +1,7 @@
 package com.maggie.app.data.api
 
+import com.maggie.app.data.model.alreadyPlannedLabel
+import com.maggie.app.data.model.packagesTotalLabel
 import com.maggie.app.data.model.toBuyLabel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -495,7 +497,10 @@ class MaggieApiServiceTest {
     private val previewJson = """{"mealId":"m1","groceryChoiceMadeAt":null,"ingredients":[
         {"ingredientId":"rice","name":"Riz","quantity":300,"unit":"g",
          "packaging":{"unit":"pack","size":500,"sizeUnit":"g"},"packagedQuantity":1,
-         "toBuy":{"quantity":1,"unit":"pack"},"converted":true,"stockState":"out","suggested":true},
+         "toBuy":{"quantity":1,"unit":"pack"},"converted":true,"stockState":"out","suggested":true,
+         "onList":{"needed":[{"quantity":300,"unit":"g"}],"packages":1},
+         "otherMeals":[{"mealId":"m0","name":"Bolognaise","date":"2026-10-15","quantity":300,"unit":"g"}],
+         "withThisMeal":{"needed":[{"quantity":600,"unit":"g"}],"packagesTotal":2,"packagesToAdd":1}},
         {"ingredientId":"veg","name":"Légumes pour couscous","quantity":1,"unit":"jar",
          "packaging":{"unit":"jar","size":null,"sizeUnit":null},"packagedQuantity":1,
          "toBuy":{"quantity":1,"unit":"jar"},"converted":true,"stockState":"in_stock","suggested":false}]}"""
@@ -535,6 +540,12 @@ class MaggieApiServiceTest {
         assertEquals(listOf(true, false), preview.ingredients.map { it.suggested })
         assertEquals("1 paquet (500 g)", preview.ingredients[0].toBuyLabel())
         assertEquals("1 bocal", preview.ingredients[1].toBuyLabel())
+        // MAG-380: what is already planned, and the packagings once this meal is added.
+        assertEquals("déjà prévu : 300 g (Bolognaise, jeu.)", preview.ingredients[0].alreadyPlannedLabel())
+        assertEquals("2 paquets au total (+1)", preview.ingredients[0].packagesTotalLabel())
+        // An older payload without the new fields still decodes.
+        assertNull(preview.ingredients[1].alreadyPlannedLabel())
+        assertNull(preview.ingredients[1].packagesTotalLabel())
     }
 
     @Test

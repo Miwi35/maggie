@@ -14,6 +14,8 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Repository\GroceryListRepository;
+use Maggie\Grocery\Service\GroceryLineNeeds;
+use Maggie\Grocery\Service\Needs;
 
 /**
  * Keeps the grocery list in step with the meals that feed it.
@@ -55,18 +57,22 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  * `syncChoice()` add nothing for it, and `release()` takes back what it still
  * held — its unbought share only, a line already in the basket staying as it is.
  *
+ * One line per product (MAG-380): the needs of every meal add up on it, in
+ * base units, and what to buy is counted once on that total
+ * ({@see GroceryLineNeeds}) — 300 g and 500 g of pasta are one line, 800 g, or
+ * 2 packs of 500 g. A contribution is a meal's need of a product in one base
+ * unit; a meal that needs grams and pieces of it holds two.
+ *
  * Nothing is broadcast from here: the list's lines are read from Doctrine's
  * change set, and the projection announces the list once the handler is done.
  */
 class MealGrocerySync
 {
-    /** Below this, a float quantity is nothing left to buy. */
-    private const EPSILON = 0.0001;
-
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly MealGroceryContributionRepository $contributionRepository,
+        private readonly GroceryLineNeeds $lineNeeds,
     ) {
     }
 
@@ -87,9 +93,9 @@ class MealGrocerySync
     /**
      * Makes the list hold exactly the lines the owner chose for this meal.
      *
-     * Each line is a product, a unit — the packaging, or the recipe's when the
-     * product has none — and a quantity; two lines of one product and unit add
-     * up. Whatever the meal held and was not chosen is taken back, a line
+     * Each line is a product, a unit and a quantity — the need, or a count of
+     * packagings when the owner forced one; two lines of one product and base
+     * unit add up. Whatever the meal held and was not chosen is taken back, a line
      * already in the basket excepted. Does not flush: the caller stamps the
      * meal's choice and commits both at once. (A user with no list yet gets
      * one created and committed on the way — an empty list, nothing of the
@@ -106,15 +112,16 @@ class MealGrocerySync
         $wanted = [];
 
         foreach ($chosenLines as $line) {
-            $key = $this->key((string) $line['ingredient']->getId(), $line['unit']);
+            [$quantity, $unit] = Needs::toBase($line['quantity'], $line['unit']);
+            $key = $this->key((string) $line['ingredient']->getId(), $unit);
 
             if (isset($wanted[$key])) {
-                $wanted[$key]['quantity'] += $line['quantity'];
+                $wanted[$key]['quantity'] += $quantity;
 
                 continue;
             }
 
-            $wanted[$key] = $line;
+            $wanted[$key] = ['ingredient' => $line['ingredient'], 'unit' => $unit, 'quantity' => $quantity];
         }
 
         return $this->reconcile($meal, $wanted);
@@ -124,7 +131,7 @@ class MealGrocerySync
      * Take back what the meal no longer wants, adjust what it keeps, add what
      * is missing. Does not flush.
      *
-     * @param array<string, array{ingredient: Ingredient, unit: Unit, quantity: float}> $wanted
+     * @param array<string, array{ingredient: Ingredient, unit: ?Unit, quantity: float}> $wanted
      */
     private function reconcile(Meal $meal, array $wanted): ?GroceryList
     {
@@ -147,6 +154,12 @@ class MealGrocerySync
         // the same rows at the cost of another query.
         $items = $this->itemsOf($list);
         $position = $this->highestPosition($items);
+
+        // A line written before needs were kept learns them from its
+        // contributions now, before this pass changes any of them.
+        foreach ($held as $contribution) {
+            $this->knowNeeds($contribution->getGroceryItem());
+        }
 
         // What the meal no longer needs — a recipe swapped out, an ingredient
         // dropped. Done first, so the lines it still needs are never caught by
@@ -187,16 +200,16 @@ class MealGrocerySync
                 continue;
             }
 
-            $item = $this->findMergeable($items, (string) $line['ingredient']->getId(), $line['unit']);
+            $item = $this->findMergeable($items, (string) $line['ingredient']->getId());
 
             if (null !== $item) {
-                $item->setQuantity(($item->getQuantity() ?? 0.0) + $line['quantity']);
+                $this->knowNeeds($item);
+                $this->lineNeeds->apply($item, $line['quantity'], $line['unit']);
                 $this->keepEarliestBuyAfter($item, $buyAfter);
             } else {
                 $item = new GroceryItem();
                 $item->setProduct($line['ingredient']);
-                $item->setQuantity($line['quantity']);
-                $item->setUnit($line['unit']);
+                $this->lineNeeds->apply($item, $line['quantity'], $line['unit']);
                 $item->setSource(GroceryItemSource::Recipe);
                 $item->setStore($line['ingredient']->getPreferredStore());
                 $item->setBuyAfter($buyAfter);
@@ -266,7 +279,7 @@ class MealGrocerySync
      * Returns the list it touched, or null when there was nothing to take back
      * — there is then nothing to broadcast. Does not flush: the caller commits.
      *
-     * @param list<array{groceryItemId: string, quantity: float}> $released
+     * @param list<array{groceryItemId: string, quantity: float, unit?: ?string}> $released
      */
     public function revoke(array $released): ?GroceryList
     {
@@ -281,7 +294,8 @@ class MealGrocerySync
             }
 
             $list ??= $item->getGroceryList();
-            $this->takeBackShare($item, $share['quantity'], null);
+            $unit = isset($share['unit']) ? Unit::from($share['unit']) : $item->getUnit();
+            $this->takeBackShare($item, $share['quantity'], $unit, null);
         }
 
         $list?->setUpdatedAt(new \DateTimeImmutable());
@@ -355,8 +369,9 @@ class MealGrocerySync
     /** Drops one contribution and subtracts its share from the line it held. */
     private function takeBack(MealGroceryContribution $contribution): void
     {
+        $this->knowNeeds($contribution->getGroceryItem());
         $this->em->remove($contribution);
-        $this->takeBackShare($contribution->getGroceryItem(), $contribution->getQuantity(), $contribution);
+        $this->takeBackShare($contribution->getGroceryItem(), $contribution->getQuantity(), $contribution->getUnit(), $contribution);
     }
 
     /**
@@ -364,7 +379,7 @@ class MealGrocerySync
      * when it still exists, null when it is already gone: every contribution
      * left on the line is then another meal's.
      */
-    private function takeBackShare(GroceryItem $item, float $quantity, ?MealGroceryContribution $own): void
+    private function takeBackShare(GroceryItem $item, float $quantity, ?Unit $unit, ?MealGroceryContribution $own): void
     {
         // Already bought: the shopper carried it home, so the line stays as it
         // is — only the link to the meal goes.
@@ -372,25 +387,22 @@ class MealGrocerySync
             return;
         }
 
-        $remaining = ($item->getQuantity() ?? 0.0) - $quantity;
-        $heldByAnotherMeal = $this->isHeldByAnotherMeal($item, $own);
+        // The cascade has already erased the share a removed meal held: a line
+        // that never learned its needs must count it back in first.
+        $this->knowNeeds($item, null === $own ? [$quantity, $unit] : null);
+        $this->lineNeeds->apply($item, -$quantity, $unit);
 
-        if ($remaining > self::EPSILON) {
-            $item->setQuantity($remaining);
+        $left = $item->getQuantity();
 
-            return;
-        }
-
-        if (!$heldByAnotherMeal && GroceryItemSource::Recipe === $item->getSource()) {
+        if ((null === $left || $left <= Needs::EPSILON)
+            && !$this->isHeldByAnotherMeal($item, $own)
+            && GroceryItemSource::Recipe === $item->getSource()) {
             $item->getGroceryList()->removeItem($item);
             $this->em->remove($item);
-
-            return;
         }
 
-        // A line the user added by hand, or one another meal still needs: it
-        // survives, emptied of this meal's share.
-        $item->setQuantity($heldByAnotherMeal ? 0.0 : null);
+        // Otherwise the line survives: written by the user, or still wanted by
+        // another meal, or holding packagings the user added by hand.
     }
 
     /** Moves a line the meal still needs by the difference, in place. */
@@ -398,17 +410,21 @@ class MealGrocerySync
     {
         $item = $contribution->getGroceryItem();
         $delta = $quantity - $contribution->getQuantity();
-        $contribution->setQuantity($quantity);
 
         // Already in the basket: neither the amount nor the date means
         // anything to the shopper any more.
         if ($item->isChecked()) {
+            $contribution->setQuantity($quantity);
+
             return;
         }
 
-        if (abs($delta) > self::EPSILON) {
-            $item->setQuantity(max(0.0, ($item->getQuantity() ?? 0.0) + $delta));
+        if (abs($delta) > Needs::EPSILON) {
+            $this->knowNeeds($item);
+            $this->lineNeeds->apply($item, $delta, $contribution->getUnit());
         }
+
+        $contribution->setQuantity($quantity);
 
         // A line this meal owns outright follows it: moved three days later,
         // a perishable is bought three days later. Anywhere else — shared
@@ -421,6 +437,32 @@ class MealGrocerySync
         }
 
         $this->keepEarliestBuyAfter($item, $buyAfter);
+    }
+
+    /**
+     * Makes a line that predates the needs know them: a packaged line's come
+     * from the contributions the meals hold on it, a line without packaging
+     * reads its own quantity ({@see GroceryLineNeeds::of()}). `$removed` is a
+     * share already erased from the database that still counts.
+     *
+     * @param array{0: float, 1: ?Unit}|null $removed
+     */
+    private function knowNeeds(GroceryItem $item, ?array $removed = null): void
+    {
+        if (null !== $item->getNeeded() || null === $item->getProduct()?->getPackagingUnit()) {
+            return;
+        }
+
+        $needs = [];
+        foreach ($this->contributionRepository->findByGroceryItem($item) as $contribution) {
+            $needs = Needs::add($needs, $contribution->getQuantity(), $contribution->getUnit());
+        }
+
+        if (null !== $removed) {
+            $needs = Needs::add($needs, $removed[0], $removed[1]);
+        }
+
+        $item->setNeeded($needs);
     }
 
     private function key(string $productId, ?Unit $unit): string
@@ -436,14 +478,15 @@ class MealGrocerySync
     }
 
     /**
-     * The unchecked line this product and unit should join, if any.
+     * The unchecked line this product should join, if any: a product has one
+     * line, whatever the units its needs come in.
      *
      * Checked lines are skipped: adding to something already in the basket
      * would hide the new need.
      *
      * @param GroceryItem[] $items
      */
-    private function findMergeable(array $items, string $productId, Unit $unit): ?GroceryItem
+    private function findMergeable(array $items, string $productId): ?GroceryItem
     {
         foreach ($items as $existing) {
             if ($existing->isChecked()) {
@@ -452,7 +495,7 @@ class MealGrocerySync
 
             $product = $existing->getProduct();
 
-            if (null !== $product && (string) $product->getId() === $productId && $existing->getUnit() === $unit) {
+            if (null !== $product && (string) $product->getId() === $productId) {
                 return $existing;
             }
         }
@@ -462,7 +505,14 @@ class MealGrocerySync
 
     private function isHeldByAnotherMeal(GroceryItem $item, ?MealGroceryContribution $own): bool
     {
+        $uow = $this->em->getUnitOfWork();
+
         foreach ($this->contributionRepository->findByGroceryItem($item) as $other) {
+            // One being taken back in this very pass holds nothing any more.
+            if ($uow->isScheduledForDelete($other)) {
+                continue;
+            }
+
             if (null === $own || (string) $other->getId() !== (string) $own->getId()) {
                 return true;
             }

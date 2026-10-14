@@ -631,7 +631,7 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertSame(1.0, $fresh[0]->getQuantity());
     }
 
-    public function testAnotherUnitMakesANewLineForAProductWithoutPackaging(): void
+    public function testAnotherUnitStaysOnTheSameLineOfAProductWithoutPackaging(): void
     {
         $this->loadMergeFixtures();
 
@@ -639,7 +639,11 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         $flour = $this->itemsOf('Farine');
-        self::assertCount(2, $flour);
+        self::assertCount(1, $flour);
+        self::assertSame(
+            [['quantity' => 500.0, 'unit' => 'g'], ['quantity' => 1.0, 'unit' => 'pack']],
+            $flour[0]->getNeeded(),
+        );
     }
 
     public function testGramsOfAPackagedProductAreAPackagingCountOnItsLine(): void
@@ -738,7 +742,8 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $flour = $this->itemsOf('Farine');
         self::assertCount(1, $flour);
-        self::assertSame(1000.0, $flour[0]->getQuantity());
+        self::assertSame(1.0, $flour[0]->getQuantity());
+        self::assertSame(Unit::Kilogram, $flour[0]->getUnit());
         self::assertNull($flour[0]->getBuyAfter());
     }
 

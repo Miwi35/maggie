@@ -11342,6 +11342,29 @@
                             null
                         ]
                     },
+                    "needed": {
+                        "description": "What the meals (and anything else counted in a quantity) need of the\nproduct, in base units — « 800 g », or « 300 g + 2 pièces ». The line's\n`quantity` is what to buy; this is why. Null until something sets it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    },
                     "checked": {
                         "default": false,
                         "type": "boolean"
@@ -11434,6 +11457,29 @@
                             null
                         ]
                     },
+                    "needed": {
+                        "description": "What the meals (and anything else counted in a quantity) need of the\nproduct, in base units — « 800 g », or « 300 g + 2 pièces ». The line's\n`quantity` is what to buy; this is why. Null until something sets it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    },
                     "checked": {
                         "default": false,
                         "type": "boolean"
@@ -11525,6 +11571,29 @@
                             "jar",
                             null
                         ]
+                    },
+                    "needed": {
+                        "description": "What the meals (and anything else counted in a quantity) need of the\nproduct, in base units — « 800 g », or « 300 g + 2 pièces ». The line's\n`quantity` is what to buy; this is why. Null until something sets it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
                     },
                     "checked": {
                         "default": false,

@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.Need
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import org.junit.Assert.assertEquals
@@ -78,5 +79,27 @@ class GroceryQuantityTest {
         assertEquals("300 g", GroceryItem(label = "Sel", quantity = 300f, unit = CookbookUnit.G).quantityHint())
         assertEquals("2 pièces", GroceryItem(label = "Citron", quantity = 2f, unit = CookbookUnit.PIECE).quantityHint())
         assertNull(GroceryItem(label = "Sel").quantityHint())
+    }
+
+    @Test
+    fun `a line with nothing to adjust shows what the meals need`() {
+        val salt = GroceryItem(label = "Sel", quantity = 300f, unit = CookbookUnit.G, needed = listOf(Need(800.0, "g")))
+        val mixed = GroceryItem(label = "Citron", needed = listOf(Need(300.0, "g"), Need(2.0, "piece")))
+
+        assertEquals("800 g", salt.quantityHint())
+        assertEquals("300 g + 2 pièces", mixed.quantityHint())
+        assertEquals("1,5 kg", GroceryItem(label = "Farine", needed = listOf(Need(1500.0, "g"))).quantityHint())
+        assertNull(salt.neededReminder())
+    }
+
+    @Test
+    fun `a packaged line reminds what the meals need, and only that`() {
+        val packaged = GroceryItem(
+            label = "Riz", product = rice, quantity = 2f, unit = CookbookUnit.PACK, needed = listOf(Need(800.0, "g")),
+        )
+
+        assertEquals("800 g pour les repas", packaged.neededReminder())
+        assertNull(packaged.copy(needed = null).neededReminder())
+        assertNull(packaged.copy(needed = emptyList()).neededReminder())
     }
 }

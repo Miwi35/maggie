@@ -6,7 +6,7 @@ namespace Maggie\Cookbook\Message;
 
 final readonly class RevokeMealGroceriesCommand
 {
-    /** @param list<array{groceryItemId: string, quantity: float}> $contributions what the removed meal had put on the list */
+    /** @param list<array{groceryItemId: string, quantity: float, unit: ?string}> $contributions what the removed meal had put on the list */
     public function __construct(
         public string $mealId,
         public string $userId,

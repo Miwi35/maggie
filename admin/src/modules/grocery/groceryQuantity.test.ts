@@ -6,6 +6,7 @@ import {
   increaseQuantity,
   isPackaged,
   lineUnit,
+  neededLabel,
   packagingContent,
   parseQuantity,
   quantityHint,
@@ -80,5 +81,29 @@ describe('groceryQuantity', () => {
     expect(quantityHint(1, undefined)).toBe('1')
     expect(quantityHint(undefined, 'g')).toBeNull()
     expect(quantityHint(null, 'g')).toBeNull()
+  })
+
+  test('what the meals need reads in grams, kilos, millilitres, litres or its own unit', () => {
+    expect(neededLabel([{ quantity: 800, unit: 'g' }])).toBe('800 g')
+    expect(neededLabel([{ quantity: 1500, unit: 'g' }])).toBe('1,5 kg')
+    expect(neededLabel([{ quantity: 250, unit: 'ml' }])).toBe('250 ml')
+    expect(neededLabel([{ quantity: 2000, unit: 'ml' }])).toBe('2 l')
+    expect(neededLabel([{ quantity: 2, unit: 'piece' }])).toBe('2 pièces')
+    expect(neededLabel([{ quantity: 3, unit: null }])).toBe('3')
+  })
+
+  test('units that cannot be added are joined', () => {
+    expect(
+      neededLabel([
+        { quantity: 300, unit: 'g' },
+        { quantity: 2, unit: 'piece' },
+      ]),
+    ).toBe('300 g + 2 pièces')
+  })
+
+  test('nothing needed, nothing to show', () => {
+    expect(neededLabel(null)).toBeNull()
+    expect(neededLabel(undefined)).toBeNull()
+    expect(neededLabel([])).toBeNull()
   })
 })

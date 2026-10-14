@@ -56,6 +56,22 @@ Maggie\Cookbook\Entity\Recipe:
     servings: 2
     tags: ['poisson']
     user: '@test_user'
+  # The same pasta in three quantities, for the totals of MAG-380.
+  light_pasta:
+    name: Pâtes légères
+    servings: 2
+    tags: ['light']
+    user: '@test_user'
+  big_pasta:
+    name: Pâtes généreuses
+    servings: 6
+    tags: ['big']
+    user: '@test_user'
+  pasta_by_the_piece:
+    name: Pâtes fraîches
+    servings: 2
+    tags: ['fresh']
+    user: '@test_user'
 
 Maggie\Cookbook\Entity\RecipeIngredient:
   ri_pasta_tomato:
@@ -78,6 +94,21 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     ingredient: '@parmesan'
     quantity: 80
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_light_pasta:
+    recipe: '@light_pasta'
+    ingredient: '@pasta_product'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_big_pasta:
+    recipe: '@big_pasta'
+    ingredient: '@pasta_product'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_fresh_pasta:
+    recipe: '@pasta_by_the_piece'
+    ingredient: '@pasta_product'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
   ri_fish_fish:
     recipe: '@fish_dish'
     ingredient: '@fish'

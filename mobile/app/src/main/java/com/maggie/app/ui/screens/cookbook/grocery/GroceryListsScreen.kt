@@ -599,6 +599,14 @@ private fun GroceryItemRow(
                     MaterialTheme.colorScheme.onSurface
                 },
             )
+            item.neededReminder()?.let { reminder ->
+                Text(
+                    text = reminder,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { contentDescription = "Besoin des repas pour ${item.label} : $reminder" },
+                )
+            }
         }
         if (item.id != null && item.isPackaged) {
             QuantityStepper(

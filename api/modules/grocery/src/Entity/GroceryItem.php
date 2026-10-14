@@ -36,6 +36,16 @@ class GroceryItem
     #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
     private ?Unit $unit = null;
 
+    /**
+     * What the meals (and anything else counted in a quantity) need of the
+     * product, in base units — « 800 g », or « 300 g + 2 pièces ». The line's
+     * `quantity` is what to buy; this is why. Null until something sets it.
+     *
+     * @var list<array{quantity: float, unit: ?string}>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $needed = null;
+
     #[ORM\Column(options: ['default' => false])]
     private bool $checked = false;
 
@@ -123,6 +133,20 @@ class GroceryItem
     public function setUnit(?Unit $unit): static
     {
         $this->unit = $unit;
+
+        return $this;
+    }
+
+    /** @return list<array{quantity: float, unit: ?string}>|null */
+    public function getNeeded(): ?array
+    {
+        return $this->needed;
+    }
+
+    /** @param list<array{quantity: float, unit: ?string}>|null $needed */
+    public function setNeeded(?array $needed): static
+    {
+        $this->needed = [] === $needed ? null : $needed;
 
         return $this;
     }

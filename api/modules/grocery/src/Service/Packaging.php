@@ -63,25 +63,39 @@ final class Packaging
     }
 
     /**
-     * The packagings that cover several quantities of one product together,
-     * rounded up once: 300 g and 300 g of rice in 500 g packs are 2 packs. A
-     * quantity that cannot be computed counts as one packaging.
+     * The packagings that cover a product's whole need, rounded up once on the
+     * total: 300 g and 500 g of pasta in 500 g packs are 800 g, so 2 packs, not
+     * 1 + 1. Only the part that can be turned into packagings counts; a need
+     * that cannot be turned into any (pieces of a product sold by the pack of
+     * 500 g) still takes one pack. 0 when nothing is needed, null when the
+     * product has no packaging.
      *
-     * @param iterable<array{0: float|int, 1: Unit}> $quantities quantity, unit
+     * @param list<array{quantity: float, unit: ?string}> $needs
      */
-    public function packagedTotal(Product $product, iterable $quantities): ?int
+    public function packsFor(Product $product, array $needs): ?int
     {
         $packagingUnit = $product->getPackagingUnit();
         if (null === $packagingUnit) {
             return null;
         }
 
-        $total = 0.0;
-        foreach ($quantities as [$quantity, $unit]) {
-            $total += $this->fraction($product, $packagingUnit, (float) $quantity, $unit) ?? 1.0;
+        if ([] === $needs) {
+            return 0;
         }
 
-        return max(1, $this->roundUp($total));
+        $total = 0.0;
+        $convertible = false;
+        foreach ($needs as $need) {
+            $unit = null === $need['unit'] ? $packagingUnit : Unit::from($need['unit']);
+            $fraction = $this->fraction($product, $packagingUnit, (float) $need['quantity'], $unit);
+
+            if (null !== $fraction) {
+                $total += $fraction;
+                $convertible = true;
+            }
+        }
+
+        return $convertible ? max(1, $this->roundUp($total)) : 1;
     }
 
     /** The quantity as a fraction of packagings, null when its unit cannot be turned into them. */

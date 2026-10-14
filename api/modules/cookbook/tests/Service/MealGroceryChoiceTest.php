@@ -65,6 +65,63 @@ class MealGroceryChoiceTest extends KernelTestCase
         self::assertTrue($rice['converted']);
     }
 
+    public function testThePreviewOfTheFirstMealFindsNothingOnTheListYet(): void
+    {
+        $rice = $this->previewOf($this->planMeal('curry'), 'Riz');
+
+        self::assertNull($rice['onList'], 'the only need on the line is this meal\'s own');
+        self::assertSame([], $rice['otherMeals']);
+        self::assertSame(
+            ['needed' => [['quantity' => 300.0, 'unit' => 'g']], 'packagesTotal' => 1, 'packagesToAdd' => 1],
+            $rice['withThisMeal'],
+        );
+    }
+
+    public function testThePreviewOfASecondMealSaysWhatTheListAlreadyHoldsAndTheTotalInPackagings(): void
+    {
+        $this->choose($this->planMeal('curry'), ['rice']);
+        $second = $this->planMealOn('big_rice', '+2 days');
+
+        $rice = $this->previewOf($second, 'Riz');
+
+        // 300 g of the curry are planned; with 500 g, 800 g is two packs: one more.
+        self::assertSame(['needed' => [['quantity' => 300.0, 'unit' => 'g']], 'packages' => 1], $rice['onList']);
+        self::assertCount(1, $rice['otherMeals']);
+        self::assertSame(300.0, $rice['otherMeals'][0]['quantity']);
+        self::assertSame('g', $rice['otherMeals'][0]['unit']);
+        self::assertStringContainsString('curry', $rice['otherMeals'][0]['name']);
+        self::assertSame(
+            ['needed' => [['quantity' => 800.0, 'unit' => 'g']], 'packagesTotal' => 2, 'packagesToAdd' => 1],
+            $rice['withThisMeal'],
+        );
+    }
+
+    public function testThePreviewAnswersTheSameBeforeAndAfterTheMealJoinsTheList(): void
+    {
+        $this->choose($this->planMeal('curry'), ['rice']);
+        $second = $this->planMealOn('big_rice', '+2 days');
+
+        $before = $this->previewOf($second, 'Riz');
+        $this->choose($second, ['rice']);
+        $after = $this->previewOf($second, 'Riz');
+
+        self::assertSame($before['onList'], $after['onList']);
+        self::assertSame($before['withThisMeal'], $after['withThisMeal']);
+        self::assertSame(2, $after['withThisMeal']['packagesTotal']);
+    }
+
+    public function testChoosingTheSecondMealAddsTheMissingPackagingTheSamePreviewAnnounced(): void
+    {
+        $this->choose($this->planMeal('curry'), ['rice']);
+        $second = $this->planMealOn('big_rice', '+2 days');
+        $announced = $this->previewOf($second, 'Riz')['withThisMeal']['packagesTotal'];
+
+        $this->choose($second, ['rice']);
+
+        $rice = array_values(array_filter($this->list(), static fn (array $line) => 'Riz' === $line[0]));
+        self::assertSame([['Riz', (float) $announced, 'pack']], $rice);
+    }
+
     public function testOnlyWhatIsRunningLowIsSuggested(): void
     {
         $mealId = $this->planMeal('curry');
@@ -105,7 +162,7 @@ class MealGroceryChoiceTest extends KernelTestCase
 
         // « Riz — 1 paquet », and not « Riz — 300 g » beside it.
         self::assertSame([['Riz', 1.0, 'pack']], $this->list());
-        self::assertSame([[1.0, 'pack']], $this->contributions());
+        self::assertSame([[300.0, 'g']], $this->contributions());
         self::assertSame(GroceryItemSource::Recipe, $this->item('Riz')->getSource());
     }
 
@@ -193,7 +250,7 @@ class MealGroceryChoiceTest extends KernelTestCase
         // packs, choosing it again asks for the same one and leaves the bought line be.
         self::assertSame([['Riz', 1.0, 'pack']], $this->list());
         self::assertTrue($this->item('Riz')->isChecked());
-        self::assertSame([[1.0, 'pack']], $this->contributions());
+        self::assertSame([[300.0, 'g']], $this->contributions());
     }
 
     public function testAnUncheckedLineOfTheSameProductAndUnitIsJoined(): void
@@ -205,7 +262,7 @@ class MealGroceryChoiceTest extends KernelTestCase
 
         self::assertSame([['Riz', 2.0, 'pack']], $this->list());
         self::assertSame(GroceryItemSource::Manual, $this->item('Riz')->getSource());
-        self::assertSame([[1.0, 'pack']], $this->contributions());
+        self::assertSame([[300.0, 'g']], $this->contributions());
     }
 
     public function testACheckedLineOfTheSameProductAndUnitIsNotJoined(): void
@@ -301,8 +358,13 @@ class MealGroceryChoiceTest extends KernelTestCase
     /** Plans tomorrow's dinner the way it is planned today, and returns its id. */
     private function planMeal(string $recipeRef): string
     {
+        return $this->planMealOn($recipeRef, '+1 day');
+    }
+
+    private function planMealOn(string $recipeRef, string $when): string
+    {
         $envelope = $this->bus()->dispatch(new CreateMealCommand(
-            date: (new \DateTimeImmutable('+1 day', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            date: (new \DateTimeImmutable($when, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
             slot: 'dinner',
             recipeIds: [(string) $this->getFixture($recipeRef)->getId()],
             userId: (string) $this->user()->getId(),

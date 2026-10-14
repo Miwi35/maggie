@@ -40,7 +40,8 @@ import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { QuantityStepper } from './QuantityStepper'
-import { isPackaged, lineUnit, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
+import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
+import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
 
 interface ProductOption {
@@ -64,6 +65,7 @@ interface GroceryItem {
   customLabel?: string
   quantity?: number
   unit?: string
+  needed?: NeededEntry[] | null
   checked: boolean
   source: string
   store?: { id: string; name: string; visitOrder: number }
@@ -222,19 +224,26 @@ function SortableGroceryItem({
           sx={{ flexShrink: 0, mr: 1 }}
         />
         {isPackaged(item.product) ? (
-          <QuantityStepper
-            label={label}
-            quantity={item.quantity}
-            unit={lineUnit(item.product)}
-            packaging={packagingContent(item.product)}
-            disabled={isRemoving}
-            onChange={(quantity) => onQuantityChange(item, quantity)}
-            onInvalid={onQuantityInvalid}
-          />
+          <>
+            {neededLabel(item.needed) && (
+              <Typography variant="caption" color="text.secondary" data-testid="needed-reminder" sx={{ whiteSpace: 'nowrap', mr: 0.5 }}>
+                {neededLabel(item.needed)} pour les repas
+              </Typography>
+            )}
+            <QuantityStepper
+              label={label}
+              quantity={item.quantity}
+              unit={lineUnit(item.product)}
+              packaging={packagingContent(item.product)}
+              disabled={isRemoving}
+              onChange={(quantity) => onQuantityChange(item, quantity)}
+              onInvalid={onQuantityInvalid}
+            />
+          </>
         ) : (
-          quantityHint(item.quantity, item.unit) && (
+          (neededLabel(item.needed) ?? quantityHint(item.quantity, item.unit)) && (
             <Typography variant="caption" color="text.secondary" data-testid="quantity-hint" sx={{ whiteSpace: 'nowrap', mr: 1 }}>
-              {quantityHint(item.quantity, item.unit)}
+              {neededLabel(item.needed) ?? quantityHint(item.quantity, item.unit)}
             </Typography>
           )
         )}

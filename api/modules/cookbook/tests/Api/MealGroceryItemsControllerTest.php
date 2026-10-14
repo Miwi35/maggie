@@ -120,7 +120,7 @@ class MealGroceryItemsControllerTest extends WebTestCase
         self::assertSame(['Riz 1 pack'], $this->list());
         $contributions = $this->em()->getRepository(MealGroceryContribution::class)->findAll();
         self::assertCount(1, $contributions);
-        self::assertSame(1.0, $contributions[0]->getQuantity());
+        self::assertSame(300.0, $contributions[0]->getQuantity());
         self::assertSame($mealId, (string) $contributions[0]->getMeal()->getId());
         self::assertNotNull($this->meal($mealId)->getGroceryChoiceMadeAt());
 
