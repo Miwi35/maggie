@@ -119,6 +119,38 @@ export class GroceryListPage extends AdminShell {
     await expect(this.addDialog).toBeHidden()
   }
 
+  /** The « Liste » and « Récurrents » tabs above the list. */
+  tab(name: 'Liste' | 'Récurrents'): Locator {
+    return this.content.getByRole('tab', { name, exact: true })
+  }
+
+  /** The repeat button of a line, whatever state it is in: the bare icon or the frequency chip. */
+  recurrenceControl(label: string): Locator {
+    return this.line(label).getByRole('button', { name: new RegExp(`^(Rendre ${label} récurrent|Récurrence de ${label} :)`) })
+  }
+
+  /** Picks a frequency (« Non », « Toutes les semaines »…) from a line's repeat menu. */
+  async setLineRecurrence(label: string, choice: string): Promise<void> {
+    await this.recurrenceControl(label).click()
+    await this.page.getByRole('menuitem', { name: choice, exact: true }).click()
+  }
+
+  /** A row of the « Récurrents » tab. */
+  recurringRow(label: string): Locator {
+    return this.content.getByTestId('recurring-item').filter({ hasText: label })
+  }
+
+  /** Opens the « Récurrents » tab. */
+  async openRecurringTab(): Promise<void> {
+    await this.tab('Récurrents').click()
+    await expect(this.content.getByTestId('recurring-tab')).toBeVisible()
+  }
+
+  /** Removes an item from the « Récurrents » tab. */
+  async removeRecurring(label: string): Promise<void> {
+    await this.recurringRow(label).getByRole('button', { name: `Retirer ${label} des articles récurrents` }).click()
+  }
+
   /** Ends the errand and waits for the dialog listing what is left. */
   async endErrand(): Promise<void> {
     await this.endErrandButton.click()

@@ -62,7 +62,7 @@ class GroceryScreenTest {
     @Test
     fun `the list is grouped by shop in visiting order, unassigned last`() {
         val fake = FakeGrocery()
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         assertTopToBottom(
             "Halles du voisin" to compose.onNodeWithText("Halles du voisin"),
@@ -83,7 +83,7 @@ class GroceryScreenTest {
     @Test
     fun `a line to buy after a later day is served but not drawn`() {
         val fake = FakeGrocery()
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         assertTrue(
             "the fixture no longer defers anything",
@@ -102,7 +102,7 @@ class GroceryScreenTest {
     @Test
     fun `ticking a line offers to end the errand at its shop`() {
         val fake = FakeGrocery()
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Câpres", substring = true).performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Cocher les articles").performClick()
@@ -122,7 +122,7 @@ class GroceryScreenTest {
     @Test
     fun `ending the errand carries the bought lines home and offers the rest back`() {
         val fake = FakeGrocery()
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Câpres", substring = true).performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Cocher les articles").performClick()
@@ -158,7 +158,7 @@ class GroceryScreenTest {
     @Test
     fun `removing a selected line asks for a confirmation first`() {
         val fake = FakeGrocery()
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Cornichons", substring = true).performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Supprimer les articles").performClick()
@@ -179,7 +179,7 @@ class GroceryScreenTest {
     @Test
     fun `an empty list says so instead of drawing nothing`() {
         val fake = FakeGrocery(list = Seed.groceryList.copy(items = emptyList()))
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Aucun article dans la liste").assertIsDisplayed()
     }
@@ -193,7 +193,7 @@ class GroceryScreenTest {
     @Test
     fun `a failed load leaves the screen readable`() {
         val fake = FakeGrocery(loadFailure = IllegalStateException("502"))
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Aucun article dans la liste").assertIsDisplayed()
         compose.onNodeWithText("Liste de courses").assertIsDisplayed()
@@ -230,7 +230,7 @@ class GroceryScreenTest {
     @Test
     fun `two taps on plus show 3 paquets and save 3`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("1 paquet").assertIsDisplayed()
         compose.onNodeWithContentDescription("Augmenter la quantité de Riz").performClick()
@@ -245,7 +245,7 @@ class GroceryScreenTest {
     @Test
     fun `a product without packaging shows its quantity as an indication, with no buttons`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("300 g").assertIsDisplayed()
         compose.onNodeWithContentDescription("Augmenter la quantité de Sel").assertDoesNotExist()
@@ -256,7 +256,7 @@ class GroceryScreenTest {
     @Test
     fun `a packaged line shows what one pack holds`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("(500 g)").assertIsDisplayed()
     }
@@ -264,7 +264,7 @@ class GroceryScreenTest {
     @Test
     fun `minus is disabled at the minimum and the line stays`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithContentDescription("Diminuer la quantité de Riz").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Diminuer la quantité de Riz").performClick()
@@ -277,7 +277,7 @@ class GroceryScreenTest {
     @Test
     fun `a quantity typed on the line is saved`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithContentDescription("Modifier la quantité de Riz").performClick()
         compose.onNodeWithContentDescription("Quantité de Riz").performTextReplacement("7")
@@ -313,7 +313,7 @@ class GroceryScreenTest {
     @Test
     fun `a swipe right ticks the line`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         swipeRiceRight()
 
@@ -325,7 +325,7 @@ class GroceryScreenTest {
     @Test
     fun `a swipe left on a ticked line unticks it and opens no deletion`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         swipeRiceRight()
         assertTrue(isRiceChecked(fake))
@@ -340,7 +340,7 @@ class GroceryScreenTest {
     @Test
     fun `a swipe left on an unticked line asks to delete it`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         swipeRiceLeft()
 
@@ -352,7 +352,7 @@ class GroceryScreenTest {
     @Test
     fun `an invalid typed quantity is refused with a message and nothing changes`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithContentDescription("Modifier la quantité de Riz").performClick()
         compose.onNodeWithContentDescription("Quantité de Riz").performTextReplacement("0")

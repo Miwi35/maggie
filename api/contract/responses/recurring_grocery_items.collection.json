@@ -1,0 +1,21 @@
+{
+    "@context": "/api/contexts/RecurringGroceryItem",
+    "@id": "/api/recurring_grocery_items",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/recurring_grocery_items/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "RecurringGroceryItem",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "product": "/api/products/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "quantity": 2,
+            "unit": "pack",
+            "frequency": "weekly",
+            "lastAddedAt": "2099-01-01T00:00:00+00:00",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded Product",
+            "nextDueAt": "2099-01-08"
+        }
+    ]
+}

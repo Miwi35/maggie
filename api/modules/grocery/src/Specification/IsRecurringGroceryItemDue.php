@@ -30,10 +30,25 @@ final readonly class IsRecurringGroceryItemDue
 
     public function isSatisfiedBy(RecurringGroceryItem $item): bool
     {
+        $periodEnd = $this->periodEnd($item);
+
+        return null === $periodEnd || $periodEnd <= $this->day;
+    }
+
+    /** The day the item is next put on the list: the end of its period, or this day when it already is due (the next run takes it). */
+    public function nextDueDayOf(RecurringGroceryItem $item): \DateTimeImmutable
+    {
+        $periodEnd = $this->periodEnd($item);
+
+        return null === $periodEnd || $periodEnd <= $this->day ? $this->day : $periodEnd;
+    }
+
+    private function periodEnd(RecurringGroceryItem $item): ?\DateTimeImmutable
+    {
         $lastAddedAt = $item->getLastAddedAt();
 
         if (null === $lastAddedAt) {
-            return true;
+            return null;
         }
 
         // Both are calendar days: Doctrine hydrates the date at midnight in PHP's
@@ -41,6 +56,6 @@ final readonly class IsRecurringGroceryItemDue
         // comparing the instants would hold a weekly item back a day.
         $lastDay = new \DateTimeImmutable($lastAddedAt->format('Y-m-d'), $this->day->getTimezone());
 
-        return $lastDay->add($item->getFrequency()->interval()) <= $this->day;
+        return $lastDay->add($item->getFrequency()->interval());
     }
 }

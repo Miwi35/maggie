@@ -24,7 +24,9 @@ import com.maggie.app.data.model.MealGroceryIngredient
 import com.maggie.app.data.model.MealGroceryPackaging
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealGroceryToBuy
+import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductStockState
+import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.RulePreview
@@ -51,12 +53,14 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
+import com.maggie.app.data.repository.RecurringGroceryRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
@@ -126,6 +130,9 @@ class FakeGrocery(
     list: GroceryList? = Seed.groceryList,
     private val stores: List<Store> = Seed.stores,
     private val loadFailure: Throwable? = null,
+    private val products: List<Product> = emptyList(),
+    /** The recurring items beside the list; the screen takes [FakeRecurring.viewModel]. */
+    val recurring: FakeRecurring = FakeRecurring(),
 ) {
     private val listId = list?.id
     private val current = list?.items.orEmpty().toMutableList()
@@ -143,7 +150,7 @@ class FakeGrocery(
             loadFailure?.let { return@answers Result.failure(it) }
             Result.success(listId?.let { GroceryList(id = it, items = current.toList()) })
         }
-        coEvery { productRepository.getProducts() } returns Result.success(emptyList())
+        coEvery { productRepository.getProducts() } returns Result.success(products)
         coEvery { storeRepository.getStores() } returns Result.success(stores)
 
         coEvery { groceryListRepository.checkItem(any(), any()) } answers {
@@ -201,6 +208,47 @@ class FakeGrocery(
     ) {
         val index = current.indexOfFirst { it.id == itemId }
         if (index >= 0) current[index] = transform(current[index])
+    }
+}
+
+/**
+ * The recurring items the server keeps, as a small in-memory server: a create adds one, a patch changes
+ * its frequency, a delete removes it — [items] is the database half of an assertion (MAG-369).
+ */
+class FakeRecurring(
+    initial: List<RecurringGroceryItem> = emptyList(),
+    private val products: List<Product> = emptyList(),
+) {
+    private val current = initial.toMutableList()
+
+    val items: List<RecurringGroceryItem> get() = current.toList()
+
+    val viewModel: RecurringGroceryViewModel by lazy {
+        val (auth, mercure) = signedIn()
+        val repository = mockk<RecurringGroceryRepository>()
+        coEvery { repository.getRecurringItems() } answers { Result.success(current.toList()) }
+        coEvery { repository.createForProduct(any(), any()) } answers {
+            val productId = firstArg<String>()
+            val created = RecurringGroceryItem(
+                id = "recurring-${current.size + 1}",
+                product = "/api/products/$productId",
+                label = products.firstOrNull { it.id == productId }?.name ?: productId,
+                frequency = secondArg(),
+                nextDueAt = "2026-10-20",
+            )
+            current.add(created)
+            Result.success(created)
+        }
+        coEvery { repository.updateFrequency(any(), any()) } answers {
+            val index = current.indexOfFirst { it.id == firstArg<String>() }
+            current[index] = current[index].copy(frequency = secondArg())
+            Result.success(current[index])
+        }
+        coEvery { repository.delete(any()) } answers {
+            current.removeAll { it.id == firstArg<String>() }
+            Result.success(Unit)
+        }
+        RecurringGroceryViewModel(repository, mercure, auth)
     }
 }
 

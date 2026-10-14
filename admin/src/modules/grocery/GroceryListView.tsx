@@ -39,7 +39,15 @@ import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import { QuantityStepper } from './QuantityStepper'
+import { LineRecurrence } from './LineRecurrence'
+import { RecurringTab } from './RecurringTab'
+import { formatBuyAfter } from './groceryDates'
+import { RECURRING_TOPIC, bareId, isRecurringUpdate } from './recurring'
+import type { Frequency } from './recurring'
+import { useRecurringItems } from './useRecurringItems'
 import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
@@ -61,7 +69,7 @@ interface GroceryItem {
   id: string
   '@id': string
   label: string
-  product?: PackagedProduct | null
+  product?: (PackagedProduct & { id?: string; '@id'?: string }) | null
   customLabel?: string
   quantity?: number
   unit?: string
@@ -110,16 +118,19 @@ const localToday = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 const isDeferred = (item: GroceryItem, today: string) => !!item.buyAfter && item.buyAfter.slice(0, 10) > today
-const formatBuyAfter = (buyAfter: string) => {
-  const [y, m, d] = buyAfter.slice(0, 10).split('-')
-  return `${d}/${m}/${y}`
-}
 
 // Taps on − / + within this delay become one request.
 const QUANTITY_SAVE_DELAY_MS = 400
 
-const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
+// One stream for both: the page already holds five, and a browser allows six per origin.
+const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}', RECURRING_TOPIC]
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
+
+// The product behind a line, as the bare ULID the recurring items point at (REST sends an `@id`, Mercure an `id`).
+const productIdOf = (item: GroceryItem): string | null => {
+  const raw = item.product?.['@id'] ?? item.product?.id
+  return raw ? bareId(raw) : null
+}
 
 // A line's own `@id` is an anonymous node (`GroceryItem` is no ApiResource): only its id routes.
 const itemUrl = (item: GroceryItem) => `${entrypoint}/grocery_items/${item.id}`
@@ -133,6 +144,7 @@ function SortableGroceryItem({
   onDelete,
   onQuantityChange,
   onQuantityInvalid,
+  recurrence,
   isDragDisabled,
 }: {
   item: GroceryItem
@@ -143,6 +155,8 @@ function SortableGroceryItem({
   onDelete: (item: GroceryItem) => void
   onQuantityChange: (item: GroceryItem, quantity: number) => void
   onQuantityInvalid: () => void
+  /** Only a line with a product can come back by itself. */
+  recurrence?: { frequency: Frequency | null; onChange: (frequency: Frequency | null) => void }
   isDragDisabled: boolean
 }) {
   const isRemoving = removingIds.has(item.id)
@@ -165,7 +179,8 @@ function SortableGroceryItem({
     // the lines. The e2e journeys (MAG-101) address a line by this id and read
     // the order of the shop's own aisles from `data-store`.
     // Under 600px the line takes two rows (MAG-387): handle, tick and name, then
-    // badge, quantity and trash — all in the flow, nothing over the name.
+    // badge, quantity and trash — all in the flow, nothing over the name. The
+    // recurrence icon sits on the first row, after the name: the second is full.
     <ListItem
       ref={setNodeRef}
       style={style}
@@ -206,6 +221,15 @@ function SortableGroceryItem({
           }}
         />
       </ListItemButton>
+      {recurrence && compact && (
+        <LineRecurrence
+          label={label}
+          frequency={recurrence.frequency}
+          disabled={isRemoving}
+          iconOnly
+          onChange={recurrence.onChange}
+        />
+      )}
       <Box
         data-testid="grocery-item-controls"
         sx={{
@@ -223,6 +247,14 @@ function SortableGroceryItem({
           variant="outlined"
           sx={{ flexShrink: 0, mr: 1 }}
         />
+        {recurrence && !compact && (
+          <LineRecurrence
+            label={label}
+            frequency={recurrence.frequency}
+            disabled={isRemoving}
+            onChange={recurrence.onChange}
+          />
+        )}
         {isPackaged(item.product) ? (
           <>
             {neededLabel(item.needed) && (
@@ -260,9 +292,6 @@ function SortableGroceryItem({
     </ListItem>
   )
 }
-
-// The Hydra data provider puts the IRI (`/api/stores/01M3…`) in `record.id`; the API wants the bare ULID.
-const bareId = (id: string) => id.split('/').pop() ?? id
 
 export const GroceryListView = () => {
   const dataProvider = useDataProvider()
@@ -365,7 +394,19 @@ export const GroceryListView = () => {
     },
     [fetchList],
   )
-  useMercure(GROCERY_LIST_TOPICS, handleMercure)
+  const recurring = useRecurringItems({ live: false })
+  const reloadRecurring = recurring.reload
+  useMercure(
+    GROCERY_LIST_TOPICS,
+    useCallback(
+      (data?: string) => {
+        if (isRecurringUpdate(data)) reloadRecurring()
+        else handleMercure(data)
+      },
+      [handleMercure, reloadRecurring],
+    ),
+  )
+  const [tab, setTab] = useState<'list' | 'recurring'>('list')
 
   // Fetch products & stores when add dialog opens
   useEffect(() => {
@@ -708,6 +749,17 @@ export const GroceryListView = () => {
     })
   }
 
+  const recurrenceOf = (item: GroceryItem) => {
+    const productId = productIdOf(item)
+    if (!productId) return undefined
+    return {
+      frequency: recurring.byProduct.get(productId)?.frequency ?? null,
+      onChange: (frequency: Frequency | null) => {
+        recurring.setProductFrequency(productId, frequency)
+      },
+    }
+  }
+
   // dnd-kit sensors
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -821,13 +873,20 @@ export const GroceryListView = () => {
       <Title title="Courses" />
 
       <Paper sx={{ p: { xs: 1, md: 2 } }}>
-        {loading && !groceryList && (
+        <Tabs value={tab} onChange={(_e, value) => setTab(value)} sx={{ mb: 2 }}>
+          <Tab label="Liste" value="list" />
+          <Tab label="Récurrents" value="recurring" />
+        </Tabs>
+
+        {tab === 'recurring' && <RecurringTab recurring={recurring} />}
+
+        {tab === 'list' && loading && !groceryList && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {groceryList && (
+        {tab === 'list' && groceryList && (
           <>
             {/* Wraps rather than overflows: the title and the two actions are
                 320px of content on a 393px screen once the padding is paid. */}
@@ -921,6 +980,7 @@ export const GroceryListView = () => {
                               onDelete={askDeleteItem}
                               onQuantityChange={handleQuantityChange}
                               onQuantityInvalid={handleQuantityInvalid}
+                              recurrence={recurrenceOf(item)}
                               isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
                             />
                           ))}
@@ -977,7 +1037,7 @@ export const GroceryListView = () => {
           </>
         )}
 
-        {!loading && !groceryList && (
+        {tab === 'list' && !loading && !groceryList && (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             Aucune liste. Demandez à Maggie d'en créer une !
           </Typography>

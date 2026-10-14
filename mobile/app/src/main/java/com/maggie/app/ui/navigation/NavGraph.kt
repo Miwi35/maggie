@@ -86,6 +86,7 @@ import com.maggie.app.ui.screens.cookbook.CookbookScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.ItemDetailContent
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
@@ -402,6 +403,7 @@ fun NavGraph() {
     val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
     val subtasksViewModel: SubtasksViewModel = koinViewModel()
+    val recurringGroceryViewModel: RecurringGroceryViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showContextSheet by rememberSaveable { mutableStateOf(false) }
@@ -1049,6 +1051,7 @@ fun NavGraph() {
                 }
                 composable(Screen.Grocery.route) {
                     val groceryState by groceryViewModel.uiState.collectAsState()
+                    val recurringState by recurringGroceryViewModel.uiState.collectAsState()
                     // Resolved on every state: an item deleted or changed elsewhere is not edited from a stale copy.
                     val paneItem = groceryPaneItemId?.let { id ->
                         (groceryState.groceryList?.items.orEmpty() + groceryState.laterItems).firstOrNull { it.id == id }
@@ -1059,6 +1062,7 @@ fun NavGraph() {
                             Box(Modifier.fillMaxSize().testTag(UiTags.GROCERY)) {
                                 GroceryScreen(
                                     viewModel = groceryViewModel,
+                                    recurringViewModel = recurringGroceryViewModel,
                                     openItemId = groceryItemToOpen,
                                     onOpenItemHandled = { groceryItemToOpen = null },
                                     onNavigateToProducts = {
@@ -1090,6 +1094,10 @@ fun NavGraph() {
                                             groceryPaneItemId = null
                                         },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
+                                        recurring = recurringState.forProduct(item.product?.id)?.frequency,
+                                        onRecurringChange = item.product?.id?.let { productId ->
+                                            { frequency -> recurringGroceryViewModel.setFrequency(productId, frequency) }
+                                        },
                                     )
                                 }
                             }
@@ -1101,6 +1109,7 @@ fun NavGraph() {
                     val productViewModel: ProductViewModel = koinViewModel()
                     ProductListScreen(
                         viewModel = productViewModel,
+                        recurringViewModel = recurringGroceryViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

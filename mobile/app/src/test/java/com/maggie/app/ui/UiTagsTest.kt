@@ -1,5 +1,7 @@
 package com.maggie.app.ui
 
+import com.maggie.app.data.model.RecurringFrequency
+import com.maggie.app.data.model.apiValue
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -49,5 +51,13 @@ class UiTagsTest {
     fun `a rail entry is suffixed by its route, under its own prefix`() {
         assertEquals("rail_grocery", UiTags.railItem("grocery"))
         assertEquals("rail_settings", UiTags.railItem("settings"))
+    }
+
+    /** `recurring_option_weekly` in `e2e/mobile/flows/15-recurring-grocery.yaml` is the API's spelling of the frequency. */
+    @Test
+    fun `a recurring option is suffixed by the frequency's API value`() {
+        assertEquals("recurring_option_weekly", UiTags.recurringOption(RecurringFrequency.WEEKLY.apiValue()))
+        assertEquals("recurring_option_biweekly", UiTags.recurringOption(RecurringFrequency.BIWEEKLY.apiValue()))
+        assertEquals("recurring_option_none", UiTags.recurringOption("none"))
     }
 }

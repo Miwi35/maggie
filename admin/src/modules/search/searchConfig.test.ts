@@ -53,7 +53,7 @@ describe('getResultPath', () => {
     ['tasks', `/tasks/${encodeURIComponent('/api/tasks/01ABC')}/show`],
     ['products', `/products/${encodeURIComponent('/api/products/01ABC')}/show`],
     ['agendas', `/agendas/${encodeURIComponent('/api/agendas/01ABC')}/show`],
-    ['recurring_grocery_items', `/recurring_grocery_items/${encodeURIComponent('/api/recurring_grocery_items/01ABC')}/show`],
+    ['recurring_grocery_items', '/grocery'],
     ['grocery_lists', '/grocery'],
     ['notifications', '/'],
     ['users', '/settings/preferences'],

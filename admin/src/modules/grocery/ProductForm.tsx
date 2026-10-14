@@ -12,6 +12,7 @@ import Box from '@mui/material/Box'
 import { FormSection } from '../../components/form/FormSection'
 import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productChoices'
 import { PackagingInputs } from './PackagingInputs'
+import { ProductRecurrence } from './ProductRecurrence'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -114,5 +115,7 @@ export const ProductForm = () => (
       defaultValue={false}
       helperText="Quand il manque, il retourne sur la liste de courses sans que vous le demandiez."
     />
+
+    <ProductRecurrence />
   </SimpleForm>
 )

@@ -180,7 +180,8 @@ describe('Breadcrumbs', () => {
 })
 
 describe('the menu and the breadcrumb agree', () => {
-  test('every route the menu offers has a trail', async () => {
+  /** The menu with every group opened, nested ones included, and the routes it offers. */
+  const openWholeMenu = async () => {
     const user = userEvent.setup()
     const { container } = render(
       <MemoryRouter initialEntries={['/']}>
@@ -190,7 +191,6 @@ describe('the menu and the breadcrumb agree', () => {
       </MemoryRouter>,
     )
 
-    // Open every group, nested ones included, until none is left folded.
     for (let guard = 0; guard < 10; guard++) {
       const folded = screen.queryAllByTestId('ExpandMoreIcon')
       if (folded.length === 0) {
@@ -201,14 +201,25 @@ describe('the menu and the breadcrumb agree', () => {
       }
     }
 
-    const hrefs = Array.from(container.querySelectorAll('a[href]')).map(
-      (link) => link.getAttribute('href') as string,
-    )
+    return Array.from(container.querySelectorAll('a[href]')).map((link) => link.getAttribute('href') as string)
+  }
+
+  test('every route the menu offers has a trail', async () => {
+    const hrefs = await openWholeMenu()
     expect(hrefs.length).toBeGreaterThan(15)
 
     for (const href of hrefs) {
       expect(resolveTrail(href), `${href} has no breadcrumb`).not.toHaveLength(0)
     }
+  })
+
+  test('the recurring grocery items are a tab of the list, not an entry of the menu', async () => {
+    const hrefs = await openWholeMenu()
+
+    expect(screen.queryByText('Articles récurrents')).toBeNull()
+    expect(hrefs.some((href) => href.includes('recurring_grocery_items'))).toBe(false)
+    expect(hrefs.some((href) => href.endsWith('/grocery'))).toBe(true)
+    expect(NAVIGATION.flatMap((module) => module.parts).some((part) => part.resource === 'recurring_grocery_items')).toBe(false)
   })
 
   test('every part of the table resolves to its own two-level trail', () => {

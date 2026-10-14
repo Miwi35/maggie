@@ -62,7 +62,9 @@ import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.TtsVoice
+import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.RecurringGroceryItem
+import com.maggie.app.data.model.apiValue
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.User
@@ -1066,6 +1068,14 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
             setBody(request)
+        }.body()
+    }
+
+    suspend fun updateRecurringGroceryItemFrequency(id: String, frequency: RecurringFrequency): RecurringGroceryItem {
+        return client.patch("$baseUrl/api/recurring_grocery_items/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("frequency", frequency.apiValue()) })
         }.body()
     }
 

@@ -356,6 +356,8 @@ web:
     areas: [grocery]
   e2e/web/tests/grocery-product-store.spec.ts:
     areas: [grocery]
+  e2e/web/tests/grocery-recurring.spec.ts:
+    areas: [grocery, realtime]
   e2e/web/tests/grocery-stock.spec.ts:
     areas: [grocery, cookbook, realtime]
   e2e/web/tests/grocery-stock-chat.spec.ts:
@@ -447,6 +449,8 @@ mobile:
       since: 2026-10-08
       reason: Red then green on a re-run with no change (7-8 Oct.).
   e2e/mobile/flows/08-grocery-realtime.yaml:
+    areas: [grocery, realtime]
+  e2e/mobile/flows/15-recurring-grocery.yaml:
     areas: [grocery, realtime]
   e2e/mobile/flows/09-finance-banks.yaml:
     areas: [finance]

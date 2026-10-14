@@ -44,7 +44,8 @@ fun ProductPickerDialog(
     products: List<Product>,
     initialQuery: String = "",
     onSelectProduct: (Product) -> Unit,
-    onSelectCustomLabel: (String) -> Unit,
+    /** null hides the « Utiliser … » row: the caller needs a real product (the recurring items). */
+    onSelectCustomLabel: ((String) -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf(initialQuery) }
@@ -93,7 +94,7 @@ fun ProductPickerDialog(
                 )
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (searchQuery.isNotBlank()) {
+                    if (onSelectCustomLabel != null && searchQuery.isNotBlank()) {
                         item {
                             Row(
                                 modifier = Modifier

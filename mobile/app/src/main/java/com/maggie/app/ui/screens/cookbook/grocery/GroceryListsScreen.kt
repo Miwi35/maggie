@@ -53,8 +53,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,12 +69,14 @@ import androidx.compose.ui.unit.dp
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.ui.theme.MaggieTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroceryScreen(
     viewModel: GroceryViewModel,
+    recurringViewModel: RecurringGroceryViewModel,
     onNavigateToProducts: () -> Unit = {},
     onNavigateToStores: () -> Unit = {},
     openItemId: String? = null,
@@ -81,6 +85,9 @@ fun GroceryScreen(
     onOpenItemInPane: ((GroceryItem) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val recurringState by recurringViewModel.uiState.collectAsState()
+    // The screen opens on the list; the recurring items are one tap away (MAG-369).
+    var selectedTab by rememberSaveable { mutableIntStateOf(TAB_LIST) }
     var menuExpanded by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
@@ -116,7 +123,7 @@ fun GroceryScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (!uiState.isSelecting) {
+            if (selectedTab == TAB_LIST && !uiState.isSelecting) {
                 FloatingActionButton(onClick = { viewModel.showAddSheet() }) {
                     Icon(Icons.Default.Add, contentDescription = "Ajouter un article")
                 }
@@ -185,151 +192,162 @@ fun GroceryScreen(
                 }
             }
 
-            // Main content with pull-to-refresh
-            PullToRefreshBox(
-                isRefreshing = uiState.isLoading,
-                onRefresh = { viewModel.refresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                when {
-                    uiState.isLoading && uiState.groceryList == null -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                    uiState.groceryList == null || (uiState.storeGroups.isEmpty() && uiState.laterItems.isEmpty()) -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                "Aucun article dans la liste",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    else -> {
-                        val lazyListState = rememberLazyListState()
-                        var laterExpanded by remember { mutableStateOf(false) }
-                        val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-                            // Find which store group these items belong to
-                            val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
-                            val toKey = to.key as? String ?: return@rememberReorderableLazyListState
+            GroceryTabs(selected = selectedTab, onSelect = { selectedTab = it })
 
-                            // Only allow reorder within same store group
-                            val fromStoreKey = fromKey.substringBefore("|")
-                            val toStoreKey = toKey.substringBefore("|")
-                            if (fromStoreKey != toStoreKey) return@rememberReorderableLazyListState
-
-                            val group = uiState.storeGroups.find {
-                                (it.store?.id ?: "__unassigned__") == fromStoreKey
-                            } ?: return@rememberReorderableLazyListState
-                            val fromId = fromKey.substringAfter("|")
-                            val toId = toKey.substringAfter("|")
-                            val fromIdx = group.items.indexOfFirst { it.id == fromId }
-                            val toIdx = group.items.indexOfFirst { it.id == toId }
-                            if (fromIdx != -1 && toIdx != -1) {
-                                viewModel.moveItem(fromStoreKey, fromIdx, toIdx)
+            if (selectedTab == TAB_RECURRING) {
+                RecurringGroceryTab(
+                    viewModel = recurringViewModel,
+                    products = uiState.products,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                // Main content with pull-to-refresh
+                PullToRefreshBox(
+                    isRefreshing = uiState.isLoading,
+                    onRefresh = { viewModel.refresh() },
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    when {
+                        uiState.isLoading && uiState.groceryList == null -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
                             }
                         }
+                        uiState.groceryList == null || (uiState.storeGroups.isEmpty() && uiState.laterItems.isEmpty()) -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    "Aucun article dans la liste",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        else -> {
+                            val lazyListState = rememberLazyListState()
+                            var laterExpanded by remember { mutableStateOf(false) }
+                            val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                                // Find which store group these items belong to
+                                val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
+                                val toKey = to.key as? String ?: return@rememberReorderableLazyListState
 
-                        LazyColumn(
-                            state = lazyListState,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            uiState.storeGroups.forEach { group ->
-                                val storeId = group.store?.id
-                                val storeKey = storeId ?: "__unassigned__"
-                                val storeName = group.store?.name ?: "Non assign\u00e9"
-                                val groupHasChecked = group.items.any { it.checked }
-                                item(key = "header-$storeKey") {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp, bottom = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = storeName,
-                                            style = MaterialTheme.typography.titleSmall,
-                                        )
-                                        if (groupHasChecked && storeId != null && !uiState.isSelecting) {
-                                            TextButton(onClick = {
-                                                viewModel.finishStore(storeId, storeName)
-                                            }) {
-                                                Icon(
-                                                    Icons.Default.CheckCircle,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                )
-                                                Spacer(Modifier.width(4.dp))
-                                                Text("Termin\u00e9")
+                                // Only allow reorder within same store group
+                                val fromStoreKey = fromKey.substringBefore("|")
+                                val toStoreKey = toKey.substringBefore("|")
+                                if (fromStoreKey != toStoreKey) return@rememberReorderableLazyListState
+
+                                val group = uiState.storeGroups.find {
+                                    (it.store?.id ?: "__unassigned__") == fromStoreKey
+                                } ?: return@rememberReorderableLazyListState
+                                val fromId = fromKey.substringAfter("|")
+                                val toId = toKey.substringAfter("|")
+                                val fromIdx = group.items.indexOfFirst { it.id == fromId }
+                                val toIdx = group.items.indexOfFirst { it.id == toId }
+                                if (fromIdx != -1 && toIdx != -1) {
+                                    viewModel.moveItem(fromStoreKey, fromIdx, toIdx)
+                                }
+                            }
+
+                            LazyColumn(
+                                state = lazyListState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                uiState.storeGroups.forEach { group ->
+                                    val storeId = group.store?.id
+                                    val storeKey = storeId ?: "__unassigned__"
+                                    val storeName = group.store?.name ?: "Non assign\u00e9"
+                                    val groupHasChecked = group.items.any { it.checked }
+                                    item(key = "header-$storeKey") {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp, bottom = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = storeName,
+                                                style = MaterialTheme.typography.titleSmall,
+                                            )
+                                            if (groupHasChecked && storeId != null && !uiState.isSelecting) {
+                                                TextButton(onClick = {
+                                                    viewModel.finishStore(storeId, storeName)
+                                                }) {
+                                                    Icon(
+                                                        Icons.Default.CheckCircle,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp),
+                                                    )
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text("Termin\u00e9")
+                                                }
                                             }
                                         }
+                                        HorizontalDivider()
                                     }
-                                    HorizontalDivider()
+                                    items(
+                                        group.items,
+                                        key = { "$storeKey|${it.id ?: it.hashCode()}" },
+                                    ) { groceryItem ->
+                                        ReorderableItem(
+                                            reorderableLazyListState,
+                                            key = "$storeKey|${groceryItem.id ?: groceryItem.hashCode()}",
+                                        ) { isDragging ->
+                                            SwipeableGroceryItem(
+                                                item = groceryItem,
+                                                isSelecting = uiState.isSelecting,
+                                                isSelected = groceryItem.id in uiState.selectedIds,
+                                                isDragging = isDragging,
+                                                onSwipeRight = {
+                                                    if (!groceryItem.checked) {
+                                                        viewModel.toggleItemChecked(groceryItem)
+                                                    }
+                                                },
+                                                onSwipeLeft = {
+                                                    if (groceryItem.checked) {
+                                                        viewModel.toggleItemChecked(groceryItem)
+                                                    } else {
+                                                        itemPendingDelete = groceryItem
+                                                    }
+                                                },
+                                                onLongPress = {
+                                                    groceryItem.id?.let { viewModel.startSelection(it) }
+                                                },
+                                                onTap = {
+                                                    if (uiState.isSelecting) {
+                                                        groceryItem.id?.let { viewModel.toggleSelection(it) }
+                                                    } else {
+                                                        openDetail(groceryItem)
+                                                    }
+                                                },
+                                                    recurring = recurringState.forProduct(groceryItem.product?.id)?.frequency,
+                                                onIncrement = { viewModel.incrementQuantity(groceryItem) },
+                                                onDecrement = { viewModel.decrementQuantity(groceryItem) },
+                                                onSetQuantity = { viewModel.setQuantity(groceryItem, it) },
+                                                dragModifier = if (!uiState.isSelecting) {
+                                                    Modifier.draggableHandle()
+                                                } else {
+                                                    Modifier
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
-                                items(
-                                    group.items,
-                                    key = { "$storeKey|${it.id ?: it.hashCode()}" },
-                                ) { groceryItem ->
-                                    ReorderableItem(
-                                        reorderableLazyListState,
-                                        key = "$storeKey|${groceryItem.id ?: groceryItem.hashCode()}",
-                                    ) { isDragging ->
-                                        SwipeableGroceryItem(
-                                            item = groceryItem,
-                                            isSelecting = uiState.isSelecting,
-                                            isSelected = groceryItem.id in uiState.selectedIds,
-                                            isDragging = isDragging,
-                                            onSwipeRight = {
-                                                if (!groceryItem.checked) {
-                                                    viewModel.toggleItemChecked(groceryItem)
-                                                }
-                                            },
-                                            onSwipeLeft = {
-                                                if (groceryItem.checked) {
-                                                    viewModel.toggleItemChecked(groceryItem)
-                                                } else {
-                                                    itemPendingDelete = groceryItem
-                                                }
-                                            },
-                                            onLongPress = {
-                                                groceryItem.id?.let { viewModel.startSelection(it) }
-                                            },
-                                            onTap = {
-                                                if (uiState.isSelecting) {
-                                                    groceryItem.id?.let { viewModel.toggleSelection(it) }
-                                                } else {
-                                                    openDetail(groceryItem)
-                                                }
-                                            },
-                                            onIncrement = { viewModel.incrementQuantity(groceryItem) },
-                                            onDecrement = { viewModel.decrementQuantity(groceryItem) },
-                                            onSetQuantity = { viewModel.setQuantity(groceryItem, it) },
-                                            dragModifier = if (!uiState.isSelecting) {
-                                                Modifier.draggableHandle()
-                                            } else {
-                                                Modifier
-                                            },
+                                if (uiState.laterItems.isNotEmpty()) {
+                                    item(key = "later-header") {
+                                        LaterSectionHeader(
+                                            count = uiState.laterItems.size,
+                                            expanded = laterExpanded,
+                                            onClick = { laterExpanded = !laterExpanded },
                                         )
                                     }
-                                }
-                            }
-                            if (uiState.laterItems.isNotEmpty()) {
-                                item(key = "later-header") {
-                                    LaterSectionHeader(
-                                        count = uiState.laterItems.size,
-                                        expanded = laterExpanded,
-                                        onClick = { laterExpanded = !laterExpanded },
-                                    )
-                                }
-                                if (laterExpanded) {
-                                    items(
-                                        uiState.laterItems,
-                                        key = { "later|${it.id ?: it.hashCode()}" },
-                                    ) { laterItem ->
-                                        LaterItemRow(laterItem)
+                                    if (laterExpanded) {
+                                        items(
+                                            uiState.laterItems,
+                                            key = { "later|${it.id ?: it.hashCode()}" },
+                                        ) { laterItem ->
+                                            LaterItemRow(laterItem)
+                                        }
                                     }
                                 }
                             }
@@ -365,6 +383,10 @@ fun GroceryScreen(
                 detailItem = null
             },
             onDismiss = { detailItem = null },
+            recurring = recurringState.forProduct(item.product?.id)?.frequency,
+            onRecurringChange = item.product?.id?.let { productId ->
+                { frequency -> recurringViewModel.setFrequency(productId, frequency) }
+            },
         )
     }
 
@@ -442,6 +464,7 @@ private fun SwipeableGroceryItem(
     onSwipeLeft: () -> Unit,
     onLongPress: () -> Unit,
     onTap: () -> Unit,
+    recurring: RecurringFrequency?,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onSetQuantity: (String) -> Unit,
@@ -452,6 +475,7 @@ private fun SwipeableGroceryItem(
             item = item,
             isSelected = isSelected,
             isDragging = isDragging,
+            recurring = recurring,
             onIncrement = onIncrement,
             onDecrement = onDecrement,
             onSetQuantity = onSetQuantity,
@@ -553,6 +577,7 @@ private fun GroceryItemRow(
     item: GroceryItem,
     isSelected: Boolean = false,
     isDragging: Boolean = false,
+    recurring: RecurringFrequency? = null,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onSetQuantity: (String) -> Unit,
@@ -599,6 +624,7 @@ private fun GroceryItemRow(
                     MaterialTheme.colorScheme.onSurface
                 },
             )
+            recurring?.let { RecurringIndicator(it) }
             item.neededReminder()?.let { reminder ->
                 Text(
                     text = reminder,
