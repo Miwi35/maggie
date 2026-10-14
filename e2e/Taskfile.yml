@@ -419,7 +419,7 @@ tasks:
       - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
       # CLI_ARGS is global in Task: it reaches every task called with `- task:`,
       # and `seed` passes it to app:e2e:seed. Left alone, `task e2e:eval --
-      # --report …` — what the nightly `eval` job always runs — dies on "The --report option
+      # --report …` — what the on-demand `eval` job always runs — dies on "The --report option
       # does not exist", before the agent is ever flipped to the real model.
       - task: seed
         vars:
