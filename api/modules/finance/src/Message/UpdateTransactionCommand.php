@@ -17,7 +17,7 @@ final readonly class UpdateTransactionCommand
      * `repaysTransactionId` points the debit leg of a `repayment` at the advance
      * it gives back.
      *
-     * @param list<'categoryId'|'transferKind'|'recurringOperation'> $clearFields
+     * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'> $clearFields
      */
     public function __construct(
         public string $userId,
@@ -38,6 +38,7 @@ final readonly class UpdateTransactionCommand
         public ?string $repaysTransactionId = null,
         public ?string $recurringOperationId = null,
         public ?string $recurringOccurrenceOn = null,
+        public ?string $note = null,
         public array $clearFields = [],
     ) {
     }

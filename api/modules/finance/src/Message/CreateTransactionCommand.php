@@ -16,6 +16,7 @@ final readonly class CreateTransactionCommand
         public string $currency = 'EUR',
         public bool $isExceptional = false,
         public ?string $categoryId = null,
+        public ?string $note = null,
     ) {
     }
 }

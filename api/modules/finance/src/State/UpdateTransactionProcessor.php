@@ -54,6 +54,10 @@ class UpdateTransactionProcessor implements ProcessorInterface
         if ($recurringChanged && null === $series) {
             $clearFields[] = 'recurringOperation';
         }
+        // The merged line carries the note whether or not the PATCH named it: null is an explicit clear.
+        if (null === $data->getNote()) {
+            $clearFields[] = 'note';
+        }
 
         $envelope = $this->dispatch(new UpdateTransactionCommand(
             userId: (string) $data->getUser()->getId(),
@@ -70,6 +74,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             recurringOperationId: $recurringChanged && null !== $series ? (string) $series->getId() : null,
             // Left as it was, the occurrence is the one nearest the booking day.
             recurringOccurrenceOn: $occurrenceMoved && null !== $series ? $occurrenceOn : null,
+            note: $data->getNote(),
             // A null category after the merge-patch is an explicit clear
             clearFields: $clearFields,
         ));

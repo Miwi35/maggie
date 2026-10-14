@@ -27,6 +27,8 @@ data class Transaction(
     val recurringOperation: String? = null,
     val recurringOccurrenceOn: String? = null,
     val recurringSource: String? = null,
+    // Free text of the owner, at most 2000 characters; the API omits it while empty.
+    val note: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
 

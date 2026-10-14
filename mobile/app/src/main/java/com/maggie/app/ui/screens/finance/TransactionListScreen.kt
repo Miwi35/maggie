@@ -65,6 +65,8 @@ import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.idOfIri
+import com.maggie.app.data.model.transactionPills
 import com.maggie.app.data.model.incidentsTabTitle
 import com.maggie.app.data.model.signedAmountCents
 import com.maggie.app.data.model.statusForNature
@@ -108,7 +110,17 @@ fun TransactionListScreen(
 
     val detail = uiState.detail
     if (detail != null) {
-        if (searchingCounterpart) {
+        val ruleDraft = uiState.ruleDraft
+        if (ruleDraft != null) {
+            TransactionRuleDraftScreen(
+                draft = ruleDraft,
+                categories = uiState.categories,
+                onPatternChange = viewModel::changeRulePattern,
+                onCategoryChange = viewModel::changeRuleCategory,
+                onSave = viewModel::saveRule,
+                onBack = viewModel::closeRuleDraft,
+            )
+        } else if (searchingCounterpart) {
             CounterpartSearchScreen(
                 state = detail,
                 onLoad = viewModel::loadCandidates,
@@ -141,12 +153,18 @@ fun TransactionListScreen(
         } else {
             TransactionDetailScreen(
                 state = detail,
-                onBack = viewModel::closeDetail,
-                onSearchCounterpart = { searchingCounterpart = true },
-                onRelease = viewModel::releaseTransfer,
+                actions = TransactionSheetActions(
+                    onBack = viewModel::closeDetail,
+                    onSearchCounterpart = { searchingCounterpart = true },
+                    onRelease = viewModel::releaseTransfer,
+                    onPickCategory = { searchingCategory = true },
+                    onCreateRule = viewModel::openRuleDraft,
+                    onMakeRecurring = onMakeRecurring?.let { open -> { open(detail.transaction) } },
+                    onDetach = viewModel::detachFromSeries,
+                    onSaveNote = viewModel::setNote,
+                ),
                 categoryPath = tree.pathOf(detail.transaction.categoryId),
-                onPickCategory = { searchingCategory = true },
-                onMakeRecurring = onMakeRecurring?.let { open -> { open(detail.transaction) } },
+                seriesName = seriesNameOf(detail.transaction, uiState.seriesNames),
             )
         }
         return
@@ -251,7 +269,10 @@ fun TransactionListScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
-                                            TransferBadge(transaction)
+                                            TransactionPills(
+                                                pills = transactionPills(transaction, seriesNameOf(transaction, uiState.seriesNames)),
+                                                modifier = Modifier.padding(top = 4.dp),
+                                            )
                                         }
                                         Text(
                                             text = formatCents(transaction.amountCents, transaction.currency),
@@ -299,6 +320,10 @@ fun TransactionListScreen(
         )
     }
 }
+
+/** The name of the series a line is attached to, once the series are loaded. */
+private fun seriesNameOf(transaction: Transaction, names: Map<String, String>): String? =
+    transaction.recurringOperation?.let { names[idOfIri(it)] }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

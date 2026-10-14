@@ -151,3 +151,5 @@ export function useTransactionTransfer(transactionId: string | undefined) {
 
   return { transfer, candidates, error, saving, load, loadCandidates, mark, release }
 }
+
+export type TransactionTransfer = ReturnType<typeof useTransactionTransfer>

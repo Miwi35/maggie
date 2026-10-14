@@ -222,6 +222,122 @@ class TransactionApiTest extends WebTestCase
         self::assertSame('Alimentation', $refreshed->getCategory()?->getName());
     }
 
+    private function storedNote(Transaction $transaction): ?string
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(Transaction::class, $transaction->getId())->getNote();
+    }
+
+    public function testPatchWritesTheNoteAndReturnsIt(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['note' => 'Cadeau pour Léa']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Cadeau pour Léa', $data['note']);
+        self::assertSame('Cadeau pour Léa', $this->storedNote($transaction));
+        self::assertSame('Supermarché', $this->getFixture('groceries')->getLabel());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testPatchWithoutNoteLeavesItUntouched(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+        $this->patch((string) $transaction->getId(), ['note' => 'À garder']);
+
+        $this->patch((string) $transaction->getId(), ['label' => 'Courses']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('À garder', $this->storedNote($transaction));
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function clearingNotes(): iterable
+    {
+        yield 'null' => [null];
+        yield 'empty string' => [''];
+        yield 'blank string' => ["  \n "];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('clearingNotes')]
+    public function testPatchClearsTheNote(mixed $cleared): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+        $this->patch((string) $transaction->getId(), ['note' => 'À effacer']);
+        self::assertSame('À effacer', $this->storedNote($transaction));
+
+        $this->patch((string) $transaction->getId(), ['note' => $cleared]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        // The serializer leaves null properties out, as for every other nullable field.
+        self::assertArrayNotHasKey('note', $data);
+        self::assertNull($this->storedNote($transaction));
+    }
+
+    public function testPatchRefusesANoteOverTwoThousandCharacters(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['note' => str_repeat('é', 2001)]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNull($this->storedNote($transaction));
+
+        $this->patch((string) $transaction->getId(), ['note' => str_repeat('é', 2000)]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2000, mb_strlen((string) $this->storedNote($transaction)));
+    }
+
+    public function testCreateStoresTheNote(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post([
+            'account' => '/api/accounts/'.$this->getFixture('checking')->getId(),
+            'amountCents' => -1200,
+            'label' => 'Pharmacie',
+            'bookedAt' => '2026-07-09',
+            'note' => 'Ordonnance de mars',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Ordonnance de mars', $data['note']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertSame('Ordonnance de mars', $em->getRepository(Transaction::class)->findOneBy(['label' => 'Pharmacie'])->getNote());
+    }
+
+    public function testATransactionWithoutNoteOmitsTheKey(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        $this->client->request('GET', '/api/transactions/'.$transaction->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('note', $data);
+    }
+
     private function post(array $body): void
     {
         $this->client->request('POST', '/api/transactions', [], [], array_merge([

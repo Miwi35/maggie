@@ -68,6 +68,12 @@ class UpdateTransactionHandler
         if (null !== $command->isExceptional) {
             $transaction->setIsExceptional($command->isExceptional);
         }
+        if (null !== $command->note) {
+            Transaction::assertNoteFits($command->note);
+            $transaction->setNote($command->note);
+        } elseif ($command->clears('note')) {
+            $transaction->setNote(null);
+        }
         if (null !== $command->retrospect) {
             $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }

@@ -71,7 +71,7 @@ const renderEdit = (record: Record<string, unknown>) => {
   return update
 }
 
-/** TransactionEdit, with the undo window out of the way so the save is observable. */
+/** An edit screen on the form, with the undo window out of the way so the save is observable. */
 const EditScreen = () => (
   <Edit mutationMode="pessimistic" transform={toTransactionPayload}>
     <TransactionForm />

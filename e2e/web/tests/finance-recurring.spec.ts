@@ -423,7 +423,8 @@ test('a debit becomes a recurring operation from the account list, its history i
   const list = new FinanceAccountsPage(page)
   await list.openTransactions(accountId)
   const recurring = new FinanceRecurringPage(page)
-  await list.content.getByRole('button', { name: `En faire une opération récurrente : ${label}` }).last().click()
+  await list.openTransaction(label, 2)
+  await list.content.getByRole('button', { name: 'En faire une opération récurrente' }).click()
 
   // Then the form opens filled from the line.
   await expect(recurring.form.getByLabel(/Libellé/)).not.toHaveValue('')
@@ -451,8 +452,9 @@ test('a debit becomes a recurring operation from the account list, its history i
   await expect(list.content.getByText('Série · Netflix')).toHaveCount(3)
 
   // When I detach one, it loses its badge, and the others keep theirs.
+  await list.openTransaction(label)
   const detaching = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/transactions/'))
-  await list.content.getByLabel(`Détacher ${label} de la série`).first().click()
+  await list.content.getByRole('button', { name: 'Détacher de la série' }).click()
   expect((await detaching).status()).toBe(200)
   await expect.poll(async () => (await netflixLines()).filter((t) => t.recurringOperation).length).toBe(2)
   await list.openTransactions(accountId)
@@ -484,7 +486,8 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   const list = new FinanceAccountsPage(page)
   await list.openTransactions(accountId)
   const recurring = new FinanceRecurringPage(page)
-  await list.content.getByRole('button', { name: `En faire une opération récurrente : ${label}` }).first().click()
+  await list.openTransaction(label)
+  await list.content.getByRole('button', { name: 'En faire une opération récurrente' }).click()
 
   // Then the counterparty is empty and the label pattern is filled, with its help
   await expect(recurring.form.getByLabel('Contrepartie attendue')).toHaveValue('')

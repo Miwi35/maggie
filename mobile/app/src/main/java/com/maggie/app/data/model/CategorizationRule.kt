@@ -65,3 +65,32 @@ fun describeRuleScope(direction: String, minAmountCents: Int?, maxAmountCents: I
 
     return parts.joinToString(" · ")
 }
+
+/** What `POST /api/finance/categorization-rules/preview` is asked: a rule still being written. */
+@Serializable
+data class RulePreviewRequest(
+    val labelPattern: String,
+    val matchType: String = "contains",
+    val direction: String = "any",
+    val minAmountCents: Int? = null,
+    val maxAmountCents: Int? = null,
+    val categoryId: String? = null,
+)
+
+@Serializable
+data class RulePreviewMatch(
+    val transactionId: String,
+    val label: String,
+    val amountCents: Int = 0,
+    val bookedAt: String = "",
+    val currentCategoryId: String? = null,
+    val wouldChange: Boolean = false,
+)
+
+/** The lines a rule would catch: [total] of them, the first ones in [matches], [changeCount] that it would file. */
+@Serializable
+data class RulePreview(
+    val total: Int = 0,
+    val changeCount: Int = 0,
+    val matches: List<RulePreviewMatch> = emptyList(),
+)

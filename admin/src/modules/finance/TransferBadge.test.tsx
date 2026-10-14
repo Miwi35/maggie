@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { TransferBadge, TransferCounterpart } from './TransferBadge'
+import { TransferBadge, TransferCounterpart, transferLabel } from './TransferBadge'
 
 const LEG = {
   id: '01DEBIT',
@@ -85,5 +85,15 @@ describe('TransferCounterpart', () => {
     render(<TransferCounterpart transactionId="01CREDIT" amountCents={8000} />)
 
     expect(await screen.findByText('Sans contrepartie')).toBeInTheDocument()
+  })
+})
+
+describe('transferLabel', () => {
+  test('names a marked line, and nothing for an ordinary one', () => {
+    expect(transferLabel('internal', -100)).toBe('Virement interne')
+    expect(transferLabel('rejected', -100)).toBe('Rejeté')
+    expect(transferLabel('rejected', 100)).toBe('Rejet')
+    expect(transferLabel('none', -100)).toBeNull()
+    expect(transferLabel(undefined, -100)).toBeNull()
   })
 })

@@ -310,7 +310,7 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   await expect(account.incidentDetail).toContainText(credit)
 
   // The owner disagrees: both lines go back to ordinary ones.
-  await account.incidentDetail.getByRole('link', { name: 'Éditer' }).last().click()
+  await account.incidentDetail.getByRole('link', { name: 'Ouvrir la fiche' }).last().click()
   await account.content.getByRole('button', { name: 'Ce n’est pas un rejet' }).click()
   await expect(account.content.getByRole('button', { name: 'C’est un rejet' })).toBeVisible()
   for (const label of [debit, credit]) {
@@ -327,6 +327,43 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   await expect(account.row(debit)).toBeVisible()
   await expect(account.row(credit)).toBeVisible()
   await expect(account.incidentsTab(0)).toBeVisible()
+})
+
+/**
+ * One sheet for every line (MAG-464): an ordinary line opens on its six
+ * sections, marking it internal leaves Nature and Note, and taking the marking
+ * off brings the others back.
+ */
+test('an ordinary line opens on six sections, and marking it internal keeps only Nature and Note', async ({
+  transfersUser,
+}) => {
+  const { api, page } = transfersUser
+  const attempt = test.info().retry
+  const label = `ACHAT FICHE MAG-464, essai ${attempt}`
+  const sections = ['nature', 'classement', 'recurrence', 'partage', 'jugement', 'note']
+
+  const accountId = await createAccount(api, `Courant MAG-464, essai ${attempt}`, 'checking')
+  createdAccountIds.push(accountId)
+  await createTransaction(api, accountId, label, -4_200, lastMonthDay(14))
+  await waitForIndexed<StoredTransaction>(
+    api,
+    '/api/transactions?itemsPerPage=100',
+    (candidate) => candidate.label === label,
+    { what: `The line "${label}"` },
+  )
+
+  const account = new FinanceTransfersPage(page)
+  await account.openTransactions(accountId)
+  await account.openTransaction(label)
+  expect(await account.sheetSections()).toEqual(sections)
+
+  await account.content.getByRole('button', { name: 'C’est un virement interne' }).click()
+  await expect(page.getByRole('dialog', { name: 'Choisir la contrepartie' })).toBeVisible()
+  await page.getByRole('button', { name: 'Marquer comme virement interne' }).click()
+  await expect.poll(() => account.sheetSections()).toEqual(['nature', 'note'])
+
+  await account.release.click()
+  await expect.poll(() => account.sheetSections()).toEqual(sections)
 })
 
 /**
