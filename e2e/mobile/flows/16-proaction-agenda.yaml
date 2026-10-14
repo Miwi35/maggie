@@ -73,7 +73,7 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: settings
-- tapOn: "Agent"
+- tapOn: "Maggie"
 - tapOn: "Proactions"
 - extendedWaitUntil:
     visible: "Aucune proaction"
