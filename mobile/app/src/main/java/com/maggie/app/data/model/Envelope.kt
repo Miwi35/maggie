@@ -8,9 +8,36 @@ data class Envelope(
     val mode: String = "monthly",
     val amountCents: Int = 0,
     val currency: String = "EUR",
-    val year: Int = 0,
+    // Null for a one-off envelope, which has neither period nor category (MAG-414).
+    val year: Int? = null,
     val month: Int? = null,
-)
+    // IRI of the category budgeted; null for a one-off envelope.
+    val category: String? = null,
+    // What a one-off envelope is for (« Hellfest 2026 »); the API omits it on the others.
+    val name: String? = null,
+) {
+    val isOneOff: Boolean get() = mode == ONE_OFF_MODE
+}
+
+/** An event (Hellfest 2026): a name and an amount, spends attributed to it by hand. */
+const val ONE_OFF_MODE = "one_off"
+
+fun envelopeIri(id: String): String = "/api/envelopes/$id"
+
+/** What weighs on an envelope, whatever its mode: the gauge reads only this. */
+interface EnvelopeConsumption {
+    val amountCents: Int
+    val currency: String
+    val spentCents: Int
+    val committedCents: Int
+    val plannedCents: Int
+    val toArbitrateCents: Int
+    val consumedCents: Int
+    val remainingCents: Int
+    val availableCents: Int
+    val isOverspent: Boolean
+    val isOvercommitted: Boolean
+}
 
 /** One category budget of a period, with what has already been spent on it. */
 @Serializable
@@ -21,20 +48,48 @@ data class BudgetLine(
     val categoryPath: String = "",
     val parentEnvelopeId: String? = null,
     val mode: String = "monthly",
-    val amountCents: Int = 0,
-    val currency: String = "EUR",
+    override val amountCents: Int = 0,
+    override val currency: String = "EUR",
     val year: Int = 0,
     val month: Int? = null,
-    val spentCents: Int = 0,
-    val committedCents: Int = 0,
-    val plannedCents: Int = 0,
-    val toArbitrateCents: Int = 0,
-    val consumedCents: Int = 0,
-    val remainingCents: Int = 0,
-    val availableCents: Int = 0,
-    val isOverspent: Boolean = false,
-    val isOvercommitted: Boolean = false,
-)
+    override val spentCents: Int = 0,
+    override val committedCents: Int = 0,
+    override val plannedCents: Int = 0,
+    override val toArbitrateCents: Int = 0,
+    override val consumedCents: Int = 0,
+    override val remainingCents: Int = 0,
+    override val availableCents: Int = 0,
+    override val isOverspent: Boolean = false,
+    override val isOvercommitted: Boolean = false,
+) : EnvelopeConsumption
+
+/** A one-off envelope's line: every spend ever attributed to it, whatever its date. */
+@Serializable
+data class OneOffBudgetLine(
+    val id: String,
+    val name: String,
+    val mode: String = ONE_OFF_MODE,
+    override val amountCents: Int = 0,
+    override val currency: String = "EUR",
+    override val spentCents: Int = 0,
+    override val committedCents: Int = 0,
+    override val plannedCents: Int = 0,
+    override val toArbitrateCents: Int = 0,
+    override val consumedCents: Int = 0,
+    override val remainingCents: Int = 0,
+    override val availableCents: Int = 0,
+    override val isOverspent: Boolean = false,
+    override val isOvercommitted: Boolean = false,
+) : EnvelopeConsumption
+
+/** The envelopes kept apart from the month's budget: none of them counts in its totals. */
+@Serializable
+data class OutsideMonthlyBudget(
+    val annual: List<BudgetLine> = emptyList(),
+    val oneOff: List<OneOffBudgetLine> = emptyList(),
+) {
+    val isEmpty: Boolean get() = annual.isEmpty() && oneOff.isEmpty()
+}
 
 @Serializable
 data class BudgetStatus(
@@ -47,7 +102,9 @@ data class BudgetStatus(
     val totalConsumedCents: Int = 0,
     val totalRemainingCents: Int = 0,
     val totalAvailableCents: Int = 0,
+    // The monthly envelopes only: the month's budget, which the totals add up.
     val budgets: List<BudgetLine> = emptyList(),
+    val outsideMonthlyBudget: OutsideMonthlyBudget = OutsideMonthlyBudget(),
 )
 
 @Serializable
@@ -61,6 +118,7 @@ data class RollOverResult(
 fun budgetModeLabel(mode: String): String = when (mode) {
     "monthly" -> "Mensuel"
     "annual" -> "Annuel"
+    ONE_OFF_MODE -> "Ponctuel"
     else -> mode
 }
 
@@ -83,7 +141,7 @@ fun consumedFraction(spentCents: Int, amountCents: Int): Float {
 }
 
 /** What weighs on an envelope, spelled out: "250,00 € dépensés · 300,00 € engagés". */
-fun budgetBreakdown(line: BudgetLine): String = listOfNotNull(
+fun budgetBreakdown(line: EnvelopeConsumption): String = listOfNotNull(
     line.spentCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} dépensés" },
     line.committedCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} engagés" },
     line.plannedCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} planifiés" },

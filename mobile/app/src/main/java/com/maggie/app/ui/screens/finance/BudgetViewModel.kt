@@ -30,6 +30,10 @@ data class BudgetUiState(
     /** The envelopes in tree order, each nested under its mother. */
     val nestedBudgets: List<NestedBudgetLine>
         get() = nestBudgetLines(status?.budgets.orEmpty())
+
+    /** The annual envelopes, apart from the month's budget, nested the same way. */
+    val nestedAnnualBudgets: List<NestedBudgetLine>
+        get() = nestBudgetLines(status?.outsideMonthlyBudget?.annual.orEmpty())
 }
 
 class BudgetViewModel(

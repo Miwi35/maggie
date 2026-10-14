@@ -160,6 +160,24 @@ class DtoContractTest {
     }
 
     @Test
+    fun `envelopes deserialise from the recorded response`() =
+        assertCollectionContract("envelopes", serializer<Envelope>(), "Envelope")
+
+    @Test
+    fun `the budget status deserialises from the recorded response, with what lies outside the month`() {
+        val body = readRecording("finance_budget_status.read")
+
+        json.decodeFromJsonElement(serializer<BudgetStatus>(), body)
+
+        val outside = body["outsideMonthlyBudget"]!!.jsonObject
+        assertDeclaredFieldsExist("BudgetStatus", serializer<BudgetStatus>(), body.keys, "finance_budget_status.read")
+        assertDeclaredFieldsExist("BudgetLine", serializer<BudgetLine>(), keysOf(body, "budgets"), "finance_budget_status.read")
+        assertDeclaredFieldsExist("OutsideMonthlyBudget", serializer<OutsideMonthlyBudget>(), outside.keys, "finance_budget_status.read")
+        assertDeclaredFieldsExist("BudgetLine", serializer<BudgetLine>(), keysOf(outside, "annual"), "finance_budget_status.read")
+        assertDeclaredFieldsExist("OneOffBudgetLine", serializer<OneOffBudgetLine>(), keysOf(outside, "oneOff"), "finance_budget_status.read")
+    }
+
+    @Test
     fun `the current user deserialises from the recorded response`() =
         assertItemContract("users.me", serializer<User>(), "User")
 

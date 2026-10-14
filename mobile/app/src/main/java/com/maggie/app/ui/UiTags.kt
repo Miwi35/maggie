@@ -144,6 +144,13 @@ object UiTags {
     const val CATEGORY_PARENT_SEARCH = "category_parent_search"
     const val CATEGORY_DELETE = "category_delete"
 
+    /** Budgets — the « Hors budget mensuel » section, annual and one-off envelopes (MAG-414). */
+    const val BUDGET_OUTSIDE_MONTHLY = "budget_outside_monthly"
+
+    /** A transaction's one-off envelope on its detail screen, and the full-screen choice it opens (MAG-414). */
+    const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
+    const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"
+
     /** A transaction's category on its detail screen, and the full-screen search it opens (MAG-411). */
     const val TRANSACTION_CATEGORY = "transaction_category"
     const val TRANSACTION_CATEGORY_SEARCH = "transaction_category_search"

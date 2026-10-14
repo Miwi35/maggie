@@ -29,8 +29,13 @@ data class Transaction(
     val recurringSource: String? = null,
     // Free text of the owner, at most 2000 characters; the API omits it while empty.
     val note: String? = null,
+    // IRI of the one-off envelope (Hellfest 2026) the spend is attributed to by hand; it then
+    // keeps its category but leaves the monthly and annual envelopes (MAG-414).
+    val oneOffEnvelope: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
+
+    val oneOffEnvelopeId: String? get() = oneOffEnvelope?.substringAfterLast('/')
 
     val isAttachedToRecurring: Boolean get() = recurringOperation != null
 

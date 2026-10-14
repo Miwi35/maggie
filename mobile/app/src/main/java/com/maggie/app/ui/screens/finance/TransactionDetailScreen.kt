@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.TransferLeg
@@ -63,6 +64,7 @@ class TransactionSheetActions(
     val onMakeRecurring: (() -> Unit)? = null,
     val onDetach: () -> Unit = {},
     val onSaveNote: (String) -> Unit = {},
+    val onPickOneOffEnvelope: (() -> Unit)? = null,
 )
 
 /**
@@ -78,6 +80,7 @@ fun TransactionDetailScreen(
     actions: TransactionSheetActions,
     categoryPath: String? = null,
     seriesName: String? = null,
+    oneOffEnvelopeName: String? = null,
 ) {
     BackHandler(onBack = actions.onBack)
     val transaction = state.transaction
@@ -126,7 +129,7 @@ fun TransactionDetailScreen(
                 SheetSection(section) {
                     when (section) {
                         TransactionSheetSection.Nature -> NatureSection(state, actions)
-                        TransactionSheetSection.Classement -> ClassementSection(state, actions, categoryPath)
+                        TransactionSheetSection.Classement -> ClassementSection(state, actions, categoryPath, oneOffEnvelopeName)
                         TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
                         TransactionSheetSection.Partage -> EmptySlot("Pas encore disponible")
                         TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
@@ -222,13 +225,28 @@ private fun NatureSection(state: TransferDetailState, actions: TransactionSheetA
 }
 
 @Composable
-private fun ClassementSection(state: TransferDetailState, actions: TransactionSheetActions, categoryPath: String?) {
+private fun ClassementSection(
+    state: TransferDetailState,
+    actions: TransactionSheetActions,
+    categoryPath: String?,
+    oneOffEnvelopeName: String?,
+) {
     val transaction = state.transaction
     Text(
         text = "État : ${transactionStatusLabel(transaction.status, transaction.amountCents)}",
         style = MaterialTheme.typography.bodyMedium,
     )
     actions.onPickCategory?.let { CategoryField(path = categoryPath, enabled = !state.isSaving, onClick = it) }
+    // Only a spend is budgeted: an income has nothing to attribute, unless it already was.
+    if (transaction.amountCents < 0 || transaction.oneOffEnvelope != null) {
+        actions.onPickOneOffEnvelope?.let {
+            OneOffEnvelopeField(
+                name = oneOffEnvelopeName ?: transaction.oneOffEnvelope?.let { "Enveloppe ponctuelle" },
+                enabled = !state.isSaving,
+                onClick = it,
+            )
+        }
+    }
     actions.onCreateRule?.let {
         OutlinedButton(
             onClick = it,
@@ -309,6 +327,127 @@ private fun CategoryField(path: String?, enabled: Boolean, onClick: () -> Unit) 
                 .semantics { contentDescription = "Catégorie, ${path ?: "aucune"}" }
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         )
+    }
+}
+
+/**
+ * The event the spend is attributed to (MAG-414): it keeps its category but leaves the
+ * monthly and annual envelopes. A tap opens the full-screen choice, never a dropdown.
+ */
+@Composable
+private fun OneOffEnvelopeField(name: String?, enabled: Boolean, onClick: () -> Unit) {
+    Box {
+        OutlinedTextField(
+            value = name.orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Enveloppe ponctuelle") },
+            placeholder = { Text("Aucune") },
+            supportingText = { Text("Hellfest, vacances… La dépense sort alors des enveloppes du mois.") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .testTag(UiTags.TRANSACTION_ONE_OFF_ENVELOPE)
+                .semantics { contentDescription = "Enveloppe ponctuelle, ${name ?: "aucune"}" }
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        )
+    }
+}
+
+/** Full-screen choice of the one-off envelope to attribute the open spend to, plus « Aucune ». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OneOffEnvelopeSearchScreen(
+    envelopes: List<Envelope>,
+    selectedId: String?,
+    isLoading: Boolean,
+    error: String?,
+    onLoad: () -> Unit,
+    onPick: (Envelope?) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    var query by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(Unit) { onLoad() }
+
+    val shown = remember(envelopes, query) {
+        envelopes.filter { query.isBlank() || it.name.orEmpty().contains(query.trim(), ignoreCase = true) }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Attribuer à une enveloppe ponctuelle") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Rechercher un événement") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(UiTags.TRANSACTION_ONE_OFF_ENVELOPE_SEARCH),
+            )
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (selectedId != null) {
+                    item {
+                        Column(modifier = Modifier.fillMaxWidth().clickable { onPick(null) }.padding(16.dp)) {
+                            Text("Aucune", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Remettre la dépense dans les enveloppes de sa catégorie",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HorizontalDivider()
+                    }
+                }
+                if (!isLoading && shown.isEmpty()) {
+                    item {
+                        Text(
+                            if (envelopes.isEmpty()) {
+                                "Aucune enveloppe ponctuelle : créez-en une (Hellfest, vacances…) sur la tablette ou l'admin."
+                            } else {
+                                "Aucun événement ne correspond."
+                            },
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+                items(shown, key = { it.id }) { envelope ->
+                    Column(modifier = Modifier.fillMaxWidth().clickable { onPick(envelope) }.padding(16.dp)) {
+                        Text(
+                            text = envelope.name.orEmpty() + if (envelope.id == selectedId) " ✓" else "",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = formatCents(envelope.amountCents, envelope.currency),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
     }
 }
 

@@ -9,6 +9,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.RulePreviewMatch
@@ -940,5 +941,135 @@ class TransactionViewModelTest {
 
         assertNull(viewModel.uiState.value.ruleDraft)
         assertEquals("tx-1", viewModel.uiState.value.detail!!.transaction.id)
+    }
+
+    private val hellfest = Envelope(id = "env-hellfest", mode = "one_off", amountCents = 40000, name = "Hellfest 2026")
+
+    @Test
+    fun `opening the choice reads the one-off envelopes`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.success(listOf(hellfest))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.loadOneOffEnvelopes()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(hellfest), state.oneOffEnvelopes)
+        assertFalse(state.isLoadingOneOffEnvelopes)
+    }
+
+    @Test
+    fun `a line already attributed names its event once opened`() = runTest {
+        val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(attributed, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.success(listOf(hellfest))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Hellfest 2026", state.oneOffEnvelopeNameOf(state.detail!!.transaction))
+    }
+
+    @Test
+    fun `opening a line not attributed reads no envelope`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { transactionRepository.getOneOffEnvelopes() }
+        assertNull(viewModel.uiState.value.oneOffEnvelopeNameOf(viewModel.uiState.value.detail!!.transaction))
+    }
+
+    @Test
+    fun `attributing the open spend to a one-off envelope puts it on the detail and refreshes the list`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
+        var served = sampleTransactions
+        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.setOneOffEnvelope("tx-1", "env-hellfest") } answers {
+            served = listOf(attributed, sampleTransactions[1])
+            Result.success(attributed)
+        }
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setOneOffEnvelope("env-hellfest")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("env-hellfest", detail.transaction.oneOffEnvelopeId)
+        assertFalse(detail.isSaving)
+        assertNull(detail.error)
+        coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    @Test
+    fun `taking the attribution back clears it on the detail`() = runTest {
+        val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
+        var served = listOf(attributed, sampleTransactions[1])
+        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.success(listOf(hellfest))
+        coEvery { transactionRepository.setOneOffEnvelope("tx-1", null) } answers {
+            served = sampleTransactions
+            Result.success(sampleTransactions[0])
+        }
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setOneOffEnvelope(null)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail!!.transaction.oneOffEnvelope)
+        coVerify { transactionRepository.setOneOffEnvelope("tx-1", null) }
+    }
+
+    @Test
+    fun `a refused attribution says why on the detail and keeps the line as it was`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.setOneOffEnvelope("tx-1", "env-monthly") } returns Result.failure(RuntimeException("400"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setOneOffEnvelope("env-monthly")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("400", detail.error)
+        assertNull(detail.transaction.oneOffEnvelope)
+        assertFalse(detail.isSaving)
+    }
+
+    @Test
+    fun `a failed read of the envelopes says why on the detail`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.failure(RuntimeException("Réseau indisponible"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.loadOneOffEnvelopes()
+        advanceUntilIdle()
+
+        assertEquals("Réseau indisponible", viewModel.uiState.value.detail!!.error)
+        assertFalse(viewModel.uiState.value.isLoadingOneOffEnvelopes)
     }
 }

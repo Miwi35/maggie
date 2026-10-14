@@ -7,6 +7,8 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.OneOffBudgetLine
+import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
@@ -99,6 +101,37 @@ class BudgetViewModelTest {
         assertNull(state.error)
 
         coVerify { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `the annual and one-off envelopes come apart from the month's budget`() = runTest {
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } returns Result.success(
+            BudgetStatus(
+                year = 2026,
+                month = 7,
+                totalBudgetedCents = 30000,
+                budgets = listOf(
+                    BudgetLine(id = "env-loisirs", categoryId = "cat-loisirs", categoryName = "Loisirs", categoryPath = "Loisirs", amountCents = 30000, consumedCents = 2500),
+                ),
+                outsideMonthlyBudget = OutsideMonthlyBudget(
+                    annual = listOf(
+                        BudgetLine(id = "env-voyages", categoryId = "cat-voyages", categoryName = "Voyages", categoryPath = "Voyages", mode = "annual", amountCents = 120000, consumedCents = 6000),
+                    ),
+                    oneOff = listOf(
+                        OneOffBudgetLine(id = "env-hellfest", name = "Hellfest 2026", amountCents = 40000, spentCents = 8900, consumedCents = 8900, remainingCents = 31100),
+                    ),
+                ),
+            ),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("env-loisirs"), state.nestedBudgets.map { it.line.id })
+        assertEquals(listOf("env-voyages"), state.nestedAnnualBudgets.map { it.line.id })
+        assertEquals("Hellfest 2026", state.status?.outsideMonthlyBudget?.oneOff?.single()?.name)
+        assertEquals(8900, state.status?.outsideMonthlyBudget?.oneOff?.single()?.consumedCents)
+        assertEquals(30000, state.status?.totalBudgetedCents)
     }
 
     @Test
