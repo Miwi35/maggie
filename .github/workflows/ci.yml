@@ -180,10 +180,11 @@ jobs:
       # The journeys of this change (owner's decision, 8 Oct.), read off
       # e2e/impact-map.yml by scripts/e2e/impacted.sh: the ones its files
       # touch, plus the critical core of each platform that plays. A change that
-      # is only Markdown plays nothing (MAG-180) — it must not start eleven
+      # is only Markdown, tooling or infra (this workflow, scripts, Taskfiles,
+      # Dockerfiles: MAG-180, MAG-470) plays nothing — it must not start eleven
       # containers. A file the map does not know plays the suite of its platform;
       # a transversal one (the core module, the contract, the config, auth, the
-      # stack, the harness, a lockfile, this workflow) plays everything. The
+      # e2e harness and stack, a lockfile) plays everything. The
       # eval scenarios are in the map too: `e2e:eval:check` in the first web lot
       # is their only guard, and a typo'd expectation must not merge green. The
       # nightly run has no base and plays every journey.

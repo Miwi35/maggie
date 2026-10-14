@@ -59,7 +59,8 @@ for the previous one. Now:
   tag, and builds and pushes it only when it does not exist. php and worker share
   one image. Editing `.docker/php/`, `.docker/nginx/`, `.docker/python/Dockerfile`,
   `.docker/ciqual/Dockerfile` or `ciqual/pyproject.toml` is what makes a run
-  build; WireMock stubs, Postgres init and everything under `api/`, `agent/` and
+  build (a PR that touches only those Dockerfiles plays no journey, so the image
+  is first built by the next code PR or the night; `main.yml` builds it on merge); WireMock stubs, Postgres init and everything under `api/`, `agent/` and
   `admin/` do not, because they are mounted. A tagged image is never refreshed
   by itself: base images such as `php:8.4-fpm-alpine`, `composer:latest` or
   `uv:latest` move only when one of those inputs changes.
@@ -453,8 +454,12 @@ relationship to it, not of Maestro:
    the same time. CI retries once *without* reseeding, so the label carries the
    attempt number (`perAttempt()` in several files).
 7. **It is in `e2e/impact-map.yml`**, with the areas and paths it depends on. A
-   pull request plays only the journeys its files touch (plus the critical core),
-   the whole suite plays at night, and `Infra scripts and workflows` fails on a
+   pull request plays only the journeys its files touch (plus the critical core)
+   — and none for tooling, infra and tool-config files (`infra/`, `.github/`,
+   `Taskfile`s, `scripts/`, the Dockerfiles of `.docker/` (not `.docker/e2e/`),
+   `docker-compose.yml`, `agent-os/`…: only
+   code is tested, the `ignored` rule of the map) — the whole suite plays at
+   night, and `Infra scripts and workflows` fails on a
    journey the map does not list. A journey that turns flaky gets
    `quarantine: {since, reason}` there: it keeps playing, and its failure only
    warns. The core (`critical: true`) can never be quarantined.
