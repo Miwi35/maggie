@@ -453,8 +453,11 @@ relationship to it, not of Maestro:
    the same time. CI retries once *without* reseeding, so the label carries the
    attempt number (`perAttempt()` in several files).
 7. **It is in `e2e/impact-map.yml`**, with the areas and paths it depends on. A
-   pull request plays only the journeys its files touch (plus the critical core),
-   the whole suite plays at night, and `Infra scripts and workflows` fails on a
+   pull request plays only the journeys its files touch (plus the critical core)
+   — and none for tooling, infra and tool-config files (`infra/`, `.github/`,
+   `Taskfile`s, `scripts/`, `.docker/`, `docker-compose*.yml`, `agent-os/`…: only
+   code is tested, the `ignored` rule of the map) — the whole suite plays at
+   night, and `Infra scripts and workflows` fails on a
    journey the map does not list. A journey that turns flaky gets
    `quarantine: {since, reason}` there: it keeps playing, and its failure only
    warns. The core (`critical: true`) can never be quarantined.

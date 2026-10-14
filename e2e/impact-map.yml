@@ -2,12 +2,15 @@
 # the quarantine read (owner's decision, 8 Oct.).
 #
 # A pull request plays the journeys its changed files touch, plus the critical
-# core of each platform that plays at all; the night plays everything. Read by
+# core of each platform that plays at all; the night plays everything. Only code
+# is tested: tooling, infrastructure and config files play nothing in a pull
+# request (owner's decision, 14 Oct.) — the night catches what they break. Read by
 # `scripts/e2e/impacted.sh` (selection, and `check` in CI) and
 # `scripts/e2e/verdict.sh` (quarantine). The rules, in the order they apply to
 # each changed file:
 #
-#   1. `ignored` — selects nothing (docs, unit tests, this map).
+#   1. `ignored` — selects nothing (docs, unit tests, this map, and the tooling:
+#      infra, CI, Taskfiles, scripts, Docker files, agent-os, Claude config).
 #   2. `transversal` — the whole suite, web and mobile; `transversal_web` /
 #      `transversal_mobile` — every journey of that platform.
 #   3. a journey's own file, its `paths` and the globs of its `areas` — that journey,
@@ -52,6 +55,20 @@ ignored:
   - ciqual/tests/**
   - mobile/app/src/test/**
   - mobile/app/src/testProd/**
+  # Tooling, infrastructure and config of the tools: not code the journeys run.
+  # Application code and its config (`api/config/**`, `api/modules/core/**`…) and
+  # the harness (`e2e/**`, so `e2e/Taskfile.yml`) keep the rules below.
+  - infra/**
+  - .github/**
+  - Taskfile.yml
+  - '{admin,agent,api,ciqual,mobile,wt}/Taskfile.yml'
+  - wt/**
+  - scripts/**
+  - .docker/**
+  - 'docker-compose*.yml'
+  - agent-os/**
+  - .claude/**
+  - CLAUDE.md
 
 # The safety rule: these play everything.
 transversal:
@@ -68,13 +85,8 @@ transversal:
   # Authentication on the API and the agent; each client's own login is in its
   # platform's list below: a change to the app's login cannot break the admin.
   - agent/app/auth.py
-  # The stack and the harness.
-  - docker-compose.e2e.yml
-  - .docker/**
-  - Taskfile.yml
-  - '{api,agent,ciqual,e2e,wt}/Taskfile.yml'
-  - scripts/e2e/**
-  - .github/workflows/ci.yml
+  # The harness.
+  - e2e/Taskfile.yml
   # Dependencies of the API and the agent, which both clients use. Those of one
   # client (npm, Gradle) are in its platform's list below.
   - '**/composer.{json,lock}'
@@ -92,7 +104,6 @@ transversal_web:
   - 'admin/vite.config.*'
   - 'admin/tsconfig*.json'
   - admin/src/auth/**
-  - admin/Taskfile.yml
   - '{admin,e2e/web}/package{,-lock}.json'
 
 # What every screen of the app goes through, and the e2e flavor itself.
@@ -113,7 +124,6 @@ transversal_mobile:
   - mobile/app/src/main/java/com/maggie/app/ui/navigation/AuthRedirect.kt
   - mobile/app/src/main/java/com/maggie/app/ui/screens/{login,lock}/**
   - mobile/app/src/main/java/com/maggie/app/data/model/User.kt
-  - mobile/Taskfile.yml
   - '**/*.gradle.kts'
   - mobile/gradle/**
   - mobile/gradle.properties
@@ -132,7 +142,6 @@ unmapped:
     - agent/**
     - ciqual/**
     - design/**
-    - scripts/prompt-lab/**
     # e2e/ outside web/ and mobile/: the clock, the images, the smoke suite.
     - e2e/*
     - e2e/smoke/**
