@@ -77,8 +77,9 @@ class TaskRepository(
             .also { tasks -> taskDao.upsertAll(tasks.map { TaskEntity.fromModel(it) }) }
     }
 
-    suspend fun getUndoneUndatedTasks(): List<Task> {
-        return apiService.getUndoneUndatedTasks()
+    /** « Aujourd'hui » as the API computes it: due today or late, most late first, subtasks under their task (MAG-405). */
+    suspend fun getTodayTasks(): List<Task> {
+        return apiService.getTodayTasks()
     }
 
     suspend fun toggleDone(taskId: String, done: Boolean): Result<Task> = runCatching {

@@ -12,6 +12,8 @@ import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { expandRrule, expandRruleDays } from '../calendar/recurrenceUtils'
 import type { DashboardEvent } from './EventListWidget'
 import type { DashboardTask } from './TaskListWidget'
+import { fetchTodayTasks } from './todayTasks'
+import type { TodayTask } from './todayTasks'
 
 const DASHBOARD_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
 
@@ -69,7 +71,8 @@ export const Dashboard = () => {
 
   const [rawEvents, setRawEvents] = useState<RawEvent[]>([])
   const [rawTasks, setRawTasks] = useState<RawTask[]>([])
-  const [undueTasks, setUndueTasks] = useState<RawTask[]>([])
+  const [todayView, setTodayView] = useState<TodayTask[]>([])
+  const [todayFailed, setTodayFailed] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const ranges = useMemo(
@@ -103,13 +106,16 @@ export const Dashboard = () => {
         // `dueDate` is a day (MAG-404): the bound is one too.
         filter: { 'exists[completedAt]': false, 'dueDate[before]': localDay(new Date(month.end)) },
       }),
-      dataProvider.getList('tasks', {
-        pagination: { page: 1, perPage: 50 },
-        sort: { field: 'criticality', order: 'DESC' },
-        filter: { 'exists[completedAt]': false, 'exists[dueDate]': false },
-      }),
+      // Apart from the rest: the events and the other days still show if « Aujourd'hui » cannot be read.
+      fetchTodayTasks().then(
+        (tasks) => ({ tasks, failed: false }),
+        (error: unknown) => {
+          console.error(error)
+          return { tasks: [] as TodayTask[], failed: true }
+        },
+      ),
     ])
-      .then(([rangeEvents, recurringEvents, rangeTasks, undueTasksResult]) => {
+      .then(([rangeEvents, recurringEvents, rangeTasks, todayTasksResult]) => {
         const seen = new Set<string>()
         const merged: RawEvent[] = []
         for (const e of [...rangeEvents.data, ...recurringEvents.data] as unknown as RawEvent[]) {
@@ -120,7 +126,8 @@ export const Dashboard = () => {
         }
         setRawEvents(merged)
         setRawTasks((rangeTasks.data as unknown as RawTask[]).filter(listedOnItsOwn))
-        setUndueTasks((undueTasksResult.data as unknown as RawTask[]).filter(listedOnItsOwn))
+        setTodayView(todayTasksResult.tasks)
+        setTodayFailed(todayTasksResult.failed)
       })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -294,33 +301,20 @@ export const Dashboard = () => {
     )
   }, [expandEventsForRange, ranges])
 
-  // Today: due today or late (overdue) + undone tasks without due date
-  const todayTasks = useMemo(() => {
-    const todayEnd = new Date(ranges.today.end)
-    const overdueAndToday: DashboardTask[] = rawTasks
-      .filter((t) => {
-        if (t.completedAt) return false
-        if (!t.dueDate) return false
-        return parseDay(t.dueDate) < todayEnd
-      })
-      .map((t) => ({
-        id: t.id,
+  // Today: the API's view — due today or late, the most late first, subtasks under their task.
+  const todayTasks = useMemo<DashboardTask[]>(
+    () =>
+      todayView.map((t) => ({
+        id: t['@id'],
         title: t.title,
         criticality: t.criticality,
-        dueDate: t.dueDate,
-        completedAt: t.completedAt,
-      }))
-    const undue: DashboardTask[] = undueTasks
-      .filter((t) => !t.dueDate)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        criticality: t.criticality,
-        dueDate: t.dueDate,
-        completedAt: t.completedAt,
-      }))
-    return [...overdueAndToday, ...undue]
-  }, [rawTasks, ranges, undueTasks])
+        dueDate: t.dueDate ?? undefined,
+        completedAt: t.completedAt ?? undefined,
+        overdueDays: t.overdueDays ?? null,
+        isSubtask: !!t.parent,
+      })),
+    [todayView],
+  )
   // Tomorrow: only tasks due tomorrow
   const tomorrowTasks = useMemo(
     () => getTasksForRange(ranges.tomorrow.start, ranges.tomorrow.end),
@@ -338,7 +332,7 @@ export const Dashboard = () => {
   )
 
   // Only show loading skeletons on initial load, not on Mercure background refreshes
-  const initialLoading = loading && rawEvents.length === 0 && rawTasks.length === 0 && undueTasks.length === 0
+  const initialLoading = loading && rawEvents.length === 0 && rawTasks.length === 0 && todayView.length === 0
 
   // Toggle task done/undone
   const handleToggleDone = useCallback(
@@ -371,6 +365,7 @@ export const Dashboard = () => {
         todayEvents={todayEvents}
         tomorrowEvents={tomorrowEvents}
         todayTasks={todayTasks}
+        todayTasksFailed={todayFailed}
         tomorrowTasks={tomorrowTasks}
         loading={initialLoading}
         onToggleDone={handleToggleDone}

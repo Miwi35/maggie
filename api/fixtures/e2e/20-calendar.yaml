@@ -274,6 +274,15 @@ Maggie\Calendar\Entity\Task:
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
     user: '@e2e_user'
 
+  # Due two days before the anchor and never done: it stays in « Aujourd'hui »,
+  # first, « En retard de 2 j » (MAG-405). Both journeys tick it off.
+  e2e_task_late:
+    title: Renvoyer le formulaire de la mutuelle
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<e2eDate("-2 days 12:00")>'
+    user: '@e2e_user'
+
   # A note and two subtasks in Google's order (MAG-404): the admin journey
   # ticks the first one off, the mobile one reads both in order. Due on the
   # anchor day, so the day view draws it.

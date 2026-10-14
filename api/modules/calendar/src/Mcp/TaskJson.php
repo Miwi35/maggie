@@ -6,7 +6,7 @@ namespace Maggie\Calendar\Mcp;
 
 use Maggie\Calendar\Entity\Task;
 
-/** A task as the task tools read and write it — one shape for the three of them. */
+/** A task as the task tools read and write it — one shape for the three of them. `overdueDays` is what {@see \Maggie\Calendar\Service\TaskOverdue::mark()} left on it. */
 final class TaskJson
 {
     /** @return array<string, mixed> */
@@ -21,6 +21,7 @@ final class TaskJson
             'dueDate' => $task->getDueDate()?->format('Y-m-d'),
             'isDone' => $task->isDone(),
             'completedAt' => $task->getCompletedAt()?->format('c'),
+            'overdueDays' => $task->getOverdueDays(),
             'parentId' => null !== $task->getParent() ? (string) $task->getParent()->getId() : null,
             'position' => $task->getPosition(),
             'links' => $task->getLinks(),

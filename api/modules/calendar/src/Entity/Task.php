@@ -139,6 +139,12 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[ApiProperty(writable: false, description: 'Links Google attached to the task, read only: {type, description, link}.')]
     private array $links = [];
 
+    /**
+     * Computed on each read, never stored nor indexed: it depends on the day
+     * (MAG-405). {@see \Maggie\Calendar\Serializer\TaskOverdueNormalizer}
+     */
+    private ?int $overdueDays = null;
+
     public function __construct()
     {
         $this->id = new Ulid();
@@ -267,6 +273,23 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     public function setLinks(array $links): static
     {
         $this->links = $links;
+
+        return $this;
+    }
+
+    #[ApiProperty(
+        writable: false,
+        description: 'Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user\'s timezone.',
+        openapiContext: ['type' => ['integer', 'null'], 'minimum' => 1],
+    )]
+    public function getOverdueDays(): ?int
+    {
+        return $this->overdueDays;
+    }
+
+    public function setOverdueDays(?int $overdueDays): static
+    {
+        $this->overdueDays = $overdueDays;
 
         return $this;
     }

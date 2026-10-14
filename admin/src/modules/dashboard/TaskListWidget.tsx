@@ -9,6 +9,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import EventBusyIcon from '@mui/icons-material/EventBusy'
 import { parseDay } from '../../dates'
 import { criticalityColor } from '../../design/tokens'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
@@ -20,6 +21,10 @@ export interface DashboardTask {
   /** The due day, `YYYY-MM-DD` (MAG-404). */
   dueDate?: string
   completedAt?: string
+  /** Whole days late, from the API (MAG-405); null or absent when the task is not late. */
+  overdueDays?: number | null
+  /** A subtask is shown under its task, indented. */
+  isSubtask?: boolean
 }
 
 const CRITICALITY_ORDER: Record<string, number> = {
@@ -33,9 +38,16 @@ interface TaskListWidgetProps {
   tasks: DashboardTask[]
   loading: boolean
   onToggleDone: (taskId: string, done: boolean) => void
+  /** Keep the order given (the API's « Aujourd'hui »: most late first, subtasks under their task). */
+  ordered?: boolean
+  /** The list could not be read: say it instead of « Aucune tâche ». */
+  error?: boolean
 }
 
-export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetProps) => {
+const shortDay = (day: string): string =>
+  parseDay(day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, error = false }: TaskListWidgetProps) => {
   const { addedIds, removingItems } = useItemTransitions(
     tasks,
     useCallback((t: DashboardTask) => t.id, []),
@@ -46,7 +58,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
     return [...tasks, ...removingItems.filter((t) => !currentIds.has(t.id))]
   }, [tasks, removingItems])
 
-  const sorted = [...displayTasks].sort((a, b) => {
+  const sorted = ordered ? displayTasks : [...displayTasks].sort((a, b) => {
     // Done tasks at bottom
     if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1
     // By criticality
@@ -91,7 +103,11 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
             </Typography>
           )}
         </Typography>
-        {tasks.length === 0 && removingItems.length === 0 ? (
+        {error ? (
+          <Typography variant="body2" color="error" role="alert">
+            Tâches indisponibles
+          </Typography>
+        ) : tasks.length === 0 && removingItems.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             Aucune tâche
           </Typography>
@@ -99,8 +115,13 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
           <List dense disablePadding>
             {sorted.map((task) => {
               const isDone = task.completedAt != null
+              const late = !isDone && task.overdueDays != null && task.overdueDays > 0
               return (
-                <ListItem key={task.id} disableGutters sx={{ py: 0.25, borderRadius: 1, ...transitionSx(task.id, addedIds, removingIds) }}>
+                <ListItem
+                  key={task.id}
+                  disableGutters
+                  sx={{ py: 0.25, borderRadius: 1, pl: task.isSubtask ? 4 : 0, ...transitionSx(task.id, addedIds, removingIds) }}
+                >
                   <Checkbox
                     size="small"
                     checked={isDone}
@@ -132,6 +153,19 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
                           {task.title}
                         </Typography>
                       }
+                      secondary={
+                        late ? (
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="error"
+                            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                          >
+                            <EventBusyIcon aria-hidden fontSize="inherit" />
+                            En retard de {task.overdueDays} j
+                          </Typography>
+                        ) : undefined
+                      }
                     />
                   </Box>
                   {task.dueDate && (
@@ -140,10 +174,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
                       color="text.secondary"
                       sx={{ ml: 1, flexShrink: 0 }}
                     >
-                      {parseDay(task.dueDate).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
+                      {late ? `prévue le ${shortDay(task.dueDate)}` : shortDay(task.dueDate)}
                     </Typography>
                   )}
                 </ListItem>

@@ -9,6 +9,8 @@ interface DailyDigestRowProps {
   todayEvents: DashboardEvent[]
   tomorrowEvents: DashboardEvent[]
   todayTasks: DashboardTask[]
+  /** « Aujourd'hui » could not be read: say so rather than « Aucune tâche ». */
+  todayTasksFailed?: boolean
   tomorrowTasks: DashboardTask[]
   loading: boolean
   onToggleDone: (taskId: string, done: boolean) => void
@@ -18,6 +20,7 @@ export const DailyDigestRow = ({
   todayEvents,
   tomorrowEvents,
   todayTasks,
+  todayTasksFailed = false,
   tomorrowTasks,
   loading,
   onToggleDone,
@@ -37,7 +40,7 @@ export const DailyDigestRow = ({
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <EventListWidget events={todayEvents} loading={loading} />
-          <TaskListWidget tasks={todayTasks} loading={loading} onToggleDone={onToggleDone} />
+          <TaskListWidget tasks={todayTasks} loading={loading} onToggleDone={onToggleDone} ordered error={todayTasksFailed} />
         </Box>
       </Box>
 

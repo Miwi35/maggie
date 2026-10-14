@@ -111,6 +111,7 @@ private fun TodayPage(
                 onToggleTaskDone = { id, done -> viewModel.toggleTaskDone(id, done) },
                 onEventClick = onEventClick,
                 onTaskClick = onTaskClick,
+                nestSubtasks = true,
             )
         }
         item {

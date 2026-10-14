@@ -13,6 +13,9 @@ use Maggie\Finance\UseCase\GetTreasuryOutlook;
 use Maggie\Finance\UseCase\SuggestRecurringOperations;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 /**
  * Records real API responses into contract/responses/, for the mobile DTO
@@ -80,6 +83,14 @@ final class RecordedResponseContractTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = self::createClient();
+        // A task's `overdueDays` moves with the day (MAG-405): read at a fixed one.
+        Clock::set(new MockClock('2026-04-22 12:00:00 UTC'));
+    }
+
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
     }
 
     public function testTheRecordingsAreCurrent(): void

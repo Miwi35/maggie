@@ -20,10 +20,15 @@ data class Task(
     val position: String? = null,
     /** Read only: what Google attached (a mail, a document). */
     val links: List<TaskLink> = emptyList(),
+    /** Whole days late (MAG-405), computed by the API in the user's timezone; absent when not late. */
+    val overdueDays: Int? = null,
 ) {
     val isDone: Boolean get() = completedAt != null
 
     val isSubtask: Boolean get() = parent != null
+
+    /** Late and not done: the days it is late by, else null. */
+    val daysLate: Int? get() = overdueDays?.takeIf { !isDone && it > 0 }
 
     val iri: String get() = iriOf(id)
 
