@@ -57,10 +57,11 @@ tags:
 - assertVisible: ".*Crée un événement test à elle demain.*"
 
 # Corrected, and sent again. The field already has the focus with the cursor after the last word
-# (that is the feature): a tap would move the cursor into the text and `eraseText`, which only
-# deletes backwards, would leave the words after it in the corrected message.
-- eraseText: 100
-- inputText: "Crée un événement test à Ael demain"
+# (that is the feature): a tap would move the cursor into the text. Only the end is rewritten:
+# `eraseText` deletes backwards, and emptying the field gives the correction up (the stopped
+# exchange comes back and nothing is replaced), so « elle demain » goes and « Ael demain » comes.
+- eraseText: 11
+- inputText: "Ael demain"
 - tapOn:
     id: "chat_send"
 
