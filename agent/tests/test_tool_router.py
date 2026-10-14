@@ -137,7 +137,7 @@ class TestToolRouter:
     async def test_call_native_tool_without_user_id(self):
         """Native tools should fail if user_id is not provided."""
         router = ToolRouter()
-        result = await router.call_tool("store_memory", {"content": "test"})
+        result = await router.call_tool("list_instructions", {})
 
         assert "error" in result
         assert "user_id" in result
@@ -168,7 +168,7 @@ class TestToolRouter:
     @patch("app.llm.tools.mcp_client")
     async def test_the_old_memory_tools_are_gone(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
-        names = {t["name"] for t in await ToolRouter().get_tool_definitions(include_native=False)}
+        names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
 
         assert not names & {"store_memory", "search_memory", "update_memory", "delete_memory"}
 
