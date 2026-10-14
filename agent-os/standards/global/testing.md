@@ -63,7 +63,7 @@ how the fixtures stay deterministic and which external services are simulated:
 journey can talk to Maggie deterministically. It replaces the model and nothing
 else — the tool loop, the streaming gateway and MCP are the production ones.
 Judgement (tone, tool choice, keeping the thread) is checked separately by the
-eval suite, `task e2e:eval`, on the real model, nightly and outside CI. An
+eval suite, `task e2e:eval`, on the real model, by hand when a prompt changes, never nightly nor in CI. An
 assertion that would hold with any plausible wording belongs in a journey with
 the fake, not in the eval.
 
