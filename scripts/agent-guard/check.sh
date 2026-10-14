@@ -40,6 +40,9 @@ function sensitive(f) {
 }
 # Infra and CD: a human, unless the PR is the fix of a ticket in « Emergency ».
 function infra(f) {
+  # The tests of the e2e tooling are no infra: they change nothing that runs in production, and the journeys
+  # themselves (e2e/) already merge alone (owner, 14 Oct.).
+  if (f ~ /^infra\/scripts\/tests\/e2e-[^\/]*\.test\.sh$/) return 0
   return f ~ /^infra\// || f ~ /^\.github\//
 }
 function auth_file(f) {

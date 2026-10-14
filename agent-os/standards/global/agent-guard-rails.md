@@ -9,7 +9,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 | Code | Trips when the diff… |
 |---|---|
 | `sensitive-path` | touches a secret (`*.pem`, `.env*` but `*.example`, `secrets*`, `*-secret.yaml`, `api/config/jwt/`), any `policy.yaml`, the guard itself (`scripts/agent-guard/`, `agent-guard.yml`) or the freeze (`incident-gate*`, `linear.sh`, the gate job); or a workflow line reaches for `secrets` |
-| `infra-path` | touches `infra/` or `.github/` (anything not above) |
+| `infra-path` | touches `infra/` or `.github/` (anything not above), except the tests of the e2e tooling (`infra/scripts/tests/e2e-*.test.sh`): they change nothing in production, like the journeys in `e2e/` |
 | `permissions` | changes a workflow's token rights (`permissions:`, `: write`), or touches the auth files (`security.yaml`, JWT config, Google OAuth controller, MCP access listener, `Voter`s, `admin/src/auth`, `agent/app/auth.py`, mobile `data/auth`), or adds/removes an access rule (`IsGranted`, `access_control`, `ROLE_`, `security:`) outside tests |
 | `destructive-migration` | has an `up()` that drops a table or column, truncates, or deletes rows (the `down()` of a new table drops it: ignored) |
 | `oversize` | **off by default since 8 Oct. (owner)**: a large PR is reviewed, not split by rule. `AGENT_MAX_DIFF_LINES` > 0 turns it back on (lines outside tests, lockfiles, `api/contract/` and `agent-os/specs/`) |

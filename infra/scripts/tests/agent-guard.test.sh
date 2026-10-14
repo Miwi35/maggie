@@ -59,6 +59,9 @@ echo "Sensitive paths"
 section infra/k8s/php-deployment.yaml 'replicas: 3' | expect "infra/k8s needs a human" infra-path
 section .github/workflows/main.yml 'name: Main' | expect "a workflow needs a human" infra-path
 section infra/scripts/deploy-k3s.sh 'echo deploy' | expect "the deploy scripts need a human" infra-path
+section infra/scripts/tests/e2e-impacted.test.sh 'ok "x"' | expect "the e2e tooling tests merge alone" clean
+section infra/scripts/tests/agent-guard.test.sh 'ok "x"' | expect "the guard's own tests still need a human" infra-path
+section infra/scripts/e2e-impacted.sh 'echo x' | expect "an e2e script outside the tests still needs a human" infra-path
 section .github/workflows/agent-guard.yml 'name: x' | expect "the guard's workflow is never mere infra" sensitive-path
 section infra/k8s/secrets.yaml 'kind: Secret' | expect "a secret under infra is never mere infra" sensitive-path
 section .github/workflows/main.yml '    permissions:' '      contents: write' | expect "a workflow's token rights need a human" permissions
