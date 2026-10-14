@@ -1,6 +1,7 @@
 package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.EnvelopeCreateRequest
+import com.maggie.app.data.api.EnvelopeSplitRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
@@ -25,6 +26,10 @@ class BudgetRepository(
 
     suspend fun deleteEnvelope(id: String): Result<Unit> = runCatching {
         apiService.deleteEnvelope(id)
+    }
+
+    suspend fun splitEnvelope(id: String, request: EnvelopeSplitRequest): Result<Unit> = runCatching {
+        apiService.splitEnvelope(id, request)
     }
 
     suspend fun getBudgetStatus(year: Int, month: Int): Result<BudgetStatus> = runCatching {

@@ -1,0 +1,84 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-envelope-split@example.com
+    googleId: google-finance-envelope-split
+    name: Envelope Split Test User
+  other_user:
+    email: finance-envelope-split-other@example.com
+    googleId: google-finance-envelope-split-other
+    name: Other Envelope Split User
+
+# Loisirs > Bars and Loisirs > Cinéma, with a Loisirs envelope of 300 €.
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  bars:
+    name: Bars
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@leisure'
+    user: '@test_user'
+  cinema:
+    name: Cinéma
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@leisure'
+    user: '@test_user'
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  other_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  leisure_october:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  bars_october:
+    category: '@bars'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  cinema_october:
+    category: '@cinema'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 5000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  bars_november:
+    category: '@bars'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 8000
+    currency: EUR
+    year: 2026
+    month: 11
+    user: '@test_user'
+  food_october:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  other_leisure_october:
+    category: '@other_leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 9000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@other_user'

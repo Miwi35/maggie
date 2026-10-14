@@ -38,6 +38,8 @@ const line = (overrides: Partial<BudgetLine>): BudgetLine => ({
   committedCents: 0,
   plannedCents: 0,
   toArbitrateCents: 0,
+  allocatedToChildrenCents: null,
+  freeCents: null,
   consumedCents: 0,
   remainingCents: 10000,
   availableCents: 10000,
@@ -227,5 +229,25 @@ describe('BudgetStatusPanel', () => {
     const gauge = screen.getByTestId('budget-gauge')
     expect(within(gauge).getByText(/Novembre 2026 · saison nov\.–févr\./)).toBeInTheDocument()
     expect(within(gauge).getByText(/45,00/)).toBeInTheDocument()
+  })
+
+  test('opens the ruler of a mother and shares her amount between her daughters', async () => {
+    status = statusOf([
+      line({ id: 'loisirs', categoryName: 'Loisirs', categoryPath: 'Loisirs', amountCents: 30000, allocatedToChildrenCents: 15000, freeCents: 15000 }),
+      line({ id: 'bars', categoryName: 'Bars', categoryPath: 'Loisirs › Bars', parentEnvelopeId: 'loisirs', amountCents: 10000 }),
+      line({ id: 'cinema', categoryName: 'Cinéma', categoryPath: 'Loisirs › Cinéma', parentEnvelopeId: 'loisirs', amountCents: 5000 }),
+    ])
+
+    renderPanel()
+
+    // Only the mother has a ruler.
+    expect(screen.getAllByRole('button', { name: 'Répartir' })).toHaveLength(1)
+    expect(screen.queryByTestId('envelope-split')).toBeNull()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Répartir' }))
+
+    const ruler = screen.getByTestId('envelope-split')
+    expect(within(ruler).getAllByRole('slider')).toHaveLength(2)
+    expect(ruler).toHaveTextContent(/Libre 150,00\s€/)
   })
 })

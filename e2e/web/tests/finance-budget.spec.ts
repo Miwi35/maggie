@@ -454,4 +454,58 @@ test.describe('categories on three levels', () => {
     expect(carried.amountCents, 'the 20 € outside the season is kept').toBe(2000)
     expect(carried.seasonalAmounts).toEqual([season])
   })
+
+  test('moving the Bars|Cinéma boundary by 20 € shares Loisirs again, and survives a reload', async ({
+    otherUser,
+  }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs at 300 €, Bars at 100 € and Cinéma at 50 € this month.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    const daughters: Record<string, string> = {}
+    for (const name of ['Bars', 'Cinéma']) {
+      daughters[name] = await createdId(api, '/api/categories', {
+        name,
+        obligation: 'optional',
+        parent: `/api/categories/${loisirsId}`,
+      })
+    }
+    for (const [categoryId, amountCents] of [
+      [loisirsId, 30000],
+      [daughters['Bars'], 10000],
+      [daughters['Cinéma'], 5000],
+    ] as const) {
+      treeEnvelopeIds.push(
+        await createdId(api, '/api/envelopes', {
+          category: `/api/categories/${categoryId}`,
+          mode: 'monthly',
+          amountCents,
+          currency: 'EUR',
+          year: ANCHOR_YEAR,
+          month: ANCHOR_MONTH,
+        }),
+      )
+    }
+
+    // When I open Loisirs' ruler and move the Bars|Cinéma boundary by 20 €.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    const ruler = await budget.openRuler('Loisirs')
+    await expect(budget.rulerAmount(ruler, 'libre')).toContainText(`Libre ${euros(15000)}`)
+    await budget.moveBoundary(ruler, 'Bars', 'Cinéma', 20)
+
+    // Then, after a reload, Bars holds 120 €, Cinéma 30 € and 150 € stay free.
+    await page.reload()
+    await budget.open()
+    await expect(budget.gauge('Bars')).toContainText(overBudget(0, 12000))
+    await expect(budget.gauge('Cinéma')).toContainText(overBudget(0, 3000))
+    const reloaded = await budget.openRuler('Loisirs')
+    await expect(budget.rulerAmount(reloaded, 'Bars')).toContainText(euros(12000))
+    await expect(budget.rulerAmount(reloaded, 'Cinéma')).toContainText(euros(3000))
+    await expect(budget.rulerAmount(reloaded, 'libre')).toContainText(euros(15000))
+    await expect(budget.gauge('Loisirs'), 'the mother itself did not move').toContainText(
+      overBudget(0, 30000),
+    )
+  })
 })

@@ -13,6 +13,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useNotify, useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { DailyScoreBanner } from './DailyScoreBanner'
+import { EnvelopeSplitSlider } from './EnvelopeSplitSlider'
 import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
 import { consumedPercent, formatPeriod, formatSeason } from './budgetModes'
@@ -78,9 +79,16 @@ interface BudgetGaugeProps {
   /** What the e2e journey finds the gauge by: the category, or the event's name. */
   name: string
   depth?: number
+  /** Set on a mother: the envelopes directly below her, which the ruler shares her amount between. */
+  split?: {
+    mother: BudgetLine
+    daughters: BudgetLine[]
+    onSaved: () => void
+  }
 }
 
-const BudgetGauge = ({ line, label, caption, name, depth = 1 }: BudgetGaugeProps) => {
+const BudgetGauge = ({ line, label, caption, name, depth = 1, split }: BudgetGaugeProps) => {
+  const [splitting, setSplitting] = useState(false)
   const consumed = consumedPercent(line.consumedCents, line.amountCents)
   const withPlanned = consumedPercent(line.consumedCents + line.plannedCents, line.amountCents)
   const detail = breakdown(line)
@@ -126,6 +134,27 @@ const BudgetGauge = ({ line, label, caption, name, depth = 1 }: BudgetGaugeProps
         </Typography>
         <BudgetState line={line} />
       </Stack>
+
+      {split && split.daughters.length > 0 && (
+        <>
+          <Button
+            size="small"
+            onClick={() => setSplitting((open) => !open)}
+            aria-expanded={splitting}
+            sx={{ mt: 0.5 }}
+          >
+            {splitting ? 'Fermer la répartition' : 'Répartir'}
+          </Button>
+          {splitting && (
+            <EnvelopeSplitSlider
+              key={`${line.amountCents}:${split.daughters.map((d) => d.amountCents).join(',')}`}
+              mother={split.mother}
+              daughters={split.daughters}
+              onSaved={split.onSaved}
+            />
+          )}
+        </>
+      )}
     </Box>
   )
 }
@@ -134,13 +163,25 @@ const BudgetGauge = ({ line, label, caption, name, depth = 1 }: BudgetGaugeProps
 const withSeason = (period: string, line: BudgetLine) =>
   line.season ? `${period} · ${formatSeason(line.season)}` : period
 
-const NestedGauge = ({ nested }: { nested: NestedBudgetLine }) => (
+interface NestedGaugeProps {
+  nested: NestedBudgetLine
+  /** The envelopes of the same mode and period the line was nested from: the daughters are among them. */
+  lines: BudgetLine[]
+  onSplitSaved: () => void
+}
+
+const NestedGauge = ({ nested, lines, onSplitSaved }: NestedGaugeProps) => (
   <BudgetGauge
     line={nested.line}
     label={nested.label}
     caption={withSeason(formatPeriod(nested.line.mode, nested.line.year, nested.line.month), nested.line)}
     name={nested.line.categoryName}
     depth={nested.depth}
+    split={{
+      mother: nested.line,
+      daughters: lines.filter((candidate) => candidate.parentEnvelopeId === nested.line.id),
+      onSaved: onSplitSaved,
+    }}
   />
 )
 
@@ -148,7 +189,7 @@ const NestedGauge = ({ nested }: { nested: NestedBudgetLine }) => (
  * The annual envelopes and the one-off ones, apart from the month's budget:
  * they count in none of its totals.
  */
-const OutsideMonthlyBudget = ({ status }: { status: BudgetStatus }) => {
+const OutsideMonthlyBudget = ({ status, onSplitSaved }: { status: BudgetStatus; onSplitSaved: () => void }) => {
   const annual = status.outsideMonthlyBudget?.annual ?? []
   const oneOff = status.outsideMonthlyBudget?.oneOff ?? []
   if (annual.length === 0 && oneOff.length === 0) return null
@@ -162,7 +203,7 @@ const OutsideMonthlyBudget = ({ status }: { status: BudgetStatus }) => {
         Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.
       </Typography>
       {nestBudgetLines(annual).map((nested) => (
-        <NestedGauge key={nested.line.id} nested={nested} />
+        <NestedGauge key={nested.line.id} nested={nested} lines={annual} onSplitSaved={onSplitSaved} />
       ))}
       {oneOff.map((line) => (
         <BudgetGauge key={line.id} line={line} label={line.name} caption={formatPeriod(line.mode)} name={line.name} />
@@ -184,6 +225,12 @@ export const BudgetStatusPanel = () => {
   useMercure(BUDGET_TOPICS, () => { refresh() })
 
   const previous = new Date(year, month - 2, 1)
+
+  const onSplitSaved = () => {
+    notify('Répartition enregistrée', { type: 'info' })
+    refresh()
+    refreshList()
+  }
 
   const onRollOver = async () => {
     const result = await rollOver({
@@ -241,7 +288,12 @@ export const BudgetStatusPanel = () => {
         {loading && <LinearProgress sx={{ mb: 2 }} />}
 
         {status && nestBudgetLines(status.budgets).map((nested) => (
-          <NestedGauge key={nested.line.id} nested={nested} />
+          <NestedGauge
+            key={nested.line.id}
+            nested={nested}
+            lines={status.budgets}
+            onSplitSaved={onSplitSaved}
+          />
         ))}
 
         {status && status.budgets.length > 0 && (
@@ -255,7 +307,7 @@ export const BudgetStatusPanel = () => {
           </Typography>
         )}
 
-        {status && <OutsideMonthlyBudget status={status} />}
+        {status && <OutsideMonthlyBudget status={status} onSplitSaved={onSplitSaved} />}
       </CardContent>
       </Card>
     </>

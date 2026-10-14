@@ -28,6 +28,10 @@ export interface BudgetLine extends EnvelopeConsumption {
   month: number | null
   /** The season budgeting this month (amountCents is then its amount), null otherwise (MAG-415). */
   season?: { fromMonth: number; toMonth: number; amountCents: number } | null
+  /** What the daughter envelopes hold, null when the envelope has no daughter. */
+  allocatedToChildrenCents: number | null
+  /** What is left free in a mother once her daughters are served, null for a non-mother. */
+  freeCents: number | null
 }
 
 /** A one-off envelope (Hellfest 2026): every spend ever attributed to it, no period. */

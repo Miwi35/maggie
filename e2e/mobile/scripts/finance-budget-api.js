@@ -10,7 +10,8 @@
 // polled for, never read once.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €)
+//   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €) | create-split (MAG-413: Loisirs 300 €,
+//           Bars 100 €, Cinéma 50 €) | split (Bars 120 €, Cinéma 30 €)
 //           | hellfest (a one-off « Hellfest 2026 » of 400 € and an 89 € ticket in Loisirs, MAG-414)
 //           | cinema (Cinéma 20 € this month, 45 € in a season from next month on, MAG-415)
 //           | remove
@@ -175,6 +176,67 @@ if (ACTION === 'create') {
     seasonalAmounts: [{ fromMonth: next, toMonth: next % 12 + 1, amountCents: 4500 }],
   })
   awaitOne('/api/categories?itemsPerPage=200', 'Cinéma')
+} else if (ACTION === 'create-split') {
+  removeLeftovers()
+  const loisirs = post('/api/categories', { name: 'Loisirs', obligation: 'optional' })
+  ;[['Bars', 10000], ['Cinéma', 5000]].forEach(function (pair) {
+    const daughter = post('/api/categories', {
+      name: pair[0],
+      obligation: 'optional',
+      parent: '/api/categories/' + loisirs.id,
+    })
+    post('/api/envelopes', {
+      category: '/api/categories/' + daughter.id,
+      mode: 'monthly',
+      amountCents: pair[1],
+      currency: 'EUR',
+      year: year,
+      month: month,
+    })
+  })
+  post('/api/envelopes', {
+    category: '/api/categories/' + loisirs.id,
+    mode: 'monthly',
+    amountCents: 30000,
+    currency: 'EUR',
+    year: year,
+    month: month,
+  })
+  awaitOne('/api/categories?itemsPerPage=200', 'Cinéma')
+} else if (ACTION === 'split') {
+  // What the admin's ruler does: one write that moves 20 € from Cinéma to Bars.
+  function envelopeOf(name) {
+    const category = awaitOne('/api/categories?itemsPerPage=200', name)
+    const deadline = Date.now() + 30000
+    for (;;) {
+      const rows = collection('/api/envelopes?itemsPerPage=200').filter(function (envelope) {
+        return envelope.category === '/api/categories/' + category.id
+      })
+      if (rows.length === 1) {
+        return rows[0]
+      }
+      if (Date.now() >= deadline) {
+        fail('the envelope of "' + name + '" never became findable within 30 s')
+      }
+      pause(300)
+    }
+  }
+  const mother = envelopeOf('Loisirs')
+  const bars = envelopeOf('Bars')
+  const cinema = envelopeOf('Cinéma')
+  const response = http.request(base + '/api/finance/envelopes/' + mother.id + '/split', {
+    method: 'PUT',
+    headers: authorized({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      children: [
+        { envelopeId: bars.id, amountCents: 12000 },
+        { envelopeId: cinema.id, amountCents: 3000 },
+      ],
+    }),
+  })
+  if (!response.ok) {
+    fail('PUT split answered ' + response.status + ': ' + response.body)
+  }
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

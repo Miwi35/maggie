@@ -12,6 +12,7 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\EnvelopeNesting;
 use Symfony\Component\Uid\Ulid;
 
 /**
@@ -40,6 +41,7 @@ class GetBudgetStatus
         private readonly EnvelopeRepository $envelopeRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly TransactionRepository $transactionRepository,
+        private readonly EnvelopeNesting $nesting,
     ) {
     }
 
@@ -109,15 +111,23 @@ class GetBudgetStatus
      */
     private function categoryLines(User $user, array $envelopes, array $childrenByParent): array
     {
-        $envelopesByCategory = [];
+        $envelopesByCategory = $this->nesting->byCategory($envelopes);
+
+        // What each mother has handed down to her daughters, by mother id.
+        $allocatedByMother = [];
         foreach ($envelopes as $envelope) {
-            $envelopesByCategory[(string) $envelope->requireCategory()->getId()][] = $envelope;
+            $mother = $this->nesting->motherOf($envelope, $envelopesByCategory);
+            if (null !== $mother) {
+                $key = (string) $mother->getId();
+                $allocatedByMother[$key] = ($allocatedByMother[$key] ?? 0) + $envelope->getMonthAmountCents();
+            }
         }
 
         $lines = [];
         foreach ($envelopes as $envelope) {
             $category = $envelope->requireCategory();
-            $parentEnvelope = $this->nearestEnvelopeAbove($envelope, $envelopesByCategory);
+            $parentEnvelope = $this->nesting->motherOf($envelope, $envelopesByCategory);
+            $allocatedToChildrenCents = $allocatedByMother[(string) $envelope->getId()] ?? null;
 
             $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
                 $user,
@@ -139,6 +149,9 @@ class GetBudgetStatus
                 'month' => $envelope->getMonth(),
                 // The season budgeting this month, if any: amountCents is then its amount (MAG-415).
                 'season' => $envelope->getSeason(),
+                // What the daughters hold and what is left free in a mother; null when she has no daughter.
+                'allocatedToChildrenCents' => $allocatedToChildrenCents,
+                'freeCents' => null === $allocatedToChildrenCents ? null : $envelope->getMonthAmountCents() - $allocatedToChildrenCents,
             ] + $this->consumption($envelope->getMonthAmountCents(), $byStatus) + [
                 // Past it, a bank sync makes Maggie interrupt (MAG-49).
                 'alertThresholdPercent' => $envelope->getEffectiveAlertThresholdPercent(),
@@ -198,23 +211,6 @@ class GetBudgetStatus
             'isOverspent' => $consumedCents > $amountCents,
             'isOvercommitted' => $consumedCents + $plannedCents > $amountCents,
         ];
-    }
-
-    /**
-     * The envelope of the closest ancestor category that has one.
-     *
-     * @param array<string, list<Envelope>> $envelopesByCategory envelopes of a single mode
-     */
-    private function nearestEnvelopeAbove(Envelope $envelope, array $envelopesByCategory): ?Envelope
-    {
-        for ($ancestor = $envelope->requireCategory()->getParent(); null !== $ancestor; $ancestor = $ancestor->getParent()) {
-            $candidates = $envelopesByCategory[(string) $ancestor->getId()] ?? [];
-            if ([] !== $candidates) {
-                return $candidates[0];
-            }
-        }
-
-        return null;
     }
 
     /**

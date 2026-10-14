@@ -98,6 +98,7 @@ framework:
             'Maggie\Finance\Message\CreateEnvelopeCommand': sync
             'Maggie\Finance\Message\UpdateEnvelopeCommand': sync
             'Maggie\Finance\Message\DeleteEnvelopeCommand': sync
+            'Maggie\Finance\Message\SplitEnvelopeCommand': sync
             'Maggie\Finance\Message\CreateCategorizationRuleCommand': sync
             'Maggie\Finance\Message\UpdateCategorizationRuleCommand': sync
             'Maggie\Finance\Message\DeleteCategorizationRuleCommand': sync

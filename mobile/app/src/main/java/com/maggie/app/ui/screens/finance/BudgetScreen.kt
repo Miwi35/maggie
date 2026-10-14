@@ -75,6 +75,7 @@ import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
+import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -87,6 +88,8 @@ import kotlin.math.roundToInt
 fun BudgetScreen(
     viewModel: BudgetViewModel,
     onBack: () -> Unit,
+    // The ruler of a mother is read on the phone and edited where the window has room for it.
+    canEditSplit: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -197,6 +200,13 @@ fun BudgetScreen(
                                 label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
                                 caption = budgetCaption(row.line),
                                 depth = row.depth,
+                                daughters = uiState.daughtersOf(row.line),
+                                splitEditor = uiState.splitEditor?.takeIf { it.motherId == row.line.id },
+                                canEditSplit = canEditSplit,
+                                onStartSplit = { viewModel.startSplit(row.line.id) },
+                                onMoveSplitBoundary = viewModel::moveSplitBoundary,
+                                onSaveSplit = viewModel::saveSplit,
+                                onCancelSplit = viewModel::cancelSplit,
                                 onDelete = { viewModel.deleteEnvelope(row.line.id) },
                                 onEditThreshold = if (canSetThreshold) {
                                     { editingThreshold = row.line }
@@ -343,6 +353,13 @@ private fun BudgetCard(
     depth: Int,
     onDelete: () -> Unit,
     onEditThreshold: (() -> Unit)? = null,
+    daughters: List<BudgetLine> = emptyList(),
+    splitEditor: SplitEditor? = null,
+    canEditSplit: Boolean = false,
+    onStartSplit: () -> Unit = {},
+    onMoveSplitBoundary: (index: Int, deltaCents: Int) -> Unit = { _, _ -> },
+    onSaveSplit: () -> Unit = {},
+    onCancelSplit: () -> Unit = {},
 ) {
     Card(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -399,6 +416,53 @@ private fun BudgetCard(
             // A one-off envelope has no period: no sync weighs it against a threshold.
             if (line is BudgetLine) {
                 AlertThreshold(line.alertThresholdPercent, onEditThreshold)
+            }
+            if (daughters.isNotEmpty()) {
+                EnvelopeSplit(
+                    mother = line,
+                    daughters = daughters,
+                    editor = splitEditor,
+                    canEdit = canEditSplit,
+                    onStart = onStartSplit,
+                    onMoveBoundary = onMoveSplitBoundary,
+                    onSave = onSaveSplit,
+                    onCancel = onCancelSplit,
+                )
+            }
+        }
+    }
+}
+
+/** The mother's ruler: always readable, editable once the screen allows it and "Répartir" is tapped. */
+@Composable
+private fun EnvelopeSplit(
+    mother: EnvelopeConsumption,
+    daughters: List<BudgetLine>,
+    editor: SplitEditor?,
+    canEdit: Boolean,
+    onStart: () -> Unit,
+    onMoveBoundary: (index: Int, deltaCents: Int) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val shares = editor?.shares ?: splitSharesOf(daughters.map { it.amountCents }, mother.amountCents)
+
+    EnvelopeSplitBar(
+        names = daughters.map { it.categoryName },
+        shares = shares,
+        totalCents = mother.amountCents,
+        currency = mother.currency,
+        modifier = Modifier.padding(top = 12.dp),
+        onMoveBoundary = if (editor != null && !editor.isSaving) onMoveBoundary else null,
+    )
+
+    if (canEdit) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (editor == null) {
+                TextButton(onClick = onStart) { Text("Répartir") }
+            } else {
+                TextButton(onClick = onSave, enabled = !editor.isSaving) { Text("Enregistrer") }
+                TextButton(onClick = onCancel, enabled = !editor.isSaving) { Text("Annuler") }
             }
         }
     }

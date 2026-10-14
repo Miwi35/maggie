@@ -213,4 +213,112 @@ class EnvelopeToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
     }
+
+    /** @return array<string, mixed> */
+    private function splitWith(string $motherFixture, array $children): array
+    {
+        $tool = self::getContainer()->get(ManageEnvelopesTool::class);
+
+        return json_decode(
+            $tool('split', envelopeId: (string) $this->getFixture($motherFixture)->getId(), children: $children),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+    }
+
+    private function amountOf(string $fixture): int
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(Envelope::class, $this->getFixture($fixture)->getId())->getAmountCents();
+    }
+
+    public function testSplitMovesTheBoundaryBetweenTwoDaughtersAndLeavesTheRestFree(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->splitWith('leisure_october', [
+            ['envelopeId' => (string) $this->getFixture('bars_october')->getId(), 'amountCents' => 12000],
+            ['envelopeId' => (string) $this->getFixture('cinema_october')->getId(), 'amountCents' => 3000],
+        ]);
+
+        self::assertTrue($data['success']);
+        self::assertSame(15000, $data['allocatedToChildrenCents']);
+        self::assertSame(15000, $data['freeCents']);
+        self::assertSame(12000, $this->amountOf('bars_october'));
+        self::assertSame(3000, $this->amountOf('cinema_october'));
+        self::assertSame(30000, $this->amountOf('leisure_october'));
+
+        $this->assertMercurePublishedOnce('/envelopes/'.$this->getFixture('bars_october')->getId());
+        $this->assertMercurePublishedOnce('/envelopes/'.$this->getFixture('cinema_october')->getId());
+        $this->assertElasticsearchIndexDispatched(Envelope::class);
+    }
+
+    public function testSplitBeyondTheMotherIsRefusedAndChangesNothing(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->splitWith('leisure_october', [
+            ['envelopeId' => (string) $this->getFixture('bars_october')->getId(), 'amountCents' => 25000],
+            ['envelopeId' => (string) $this->getFixture('cinema_october')->getId(), 'amountCents' => 5001],
+        ]);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertArrayNotHasKey('success', $data);
+        self::assertSame(15000, $data['allocatedToChildrenCents']);
+        self::assertSame(10000, $this->amountOf('bars_october'));
+        self::assertSame(5000, $this->amountOf('cinema_october'));
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testSplitWithoutAUserIsRefused(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+
+        $data = $this->splitWith('leisure_october', [
+            ['envelopeId' => (string) $this->getFixture('bars_october')->getId(), 'amountCents' => 12000],
+        ]);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame(10000, $this->amountOf('bars_october'));
+    }
+
+    public function testSplitRequiresTheMotherAndTheChildren(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageEnvelopesTool::class);
+
+        $missingChildren = json_decode($tool('split', envelopeId: (string) $this->getFixture('leisure_october')->getId()), true, 512, JSON_THROW_ON_ERROR);
+        $missingMother = json_decode($tool('split', children: []), true, 512, JSON_THROW_ON_ERROR);
+        $badAmount = $this->splitWith('leisure_october', [
+            ['envelopeId' => (string) $this->getFixture('bars_october')->getId(), 'amountCents' => -1],
+        ]);
+
+        self::assertArrayHasKey('error', $missingChildren);
+        self::assertArrayHasKey('error', $missingMother);
+        self::assertArrayHasKey('error', $badAmount);
+        self::assertSame(10000, $this->amountOf('bars_october'));
+    }
+
+    public function testSplitRefusesAnEnvelopeThatIsNotADaughterOrNotMine(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->loginFixtureUser();
+
+        foreach (['food_october', 'bars_november', 'other_leisure_october'] as $stranger) {
+            $data = $this->splitWith('leisure_october', [
+                ['envelopeId' => (string) $this->getFixture($stranger)->getId(), 'amountCents' => 1000],
+            ]);
+            self::assertArrayHasKey('error', $data, $stranger);
+        }
+
+        $foreignMother = $this->splitWith('other_leisure_october', []);
+        self::assertArrayHasKey('error', $foreignMother);
+        self::assertSame(9000, $this->amountOf('other_leisure_october'));
+    }
 }
