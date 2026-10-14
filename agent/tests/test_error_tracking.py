@@ -8,6 +8,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import anthropic
+import httpx
 import pytest
 import sentry_sdk
 from aiohttp import WSServerHandshakeError
@@ -185,5 +187,32 @@ class TestAnExpectedOutageIsNotAnError:
 
         assert response.status_code == 502
         assert response.json() == {"detail": "Le service de synthèse vocale est indisponible."}
+        sentry_sdk.flush()
+        assert sent == []
+
+
+class TestAHandledProviderRefusalIsNotAnError:
+    """MAG-445: the model refusing a call (credit balance too low) is handled by the callers with an apology: the SDK must not report it on its own."""
+
+    @pytest.mark.asyncio
+    async def test_a_refused_model_call_sends_nothing(self, sent):
+        def refuse(_request):
+            return httpx.Response(
+                400,
+                json={
+                    "type": "error",
+                    "error": {"type": "invalid_request_error", "message": "Your credit balance is too low."},
+                },
+            )
+
+        client = anthropic.AsyncAnthropic(
+            api_key="test", max_retries=0, http_client=httpx.AsyncClient(transport=httpx.MockTransport(refuse))
+        )
+
+        with pytest.raises(anthropic.BadRequestError):
+            await client.messages.create(
+                model="claude-test", max_tokens=10, messages=[{"role": "user", "content": SECRET_TEXT}]
+            )
+
         sentry_sdk.flush()
         assert sent == []
