@@ -12,6 +12,7 @@ from app.llm.history import build_history, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
+from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
 from app.llm.web_search import with_web_search
@@ -143,6 +144,7 @@ class LLMGateway:
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
+            await self._alert_if_provider(e, user_id)
             return {"response": f"AI service error: {e.message}", "tool_calls": []}
         except anthropic.APIConnectionError as e:
             logger.error(f"Proaction connection error: {e}")
@@ -271,10 +273,10 @@ class LLMGateway:
             # the next forty messages and by the summarizer — an English stack-trace-ish
             # sentence in the middle of a French conversation.
             logger.error(f"Anthropic API error: {e.message}")
-            result = {"response": API_ERROR_MESSAGE, "tool_calls": [], "error": True}
+            result = {"response": API_ERROR_MESSAGE, "tool_calls": [], **await self._error_of(e, user_id)}
         except anthropic.APIConnectionError as e:
             logger.error(f"Anthropic connection error: {e}")
-            result = {"response": UNREACHABLE_MESSAGE, "tool_calls": [], "error": True}
+            result = {"response": UNREACHABLE_MESSAGE, "tool_calls": [], **await self._error_of(e, user_id)}
 
         # Carried on the error paths too: the user's message is already tagged with the
         # thread, so leaving the answer out would keep an orphan question in it, and the
@@ -284,3 +286,17 @@ class LLMGateway:
         # caller from spending a second model call summarizing a turn that failed.
         result["context_id"] = context_id
         return result
+
+    async def _error_of(self, error: anthropic.APIError, user_id: str) -> dict:
+        """`error: True` for a fault of ours; the provider's, named, so the smoke test can tell them apart (MAG-448)."""
+        reason = await self._alert_if_provider(error, user_id)
+        if reason is None:
+            return {"error": True}
+        return {"error": PROVIDER_UNAVAILABLE, "provider_reason": reason}
+
+    @staticmethod
+    async def _alert_if_provider(error: BaseException, user_id: str) -> str | None:
+        reason = provider_reason(error)
+        if reason is not None:
+            await alert_owner(user_id, reason)
+        return reason

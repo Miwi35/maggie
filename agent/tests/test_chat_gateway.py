@@ -238,7 +238,9 @@ class TestWhenTheModelRefuses:
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
 
         assert result["response"] == UNREACHABLE_MESSAGE
-        assert result["error"] is True
+        # The provider out of reach, not a fault of ours (MAG-448).
+        assert result["error"] == "provider_unavailable"
+        assert result["provider_reason"] == "connection"
         assert result["context_id"] == "ctx-1"
 
     async def test_no_client_configured_routes_nothing(self):

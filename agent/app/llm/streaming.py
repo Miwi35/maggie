@@ -26,6 +26,7 @@ from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
+from app.llm.provider_status import alert_owner, provider_reason
 from app.llm.tool_blocks import record
 from app.llm.tools import ToolRouter
 from app.llm.web_search import (
@@ -435,6 +436,9 @@ class StreamingGateway:
                     status="error",
                 )
                 logger.error(f"Streaming error: {e}")
+                # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
+                if (reason := provider_reason(e)) is not None:
+                    await alert_owner(user_id, reason)
                 # Restarted, not appended: the bubble must hold what is stored, and
                 # an earlier step's text is not part of that.
                 yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
