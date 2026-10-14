@@ -85,9 +85,12 @@ tags:
 - extendedWaitUntil:
     visible: ".*Solde de tous les comptes.*"
     timeout: 20000
+# Fully on screen, centred: the last access sits under the gesture bar, where a tap lands on nothing.
 - scrollUntilVisible:
     element:
       id: "finance_access_savings_advances"
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 30000
 - tapOn:
     id: "finance_access_savings_advances"
