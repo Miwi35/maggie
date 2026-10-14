@@ -1,0 +1,22 @@
+# "Retiens ce que je t'ai dit" (MAG-17): the fiche cites the conversation and the minute of the anecdote.
+# A scripted model cannot look the path up, so the journey says it (`conversation « … » à …`) and the
+# scenario carries it into the real `memory_write_fiche`, which really checks that the file and the minute exist.
+name: memory-fiche-from-conversation
+description: Write a fiche whose claim cites the conversation the owner named.
+
+match:
+  user_matches: 'Retiens ce que je t.ai dit sur la salle.*conversation « (Conversations/[^»]+?\.md) » à (\d{4}-\d{2}-\d{2} \d{2}h\d{2})'
+
+turns:
+  - tools:
+      - name: memory_write_fiche
+        input:
+          titre: "Les concerts commencent à 19 heures à l'UBU"
+          dossiers: ["Sorties"]
+          resume: "L'heure des concerts et le nom de la salle"
+          affirmations:
+            - texte: "Les concerts commencent à 19 heures et la salle s'appelle l'UBU"
+              provenance: dit
+              source: '\1'
+              heure: '\2'
+  - text: "C'est noté : les concerts commencent à 19 heures, à l'UBU."

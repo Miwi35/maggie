@@ -1,20 +1,22 @@
-# Memory has to be proactive: the prompt asks her to store a personal fact
-# without being told to. A model that answers warmly and stores nothing looks
-# fine in the moment and has forgotten by tomorrow.
+# Memory has to be proactive: the prompt asks her to write a fiche for a personal
+# fact without being told to — the conversation itself is already kept by the code.
+# A model that answers warmly and writes nothing looks fine in the moment and has
+# forgotten by tomorrow.
 name: memoire-fait-personnel
-description: A personal fact mentioned in passing gets stored.
+description: A personal fact mentioned in passing gets a fiche.
 channel: chat
 
 steps:
   - user_message: "Au fait, je suis allergique aux fruits à coque."
-    expected_tools: [store_memory]
+    expected_tools: [memory_write_fiche]
     expected_behavior: >
-      Elle enregistre l'allergie comme fait personnel et répond en une phrase,
-      sans demander la permission de s'en souvenir.
+      Elle écrit une fiche dont le titre est une phrase vraie (« Il est allergique
+      aux fruits à coque »), avec la source (la conversation et l'heure) et la
+      provenance « dit », et répond en une phrase, sans demander la permission.
 
   - user_message: "Tu te souviens de mes allergies ?"
-    expected_tools: [search_memory]
+    expected_tools: [memory_search, memory_open]
     expected_contains: ["coque"]
     expected_behavior: >
-      Elle retrouve l'allergie en cherchant dans sa mémoire, et ne se contente
-      pas de la répéter depuis l'historique de la conversation.
+      Elle retrouve la fiche, l'ouvre avant d'affirmer, et ne se contente pas de
+      répéter l'historique de la conversation.

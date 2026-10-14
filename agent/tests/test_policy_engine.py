@@ -19,13 +19,13 @@ class TestRuleOrder:
     POLICY = {
         "default": "allow",
         "rules": [
-            {"tools": ["delete_memory"], "mode": "allow"},
+            {"tools": ["delete_skill"], "mode": "allow"},
             {"tools": ["delete_*"], "mode": "ask"},
         ],
     }
 
     def test_the_first_matching_rule_wins_over_a_later_broader_one(self):
-        assert engine(**self.POLICY).evaluate("delete_memory", {}, "chat") is Mode.ALLOW
+        assert engine(**self.POLICY).evaluate("delete_skill", {}, "chat") is Mode.ALLOW
 
     def test_the_broad_rule_still_catches_what_the_exception_does_not_name(self):
         assert engine(**self.POLICY).evaluate("delete_event", {}, "chat") is Mode.ASK
@@ -161,9 +161,8 @@ class TestTheShippedPolicy:
         assert policy_engine.rules, "The shipped policy has no rule, so nothing is ever proposed."
 
     def test_maggie_corrects_her_own_notes_without_asking(self):
-        assert policy_engine.evaluate("delete_memory", {}, "chat") is Mode.ALLOW
         assert policy_engine.evaluate("delete_instruction", {}, "chat") is Mode.ALLOW
-        assert policy_engine.evaluate("update_memory", {}, "chat") is Mode.ALLOW
+        assert policy_engine.evaluate("memory_write_fiche", {}, "chat") is Mode.ALLOW
 
     @pytest.mark.parametrize("tool", ["delete_event", "delete_recipe", "delete_task", "delete_skill"])
     def test_deleting_something_the_user_made_is_proposed(self, tool):
@@ -175,7 +174,7 @@ class TestTheShippedPolicy:
 
     @pytest.mark.parametrize(
         "tool",
-        ["search_recipes", "get_upcoming_events", "create_event", "update_event", "store_memory", "get_skill"],
+        ["search_recipes", "get_upcoming_events", "create_event", "update_event", "memory_search", "get_skill"],
     )
     def test_everything_else_is_still_hers_to_do(self, tool):
         # The policy exists to hold back a handful of calls; a file that quietly turned

@@ -39,9 +39,9 @@ OFFERED = [
         "create_event",
         "schedule_proaction",
         "list_proactions",
-        "store_memory",
-        "search_memory",
-        "update_memory",
+        "memory_write_fiche",
+        "memory_search",
+        "memory_open",
     )
 ]
 EVENTS = json.dumps({"member": [{"id": "e-1", "summary": "Soirée à Rennes avec Julie", "startAt": "2026-10-08T19:00"}]})
@@ -184,7 +184,7 @@ class TestTheGuard:
 
     def test_memory_is_not_the_agenda(self):
         guard = self.guard()
-        guard.record("search_memory", json.dumps([{"id": "m-1", "content": "Julie habite à Rennes"}]))
+        guard.record("memory_open", json.dumps({"chemin": "Julie habite à Rennes.md", "contenu": "Julie habite à Rennes"}))
 
         assert guard.review(WRONG_DAY) is Verdict.RETRY
 

@@ -41,6 +41,8 @@ def _extract_noun(tool_name: str) -> str:
         search -> search
         add_recurring_grocery -> recurring_grocery
     """
+    if tool_name.startswith("memory_"):
+        return "memory"
     noun = _VERB_PREFIXES.sub("", tool_name)
     # Strip trailing _by_* qualifiers (e.g. events_by_date -> events)
     noun = re.sub(r"_by_\w+$", "", noun)

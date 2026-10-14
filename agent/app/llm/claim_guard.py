@@ -16,7 +16,7 @@ Three kinds of announcement are checked, in this order:
 - a reminder (« je vous rappellerai à 16h05 »), backed by `schedule_proaction`, an event
   created or updated with reminders, or a pending reminder listed by `list_proactions`;
 - something learned (« c'est noté », « je retiens », « j'ai enregistré »), backed by
-  `add_instruction`, `create_skill`, `update_skill`, `store_memory`, `schedule_proaction`,
+  `add_instruction`, `create_skill`, `update_skill`, `memory_write_fiche`, `schedule_proaction`,
   or any other tool that writes and went through — « C'est noté : dentiste le 12 mars »
   after `create_event` is a true sentence, and relaunching it would only book it twice;
 - a date or an hour given in answer to a question about the agenda (« quand », « à quelle
@@ -48,7 +48,7 @@ from app.llm.screen_context import split
 
 SCHEDULE_TOOL = "schedule_proaction"
 DELEGATE_TOOL = "delegate"
-LEARNING_TOOLS = ("add_instruction", "create_skill", "update_skill", "store_memory")
+LEARNING_TOOLS = ("add_instruction", "create_skill", "update_skill", "memory_write_fiche")
 AGENDA_TOOLS = ("get_events_by_date", "get_upcoming_events")
 
 # Case-insensitive, and only the affirmative forms: « je ne vous rappellerai pas » and
@@ -87,7 +87,7 @@ _REMINDER = re.compile(
 # « veux-tu que je le note ? » asks first, which is what she should do when unsure.
 _OBJECT = r"(?:l[ea]\s+|les\s+|l['\u2019]\s*|m['\u2019]\s*en\s+)"
 _NOT_AN_OFFER = r"(?<!\bque\s)"
-# « J'ai corrigé la mémoire » after an `update_memory` that failed (MAG-349). Only when the
+# « J'ai corrigé la mémoire » after a `memory_write_fiche` that failed (MAG-349). Only when the
 # object is what she keeps: « je corrige l'information : la réunion est à 9 h » corrects her
 # own words, and relaunching it would send her to store something nobody asked her to.
 _MEMORY_OBJECT = (
@@ -160,7 +160,8 @@ LEARNING_NUDGE = (
     "une façon de faire générale (« quand je te demande X, fais Y ») → create_skill (update_skill "
     'si la compétence existe) ; le ton ou la façon de lui parler → add_instruction kind="behavior" ; '
     'ce qui revient à date fixe → add_instruction kind="planning" ; une action ponctuelle plus tard '
-    "→ schedule_proaction ; un fait sur lui → store_memory. Puis confirme ce que l'outil a enregistré. "
+    "→ schedule_proaction ; un savoir sur lui ou ses proches → memory_write_fiche. "
+    "Puis confirme ce que l'outil a enregistré. "
     "S'il n'y a rien à retenir, réponds sans dire que c'est noté."
 )
 

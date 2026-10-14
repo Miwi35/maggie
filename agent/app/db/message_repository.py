@@ -84,6 +84,11 @@ class MessageRepository:
         except Exception as e:
             logger.warning(f"Failed to publish message to Mercure: {e}")
 
+        # Imported here: the conversation layer reads this repository back.
+        from app.memory import conversations
+
+        await conversations.record(msg)
+
         return msg
 
     async def get(self, message_id: str) -> Message | None:
@@ -210,6 +215,16 @@ class MessageRepository:
             messages = list(result.scalars().all())
             messages.reverse()  # chronological order
             return messages
+
+    async def find_without_context(self, user_id: str) -> list[Message]:
+        """Every message of a user that no thread holds, oldest first (the legacy import groups them by day)."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(Message.user_id == user_id, Message.context_id.is_(None))
+                .order_by(Message.created_at)
+            )
+            return list(result.scalars().all())
 
     async def delete_by_user(self, user_id: str) -> int:
         """Remove every message of one user, and return how many there were."""
@@ -394,12 +409,19 @@ class MessageRepository:
 
     async def update_context(self, message_id: str, context_id: str) -> None:
         """Retroactively tag a message with a context ID."""
+        user_id = None
         async with agent_session() as session:
             result = await session.execute(select(Message).where(Message.id == message_id))
             msg = result.scalar_one_or_none()
             if msg:
                 msg.context_id = context_id
                 await session.commit()
+                user_id = msg.user_id
+        if user_id:
+            # The question is on file as soon as its thread is known, before the turn that answers it runs.
+            from app.memory import conversations
+
+            await conversations.record_thread(user_id, context_id)
 
     async def find_after(self, user_id: str, after: str | None = None) -> list[Message]:
         """Find messages after a given ISO timestamp (for incremental sync)."""

@@ -87,8 +87,9 @@ class TestToolRouter:
         names = [t["name"] for t in tools]
         assert "schedule_proaction" in names
         assert "list_proactions" in names
-        assert "store_memory" in names
-        assert "search_memory" in names
+        assert "memory_write_fiche" in names
+        assert "memory_search" in names
+        assert "memory_open" in names
         assert "create_event" in names
 
     @patch("app.llm.tools.mcp_client")
@@ -103,7 +104,7 @@ class TestToolRouter:
 
         assert len(tools) == NUM_ALWAYS_ON_TOOLS + 1
         names = [t["name"] for t in tools]
-        assert "store_memory" in names
+        assert "memory_write_fiche" in names
         assert "add_instruction" in names
         assert "create_skill" in names
         assert "create_event" in names
@@ -183,47 +184,35 @@ class TestToolRouter:
         assert "error" in result
         assert "user_id" in result
 
-    @patch("app.llm.tools.memory_repo")
-    async def test_call_store_memory(self, mock_repo):
-        """store_memory tool should persist via memory_repo."""
-        from unittest.mock import MagicMock
+    async def test_call_memory_tool_puts_the_exchange_on_file_before_running(self):
+        """A memory tool runs after the current exchange is written, so a fiche can cite it."""
+        order: list[str] = []
 
-        mock_memory = MagicMock()
-        mock_memory.to_dict.return_value = {
-            "id": "mem123",
-            "content": "Likes coffee",
-            "type": "factual",
-        }
-        mock_repo.store = AsyncMock(return_value=mock_memory)
+        async def record(user_id, context_id, **_):
+            order.append("conversation")
 
-        router = ToolRouter()
-        result = await router.call_tool(
-            "store_memory",
-            {"content": "Likes coffee", "type": "factual"},
-            user_id="test-user",
-        )
+        async def handler(arguments, user_id):
+            order.append("tool")
+            return json.dumps({"resultats": []})
 
-        assert "mem123" in result
-        mock_repo.store.assert_awaited_once_with("test-user", "Likes coffee", "factual")
+        with (
+            patch("app.llm.tools.conversations.record_thread", side_effect=record) as recorded,
+            patch.dict("app.llm.tools._NATIVE_HANDLERS", {"memory_search": handler}),
+        ):
+            result = await ToolRouter().call_tool(
+                "memory_search", {"requete": "coffee"}, user_id="test-user", context_id="ctx-1"
+            )
 
-    @patch("app.llm.tools.memory_repo")
-    async def test_call_search_memory(self, mock_repo):
-        """search_memory tool should query via memory_repo."""
-        from unittest.mock import MagicMock
+        assert json.loads(result) == {"resultats": []}
+        assert order == ["conversation", "tool"]
+        recorded.assert_awaited_once_with("test-user", "ctx-1")
 
-        mock_memory = MagicMock()
-        mock_memory.to_dict.return_value = {"id": "mem1", "content": "Likes coffee"}
-        mock_repo.search = AsyncMock(return_value=[mock_memory])
+    @patch("app.llm.tools.mcp_client")
+    async def test_the_old_memory_tools_are_gone(self, mock_mcp_client):
+        mock_mcp_client.list_tools = AsyncMock(return_value=[])
+        names = {t["name"] for t in await ToolRouter().get_tool_definitions(include_native=False)}
 
-        router = ToolRouter()
-        result = await router.call_tool(
-            "search_memory",
-            {"query": "coffee"},
-            user_id="test-user",
-        )
-
-        assert "coffee" in result
-        mock_repo.search.assert_awaited_once_with("test-user", "coffee", None)
+        assert not names & {"store_memory", "search_memory", "update_memory", "delete_memory"}
 
 
 class TestThePolicyGuard:
@@ -237,7 +226,7 @@ class TestThePolicyGuard:
         {
             "default": "allow",
             "rules": [
-                {"tools": ["delete_memory"], "mode": "allow"},
+                {"tools": ["delete_instruction"], "mode": "allow"},
                 {"tools": ["delete_*"], "mode": "ask"},
                 {"tools": ["drop_database"], "mode": "deny"},
             ],
@@ -256,13 +245,11 @@ class TestThePolicyGuard:
             patch("app.llm.tools.policy_engine", self.POLICY),
             patch("app.llm.tools.pending_action_repo", repo),
             patch("app.llm.tools.mcp_client") as mcp,
-            patch("app.llm.tools.memory_repo") as memory,
             patch("app.llm.tools.build_summary", new_callable=AsyncMock) as summary,
         ):
             summary.return_value = "Supprimer l'événement « Test validation »"
             mcp.call_tool = AsyncMock(return_value='{"deleted": true}')
-            memory.delete = AsyncMock(return_value=True)
-            yield SimpleNamespace(repo=repo, mcp=mcp, memory=memory, summary=summary)
+            yield SimpleNamespace(repo=repo, mcp=mcp, summary=summary)
 
     async def test_an_ask_tool_is_not_routed(self, guard):
         await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1")
@@ -335,9 +322,10 @@ class TestThePolicyGuard:
         guard.repo.create.assert_not_awaited()
 
     async def test_the_exception_rule_lets_maggie_correct_her_own_notes(self, guard):
-        result = json.loads(await ToolRouter().call_tool("delete_memory", {"memory_id": "m1"}, user_id="user-1"))
+        with patch.dict("app.llm.tools._NATIVE_HANDLERS", {"delete_instruction": AsyncMock(return_value='{"deleted": true}')}):
+            result = json.loads(await ToolRouter().call_tool("delete_instruction", {"instruction_id": "i1"}, user_id="user-1"))
 
-        assert result == {"deleted": True, "id": "m1"}
+        assert result == {"deleted": True}
         guard.repo.create.assert_not_awaited()
 
     async def test_an_approved_call_is_replayed_for_real(self, guard):

@@ -39,8 +39,8 @@ LEARNING_OFFERED = [
     for name in (
         "date_time",
         "schedule_proaction",
-        "store_memory",
-        "search_memory",
+        "memory_write_fiche",
+        "memory_search",
         "add_instruction",
         "create_skill",
         "update_skill",
@@ -200,7 +200,7 @@ class TestTheGuard:
         [
             ("create_skill", "J'ai créé la compétence « Rappels par notification »."),
             ("add_instruction", "J'ai ajouté une directive : je te tutoie."),
-            ("store_memory", "J'ai enregistré dans ma mémoire ton allergie aux fruits à coque."),
+            ("memory_write_fiche", "J'ai enregistré dans ma mémoire ton allergie aux fruits à coque."),
         ],
     )
     def test_an_explicit_confirmation_after_the_tool_passes(self, tool, answer):
@@ -233,7 +233,7 @@ class TestTheGuard:
 
     def test_an_empty_error_field_is_not_a_failure(self):
         guard = ClaimGuard(LEARNING_OFFERED)
-        guard.record("store_memory", json.dumps({"id": "m-1", "error": None}))
+        guard.record("memory_write_fiche", json.dumps({"chemin": "Allergie.md", "enregistre": True}))
 
         assert guard.review(NOTED) is Verdict.ACCEPT
 
@@ -245,7 +245,7 @@ class TestTheGuard:
 
         assert guard.review(NOTED) is Verdict.RETRY
 
-    @pytest.mark.parametrize("tool", ["search_memory", "list_skills", "date_time", "get_upcoming_events"])
+    @pytest.mark.parametrize("tool", ["memory_search", "memory_open", "list_skills", "date_time", "get_upcoming_events"])
     def test_a_read_does_not_count(self, tool):
         guard = ClaimGuard(LEARNING_OFFERED)
         guard.record(tool, json.dumps({"result": "ok"}))
@@ -292,7 +292,7 @@ class TestWhatTheModelIsTold:
         prompt = await shipped_prompt()
 
         assert "« quand je te demande X, fais Y »" in prompt
-        for marker in ("create_skill", 'kind="behavior"', 'kind="planning"', "schedule_proaction", "store_memory"):
+        for marker in ("create_skill", 'kind="behavior"', 'kind="planning"', "schedule_proaction", "memory_write_fiche"):
             assert marker in prompt
         assert "une demande générale sur ta façon d'agir est une compétence" in prompt.lower()
 

@@ -725,7 +725,15 @@ class TestTheRealToolLoop:
                 "turns": [
                     {
                         "tools": [
-                            {"name": "store_memory", "input": {"content": "Allergique aux noix", "type": "factual"}}
+                            {
+                                "name": "memory_write_fiche",
+                                "input": {
+                                    "titre": "Il est allergique aux noix",
+                                    "affirmations": [
+                                        {"texte": "Allergique aux noix", "provenance": "dit", "source": "Conversations/x.md"}
+                                    ],
+                                },
+                            }
                         ]
                     },
                     {"text": "C'est noté."},
@@ -736,19 +744,17 @@ class TestTheRealToolLoop:
 
         from app.llm.tools import ToolRouter
 
-        stored = MagicMock()
-        stored.to_dict.return_value = {"id": "mem-1", "content": "Allergique aux noix"}
         messages = [{"role": "user", "content": "Je suis allergique aux noix"}]
+        handler = AsyncMock(return_value='{"enregistre": true}')
 
         with (
-            patch("app.llm.tools.memory_repo") as memory_repo,
+            patch.dict("app.llm.tools._NATIVE_HANDLERS", {"memory_write_fiche": handler}),
             patch("app.llm.runner.record_llm_usage"),
         ):
-            memory_repo.store = AsyncMock(return_value=stored)
             result = await run_tool_loop(
                 "Tu es Maggie.",
                 messages,
-                [{"name": "store_memory", "input_schema": {}}],
+                [{"name": "memory_write_fiche", "input_schema": {}}],
                 client=client,
                 tool_router=ToolRouter(),
                 user_id="user-1",
@@ -756,8 +762,10 @@ class TestTheRealToolLoop:
             )
 
         assert result["response"] == "C'est noté."
-        assert [call["name"] for call in result["tool_calls"]] == ["store_memory"]
-        memory_repo.store.assert_awaited_once_with("user-1", "Allergique aux noix", "factual")
+        assert [call["name"] for call in result["tool_calls"]] == ["memory_write_fiche"]
+        handler.assert_awaited_once()
+        assert handler.await_args.args[0]["titre"] == "Il est allergique aux noix"
+        assert handler.await_args.args[1] == "user-1"
         # The loop appended the assistant turn and the tool results, which means
         # the fake's blocks were consumable by the production code.
         assert [m["role"] for m in messages] == ["user", "assistant", "user"]

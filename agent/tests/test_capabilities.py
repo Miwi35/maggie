@@ -27,6 +27,10 @@ class TestExtractNoun:
     def test_list_prefix(self):
         assert _extract_noun("list_proactions") == "proactions"
 
+    def test_the_memory_tools_are_one_domain(self):
+        for name in ("memory_search", "memory_open", "memory_write_fiche"):
+            assert _extract_noun(name) == "memory"
+
     def test_store_prefix(self):
         assert _extract_noun("store_memory") == "memory"
 
@@ -95,13 +99,12 @@ class TestGenerateCapabilitySummary:
 
     def test_memory_tools(self):
         tools = [
-            {"name": "store_memory"},
-            {"name": "search_memory"},
-            {"name": "update_memory"},
-            {"name": "delete_memory"},
+            {"name": "memory_search"},
+            {"name": "memory_open"},
+            {"name": "memory_write_fiche"},
         ]
         summary = generate_capability_summary(tools)
-        assert "Mémoire (4 outils)" in summary
+        assert "Mémoire (3 outils)" in summary
 
     def test_unknown_tools_auto_labeled(self):
         tools = [
@@ -127,14 +130,14 @@ class TestGenerateCapabilitySummary:
         assert "1 outil)" in summary
 
     def test_header_line_present(self):
-        tools = [{"name": "store_memory"}]
+        tools = [{"name": "memory_search"}]
         summary = generate_capability_summary(tools)
         assert summary.startswith("Capacités disponibles :")
 
     def test_mixed_domains(self):
         tools = [
             {"name": "create_event"},
-            {"name": "store_memory"},
+            {"name": "memory_write_fiche"},
             {"name": "schedule_proaction"},
             {"name": "add_instruction"},
         ]

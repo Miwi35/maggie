@@ -1,0 +1,10 @@
+# An anecdote told in passing (MAG-17): Maggie calls no tool, and the exchange is on file anyway —
+# the conversation layer is written by the code, not by her. The journey reads the file back.
+name: memory-anecdote
+description: Answer an anecdote without any tool call; the whole exchange is kept in Conversations/.
+
+match:
+  user_contains: "les concerts commencent à 19 heures"
+
+turns:
+  - text: "Je garde ça en tête : les concerts commencent à 19 heures."

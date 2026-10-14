@@ -9,10 +9,7 @@ from tests.memory.conftest import USER_A, fiche
 
 @pytest.fixture()
 def memory(env):
-    with (
-        patch("app.memory.agent_memory.memory_service", env.service),
-        patch("app.memory.agent_memory.memory_repo.find_by_user", AsyncMock(return_value=[])),
-    ):
+    with patch("app.memory.agent_memory.memory_service", env.service):
         yield AgentMemory()
 
 
@@ -42,3 +39,18 @@ async def test_the_unavailable_error_stays_inside_the_service(memory, env):
     with pytest.raises(BucketUnavailable):
         await env.service.sync_user(USER_A)
     assert "peut-être en retard" in await memory.get_memory_context(USER_A)
+
+
+async def test_the_prompt_lists_the_fiches_as_a_path_and_a_summary(memory, env):
+    await env.service.write(USER_A, "Famille/Françoise n'aime pas les roses.md", fiche("Françoise n'aime pas les roses"))
+
+    context = await memory.get_memory_context(USER_A)
+
+    assert "memory_open" in context
+    assert "- Famille/Françoise n'aime pas les roses.md" in context
+
+
+async def test_the_prompt_lists_nothing_of_the_conversations(memory, env):
+    await env.service.write(USER_A, "Conversations/2026/10/2026-10-04 18h14 — Sujet.md", "# Sujet\n", conversation=True)
+
+    assert "Conversations/" not in await memory.get_memory_context(USER_A)

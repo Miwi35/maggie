@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 from app.agents.registry import subagent_registry
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
-from app.db.memory_repository import memory_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time, spoken_local_time
 from app.mcp.client import mcp_client
+from app.memory import conversations
+from app.memory.tools import MEMORY_TOOL_NAMES, MEMORY_TOOLS
+from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 
 # The policy module is where a `source` means something, so it owns the vocabulary.
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
@@ -59,87 +61,6 @@ PROACTION_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {},
-        },
-    },
-]
-
-# Memory tools (always available — chat + proaction)
-MEMORY_TOOLS = [
-    {
-        "name": "store_memory",
-        "description": (
-            "Store a new memory about the user. Use type 'factual' for preferences, "
-            "habits, personal info. Use type 'episodic' for notable events, accomplishments."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string",
-                    "description": "The memory content to store",
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["factual", "episodic"],
-                    "description": "Memory type: factual (preferences, info) or episodic (events)",
-                },
-            },
-            "required": ["content", "type"],
-        },
-    },
-    {
-        "name": "search_memory",
-        "description": ("Search the user's memories by keyword. Returns matching memories ordered by most recent."),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query (keyword or phrase)",
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["factual", "episodic"],
-                    "description": "Optional: filter by memory type",
-                },
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "update_memory",
-        "description": (
-            "Update an existing memory. Use this when a factual memory has changed "
-            "(e.g. new job, new address) instead of creating a duplicate. The memory_id is the id "
-            "returned by search_memory or store_memory: never invent one, search first."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "memory_id": {
-                    "type": "string",
-                    "description": "A memory id from search_memory or store_memory (not a name or a slug)",
-                },
-                "content": {
-                    "type": "string",
-                    "description": "The new content for the memory",
-                },
-            },
-            "required": ["memory_id", "content"],
-        },
-    },
-    {
-        "name": "delete_memory",
-        "description": "Delete a memory by its ID, as returned by search_memory (never invent one).",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "memory_id": {
-                    "type": "string",
-                    "description": "The id field of a memory returned by search_memory (not a name or a slug)",
-                },
-            },
-            "required": ["memory_id"],
         },
     },
 ]
@@ -215,7 +136,8 @@ SKILL_TOOLS = [
             "The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, "
             "even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une "
             "notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to "
-            "kind='planning', a one-off action later to schedule_proaction, a fact about the user to store_memory. "
+            "kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the "
+            "people around them to memory_write_fiche. "
             "Use update_skill when a skill already covers it. "
             "Skills are listed by name and description in the system prompt and loaded on demand with get_skill; "
             "the user sees and edits them in the admin, Réglages \u203a Agent \u203a Compétences. "
@@ -386,65 +308,6 @@ async def _handle_list_proactions(arguments: dict, user_id: str) -> str:
     return json.dumps([p.to_dict() for p in proactions])
 
 
-async def _handle_store_memory(arguments: dict, user_id: str) -> str:
-    content = arguments.get("content", "")
-    memory_type = arguments.get("type", "factual")
-
-    if not content:
-        return json.dumps({"error": "'content' is required"})
-
-    memory = await memory_repo.store(user_id, content, memory_type)
-    return json.dumps(memory.to_dict())
-
-
-async def _handle_search_memory(arguments: dict, user_id: str) -> str:
-    query = arguments.get("query", "")
-    memory_type = arguments.get("type")
-
-    if not query:
-        return json.dumps({"error": "'query' is required"})
-
-    memories = await memory_repo.search(user_id, query, memory_type)
-    return json.dumps([m.to_dict() for m in memories])
-
-
-def _memory_not_found(memory_id: str) -> str:
-    return json.dumps(
-        {
-            "error": (
-                f"Memory '{memory_id}' not found: nothing was changed. A memory_id is the id returned by "
-                "search_memory or store_memory, never a name or a slug you made up. Call search_memory first, "
-                "or store_memory to create a new one."
-            )
-        }
-    )
-
-
-async def _handle_update_memory(arguments: dict, user_id: str) -> str:
-    memory_id = arguments.get("memory_id", "")
-    content = arguments.get("content", "")
-
-    if not memory_id or not content:
-        return json.dumps({"error": "'memory_id' and 'content' are required"})
-
-    memory = await memory_repo.update(user_id, memory_id, content)
-    if memory is None:
-        return _memory_not_found(memory_id)
-    return json.dumps(memory.to_dict())
-
-
-async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
-    memory_id = arguments.get("memory_id", "")
-
-    if not memory_id:
-        return json.dumps({"error": "'memory_id' is required"})
-
-    deleted = await memory_repo.delete(user_id, memory_id)
-    if not deleted:
-        return _memory_not_found(memory_id)
-    return json.dumps({"deleted": True, "id": memory_id})
-
-
 def _parse_instruction_kind(raw: object) -> InstructionKind | None:
     """The `kind` argument as an enum, or None when it is absent or unreadable.
 
@@ -560,10 +423,6 @@ async def _handle_delegate(arguments: dict, user_id: str) -> str:
 _NATIVE_HANDLERS = {
     "schedule_proaction": _handle_schedule_proaction,
     "list_proactions": _handle_list_proactions,
-    "store_memory": _handle_store_memory,
-    "search_memory": _handle_search_memory,
-    "update_memory": _handle_update_memory,
-    "delete_memory": _handle_delete_memory,
     "add_instruction": _handle_add_instruction,
     "list_instructions": _handle_list_instructions,
     "delete_instruction": _handle_delete_instruction,
@@ -574,6 +433,7 @@ _NATIVE_HANDLERS = {
     "delete_skill": _handle_delete_skill,
     "date_time": handle_date_time,
     "delegate": _handle_delegate,
+    **MEMORY_HANDLERS,
 }
 
 
@@ -701,6 +561,9 @@ class ToolRouter:
         if name in _NATIVE_HANDLERS:
             if user_id is None:
                 return json.dumps({"error": "user_id required for native tools"})
+            if name in MEMORY_TOOL_NAMES:
+                # What was just said is on file before a fiche cites it, whatever the router managed to tag.
+                await conversations.record_thread(user_id, context_id)
             try:
                 return await _NATIVE_HANDLERS[name](arguments, user_id)
             except Exception as e:

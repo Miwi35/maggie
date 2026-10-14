@@ -13,7 +13,7 @@ RESEARCHER = SubagentDefinition(
     name="researcher",
     description="Recherche en lecture seule",
     model="haiku",
-    tools=["search*", "get_*", "list_*", "search_memory"],
+    tools=["search*", "get_*", "list_*", "memory_search"],
     prompt="Tu cherches.",
     max_iterations=6,
 )
@@ -24,9 +24,9 @@ ALL_TOOLS = [
         "search_recipes",
         "get_upcoming_events",
         "list_skills",
-        "search_memory",
+        "memory_search",
         "create_event",
-        "delete_memory",
+        "delete_skill",
         "manage_grocery",
         "delegate",
     )
@@ -66,7 +66,7 @@ class TestSelectTools:
     def test_keeps_only_tools_matching_a_pattern(self):
         names = [t["name"] for t in select_tools(RESEARCHER, ALL_TOOLS)]
 
-        assert names == ["search_recipes", "get_upcoming_events", "list_skills", "search_memory"]
+        assert names == ["search_recipes", "get_upcoming_events", "list_skills", "memory_search"]
 
     def test_delegate_is_always_removed(self):
         everything = SubagentDefinition(**{**RESEARCHER.__dict__, "tools": ["*"]})
@@ -92,7 +92,7 @@ class TestHandleDelegate:
         assert system.startswith("Tu cherches.")
         assert "allergique aux noix" in system
         assert messages == [{"role": "user", "content": "Ma semaine"}]
-        assert [t["name"] for t in tools] == ["search_recipes", "get_upcoming_events", "list_skills", "search_memory"]
+        assert [t["name"] for t in tools] == ["search_recipes", "get_upcoming_events", "list_skills", "memory_search"]
         assert kwargs["model"] == settings.model_aliases["haiku"]
         assert kwargs["max_iterations"] == 6
         assert kwargs["call_type"] == "subagent"

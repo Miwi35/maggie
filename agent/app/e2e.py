@@ -152,7 +152,7 @@ async def memory_sync(user_id: MemoryUser) -> dict[str, object]:
 
 @router.post("/memory/{user_id}/write")
 async def memory_write(user_id: MemoryUser, body: MemoryWrite) -> dict[str, str]:
-    """Maggie writes a fiche. There is no tool for it yet (MAG-17): the journey calls the service."""
+    """Write a file as Maggie would, to set up a state (a late write in an outage) without the model."""
     try:
         return {"path": await memory_service.write(user_id, body.path, body.text)}
     except memory_paths.UnsafePath as e:
