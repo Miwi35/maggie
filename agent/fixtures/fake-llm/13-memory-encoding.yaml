@@ -1,0 +1,28 @@
+# What Maggie writes when a thread has been quiet for a few minutes (MAG-15): the carte of the passage and
+# the one fiche that is obvious. `PassageEncoder` calls the fast model on its own, from the scheduler, so
+# the owner never waits for it.
+#
+# Matched on the encoder's own system prompt, then on the sentence the journey says. The minute of the
+# message is captured from the passage (`\1`) and carried into the carte and the claim: the real
+# `write_fiche` checks that the owner said it at that minute. A thread that says anything else matches
+# nothing here — the encoder reads `[fake-llm] aucun scénario…` as an answer it cannot use, writes nothing
+# and tries again a few times: exactly what a journey must not depend on.
+name: memory-encoding
+description: The carte and the obvious fiche of a passage where the owner says a niece is vegetarian.
+
+match:
+  system_contains: "tu écris la mémoire de maggie"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+Ma nièce Zoé est végétarienne'
+
+turns:
+  - text: |
+      {"carte": {"resume": "Le propriétaire dit que sa nièce Zoé est végétarienne : à retenir pour les repas de famille.",
+        "moments": [{"heure": "\1", "texte": "Le propriétaire dit que sa nièce Zoé est végétarienne"}],
+        "personnes": ["Zoé"],
+        "evoque": ["repas de famille", "régime", "végétarien"]},
+       "fiches": [{"chemin": null, "titre": "Zoé, la nièce du propriétaire, est végétarienne",
+         "dossiers": ["Famille"], "resume": "Le régime de Zoé", "personnes": ["Zoé"],
+         "evoque": ["repas de famille"], "alias": [],
+         "ajouts": [{"texte": "Zoé, la nièce du propriétaire, est végétarienne", "heure": "\1"}],
+         "doute": null}],
+       "doute": null}

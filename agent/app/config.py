@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     # style — below the threshold nothing is proposed and nothing is spent.
     style_synthesis_interval_hours: int = 24
     style_synthesis_min_feedback: int = 3
+    # Encoding along the way (MAG-15): a conversation that has been silent this long gets its carte
+    # and its obvious fiches, written by the fast model in the background. Its own clock — not the
+    # dormancy above, which waits a day.
+    memory_encode_after_seconds: int = 300
+    memory_encode_interval_seconds: int = 60
 
     # Memory folder (MAG-195): Markdown files, the only truth, kept in an S3-compatible bucket with
     # versioning on and worked on through a local copy. Provisioned by the owner (MAG-225); nothing here

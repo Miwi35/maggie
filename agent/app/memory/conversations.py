@@ -15,13 +15,16 @@ no thread at all go to a file of their day.
 import asyncio
 import logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import yaml
 
+from app.memory import carte as carte_mod
 from app.memory import paths
+from app.memory.carte import Carte
 from app.memory.service import MemoryService, memory_service
 from app.memory.ulid import is_ulid
 
@@ -142,6 +145,33 @@ async def append_messages(
         return rel
 
 
+async def update_carte(
+    user_id: str,
+    key: str,
+    change: Callable[[Carte], Carte],
+    *,
+    reason: str,
+    service: MemoryService | None = None,
+) -> str | None:
+    """Rewrite the carte on top of a thread's file; the messages below it are carried over byte for byte.
+
+    `change` gets the carte as it is and returns the one to write. The lock is the one the messages are
+    added under, so a message arriving meanwhile is not lost. Returns the file, None when the thread has
+    none yet. Raises `UnreadableFile` when the owner left the carte in a state that cannot be read.
+    """
+    service = service or memory_service
+    async with _lock(user_id, key):
+        rel = find_file(service, user_id, key)
+        current = service.folder(user_id).read(rel) if rel else None
+        if rel is None or current is None:
+            return None
+        carte = change(carte_mod.parse(current).carte)
+        text = carte_mod.render_head(carte, extra_first=True) + carte_mod.split(current)[1]
+        if text != current:
+            await service.write(user_id, rel, text, conversation=True, reason=reason)
+        return rel
+
+
 async def record(msg: Any) -> None:
     """Called when a message is stored: an answer brings its thread's missing messages into the file."""
     if msg.role != "assistant":
@@ -149,13 +179,15 @@ async def record(msg: Any) -> None:
     await record_thread(msg.user_id, msg.context_id, last=msg)
 
 
-async def record_thread(user_id: str, context_id: str | None, *, last: Any = None) -> None:
+async def record_thread(
+    user_id: str, context_id: str | None, *, last: Any = None, service: MemoryService | None = None
+) -> None:
     """Bring into the file of a thread (or of the day, when there is none) the messages it does not hold yet.
 
     Called when an answer is stored, when the router tags a question with its thread and before a memory
     tool runs, so what was just said is on file before anything cites it. Never raises: the answer matters more.
     """
-    service = memory_service
+    service = service or memory_service
     if not service.enabled or not is_ulid(user_id):
         return
     try:

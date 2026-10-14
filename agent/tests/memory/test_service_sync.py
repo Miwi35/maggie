@@ -44,6 +44,39 @@ class TestWriteAndPush:
         assert "créé `Famille/Françoise n'aime pas les roses.md`" in env.remote(paths.JOURNAL)
         assert await memory_outbox_repo.count(USER_A) == 0
 
+    async def test_a_sync_does_not_index_a_file_while_its_write_is_indexing_it(self, env, monkeypatch):
+        from app.memory import service as service_module
+
+        real = service_module.index_file
+        running = 0
+        overlapped = False
+        entered = asyncio.Event()
+
+        async def slow_index(user_id, rel, text):
+            nonlocal running, overlapped
+            running += 1
+            overlapped = overlapped or running > 1
+            entered.set()
+            await asyncio.sleep(0.05)
+            try:
+                return await real(user_id, rel, text)
+            finally:
+                running -= 1
+
+        monkeypatch.setattr(service_module, "index_file", slow_index)
+
+        async def sync_once_the_write_is_indexing():
+            await entered.wait()
+            await env.service.sync_user(USER_A)
+
+        await asyncio.gather(
+            env.service.write(USER_A, ROSES, fiche("Elle préfère les pivoines.", resume="Fleurs")),
+            sync_once_the_write_is_indexing(),
+        )
+
+        assert not overlapped
+        assert "identifiant ajouté" not in env.local(paths.JOURNAL)
+
     async def test_a_second_pass_with_nothing_to_do_does_no_writes(self, env):
         await env.service.write(USER_A, ROSES, fiche("x"))
         await env.service.sync_user(USER_A)

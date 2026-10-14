@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, exists, or_, select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.context_model import ContextStatus, ConversationContext
@@ -10,6 +10,13 @@ from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    """SQLite hands datetimes back naive; Postgres keeps their zone. Compare them as UTC either way."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 class ContextRepository:
@@ -62,6 +69,10 @@ class ContextRepository:
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_message_client_key "
                     "ON agent_message (user_id, client_key)"
                 )
+            )
+            # MAG-15 — where the encoding along the way stopped, per thread.
+            await conn.execute(
+                text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS encoded_up_to TIMESTAMPTZ")
             )
             # MAG-195 — French full-text search over the memory folder. The index is throwaway
             # (it is rebuilt from the files), so this one is created, never migrated.
@@ -172,6 +183,48 @@ class ContextRepository:
                 .order_by(ConversationContext.updated_at.asc())
             )
             return list(result.scalars().all())
+
+    async def find_to_encode(self, silent_before: datetime, now: datetime | None = None) -> list[ConversationContext]:
+        """The threads of every user with something to encode and silent since `silent_before` (MAG-15).
+
+        « Something to encode » is a message after `encoded_up_to`; « silent » is the clock of the
+        messages themselves, not `updated_at` (a routed message touches it before it is answered) nor
+        the dormancy of MAG-12. A thread whose answer is still being written is not silent.
+        """
+        now = now or datetime.now(UTC)
+        in_context = Message.context_id == ConversationContext.id
+        recent = exists().where(in_context, Message.created_at >= silent_before)
+        answering = exists().where(in_context, Message.turn_status == "running", Message.turn_lease_until > now)
+        unencoded = exists().where(
+            in_context,
+            or_(ConversationContext.encoded_up_to.is_(None), Message.created_at > ConversationContext.encoded_up_to),
+        )
+        async with agent_session() as session:
+            result = await session.execute(
+                select(ConversationContext)
+                .where(ConversationContext.updated_at < silent_before, unencoded, ~recent, ~answering)
+                .order_by(ConversationContext.updated_at.asc())
+            )
+            return list(result.scalars().all())
+
+    async def set_encoded(self, context_id: str, up_to: datetime, expected: datetime | None) -> bool:
+        """Move a thread's encoding watermark to `up_to`, only if it still is `expected` (MAG-15).
+
+        The compare is what keeps two passes (two pods, a pass cut off and started again) from
+        both moving it. False when the thread is gone or another pass got there first. Nothing is
+        published: the watermark is not something a client shows.
+        """
+        async with agent_session() as session:
+            ctx = (
+                await session.execute(
+                    select(ConversationContext).where(ConversationContext.id == context_id).with_for_update()
+                )
+            ).scalar_one_or_none()
+            if ctx is None or _as_utc(ctx.encoded_up_to) != _as_utc(expected):
+                return False
+            ctx.encoded_up_to = up_to
+            await session.commit()
+            return True
 
     async def set_summary(
         self, context_id: str, summary: str, covers_up_to: datetime | None = None

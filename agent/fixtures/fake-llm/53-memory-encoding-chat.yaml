@@ -1,0 +1,10 @@
+# The exchange that MAG-15's journey leaves to go quiet: Maggie answers without any tool, and the
+# memory is written afterwards by the encoding pass (13-memory-encoding.yaml), not by this turn.
+name: memory-encoding-chat
+description: Answer a niece's diet in passing, with no tool call.
+
+match:
+  user_contains: "Ma nièce Zoé est végétarienne"
+
+turns:
+  - text: "D'accord, j'y penserai pour les repas de famille."

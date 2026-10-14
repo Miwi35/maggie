@@ -13,6 +13,7 @@ from app.db.pending_action_repository import pending_action_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.style_synthesis import style_synthesizer
+from app.memory.encoder import memory_encoder
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
@@ -248,10 +249,40 @@ async def _style_synthesis_loop() -> None:
         await asyncio.sleep(settings.style_synthesis_interval_hours * 3600)
 
 
+async def run_memory_encoding(now: datetime | None = None) -> int:
+    """Write the carte and the obvious fiches of every thread silent for `memory_encode_after_seconds` (MAG-15).
+
+    Not the dormancy clock: a thread is encoded a few minutes after its last message, once, and
+    again only if it is spoken in and goes quiet again. Returns how many threads were encoded.
+    """
+    now = now or _utcnow()
+    silent_before = now - timedelta(seconds=settings.memory_encode_after_seconds)
+    encoded = 0
+    for ctx in await context_repo.find_to_encode(silent_before, now):
+        # Never raises: a thread that cannot be encoded now is found again at the next cycle.
+        if await memory_encoder.encode(ctx, silent_before) is not None:
+            encoded += 1
+    if encoded:
+        logger.info(f"Memory encoding: {encoded} thread(s) encoded")
+    return encoded
+
+
+async def _memory_encoding_loop() -> None:
+    """Every minute, encode the threads that went quiet. Never on the path of a turn."""
+    while True:
+        try:
+            await run_memory_encoding()
+        except Exception as e:
+            logger.error(f"Memory encoding loop error: {e}")
+
+        await asyncio.sleep(settings.memory_encode_interval_seconds)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
     _tasks.append(asyncio.create_task(_daily_planning_loop()))
     _tasks.append(asyncio.create_task(_context_lifecycle_loop()))
     _tasks.append(asyncio.create_task(_style_synthesis_loop()))
+    _tasks.append(asyncio.create_task(_memory_encoding_loop()))
     logger.info("Proaction scheduler started")
