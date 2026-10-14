@@ -6,6 +6,7 @@ Kotlin + Jetpack Compose + Material 3.
 - **Koin** for DI (lightweight, less boilerplate than Hilt)
 - **Ktor** for HTTP client (built-in SSE support for Mercure)
 - **Navigation Compose** for routing
+- **Room** for the local database (KSP)
 - BuildConfig fields for API_BASE_URL and MERCURE_URL
 
 ## Pattern
@@ -16,6 +17,7 @@ Kotlin + Jetpack Compose + Material 3.
 - **JAVA_HOME:** `/opt/android-studio-for-platform/jbr` (Java 21) — host Java is 11, always use Android Studio JBR
 - `gradle.properties` has `org.gradle.java.home` set to Android Studio JBR
 - **adb:** `~/Android/Sdk/platform-tools/adb`
+- compileSdk 35, minSdk 29, targetSdk 35
 
 ## Signing & Google Credentials
 - **Release keystore:** `mobile/release.keystore` (alias `maggie`, config in `keystore.properties`)
@@ -24,6 +26,14 @@ Kotlin + Jetpack Compose + Material 3.
 - **Always build `prodRelease`** for device testing: `task mobile:install` (checks a phone is connected, then an incremental `./gradlew installProdRelease` — never `clean`)
 - Do NOT use `devDebug` or `prodDebug` — the debug keystore SHA1 is not registered in GCP
 - That is the owner's phone. Agents build no APK locally: their one Gradle build is `task wt:test:mobile -- --tests …` (JVM unit tests on `prodDebug`, no signing involved); CI builds the APKs (`agent-os/standards/global/worktree-checks.md`)
+
+## Product flavors
+
+| Flavor | API URL | App ID suffix |
+|---|---|---|
+| `dev` | `http://10.0.2.2` (the emulator's alias for the host) | `.dev` |
+| `prod` | `https://maggieai.fr` | — |
+| `e2e` | `http://localhost:8099` (see below) | `.e2e` |
 
 ## The `e2e` flavor (MAG-98)
 

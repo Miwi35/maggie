@@ -6,42 +6,13 @@ user-invocable: false
 
 # Multi-Stage Dockerfiles
 
-All services use 3-stage builds: `base` → `dev` → `prod`.
+**Use when** creating or changing a Dockerfile in `.docker/`.
 
-## Pattern
+**Read** `agent-os/standards/docker/dockerfiles.md`; images and mirror: `agent-os/standards/deployment/ci-cd-pipeline.md`.
 
-```dockerfile
-ARG PHP_VERSION
-FROM php:${PHP_VERSION}-fpm-alpine AS base
-# shared deps
+## Gotchas
 
-FROM base AS dev
-# dev tools (xdebug, etc), bind-mount volumes
-
-FROM base AS prod
-COPY . /app
-# self-contained, no volumes
-```
-
-## Rules
-
-- Version pinned via build ARG from `.env`
-- Non-root user with host UID/GID (`ARG UID`, `ARG GID`) — prevents permission issues on bind-mounted files
-- Dev stage: bind-mount source code, install dev tools
-- Prod stage: COPY source code, no bind mounts, no dev deps
-- `docker-compose.yml` targets `dev` stage via `target: dev`
-
-## Production Images
-
-- Registry: `ghcr.io/miwi35/maggie-*`
-- Tags: `:<git-sha>` + `:latest`
-
-| Image | Source |
-|-------|--------|
-| `ghcr.io/miwi35/maggie-php` | `.docker/php/Dockerfile` |
-| `ghcr.io/miwi35/maggie-nginx` | `.docker/nginx/Dockerfile` |
-| `ghcr.io/miwi35/maggie-agent` | `.docker/python/Dockerfile` |
-
-## Reference
-
-For full details, read `agent-os/standards/docker/dockerfiles.md`
+- Stages are `base` → `dev` → `prod` (the php image adds `e2e`); `docker-compose.yml` targets `dev`.
+- Versions come from build ARGs in `.env`; the non-root user takes the host `UID`/`GID`.
+- Every `FROM` and `COPY --from` uses `ghcr.io/miwi35/mirror/<name>:<tag>`, never Docker Hub directly.
+- Prod copies the source and carries no dev dependency or bind mount.

@@ -6,44 +6,14 @@ user-invocable: false
 
 # Admin React Patterns
 
-## Stack
+**Use when** creating or changing a React component, a resource screen, the Vite config or a Mercure subscription in `admin/`.
 
-- `@api-platform/admin` (HydraAdmin) with Vite, React 19, react-admin 5
-- Vite `base: '/admin/'` for Traefik path routing
-- `allowedHosts: ['maggie.local']` in Vite config
-- Localization: `ra-i18n-polyglot`, `ra-language-french`
-- API Platform 4 uses `member` key (not `hydra:member`) in collection responses
+**Read** `agent-os/standards/admin/react-admin.md`; for payload handling, `agent-os/standards/global/real-time.md`.
 
-## Patterns
+## Gotchas
 
-- `ResourceGuesser` for standard CRUD screens
-- Custom components for complex views (agenda, chat, cookbook)
-
-## Mercure SSE
-
-Use native `EventSource` API — no library:
-
-```tsx
-const url = mercureUrl(MERCURE_URL, ['/chat/' + userId]) // hooks/mercureUrl.ts: `match` / `match_urlpattern`, never `topic`
-const eventSource = new EventSource(url.toString(), { withCredentials: true }) // private updates need the cookie
-```
-
-Use `VITE_MERCURE_PUBLIC_URL` env var, fallback to `http://maggie.local/.well-known/mercure`.
-
-## HTTP Client
-
-```tsx
-const httpClient = (url: URL, options: HttpClientOptions = {}) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    options.user = { authenticated: true, token: `Bearer ${token}` }
-  }
-  return fetchHydra(url, options)
-}
-```
-
-Every API request includes `Authorization: Bearer <jwt>`.
-
-## Reference
-
-For full details, read `agent-os/standards/admin/react-admin.md`
+- `ResourceGuesser` for standard CRUD; a custom component only for complex views (agenda, chat, cookbook).
+- API Platform 4 collections use the `member` key, not `hydra:member`.
+- Mercure: native `EventSource` with `{ withCredentials: true }`, URL built by `hooks/mercureUrl.ts` (`match`, never `topic`).
+- Vite `base` is `/admin/` and `allowedHosts` includes `maggie.local`; changing either breaks Traefik routing.
+- Every API request carries `Authorization: Bearer <jwt>` through the `httpClient` in `App.tsx`.

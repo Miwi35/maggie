@@ -22,6 +22,8 @@ Google OAuth 2.0 (Authorization Code flow) for admin authentication. No local cr
 | `admin/src/auth/session.ts` | Refresh, 401 replay, renewal timer, restore at boot |
 | `admin/src/App.tsx` | Runs `handleAuthCallback()` before render, injects Bearer token |
 | `api/modules/core/src/Controller/GoogleAuthController.php` | Three endpoints: redirect, callback, mobile POST |
+| `api/modules/core/src/Security/RefreshTokenCookieFactory.php` | Builds the `refresh_token` cookie, same flags as Gesdinet's |
+| `api/modules/core/src/EventListener/RenewMercureCookieOnRefreshListener.php` | New `mercureAuthorization` cookie on every refresh |
 | `api/modules/core/config/services.yaml` | Binds `$googleClientId`, `$googleClientSecret`, `$googleRedirectUri`, `$adminUrl` |
 
 ## Auth Provider

@@ -2,6 +2,9 @@
 
 Python FastAPI service. Separate from Symfony — consumes the API via MCP like any external client.
 
+## Layout
+`agent/app/`: `main.py` (FastAPI entry, `root_path="/agent"`), `config.py` (pydantic-settings), `api/` (routes), `llm/` (gateway, tool loop, history, prompt cache), `mcp/` (MCP client), `memory/`, `mercure/` (publisher, topics), `personality/` (YAML), `policy/`, `skills/`, `agents/` (sub-agents), `a2a/`, `queue/` (proactions), `db/` (models and repositories), `tts/`.
+
 ## MCP Client
 - HTTP transport (not stdio) — connects to `http://nginx/_mcp`
 - Stateful: captures `Mcp-Session-Id` from server
@@ -70,3 +73,4 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 ## Dependencies
 - `uv` (astral-sh) for package management, not pip/poetry
 - `pydantic-settings` for env-based config
+- `ruff` for linting and formatting

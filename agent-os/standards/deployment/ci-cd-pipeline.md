@@ -18,7 +18,7 @@ No `workflow_run` anywhere: a chained workflow that does not apply shows up as a
 
 ## CI Workflow (`.github/workflows/ci.yml`)
 
-**Trigger:** `pull_request` on `main` (opened, synchronize, reopened — drafts included), `merge_group` (the merge queue), and `workflow_call` from `main.yml` and `nightly.yml`. It is the whole pull-request pipeline: the checks below are its jobs, and a job with nothing to do is skipped, not a workflow. `Mobile Unit Tests (release)` (formerly `mobile.yml`) is a job of it. The agent guard and the freeze are not: they live in Cyrus (`cyrus-pilot`, MAG-469).
+**Trigger:** `pull_request` on `main` (opened, synchronize, reopened — drafts included), `merge_group` (the merge queue), and `workflow_call` from `main.yml` and `nightly.yml`. Jobs stay in `ci.yml` rather than behind a `uses:` of their own: a required check is a job name, and a job behind `uses:` is renamed `Caller / Job`. It is the whole pull-request pipeline: the checks below are its jobs, and a job with nothing to do is skipped, not a workflow. `Mobile Unit Tests (release)` (formerly `mobile.yml`) is a job of it. The agent guard and the freeze are not: they live in Cyrus (`cyrus-pilot`, MAG-469).
 
 ### Jobs (run in parallel)
 
@@ -294,17 +294,13 @@ All images use GitHub Actions cache (`type=gha`) with dedicated scopes:
 ## Deployment Flow Summary
 
 ```
-1. Developer pushes to main
-2. `main.yml` runs: CI (`ci.yml` called) first
-3. All CI jobs pass → gate → change detection
-4. It builds 3 Docker images (PHP + Agent in parallel, then Nginx)
-5. Images pushed to GHCR
-6. Deploy job waits for manual approval
-7. SSH to VPS:
-   - Pull new images
-   - docker compose up -d
-   - Run database migrations
-   - Health check
-   - Prune old images
-8. Traefik (already running) auto-routes to new containers
+1. A PR merges into main
+2. `main.yml` runs: CI (`ci.yml` called) first, skipped for a tree already tested
+3. Gate (head of main, not already deployed) → change detection
+4. It builds the Docker images (PHP + Agent in parallel, then Nginx)
+5. Images pushed to GHCR, tagged with the full SHA
+6. Deploy job (`production` environment): SSH to the VPS, `deploy-k3s.sh <sha>`:
+   backup → migrate → `kubectl apply -k` → rollout status → post-deploy → verify
+7. Smoke job on production; a red build, deploy or smoke triggers the rollback
+8. k3s rolls the pods; Traefik (k3s Ingress) routes to them
 ```
