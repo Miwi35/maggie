@@ -39,7 +39,6 @@ REQUIRED=(
   ciqual-test:ciqual
   admin-test:admin
   mobile-unit:mobile_unit
-  cron-image:cron
   e2e-stack:-
   e2e-mobile:-
   infra-scripts:-

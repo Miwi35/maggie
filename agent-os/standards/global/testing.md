@@ -16,6 +16,11 @@ A ticket is done only when **all five** hold:
 Nothing here is implicitly waived. Every "not applicable" is written in the spec's
 `plan.md` with its one-line reason — an unwritten exemption is a missing test.
 
+**On ne teste pas l'outillage** (propriétaire, 14 oct.) : scripts d'infra et de CI, garde des
+agents, scripts de déploiement — pas de tests unitaires dans le dépôt ; ce qui les vérifie,
+c'est leur usage (CI, déploiement). Les tests portent sur le produit : API, agent, admin,
+mobile, parcours e2e.
+
 ### 1. What "covered" means
 
 Per unit touched, whatever the ticket is about:
@@ -127,7 +132,7 @@ the PR shows each component against its baseline (one comment, from `ci.yml`, fo
 - Gain: once CI is green, `task coverage:ratchet -- <pr>` raises the baseline to what CI
   measured; commit the file. Not required, but unraised gains are room to erode.
 - A component with no entry passes as `new` until the first `coverage:ratchet`.
-- The scripts and their tests: `scripts/coverage/`, `infra/scripts/tests/coverage.test.sh`.
+- The scripts: `scripts/coverage/`.
 
 ### 5. Documentation up to date (ADR-006)
 

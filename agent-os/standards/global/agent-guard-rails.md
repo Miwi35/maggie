@@ -38,4 +38,4 @@ Repo variable `AGENT_ENABLED`. Missing or anything but `false` = on.
 
 ## Tests
 
-`infra/scripts/tests/agent-guard.test.sh` and `agent-guard-emergency.test.sh`, run by the `Infra scripts and workflows` job. A new rule comes with a case that trips it and a case that must not.
+None in the repository: tooling is not tested (owner, 14 Oct.). The `Infra scripts and workflows` job lints the guard's scripts (shellcheck); their use on every PR checks them.
