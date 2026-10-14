@@ -13,14 +13,14 @@ class TestToolDefinitions:
     async def test_an_mcp_tool_named_like_one_of_the_agent_s_own_is_not_offered(self):
         router = ToolRouter()
         with patch("app.llm.tools.mcp_client") as mcp:
-            mcp.list_tools = AsyncMock(return_value=[_mcp("store_memory"), _mcp("cancel_proaction")])
+            mcp.list_tools = AsyncMock(return_value=[_mcp("memory_search"), _mcp("cancel_proaction")])
             tools = await router.get_tool_definitions()
 
         names = [tool["name"] for tool in tools]
         assert len(names) == len(set(names))
         assert "cancel_proaction" in names
-        memory = next(tool for tool in tools if tool["name"] == "store_memory")
-        assert memory["description"] != "API's store_memory"
+        memory = next(tool for tool in tools if tool["name"] == "memory_search")
+        assert memory["description"] != "API's memory_search"
 
     async def test_the_proaction_tools_offered_are_the_api_s_once_each(self):
         # MAG-327: the agent no longer serves schedule_proaction nor list_proactions itself.
