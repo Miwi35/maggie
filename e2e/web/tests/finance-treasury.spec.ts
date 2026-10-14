@@ -414,6 +414,7 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
   await expect(treasury.overdraft).toHaveCount(0)
   await expect(treasury.advice).toHaveCount(0)
   await expect(treasury.content).toContainText("Aucun découvert prévu jusqu'au prochain salaire.")
+})
 
 test("the admin screen shows the advance and « Je l'ai fait » settles it", async ({ treasuryUser }) => {
   const { api, page } = treasuryUser
