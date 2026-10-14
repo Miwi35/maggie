@@ -245,7 +245,7 @@ class GroceryScreenTest {
     @Test
     fun `a product without packaging shows its quantity as an indication, with no buttons`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("300 g").assertIsDisplayed()
         compose.onNodeWithContentDescription("Augmenter la quantité de Sel").assertDoesNotExist()
@@ -256,7 +256,7 @@ class GroceryScreenTest {
     @Test
     fun `a packaged line shows what one pack holds`() {
         val fake = FakeGrocery(list = riceList)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("(500 g)").assertIsDisplayed()
     }
