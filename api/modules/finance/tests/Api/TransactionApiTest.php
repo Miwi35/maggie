@@ -247,6 +247,25 @@ class TransactionApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
+    public function testPatchSendingBackTheIdAsAnIriAsTheAdminSheetDoesSavesTheNote(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $this->patch((string) $transaction->getId(), [
+            'id' => '/api/transactions/'.$transaction->getId(),
+            'originId' => (string) $transaction->getId(),
+            'label' => $transaction->getLabel(),
+            'amountCents' => $transaction->getAmountCents(),
+            'note' => 'Cadeau pour Léa',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Cadeau pour Léa', $this->storedNote($transaction));
+    }
+
     public function testPatchWithoutNoteLeavesItUntouched(): void
     {
         $this->loadFixtures('transaction.yaml');

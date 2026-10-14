@@ -65,8 +65,11 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
     public const int NOTE_MAX_LENGTH = 2000;
 
+    // The admin sends a record back with `id` set to its IRI; the id is never
+    // writable, so it must not be parsed as a Ulid on the way in.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\ManyToOne(targetEntity: Account::class)]
