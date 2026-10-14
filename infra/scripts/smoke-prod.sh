@@ -305,7 +305,7 @@ else
   fail "the test event could not be created for the technical account — agenda: $(excerpt "$agenda") event: $(excerpt "${event:-}")"
 fi
 
-chat_output=""
+chat_output="" provider_reason=""
 for try in 1 2; do
   # A fresh conversation for each try: the first one must not weigh on the second.
   reset_history || true
@@ -314,6 +314,8 @@ for try in 1 2; do
 
   answer="$(printf '%s' "$chat_output" | jq -r '.response // empty' 2>/dev/null)"
   tool_name="$(printf '%s' "$chat_output" | jq -r '.tool_calls[0].name // empty' 2>/dev/null)"
+  provider_reason="$(printf '%s' "$chat_output" | jq -r 'select(.error == "provider_unavailable") | .provider_reason // "unknown"' 2>/dev/null)"
+  [ -n "$provider_reason" ] && break
 
   if [ -n "$answer" ] && [ -n "$tool_name" ]; then
     case "$answer" in *"$title"*) break ;; esac
@@ -323,7 +325,14 @@ done
 
 cleanup_smoke_data
 
-if [ -z "$answer" ] || [ -z "$tool_name" ]; then
+if [ -n "$provider_reason" ]; then
+  # The model's provider refused the call — an exhausted credit, a refused key, an
+  # overload. Neither the code nor the deployment is at fault: rolling back would
+  # freeze production and the merge train for nothing, as it did all one night
+  # (MAG-448). The owner hears of it from the agent, by a push on their own next turn.
+  printf '::warning::Maggie : fournisseur indisponible (%s) — the release is not at fault, not rolled back\n' "$provider_reason"
+  printf '  \033[33m!\033[0m Maggie : fournisseur indisponible (%s)\n' "$provider_reason"
+elif [ -z "$answer" ] || [ -z "$tool_name" ]; then
   fail "Maggie did not answer through a tool — response: $(excerpt "$chat_output")"
 else
   pass "Maggie answered and called '$tool_name'"

@@ -87,6 +87,10 @@ class ChatResponse(BaseModel):
     response: str
     tool_calls: list[dict] = []
     messages: list[dict] = []
+    # `True` when our code failed the turn, `provider_unavailable` when the model's provider did,
+    # with `provider_reason` saying why — what the smoke test warns on instead of failing (MAG-448).
+    error: bool | Literal["provider_unavailable"] | None = None
+    provider_reason: str | None = None
 
 
 class PersonalityUpdate(BaseModel):
@@ -199,6 +203,8 @@ async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: st
         response=result["response"],
         tool_calls=result.get("tool_calls", []),
         messages=[user_msg.to_dict(), assistant_msg.to_dict()],
+        error=result.get("error"),
+        provider_reason=result.get("provider_reason"),
     )
 
 

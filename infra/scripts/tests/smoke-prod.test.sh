@@ -84,6 +84,17 @@ else
   failures=$((failures + 1))
 fi
 
+# The model's provider down is not a broken release: no rollback, no freeze — a
+# warning (MAG-448). The credit ran out one night and froze production until morning.
+run_smoke "agent_provider_unavailable"
+if [ "$STATUS" -eq 0 ] && printf '%s' "$OUTPUT" | grep -qF '::warning::' &&
+  printf '%s' "$OUTPUT" | grep -qF 'Maggie : fournisseur indisponible (credit)'; then
+  printf '  \033[32m✓\033[0m a provider that refuses the model call warns and passes\n'
+else
+  printf '  \033[31m✗\033[0m an unavailable provider must warn, not fail — exit %d\n%s\n' "$STATUS" "$OUTPUT"
+  failures=$((failures + 1))
+fi
+
 printf '\n\033[1mEach regression turns it red\033[0m\n'
 expect_red "a degraded agent"                       agent_health        "the agent health body is not status ok"
 expect_red "an admin that 404s"                     admin_missing       "GET /admin is served without a redirect"
@@ -101,6 +112,7 @@ expect_red "an event the account cannot create"     event_creation_fails "the te
 expect_red "an event POST that times out unwritten" event_post_hangs  "the answer does not carry the title" SMOKE_WRITE_TIMEOUT=1
 expect_red "a history reset the agent refuses"      history_reset_fails "DELETE /agent/smoke/history did not answer 200"
 expect_red "an agent that is down"                  agent_down          "Maggie did not answer through a tool"
+expect_red "an empty answer"                        agent_empty         "Maggie did not answer through a tool"
 expect_red "Elasticsearch out of sync"              ""                  "app:elasticsearch:status --check failed" ES_CHECK_CMD="echo DRIFT; exit 1"
 
 printf '\n\033[1mThe technical account starts blank and leaves nothing\033[0m\n'

@@ -167,6 +167,15 @@ class Handler(BaseHTTPRequestHandler):
         if "agent_down" in BREAK:
             self.send(502)
             return
+        # The model's provider refuses every call — an exhausted credit (MAG-448).
+        if "agent_provider_unavailable" in BREAK:
+            STATE["history"] += 2
+            self.json(200, {"response": "Désolé, une erreur est survenue. Réessaie.", "tool_calls": [], "messages": [],
+                            "error": "provider_unavailable", "provider_reason": "credit"})
+            return
+        if "agent_empty" in BREAK:
+            self.json(200, {"response": "", "tool_calls": [], "messages": []})
+            return
         # Answers from the history like the real model did: with a conversation behind it,
         # it replies without the tool.
         skips_tool = "agent_no_tool" in BREAK or STATE["history"] > 0
