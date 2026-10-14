@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import MenuItem from '@mui/material/MenuItem'
@@ -34,6 +34,11 @@ export const RecurrenceSection = ({ record }: { record: RaRecord }) => {
   const notify = useNotify()
   const { attach, detach, saving } = useRecurringLink()
   const [link, setLink] = useState<SeriesLink>(() => linkOf(record))
+  const { recurringOperation: recordSeries, recurringOccurrenceOn: recordDue } = linkOf(record)
+  // The sheet may open on a copy of the line older than the series link, then receive the fresh one.
+  useEffect(() => {
+    setLink({ recurringOperation: recordSeries, recurringOccurrenceOn: recordDue })
+  }, [recordSeries, recordDue])
   const [choice, setChoice] = useState('')
 
   const { data: series } = useGetOne(

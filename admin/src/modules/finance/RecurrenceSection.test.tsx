@@ -112,4 +112,23 @@ describe('RecurrenceSection', () => {
 
     expect(await screen.findByRole('button', { name: 'En faire une opération récurrente' })).toBeInTheDocument()
   })
+
+  test('a record that arrives fresher than the one the sheet opened on is followed', async () => {
+    const view = (record: Record<string, unknown>) => (
+      <AdminContext
+        dataProvider={testDataProvider({
+          getList: (() => Promise.resolve({ data: SERIES, total: SERIES.length })) as unknown as DataProvider['getList'],
+          getOne: getOne as unknown as DataProvider['getOne'],
+        })}
+      >
+        <RecurrenceSection record={record as never} />
+      </AdminContext>
+    )
+    const { rerender } = render(view({ ...LINE, recurringOperation: null }))
+    expect(await screen.findByText(/n’appartient à aucune opération récurrente/)).toBeInTheDocument()
+
+    rerender(view({ ...LINE, recurringOperation: SERIES[0].id, recurringOccurrenceOn: '2026-10-12' }))
+
+    expect(await screen.findByRole('button', { name: 'Détacher de la série' })).toBeInTheDocument()
+  })
 })
