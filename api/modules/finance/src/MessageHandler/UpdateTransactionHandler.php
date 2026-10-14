@@ -136,6 +136,10 @@ class UpdateTransactionHandler
         if (!$envelope->isOneOff()) {
             throw new OneOffAttributionException('A spend is attributed by hand to a one-off envelope only: the monthly and annual ones follow its category.');
         }
+        // An envelope weighs spends only: an income or a neutral movement would sit there counting for nothing.
+        if ($transaction->getAmountCents() >= 0 || TransferKind::None !== $transaction->getTransferKind()) {
+            throw new OneOffAttributionException('Only a spend is attributed to a one-off envelope, not an income nor a transfer.');
+        }
 
         $transaction->setOneOffEnvelope($envelope);
     }

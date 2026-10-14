@@ -136,6 +136,9 @@ class ManageEnvelopesTool
         if (null === $name || '' === trim($name) || null === $amountCents) {
             return json_encode(['error' => 'name and amountCents are required to set a one-off envelope.'], JSON_THROW_ON_ERROR);
         }
+        if (mb_strlen(trim($name)) > Envelope::NAME_MAX_LENGTH) {
+            return json_encode(['error' => sprintf('name is %d characters at most.', Envelope::NAME_MAX_LENGTH)], JSON_THROW_ON_ERROR);
+        }
         if (null !== $categoryId || null !== $year || null !== $month) {
             return json_encode(['error' => 'A one-off envelope has neither category nor period: attribute spends to it with manage_transactions.'], JSON_THROW_ON_ERROR);
         }
@@ -163,6 +166,9 @@ class ManageEnvelopesTool
     {
         if (null === $envelopeId) {
             return json_encode(['error' => 'envelopeId is required for update.'], JSON_THROW_ON_ERROR);
+        }
+        if (null !== $name && mb_strlen(trim($name)) > Envelope::NAME_MAX_LENGTH) {
+            return json_encode(['error' => sprintf('name is %d characters at most.', Envelope::NAME_MAX_LENGTH)], JSON_THROW_ON_ERROR);
         }
 
         $stamped = $this->bus->dispatch(new UpdateEnvelopeCommand(

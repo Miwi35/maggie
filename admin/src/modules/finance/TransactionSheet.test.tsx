@@ -38,9 +38,11 @@ const RECORD = {
 
 const NONE = { transferKind: 'none', transferSource: 'auto', counterpart: null }
 const fetchMock = vi.fn()
+const envelopeFilters: Record<string, unknown>[] = []
 let transferState: unknown = NONE
 
-const getList = ((resource: string) => {
+const getList = ((resource: string, params?: { filter?: Record<string, unknown> }) => {
+  if (resource === 'envelopes') envelopeFilters.push(params?.filter ?? {})
   const data =
     resource === 'categories' ? CATEGORIES : resource === 'accounts' ? ACCOUNTS : resource === 'envelopes' ? ENVELOPES : []
 
@@ -181,6 +183,8 @@ describe('TransactionSheet', () => {
     const listbox = screen.getByRole('listbox')
     expect(within(listbox).getByText('Aucune')).toBeInTheDocument()
     expect(within(listbox).getAllByRole('option')).toHaveLength(2)
+    // Asked of the API: the one-off envelopes would sort after a page of monthly ones.
+    expect(envelopeFilters).toContainEqual({ mode: 'one_off' })
   })
 
   test('Enregistrer attributes the spend to the chosen one-off envelope', async () => {

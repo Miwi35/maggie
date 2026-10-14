@@ -235,4 +235,14 @@ class OneOffEnvelopeToolsTest extends KernelTestCase
         self::assertNull($this->reloadTransaction('ticket')->getOneOffEnvelope());
         $this->assertMercureUpdateCount(0);
     }
+
+    public function testANameOverTheLimitIsRefused(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->envelopes('set', mode: 'one_off', name: str_repeat('a', 121), amountCents: 1000);
+
+        self::assertStringContainsString('120 characters', $data['error']);
+        $this->assertMercureUpdateCount(0);
+    }
 }

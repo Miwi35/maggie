@@ -41,5 +41,24 @@
             "currency": "EUR",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
         }
-    ]
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/envelopes{?mode,mode[]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "mode",
+                "property": "mode",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "mode[]",
+                "property": "mode",
+                "required": false
+            }
+        ]
+    }
 }

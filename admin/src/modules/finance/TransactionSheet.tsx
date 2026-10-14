@@ -96,9 +96,11 @@ const ComingSoon = ({ children }: { children: string }) => (
  */
 export const OneOffEnvelopeInput = () => {
   const current = useWatch({ name: 'oneOffEnvelope' }) as string | null | undefined
+  // Filtered by the API: the one-off envelopes have no year, and would sort
+  // after a hundred monthly ones on a single page.
   const { data: envelopes = [] } = useGetList('envelopes', {
     pagination: { page: 1, perPage: 100 },
-    sort: { field: 'year', order: 'DESC' },
+    filter: { mode: ONE_OFF },
   })
   // The one the line already carries stays offered, even beyond the first page.
   const choices = envelopes

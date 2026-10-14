@@ -27,6 +27,9 @@ class UpdateEnvelopeProcessor implements ProcessorInterface
         if (null !== $previous && $previous->isOneOff() !== $data->isOneOff()) {
             throw new UnprocessableEntityHttpException('An envelope cannot change between one-off and monthly or annual: create a new one.');
         }
+        if ($data->isOneOff() && null !== $data->getYear()) {
+            throw new UnprocessableEntityHttpException('A one-off envelope has no period.');
+        }
 
         $stamped = $this->bus->dispatch(new UpdateEnvelopeCommand(
             userId: (string) $data->getUser()->getId(),

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -32,6 +34,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: EnvelopeRepository::class)]
+// The transaction sheet offers the one-off envelopes alone (`?mode=one_off`).
+#[ApiFilter(SearchFilter::class, properties: ['mode' => 'exact'])]
 #[Indexed(index: 'envelopes', module: 'finance')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -44,6 +48,8 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
 {
     use MercurePayloadFilterTrait;
 
+    public const int NAME_MAX_LENGTH = 120;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -55,8 +61,8 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     private ?Category $category = null;
 
     /** What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category. */
-    #[ORM\Column(length: 120, nullable: true)]
-    #[Assert\Length(max: 120)]
+    #[ORM\Column(length: self::NAME_MAX_LENGTH, nullable: true)]
+    #[Assert\Length(max: self::NAME_MAX_LENGTH)]
     #[IndexedField(type: 'text', keyword: true)]
     private ?string $name = null;
 

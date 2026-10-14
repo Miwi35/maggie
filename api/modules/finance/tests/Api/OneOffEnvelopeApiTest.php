@@ -246,4 +246,43 @@ class OneOffEnvelopeApiTest extends WebTestCase
         $this->assertElasticsearchDeleteDispatched('envelopes');
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
+
+    public function testTheListFiltersTheOneOffEnvelopes(): void
+    {
+        $this->login();
+
+        $this->client->request('GET', '/api/envelopes?mode=one_off', [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['Hellfest 2026'], array_column($data['member'], 'name'));
+    }
+
+    public function testAOneOffEnvelopeGivenAYearIsRejected(): void
+    {
+        $this->login();
+
+        $this->send('PATCH', $this->iri('envelopes', 'hellfest'), ['year' => 2026]);
+
+        self::assertResponseStatusCodeSame(422);
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAttributingAnIncomeIsRefused(): void
+    {
+        $this->login();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $refund = $em->find(Transaction::class, $this->getFixture('bar')->getId());
+        $refund->setAmountCents(2500);
+        $em->flush();
+        $this->resetMercure();
+
+        $this->send('PATCH', $this->iri('transactions', 'bar'), ['oneOffEnvelope' => $this->iri('envelopes', 'hellfest')]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertNull($this->reloadTransaction('bar')->getOneOffEnvelope());
+        $this->assertMercureUpdateCount(0);
+    }
 }

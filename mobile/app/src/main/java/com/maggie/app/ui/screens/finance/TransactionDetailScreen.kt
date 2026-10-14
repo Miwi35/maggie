@@ -423,7 +423,7 @@ fun OneOffEnvelopeSearchScreen(
                     item {
                         Text(
                             if (envelopes.isEmpty()) {
-                                "Aucune enveloppe ponctuelle : créez-en une (Hellfest, vacances…) sur la tablette ou l'admin."
+                                "Aucune enveloppe ponctuelle : créez-en une (Hellfest, vacances…) dans l'admin."
                             } else {
                                 "Aucun événement ne correspond."
                             },

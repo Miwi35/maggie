@@ -100,6 +100,9 @@ final class QueryParameterContractTest extends WebTestCase
             'exists[readAt]' => 'admin NotificationBell, mobile getNotifications',
             'order[createdAt]' => 'admin NotificationBell',
         ],
+        '/api/envelopes' => [
+            'mode' => 'admin TransactionSheet, the one-off envelopes a spend can be attributed to (MAG-414)',
+        ],
         '/api/transactions' => [
             'account' => 'mobile getTransactions, narrowing to one account',
             'category' => 'mobile countTransactionsOfCategory, the weight of a deletion',
