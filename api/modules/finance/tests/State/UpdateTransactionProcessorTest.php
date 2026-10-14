@@ -3,8 +3,8 @@
 namespace Maggie\Finance\Tests\State;
 
 use ApiPlatform\Metadata\Patch;
-use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
+use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Finance\Entity\Category;
