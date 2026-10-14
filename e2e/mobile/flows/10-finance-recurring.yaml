@@ -99,6 +99,11 @@ tags:
 - extendedWaitUntil:
     visible: ".*échéance du.*"
     timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "recurring_line_detach"
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: "recurring_line_detach"
 - extendedWaitUntil:
