@@ -224,6 +224,28 @@ describe('GroceryListView — recurring items', () => {
       expect(within(row('Bougies')).queryByRole('button', { name: /récurr/i })).toBeNull()
     })
 
+    test('on a phone the control is an icon on the first row, so the second keeps the badge, the quantity and the trash', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: /max-width:([\d.]+)px/.test(query) ? 390 <= Number(/max-width:([\d.]+)px/.exec(query)![1]) : false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+      }))
+      try {
+        await open([lait])
+
+        const control = await within(row('Lait')).findByRole('button', { name: 'Récurrence de Lait : toutes les semaines' })
+        expect(control.closest('[data-testid="grocery-item-controls"]')).toBeNull()
+        expect(control).not.toHaveClass('MuiChip-root')
+        expect(within(row('Lait')).queryByText('Toutes les semaines')).toBeNull()
+        expect(within(row('Pain')).getByRole('button', { name: 'Rendre Pain récurrent' }).closest('[data-testid="grocery-item-controls"]')).toBeNull()
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
     test('setting it creates the recurring item and the line shows its frequency', async () => {
       const user = userEvent.setup()
       const api = await open([])

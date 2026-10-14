@@ -13,11 +13,13 @@ interface LineRecurrenceProps {
   /** How often the line's product comes back; null when it is not recurring. */
   frequency: Frequency | null
   disabled?: boolean
+  /** A phone line is two rows: the control is a single icon, never a chip that would push the line onto a third. */
+  iconOnly?: boolean
   onChange: (frequency: Frequency | null) => void
 }
 
 /** The repeat chip of a list line: shows how often the product comes back, and opens the choice. */
-export const LineRecurrence = ({ label, frequency, disabled, onChange }: LineRecurrenceProps) => {
+export const LineRecurrence = ({ label, frequency, disabled, iconOnly, onChange }: LineRecurrenceProps) => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const open = (e: MouseEvent<HTMLElement>) => setAnchor(e.currentTarget)
   const pick = (next: Frequency | null) => {
@@ -27,7 +29,7 @@ export const LineRecurrence = ({ label, frequency, disabled, onChange }: LineRec
 
   return (
     <>
-      {frequency ? (
+      {frequency && !iconOnly ? (
         <Chip
           icon={<RepeatIcon />}
           label={frequencyName(frequency)}
@@ -42,10 +44,13 @@ export const LineRecurrence = ({ label, frequency, disabled, onChange }: LineRec
       ) : (
         <IconButton
           size="small"
-          aria-label={`Rendre ${label} récurrent`}
+          aria-label={
+            frequency ? `Récurrence de ${label} : ${frequencyName(frequency).toLowerCase()}` : `Rendre ${label} récurrent`
+          }
+          color={frequency ? 'primary' : 'default'}
           disabled={disabled}
           onClick={open}
-          sx={{ mr: 0.5 }}
+          sx={{ mr: 0.5, ...(iconOnly && { width: 44, height: 44, flexShrink: 0 }) }}
         >
           <RepeatIcon fontSize="small" />
         </IconButton>

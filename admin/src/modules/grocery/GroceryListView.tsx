@@ -179,7 +179,8 @@ function SortableGroceryItem({
     // the lines. The e2e journeys (MAG-101) address a line by this id and read
     // the order of the shop's own aisles from `data-store`.
     // Under 600px the line takes two rows (MAG-387): handle, tick and name, then
-    // badge, quantity and trash — all in the flow, nothing over the name.
+    // badge, quantity and trash — all in the flow, nothing over the name. The
+    // recurrence icon sits on the first row, after the name: the second is full.
     <ListItem
       ref={setNodeRef}
       style={style}
@@ -220,6 +221,15 @@ function SortableGroceryItem({
           }}
         />
       </ListItemButton>
+      {recurrence && compact && (
+        <LineRecurrence
+          label={label}
+          frequency={recurrence.frequency}
+          disabled={isRemoving}
+          iconOnly
+          onChange={recurrence.onChange}
+        />
+      )}
       <Box
         data-testid="grocery-item-controls"
         sx={{
@@ -237,7 +247,7 @@ function SortableGroceryItem({
           variant="outlined"
           sx={{ flexShrink: 0, mr: 1 }}
         />
-        {recurrence && (
+        {recurrence && !compact && (
           <LineRecurrence
             label={label}
             frequency={recurrence.frequency}
