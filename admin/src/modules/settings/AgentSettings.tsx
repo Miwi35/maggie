@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
+import { announceAgentName, useAgentName } from '../../hooks/useAgentName'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -125,6 +126,7 @@ function formatDateTime(iso: string | null): string {
 
 export const AgentSettings = () => {
   const notify = useNotify()
+  const agentName = useAgentName()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [personality, setPersonality] = useState<PersonalityConfig>({
@@ -251,7 +253,9 @@ export const AgentSettings = () => {
         body: JSON.stringify(personality),
       })
       if (res.ok) {
-        setPersonality(await res.json())
+        const saved = await res.json()
+        setPersonality(saved)
+        announceAgentName(saved.name)
         notify('Personnalité mise à jour', { type: 'success' })
       } else {
         notify('Erreur lors de la sauvegarde', { type: 'error' })
@@ -438,7 +442,7 @@ export const AgentSettings = () => {
   return (
     <Box maxWidth={900} mx="auto" mt={2}>
       <Typography variant="h5" mb={2}>
-        Paramètres de l'agent
+        {agentName}
       </Typography>
 
       <Card>

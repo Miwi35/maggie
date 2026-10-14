@@ -81,7 +81,7 @@ describe('Breadcrumbs', () => {
   test('a settings page sits under its module', () => {
     renderAt('/settings/agent')
 
-    expect(labels()).toEqual(['Paramètres', 'Agent'])
+    expect(labels()).toEqual(['Paramètres', 'Maggie'])
     expect(screen.getByRole('link', { name: 'Paramètres' })).toHaveAttribute('href', '/settings/preferences')
   })
 

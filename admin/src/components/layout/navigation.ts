@@ -6,6 +6,8 @@
  * wording; a part is a list (or a custom page), reached from its module.
  */
 
+import { DEFAULT_AGENT_NAME } from '../../hooks/useAgentName'
+
 export interface NavPart {
   label: string
   path: string
@@ -19,6 +21,9 @@ export interface NavModule {
   dashboard?: string
   parts: NavPart[]
 }
+
+/** The page is labelled with the name the user gave the agent (`useAgentName`); this is the default. */
+export const AGENT_SETTINGS_PATH = '/settings/agent'
 
 const resourcePart = (label: string, resource: string): NavPart => ({
   label,
@@ -75,7 +80,7 @@ export const NAVIGATION: NavModule[] = [
     label: 'Paramètres',
     parts: [
       { label: 'Préférences', path: '/settings/preferences' },
-      { label: 'Agent', path: '/settings/agent' },
+      { label: DEFAULT_AGENT_NAME, path: AGENT_SETTINGS_PATH },
       { label: 'Google', path: '/settings/google' },
     ],
   },

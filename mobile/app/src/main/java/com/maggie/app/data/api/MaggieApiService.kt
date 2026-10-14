@@ -247,6 +247,11 @@ data class TtsVoiceResponse(
 )
 
 @Serializable
+data class PersonalityResponse(
+    val name: String = "",
+)
+
+@Serializable
 data class FcmTokenRequest(
     val token: String,
     val deviceName: String? = null,
@@ -1633,6 +1638,12 @@ class MaggieApiService(
     suspend fun getTtsVoice(): String {
         val response: TtsVoiceResponse = client.get("$baseUrl/agent/tts/voice").body()
         return response.voice
+    }
+
+    /** The name the user gave Maggie (personality `name`); blank when unset. */
+    suspend fun getAgentName(): String {
+        val response: PersonalityResponse = client.get("$baseUrl/agent/personality").body()
+        return response.name
     }
 
     suspend fun setTtsVoice(voice: String) {

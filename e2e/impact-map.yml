@@ -333,6 +333,8 @@ web:
     areas: [design, dashboard]
   e2e/web/tests/theme-preference.spec.ts:
     areas: [design, settings]
+  e2e/web/tests/agent-settings.spec.ts:
+    areas: [settings]
   e2e/web/tests/search.spec.ts:
     areas: [search, calendar, cookbook, realtime]
   e2e/web/tests/mag-130-controls.spec.ts:

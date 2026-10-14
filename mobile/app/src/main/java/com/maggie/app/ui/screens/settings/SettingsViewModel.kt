@@ -24,12 +24,16 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+const val DEFAULT_AGENT_NAME = "Maggie"
+
 data class SettingsUiState(
     val user: User? = null,
     val preferences: UserPreference? = null,
     val agendas: List<Agenda> = emptyList(),
     val ttsVoices: List<TtsVoice> = emptyList(),
     val selectedTtsVoice: String = "fr-FR-DeniseNeural",
+    /** What the agent's settings are called: the name the user gave her, « Maggie » by default (MAG-329). */
+    val agentName: String = DEFAULT_AGENT_NAME,
     val isLoading: Boolean = false,
     val error: String? = null,
 )
@@ -63,12 +67,14 @@ class SettingsViewModel(
                 val agendas = agendaRepository.getAgendas()
                 val ttsVoices = try { apiService.getTtsVoices() } catch (_: Exception) { emptyList() }
                 val selectedVoice = try { apiService.getTtsVoice() } catch (_: Exception) { "fr-FR-DeniseNeural" }
+                val agentName = try { apiService.getAgentName().trim() } catch (_: Exception) { "" }
                 _uiState.value = _uiState.value.copy(
                     user = user,
                     preferences = prefResult.getOrNull(),
                     agendas = agendas,
                     ttsVoices = ttsVoices,
                     selectedTtsVoice = selectedVoice,
+                    agentName = agentName.ifEmpty { DEFAULT_AGENT_NAME },
                     isLoading = false,
                 )
             } catch (e: Exception) {

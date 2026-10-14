@@ -61,6 +61,7 @@ class SettingsViewModelTest {
         coEvery { apiService.getMe() } returns User(id = "u1")
         coEvery { apiService.getTtsVoices() } returns emptyList()
         coEvery { apiService.getTtsVoice() } returns "fr-FR-DeniseNeural"
+        coEvery { apiService.getAgentName() } returns "Maggie"
         every { userPreferenceRepository.preference } returns MutableStateFlow<UserPreference?>(null)
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))
         coEvery { authRepository.getUserId() } returns "u1"
@@ -82,6 +83,29 @@ class SettingsViewModelTest {
         mockk<VoiceManager>(relaxed = true),
         pushTokenRegistrar,
     )
+
+    @Test
+    fun `the agent settings carry the name the user gave Maggie`() = runTest {
+        coEvery { apiService.getAgentName() } returns "Alfred"
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("Alfred", viewModel.uiState.value.agentName)
+    }
+
+    @Test
+    fun `the agent settings are called Maggie when the name is blank or unreachable`() = runTest {
+        coEvery { apiService.getAgentName() } returns "  "
+        val blank = viewModel()
+        advanceUntilIdle()
+        assertEquals("Maggie", blank.uiState.value.agentName)
+
+        coEvery { apiService.getAgentName() } throws IllegalStateException("agent down")
+        val unreachable = viewModel()
+        advanceUntilIdle()
+        assertEquals("Maggie", unreachable.uiState.value.agentName)
+        assertNull(unreachable.uiState.value.error)
+    }
 
     @Test
     fun `loads the agendas with the default one flagged`() = runTest {
