@@ -198,7 +198,7 @@ The account has no side effect outside the platform: no push notification, no Go
 | Integration | Real DB, real DI container | With service containers |
 | API/HTTP | Full request cycle | With service containers |
 | E2E | Playwright (web, `task e2e:web`) and Maestro (mobile, `task e2e:mobile`), fake LLM | Blocking (MAG-96) |
-| Eval | Real model, prompt-lab scenarios | Nightly, non-blocking (ADR-005) |
+| Eval | Real model, prompt-lab scenarios | By hand when a prompt changes, non-blocking (ADR-005) |
 
 ## Per-Component Quick Reference
 
