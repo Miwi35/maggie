@@ -63,6 +63,7 @@ import com.maggie.app.data.model.NestedBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetPeriodLabel
@@ -436,7 +437,10 @@ private fun AlertThresholdDialog(
     onConfirm: (Int?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text by remember { mutableStateOf(line.alertThresholdPercent.toString()) }
+    // Blank for the default: saving untouched keeps « the default », not a frozen 80.
+    var text by remember {
+        mutableStateOf(line.alertThresholdPercent.takeIf { it != DEFAULT_ALERT_THRESHOLD_PERCENT }?.toString().orEmpty())
+    }
     val parsed = AlertThresholdInput.parse(text)
 
     AlertDialog(

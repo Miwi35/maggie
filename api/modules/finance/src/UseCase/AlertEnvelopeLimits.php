@@ -61,7 +61,9 @@ class AlertEnvelopeLimits
             return 0;
         }
 
-        $today ??= new \DateTimeImmutable('today');
+        // The user's day, not the server's: at 01:00 in Paris on the 1st, the
+        // month that has started is the new one.
+        $today ??= new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris'));
         $status = $this->getBudgetStatus->execute($user, (int) $today->format('Y'), (int) $today->format('n'));
 
         $sent = 0;
