@@ -100,7 +100,6 @@ jobs:
       web_lot_count: ${{ steps.select.outputs.web_lot_count }}
       mobile_lots: ${{ steps.select.outputs.mobile_lots }}
       mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
-      cron: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.cron == 'true') }}
       mobile_unit: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.mobile_unit == 'true') }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request, a merge group or a push — an emulator costs minutes and the
@@ -159,11 +158,6 @@ jobs:
               # one mirror only, the other platform's contract test must still
               # run, or the drift is the one change that merges green.
               - 'design/**'
-              - '.github/workflows/ci.yml'
-            cron:
-              - '.docker/php/**'
-              - 'infra/k8s/cron-deployment.yaml'
-              - 'infra/scripts/tests/cron-image.test.sh'
               - '.github/workflows/ci.yml'
             # The unit tests of the release variant (formerly mobile.yml). The DTO
             # and Mercure-topic contract tests read api/contract/ and
@@ -1327,38 +1321,6 @@ jobs:
             [ "$DEVICES" = success ] || { echo "::error::a mobile journey did not succeed ($DEVICES)"; exit 1; }
           fi
 
-  # The cron pod's scheduler (MAG-147): busybox crond ran the jobs as a
-  # non-root user with a redirection to /proc/1/fd/1 that user cannot open, so
-  # no job ever started. Starts the image as that user and checks a job runs,
-  # and that a failing one is logged.
-  cron-image:
-    name: Cron image (scheduler runs jobs as non-root)
-    needs: changes
-    if: needs.changes.outputs.cron == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: image=ghcr.io/miwi35/mirror/buildkit:buildx-stable-1
-
-      - name: Build the php image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: .docker/php/Dockerfile
-          target: e2e
-          load: true
-          tags: maggie-php-cron-test:ci
-          cache-from: type=gha,scope=php-cron-test
-          cache-to: type=gha,mode=max,scope=php-cron-test
-
-      - name: Test the scheduler
-        env:
-          IMAGE: maggie-php-cron-test:ci
-        run: bash infra/scripts/tests/cron-image.test.sh
-
   # The unit tests of the app as it ships (formerly the `Mobile CI` workflow, a
   # second line per push). Behind `changes` like every other job: skipped when
   # nothing the app reads moved.
@@ -1479,7 +1441,7 @@ jobs:
   # A PR it holds leaves the queue and is enqueued again once the freeze lifts.
   incident-gate:
     name: Incident gate
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
     if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1529,11 +1491,11 @@ jobs:
   # turns every skip that `Detect changes` did not decide into red. A push on main
   # or the nightly run has no branch protection to satisfy.
   #
-  # The list below is the script's (infra/scripts/pr-checks-gate.sh), kept in step
-  # by its test. The old required checks stay required beside this one.
+  # The list below is the script's (infra/scripts/pr-checks-gate.sh): keep the two
+  # in step. The old required checks stay required beside this one.
   pr-checks:
     name: PR checks passed
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts, incident-gate]
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts, incident-gate]
     if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1546,9 +1508,9 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: bash infra/scripts/pr-checks-gate.sh
 
-  # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
-  # after a merge, so a typo would otherwise surface as a failed deploy. The agent
-  # guard rails (MAG-128) are checked here for the same reason.
+  # Lints the workflows and the scripts the CD workflow runs on the VPS (MAG-106),
+  # the agent guard rails (MAG-128) included. Tooling is not unit-tested (owner,
+  # 14 Oct.): its use in CI and deploys checks it.
   infra-scripts:
     name: Infra scripts and workflows
     if: inputs.suite != 'e2e'
@@ -1590,38 +1552,9 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh scripts/e2e/coverage/collect.d/*.sh \
+            infra/scripts/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh scripts/e2e/coverage/*.sh scripts/e2e/coverage/collect.d/*.sh \
             e2e/*.sh e2e/mobile/*.sh
       # Every journey of e2e/ is in e2e/impact-map.yml, and the map is sound: a
       # journey forgotten there would only ever play on the nightly run.
       - name: The e2e impact map covers every journey
         run: scripts/e2e/impacted.sh check
-      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the nightly alert, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift, the migration order, the agent guard rails and the Docker Hub guard
-        run: |
-          bash infra/scripts/tests/smoke-prod.test.sh
-          bash infra/scripts/tests/rollback-k3s.test.sh
-          bash infra/scripts/tests/backup-k3s.test.sh
-          bash infra/scripts/tests/migrate-k3s.test.sh
-          bash infra/scripts/tests/deploy-tickets.test.sh
-          bash infra/scripts/tests/report-failed-deploy.test.sh
-          bash infra/scripts/tests/alert-ticket.test.sh
-          bash infra/scripts/tests/release-emergency.test.sh
-          bash infra/scripts/tests/incident-gate.test.sh
-          bash infra/scripts/tests/verify-digests.test.sh
-          bash infra/scripts/tests/running-digests.test.sh
-          bash infra/scripts/tests/should-deploy.test.sh
-          bash infra/scripts/tests/tested-tree.test.sh
-          bash infra/scripts/tests/migrations-order.test.sh
-          bash infra/scripts/tests/mobile-release.test.sh
-          bash infra/scripts/tests/cd-lift-freeze.test.sh
-          bash infra/scripts/tests/agent-guard.test.sh
-          bash infra/scripts/tests/agent-guard-batch.test.sh
-          bash infra/scripts/tests/agent-guard-emergency.test.sh
-          bash infra/scripts/tests/merge-ready.test.sh
-          bash infra/scripts/tests/coverage.test.sh
-          bash infra/scripts/tests/pr-checks-gate.test.sh
-          bash infra/scripts/tests/clock.test.sh
-          bash infra/scripts/tests/e2e-impacted.test.sh
-          bash infra/scripts/tests/e2e-verdict.test.sh
-          bash infra/scripts/tests/e2e-nightly-report.test.sh
-          bash infra/scripts/tests/docker-hub-guard.test.sh

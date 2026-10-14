@@ -33,7 +33,6 @@ set -euo pipefail
 #
 # Exceptions: one line per image in .github/docker-hub-allowlist.txt —
 # `<image as resolved> <reason>`; a line without a reason is an error.
-# Tested by infra/scripts/tests/docker-hub-guard.test.sh.
 # =============================================================================
 
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"

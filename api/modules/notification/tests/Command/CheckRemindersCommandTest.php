@@ -212,7 +212,7 @@ final class CheckRemindersCommandTest extends KernelTestCase
         // Nothing runs it but the crontab baked into the image (.docker/php/crontab,
         // every minute): a rename without the crontab line is silent. The crontab
         // sits outside the api/ tree the test container mounts, so this guards the
-        // name; cron-image.test.sh checks the line.
+        // name.
         $application = new \Symfony\Bundle\FrameworkBundle\Console\Application(self::$kernel);
 
         self::assertTrue($application->has('maggie:notification:check-reminders'));
