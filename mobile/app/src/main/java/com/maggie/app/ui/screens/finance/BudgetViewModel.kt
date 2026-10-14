@@ -134,6 +134,18 @@ class BudgetViewModel(
         }
     }
 
+    /** Sets the threshold past which a sync makes Maggie interrupt; null is back to 80 %. */
+    fun setAlertThreshold(id: String, percent: Int?) {
+        viewModelScope.launch {
+            try {
+                budgetRepository.setAlertThreshold(id, percent).getOrThrow()
+                refresh()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
     fun deleteEnvelope(id: String) {
         viewModelScope.launch {
             try {

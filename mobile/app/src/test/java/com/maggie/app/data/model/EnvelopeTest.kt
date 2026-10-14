@@ -95,4 +95,19 @@ class EnvelopeTest {
 
         assertEquals("Courses", rows.single().label)
     }
+
+    @Test
+    fun `the threshold field takes blank for the default and 1 to 99 (MAG-49)`() {
+        assertEquals(AlertThresholdInput.Valid(null), AlertThresholdInput.parse("  "))
+        assertEquals(AlertThresholdInput.Valid(90), AlertThresholdInput.parse("90"))
+        assertEquals(AlertThresholdInput.Valid(75), AlertThresholdInput.parse("75 %"))
+        assertEquals(AlertThresholdInput.Invalid, AlertThresholdInput.parse("0"))
+        assertEquals(AlertThresholdInput.Invalid, AlertThresholdInput.parse("100"))
+        assertEquals(AlertThresholdInput.Invalid, AlertThresholdInput.parse("huit"))
+    }
+
+    @Test
+    fun `a budget line without a threshold reads the default (MAG-49)`() {
+        assertEquals(80, BudgetLine(id = "e", categoryId = "c", categoryName = "Loisirs").alertThresholdPercent)
+    }
 }

@@ -15,6 +15,8 @@ data class Envelope(
     val category: String? = null,
     // What a one-off envelope is for (« Hellfest 2026 »); the API omits it on the others.
     val name: String? = null,
+    /** Null: the default, 80 %. */
+    val alertThresholdPercent: Int? = null,
 ) {
     val isOneOff: Boolean get() = mode == ONE_OFF_MODE
 }
@@ -61,6 +63,8 @@ data class BudgetLine(
     override val availableCents: Int = 0,
     override val isOverspent: Boolean = false,
     override val isOvercommitted: Boolean = false,
+    /** Past this share of the budget, a bank sync makes Maggie interrupt (MAG-49). */
+    val alertThresholdPercent: Int = DEFAULT_ALERT_THRESHOLD_PERCENT,
 ) : EnvelopeConsumption
 
 /** A one-off envelope's line: every spend ever attributed to it, whatever its date. */
@@ -89,6 +93,27 @@ data class OutsideMonthlyBudget(
     val oneOff: List<OneOffBudgetLine> = emptyList(),
 ) {
     val isEmpty: Boolean get() = annual.isEmpty() && oneOff.isEmpty()
+}
+
+/** The threshold of an envelope that sets none — the API's default. */
+const val DEFAULT_ALERT_THRESHOLD_PERCENT = 80
+
+/**
+ * What the threshold field holds: blank is « the default » (null), 1 to 99 is a
+ * threshold, anything else is refused — 100 % always alerts anyway.
+ */
+sealed interface AlertThresholdInput {
+    data class Valid(val percent: Int?) : AlertThresholdInput
+    data object Invalid : AlertThresholdInput
+
+    companion object {
+        fun parse(text: String): AlertThresholdInput {
+            val trimmed = text.trim().removeSuffix("%").trim()
+            if (trimmed.isEmpty()) return Valid(null)
+            val percent = trimmed.toIntOrNull() ?: return Invalid
+            return if (percent in 1..99) Valid(percent) else Invalid
+        }
+    }
 }
 
 @Serializable

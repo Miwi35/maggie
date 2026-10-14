@@ -380,6 +380,7 @@ data class EnvelopeCreateRequest(
     val mode: String = "monthly",
     val month: Int? = null,
     val currency: String = "EUR",
+    val alertThresholdPercent: Int? = null,
 )
 
 @Serializable
@@ -1302,6 +1303,15 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             setBody(request)
         }.body()
+    }
+
+    /** Sets the envelope's alert threshold; null puts it back to the default. */
+    suspend fun updateEnvelopeAlertThreshold(id: String, percent: Int?): Envelope {
+        return client.patch("$baseUrl/api/envelopes/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("alertThresholdPercent", percent?.let(::JsonPrimitive) ?: JsonNull) })
+        }.orRefusal().body()
     }
 
     suspend fun deleteEnvelope(id: String) {

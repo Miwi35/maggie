@@ -73,6 +73,8 @@ class BudgetStatusControllerTest extends WebTestCase
         self::assertSame(4599, $byCategory['Alimentation']['spentCents']);
         self::assertSame(35401, $byCategory['Alimentation']['remainingCents']);
         self::assertFalse($byCategory['Alimentation']['isOverspent']);
+        // No threshold set: the one a sync alerts at is the default (MAG-49).
+        self::assertSame(80, $byCategory['Alimentation']['alertThresholdPercent']);
 
         // The annual leisure envelope is kept apart from the month's budget...
         self::assertArrayNotHasKey('Loisirs', $byCategory);
