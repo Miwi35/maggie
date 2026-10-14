@@ -49,6 +49,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     use MercurePayloadFilterTrait;
 
     public const int NAME_MAX_LENGTH = 120;
+    public const int DEFAULT_ALERT_THRESHOLD_PERCENT = 80;
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -95,6 +96,15 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[Assert\Range(min: 1, max: 12)]
     #[IndexedField(type: 'integer')]
     private ?int $month = null;
+
+    /**
+     * The share of the budget, in percent, past which a bank sync makes
+     * Maggie interrupt; null keeps the default. 100 % always alerts too.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\Range(min: 1, max: 99)]
+    #[IndexedField(type: 'integer')]
+    private ?int $alertThresholdPercent = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -264,6 +274,24 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
+    public function getAlertThresholdPercent(): ?int
+    {
+        return $this->alertThresholdPercent;
+    }
+
+    public function setAlertThresholdPercent(?int $alertThresholdPercent): static
+    {
+        $this->alertThresholdPercent = $alertThresholdPercent;
+
+        return $this;
+    }
+
+    /** The threshold that applies: the one set, or 80 %. */
+    public function getEffectiveAlertThresholdPercent(): int
+    {
+        return $this->alertThresholdPercent ?? self::DEFAULT_ALERT_THRESHOLD_PERCENT;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -301,6 +329,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'currency' => $this->currency,
             'year' => $this->year,
             'month' => $this->month,
+            'alertThresholdPercent' => $this->alertThresholdPercent,
             'name' => $this->name,
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'userId' => (string) $this->user->getId(),
@@ -316,6 +345,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'currency' => $this->currency,
             'year' => $this->year,
             'month' => $this->month,
+            'alertThresholdPercent' => $this->alertThresholdPercent,
             'name' => $this->name,
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
         ], $changedProperties, ['category' => 'categoryId']);

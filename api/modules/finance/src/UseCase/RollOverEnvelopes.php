@@ -87,6 +87,8 @@ class RollOverEnvelopes
                 mode: $mode->value,
                 month: $targetMonth,
                 currency: $source->getCurrency(),
+                // The threshold is a setting of the envelope, not of the month.
+                alertThresholdPercent: $source->getAlertThresholdPercent(),
             ));
 
             /** @var Envelope $envelope */

@@ -36,6 +36,7 @@ class CreateEnvelopeHandler
         $envelope->setMode($mode);
         $envelope->setAmountCents($command->amountCents);
         $envelope->setCurrency($command->currency);
+        $envelope->setAlertThresholdPercent($command->alertThresholdPercent);
 
         if (BudgetMode::OneOff === $mode) {
             if (null === $command->name || '' === trim($command->name)) {

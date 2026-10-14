@@ -36,6 +36,7 @@ class CreateEnvelopeProcessor implements ProcessorInterface
             month: $data->getMonth(),
             currency: $data->getCurrency(),
             name: $data->getName(),
+            alertThresholdPercent: $data->getAlertThresholdPercent(),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

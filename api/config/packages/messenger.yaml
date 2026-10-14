@@ -119,6 +119,7 @@ framework:
             'Maggie\Finance\Event\TransactionRecorded': sync
             'Maggie\Finance\Event\TransactionChanged': sync
             'Maggie\Finance\Event\TransactionRemoved': sync
+            'Maggie\Finance\Event\BankSyncCompleted': sync
             'Maggie\Finance\Message\AttachRecurringOperationsCommand': sync
             'Maggie\Finance\Message\AttachRecurringTransactionCommand': sync
             'Maggie\Finance\Message\TagStandardCategoriesCommand': sync

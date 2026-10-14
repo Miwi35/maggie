@@ -19,6 +19,7 @@ final readonly class CreateEnvelopeCommand
         public ?int $month = null,
         public string $currency = 'EUR',
         public ?string $name = null,
+        public ?int $alertThresholdPercent = null,
     ) {
     }
 }

@@ -8,8 +8,10 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Envelope;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Uid\Ulid;
 
 class EnvelopeApiTest extends WebTestCase
 {
@@ -150,6 +152,110 @@ class EnvelopeApiTest extends WebTestCase
 
         $this->assertMercureUpdatePublished('/envelopes/');
         $this->assertElasticsearchIndexDispatched(Envelope::class);
+    }
+
+    public function testUpdateAlertThresholdRequiresAuthentication(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        $envelopeId = $this->getFixture('food_july')->getId();
+
+        $this->client->request('PATCH', '/api/envelopes/'.$envelopeId, [], [], [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], json_encode(['alertThresholdPercent' => 90], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testUpdateAlertThresholdPersistsPublishesAndIndexes(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $envelopeId = $this->getFixture('food_july')->getId();
+
+        $this->patch($envelopeId, ['alertThresholdPercent' => 90]);
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(90, $data['alertThresholdPercent']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(90, $em->find(Envelope::class, $envelopeId)->getAlertThresholdPercent());
+
+        $payloads = $this->mercurePayloadsOn('/envelopes/'.$envelopeId);
+        self::assertSame(90, end($payloads)['alertThresholdPercent']);
+        $this->assertElasticsearchIndexDispatched(Envelope::class);
+
+        // Null is « back to the default », not « unchanged ».
+        $this->patch($envelopeId, ['alertThresholdPercent' => null]);
+        self::assertResponseStatusCodeSame(200);
+        $em->clear();
+        $envelope = $em->find(Envelope::class, $envelopeId);
+        self::assertNull($envelope->getAlertThresholdPercent());
+        self::assertSame(80, $envelope->getEffectiveAlertThresholdPercent());
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function thresholdsOutOfBounds(): iterable
+    {
+        yield 'zero' => [0];
+        // 100 % always alerts: a threshold there would say nothing more.
+        yield 'the limit itself' => [100];
+        yield 'past the limit' => [120];
+    }
+
+    #[DataProvider('thresholdsOutOfBounds')]
+    public function testAThresholdOutOfBoundsIsRejected(int $threshold): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $envelopeId = $this->getFixture('food_july')->getId();
+
+        $this->patch($envelopeId, ['alertThresholdPercent' => $threshold]);
+
+        self::assertResponseStatusCodeSame(422);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Envelope::class, $envelopeId)->getAlertThresholdPercent());
+    }
+
+    public function testCreateEnvelopeKeepsItsAlertThreshold(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/envelopes', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'category' => '/api/categories/'.$this->getFixture('leisure')->getId(),
+            'amountCents' => 30000,
+            'year' => 2026,
+            'month' => 8,
+            'alertThresholdPercent' => 70,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $id = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['id'];
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(70, $em->find(Envelope::class, $id)->getAlertThresholdPercent());
+    }
+
+    /** @param array<string, mixed> $body */
+    private function patch(Ulid $envelopeId, array $body): void
+    {
+        $this->client->request('PATCH', '/api/envelopes/'.$envelopeId, [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
     }
 
     public function testDeleteEnvelopeRemovesAndPublishes(): void

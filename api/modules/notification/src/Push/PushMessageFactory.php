@@ -35,6 +35,12 @@ class PushMessageFactory
     /** The finance screens the app opens from a link (mobile `DeepLinks`). */
     private const FINANCE_PATHS = ['', 'accounts', 'budgets', 'categories', 'rules', 'rule-suggestions', 'banks', 'cushion', 'loans', 'review'];
 
+    /** The finance screens whose action says more than « Ouvrir les finances » (admin `notificationLink`, mobile `Interruptions`). */
+    private const FINANCE_LABELS = [
+        'banks' => 'Reconnecter la banque',
+        'budgets' => 'Voir les enveloppes',
+    ];
+
     /** API collection → app link host and the label of the action that opens it. */
     private const ENTITY_LINKS = [
         'events' => ['event', 'Voir l\'événement'],
@@ -142,7 +148,7 @@ class PushMessageFactory
 
             return [
                 'link' => rtrim(sprintf('%s://finance/%s', $this->deepLinkScheme, $screen), '/'),
-                'label' => 'banks' === $screen ? 'Reconnecter la banque' : 'Ouvrir les finances',
+                'label' => self::FINANCE_LABELS[$screen] ?? 'Ouvrir les finances',
             ];
         }
 

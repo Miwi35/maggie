@@ -160,6 +160,7 @@ class BankReconnectionTest extends KernelTestCase
             $container->get('messenger.default_bus'),
             $container->get(MergeDuplicateAccounts::class),
             $container->get('logger'),
+            $container->get('event.bus'),
         ))->execute($this->user(), $dryRun);
     }
 

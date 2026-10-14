@@ -145,6 +145,29 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The user's transactions among these ids — someone else's are not found.
+     *
+     * @param list<string> $ids
+     *
+     * @return list<Transaction>
+     */
+    public function findByIdsForUser(User $user, array $ids): array
+    {
+        $ids = array_values(array_filter($ids, static fn (string $id) => Ulid::isValid($id)));
+        if ([] === $ids) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('ids', array_map(static fn (string $id): string => Ulid::fromString($id)->toRfc4122(), $ids), ArrayParameterType::STRING)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Debits on a set of categories (a category and its descendants, for an
      * envelope that takes its sub-categories along) over a half-open period,
      * split by status, as positive cents. Every status is present, zero when

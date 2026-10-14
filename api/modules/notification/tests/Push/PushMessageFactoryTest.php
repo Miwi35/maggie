@@ -93,6 +93,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'grocery item' => ['/api/grocery_items/01JITEM', 'maggie://grocery/01JITEM', 'Voir la liste de courses'];
         yield 'recipe' => ['/api/recipes/01JRECIPE', 'maggie://recipe/01JRECIPE', 'Voir la recette'];
         yield 'bank consent' => ['/finance/banks?connection=01JCONN', 'maggie://finance/banks', 'Reconnecter la banque'];
+        yield 'envelope alert' => ['/finance/budgets', 'maggie://finance/budgets', 'Voir les enveloppes'];
         yield 'finance home' => ['/finance', 'maggie://finance', 'Ouvrir les finances'];
         yield 'a screen the app does not have' => ['/finance/secrets', null, null];
         yield 'an entity the app cannot open' => ['/api/stores/01JSTORE', null, null];

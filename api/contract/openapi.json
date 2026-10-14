@@ -10727,10 +10727,24 @@
                             "null"
                         ]
                     },
+                    "alertThresholdPercent": {
+                        "minimum": 1,
+                        "maximum": 99,
+                        "description": "The share of the budget, in percent, past which a bank sync makes\nMaggie interrupt; null keeps the default. 100 % always alerts too.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "effectiveAlertThresholdPercent": {
+                        "readOnly": true,
+                        "description": "The threshold that applies: the one set, or 80 %.",
+                        "type": "integer"
                     },
                     "periodStart": {
                         "readOnly": true,
@@ -10821,10 +10835,24 @@
                             "null"
                         ]
                     },
+                    "alertThresholdPercent": {
+                        "minimum": 1,
+                        "maximum": 99,
+                        "description": "The share of the budget, in percent, past which a bank sync makes\nMaggie interrupt; null keeps the default. 100 % always alerts too.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "effectiveAlertThresholdPercent": {
+                        "readOnly": true,
+                        "description": "The threshold that applies: the one set, or 80 %.",
+                        "type": "integer"
                     },
                     "periodStart": {
                         "readOnly": true,
@@ -10915,10 +10943,24 @@
                             "null"
                         ]
                     },
+                    "alertThresholdPercent": {
+                        "minimum": 1,
+                        "maximum": 99,
+                        "description": "The share of the budget, in percent, past which a bank sync makes\nMaggie interrupt; null keeps the default. 100 % always alerts too.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "effectiveAlertThresholdPercent": {
+                        "readOnly": true,
+                        "description": "The threshold that applies: the one set, or 80 %.",
+                        "type": "integer"
                     },
                     "periodStart": {
                         "readOnly": true,
@@ -11010,10 +11052,24 @@
                                     "null"
                                 ]
                             },
+                            "alertThresholdPercent": {
+                                "minimum": 1,
+                                "maximum": 99,
+                                "description": "The share of the budget, in percent, past which a bank sync makes\nMaggie interrupt; null keeps the default. 100 % always alerts too.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "effectiveAlertThresholdPercent": {
+                                "readOnly": true,
+                                "description": "The threshold that applies: the one set, or 80 %.",
+                                "type": "integer"
                             },
                             "periodStart": {
                                 "readOnly": true,
