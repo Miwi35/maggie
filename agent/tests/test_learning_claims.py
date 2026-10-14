@@ -214,7 +214,7 @@ class TestTheGuard:
         # « Tu me rappelles bien ? »: the reminder was scheduled in an earlier turn. A learning
         # nudge here would offer schedule_proaction and book it a second time.
         guard = ClaimGuard(LEARNING_OFFERED)
-        guard.record("list_proactions", json.dumps([{"id": "pro-1", "status": "pending"}]))
+        guard.record("list_proactions", json.dumps({"proactions": [{"id": "pro-1", "status": "pending"}], "count": 1}))
 
         assert guard.review("Oui, c'est noté, je vous rappellerai à 16h05.") is Verdict.ACCEPT
 

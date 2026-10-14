@@ -360,7 +360,7 @@ class TestSkillToolsAfterRestart:
 def test_skill_table_is_registered_for_create_all():
     """A model missing from app.main's imports is never created in maggie_agent, and every skill write then fails."""
     import app.main  # noqa: F401
-    from app.db.proaction_model import AgentBase
+    from app.db.base import AgentBase
 
     assert "skill" in AgentBase.metadata.tables
 

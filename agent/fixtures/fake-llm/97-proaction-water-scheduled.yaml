@@ -1,0 +1,20 @@
+# « Rappelle-moi dans 2 minutes de boire un verre d'eau » (MAG-327): the proaction is
+# scheduled through the API's MCP tool, so it lands in the user's « Maggie » agenda.
+#
+# The fake cannot compute « dans 2 minutes » nor read what date_time would return:
+# the journey writes the instant into its own sentence, on the stack's clock, and
+# `\1` carries it into the real `schedule_proaction` call.
+name: proaction-water-scheduled
+description: Schedule a reminder to drink a glass of water, at the instant the journey names.
+
+match:
+  user_matches: 'dans 2 minutes de boire un verre d.eau \(pour (\S+)\)'
+
+turns:
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Rappelle à l'utilisateur de boire un verre d'eau."
+          scheduled_at: '\1'
+          summary: "Verre d'eau"
+  - text: "C'est programmé : je te rappellerai de boire un verre d'eau dans 2 minutes."

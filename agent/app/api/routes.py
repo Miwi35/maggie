@@ -25,7 +25,6 @@ from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
-from app.db.proaction_repository import proaction_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
@@ -39,6 +38,7 @@ from app.llm.streaming import StreamingGateway, answer_message_id
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
 from app.policy.decision import CHANNELS, record_decision
+from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
@@ -605,11 +605,19 @@ async def get_message_context(
     }
 
 
+async def _user_proactions(user_id: str) -> list[proactions_api.Proaction]:
+    """The user's proactions from the API (MAG-327); 502 when it cannot be read."""
+    try:
+        return await proactions_api.list_for_user(user_id)
+    except proactions_api.ProactionApiError as e:
+        logger.error(f"Could not read the proactions of user {user_id}: {e}")
+        raise HTTPException(status_code=502, detail="Proactions unavailable") from e
+
+
 @router.get("/proactions")
 async def get_proactions(user_id: str = Depends(get_current_user_id)):
-    """Get all proactions for the authenticated user."""
-    proactions = await proaction_repo.find_by_user(user_id)
-    return [p.to_dict() for p in proactions]
+    """Get all proactions for the authenticated user, latest first — read from the API (MAG-327)."""
+    return [p.to_dict() for p in reversed(await _user_proactions(user_id))]
 
 
 @router.post("/proactions/generate")
@@ -622,7 +630,7 @@ async def generate_user_proactions(
     The same call the scheduler makes every morning. With `dry_run=true` nothing is recorded: the tools
     that write are simulated and the plan is read from what the model tried to schedule.
     """
-    known = {p.id for p in await proaction_repo.find_by_user(user_id)}
+    known = set() if dry_run else {p.id for p in await _user_proactions(user_id)}
     try:
         result = await generate_proactions(llm_gateway, user_id, dry_run=dry_run)
     except Exception as e:
@@ -637,7 +645,7 @@ async def generate_user_proactions(
             if t["name"] == "schedule_proaction"
         ]
     else:
-        planned = [p.to_dict() for p in await proaction_repo.find_by_user(user_id) if p.id not in known]
+        planned = [p.to_dict() for p in await _user_proactions(user_id) if p.id not in known]
 
     return {
         "dryRun": dry_run,
@@ -656,15 +664,22 @@ async def execute_user_proaction(
 ):
     """Run one of the caller's scheduled proactions now, through the consumer's path, and return its message (MAG-249).
 
-    A real run takes the proaction (pending only: 409 once it was taken, so it cannot run twice); a dry run
-    leaves it pending, stores nothing and simulates the tools that write.
+    A real run claims the proaction on the API (pending only: 409 once it was taken, so it cannot run twice);
+    a dry run leaves it pending, stores nothing and simulates the tools that write.
     """
-    proaction = await proaction_repo.get(proaction_id)
-    if proaction is None or proaction.user_id != user_id:
+    proaction = next((p for p in await _user_proactions(user_id) if p.id == proaction_id), None)
+    if proaction is None:
         raise HTTPException(status_code=404, detail="Proaction not found")
 
-    if not dry_run and not await proaction_repo.claim(proaction_id):
-        raise HTTPException(status_code=409, detail="Proaction is not pending")
+    if not dry_run:
+        try:
+            claimed = await proactions_api.claim_due(proaction_id, user_id=user_id)
+        except proactions_api.ProactionApiError as e:
+            logger.error(f"Could not claim proaction {proaction_id}: {e}")
+            raise HTTPException(status_code=502, detail="Proactions unavailable") from e
+        if not claimed:
+            raise HTTPException(status_code=409, detail="Proaction is not pending")
+        proaction = claimed[0]
 
     try:
         result = await execute_proaction(llm_gateway, proaction, dry_run=dry_run)

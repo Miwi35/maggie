@@ -123,6 +123,29 @@ class ProactionDueTest extends KernelTestCase
         self::assertSame(ProactionStatus::Pending, $this->stored('other_due')->getExecutionStatus());
     }
 
+    public function testAProactionNamedByItsIdIsClaimedNowEvenBeforeItsTime(): void
+    {
+        // The manual trigger (MAG-249) runs one now, through the same claim (MAG-327).
+        $data = $this->call(ClaimDueProactionsTool::class, null, $this->id('future'));
+
+        self::assertSame([$this->id('future')], array_column($data['proactions'], 'id'));
+        self::assertSame(ProactionStatus::Running, $this->stored('future')->getExecutionStatus());
+        self::assertSame(ProactionStatus::Pending, $this->stored('due_first')->getExecutionStatus());
+
+        $this->assertMercureUpdatePublished('/proactions/');
+        $this->assertElasticsearchIndexDispatchedFor(Proaction::class, $this->id('future'));
+    }
+
+    public function testAProactionNamedByItsIdIsClaimedOnlyWhilePendingAndOnlyByItsUser(): void
+    {
+        self::assertSame(0, $this->call(ClaimDueProactionsTool::class, null, $this->id('already_running'))['count']);
+        self::assertSame(0, $this->call(ClaimDueProactionsTool::class, null, 'not-an-id')['count']);
+
+        $this->loginFixtureUser('other_user');
+        self::assertSame(0, $this->call(ClaimDueProactionsTool::class, null, $this->id('future'))['count']);
+        self::assertSame(ProactionStatus::Pending, $this->stored('future')->getExecutionStatus());
+    }
+
     public function testTheClaimHonoursItsLimit(): void
     {
         $data = $this->call(ClaimDueProactionsTool::class, 1);

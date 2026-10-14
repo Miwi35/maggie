@@ -192,7 +192,7 @@ async def cmd_context(mode: str, variant: str) -> None:
                 "le client MCP de l'agent ne rend aucun outil — SERVICE_TOKEN de l'agent différent de celui de l'API, "
                 "ou /_mcp en erreur ? Sans outils, le résumé des capacités serait vide."
             )
-        tools = await gateway.tool_router.get_tool_definitions(include_native=True)
+        tools = await gateway.tool_router.get_tool_definitions()
     finally:
         await mcp_client.disconnect()
 

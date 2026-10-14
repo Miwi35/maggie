@@ -26,6 +26,6 @@ class ClaimDueProactionsHandler
             ? ($this->userRepository->find($command->userId) ?? throw new \DomainException('No user found.'))
             : null;
 
-        return $this->proactions->claimDue($user, $command->limit);
+        return $this->proactions->claimDue($user, $command->limit, $command->proactionId);
     }
 }

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Column, DateTime, Enum, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 
 class ContextStatus(enum.StrEnum):

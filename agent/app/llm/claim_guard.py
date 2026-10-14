@@ -275,7 +275,9 @@ def _lists_a_pending_one(result: str) -> bool:
         data = json.loads(result)
     except (json.JSONDecodeError, TypeError):
         return False
-    return isinstance(data, list) and any(isinstance(p, dict) and p.get("status") == "pending" for p in data)
+    # The API answers `{"proactions": [...], "count": n}` (MAG-327).
+    listed = data.get("proactions") if isinstance(data, dict) else data
+    return isinstance(listed, list) and any(isinstance(p, dict) and p.get("status") == "pending" for p in listed)
 
 
 def _backs_a_reminder(tool_name: str, result: str, arguments: dict) -> bool:

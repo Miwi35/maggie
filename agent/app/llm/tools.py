@@ -1,13 +1,11 @@
 import json
 import logging
-from datetime import UTC, datetime
 
 from app.agents.registry import subagent_registry
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
-from app.db.proaction_repository import proaction_repo
-from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time, spoken_local_time
+from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
 from app.mcp.client import mcp_client
 from app.memory import conversations
 from app.memory.tools import MEMORY_TOOL_NAMES, MEMORY_TOOLS
@@ -17,53 +15,11 @@ from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
 from app.skills.index import skill_index
-from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
 # Declared on the schemas so the model picks from the enum instead of inventing a kind.
 INSTRUCTION_KINDS = [kind.value for kind in InstructionKind]
-
-# Proaction tools (available in both chat and proaction modes)
-PROACTION_TOOLS = [
-    {
-        "name": "schedule_proaction",
-        "description": (
-            "Schedule a proaction (autonomous task) for later execution — THE tool for every one-off reminder "
-            "or delayed message: « rappelle-moi … », « préviens-moi dans … », « dans X minutes, dis-moi … », "
-            "« n'oublie pas de me dire … ». Provide a prompt that Maggie will execute at the scheduled time, "
-            "and the ISO 8601 datetime for when it should run. Computing the time with date_time schedules "
-            "nothing: call date_time first if needed, then this tool with its 'iso' value. Until this tool "
-            "has succeeded, never tell the user the reminder is set. Once it has, quote the time from "
-            "'scheduledAtLocal' in the result — the user's local time."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "The instruction/prompt to execute at the scheduled time",
-                },
-                "scheduled_at": {
-                    "type": "string",
-                    "description": "ISO 8601 datetime for when to execute (e.g. 2026-02-20T09:00:00+01:00)",
-                },
-            },
-            "required": ["prompt", "scheduled_at"],
-        },
-    },
-    {
-        "name": "list_proactions",
-        "description": (
-            "List all scheduled proactions for the current user. "
-            "Returns proactions with their status (pending, running, completed, failed)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-]
 
 # Instruction tools (always available — chat + proaction)
 INSTRUCTION_TOOLS = [
@@ -279,35 +235,6 @@ def delegate_tool_definition() -> dict:
 # --- Handlers ---
 
 
-async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
-    prompt = arguments.get("prompt", "")
-    scheduled_at_str = arguments.get("scheduled_at", "")
-
-    if not prompt or not scheduled_at_str:
-        return json.dumps({"error": "Both 'prompt' and 'scheduled_at' are required"})
-
-    try:
-        scheduled_at = datetime.fromisoformat(scheduled_at_str)
-        if scheduled_at.tzinfo is None:
-            scheduled_at = scheduled_at.replace(tzinfo=UTC)
-    except ValueError:
-        return json.dumps({"error": f"Invalid datetime format: {scheduled_at_str}"})
-
-    proaction = await proaction_repo.create(user_id=user_id, prompt=prompt, scheduled_at=scheduled_at)
-    # The stored instant comes back in UTC. The confirmation quotes this instead, so the user
-    # hears 16h05 in their own timezone and not 14h05 (MAG-339).
-    tz = await resolve_user_timezone(user_id)
-    return json.dumps(
-        proaction.to_dict() | {"scheduledAtLocal": spoken_local_time(scheduled_at, tz), "timezone": tz.key},
-        ensure_ascii=False,
-    )
-
-
-async def _handle_list_proactions(arguments: dict, user_id: str) -> str:
-    proactions = await proaction_repo.find_by_user(user_id)
-    return json.dumps([p.to_dict() for p in proactions])
-
-
 def _parse_instruction_kind(raw: object) -> InstructionKind | None:
     """The `kind` argument as an enum, or None when it is absent or unreadable.
 
@@ -421,8 +348,6 @@ async def _handle_delegate(arguments: dict, user_id: str) -> str:
 
 
 _NATIVE_HANDLERS = {
-    "schedule_proaction": _handle_schedule_proaction,
-    "list_proactions": _handle_list_proactions,
     "add_instruction": _handle_add_instruction,
     "list_instructions": _handle_list_instructions,
     "delete_instruction": _handle_delete_instruction,
@@ -476,11 +401,11 @@ EXECUTOR_ONLY_MCP_TOOLS = frozenset({"claim_due_proactions", "record_proaction_r
 def _native_tool_names() -> frozenset[str]:
     """Every tool the agent serves itself: an MCP tool by the same name is not offered.
 
-    The API now serves `schedule_proaction` and `list_proactions` too (MAG-326), and the
-    Anthropic API refuses a request that names a tool twice. The agent's own stay until
-    the switch to the API's (MAG-327) — `call_tool` routes those names to them anyway.
+    The Anthropic API refuses a request that names a tool twice, and `call_tool` routes a
+    native name to the agent's own handler anyway. Proactions are not among them: the API
+    serves them (MAG-327).
     """
-    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, *PROACTION_TOOLS]
+    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS]
     return frozenset({tool["name"] for tool in native} | {"delegate"})
 
 
@@ -492,9 +417,8 @@ class ToolRouter:
     - Instruction tools — always available (chat + proaction)
     - Skill tools — always available (chat + proaction)
     - Date and time tool — always available (chat + proaction)
-    - Proaction tools — always available (chat + proaction)
     - `delegate` — only when sub-agents are loaded (never over A2A)
-    - MCP tools — fetched from the Symfony MCP server
+    - MCP tools — fetched from the Symfony MCP server, proactions included (MAG-327)
 
     Calls from the `a2a` source are narrowed to A2A_ALLOWED_TOOLS.
 
@@ -502,19 +426,14 @@ class ToolRouter:
     place a tool call passes, native or MCP, so it is the one place the guard belongs.
     """
 
-    async def get_tool_definitions(self, include_native: bool = True, source: str | None = None) -> list[dict]:
+    async def get_tool_definitions(self, source: str | None = None) -> list[dict]:
         """Get available tools in Anthropic tool format.
 
         Args:
-            include_native: If True, include proaction tools (schedule/list proactions).
-                            Defaults to True — proaction tools are available in all modes.
             source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
         a2a = source == A2A_SOURCE
         tools = [] if a2a else list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS) + list(DATE_TIME_TOOLS)
-
-        if include_native and not a2a:
-            tools.extend(PROACTION_TOOLS)
 
         if not a2a and subagent_registry.agents:
             tools.append(delegate_tool_definition())

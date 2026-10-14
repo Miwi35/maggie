@@ -12,6 +12,9 @@ SESSION_STALENESS_SECONDS = 300  # 5 minutes
 
 USER_HEADER = "X-Maggie-User-Id"
 
+# What `call_tool` answers when the server could not be reached or did not answer at all.
+NO_RESPONSE_ERROR = "No response from MCP server"
+
 logger = logging.getLogger(__name__)
 
 
@@ -130,7 +133,7 @@ class McpClient:
                 if content_block.get("type") == "text":
                     return content_block["text"]
 
-        return json.dumps(response or {"error": "No response from MCP server"})
+        return json.dumps(response or {"error": NO_RESPONSE_ERROR})
 
     async def _send_request(self, method: str, params: dict, user_id: str | None = None) -> dict | None:
         """Send a JSON-RPC request to the MCP server."""

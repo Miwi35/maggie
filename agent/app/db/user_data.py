@@ -1,7 +1,7 @@
 from sqlalchemy import delete, func, select
 
 from app.db.agent_engine import agent_session
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 
 def _user_tables():

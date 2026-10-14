@@ -1,0 +1,11 @@
+# The proaction of 97-proaction-water-scheduled.yaml, come due (MAG-327): the agent's
+# executor claimed it on the API and runs its prompt, handed over as due now.
+# What it says is what the journey waits for in the chat history.
+name: proaction-water-due
+description: The water reminder, delivered when it comes due.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "boire un verre d'eau"]
+
+turns:
+  - text: "C'est l'heure de boire un verre d'eau !"

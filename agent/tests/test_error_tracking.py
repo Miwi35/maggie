@@ -25,6 +25,7 @@ from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.contexts import _ask_router
 from app.llm.turns import TurnRunner
 from app.mcp.client import McpClient
+from app.proactions.api import Proaction
 from app.queue import proaction_consumer
 
 DSN = "https://public@glitchtip.example.com/1"
@@ -137,11 +138,14 @@ class TestTheSignals:
 
     @pytest.mark.asyncio
     async def test_a_failed_proaction(self, sent):
-        proaction = type("P", (), {"id": "pro-1", "user_id": "user-1", "prompt": SECRET_TEXT})()
+        proaction = Proaction(id="pro-1", user_id="user-1", prompt=SECRET_TEXT, status="running")
         gateway = AsyncMock()
         gateway.proaction.side_effect = ValueError(SECRET_TEXT)
 
-        with patch.object(proaction_consumer, "proaction_repo", AsyncMock()):
+        with (
+            patch.object(proaction_consumer, "proactions_api", AsyncMock()),
+            patch.object(proaction_consumer, "publisher", AsyncMock()),
+        ):
             result = await proaction_consumer.execute_proaction(gateway, proaction)
 
         assert result["status"] == "failed"

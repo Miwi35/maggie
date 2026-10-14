@@ -9,6 +9,7 @@ from starlette.responses import Response
 from app.a2a import setup_a2a
 from app.agents.registry import subagent_registry
 from app.api.routes import router, streaming_gateway
+from app.db.agent_engine import ensure_agent_tables
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
@@ -23,7 +24,6 @@ from app.db.memory_model import Memory  # noqa: F401 — register model with Age
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
 from app.db.pending_action_model import PendingAction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
-from app.db.proaction_repository import proaction_repo
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
@@ -50,9 +50,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan: init DB, MCP, RabbitMQ, scheduler, consumer."""
     logger.info("Starting Maggie Agent Hub...")
 
-    # Ensure agent DB tables exist (messages, proactions, memory, contexts, etc.)
+    # Ensure agent DB tables exist (messages, memory, contexts, etc.). Proactions live in the API
+    # since MAG-327: the scheduler moves what is left of the old table there, then drops it.
     try:
-        await proaction_repo.ensure_table()
+        await ensure_agent_tables()
         logger.info("Agent database tables ready")
     except Exception as e:
         logger.warning(f"Could not create agent database tables: {e}")

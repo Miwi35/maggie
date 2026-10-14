@@ -153,10 +153,17 @@
                         "integer"
                     ],
                     "default": null
+                },
+                "id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             }
         },
-        "description": "Reserved for the proaction executor — never call it in a conversation. Claims the pending proactions whose time has come and marks them running, atomically: a proaction is claimed once, however many executors ask. Each comes with its userId and prompt; report the outcome with record_proaction_result."
+        "description": "Reserved for the proaction executor — never call it in a conversation. Claims the pending proactions whose time has come and marks them running, atomically: a proaction is claimed once, however many executors ask. Each comes with its userId and prompt; report the outcome with record_proaction_result. With id, claims that one pending proaction now, whether its time has come or not (the manual trigger); an empty list when it is not pending."
     },
     "create_event": {
         "name": "create_event",

@@ -11,21 +11,17 @@ from app.llm.tools import (
     MEMORY_TOOLS,
     PENDING_APPROVAL_MESSAGE,
     POLICY_DENIED_MESSAGE,
-    PROACTION_TOOLS,
     SKILL_TOOLS,
     ToolRouter,
 )
 from app.policy.engine import PolicyEngine
 
 NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
-NUM_PROACTION_TOOLS = len(PROACTION_TOOLS)
 NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
 NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
-# Tools available when include_native=False (no proaction tools)
-NUM_ALWAYS_ON_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_DATE_TIME_TOOLS
-# All native tools are included by default (include_native=True)
-NUM_DEFAULT_TOOLS = NUM_ALWAYS_ON_TOOLS + NUM_PROACTION_TOOLS
+# Every native tool; the proaction tools are the API's since MAG-327, served over MCP
+NUM_DEFAULT_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_DATE_TIME_TOOLS
 
 
 class TestToolRouter:
@@ -58,7 +54,7 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions()
 
-        # Default tools (including proaction) + 2 MCP tools
+        # Native tools + 2 MCP tools
         assert len(tools) == NUM_DEFAULT_TOOLS + 2
 
         # MCP tools come after native tools
@@ -73,42 +69,28 @@ class TestToolRouter:
         assert mcp_tools[1]["description"] == "List upcoming events"
 
     @patch("app.llm.tools.mcp_client")
-    async def test_get_tool_definitions_with_native(self, mock_mcp_client):
-        """include_native=True should include proaction tools alongside memory tools."""
+    async def test_the_proaction_tools_are_the_api_s(self, mock_mcp_client):
+        """No native proaction tool is left: schedule_proaction and list_proactions come from MCP (MAG-327)."""
         mock_mcp_client.list_tools = AsyncMock(return_value=[
-            {"name": "create_event", "description": "Create event", "inputSchema": {"type": "object", "properties": {}}},
+            {"name": "schedule_proaction", "description": "API's", "inputSchema": {"type": "object", "properties": {}}},
+            {"name": "list_proactions", "description": "API's", "inputSchema": {"type": "object", "properties": {}}},
         ])
 
-        router = ToolRouter()
-        tools = await router.get_tool_definitions(include_native=True)
+        tools = await ToolRouter().get_tool_definitions()
 
-        # All native tools (including proaction) + 1 MCP tool
-        assert len(tools) == NUM_DEFAULT_TOOLS + 1
-        names = [t["name"] for t in tools]
-        assert "schedule_proaction" in names
-        assert "list_proactions" in names
-        assert "memory_write_fiche" in names
-        assert "memory_search" in names
-        assert "memory_open" in names
-        assert "create_event" in names
+        assert len(tools) == NUM_DEFAULT_TOOLS + 2
+        proactions = [t for t in tools if t["name"] in {"schedule_proaction", "list_proactions"}]
+        assert [t["description"] for t in proactions] == ["API's", "API's"]
 
     @patch("app.llm.tools.mcp_client")
-    async def test_get_tool_definitions_without_native(self, mock_mcp_client):
-        """include_native=False should return memory tools + MCP tools (no proaction tools)."""
-        mock_mcp_client.list_tools = AsyncMock(return_value=[
-            {"name": "create_event", "description": "Create event", "inputSchema": {"type": "object", "properties": {}}},
-        ])
+    async def test_schedule_proaction_is_called_on_the_api(self, mock_mcp_client):
+        mock_mcp_client.call_tool = AsyncMock(return_value='{"success": true}')
+        arguments = {"prompt": "Check calendar", "scheduled_at": "2037-02-20T09:00:00+01:00"}
 
-        router = ToolRouter()
-        tools = await router.get_tool_definitions(include_native=False)
+        result = await ToolRouter().call_tool("schedule_proaction", arguments, user_id="test-user")
 
-        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 1
-        names = [t["name"] for t in tools]
-        assert "memory_write_fiche" in names
-        assert "add_instruction" in names
-        assert "create_skill" in names
-        assert "create_event" in names
-        assert "schedule_proaction" not in names
+        assert result == '{"success": true}'
+        mock_mcp_client.call_tool.assert_awaited_once_with("schedule_proaction", arguments, user_id="test-user")
 
     @patch("app.llm.tools.mcp_client")
     async def test_get_tool_definitions_with_missing_fields(self, mock_mcp_client):
@@ -152,34 +134,10 @@ class TestToolRouter:
         assert result == "ok"
         mock_mcp_client.call_tool.assert_awaited_once_with("create_event", {"title": "Test"}, user_id="user-1")
 
-    @patch("app.llm.tools.proaction_repo")
-    async def test_call_native_tool_schedule_proaction(self, mock_repo):
-        """Native schedule_proaction tool should create a proaction."""
-        from unittest.mock import MagicMock
-
-        mock_proaction = MagicMock()
-        mock_proaction.to_dict.return_value = {
-            "id": "abc123",
-            "prompt": "Check calendar",
-            "status": "pending",
-            "scheduledAt": "2026-02-20T09:00:00+00:00",
-        }
-        mock_repo.create = AsyncMock(return_value=mock_proaction)
-
-        router = ToolRouter()
-        result = await router.call_tool(
-            "schedule_proaction",
-            {"prompt": "Check calendar", "scheduled_at": "2026-02-20T09:00:00+00:00"},
-            user_id="test-user",
-        )
-
-        assert "abc123" in result
-        mock_repo.create.assert_awaited_once()
-
     async def test_call_native_tool_without_user_id(self):
         """Native tools should fail if user_id is not provided."""
         router = ToolRouter()
-        result = await router.call_tool("schedule_proaction", {"prompt": "test", "scheduled_at": "2026-02-20T09:00:00Z"})
+        result = await router.call_tool("list_instructions", {})
 
         assert "error" in result
         assert "user_id" in result
@@ -210,7 +168,7 @@ class TestToolRouter:
     @patch("app.llm.tools.mcp_client")
     async def test_the_old_memory_tools_are_gone(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
-        names = {t["name"] for t in await ToolRouter().get_tool_definitions(include_native=False)}
+        names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
 
         assert not names & {"store_memory", "search_memory", "update_memory", "delete_memory"}
 
@@ -387,15 +345,6 @@ class TestDelegateTool:
         assert delegate["input_schema"]["required"] == ["agent", "task"]
         assert "- researcher : Description de researcher" in delegate["description"]
         assert "- cook : Description de cook" in delegate["description"]
-
-    @patch("app.llm.tools.mcp_client")
-    async def test_also_present_without_proaction_tools(self, mock_mcp_client):
-        mock_mcp_client.list_tools = AsyncMock(return_value=[])
-
-        with patch("app.llm.tools.subagent_registry", _registry("researcher")):
-            tools = await ToolRouter().get_tool_definitions(include_native=False)
-
-        assert "delegate" in [t["name"] for t in tools]
 
     @patch("app.llm.tools.mcp_client")
     async def test_never_offered_to_a_peer_over_a2a(self, mock_mcp_client):

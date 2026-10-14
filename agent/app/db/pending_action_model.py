@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Column, DateTime, Enum, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 from app.policy.summary import action_label
 
 # How long the user has to answer. After that the action is `expired` rather than

@@ -193,7 +193,7 @@ class StreamingGateway:
         )
 
         # Get tools (contexts are managed by the gateway, not by Claude)
-        tools = await self.tool_router.get_tool_definitions(include_native=True)
+        tools = await self.tool_router.get_tool_definitions()
         # Anthropic runs the web search itself: it is offered here, never routed (MAG-384).
         tools = with_web_search(tools, await resolve_user_timezone(user_id))
 

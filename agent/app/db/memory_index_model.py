@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import JSON, BigInteger, Column, DateTime, Index, Integer, String, Text
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 # What a term is: a situation the fiche should surface for, or another name of its subject.
 TERM_EVOQUE = "evoque"

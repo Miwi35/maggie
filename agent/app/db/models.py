@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, false
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.db.proaction_model import AgentBase
+from app.db.base import AgentBase
 
 # The state of the turn answering a user's message (MAG-344). Empty on everything else: an
 # assistant message, a message answered, one stored before the column existed.

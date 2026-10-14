@@ -99,7 +99,7 @@ class LLMGateway:
     async def proaction(self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
-        Native tools (schedule_proaction, list_proactions) are available here.
+        The proaction tools are the API's, offered like every MCP tool (MAG-327).
 
         The result carries a `context_id` in execution mode: the thread the message is
         to be stored in, so the user's reply to a reminder stays in the same one
@@ -118,7 +118,7 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-        tools = await self.tool_router.get_tool_definitions(include_native=True)
+        tools = await self.tool_router.get_tool_definitions()
 
         preamble = PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
@@ -239,9 +239,9 @@ class LLMGateway:
             image=image,
         )
 
-        # Get all tools including proaction tools (so user can schedule reminders from chat);
+        # Get all tools, the API's proaction tools included (so the user can schedule reminders from chat);
         # an A2A call only gets the read-only ones
-        tools = await self.tool_router.get_tool_definitions(include_native=True, source=source)
+        tools = await self.tool_router.get_tool_definitions(source=source)
         if source != A2A_SOURCE:
             # Anthropic runs the web search itself; a peer agent gets the read-only tools only (MAG-384).
             tools = with_web_search(tools, await resolve_user_timezone(user_id))

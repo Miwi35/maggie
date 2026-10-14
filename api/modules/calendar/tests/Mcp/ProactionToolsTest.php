@@ -120,6 +120,22 @@ class ProactionToolsTest extends KernelTestCase
         self::assertSame('Second', $second['proaction']['summary']);
     }
 
+    public function testTheSameProactionAskedTwiceIsScheduledOnce(): void
+    {
+        // A planning run again the same day asks for what the first one scheduled (MAG-327).
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Ael', $this->tomorrowAt('08:30'));
+        $again = $this->call(ScheduleProactionTool::class, '  Rappelle de déposer Ael ', $this->tomorrowAt('08:30'));
+        $later = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Ael', $this->tomorrowAt('08:45'));
+
+        self::assertTrue($again['success']);
+        self::assertSame($first['proaction']['id'], $again['proaction']['id']);
+        self::assertNotSame($first['proaction']['id'], $later['proaction']['id']);
+        // The other user's two, and mine at 8:30 and 8:45.
+        self::assertCount(4, $this->proactions());
+    }
+
     public function testALongPromptIsShortenedForTheAgendaLabel(): void
     {
         $this->loginFixtureUser();

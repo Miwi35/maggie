@@ -307,7 +307,7 @@ web:
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:
-    areas: [chat, interruptions, notification, realtime, dashboard]
+    areas: [chat, interruptions, notification, realtime, dashboard, calendar]
   e2e/web/tests/responsive.spec.ts:
     areas: [chat, dashboard, finance, grocery, cookbook, design]
   e2e/web/tests/breadcrumbs.spec.ts:

@@ -1,7 +1,8 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { toolResults } from '../helpers/agui.js'
 import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
 import { NotificationBell } from '../pages/NotificationBell.js'
@@ -20,6 +21,11 @@ import { NotificationBell } from '../pages/NotificationBell.js'
  * screen of every window the user has open, and these deliveries are published
  * to the user, not to a test: on an account another file drives they would pop
  * up over that file's clicks (and over each other's).
+ *
+ * The last test is the real thing, end to end (MAG-327, extends MAG-103): a
+ * proaction asked for in the chat, filed in the « Maggie » agenda by the API,
+ * claimed and run by the agent's executor, then marked done. It lives here for
+ * the same reason: once it runs, it speaks to this account's every window.
  */
 
 test.describe.configure({ mode: 'serial', retries: 0 })
@@ -226,4 +232,71 @@ test('an action waiting for the user is asked with Autoriser and Refuser', async
   await interruption.getByRole('button', { name: 'Refuser' }).click()
   await denied
   await expect(interruption).toBeHidden()
+})
+
+interface ListedProaction {
+  id: string
+  prompt: string
+  status: string
+  response: string | null
+}
+
+interface StoredEvent {
+  id: string
+  summary: string
+  agenda: string
+}
+
+test('a proaction asked for in the chat sits in the « Maggie » agenda, runs once due, and is marked done', async ({ interruptedUser }) => {
+  // The executor claims due proactions once a minute: up to a minute of waiting, then the run.
+  test.setTimeout(240_000)
+  const { page, api, session } = interruptedUser
+  const dashboard = new DashboardPage(page)
+  await openSubscribed(page, () => dashboard.open(), `/chat/${session.user.id}`)
+
+  // The fake cannot work out « dans 2 minutes »: the sentence names the instant, on the stack's clock.
+  const inTwoMinutes = new Date(e2eNow().getTime() + 120_000).toISOString()
+  const events = await new ChatPanel(page).send(`Rappelle-moi dans 2 minutes de boire un verre d'eau (pour ${inTwoMinutes})`)
+  expect(toolResults(events)).toEqual(
+    expect.arrayContaining([expect.objectContaining({ toolName: 'schedule_proaction', status: 'success' })]),
+  )
+
+  // Given the proaction, pending, in the « Maggie » agenda.
+  const listed = (await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]
+  const scheduled = listed.find((p) => p.prompt === "Rappelle à l'utilisateur de boire un verre d'eau." && p.status === 'pending')
+  expect(scheduled, JSON.stringify(listed)).toBeDefined()
+  const id = scheduled!.id
+
+  const read = await api.get(`/api/events/${id}`, { headers: { Accept: 'application/ld+json' } })
+  expect(read.status()).toBe(200)
+  const event = (await read.json()) as StoredEvent
+  expect(event.summary).toBe("Verre d'eau")
+  const agenda = await waitForIndexed<{ '@id': string; name: string }>(api, '/api/agendas?module=agent', (a) => a['@id'] === event.agenda, {
+    what: 'The « Maggie » agenda',
+  })
+  expect(agenda.name).toBe('Maggie')
+
+  // When its two minutes have passed. The stack's clock barely moves (MAG-234), so
+  // the minutes are skipped the way the agenda would move it: to a minute ago.
+  const moved = await api.patch(`/api/events/${id}`, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    data: { startAt: new Date(e2eNow().getTime() - 60_000).toISOString() },
+  })
+  expect(moved.ok(), `PATCH /api/events/${id} answered ${moved.status()}: ${await moved.text()}`).toBe(true)
+
+  // Then the executor runs it, and the API marks it done with what Maggie said…
+  await expect
+    .poll(
+      async () => {
+        const all = (await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]
+        const run = all.find((p) => p.id === id)
+        return run ? { status: run.status, response: run.response } : null
+      },
+      { message: 'the proaction was never run', timeout: 180_000, intervals: [2_000] },
+    )
+    .toEqual({ status: 'completed', response: "C'est l'heure de boire un verre d'eau !" })
+
+  // …which is in the chat, once.
+  const messages = (await (await api.get('/agent/messages?limit=10')).json()) as { role: string; content: string }[]
+  expect(messages.filter((m) => m.role === 'assistant' && m.content === "C'est l'heure de boire un verre d'eau !")).toHaveLength(1)
 })

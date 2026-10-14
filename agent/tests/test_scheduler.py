@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
@@ -14,9 +14,12 @@ from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app import user_timezone
+from app.proactions import api as proactions_api_module
+from app.proactions.api import Proaction, ProactionApiUnreachable
 from app.queue import scheduler
 from app.queue.scheduler import next_planning_time, plan_user, planning_schedule
 from app.user_timezone import resolve_user_timezone
+from tests.fake_proaction_api import FakeProactionApi
 
 
 @pytest.fixture(autouse=True)
@@ -441,7 +444,7 @@ class TestContextLifecycle:
 
 
 class TestExecutionLoop:
-    """One minute-grained loop: due proactions out to RabbitMQ, stale approvals retired (MAG-4)."""
+    """One minute-grained loop: due proactions claimed on the API and queued, stale approvals retired (MAG-4, MAG-327)."""
 
     @pytest.fixture()
     def one_pass(self, monkeypatch):
@@ -454,13 +457,21 @@ class TestExecutionLoop:
 
     @pytest.fixture()
     def repos(self, monkeypatch):
-        find_due = AsyncMock(return_value=[])
+        claim_due = AsyncMock(return_value=[])
+        record = AsyncMock()
         expire = AsyncMock(return_value=0)
         publish = AsyncMock()
-        monkeypatch.setattr(scheduler.proaction_repo, "find_due", find_due)
+        migrate = AsyncMock(return_value=True)
+        monkeypatch.setattr(scheduler.proactions_api, "claim_due", claim_due)
+        monkeypatch.setattr(scheduler.proactions_api, "record", record)
         monkeypatch.setattr(scheduler.pending_action_repo, "expire_overdue", expire)
         monkeypatch.setattr(scheduler, "publish_proaction", publish)
-        return SimpleNamespace(find_due=find_due, expire=expire, publish=publish)
+        monkeypatch.setattr(scheduler, "migrate_legacy_proactions", migrate)
+        return SimpleNamespace(claim_due=claim_due, record=record, expire=expire, publish=publish, migrate=migrate)
+
+    @staticmethod
+    def _claimed(proaction_id: str) -> Proaction:
+        return Proaction(id=proaction_id, user_id="user-1", prompt="Boire un verre d'eau", status="running")
 
     async def test_it_retires_the_approvals_nobody_answered(self, one_pass, repos):
         with pytest.raises(asyncio.CancelledError):
@@ -468,10 +479,66 @@ class TestExecutionLoop:
 
         repos.expire.assert_awaited_once()
 
+    async def test_the_due_proactions_claimed_on_the_api_are_queued(self, repos):
+        first, second = self._claimed("p-1"), self._claimed("p-2")
+        repos.claim_due.return_value = [first, second]
+
+        await scheduler.run_execution_tick()
+
+        # Every user's, with the service token alone: no user named.
+        repos.claim_due.assert_awaited_once_with()
+        assert [call.args[0] for call in repos.publish.await_args_list] == [first, second]
+        repos.record.assert_not_awaited()
+
+    async def test_nothing_due_queues_nothing(self, repos):
+        await scheduler.run_execution_tick()
+
+        repos.publish.assert_not_awaited()
+
+    async def test_an_unreachable_api_does_not_stop_the_loop_and_is_asked_again_next_minute(self, repos, monkeypatch):
+        repos.claim_due.side_effect = [ProactionApiUnreachable("claim_due_proactions: no response"), [self._claimed("p-1")]]
+        ticks = iter([None, asyncio.CancelledError()])
+
+        async def sleep(_seconds):
+            tick = next(ticks)
+            if tick is not None:
+                raise tick
+
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._execution_loop()
+
+        assert repos.claim_due.await_count == 2
+        assert repos.expire.await_count == 2
+        repos.publish.assert_awaited_once()
+
+    async def test_a_proaction_that_cannot_be_queued_is_recorded_failed_not_left_running(self, repos):
+        claimed = self._claimed("p-1")
+        repos.claim_due.return_value = [claimed, self._claimed("p-2")]
+        repos.publish.side_effect = [RuntimeError("RabbitMQ not connected"), None]
+
+        await scheduler.run_execution_tick()
+
+        repos.record.assert_awaited_once()
+        assert repos.record.await_args.args == (claimed, "failed")
+        assert "RabbitMQ not connected" in repos.record.await_args.kwargs["error"]
+        assert repos.publish.await_count == 2
+
+    async def test_the_legacy_proactions_are_moved_first_and_a_failed_move_runs_the_rest(self, repos):
+        repos.migrate.side_effect = RuntimeError("agent db down")
+        repos.claim_due.return_value = [self._claimed("p-1")]
+
+        await scheduler.run_execution_tick()
+
+        repos.migrate.assert_awaited_once()
+        repos.publish.assert_awaited_once()
+        repos.expire.assert_awaited_once()
+
     async def test_a_failing_proaction_poll_does_not_skip_the_expiry(self, one_pass, repos):
         # The two have nothing to do with each other, so one being down must not leave
         # cards on the user's screen for ever.
-        repos.find_due.side_effect = RuntimeError("db down")
+        repos.claim_due.side_effect = RuntimeError("api down")
 
         with pytest.raises(asyncio.CancelledError):
             await scheduler._execution_loop()
@@ -484,4 +551,63 @@ class TestExecutionLoop:
         with pytest.raises(asyncio.CancelledError):
             await scheduler._execution_loop()
 
-        repos.find_due.assert_awaited_once()
+        repos.claim_due.assert_awaited_once()
+
+
+class TestExecutionThroughTheApi:
+    """The loop against the simulated API: what the agenda holds is what runs (MAG-327)."""
+
+    @pytest.fixture()
+    def api(self, monkeypatch):
+        fake = FakeProactionApi()
+        monkeypatch.setattr(proactions_api_module, "mcp_client", fake)
+        monkeypatch.setattr(scheduler, "migrate_legacy_proactions", AsyncMock(return_value=True))
+        monkeypatch.setattr(scheduler.pending_action_repo, "expire_overdue", AsyncMock(return_value=0))
+        return fake
+
+    async def test_a_due_proaction_is_claimed_once_and_queued(self, api, monkeypatch):
+        due = api.seed("user-1", at="2030-11-13T11:55:00+01:00")
+        api.seed("user-1", at="2030-11-13T18:00:00+01:00")
+        publish = AsyncMock()
+        monkeypatch.setattr(scheduler, "publish_proaction", publish)
+
+        await scheduler.run_execution_tick()
+        await scheduler.run_execution_tick()
+
+        assert [call.args[0].id for call in publish.await_args_list] == [due]
+        assert api.proactions[due]["status"] == "running"
+
+    async def test_a_proaction_deleted_from_the_agenda_before_its_time_never_runs(self, api, monkeypatch):
+        deleted = api.seed("user-1", at="2030-11-13T11:55:00+01:00")
+        await proactions_api_module.mcp_client.call_tool("cancel_proaction", {"id": deleted}, user_id="user-1")
+        publish = AsyncMock()
+        monkeypatch.setattr(scheduler, "publish_proaction", publish)
+
+        await scheduler.run_execution_tick()
+
+        publish.assert_not_awaited()
+
+
+class TestDailyPlanningPrompt:
+    """The planning poses the day's proactions from the instructions and the agenda, once (MAG-327)."""
+
+    def test_it_names_the_day_and_reads_instructions_agenda_and_existing_proactions(self):
+        prompt = scheduler.daily_planning_prompt(date(2026, 10, 14))
+
+        assert "2026-10-14" in prompt
+        assert 'kind="planning"' in prompt
+        assert "get_events_by_date" in prompt
+        assert 'list_proactions avec from="2026-10-14" et to="2026-10-14"' in prompt
+        assert "sans recréer celles qui existent déjà" in prompt
+
+    async def test_the_day_is_the_user_s_own(self, monkeypatch):
+        # 23:30 UTC on the 13th is already the 14th in Paris.
+        monkeypatch.setattr(scheduler, "resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris")))
+        gateway = AsyncMock()
+        gateway.proaction.return_value = {"response": "ok"}
+
+        await scheduler.generate_proactions(gateway, "user-1", dry_run=True, now=utc(2026, 10, 13, 23, 30))
+
+        prompt = gateway.proaction.await_args.args[0]
+        assert "2026-10-14" in prompt
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "dry_run": True}
