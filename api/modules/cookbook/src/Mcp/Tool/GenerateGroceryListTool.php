@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
+use Maggie\Cookbook\Service\GroceryGeneration;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
-use Maggie\Grocery\Entity\GroceryList;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'generate_grocery_list', description: 'Top up the grocery list from the meals planned in a date range plus the recurring items that are due again. Quantities merge with what is already on the list, so running it twice changes nothing. Date format: YYYY-MM-DD.')]
+#[McpTool(name: 'generate_grocery_list', description: 'Top up the grocery list with the recurring items that are due again; running it twice changes nothing. Meals add nothing by themselves: mealsToChoose names the meals of the date range whose ingredients the owner has not chosen yet (id, date, slot, summary) — offer to choose them with manage_meal_groceries (preview, then add). Date format: YYYY-MM-DD.')]
 class GenerateGroceryListTool
 {
     public function __construct(
@@ -35,8 +36,9 @@ class GenerateGroceryListTool
                 toDate: $toDate,
             ));
 
-            /** @var GroceryList $list */
-            $list = $envelope->last(HandledStamp::class)->getResult();
+            /** @var GroceryGeneration $generation */
+            $generation = $envelope->last(HandledStamp::class)->getResult();
+            $list = $generation->list;
 
             $storeGroups = [];
             foreach ($list->getItems() as $item) {
@@ -76,6 +78,12 @@ class GenerateGroceryListTool
                     'storeGroups' => $storeGroups,
                     'totalItems' => $list->getItems()->count(),
                 ],
+                'mealsToChoose' => array_map(static fn (Meal $meal) => [
+                    'id' => (string) $meal->getId(),
+                    'date' => $meal->getDate()?->format('Y-m-d'),
+                    'slot' => $meal->getSlot()->value,
+                    'summary' => $meal->getSummary(),
+                ], $generation->mealsToChoose),
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);

@@ -12,7 +12,6 @@ use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
-use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\Service\MealTitle;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
@@ -25,10 +24,9 @@ class UpdateRecipeHandler
     public function __construct(
         private readonly UpdateRecipe $updateRecipe,
         private readonly RecipeRepository $recipeRepository,
+        private readonly MealRepository $mealRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
-        private readonly MealRepository $mealRepository,
-        private readonly MealGrocerySync $mealGrocerySync,
     ) {
     }
 
@@ -76,17 +74,9 @@ class UpdateRecipeHandler
             }
         }
 
-        $recipe = $this->updateRecipe->execute($recipe);
-
-        if (null !== $command->ingredients) {
-            // The meals already planned with this recipe bought the old
-            // quantities: bring their share of the list up to date (MAG-167).
-            foreach ($this->mealRepository->findUpcomingByRecipe($recipe) as $meal) {
-                $this->mealGrocerySync->sync($meal);
-            }
-        }
-
-        return $recipe;
+        // The meals planned with this recipe keep what the owner chose for them: the list
+        // is not re-derived from the new quantities (MAG-300).
+        return $this->updateRecipe->execute($recipe);
     }
 
     /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */

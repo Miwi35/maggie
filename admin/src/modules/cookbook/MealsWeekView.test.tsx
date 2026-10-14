@@ -278,6 +278,105 @@ describe('MealsWeekView — choosing the ingredients', () => {
 })
 
 /**
+ * A planned meal puts nothing on the list by itself — MAG-300. Its screen offers
+ * « revoir les ingrédients à acheter », which reopens the preview of MAG-295.
+ */
+describe('MealsWeekView — reviewing the ingredients of a planned meal', () => {
+  const fetchMock = vi.fn()
+  const rice = {
+    ingredientId: '01RICE',
+    name: 'Riz',
+    quantity: 300,
+    unit: 'g',
+    packaging: { unit: 'pack', size: 500, sizeUnit: 'g' },
+    toBuy: { quantity: 1, unit: 'pack' },
+    stockState: 'out',
+    suggested: true,
+  }
+  const planned = {
+    id: '01MEAL',
+    '@id': '/api/meals/01MEAL',
+    date: '2026-04-14',
+    slot: 'lunch',
+    summary: 'Déjeuner : Tartiflette',
+    recipes: [{ id: '01TARTIFLETTE', name: 'Tartiflette' }],
+  }
+
+  const reviewButton = () => screen.getByRole('button', { name: 'Revoir les ingrédients à acheter pour Déjeuner : Tartiflette' })
+
+  const renderPlannedMeal = async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-04-15T12:00:00Z'))
+    mockGetList.mockImplementation(answer(agendas, [planned]))
+    const user = setupUser()
+    render(<MealsWeekView />)
+    await waitFor(() => expect(within(screen.getByTestId('meal-cell-lunch-1')).queryByText(/Tartiflette/)).toBeTruthy())
+
+    return user
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mercure.onMessage = undefined
+    fetchMock.mockImplementation((_url: string, init?: { method?: string }) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(init?.method === 'POST' ? {} : { mealId: '01MEAL', groceryChoiceMadeAt: null, ingredients: [rice] }),
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  test('reopens the preview of the meal, without creating anything', async () => {
+    const user = await renderPlannedMeal()
+
+    await user.click(reviewButton())
+
+    expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+    expect(fetchMock).toHaveBeenCalledWith('/api/meals/01MEAL/grocery_preview', expect.anything())
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Recettes')).not.toBeInTheDocument()
+  })
+
+  test('« Plus tard » closes it and adds nothing', async () => {
+    const user = await renderPlannedMeal()
+    await user.click(reviewButton())
+
+    await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  })
+
+  test('« Ajouter aux courses » sends the choice for that meal', async () => {
+    const user = await renderPlannedMeal()
+    await user.click(reviewButton())
+
+    await user.click(await screen.findByRole('button', { name: 'Ajouter aux courses' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(post[0]).toBe('/api/meals/01MEAL/grocery_items')
+    expect(JSON.parse(post[1].body)).toEqual({ ingredients: [{ ingredientId: '01RICE' }] })
+  })
+
+  test('tells the user when the ingredients cannot be loaded', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) })
+    const user = await renderPlannedMeal()
+
+    await user.click(reviewButton())
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La liste des ingrédients du repas n’a pas pu être chargée.')
+  })
+})
+
+/**
  * A meal is a day and a slot — MAG-251.
  *
  * The owner added a meal in the week view and it came up on the day before.

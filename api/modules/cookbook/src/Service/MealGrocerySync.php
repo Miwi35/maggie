@@ -14,44 +14,42 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Repository\GroceryListRepository;
-use Maggie\Grocery\Service\Packaging;
 
 /**
  * Keeps the grocery list in step with the meals that feed it.
  *
- * Planning a meal puts its ingredients on the list; until MAG-116 nothing took
- * them off again, so moving a meal or cancelling it left the shopping to be
- * done anyway, and generating the list a second time added everything twice.
- *
  * Every line a meal touches is recorded as a {@see MealGroceryContribution}.
- * `sync()` makes the list say what the meal needs *now* — adding, adjusting in
- * place and taking back — and `revoke()` takes back what a removed meal had
- * put on. `sync()` is idempotent, which is what makes re-generating a list safe.
+ * Since MAG-300 the owner's explicit choice is the only way a meal puts
+ * anything on the list: `syncChoice()` makes the list hold exactly the lines
+ * chosen for the meal — adding, adjusting in place and taking back — in
+ * packagings (MAG-295). Nothing is derived from the recipes any more, so
+ * planning a meal, swapping its recipes or editing a recipe leaves the list
+ * alone: re-synchronising would put back what the owner had unticked.
  *
- * `syncChoice()` is the third way in (MAG-295): the owner chose which
- * ingredients to buy, in packagings. It runs the very same reconciliation as
- * `sync()`, with what the meal wants coming from the choice instead of the
- * recipes — so the lines the recipes had put on are taken back, and the guard
- * against re-joining a line just let go is inherited, not rewritten. Once a
- * meal has chosen (`Meal::$groceryChoiceMadeAt`), `sync()` derives nothing
- * and takes nothing back for it: it only moves the `buyAfter` of the lines the
- * meal holds when the meal moves (MAG-251). Without that, a contribution in
- * `pack` would never be wanted by a `sync()` deriving `g`, and the chosen
- * lines would vanish at the meal's next edit.
+ * `sync()` is what is left of the old derivation, and it is deliberately
+ * small: it moves the `buyAfter` of the lines a meal holds when the meal moves
+ * (MAG-251), at an unchanged quantity — a perishable planned three days later
+ * is bought three days later. The contributions a meal planned before MAG-300
+ * inherited from the old path stay as they are, in recipe units (no data
+ * migration): `sync()` follows them like any other, and `revoke()` takes them
+ * back when the meal goes.
+ * `Meal::$groceryChoiceMadeAt` is no longer read here: it only tells the
+ * "review the ingredients" screen and `generate_grocery_list` which meals
+ * still have nothing chosen.
+ *
+ * `revoke()` takes back what a removed meal had put on, whoever put it there.
  *
  * Flushing: `sync()` flushes, `revoke()` and `syncChoice()` do not. The
- * asymmetry is deliberate. `sync()` must, because it asks the database which
- * other meals hold a line and the generation loop syncs one meal after another
- * — an unflushed contribution would make the next meal believe a line is free
- * to delete. `revoke()` runs once the meal is already gone (MAG-368), on the
- * shares its removal event carries: its use case flushes, and a failure there
- * leaves the shopping on the list, logged, rather than taking it off a meal
- * still planned. `syncChoice()` must not
- * either, so that the chosen lines and the meal's choice marker commit
- * together: lines committed without the marker would be taken back by the next
- * `sync()`, which would still take the derived path. A single pass needs no
+ * asymmetry is deliberate. `sync()` runs alone, once per move, and has nothing
+ * else to commit with. `revoke()` runs once the meal is already gone (MAG-368),
+ * on the shares its removal event carries: its use case flushes, and a failure
+ * there leaves the shopping on the list, logged, rather than taking it off a
+ * meal still planned. `syncChoice()` must not either, so that the chosen lines
+ * and the meal's choice marker commit together. A single pass needs no
  * intermediate flush — `isHeldByAnotherMeal()` excludes its own contribution,
- * and the unique index allows one contribution per meal and line.
+ * and the unique index allows one contribution per meal and line. The line
+ * rows are read through the repository rather than `$list->getItems()` — see
+ * `itemsOf()` — and that is the other trap of this class (MAG-116).
  *
  * A meal whose day has gone has nothing left to buy (MAG-400): `sync()` and
  * `syncChoice()` add nothing for it, and `release()` takes back what it still
@@ -69,16 +67,13 @@ class MealGrocerySync
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly MealGroceryContributionRepository $contributionRepository,
-        private readonly Packaging $packaging,
     ) {
     }
 
     /**
-     * Makes the list hold exactly what this meal needs, no more and no less.
-     *
-     * Returns the list it touched, or null when the meal neither needs nor
-     * ever needed anything — a slot planned with no recipe changes no
-     * shopping, and must not conjure an empty list.
+     * Moves the lines the meal holds to follow it, without touching what they
+     * hold. Returns the list only when a date moved, so an edit that changes
+     * nothing on the list publishes nothing.
      */
     public function sync(Meal $meal): ?GroceryList
     {
@@ -86,17 +81,7 @@ class MealGrocerySync
             return $this->releaseAndFlush($meal);
         }
 
-        if (null !== $meal->getGroceryChoiceMadeAt()) {
-            return $this->followMeal($meal);
-        }
-
-        $list = $this->reconcile($meal, $this->wantedLines($meal));
-
-        if (null !== $list) {
-            $this->em->flush();
-        }
-
-        return $list;
+        return $this->followMeal($meal);
     }
 
     /**
@@ -136,9 +121,8 @@ class MealGrocerySync
     }
 
     /**
-     * The reconciliation both `sync()` and `syncChoice()` run: take back what
-     * the meal no longer wants, adjust what it keeps, add what is missing.
-     * Does not flush.
+     * Take back what the meal no longer wants, adjust what it keeps, add what
+     * is missing. Does not flush.
      *
      * @param array<string, array{ingredient: Ingredient, unit: Unit, quantity: float}> $wanted
      */
@@ -236,12 +220,11 @@ class MealGrocerySync
     }
 
     /**
-     * A meal that has chosen keeps the lines it chose, at the quantity chosen:
-     * only their `buyAfter` follows the meal's day, as a derived line's does.
+     * A meal keeps the lines it holds, at the quantity they have: only their
+     * `buyAfter` follows the meal's day.
      *
      * The shelf life is the line's product's — there are no recipe lines to
-     * read it from on this path. Returns the list only when a date moved, so
-     * an edit that changes nothing on the list publishes nothing.
+     * read it from on this path.
      */
     private function followMeal(Meal $meal): ?GroceryList
     {
@@ -438,54 +421,6 @@ class MealGrocerySync
         }
 
         $this->keepEarliestBuyAfter($item, $buyAfter);
-    }
-
-    /**
-     * What the meal needs, keyed by product and unit, the quantities of its
-     * recipes already added up. A packaged product is one line in its packaging,
-     * the recipes' quantities only proposing how many (MAG-299).
-     *
-     * @return array<string, array{ingredient: Ingredient, unit: Unit, quantity: float}>
-     */
-    private function wantedLines(Meal $meal): array
-    {
-        $lines = [];
-        $packaged = [];
-
-        foreach ($meal->getRecipes() as $recipe) {
-            foreach ($recipe->getIngredients() as $ri) {
-                $ingredient = $ri->getIngredient();
-                $packagingUnit = $ingredient->getPackagingUnit();
-
-                if (null !== $packagingUnit) {
-                    $key = $this->key((string) $ingredient->getId(), $packagingUnit);
-                    $packaged[$key]['quantities'][] = [$ri->getQuantity(), $ri->getUnit()];
-                    $lines[$key] = ['ingredient' => $ingredient, 'unit' => $packagingUnit, 'quantity' => 0.0];
-
-                    continue;
-                }
-
-                $key = $this->key((string) $ingredient->getId(), $ri->getUnit());
-
-                if (isset($lines[$key])) {
-                    $lines[$key]['quantity'] += $ri->getQuantity();
-
-                    continue;
-                }
-
-                $lines[$key] = [
-                    'ingredient' => $ingredient,
-                    'unit' => $ri->getUnit(),
-                    'quantity' => $ri->getQuantity(),
-                ];
-            }
-        }
-
-        foreach ($packaged as $key => $line) {
-            $lines[$key]['quantity'] = (float) $this->packaging->packagedTotal($lines[$key]['ingredient'], $line['quantities']);
-        }
-
-        return $lines;
     }
 
     private function key(string $productId, ?Unit $unit): string

@@ -46,6 +46,41 @@ class MealRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * The meals of the range, still to be eaten, that have ingredients to buy
+     * and whose owner has not chosen which yet (MAG-300).
+     *
+     * @return Meal[]
+     */
+    public function findAwaitingGroceryChoiceForUser(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $meals = $this->createQueryBuilder('m')
+            ->join('m.agenda', 'a')
+            ->join('m.recipes', 'r')
+            ->join('r.ingredients', 'ri')
+            ->where('a.user = :user')
+            ->andWhere('m.groceryChoiceMadeAt IS NULL')
+            ->andWhere('m.date >= :from')
+            ->andWhere('m.date >= :today')
+            ->andWhere('m.date <= :to')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATE_IMMUTABLE)
+            ->setParameter('today', $this->today(), Types::DATE_IMMUTABLE)
+            ->orderBy('m.date', 'ASC')
+            ->addOrderBy('m.slot', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // One row per ingredient: a meal with several comes back several times.
+        $unique = [];
+        foreach ($meals as $meal) {
+            $unique[(string) $meal->getId()] = $meal;
+        }
+
+        return array_values($unique);
+    }
+
     /** The meal, if it is the user's: another user's meal is not found. */
     public function findOneForUser(string $id, User $user): ?Meal
     {

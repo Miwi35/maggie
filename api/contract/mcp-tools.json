@@ -425,7 +425,7 @@
                 "toDate"
             ]
         },
-        "description": "Top up the grocery list from the meals planned in a date range plus the recurring items that are due again. Quantities merge with what is already on the list, so running it twice changes nothing. Date format: YYYY-MM-DD."
+        "description": "Top up the grocery list with the recurring items that are due again; running it twice changes nothing. Meals add nothing by themselves: mealsToChoose names the meals of the date range whose ingredients the owner has not chosen yet (id, date, slot, summary) — offer to choose them with manage_meal_groceries (preview, then add). Date format: YYYY-MM-DD."
     },
     "get_daily_score": {
         "name": "get_daily_score",

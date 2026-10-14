@@ -13,9 +13,9 @@ tags:
 #
 # Given « Riz » out of stock, bought by the 500 g pack, and « Légumes pour couscous »
 # in the cupboard, bought by the jar — both in one recipe, created by
-# `scripts/meal-api.js` (no seed holds a stock or a packaging). The list after the
-# meal is created holds what the recipe derives; the choice replaces it, so the rice
-# the owner unticked must be gone, not just absent. The real-time side of the list
+# `scripts/meal-api.js` (no seed holds a stock or a packaging). A planned meal puts
+# nothing on the list (MAG-300): only the choice does, so the rice the owner
+# unticked must never appear. The real-time side of the list
 # is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
 #
 # The Menu is chosen in a full-screen search, « Créer » is tapped twice in a row and
@@ -122,8 +122,7 @@ tags:
     visible: ".*Légumes pour couscous MAG-297.*"
     timeout: 30000
 - assertVisible: ".*1(\\.0)? (jar|bocal).*"
-# Waited for: the list follows the choice by a refresh, so the rice derived at
-# creation may still be on screen for a moment.
+# Waited for: the list follows the choice by a refresh.
 - extendedWaitUntil:
     notVisible: ".*Riz MAG-297.*"
     timeout: 30000

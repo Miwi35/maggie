@@ -10,6 +10,7 @@ import type {
 import {
   APPROVALS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
+  MEALS_USER_EMAIL,
   OTHER_USER_EMAIL,
   RECURRING_USER_EMAIL,
   SEED_USER_EMAIL,
@@ -34,6 +35,7 @@ export {
   TREASURY_USER_EMAIL,
   RECURRING_USER_EMAIL,
   TRANSFERS_USER_EMAIL,
+  MEALS_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -139,6 +141,8 @@ export interface MaggieFixtures {
    * file may book a line on it.
    */
   transfersUser: OtherUser
+  /** The ninth seeded account, for the meals and the grocery list (MAG-300). */
+  mealsUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -347,6 +351,10 @@ export const test = base.extend<MaggieFixtures>({
 
   transfersUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(TRANSFERS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  mealsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(MEALS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

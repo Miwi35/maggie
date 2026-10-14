@@ -132,6 +132,14 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-transfers-google-id'
         name: 'Noa Virement'
 
+    # The meals and the grocery list journey (MAG-300). Asking Maggie to prepare
+    # the week puts every recurring item due on the list: on the neighbour it
+    # would add the weekly rice the errand journey waits to see appear.
+    e2e_meals_user:
+        email: 'e2e-meals@maggie.local'
+        googleId: 'e2e-meals-google-id'
+        name: 'Léa Repas'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -195,6 +203,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_transfers_user_preference:
         user: '@e2e_transfers_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_meals_user_preference:
+        user: '@e2e_meals_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

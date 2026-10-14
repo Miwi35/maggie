@@ -36,8 +36,8 @@ class DeleteRecipeHandler
         // the way a cancelled meal does, past or upcoming — the shopping it
         // asked for leaves the list, the agenda and the search index forget it.
         // The other upcoming meals go through the ordinary meal update, with
-        // the recipe taken out (MAG-167): it syncs the list, rewrites the
-        // summary and publishes and reindexes the meal.
+        // the recipe taken out (MAG-167): it rewrites the summary and
+        // publishes and reindexes the meal, and leaves the list as the owner chose it.
         foreach ($this->mealRepository->findUpcomingByRecipe($recipe) as $meal) {
             if (1 === $meal->getRecipes()->count()) {
                 $this->bus->dispatch(new DeleteMealCommand(mealId: (string) $meal->getId()));

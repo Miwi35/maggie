@@ -95,11 +95,11 @@ class MealGroceryChoiceTest extends KernelTestCase
         self::assertNotNull($this->preview($mealId)['groceryChoiceMadeAt']);
     }
 
-    public function testChoosingReplacesTheDerivedLinesWithTheChosenOnesInPackagings(): void
+    public function testChoosingPutsTheChosenLinesOnTheListInPackagings(): void
     {
         $mealId = $this->planMeal('curry');
-        // Today's behaviour, before the choice: everything, in recipe units.
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
+        // Planning puts nothing on the list (MAG-300).
+        self::assertSame([], $this->list());
 
         $this->choose($mealId, ['rice']);
 
@@ -184,12 +184,13 @@ class MealGroceryChoiceTest extends KernelTestCase
     public function testALineAlreadyInTheBasketStaysAndTheChosenPackIsNotBoughtTwice(): void
     {
         $mealId = $this->planMeal('curry');
+        $this->choose($mealId, ['rice']);
         $this->check('Riz');
 
         $this->choose($mealId, ['rice']);
 
-        // The shopper carried the pack home: the derived line was already in
-        // packs, the choice asks for the same one and leaves the bought line be.
+        // The shopper carried the pack home: the chosen line was already in
+        // packs, choosing it again asks for the same one and leaves the bought line be.
         self::assertSame([['Riz', 1.0, 'pack']], $this->list());
         self::assertTrue($this->item('Riz')->isChecked());
         self::assertSame([[1.0, 'pack']], $this->contributions());
@@ -240,12 +241,12 @@ class MealGroceryChoiceTest extends KernelTestCase
 
     public function testChoosingTwiceAnIngredientWithoutPackagingKeepsOneLine(): void
     {
-        // Without packaging, the chosen line has the derived line's key: it is
-        // adjusted in place, never taken back and joined again.
+        // Choosing it again asks for the line it already holds: it is adjusted
+        // in place, never taken back and joined again.
         $mealId = $this->planMeal('curry');
+        $this->choose($mealId, ['onion']);
         $before = (string) $this->item('Oignon')->getId();
 
-        $this->choose($mealId, ['onion']);
         $this->choose($mealId, ['onion']);
 
         self::assertSame([['Oignon', 2.0, 'piece']], $this->list());
@@ -264,15 +265,14 @@ class MealGroceryChoiceTest extends KernelTestCase
             self::assertInstanceOf(\DomainException::class, $e->getPrevious());
         }
 
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
+        self::assertSame([], $this->list());
         self::assertNull($this->meal($mealId)->getGroceryChoiceMadeAt());
     }
 
     public function testSyncChoiceLeavesTheCommitToItsCaller(): void
     {
         // The flush contract: the chosen lines and the meal's marker commit
-        // together or not at all. Lines committed alone would be taken back by
-        // the meal's next sync, which would still take the derived path.
+        // together or not at all.
         $mealId = $this->planMeal('curry');
         $meal = $this->meal($mealId);
         $lines = $this->service()->chosenLines($meal, [(string) $this->getFixture('rice')->getId() => null]);
@@ -280,7 +280,7 @@ class MealGroceryChoiceTest extends KernelTestCase
         $this->sync()->syncChoice($meal, $lines);
         $this->em()->clear();
 
-        self::assertSame([['Légumes pour couscous', 1.0, 'jar'], ['Oignon', 2.0, 'piece'], ['Riz', 1.0, 'pack']], $this->list());
+        self::assertSame([], $this->list());
         self::assertNull($this->meal($mealId)->getGroceryChoiceMadeAt());
     }
 

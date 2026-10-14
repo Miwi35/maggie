@@ -115,11 +115,9 @@ class Meal extends Event implements MercurePublishable
     private Collection $recipes;
 
     // When the owner chose which ingredients go on the grocery list (MAG-295).
-    // Null: the meal still feeds the list from its recipes, as before. Set:
-    // the list holds what was chosen, in packagings, and editing the meal or
-    // its recipes no longer derives anything. Set by the choice endpoint only,
-    // never by a client — a client stamping it would switch the derivation
-    // off without choosing anything.
+    // Null: nothing is chosen yet, and the meal has put nothing on the list —
+    // the "review the ingredients" screen and `generate_grocery_list` name it
+    // (MAG-300). Set by the choice endpoint only, never by a client.
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     #[ApiProperty(writable: false)]

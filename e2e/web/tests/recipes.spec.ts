@@ -1,5 +1,5 @@
 import { test, expect, seedDate, seedId } from '../fixtures/index.js'
-import type { Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { dayOfThisWeek } from '../helpers/week.js'
@@ -38,6 +38,20 @@ function recipeName(retry: number): string {
 
 interface GroceryListRow {
   items: unknown[]
+}
+
+/**
+ * A meal puts nothing on the list by itself (MAG-300): the owner chooses which
+ * of its ingredients to buy, which is what the « Courses du repas » step of the
+ * form does through this endpoint. The journeys below that watch a meal's lines
+ * follow the meal choose them first.
+ */
+async function chooseIngredients(api: APIRequestContext, mealId: string, ingredientIds: string[]): Promise<void> {
+  const chosen = await api.post(`/api/meals/${mealId}/grocery_items`, {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    data: { ingredients: ingredientIds.map((ingredientId) => ({ ingredientId })) },
+  })
+  expect(chosen.ok(), `POST grocery_items answered ${chosen.status()}: ${await chosen.text()}`).toBeTruthy()
 }
 
 test.describe('Recipes and meals', () => {
@@ -255,7 +269,8 @@ test.describe('Recipes and meals', () => {
   test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api }) => {
     // MAG-116: planning a meal put its ingredients on the list and nothing
     // ever took them off again, so a dinner cancelled on Tuesday was still
-    // shopping to do on Saturday.
+    // shopping to do on Saturday. Since MAG-300 the owner chooses what goes on
+    // the list; the lines they chose still leave with the meal.
     const parmesan = seedId('e2e_ingredient_parmesan')
     const shell = new AdminShell(page)
     await shell.goto('/meals')
@@ -269,7 +284,12 @@ test.describe('Recipes and meals', () => {
     await dialog.getByLabel('Menu').fill('Gratin')
     await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
+    await dialog.getByRole('button', { name: 'Plus tard' }).click()
 
+    const gratin = await waitForIndexed<MealRow & { id: string }>(api, '/api/meals', (m) => String(m.summary).includes('Gratin'), {
+      what: 'The planned gratin',
+    })
+    await chooseIngredients(api, gratin.id, [parmesan])
     await waitForIndexed<GroceryListRow>(
       api,
       '/api/grocery_lists',
@@ -280,11 +300,8 @@ test.describe('Recipes and meals', () => {
     // The week view fetches when it mounts and once on its own write, both
     // within a blink of the POST and so inside Elasticsearch's refresh — the
     // cell can still look empty, and nothing refetches on its own afterwards.
-    // Wait for the meal to be findable, then reload, or the delete button is
-    // one that never appears.
-    await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes('Gratin'), {
-      what: 'The planned gratin',
-    })
+    // Reload, or the delete button is one that never appears (the meal is
+    // findable by now).
     await page.reload()
 
     // In the cell it was planned in. It used not to be: the grid placed a meal
@@ -331,7 +348,7 @@ test.describe('Recipes and meals', () => {
 
     const ingredient = await api.post('/api/ingredients', { headers, data: { name: ingredientName, category: 'grain' } })
     expect(ingredient.status()).toBe(201)
-    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+    const { '@id': ingredientIri, id: ingredientId } = (await ingredient.json()) as { '@id': string; id: string }
 
     const recipe = await api.post('/api/recipes', {
       headers,
@@ -351,6 +368,7 @@ test.describe('Recipes and meals', () => {
         },
       })
       expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+      await chooseIngredients(api, ((await meal.json()) as { id: string }).id, [ingredientId])
     }
 
     const onList = (list: GroceryListRow): boolean => JSON.stringify(list.items).includes(ingredientName)
@@ -388,9 +406,10 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })).toHaveCount(0)
   })
 
-  test('editing a recipe updates the grocery line of the meals already planned with it', async ({ api }) => {
-    // MAG-167: the list followed the meals (MAG-116) but not the recipes
-    // behind them — 400 g became 600 g in the recipe and the list kept 400.
+  test('editing a recipe leaves the grocery line of the meals already planned with it alone — MAG-300', async ({ api }) => {
+    // MAG-167 made the list follow the recipes behind the meals: 400 g became
+    // 600 g in the recipe and the list went with it. MAG-300 reverses it: once
+    // the owner has chosen what to buy, the recipe no longer touches the list.
     // Driven through the API with an ingredient of its own, so the line is
     // this journey's and nobody else's on the shared list.
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -398,7 +417,7 @@ test.describe('Recipes and meals', () => {
 
     const ingredient = await api.post('/api/ingredients', { headers, data: { name, category: 'grain' } })
     expect(ingredient.status()).toBe(201)
-    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+    const { '@id': ingredientIri, id: ingredientId } = (await ingredient.json()) as { '@id': string; id: string }
 
     const recipe = await api.post('/api/recipes', {
       headers,
@@ -425,14 +444,22 @@ test.describe('Recipes and meals', () => {
     interface Line {
       label: string
       quantity: number | null
+      unit: string | null
     }
     const linesOf = (list: GroceryListRow): Line[] => (list.items as Line[]).filter((item) => item.label === name)
-    const lineOf = (list: GroceryListRow): Line | undefined => linesOf(list)[0]
 
-    const planned = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 400, {
-      what: 'The meal’s 400 g of boulgour',
+    // Planned, the meal has put nothing on the list.
+    const mealId = ((await meal.json()) as { id: string }).id
+    await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes('Taboulé MAG-167'), { what: 'The planned meal' })
+    const beforeChoice = (await getCollection<GroceryListRow>(api, '/api/grocery_lists'))[0]
+    expect(linesOf(beforeChoice ?? { items: [] }), 'planning the meal put its ingredient on the list').toHaveLength(0)
+
+    // Chosen, it is on the list as one line.
+    await chooseIngredients(api, mealId, [ingredientId])
+    const chosen = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => linesOf(list).length > 0, {
+      what: 'The chosen boulgour',
     })
-    expect(linesOf(planned), 'the meal planned a single line').toHaveLength(1)
+    expect(linesOf(chosen), 'the choice made a single line').toHaveLength(1)
 
     // Saved the way the edit form does: the recipe as the GET returns it — its
     // ingredient an embedded object, not an IRI — with the quantity changed.
@@ -449,13 +476,19 @@ test.describe('Recipes and meals', () => {
     })
     expect(updated.ok(), `PATCH answered ${updated.status()}: ${await updated.text()}`).toBeTruthy()
 
-    const after = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 600, {
-      what: 'The recipe’s new 600 g of boulgour',
-    })
-
-    // Same line, not a second one beside it. Counted on this journey's own
-    // label: the list is shared with the other workers, so its total moves.
-    expect(linesOf(after), 'the recipe edit added a second line instead of updating the first').toHaveLength(1)
+    // The recipe is indexed with its new quantity; the list, read after it, is
+    // the one the edit had every chance to change.
+    await waitForIndexed<{ name: string }>(
+      api,
+      '/api/recipes',
+      (r) => r.name === 'Taboulé MAG-167' && JSON.stringify(r).includes('"quantity":600'),
+      { what: 'The recipe with its new quantity' },
+    )
+    const after = (await getCollection<GroceryListRow>(api, '/api/grocery_lists'))[0]
+    const summary = (lines: Line[]) => lines.map(({ label, quantity, unit }) => ({ label, quantity, unit }))
+    expect(summary(linesOf(after ?? { items: [] })), 'the recipe edit changed the chosen line').toEqual(
+      summary(linesOf(chosen)),
+    )
   })
 
   test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({

@@ -8,6 +8,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Message\DeleteEventCommand;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Maggie\Grocery\Entity\GroceryList;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -23,6 +24,7 @@ class MealProjectionTest extends KernelTestCase
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use ChoosesMealGroceriesTrait;
 
     protected function setUp(): void
     {
@@ -45,6 +47,11 @@ class MealProjectionTest extends KernelTestCase
         return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
     }
 
+    private function em(): \Doctrine\ORM\EntityManagerInterface
+    {
+        return self::getContainer()->get('doctrine.orm.entity_manager');
+    }
+
     private function listId(): string
     {
         $list = self::getContainer()->get('doctrine.orm.entity_manager')
@@ -54,14 +61,30 @@ class MealProjectionTest extends KernelTestCase
         return (string) $list->getId();
     }
 
-    public function testPlanningAMealPublishesTheMealOnBothTopicsAndTheListOnce(): void
+    public function testPlanningAMealPublishesTheMealOnBothTopicsAndLeavesTheListAlone(): void
     {
         $mealId = $this->planMeal();
 
         $this->assertMercurePublishedOnce('/api/meals/'.$mealId);
         $this->assertMercurePublishedOnce('/api/events/'.$mealId);
-        $this->assertMercurePublishedOnce('/api/grocery_lists/'.$this->listId());
         self::assertSame([$mealId], $this->reindexedIdsOf(Meal::class), 'The meal is reindexed once');
+        self::assertSame([], $this->reindexedIdsOf(GroceryList::class), 'Planning puts nothing on the list (MAG-300)');
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            foreach ($update->getTopics() as $topic) {
+                self::assertStringNotContainsString('/grocery_lists/', $topic);
+            }
+        }
+    }
+
+    public function testChoosingTheIngredientsOfAMealPublishesTheListOnce(): void
+    {
+        $mealId = $this->planMeal();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->chooseEveryIngredientOf($mealId, 'pasta', (string) $this->getFixture('test_user')->getId());
+
+        $this->assertMercurePublishedOnce('/api/grocery_lists/'.$this->listId());
         self::assertSame([$this->listId()], $this->reindexedIdsOf(GroceryList::class), 'The list is reindexed once');
     }
 

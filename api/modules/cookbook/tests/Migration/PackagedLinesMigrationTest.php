@@ -14,6 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20261013150000;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -22,6 +23,7 @@ use Maggie\Grocery\Enum\Unit;
 use Psr\Log\AbstractLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /**
  * The lines of packaged products counted in packagings (MAG-299).
@@ -36,6 +38,7 @@ class PackagedLinesMigrationTest extends KernelTestCase
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
     use SecurityTokenTrait;
+    use ChoosesMealGroceriesTrait;
 
     private Connection $connection;
 
@@ -140,13 +143,15 @@ class PackagedLinesMigrationTest extends KernelTestCase
         $this->em()->clear();
 
         $bus = self::getContainer()->get(MessageBusInterface::class);
+        $userId = (string) $this->em()->getRepository(User::class)->findOneBy(['email' => 'cookbook-test@example.com'])->getId();
         foreach (array_slice(['+1 day', '+2 days'], 0, $meals) as $when) {
-            $bus->dispatch(new CreateMealCommand(
+            $meal = $bus->dispatch(new CreateMealCommand(
                 date: (new \DateTimeImmutable($when, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
                 slot: 'dinner',
                 recipeIds: [(string) $this->getFixture('pasta')->getId()],
-                userId: (string) $this->em()->getRepository(User::class)->findOneBy(['email' => 'cookbook-test@example.com'])->getId(),
-            ));
+                userId: $userId,
+            ))->last(HandledStamp::class)->getResult();
+            $this->chooseEveryIngredientOf((string) $meal->getId(), 'pasta', $userId);
         }
 
         $this->connection->executeStatement("UPDATE grocery_item SET quantity = :q, unit = 'g' WHERE product_id = (SELECT id FROM product WHERE name = 'Pâtes')", ['q' => 400 * $meals]);

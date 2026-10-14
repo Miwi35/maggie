@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -28,6 +29,7 @@ use Symfony\Component\Uid\Ulid;
 final class ReleasePastMealGroceriesCommandTest extends KernelTestCase
 {
     use ElasticsearchAssertionTrait;
+    use ChoosesMealGroceriesTrait;
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use SecurityTokenTrait;
@@ -160,7 +162,11 @@ final class ReleasePastMealGroceriesCommandTest extends KernelTestCase
             userId: (string) $this->getFixture('test_user')->getId(),
         ));
 
-        return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+        $mealId = (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+
+        $this->chooseEveryIngredientOf($mealId, $recipeRef, (string) $this->getFixture('test_user')->getId());
+
+        return $mealId;
     }
 
     private function day(string $when): string

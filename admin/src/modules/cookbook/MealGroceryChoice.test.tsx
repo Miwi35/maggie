@@ -176,7 +176,7 @@ describe('MealGroceryChoice', () => {
     const user = userEvent.setup()
     render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/repas est créé/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/ingrédients du repas n’a pas pu être chargée/)
 
     fetchMock.mockImplementation(() => previewOf(rice))
     await user.click(screen.getByRole('button', { name: 'Réessayer' }))
@@ -219,7 +219,7 @@ describe('MealGroceryChoice', () => {
       const user = userEvent.setup()
       render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/repas est créé/)
+      expect(await screen.findByRole('alert')).toHaveTextContent(/ingrédients du repas n’a pas pu être chargée/)
       expect(fetchMock).toHaveBeenCalledTimes(2)
 
       fetchMock.mockImplementation(() => previewOf(rice))
@@ -231,7 +231,7 @@ describe('MealGroceryChoice', () => {
       fetchMock.mockImplementation(() => json({}, 500))
       render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/repas est créé/)
+      expect(await screen.findByRole('alert')).toHaveTextContent(/ingrédients du repas n’a pas pu être chargée/)
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 

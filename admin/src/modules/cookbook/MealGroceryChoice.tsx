@@ -196,7 +196,7 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
     return (
       <>
         <DialogContent>
-          <Alert severity="error">Le repas est créé, mais la liste de ses ingrédients n’a pas pu être chargée.</Alert>
+          <Alert severity="error">La liste des ingrédients du repas n’a pas pu être chargée.</Alert>
         </DialogContent>
         <DialogActions>
           <Button onClick={onDone}>Plus tard</Button>
