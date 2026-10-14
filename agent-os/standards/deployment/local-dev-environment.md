@@ -234,14 +234,9 @@ task agent:install       # uv pip install --system -e ".[dev]"
 task test:all          # Run all tests (API + Admin + Agent)
 task lint:all          # Run all linters (PHPStan + Ruff + ESLint + tsc)
 task ci                # Full CI locally: lint:all then test:all
-task test:integration  # End-to-end integration tests (scripts/test-integration.sh)
 ```
 
-### Deployment (local build)
-```bash
-task deploy:build      # Build production Docker images locally
-task deploy:push       # Tag + push to GHCR
-```
+Production images are built and pushed to GHCR by `.github/workflows/main.yml` on merge to `main`; there is no local build task.
 
 ---
 
@@ -477,13 +472,8 @@ task agent:test -- -k test_name  # Run specific test
 - Async mode: auto (pytest-asyncio)
 - HTTP mocking: respx + pytest-httpx
 
-### Integration Tests
-```bash
-task test:integration
-# or directly:
-BASE_URL=http://maggie.local scripts/test-integration.sh
-```
-Validates all 7 services end-to-end: Docker status, Traefik, API, Event CRUD, MCP handshake, Agent chat, Mercure hub, Admin SPA, root redirect. **18 assertions.**
+### End-to-end
+The whole system is checked by the e2e stack (`task e2e:up`, `task e2e:smoke`, `task e2e:web`) — see `agent-os/standards/global/e2e-environment.md`.
 
 ### Full CI (local)
 ```bash
@@ -548,12 +538,6 @@ Host has PHP 8.1 but project needs 8.4+. **Never run `composer`, `php`, or `bin/
 No `/healthz` endpoint. Test with:
 ```bash
 curl http://maggie.local/.well-known/mercure
-```
-
-### Integration tests fail on DNS
-If `maggie.local` doesn't resolve:
-```bash
-BASE_URL=http://127.0.0.1 task test:integration
 ```
 
 ### API Platform collection format

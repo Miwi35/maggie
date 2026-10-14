@@ -112,18 +112,9 @@ opcache.revalidate_freq = 0
 
 ---
 
-## Local Build Commands (Taskfile.yml)
+## Where Images Are Built
 
-```bash
-# Build all production images locally
-task deploy:build
-
-# Tag and push to GHCR
-task deploy:push
-```
-
-- `deploy:build` builds PHP, Agent, Nginx images with `:latest` tag
-- `deploy:push` tags with short git SHA + `:latest`, pushes to `ghcr.io/miwi35/maggie-*`
+`.github/workflows/main.yml` builds the production images and pushes them to `ghcr.io/miwi35/maggie-*` on merge to `main`. There is no local build or push task.
 
 ---
 

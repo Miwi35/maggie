@@ -62,8 +62,8 @@ Read `agent-os/standards/index.yml` to get the list of available standards and t
 
 If index.yml doesn't exist or is empty:
 ```
-No standards index found. Run /discover-standards first to create standards,
-or /index-standards if you have standards files without an index.
+No standards index found: agent-os/standards/index.yml is missing or empty.
+Add an entry for each standard file before injecting.
 ```
 
 ### Step 3: Analyze Work Context
@@ -283,7 +283,7 @@ Same formatting as auto-suggest mode, based on detected scenario.
 
 - **Run early** — Inject standards at the start of a task, before implementation
 - **Be specific** — If you know which standards apply, use explicit mode
-- **Check the index** — If suggestions seem wrong, run `/index-standards` to rebuild
+- **Check the index** — If suggestions seem wrong, fix the descriptions in `agent-os/standards/index.yml`
 - **Keep standards concise** — Injected standards consume tokens; shorter is better
 
 ## Integration

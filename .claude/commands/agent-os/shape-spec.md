@@ -51,7 +51,6 @@ Read these before Step 1, in this order of authority:
 | --- | --- |
 | The Linear ticket — title, description, comments (Linear MCP) | Scope, expected outcome, constraints, acceptance criteria |
 | The module's functional spec in `agent-os/product/` (e.g. `finance-functional-spec.md`) | Existing behaviour the feature extends, domain vocabulary |
-| `agent-os/product/mission.md`, `roadmap.md`, `tech-stack.md` | Product alignment (Step 4) |
 | Linked tickets, parent issue, attached images | Visuals (Step 2), related decisions |
 | The codebase itself | Reference implementations (Step 3) |
 | `agent-os/standards/index.yml` | Which standards apply (Step 5) |
@@ -162,7 +161,7 @@ the codebase is your job here, not the user's.
 
 Check if `agent-os/product/` exists and contains files.
 
-If it exists, read key files (like `mission.md`, `roadmap.md`, `tech-stack.md`) and use AskUserQuestion:
+If it exists, read key files (the module's `*-functional-spec.md` and `*-roadmap.md`) and use AskUserQuestion:
 
 ```
 I found product context in agent-os/product/. Should this feature align with any specific product goals or constraints?
@@ -176,7 +175,7 @@ Key points from your product docs:
 If no product folder exists, skip this step.
 
 **Autonomous:** read `agent-os/product/` and check the feature against it
-yourself — `mission.md`, the relevant `*-roadmap.md` and
+yourself — the relevant `*-roadmap.md` and
 `*-functional-spec.md`. Record the alignment in `shape.md`. Escalate only if
 the ticket directly contradicts the product docs, which is a real decision the
 user must make.
