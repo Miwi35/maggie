@@ -2,8 +2,10 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect, parisDay } from '../fixtures/index.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { euros } from '../helpers/money.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
 
 /**
  * Les avances d'épargne (MAG-276, MAG-277, extends MAG-102).
@@ -236,7 +238,7 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
 })
 
 /**
- * La vue trésorerie (MAG-279) — the screen comes with MAG-280:
+ * La vue trésorerie (MAG-279) — the screen is MAG-280's, below:
  *
  *   Étant donné un salaire attendu le jour J et un repère de 4 950,00 €
  *     et aucun crédit de salaire depuis le jour J du mois dernier
@@ -313,4 +315,89 @@ test('the treasury outlook announces the delay, the overdraft and the advance to
   const within = (await (await api.get('/api/finance/treasury-outlook')).json()) as TreasuryOutlook
   expect(within.overdraft).toEqual(expect.objectContaining({ isForecast: false, limitCents: 50000 }))
   expect(within.advice).toBeNull()
+})
+
+/**
+ * L'écran trésorerie (MAG-280, extends MAG-102).
+ *
+ *   Étant donné un salaire attendu le jour J et un repère de 4 950,00 €
+ *     et aucun crédit de salaire depuis le jour J du mois dernier
+ *     et un Courant à -120,00 € et un Livret à 6 000,00 €
+ *     et un loyer de 300,00 € prévu aujourd'hui
+ *   Quand j'ouvre Finance → Trésorerie
+ *   Alors « Salaire en retard de N jours » est annoncé en tête
+ *     et le découvert prévu a sa date, et la zone de découvert est tracée
+ *     et l'avance conseillée est de 420,00 € depuis le Livret
+ *   Quand je clique « Préparer l'avance »
+ *   Alors le formulaire d'une transaction s'ouvre prérempli, et rien n'est encore saisi
+ *   Quand je déclare un découvert autorisé de 500,00 €
+ *   Alors plus aucun découvert ni aucune avance n'est annoncé
+ */
+test('the treasury screen announces the delay, the overdraft and the advance, and prefills it without making it', async ({
+  treasuryUser,
+}) => {
+  const { api, page } = treasuryUser
+  const today = parisDay()
+
+  const installed = await api.post('/api/finance/categories/standard')
+  expect(installed.status(), await installed.text()).toBe(200)
+  const salary = await waitForIndexed<StoredCategory>(api, '/api/categories', (c) => c.standardKey === 'salary', {
+    what: 'The standard « Salaire » category',
+  })
+  const checkingId = await account(api, 'Courant MAG-280', 'checking', -12000)
+  await account(api, 'Livret MAG-280', 'savings', 600000)
+  const series = await api.post('/api/recurring_operations', {
+    headers: LD,
+    data: {
+      label: 'Salaire ACME MAG-280',
+      counterpartyName: 'ACME MAG-280',
+      account: `/api/accounts/${checkingId}`,
+      category: `/api/categories/${salary.id}`,
+      period: 'monthly',
+      anchorOn: '2025-01-25',
+      referenceAmountCents: 495000,
+      referenceSource: 'declared',
+    },
+  })
+  expect(series.status(), await series.text()).toBe(201)
+  const settings = await api.patch('/api/finance/treasury-settings', {
+    data: { salaryExpectedDay: Number(today.slice(8, 10)), overdraftLimitCents: 0 },
+  })
+  expect(settings.status(), await settings.text()).toBe(200)
+  await line(api, checkingId, -30000, today, 'LOYER PREVU MAG-280', 'planned')
+
+  // When I open the treasury screen.
+  const treasury = new FinanceTreasuryPage(page)
+  await treasury.open()
+
+  // Then the delay leads the page, counted from last month's expected day.
+  const outlook = (await (await api.get('/api/finance/treasury-outlook')).json()) as TreasuryOutlook
+  await expect(treasury.delay).toContainText(`Salaire en retard de ${outlook.salary.delayDays} jours`)
+  expect(outlook.salary.delayDays).toBeGreaterThanOrEqual(28)
+
+  // And the overdraft is forecast with its date, drawn as a zone and spelled out day by day.
+  await expect(treasury.overdraft).toContainText('Découvert prévu le')
+  await expect(treasury.overdraft).toContainText(euros(-42000))
+  await expect(treasury.overdraftZone).toBeVisible()
+  await expect(treasury.days.first()).toHaveAttribute('data-overdraft', 'true')
+
+  // And the advance advised is 420 € from the Livret.
+  await expect(treasury.advice).toContainText('Livret MAG-280')
+  await expect(treasury.advice).toContainText(euros(42000))
+
+  // When I prepare the advance, the transaction form opens prefilled…
+  await treasury.prepareAdvance.click()
+  await expect(page).toHaveURL(/#\/transactions\/create\?source=/)
+  await expect(page.getByLabel(/Libellé/)).toHaveValue('Avance vers le compte courant')
+
+  // …and nothing was made: no advance exists until I save the form.
+  const stored = await api.get('/api/finance/savings-advances')
+  expect(((await stored.json()) as SavingsAdvances).advances).toEqual([])
+
+  // When the bank allows a 500 € overdraft, nothing is announced any more.
+  await treasury.open()
+  await treasury.setLimit('500')
+  await expect(treasury.overdraft).toHaveCount(0)
+  await expect(treasury.advice).toHaveCount(0)
+  await expect(treasury.content).toContainText("Aucun découvert prévu jusqu'au prochain salaire.")
 })

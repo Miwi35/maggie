@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -48,8 +49,10 @@ import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.TreasuryBanner
 import com.maggie.app.ui.navigation.FinanceAccess
 import com.maggie.app.ui.navigation.FinanceFrequency
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.navigation.financeAccessesBy
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +65,9 @@ fun FinanceDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val dashboard = uiState.dashboard
+
+    // Back from the treasury screen, the banner follows what was prepared there.
+    LaunchedEffect(Unit) { viewModel.refreshTreasury() }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -107,6 +113,16 @@ fun FinanceDashboardScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                uiState.treasuryBanner?.let { banner ->
+                    item {
+                        TreasuryBanner(
+                            overdraftOn = banner.overdraftOn,
+                            balanceBeforeSalaryCents = banner.balanceBeforeSalaryCents,
+                            balanceBeforeSalaryOn = banner.balanceBeforeSalaryOn,
+                            onClick = { onOpen(Screen.Treasury.route) },
+                        )
+                    }
+                }
                 if (dashboard != null) item { ScoreCard(dashboard) }
                 item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
                 if (dashboard != null) {

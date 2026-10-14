@@ -31,6 +31,7 @@ import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.BankConnectionRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
@@ -40,6 +41,7 @@ import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -242,7 +244,9 @@ class FakeFinanceDashboard(private val error: String = "Service indisponible") {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns
             Result.failure(IllegalStateException(error))
-        FinanceDashboardViewModel(repository)
+        val treasury = mockk<TreasuryRepository>()
+        coEvery { treasury.getOutlook() } returns Result.failure(IllegalStateException(error))
+        FinanceDashboardViewModel(repository, treasury)
     }
 }
 
@@ -464,11 +468,16 @@ class FakeChat(
  * field by field, and every DTO carries a default, so an unset part of the
  * fixture is the empty state the screen also has to draw.
  */
-class FakeLoadedFinanceDashboard(private val dashboard: FinanceDashboard) {
+class FakeLoadedFinanceDashboard(
+    private val dashboard: FinanceDashboard,
+    private val outlook: TreasuryOutlook = TreasuryOutlook(),
+) {
     val viewModel: FinanceDashboardViewModel by lazy {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns Result.success(dashboard)
-        FinanceDashboardViewModel(repository)
+        val treasury = mockk<TreasuryRepository>()
+        coEvery { treasury.getOutlook() } returns Result.success(outlook)
+        FinanceDashboardViewModel(repository, treasury)
     }
 }
 

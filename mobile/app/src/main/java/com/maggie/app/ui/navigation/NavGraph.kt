@@ -104,6 +104,9 @@ import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
+import com.maggie.app.ui.screens.finance.TreasuryScreen
+import com.maggie.app.ui.screens.finance.TreasuryViewModel
+import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategoryListScreen
@@ -193,6 +196,7 @@ sealed class Screen(val route: String, val label: String) {
     data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
+    data object Treasury : Screen("treasury", "Trésorerie")
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
@@ -456,6 +460,8 @@ fun NavGraph() {
     var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     // The transaction « En faire une opération récurrente » was tapped on: the form opens filled from it (MAG-309).
     var recurringSeed by rememberSavedSelection<Transaction>()
+    // The advance « Préparer l'avance » filled in: the new-transaction form opens with it, nothing saved (MAG-280).
+    var transactionPrefill by rememberSavedSelection<TransactionPrefill>()
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1122,7 +1128,17 @@ fun NavGraph() {
                                 },
                             )
                         },
-                        detail = account?.let { { AccountTransactions(it, onBack = null, onMakeRecurring = openRecurringFrom) } },
+                        detail = account?.let {
+                            {
+                                AccountTransactions(
+                                    it,
+                                    onBack = null,
+                                    onMakeRecurring = openRecurringFrom,
+                                    prefill = transactionPrefill,
+                                    onPrefillConsumed = { transactionPrefill = null },
+                                )
+                            }
+                        },
                         placeholder = "Touchez un compte pour voir ses transactions ici.",
                     )
                 }
@@ -1189,6 +1205,18 @@ fun NavGraph() {
                         onBack = { navController.backInFinance() },
                     )
                 }
+                composable(Screen.Treasury.route, deepLinks = DeepLinks.forRoute(Screen.Treasury.route)) {
+                    val treasuryViewModel: TreasuryViewModel = koinViewModel()
+                    TreasuryScreen(
+                        viewModel = treasuryViewModel,
+                        onBack = { navController.backInFinance() },
+                        onPrepareAdvance = { accountId, accountName, prefill ->
+                            selectedAccount = accountId to accountName.ifBlank { DEFAULT_ACCOUNT_NAME }
+                            transactionPrefill = prefill
+                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                        },
+                    )
+                }
                 composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {
                     val loanViewModel: LoanViewModel = koinViewModel()
                     LoanListScreen(
@@ -1221,7 +1249,13 @@ fun NavGraph() {
                     }
                     BackHandler(onBack = leave)
                     if (account != null) {
-                        AccountTransactions(account, onBack = leave, onMakeRecurring = openRecurringFrom)
+                        AccountTransactions(
+                            account,
+                            onBack = leave,
+                            onMakeRecurring = openRecurringFrom,
+                            prefill = transactionPrefill,
+                            onPrefillConsumed = { transactionPrefill = null },
+                        )
                     }
                 }
                 composable(Screen.RecipeDetail.route) { entry ->
@@ -1438,6 +1472,8 @@ private fun AccountTransactions(
     account: Pair<String, String>,
     onBack: (() -> Unit)?,
     onMakeRecurring: (Transaction) -> Unit,
+    prefill: TransactionPrefill?,
+    onPrefillConsumed: () -> Unit,
 ) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
@@ -1446,5 +1482,7 @@ private fun AccountTransactions(
         accountName = account.second,
         onBack = onBack,
         onMakeRecurring = onMakeRecurring,
+        prefill = prefill,
+        onPrefillConsumed = onPrefillConsumed,
     )
 }

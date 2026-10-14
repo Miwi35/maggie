@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,11 +62,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
+import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.incidentsTabTitle
 import com.maggie.app.data.model.signedAmountCents
 import com.maggie.app.data.model.statusForNature
+import com.maggie.app.data.model.toFormValues
 import com.maggie.app.data.model.transactionStatusCodes
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
@@ -82,10 +85,22 @@ fun TransactionListScreen(
     accountName: String,
     onBack: (() -> Unit)?,
     onMakeRecurring: ((Transaction) -> Unit)? = null,
+    prefill: TransactionPrefill? = null,
+    onPrefillConsumed: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var dialogPrefill by remember { mutableStateOf<TransactionPrefill?>(null) }
+
+    // The form keeps its own copy: the caller's one is consumed at once, nothing is saved.
+    LaunchedEffect(prefill) {
+        if (prefill != null) {
+            dialogPrefill = prefill
+            showCreateDialog = true
+            onPrefillConsumed()
+        }
+    }
     var searchingCounterpart by remember { mutableStateOf(false) }
     var searchingCategory by remember { mutableStateOf(false) }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
@@ -275,6 +290,7 @@ fun TransactionListScreen(
     if (showCreateDialog) {
         TransactionCreateDialog(
             categories = uiState.categories,
+            prefill = dialogPrefill,
             onConfirm = { amountCents, label, status, categoryId, bookedAt ->
                 viewModel.createTransaction(amountCents, label, status, categoryId, bookedAt)
                 showCreateDialog = false
@@ -288,17 +304,21 @@ fun TransactionListScreen(
 @Composable
 private fun TransactionCreateDialog(
     categories: List<Category>,
+    prefill: TransactionPrefill?,
     onConfirm: (amountCents: Int, label: String, status: String, categoryId: String?, bookedAt: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var label by remember { mutableStateOf("") }
-    var amountText by remember { mutableStateOf("") }
-    var nature by remember { mutableStateOf(TransactionNature.Expense) }
-    var status by remember { mutableStateOf("spent") }
+    val initial = remember(prefill) { prefill?.toFormValues(LocalDate.now()) }
+    var label by remember { mutableStateOf(initial?.label.orEmpty()) }
+    var amountText by remember { mutableStateOf(initial?.amountText.orEmpty()) }
+    var nature by remember {
+        mutableStateOf(if (initial?.isIncome == true) TransactionNature.Income else TransactionNature.Expense)
+    }
+    var status by remember { mutableStateOf(initial?.status ?: "spent") }
     var categoryId by remember { mutableStateOf<String?>(null) }
     var searchingCategory by remember { mutableStateOf(false) }
     val tree = remember(categories) { CategoryTree(categories) }
-    var date by remember { mutableStateOf(LocalDate.now()) }
+    var date by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
 
     val canSubmit = label.isNotBlank() &&
         (amountText.toDoubleOrNull() ?: 0.0) != 0.0

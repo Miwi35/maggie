@@ -959,4 +959,102 @@ class MaggieApiServiceTest {
 
         assertEquals("""{"recurringOperation":null,"recurringOccurrenceOn":null}""", body)
     }
+
+    private val outlookJson = """
+        {"today":"2026-10-13",
+         "salary":{"isConfigured":true,"expectedOn":"2026-10-10","referenceCents":250000,"isReceived":false,"isLate":true,"delayDays":3,"shortfallCents":0},
+         "balanceCents":-12000,
+         "projection":[{"date":"2026-10-13","balanceCents":-12000,"movements":[{"id":"m1","label":"Loyer","amountCents":-60000,"status":"planned","accountId":"a1","accountName":"Courant"}]}],
+         "balanceBeforeSalary":{"onDate":"2026-10-24","balanceCents":-70000},
+         "overdraft":{"isForecast":true,"onDate":"2026-10-14","worstBalanceCents":-70000,"limitCents":0},
+         "advice":{"amountCents":70000,"sourceAccountId":"s1","sourceAccountName":"Livret A","sourceBalanceCents":50000,"sourceAmountCents":50000,"isCushion":false,
+                   "alternatives":[{"accountId":"s2","accountName":"Matelas","balanceCents":30000,"amountCents":20000,"isCushion":true}],"uncoveredCents":0,"touchesCushion":true},
+         "outstandingAdvancesCents":10000}
+    """.trimIndent()
+
+    @Test
+    fun `getTreasuryOutlook reads the outlook of the treasury endpoint`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                outlookJson
+            },
+        )
+
+        val outlook = service.getTreasuryOutlook()
+
+        assertTrue(url!!.endsWith("/api/finance/treasury-outlook"))
+        assertEquals(3, outlook.salary.delayDays)
+        assertTrue(outlook.salary.isLate)
+        assertEquals("2026-10-14", outlook.overdraft.onDate)
+        assertEquals("s1", outlook.advice?.sourceAccountId)
+        assertTrue(outlook.advice!!.touchesCushion)
+        assertEquals(listOf(true), outlook.advice!!.alternatives.map { it.isCushion })
+        assertEquals("Loyer", outlook.projection.single().movements.single().label)
+        assertEquals(10000, outlook.outstandingAdvancesCents)
+    }
+
+    @Test
+    fun `an outlook not yet configured reads with its nulls`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"today":"2026-10-13","salary":{"isConfigured":false,"expectedOn":null,"referenceCents":null,"isReceived":false,"isLate":false,"delayDays":0,"shortfallCents":0},"balanceCents":0,"projection":[],"balanceBeforeSalary":null,"overdraft":{"isForecast":false,"onDate":null,"worstBalanceCents":0,"limitCents":0},"advice":null,"outstandingAdvancesCents":0}"""
+            },
+        )
+
+        val outlook = service.getTreasuryOutlook()
+
+        assertFalse(outlook.salary.isConfigured)
+        assertNull(outlook.salary.expectedOn)
+        assertNull(outlook.balanceBeforeSalary)
+        assertNull(outlook.advice)
+    }
+
+    @Test
+    fun `updateTreasurySettings patches only the field it was given`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        val bodies = mutableListOf<String>()
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                bodies += String(request.body.toByteArray())
+                """{"success":true,"salaryExpectedDay":null,"overdraftLimitCents":25000}"""
+            },
+        )
+
+        val settings = service.updateTreasurySettings(TreasurySettingsRequest(overdraftLimitCents = 25000))
+        service.updateTreasurySettings(TreasurySettingsRequest(salaryExpectedDay = 28))
+
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/finance/treasury-settings"))
+        assertEquals(listOf("""{"overdraftLimitCents":25000}""", """{"salaryExpectedDay":28}"""), bodies)
+        assertEquals(25000, settings.overdraftLimitCents)
+        assertNull(settings.salaryExpectedDay)
+    }
+
+    @Test
+    fun `a settings request refused with 400 raises the server's own message`() = runBlocking {
+        val sentence = "overdraftLimitCents must be an integer of 0 or more cents"
+        val service = MaggieApiService(refusingClient(HttpStatusCode.BadRequest, """{"error":"$sentence"}"""))
+
+        val refused = runCatching {
+            service.updateTreasurySettings(TreasurySettingsRequest(overdraftLimitCents = -1))
+        }.exceptionOrNull()
+
+        assertTrue(refused is ApiRefusalException)
+        assertEquals(400, (refused as ApiRefusalException).status)
+        assertEquals(sentence, refused.message)
+    }
+
+    @Test
+    fun `an outlook the server could not compute is a failure, not an empty outlook`() = runBlocking {
+        val service = MaggieApiService(refusingClient(HttpStatusCode.InternalServerError, """{"error":"boom"}"""))
+
+        val failed = runCatching { service.getTreasuryOutlook() }.exceptionOrNull()
+
+        assertTrue(failed is ApiRefusalException)
+    }
 }

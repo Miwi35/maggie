@@ -480,6 +480,9 @@ mobile:
     areas: [chat, realtime]
   e2e/mobile/flows/15-stop-and-correct.yaml:
     areas: [chat, realtime]
+  e2e/mobile/flows/finance-treasury.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/treasury-api.js]
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
     paths:
