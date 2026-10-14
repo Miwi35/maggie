@@ -392,6 +392,13 @@ tags:
 # The agent's fake model answers `03-screen-image.yaml` only on a turn carrying an
 # image, and `GET /agent/e2e/llm/images` counts the image turns it was given: the
 # answer proves the picture reached the model, the count that it went once.
+#
+# The user circles a zone first (MAG-316): a stroke down the screenshot, from the middle
+# of the picture. What is sent is then the bounding rectangle of the stroke — a strip, a
+# line having no width — and « Tout l'écran » appears to take it back. The cut itself
+# (which pixels, the 1568 px / JPEG 80 rules, nothing sent if it fails) is proved on the
+# JVM: `ScreenshotCropTest`, `CropRegionTest`, `PendingScreenshotTest`; the fake model only
+# counts the image, whatever its size, so the flow proves the circled path still arrives.
 # ---------------------------------------------------------------------------
 - evalScript: "${output.images = json(http.delete(E2E_BASE_URL + '/agent/e2e/llm/images', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
 - assertTrue: "${output.images == 0}"
@@ -400,6 +407,16 @@ tags:
 - extendedWaitUntil:
     visible: ".*Je vous écoute.*"
     timeout: 20000
+
+- swipe:
+    from:
+      id: "assist_screenshot"
+    direction: DOWN
+    duration: 600
+- extendedWaitUntil:
+    visible:
+      id: "assist_screenshot_reset"
+    timeout: 10000
 
 - longPressOn:
     id: "voice_mic"

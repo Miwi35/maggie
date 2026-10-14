@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.uiTagRoot
+import com.maggie.app.voice.CropRegion
 import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.ScreenshotEncoder
 import com.maggie.app.voice.VoiceManager
@@ -45,7 +46,8 @@ import com.maggie.app.voice.VoiceState
 
 /**
  * [pendingContext] is what the screen behind the overlay was showing when the
- * assistant was summoned (MAG-30), named on screen until it is used. [onVoiceResult]
+ * assistant was summoned (MAG-30), named on screen until it is used; [screenshotRegion]
+ * is the zone of its screenshot the user circled (MAG-316). [onVoiceResult]
  * receives what the microphone heard: the activity, which starts the listening,
  * hands it in, so the sentence goes where the listening was asked for. [onListen]
  * reopens the microphone once a held action's question has been read, for its answer.
@@ -56,6 +58,8 @@ fun AssistantOverlay(
     voiceManager: VoiceManager,
     onDismiss: () -> Unit,
     pendingContext: ScreenContext? = null,
+    screenshotRegion: CropRegion? = null,
+    onSelectScreenshotRegion: (CropRegion?) -> Unit = {},
     onVoiceResult: (String) -> Unit,
     onListen: () -> Unit = {},
 ) {
@@ -137,9 +141,10 @@ fun AssistantOverlay(
                             .getOrNull()?.asImageBitmap()
                     }
                     if (image != null) {
-                        ScreenshotImage(
+                        ScreenshotSelector(
                             image,
-                            contentDescription = "Capture d'écran à envoyer",
+                            region = screenshotRegion,
+                            onSelect = onSelectScreenshotRegion,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                         )
                     }
