@@ -16,9 +16,11 @@ use Maggie\Finance\Repository\TransactionRepository;
  * of its big expenses are worth carrying over, what is already planned for the
  * year ahead, and how much each category should therefore be budgeted.
  *
- * Nothing is stored. The plan *is* the planned transactions and the annual
- * envelopes — a stored "validated plan" would be a second truth, and it would
- * start lying at the first purchase.
+ * Nothing is stored. The plan *is* the planned transactions, the annual
+ * envelopes and the debits the confirmed recurring series still expect over
+ * the year (`recurringCents`, MAG-307; an occurrence with a line attached is
+ * that line's, never counted here) — a stored "validated plan" would be a
+ * second truth, and it would start lying at the first purchase.
  */
 class GetAnnualPlan
 {
@@ -32,6 +34,7 @@ class GetAnnualPlan
     public function __construct(
         private readonly EnvelopeRepository $envelopeRepository,
         private readonly TransactionRepository $transactionRepository,
+        private readonly GetRecurringOccurrences $getRecurringOccurrences,
     ) {
     }
 
@@ -115,9 +118,20 @@ class GetAnnualPlan
             }] += $amount;
         }
 
+        // What the owner's recurring series will still debit over the year:
+        // costs only, the session budgets spending. Computed, never stored.
+        foreach ($this->getRecurringOccurrences->execute($user, $targetStart, $targetEnd) as $occurrence) {
+            if ($occurrence['amountCents'] >= 0) {
+                continue;
+            }
+
+            $id = $this->open($rows, $occurrence['categoryId'], $occurrence['categoryName']);
+            $rows[$id]['recurringCents'] += abs($occurrence['amountCents']);
+        }
+
         foreach ($rows as $id => $row) {
             // Money the year ahead has committed to one way or another.
-            $decided = $row['plannedCents'] + $row['committedCents'];
+            $decided = $row['plannedCents'] + $row['committedCents'] + $row['recurringCents'];
 
             $rows[$id]['decidedCents'] = $decided;
             // What the year ahead has decided on, or failing that what the
@@ -162,6 +176,7 @@ class GetAnnualPlan
             'lastYear' => ['budgetedCents' => null, 'consumedCents' => 0, 'events' => []],
             'plannedCents' => 0,
             'committedCents' => 0,
+            'recurringCents' => 0,
             'toArbitrateCents' => 0,
             'decidedCents' => 0,
             'plannedEvents' => [],

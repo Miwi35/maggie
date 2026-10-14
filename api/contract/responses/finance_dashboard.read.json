@@ -140,6 +140,8 @@
     },
     "independence": {
         "coveragePercent": 0,
+        "projectedCoveragePercent": 0,
+        "projectedPassiveIncomeCents": 0,
         "lifestyleCents": 0,
         "passiveIncomeCents": 0,
         "gapCents": 0,

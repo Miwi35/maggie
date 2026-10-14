@@ -1,0 +1,15 @@
+# What the treasury recording adds to RecordedResponses.yaml: a salary
+# expected on the 25th against a declared reference, so the outlook projects
+# (the other recordings must not see it, hence a file of its own).
+Maggie\Finance\Entity\TreasurySettings:
+  recorded_treasury_settings:
+    salaryExpectedDay: 25
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  recorded_treasury_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 250000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@recorded_user'

@@ -15,6 +15,13 @@ import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
  *   Alors l'opération récurrente existe, ses trois débits y sont rattachés
  *     et sa prochaine échéance est le 5 du mois suivant
  *
+ * The annual plan reads the series (MAG-307):
+ *
+ *   Étant donné une opération récurrente « LOYER SCI VERDA » de 900,00 € le 5, avec ses trois débits rattachés
+ *   Quand j'ouvre le plan annuel de l'année en cours
+ *   Alors la catégorie du loyer compte 900,00 € par occurrence à venir, une seule fois chacune,
+ *     et le débit déjà rattaché n'est pas compté deux fois
+ *
  * Suggesting writes nothing: the series appears only on the explicit accept.
  * The first journey goes through the API; the second (MAG-308) goes through
  * the « Suggestions » panel of the recurring operations screen:
@@ -45,6 +52,13 @@ interface AcceptResult {
   created: number
   labels: string[]
   attached: number
+}
+
+interface PlanCategory {
+  categoryId: string
+  recurringCents: number
+  decidedCents: number
+  suggestedCents: number
 }
 
 interface OverviewOperation {
@@ -275,4 +289,73 @@ test('the suggestion is accepted from the screen, then the history is attached a
   await recurring.preview.getByRole('button', { name: /^Rattacher ces \d+ transaction/ }).click()
   await expect(recurring.preview).toHaveCount(0)
   await expect.poll(() => attachedCount(api, seriesIri)).toBe(3)
+})
+
+test('the annual plan counts each upcoming rent occurrence once, and never the debits already attached', async ({
+  recurringUser,
+}) => {
+  const { api } = recurringUser
+  const attempt = test.info().retry
+
+  const accountId = await created(api, '/api/accounts', {
+    name: `Courant MAG-307, essai ${attempt}`,
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 0,
+  })
+  createdAccountIds.push(accountId)
+  const categoryId = await created(api, '/api/categories', {
+    name: `Logement MAG-307, essai ${attempt}`,
+    obligation: 'mandatory',
+  })
+  createdCategoryIds.push(categoryId)
+
+  // Given the rent series on the 5th, with its three booked debits attached.
+  const today = parisDay()
+  const year = Number(today.slice(0, 4))
+  const lastMonth = lastBookedMonth(today)
+  const days = [2, 1, 0].map((back) => `${monthBefore(lastMonth, back)}-05`)
+  for (const day of days) {
+    await created(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: 'PRELEVEMENT LOYER SCI VERDA',
+      amountCents: -90000,
+      currency: 'EUR',
+      bookedAt: day,
+      status: 'spent',
+    })
+  }
+  const rent = (await suggestions(api)).find((s) => s.accountId === accountId)
+  expect(rent, 'the rent must be proposed').toBeDefined()
+  const accepted = await api.post('/api/finance/recurring-operations/suggestions/accept', {
+    headers: { 'Content-Type': 'application/json' },
+    data: { suggestions: [{ ...rent, categoryId }] },
+  })
+  expect(accepted.status(), await accepted.text()).toBe(200)
+  expect(((await accepted.json()) as AcceptResult).attached).toBe(3)
+
+  // When I open the annual plan of the current year.
+  // Then the rent counts 900,00 € for each 5th of the year the series has not
+  // settled yet: the series starts at its anchor, the attached debits are out.
+  const upcoming = Array.from({ length: 12 }, (_, index) => `${year}-${String(index + 1).padStart(2, '0')}-05`).filter(
+    (day) => day >= days[0] && !days.includes(day),
+  )
+  expect(upcoming.length, 'the scenario must leave occurrences to come').toBeGreaterThan(0)
+
+  await expect
+    .poll(async () => {
+      const response = await api.get(`/api/finance/annual-plan?year=${year}`, { headers: { Accept: 'application/json' } })
+      expect(response.status(), await response.text()).toBe(200)
+      const plan = (await response.json()) as { categories: PlanCategory[] }
+
+      return plan.categories.find((category) => category.categoryId === categoryId)?.recurringCents
+    })
+    .toBe(upcoming.length * 90000)
+
+  const response = await api.get(`/api/finance/annual-plan?year=${year}`, { headers: { Accept: 'application/json' } })
+  const category = ((await response.json()) as { categories: PlanCategory[] }).categories.find(
+    (candidate) => candidate.categoryId === categoryId,
+  )
+  expect(category?.decidedCents).toBe(upcoming.length * 90000)
+  expect(category?.suggestedCents).toBe(upcoming.length * 90000)
 })

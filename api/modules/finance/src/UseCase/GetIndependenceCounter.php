@@ -20,6 +20,13 @@ use Maggie\Finance\Repository\TransactionRepository;
  * measured lifestyle would compare two different things, and the percentage
  * would move when nothing in the user's life did.
  *
+ * `coveragePercent` stays on the real. Next to it, `projectedCoveragePercent`
+ * says where the rentes stand "at this rhythm" (MAG-307): the same
+ * lifestyle, against the passive income of the {@see MeasureMonthlyLifestyle::SAMPLE_MONTHS}
+ * months ahead — what lands (as `passiveIncomeCents` counts it) plus what the
+ * owner's confirmed series still expect, never an occurrence already settled
+ * by a line. A series of expenses moves neither figure.
+ *
  * The target date N and the progression curve are Premium (v1.1): nothing is
  * left here for them, because an empty date reads as a promise.
  */
@@ -33,6 +40,7 @@ class GetIndependenceCounter
         private readonly TransactionRepository $transactionRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly LoanRepository $loanRepository,
+        private readonly GetRecurringOccurrences $getRecurringOccurrences,
     ) {
     }
 
@@ -65,6 +73,11 @@ class GetIndependenceCounter
             ? intdiv($passiveIncomeCents * 100, $lifestyleCents)
             : 0;
 
+        $projectedPassiveIncomeCents = $this->projectedPassiveIncome($user, $thisMonth);
+        $projectedCoveragePercent = $lifestyleCents > 0
+            ? intdiv($projectedPassiveIncomeCents * 100, $lifestyleCents)
+            : 0;
+
         $monthlyNeedCents = $lifestyleCents + $loanPaymentsCents;
         $milestones = $this->milestones($lifestyleCents, $passiveIncomeCents);
         $next = $lifestyleCents > 0
@@ -73,6 +86,8 @@ class GetIndependenceCounter
 
         return [
             'coveragePercent' => $coveragePercent,
+            'projectedCoveragePercent' => $projectedCoveragePercent,
+            'projectedPassiveIncomeCents' => $projectedPassiveIncomeCents,
             'lifestyleCents' => $lifestyleCents,
             'passiveIncomeCents' => $passiveIncomeCents,
             'gapCents' => max(0, $lifestyleCents - $passiveIncomeCents),
@@ -107,6 +122,34 @@ class GetIndependenceCounter
                 ];
             }, $byCategory),
         ];
+    }
+
+    /**
+     * The monthly average of the passive income over the months ahead: the
+     * credits of the rente categories that land in the window, plus the
+     * occurrences of the series filed under them that no line settles yet.
+     */
+    private function projectedPassiveIncome(User $user, \DateTimeImmutable $thisMonth): int
+    {
+        $until = $thisMonth->modify(sprintf('+%d months', MeasureMonthlyLifestyle::SAMPLE_MONTHS));
+
+        $landed = array_sum(array_column(
+            $this->transactionRepository->sumPassiveIncomeByCategoryBetween($user, $thisMonth, $until),
+            'incomeCents',
+        ));
+
+        $passive = array_flip(array_map(
+            static fn ($category): string => (string) $category->getId(),
+            $this->categoryRepository->findPassiveIncomeByUser($user),
+        ));
+        $expected = 0;
+        foreach ($this->getRecurringOccurrences->execute($user, $thisMonth, $until) as $occurrence) {
+            if ($occurrence['amountCents'] > 0 && isset($passive[$occurrence['categoryId']])) {
+                $expected += $occurrence['amountCents'];
+            }
+        }
+
+        return intdiv($landed + $expected, MeasureMonthlyLifestyle::SAMPLE_MONTHS);
     }
 
     /**

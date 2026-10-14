@@ -1,0 +1,172 @@
+{
+    "today": "2026-04-30",
+    "salary": {
+        "isConfigured": true,
+        "expectedOn": "2026-03-25",
+        "referenceCents": 250000,
+        "isReceived": false,
+        "isLate": true,
+        "delayDays": 36,
+        "shortfallCents": 500000
+    },
+    "balanceCents": 123456,
+    "projection": [
+        {
+            "date": "2026-04-30",
+            "balanceCents": 123456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-01",
+            "balanceCents": 123456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-02",
+            "balanceCents": 123456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-03",
+            "balanceCents": 123456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-04",
+            "balanceCents": 123456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-05",
+            "balanceCents": 33456,
+            "movements": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Loyer",
+                    "amountCents": -90000,
+                    "status": "expected",
+                    "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "accountName": "Recorded Account",
+                    "source": "recurring"
+                }
+            ]
+        },
+        {
+            "date": "2026-05-06",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-07",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-08",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-09",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-10",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-11",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-12",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-13",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-14",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-15",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-16",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-17",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-18",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-19",
+            "balanceCents": 33456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-20",
+            "balanceCents": 30456,
+            "movements": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Salle de sport",
+                    "amountCents": -3000,
+                    "status": "expected",
+                    "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "accountName": "Recorded Account",
+                    "source": "recurring"
+                }
+            ]
+        },
+        {
+            "date": "2026-05-21",
+            "balanceCents": 30456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-22",
+            "balanceCents": 30456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-23",
+            "balanceCents": 30456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-24",
+            "balanceCents": 30456,
+            "movements": []
+        }
+    ],
+    "balanceBeforeSalary": {
+        "onDate": "2026-04-30",
+        "balanceCents": 123456
+    },
+    "overdraft": {
+        "isForecast": false,
+        "onDate": null,
+        "worstBalanceCents": 30456,
+        "limitCents": 0
+    },
+    "advice": null,
+    "outstandingAdvancesCents": 0
+}

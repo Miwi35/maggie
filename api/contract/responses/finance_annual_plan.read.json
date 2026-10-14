@@ -1,0 +1,31 @@
+{
+    "year": 2026,
+    "sourceYear": 2025,
+    "thresholdCents": 10000,
+    "totalLastYearConsumedCents": 0,
+    "totalDecidedCents": 846000,
+    "totalToArbitrateCents": 0,
+    "totalSuggestedCents": 846000,
+    "totalEnvelopedCents": 0,
+    "categories": [
+        {
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "currency": "EUR",
+            "lastYear": {
+                "budgetedCents": null,
+                "consumedCents": 0,
+                "events": []
+            },
+            "plannedCents": 0,
+            "committedCents": 0,
+            "recurringCents": 846000,
+            "toArbitrateCents": 0,
+            "decidedCents": 846000,
+            "plannedEvents": [],
+            "envelopeId": null,
+            "envelopeCents": null,
+            "suggestedCents": 846000
+        }
+    ]
+}

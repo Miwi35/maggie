@@ -1,0 +1,67 @@
+# The world of the projections that read recurring occurrences (MAG-307).
+# Series and lines are written by the tests, on fixed dates: nothing moves
+# with the calendar.
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-projections@example.com
+    googleId: google-recurring-projections
+    name: Recurring Projections User
+  other_user:
+    email: recurring-projections-other@example.com
+    googleId: google-recurring-projections-other
+    name: Someone Else
+
+Maggie\Finance\Entity\TreasurySettings:
+  settings:
+    salaryExpectedDay: 25
+    user: '@test_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@test_user'
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@test_user'
+  livret:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  rentes:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    passiveIncome: true
+    user: '@test_user'
+  other_housing:
+    name: Logement de l'autre
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@other_user'
