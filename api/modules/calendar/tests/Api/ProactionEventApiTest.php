@@ -104,6 +104,25 @@ class ProactionEventApiTest extends WebTestCase
         self::assertSame(['Prépare le résumé de la semaine'], array_column($members, 'prompt'));
     }
 
+    public function testTheItemServesTheOutcomeOfAFailedProaction(): void
+    {
+        $this->client->request('GET', '/api/proactions/'.$this->getFixture('later_failed_proaction')->getId(), [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('failed', $body['executionStatus']);
+        self::assertSame('Le modèle ne répond pas', $body['error']);
+    }
+
+    public function testAnotherUserCannotReadTheItem(): void
+    {
+        $this->authenticateAsUser($this->getFixture('other_user'));
+
+        $this->client->request('GET', '/api/proactions/'.$this->getFixture('proaction')->getId(), [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testTheEventCollectionStillNeverListsThem(): void
     {
         $this->client->request('GET', '/api/events', [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));

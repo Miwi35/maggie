@@ -71,10 +71,12 @@ class Proaction extends Event implements MercurePublishable
     private ProactionStatus $executionStatus = ProactionStatus::Pending;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     #[ApiProperty(writable: false)]
     private ?string $response = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     #[ApiProperty(writable: false)]
     private ?string $error = null;
 
@@ -205,6 +207,8 @@ class Proaction extends Event implements MercurePublishable
         $doc = parent::toSearchDocument();
         $doc['prompt'] = $this->prompt;
         $doc['executionStatus'] = $this->executionStatus->value;
+        $doc['response'] = $this->response;
+        $doc['error'] = $this->error;
         $doc['completedAt'] = $this->completedAt?->format('c');
 
         return $doc;
