@@ -50,6 +50,7 @@ const NEXT = 12 === ANCHOR_MONTH
  * (gauges, score) must not move because a sub-category appears on a shard.
  */
 const TREE_NAMES = ['Obsydian', 'Bars', 'Loisirs'] as const
+const HELLFEST = 'Hellfest 2026'
 const OBSYDIAN_PATH = 'Loisirs › Bars › Obsydian'
 const treeAccountIds: string[] = []
 const treeEnvelopeIds: string[] = []
@@ -77,12 +78,12 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
   const budget = new FinanceBudgetPage(page)
   await budget.open()
 
-  // Both modes, side by side, annual first — that ordering is the API's
-  // (`findCoveringPeriod` sorts by mode), and it is what puts a yearly budget
-  // and a monthly one on the same screen without them being confused.
-  expect(await budget.gaugedCategories()).toEqual(['Loisirs', 'Courses'])
+  // The month's budget first, then the annual envelope apart under « Hors
+  // budget mensuel » (MAG-414): a yearly budget and a monthly one on the same
+  // screen without them being confused, nor added up.
+  expect(await budget.gaugedCategories()).toEqual(['Courses', 'Loisirs'])
 
-  const leisure = budget.gauge('Loisirs')
+  const leisure = budget.outsideGauge('Loisirs')
   await expect(leisure).toContainText(periodLabel('annual', ANCHOR_YEAR))
   await expect(
     leisure,
@@ -180,6 +181,10 @@ test('a monthly envelope is carried into the next month, once and no more', asyn
 })
 
 test.describe('categories on three levels', () => {
+  // In order, on one worker: every journey here reads the second user's own totals, which
+  // another one's envelopes would move, and the clean-up removes the tree they all share.
+  test.describe.configure({ mode: 'default' })
+
   // Scoped to this test: a file-level hook would also run after the other tests, on the
   // other worker, and delete the tree while this one is still using it.
   test.afterEach(async ({ otherUser }) => {
@@ -336,6 +341,71 @@ test.describe('categories on three levels', () => {
     await expect(budget.gauge('Bars'), 'a category with no envelope is not shown as one').toHaveCount(0)
     await expect(budget.totalLine, 'the total is Loisirs\' 300 €, not 400 €').toContainText(
       `${euros(4000)} consommés sur ${euros(30000)}`,
+    )
+  })
+
+  test('a spend attributed to a one-off envelope leaves its category for « Hors budget mensuel » (MAG-414)', async ({
+    otherUser,
+  }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs at 300 € this month, a one-off « Hellfest 2026 » of 400 €, and an 89 € ticket filed in Loisirs.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    treeEnvelopeIds.push(
+      await createdId(api, '/api/envelopes', {
+        category: `/api/categories/${loisirsId}`,
+        mode: 'monthly',
+        amountCents: 30000,
+        currency: 'EUR',
+        year: ANCHOR_YEAR,
+        month: ANCHOR_MONTH,
+      }),
+    )
+    treeEnvelopeIds.push(
+      await createdId(api, '/api/envelopes', { mode: 'one_off', name: HELLFEST, amountCents: 40000, currency: 'EUR' }),
+    )
+    const accountId = await createdId(api, '/api/accounts', {
+      name: 'Compte MAG-414',
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    treeAccountIds.push(accountId)
+    const label = 'BILLET HELLFEST MAG-414'
+    await createdId(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      category: `/api/categories/${loisirsId}`,
+      label,
+      amountCents: -8900,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+    // The list and the sheet's choice are both served from Elasticsearch.
+    await waitForIndexed<{ label?: string }>(api, '/api/transactions', (t) => t.label === label, { what: 'The Hellfest ticket' })
+    await waitForIndexed<{ name?: string }>(api, '/api/envelopes', (e) => e.name === HELLFEST, { what: `The envelope ${HELLFEST}` })
+
+    // When I attribute it to Hellfest from the transaction.
+    const accounts = new FinanceAccountsPage(page)
+    await accounts.openTransactions(accountId)
+    await accounts.openTransaction(label)
+    await accounts.content.getByLabel('Attribuer à une enveloppe ponctuelle').click()
+    await page.getByRole('option', { name: HELLFEST }).click()
+    const [saved] = await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/transactions/') && 'PATCH' === response.request().method()),
+      accounts.content.getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
+    expect(saved.status(), await saved.text()).toBe(200)
+
+    // Then « Hors budget mensuel » shows Hellfest 89 / 400 €, and Loisirs no longer counts these 89 €.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    await expect(budget.outsideGauge(HELLFEST)).toContainText(overBudget(8900, 40000))
+    await expect(budget.outsideGauge(HELLFEST)).toContainText('Ponctuelle')
+    await expect(budget.gauge('Loisirs')).toContainText(overBudget(0, 30000))
+    await expect(budget.totalLine, 'the event counts in none of the month\'s totals').toContainText(
+      `${euros(0)} consommés sur ${euros(30000)}`,
     )
   })
 })

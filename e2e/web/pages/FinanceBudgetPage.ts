@@ -20,6 +20,8 @@ export class FinanceBudgetPage extends AdminShell {
   readonly budgetCard: Locator
   readonly rollOverButton: Locator
   readonly totalLine: Locator
+  /** « Hors budget mensuel »: the annual and one-off envelopes, out of the month's totals (MAG-414). */
+  readonly outsideMonthly: Locator
 
   constructor(page: Page) {
     super(page)
@@ -33,6 +35,7 @@ export class FinanceBudgetPage extends AdminShell {
       name: 'Reconduire le mois précédent',
     })
     this.totalLine = this.budgetCard.getByText(/^Total :/)
+    this.outsideMonthly = this.budgetCard.getByTestId('outside-monthly-budget')
   }
 
   /**
@@ -62,6 +65,11 @@ export class FinanceBudgetPage extends AdminShell {
    */
   gauge(categoryName: string): Locator {
     return this.budgetCard.locator(`[data-testid="budget-gauge"][data-category="${categoryName}"]`)
+  }
+
+  /** A gauge of « Hors budget mensuel »: an annual envelope's category, or a one-off envelope's name. */
+  outsideGauge(name: string): Locator {
+    return this.outsideMonthly.locator(`[data-testid="budget-gauge"][data-category="${name}"]`)
   }
 
   /** The gauges on screen, in the order the panel draws them. */

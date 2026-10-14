@@ -3,13 +3,17 @@ name: 13-finance-budget-nesting
 tags:
   - finance
 ---
-# Envelopes in nesting dolls on the phone (MAG-412, extends MAG-102).
+# Envelopes in nesting dolls on the phone (MAG-412, extends MAG-102), and a spend
+# attributed to a one-off envelope (MAG-414).
 #
 # Given Loisirs at 300 € and Obsydian (Loisirs › Bars › Obsydian) at 100 €, no envelope
 # on Bars, when a 40 € spend is filed in Obsydian, then the budget screen reads
 # Obsydian 40 / 100 € nested under Loisirs 40 / 300 €, and Bars is not drawn as an
 # envelope. A 25 € spend on Bars then counts in Loisirs alone: 65 / 300 €, Obsydian
-# unchanged. The same journey over the admin is `finance-budget.spec.ts`.
+# unchanged. Then, given a one-off « Hellfest 2026 » of 400 € and an 89 € ticket filed in
+# Loisirs (154 / 300 €), when the ticket is attributed to Hellfest from its sheet, then
+# « Hors budget mensuel » shows Hellfest 89 / 400 € and Loisirs is back to 65 / 300 €.
+# The same journeys over the admin are in `finance-budget.spec.ts`.
 #
 # What is not here: the red and orange states with their icon and word, and the totals
 # counting the mother once — `BudgetViewModelTest`, `EnvelopeTest` and the API's
@@ -64,6 +68,52 @@ tags:
     visible: "65[.,]00 EUR / 300[.,]00 EUR"
     timeout: 30000
 - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+
+# A one-off « Hellfest 2026 » of 400 €, and an 89 € ticket filed in Loisirs: 154 / 300 €.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: hellfest
+      TODAY: ${TODAY}
+
+# The ticket is attributed to Hellfest from its sheet, through the full-screen choice.
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: "Compte MAG-412"
+    timeout: 20000
+- tapOn: "Compte MAG-412"
+- extendedWaitUntil:
+    visible: "BILLET HELLFEST MAG-414"
+    timeout: 30000
+- tapOn: "BILLET HELLFEST MAG-414"
+- extendedWaitUntil:
+    visible:
+      id: "transaction_one_off_envelope"
+    timeout: 10000
+- tapOn:
+    id: "transaction_one_off_envelope"
+- extendedWaitUntil:
+    visible: "Hellfest 2026"
+    timeout: 20000
+- tapOn: "Hellfest 2026"
+# The sheet answers with the event the server now holds it under.
+- extendedWaitUntil:
+    visible: "Enveloppe ponctuelle, Hellfest 2026"
+    timeout: 30000
+
+# Hellfest 89 / 400 € apart from the month, Loisirs no longer counting the ticket.
+- openLink: "maggie-e2e://finance/budgets"
+- extendedWaitUntil:
+    visible: "65[.,]00 EUR / 300[.,]00 EUR"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "budget_outside_monthly"
+- scrollUntilVisible:
+    element: "89[.,]00 EUR / 400[.,]00 EUR"
+- extendedWaitUntil:
+    visible: "Hellfest 2026"
+    timeout: 10000
 
 # Left as found.
 - runScript:

@@ -70,6 +70,7 @@ import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
@@ -474,5 +475,6 @@ private fun EnvelopeCreateDialog(
                 Text("Annuler")
             }
         },
+        modifier = Modifier.uiTagRoot(),
     )
 }
