@@ -11,6 +11,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
@@ -147,7 +148,8 @@ class TransactionRepository extends ServiceEntityRepository
      * Debits on a set of categories (a category and its descendants, for an
      * envelope that takes its sub-categories along) over a half-open period,
      * split by status, as positive cents. Every status is present, zero when
-     * nothing matched.
+     * nothing matched. A spend attributed to a one-off envelope keeps its
+     * category but leaves these sums: it is budgeted by its event.
      *
      * @param list<Ulid> $categoryIds
      *
@@ -160,6 +162,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IN (:categories)')
+            ->andWhere('t.oneOffEnvelope IS NULL')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
@@ -183,6 +186,48 @@ class TransactionRepository extends ServiceEntityRepository
         }
 
         return $totals;
+    }
+
+    /**
+     * Debits attributed to the user's one-off envelopes, whenever booked, per
+     * envelope id then per status, as positive cents. An envelope nothing was
+     * attributed to is absent.
+     *
+     * @return array<string, array<string, int>>
+     */
+    public function sumByStatusForOneOffEnvelopes(User $user): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.oneOffEnvelope) AS envelope, t.status AS status, SUM(t.amountCents) AS total')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.oneOffEnvelope IS NOT NULL')
+            ->andWhere('t.transferKind = :noTransfer')
+            ->andWhere('t.amountCents < 0')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
+            ->groupBy('t.oneOffEnvelope, t.status')
+            ->getQuery()
+            ->getResult();
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $envelopeId = (string) Ulid::fromString((string) $row['envelope']);
+            if (!isset($totals[$envelopeId])) {
+                foreach (TransactionStatus::cases() as $status) {
+                    $totals[$envelopeId][$status->value] = 0;
+                }
+            }
+            $status = $row['status'] instanceof TransactionStatus ? $row['status']->value : (string) $row['status'];
+            $totals[$envelopeId][$status] = abs((int) $row['total']);
+        }
+
+        return $totals;
+    }
+
+    /** @return Transaction[] the lines attributed to a one-off envelope */
+    public function findByOneOffEnvelope(Envelope $envelope): array
+    {
+        return $this->findBy(['oneOffEnvelope' => $envelope]);
     }
 
     /**

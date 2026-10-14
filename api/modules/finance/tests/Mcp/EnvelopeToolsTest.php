@@ -106,7 +106,7 @@ class EnvelopeToolsTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(2026, $data['year']);
         self::assertSame(7, $data['month']);
-        self::assertCount(2, $data['budgets']);
+        self::assertCount(1, $data['budgets']);
 
         $byCategory = array_column($data['budgets'], null, 'categoryName');
 
@@ -116,14 +116,16 @@ class EnvelopeToolsTest extends KernelTestCase
         self::assertSame(35401, $byCategory['Alimentation']['remainingCents']);
         self::assertFalse($byCategory['Alimentation']['isOverspent']);
 
-        // The annual leisure envelope counts the whole year, March debit included.
-        self::assertSame(120000, $byCategory['Loisirs']['amountCents']);
-        self::assertSame(1200, $byCategory['Loisirs']['spentCents']);
-        self::assertSame(118800, $byCategory['Loisirs']['remainingCents']);
+        // The annual leisure envelope counts the whole year, March debit
+        // included, apart from the month's budget and totals.
+        $annual = array_column($data['outsideMonthlyBudget']['annual'], null, 'categoryName');
+        self::assertSame(120000, $annual['Loisirs']['amountCents']);
+        self::assertSame(1200, $annual['Loisirs']['spentCents']);
+        self::assertSame(118800, $annual['Loisirs']['remainingCents']);
 
-        self::assertSame(160000, $data['totalBudgetedCents']);
-        self::assertSame(5799, $data['totalSpentCents']);
-        self::assertSame(154201, $data['totalRemainingCents']);
+        self::assertSame(40000, $data['totalBudgetedCents']);
+        self::assertSame(4599, $data['totalSpentCents']);
+        self::assertSame(35401, $data['totalRemainingCents']);
     }
 
     public function testStatusFlagsAnOverspentEnvelope(): void

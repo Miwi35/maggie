@@ -1,0 +1,107 @@
+# Hellfest 2026, a one-off envelope of 400 €, next to Loisirs 300 € in
+# October 2026 and an annual Voyages envelope of 1 200 €.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-one-off-test@example.com
+    googleId: google-finance-one-off-test
+    name: Finance One-Off Test User
+  other_user:
+    email: finance-one-off-other@example.com
+    googleId: google-finance-one-off-other
+    name: Finance One-Off Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  leisure_october:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  travel_2026:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 120000
+    currency: EUR
+    year: 2026
+    month: null
+    user: '@test_user'
+  hellfest:
+    name: Hellfest 2026
+    mode: '<(Maggie\Finance\Enum\BudgetMode::OneOff)>'
+    amountCents: 40000
+    currency: EUR
+    year: null
+    month: null
+    user: '@test_user'
+  other_hellfest:
+    name: Fête secrète
+    mode: '<(Maggie\Finance\Enum\BudgetMode::OneOff)>'
+    amountCents: 10000
+    currency: EUR
+    year: null
+    month: null
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  ticket:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -8900
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: Billet Hellfest
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  bar:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-08"))>'
+    label: Bar
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  train:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-12"))>'
+    label: Train
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tent:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-10"))>'
+    label: Tente
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    oneOffEnvelope: '@hellfest'
+    user: '@test_user'

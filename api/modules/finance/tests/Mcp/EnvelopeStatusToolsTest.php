@@ -40,7 +40,8 @@ class EnvelopeStatusToolsTest extends KernelTestCase
     {
         $data = json_decode($this->tool()('status', year: $year, month: $month), true, 512, JSON_THROW_ON_ERROR);
 
-        return array_column($data['budgets'], null, 'categoryName')[$categoryName];
+        // The annual envelopes are reported apart from the month's budget.
+        return array_column([...$data['budgets'], ...$data['outsideMonthlyBudget']['annual']], null, 'categoryName')[$categoryName];
     }
 
     public function testEachStatusWeighsOnTheEnvelopeAccordingToItsMeaning(): void
@@ -84,20 +85,22 @@ class EnvelopeStatusToolsTest extends KernelTestCase
         self::assertSame(-60000, $travel['availableCents']);
     }
 
-    public function testTotalsSeparateSpentCommittedAndPlanned(): void
+    public function testTotalsAddTheMonthlyEnvelopesOnly(): void
     {
         $this->loadFixtures('envelope_statuses.yaml');
         $this->loginFixtureUser();
 
         $data = json_decode($this->tool()('status', year: 2026, month: 9), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(240000, $data['totalBudgetedCents']);
-        self::assertSame(75000, $data['totalSpentCents']);
-        self::assertSame(30000, $data['totalCommittedCents']);
-        self::assertSame(80000, $data['totalPlannedCents']);
-        self::assertSame(105000, $data['totalConsumedCents']);
-        self::assertSame(135000, $data['totalRemainingCents']);
-        self::assertSame(55000, $data['totalAvailableCents']);
+        // Food's 400 € make the month's budget; the annual travel envelope,
+        // with its committed ticket and planned trip, stays out of it.
+        self::assertSame(40000, $data['totalBudgetedCents']);
+        self::assertSame(25000, $data['totalSpentCents']);
+        self::assertSame(0, $data['totalCommittedCents']);
+        self::assertSame(0, $data['totalPlannedCents']);
+        self::assertSame(25000, $data['totalConsumedCents']);
+        self::assertSame(15000, $data['totalRemainingCents']);
+        self::assertSame(15000, $data['totalAvailableCents']);
     }
 
     public function testRolloverCopiesTheMonthlyEnvelopesForward(): void

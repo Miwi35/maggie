@@ -1,0 +1,45 @@
+{
+    "@context": "/api/contexts/Envelope",
+    "@id": "/api/envelopes",
+    "@type": "Collection",
+    "totalItems": 3,
+    "member": [
+        {
+            "@id": "/api/envelopes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Envelope",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "mode": "monthly",
+            "amountCents": 30000,
+            "currency": "EUR",
+            "year": 2026,
+            "month": 3,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "periodStart": "2026-03-01T00:00:00+00:00",
+            "periodEnd": "2026-04-01T00:00:00+00:00"
+        },
+        {
+            "@id": "/api/envelopes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Envelope",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "mode": "annual",
+            "amountCents": 120000,
+            "currency": "EUR",
+            "year": 2026,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "periodStart": "2026-01-01T00:00:00+00:00",
+            "periodEnd": "2027-01-01T00:00:00+00:00"
+        },
+        {
+            "@id": "/api/envelopes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Envelope",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded event",
+            "mode": "one_off",
+            "amountCents": 40000,
+            "currency": "EUR",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ]
+}

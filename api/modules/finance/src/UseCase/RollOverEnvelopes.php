@@ -64,7 +64,7 @@ class RollOverEnvelopes
             }
 
             $existing = $this->envelopeRepository->findOneForPeriod(
-                $source->getCategory(),
+                $source->requireCategory(),
                 $mode,
                 $toYear,
                 $targetMonth,
@@ -81,7 +81,7 @@ class RollOverEnvelopes
 
             $stamped = $this->bus->dispatch(new CreateEnvelopeCommand(
                 userId: (string) $user->getId(),
-                categoryId: (string) $source->getCategory()->getId(),
+                categoryId: (string) $source->requireCategory()->getId(),
                 amountCents: $amountCents,
                 year: $toYear,
                 mode: $mode->value,
@@ -95,8 +95,8 @@ class RollOverEnvelopes
 
             $envelopes[] = [
                 'id' => (string) $envelope->getId(),
-                'categoryId' => (string) $envelope->getCategory()->getId(),
-                'categoryName' => $envelope->getCategory()->getName(),
+                'categoryId' => (string) $envelope->requireCategory()->getId(),
+                'categoryName' => $envelope->requireCategory()->getName(),
                 'mode' => $envelope->getMode()->value,
                 'amountCents' => $envelope->getAmountCents(),
                 'currency' => $envelope->getCurrency(),
@@ -113,9 +113,9 @@ class RollOverEnvelopes
     {
         $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
             $user,
-            $this->categoryRepository->findSelfAndDescendantIds($source->getCategory()),
-            $source->getPeriodStart(),
-            $source->getPeriodEnd(),
+            $this->categoryRepository->findSelfAndDescendantIds($source->requireCategory()),
+            $source->getPeriodStart() ?? throw new \LogicException('A one-off envelope has no period.'),
+            $source->getPeriodEnd() ?? throw new \LogicException('A one-off envelope has no period.'),
         );
 
         return $byStatus[TransactionStatus::Spent->value] + $byStatus[TransactionStatus::Committed->value];

@@ -15,9 +15,10 @@ final readonly class UpdateTransactionCommand
      * or to the occurrence nearest its booking day; `recurringOccurrenceOn`
      * alone moves it within its series; clearing `recurringOperation` detaches it.
      * `repaysTransactionId` points the debit leg of a `repayment` at the advance
-     * it gives back.
+     * it gives back. `oneOffEnvelopeId` attributes the spend to a one-off
+     * envelope; clearing `oneOffEnvelope` takes it back to its category's envelopes.
      *
-     * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'> $clearFields
+     * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'|'oneOffEnvelope'> $clearFields
      */
     public function __construct(
         public string $userId,
@@ -39,6 +40,7 @@ final readonly class UpdateTransactionCommand
         public ?string $recurringOperationId = null,
         public ?string $recurringOccurrenceOn = null,
         public ?string $note = null,
+        public ?string $oneOffEnvelopeId = null,
         public array $clearFields = [],
     ) {
     }

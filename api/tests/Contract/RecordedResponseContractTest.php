@@ -78,6 +78,8 @@ final class RecordedResponseContractTest extends WebTestCase
         'finance_daily_score.read' => '/api/finance/daily-score?year=2026&month=3',
         'finance_cushion_status.read' => '/api/finance/cushion-status',
         'finance_dashboard.read' => '/api/finance/dashboard?year=2026&month=3',
+        'envelopes.collection' => '/api/envelopes',
+        'finance_budget_status.read' => '/api/finance/budget-status?year=2026&month=3',
     ];
 
     private KernelBrowser $client;

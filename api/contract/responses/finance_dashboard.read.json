@@ -2,29 +2,45 @@
     "year": 2026,
     "month": 3,
     "score": {
-        "score": "neutral",
+        "score": "red",
         "year": 2026,
         "month": 3,
         "reasons": [
             {
-                "code": "no_budget"
+                "code": "optional_category_exceeded",
+                "categoryName": "Recorded Parent Category",
+                "amountCents": 95599
+            },
+            {
+                "code": "total_budget_exceeded",
+                "amountCents": 95599
+            },
+            {
+                "code": "cushion_incomplete",
+                "amountCents": 1361544
+            },
+            {
+                "code": "above_last_year",
+                "amountCents": 130249
             }
         ],
         "budget": {
-            "totalBudgetedCents": 0,
-            "totalConsumedCents": 0,
+            "totalBudgetedCents": 30000,
+            "totalConsumedCents": 125599,
             "totalPlannedCents": 0,
-            "totalAvailableCents": 0,
-            "overspentCategories": []
+            "totalAvailableCents": -95599,
+            "overspentCategories": [
+                "Recorded Parent Category"
+            ]
         },
         "cushion": {
             "state": "building",
             "blocksGreenScore": true
         },
         "comparison": {
-            "thisMonthCents": 121349,
+            "thisMonthCents": 130249,
             "sameMonthLastYearCents": 0,
-            "differenceCents": 121349,
+            "differenceCents": 130249,
             "isBetter": false
         },
         "referenceSalary": {
@@ -117,18 +133,41 @@
         {
             "month": "2026-03",
             "incomeCents": 0,
-            "expenseCents": 125599,
-            "netCents": -125599
+            "expenseCents": 134499,
+            "netCents": -134499
         }
     ],
-    "budgets": [],
+    "budgets": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Parent Category",
+            "categoryPath": "Recorded Parent Category",
+            "parentEnvelopeId": null,
+            "categoryObligation": "optional",
+            "mode": "monthly",
+            "currency": "EUR",
+            "year": 2026,
+            "month": 3,
+            "amountCents": 30000,
+            "spentCents": 125599,
+            "committedCents": 0,
+            "plannedCents": 0,
+            "toArbitrateCents": 0,
+            "consumedCents": 125599,
+            "remainingCents": -95599,
+            "availableCents": -95599,
+            "isOverspent": true,
+            "isOvercommitted": true
+        }
+    ],
     "topPosts": [
         {
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "categoryName": "Recorded Category",
-            "spentCents": 125599,
+            "spentCents": 134499,
             "previousMonthCents": 91349,
-            "changeCents": 34250
+            "changeCents": 43150
         }
     ],
     "savingCapacity": {

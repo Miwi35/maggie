@@ -7,10 +7,12 @@ namespace Maggie\Finance\Service;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Symfony\Component\Uid\Ulid;
@@ -27,6 +29,7 @@ class OwnedReferenceResolver
         private readonly CategoryRepository $categoryRepository,
         private readonly TransactionRepository $transactionRepository,
         private readonly RecurringOperationRepository $recurringOperationRepository,
+        private readonly EnvelopeRepository $envelopeRepository,
     ) {
     }
 
@@ -61,6 +64,17 @@ class OwnedReferenceResolver
         }
 
         return $category;
+    }
+
+    public function envelope(string $id, User $owner): Envelope
+    {
+        $envelope = Ulid::isValid($id) ? $this->envelopeRepository->find($id) : null;
+
+        if (!$envelope instanceof Envelope || !$envelope->getUser()->getId()->equals($owner->getId())) {
+            throw new \DomainException("Envelope not found: {$id}");
+        }
+
+        return $envelope;
     }
 
     public function recurringOperation(string $id, User $owner): RecurringOperation

@@ -77,7 +77,7 @@ class GetAnnualPlan
 
         // What the year behind had been budgeted.
         foreach ($this->envelopeRepository->findForPeriod($user, $sourceYear, null) as $envelope) {
-            $id = $this->openFor($rows, $envelope->getCategory());
+            $id = $this->openFor($rows, $envelope->requireCategory());
             $rows[$id]['currency'] = $envelope->getCurrency();
             $rows[$id]['lastYear']['budgetedCents'] = $envelope->getAmountCents();
         }
@@ -85,7 +85,7 @@ class GetAnnualPlan
         // The annual envelopes already set on the target year: re-opening the
         // session must show what a previous pass decided, not propose it again.
         foreach ($this->envelopeRepository->findForPeriod($user, $year, null) as $envelope) {
-            $id = $this->openFor($rows, $envelope->getCategory());
+            $id = $this->openFor($rows, $envelope->requireCategory());
             $rows[$id]['currency'] = $envelope->getCurrency();
             $rows[$id]['envelopeId'] = (string) $envelope->getId();
             $rows[$id]['envelopeCents'] = $envelope->getAmountCents();

@@ -20,7 +20,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_envelopes', description: 'List, set, update or delete budget envelopes, and read the budget status of a period. An envelope budgets one category for one period: mode monthly needs year + month (1-12), mode annual needs year only. amountCents is a positive integer amount in cents. The set action creates the envelope or updates the existing one for that category and period. The status action reports, per envelope, what is spent, committed, planned and to arbitrate, plus what is consumed (spent + committed), remaining and available (remaining minus planned); it defaults to the current month. Each envelope counts the transactions of its category and of every sub-category below it (an envelope is never compulsory: a spend on Loisirs › Bars › Obsydian counts in the envelope of Obsydian and in that of Loisirs, whichever of them exist), carries categoryPath and parentEnvelopeId (the envelope of its closest ancestor category, null for a root), and the totals only add the root envelopes. The rollover action copies the envelopes of one period onto another (fromYear/fromMonth to year/month), keeping the same amounts unless useActualSpending is true, in which case each new envelope is budgeted on what its category actually consumed; envelopes already set on the target period are left untouched.')]
+#[McpTool(name: 'manage_envelopes', description: 'List, set, update or delete budget envelopes, and read the budget status of a period. An envelope budgets one category for one period: mode monthly needs year + month (1-12), mode annual needs year only (a calendar year, kept apart from the month\'s budget). Mode one_off is an event (Hellfest 2026, a trip) with a name and an amount but neither category nor period: set creates it from name + amountCents, and a spend is attributed to it by hand with manage_transactions (oneOffEnvelopeId), after which it keeps its category but counts in the one-off envelope only. amountCents is a positive integer amount in cents. The set action creates the envelope or updates the existing one for that category and period. The status action reports, per envelope, what is spent, committed, planned and to arbitrate, plus what is consumed (spent + committed), remaining and available (remaining minus planned); it defaults to the current month. Each envelope counts the transactions of its category and of every sub-category below it (an envelope is never compulsory: a spend on Loisirs › Bars › Obsydian counts in the envelope of Obsydian and in that of Loisirs, whichever of them exist), carries categoryPath and parentEnvelopeId (the envelope of its closest ancestor category, null for a root), and the totals only add the root envelopes. budgets and the totals are the monthly envelopes only; outsideMonthlyBudget lists apart the annual envelopes of the year (annual) and every one-off envelope with what was attributed to it (oneOff). The rollover action copies the envelopes of one period onto another (fromYear/fromMonth to year/month), keeping the same amounts unless useActualSpending is true, in which case each new envelope is budgeted on what its category actually consumed; envelopes already set on the target period are left untouched.')]
 class ManageEnvelopesTool
 {
     public function __construct(
@@ -45,12 +45,13 @@ class ManageEnvelopesTool
         ?int $fromYear = null,
         ?int $fromMonth = null,
         ?bool $useActualSpending = null,
+        ?string $name = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
-                'set' => $this->set($categoryId, $amountCents, $mode, $year, $month, $currency),
-                'update' => $this->update($envelopeId, $categoryId, $amountCents, $mode, $year, $month, $currency),
+                'set' => $this->set($categoryId, $amountCents, $mode, $year, $month, $currency, $name),
+                'update' => $this->update($envelopeId, $categoryId, $amountCents, $mode, $year, $month, $currency, $name),
                 'status' => $this->status($year, $month),
                 'rollover' => $this->rollover($fromYear, $fromMonth, $year, $month, $useActualSpending),
                 'delete' => $this->delete($envelopeId),
@@ -78,10 +79,19 @@ class ManageEnvelopesTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function set(?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency): string
+    private function set(?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency, ?string $name): string
     {
+        $budgetMode = BudgetMode::from($mode ?? BudgetMode::Monthly->value);
+
+        if (BudgetMode::OneOff === $budgetMode) {
+            return $this->createOneOff($categoryId, $amountCents, $year, $month, $currency, $name);
+        }
+
         if (null === $categoryId || null === $amountCents) {
             return json_encode(['error' => 'categoryId and amountCents are required for set.'], JSON_THROW_ON_ERROR);
+        }
+        if (null !== $name) {
+            return json_encode(['error' => 'Only a one-off envelope has a name: the others are named by their category.'], JSON_THROW_ON_ERROR);
         }
 
         $user = $this->userContext->requireUser();
@@ -92,7 +102,6 @@ class ManageEnvelopesTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
-        $budgetMode = BudgetMode::from($mode ?? BudgetMode::Monthly->value);
         $now = new \DateTimeImmutable();
         $year ??= (int) $now->format('Y');
         $resolvedMonth = BudgetMode::Monthly === $budgetMode ? ($month ?? (int) $now->format('n')) : null;
@@ -100,7 +109,7 @@ class ManageEnvelopesTool
         $existing = $this->envelopeRepository->findOneForPeriod($category, $budgetMode, $year, $resolvedMonth);
 
         if (null !== $existing) {
-            return $this->update((string) $existing->getId(), null, $amountCents, null, null, null, $currency);
+            return $this->update((string) $existing->getId(), null, $amountCents, null, null, null, $currency, null);
         }
 
         $stamped = $this->bus->dispatch(new CreateEnvelopeCommand(
@@ -122,7 +131,35 @@ class ManageEnvelopesTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $envelopeId, ?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency): string
+    private function createOneOff(?string $categoryId, ?int $amountCents, ?int $year, ?int $month, ?string $currency, ?string $name): string
+    {
+        if (null === $name || '' === trim($name) || null === $amountCents) {
+            return json_encode(['error' => 'name and amountCents are required to set a one-off envelope.'], JSON_THROW_ON_ERROR);
+        }
+        if (null !== $categoryId || null !== $year || null !== $month) {
+            return json_encode(['error' => 'A one-off envelope has neither category nor period: attribute spends to it with manage_transactions.'], JSON_THROW_ON_ERROR);
+        }
+
+        $stamped = $this->bus->dispatch(new CreateEnvelopeCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            categoryId: null,
+            amountCents: $amountCents,
+            year: null,
+            mode: BudgetMode::OneOff->value,
+            currency: $currency ?? 'EUR',
+            name: $name,
+        ));
+
+        /** @var Envelope $envelope */
+        $envelope = $stamped->last(HandledStamp::class)->getResult();
+
+        return json_encode([
+            'success' => true,
+            'envelope' => $this->serialize($envelope),
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function update(?string $envelopeId, ?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency, ?string $name): string
     {
         if (null === $envelopeId) {
             return json_encode(['error' => 'envelopeId is required for update.'], JSON_THROW_ON_ERROR);
@@ -137,6 +174,7 @@ class ManageEnvelopesTool
             mode: $mode,
             month: $month,
             currency: $currency,
+            name: $name,
         ));
 
         /** @var Envelope $envelope */
@@ -206,7 +244,8 @@ class ManageEnvelopesTool
     {
         return [
             'id' => (string) $envelope->getId(),
-            'categoryId' => (string) $envelope->getCategory()->getId(),
+            'categoryId' => null !== $envelope->getCategory() ? (string) $envelope->getCategory()->getId() : null,
+            'name' => $envelope->getName(),
             'mode' => $envelope->getMode()->value,
             'amountCents' => $envelope->getAmountCents(),
             'currency' => $envelope->getCurrency(),

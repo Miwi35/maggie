@@ -11,6 +11,7 @@ use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
@@ -94,6 +95,8 @@ class UpdateTransactionHandler
 
         $this->natureGuard->assertStillCompatible($transaction);
 
+        $this->applyOneOffEnvelope($transaction, $command);
+
         $this->applyTransfer($transaction, $command);
         $this->applyRepays($transaction, $command);
         $this->applyRecurring($transaction, $command);
@@ -107,6 +110,34 @@ class UpdateTransactionHandler
         }
 
         return $this->updateTransaction->execute($transaction);
+    }
+
+    /**
+     * Attributes the spend by hand to a one-off envelope (Hellfest 2026), or
+     * takes it back: it keeps its category either way, and only leaves the
+     * monthly and annual envelopes while attributed.
+     */
+    private function applyOneOffEnvelope(Transaction $transaction, UpdateTransactionCommand $command): void
+    {
+        if (null === $command->oneOffEnvelopeId) {
+            if ($command->clears('oneOffEnvelope')) {
+                $transaction->setOneOffEnvelope(null);
+            }
+
+            return;
+        }
+
+        try {
+            $envelope = $this->references->envelope($command->oneOffEnvelopeId, $transaction->getUser());
+        } catch (\DomainException $e) {
+            throw new OneOffAttributionException($e->getMessage(), 0, $e);
+        }
+
+        if (!$envelope->isOneOff()) {
+            throw new OneOffAttributionException('A spend is attributed by hand to a one-off envelope only: the monthly and annual ones follow its category.');
+        }
+
+        $transaction->setOneOffEnvelope($envelope);
     }
 
     /**
