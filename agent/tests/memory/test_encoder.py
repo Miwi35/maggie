@@ -429,6 +429,22 @@ class TestWhenTheModelFails:
         assert fiche_files(env) == []
         assert carte_mod.parse(conversation_text(env, context_id)).carte.resume == ""
 
+    async def test_a_write_that_fails_is_counted_too_and_the_model_is_not_called_for_ever(self, env, chat_db):
+        context_id = exchange(chat_db)
+        model = ScriptedModel(proposal())
+        encode = encoder_with(env, model)
+        await conversations.record_thread(USER_A, context_id, service=env.service)
+
+        with (
+            patch("app.queue.scheduler.memory_encoder", encode),
+            patch.object(env.service, "write", AsyncMock(side_effect=OSError("disk full"))),
+        ):
+            for _ in range(encoder.MAX_ATTEMPTS + 2):
+                assert await scheduler.run_memory_encoding(NOW) == 0
+
+        assert model.calls == encoder.MAX_ATTEMPTS
+        assert (await context(context_id)).encoded_up_to is None
+
     async def test_a_failed_thread_is_tried_again_once_it_is_spoken_in(self, env, chat_db):
         context_id = exchange(chat_db)
         model = ScriptedModel("rien")
@@ -483,6 +499,13 @@ class TestTheWatermark:
         await context_repo.set_encoded(context_id, NOW - timedelta(minutes=30) + timedelta(seconds=20), None)
 
         assert await context_repo.find_to_encode(silent, NOW) == []
+
+    async def test_only_the_oldest_threads_are_listed_up_to_the_limit(self, chat_db):
+        ids = [exchange(chat_db, when=NOW - timedelta(minutes=60 - n)) for n in range(3)]
+
+        listed = await context_repo.find_to_encode(NOW - AFTER, NOW, limit=2)
+
+        assert [str(c.id) for c in listed] == ids[:2]
 
     async def test_a_thread_with_no_message_is_not_listed(self, chat_db):
         await context_repo.create(USER_A, "Vide")

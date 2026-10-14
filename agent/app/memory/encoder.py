@@ -288,7 +288,7 @@ class PassageEncoder:
         try:
             carte_now = carte_mod.parse(file_text).carte
             listed = await service.fiches(user_id)
-            answer = await self._ask(build_request(str(ctx.label), carte_now, listed, passage))
+            answer = await self._ask(build_request(str(ctx.label or "sans titre"), carte_now, listed, passage))
             proposal = parse_proposal(answer)
         except (ProposalError, UnreadableFile) as e:
             self._failed(context_id, last)
@@ -298,27 +298,31 @@ class PassageEncoder:
             self._failed(context_id, last)
             raise
 
-        report = Report()
-        label = str(ctx.label)
-        reason = f"{PASS_LABEL}, fil « {label} »"
-        await self._write_carte(service, user_id, context_id, proposal.get("carte"), file_text, reason, report)
+        try:
+            report = Report()
+            label = str(ctx.label or "sans titre")
+            reason = f"{PASS_LABEL}, fil « {label} »"
+            await self._write_carte(service, user_id, context_id, proposal.get("carte"), file_text, reason, report)
 
-        doubt = _one_line(proposal.get("doute"))
-        proposals = proposal.get("fiches") if isinstance(proposal.get("fiches"), list) else []
-        if doubt:
-            report.left.append("fiches")
-            await service.journal(
-                user_id, f"{PASS_LABEL} : carte seule pour « {label} », fiches laissées à la nuit — {doubt}"
-            )
-        else:
-            await self._write_fiches(
-                service, user_id, rel, proposals[:MAX_PROPOSALS], listed, owner_minutes, tz, reason, label, report
-            )
+            doubt = _one_line(proposal.get("doute"))
+            proposals = proposal.get("fiches") if isinstance(proposal.get("fiches"), list) else []
+            if doubt:
+                report.left.append("fiches")
+                await service.journal(
+                    user_id, f"{PASS_LABEL} : carte seule pour « {label} », fiches laissées à la nuit — {doubt}"
+                )
+            else:
+                await self._write_fiches(
+                    service, user_id, rel, proposals[:MAX_PROPOSALS], listed, owner_minutes, tz, reason, label, report
+                )
 
-        if not await context_repo.set_encoded(context_id, last, expected):
-            logger.info("Thread %s was encoded by another pass meanwhile", context_id)
-        self._failures.pop(context_id, None)
-        return report
+            if not await context_repo.set_encoded(context_id, last, expected):
+                logger.info("Thread %s was encoded by another pass meanwhile", context_id)
+            self._failures.pop(context_id, None)
+            return report
+        except Exception:
+            self._failed(context_id, last)
+            raise
 
     async def _write_carte(
         self,

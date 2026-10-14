@@ -70,10 +70,26 @@ class ContextRepository:
                     "ON agent_message (user_id, client_key)"
                 )
             )
-            # MAG-15 — where the encoding along the way stopped, per thread.
+            # MAG-15 — where the encoding along the way stopped, per thread. The threads that already
+            # exist are left to the night: they start with their watermark on their last message.
+            had_watermark = (
+                await conn.execute(
+                    text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name = 'conversation_context' AND column_name = 'encoded_up_to'"
+                    )
+                )
+            ).first()
             await conn.execute(
                 text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS encoded_up_to TIMESTAMPTZ")
             )
+            if had_watermark is None:
+                await conn.execute(
+                    text(
+                        "UPDATE conversation_context c SET encoded_up_to = "
+                        "(SELECT max(m.created_at) FROM agent_message m WHERE m.context_id = c.id)"
+                    )
+                )
             # MAG-195 — French full-text search over the memory folder. The index is throwaway
             # (it is rebuilt from the files), so this one is created, never migrated.
             await conn.execute(
@@ -184,12 +200,15 @@ class ContextRepository:
             )
             return list(result.scalars().all())
 
-    async def find_to_encode(self, silent_before: datetime, now: datetime | None = None) -> list[ConversationContext]:
+    async def find_to_encode(
+        self, silent_before: datetime, now: datetime | None = None, limit: int = 20
+    ) -> list[ConversationContext]:
         """The threads of every user with something to encode and silent since `silent_before` (MAG-15).
 
         « Something to encode » is a message after `encoded_up_to`; « silent » is the clock of the
         messages themselves, not `updated_at` (a routed message touches it before it is answered) nor
-        the dormancy of MAG-12. A thread whose answer is still being written is not silent.
+        the dormancy of MAG-12. A thread whose answer is still being written is not silent. The oldest
+        come first and at most `limit` per call: the rest is found again at the next cycle.
         """
         now = now or datetime.now(UTC)
         in_context = Message.context_id == ConversationContext.id
@@ -204,6 +223,7 @@ class ContextRepository:
                 select(ConversationContext)
                 .where(ConversationContext.updated_at < silent_before, unencoded, ~recent, ~answering)
                 .order_by(ConversationContext.updated_at.asc())
+                .limit(limit)
             )
             return list(result.scalars().all())
 

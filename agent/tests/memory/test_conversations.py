@@ -1,3 +1,5 @@
+import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -208,3 +210,23 @@ class TestRecord:
         assert files == ["Conversations/2026/10/2026-10-04 18h14 — Cadeau pour Françoise.md"]
         text = env.local(files[0])
         assert "Les concerts commencent à 19 heures" in text and "Noté." in text
+
+
+class TestCarteAndMessagesTogether:
+    async def test_a_message_arriving_while_the_carte_is_rewritten_is_not_lost(self, env):
+        first = message("m1", "user", ANECDOTE, hour=16, minute=14)
+        rel = await conversations.append_messages(USER_A, "ctx1", "Cadeau", [first], tz=PARIS, service=env.service)
+
+        for n in range(5):
+            late = message(f"late{n}", "user", f"Encore {n}", hour=17, minute=n)
+            await asyncio.gather(
+                conversations.update_carte(
+                    USER_A, "ctx1", lambda c, n=n: replace(c, resume=f"Résumé {n}"), reason="test", service=env.service
+                ),
+                conversations.append_messages(USER_A, "ctx1", "Cadeau", [first, late], tz=PARIS, service=env.service),
+            )
+
+        text = env.local(rel)
+        assert all(f"Encore {n}" in text for n in range(5))
+        assert text.count(ANECDOTE) == 1
+        assert "resume: Résumé 4" in text
