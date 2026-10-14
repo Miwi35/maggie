@@ -31,11 +31,15 @@ tags:
     timeout: 30000
 - assertVisible: "En retard de 2 j"
 - assertVisible: "prévue le .*"
-# Its own box, the closest one left of its title: since MAG-406 the day goes by score,
-# and « Payer la cantine » (78) comes before it (72).
+# Its own box is the day's second: since MAG-406 the day goes by score, and « Payer
+# la cantine » (78) comes before it (72). `leftOf` would not do — it keeps every box
+# left of the title, whatever its row, and ticked « Payer la cantine ».
+- assertVisible:
+    text: "Renvoyer le formulaire de la mutuelle"
+    below: "Payer la cantine"
 - tapOn:
     id: "dashboard_task_check_.*"
-    leftOf: "Renvoyer le formulaire de la mutuelle"
+    index: 1
 - extendedWaitUntil:
     notVisible: "Renvoyer le formulaire de la mutuelle"
     timeout: 30000
