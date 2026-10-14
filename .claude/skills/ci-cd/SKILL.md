@@ -10,7 +10,7 @@ One line per event in the Actions list (MAG-244), each with a `run-name`:
 
 - PR push → `ci.yml` (`Pull request`): path detection, lint, tests, e2e, mobile unit tests
 - Merge on `main` → `main.yml` (`Main`): CI (calls `ci.yml`) → gate → build → deploy → smoke → publish the mobile app, or rollback
-- Night → `nightly.yml`: CI with no path filter + real-model eval
+- Night → `nightly.yml`: CI with no path filter (the real-model eval runs only on demand, `what: eval`)
 - No `workflow_run`, no cron on the pipeline
 - The agent guard and the freeze after a failed deploy live in Cyrus (`cyrus-pilot`), not in this repository's workflows
 
@@ -66,7 +66,7 @@ Command: `./gradlew :app:testProdReleaseUnitTest` (the variant that ships)
 
 ## Nightly (`.github/workflows/nightly.yml`)
 
-Calls `ci.yml` with no path filter, beside the real-model eval (formerly `eval.yml`); a CI failure opens a Linear `Bug` labelled `nightly-failure`, or comments the one already open (`infra/scripts/alert-ticket.sh`; GitHub issues are disabled).
+Calls `ci.yml` with no path filter; the real-model eval (formerly `eval.yml`) runs only on demand (`workflow_dispatch`, `what: eval`); a CI failure opens a Linear `Bug` labelled `nightly-failure`, or comments the one already open (`infra/scripts/alert-ticket.sh`; GitHub issues are disabled).
 
 ## Digest assertion (MAG-96)
 

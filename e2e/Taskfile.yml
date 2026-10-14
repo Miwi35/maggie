@@ -390,8 +390,8 @@ tasks:
     # next journey slow, billed and flaky, which is exactly what this ticket
     # removed.
     #
-    # Separate from CI on purpose (the `eval` job of .github/workflows/nightly.yml, nightly and on
-    # demand): a prompt regression is a signal, not a merge blocker.
+    # Separate from CI on purpose (the `eval` job of .github/workflows/nightly.yml, on demand
+    # only, never on the schedule): a prompt regression is a signal, not a merge blocker.
     #
     # Three things to know before reading a local run's report. It reseeds first,
     # because the scenarios write and a second run on an unreseeded stack has the
