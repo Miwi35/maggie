@@ -5,7 +5,7 @@ What Maggie is expected to do, written once and read by two consumers:
 - **`/prompt-lab`**, which replays a scenario through a Claude Code subagent —
   free, interactive, for iterating on a prompt;
 - **the eval suite**, `task e2e:eval`, which replays all of them against the
-  **real model** through the e2e stack, nightly or on demand (MAG-95). It is
+  **real model** through the e2e stack, on demand only — never nightly (MAG-95, MAG-449). It is
   separate from CI and gates nothing: a prompt regression is a signal, not a
   merge blocker.
 

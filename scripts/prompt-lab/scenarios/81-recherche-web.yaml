@@ -1,7 +1,7 @@
 # A public fact is looked up on the web, with her sources (MAG-384). The dates of the
 # school holidays are nothing Maggie owns: `search` only reads her own data, and the
 # answer must come from Anthropic's `web_search`, not from memory and not from « je n'ai
-# pas accès à Internet ». Real model, nightly (`task e2e:eval`), outside CI.
+# pas accès à Internet ». Real model, on demand (`task e2e:eval`), outside CI.
 name: recherche-web
 description: A public fact is searched on the web and answered with dates and an official source.
 channel: chat

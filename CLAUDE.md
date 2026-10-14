@@ -143,10 +143,10 @@ For a journey, or anything needing the whole system, bring up the e2e stack — 
 | `task e2e:web:lint`, `task e2e:web:typecheck` | check them without a stack — in `task lint:all` |
 | `task e2e:admin:build` | rebuild the admin bundle after editing `admin/src` |
 | `task e2e:test:api` | PHPUnit inside the stack |
-| `task e2e:eval` | the prompt-lab scenarios on the **real** model — nightly, outside CI |
+| `task e2e:eval` | the prompt-lab scenarios on the **real** model — by hand, when a prompt changes (Actions › Nightly › `what: eval`, `only` for one scenario); never nightly, never in CI |
 | `task e2e:down` | remove everything |
 
-Test login: `POST /api/auth/e2e/login` with `X-E2E-Token`, mounted only in `APP_ENV=e2e`. External services (Enable Banking, Google, Whisper, TTS) are simulated, and so is the model: `LLM_PROVIDER=fake` makes Maggie answer from the scenario files in `agent/fixtures/fake-llm/`, through the real tool loop, the real AG-UI streaming and the real MCP (MAG-95). Nothing matches → she answers `[fake-llm] aucun scénario…`, so add the scenario before the step. Judgement — tone, right tool, keeping the thread — is checked apart by `task e2e:eval` on the real model; an assertion that would hold with any plausible wording belongs in a journey with the fake instead. Details: `agent-os/standards/global/e2e-environment.md`.
+Test login: `POST /api/auth/e2e/login` with `X-E2E-Token`, mounted only in `APP_ENV=e2e`. External services (Enable Banking, Google, Whisper, TTS) are simulated, and so is the model: `LLM_PROVIDER=fake` makes Maggie answer from the scenario files in `agent/fixtures/fake-llm/`, through the real tool loop, the real AG-UI streaming and the real MCP (MAG-95). Nothing matches → she answers `[fake-llm] aucun scénario…`, so add the scenario before the step. Judgement — tone, right tool, keeping the thread — is checked apart by `task e2e:eval` on the real model, run by hand when a prompt changes (credit: the production smoke test, one question per deploy, is the only automatic call to the real model in tests and CI); an assertion that would hold with any plausible wording belongs in a journey with the fake instead. Details: `agent-os/standards/global/e2e-environment.md`.
 
 ## Tests — every change
 
