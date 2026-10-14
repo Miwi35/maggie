@@ -20,12 +20,12 @@ import { nestBudgetLines } from './budgetTree'
 import type { NestedBudgetLine } from './budgetTree'
 import { useBudgetStatus } from './useBudgetStatus'
 import { useRollOverEnvelopes } from './useRollOverEnvelopes'
-import type { BudgetLine } from './useBudgetStatus'
+import type { BudgetStatus, EnvelopeConsumption } from './useBudgetStatus'
 
 const BUDGET_TOPICS = ['/api/envelopes/{id}', '/api/transactions/{id}']
 
 /** "250,00 € dépensés · 300,00 € engagés · 800,00 € planifiés" */
-const breakdown = (line: BudgetLine): string =>
+const breakdown = (line: EnvelopeConsumption): string =>
   [
     line.spentCents > 0 ? `${formatCents(line.spentCents, line.currency)} dépensés` : null,
     line.committedCents > 0 ? `${formatCents(line.committedCents, line.currency)} engagés` : null,
@@ -38,7 +38,7 @@ const breakdown = (line: BudgetLine): string =>
     .join(' · ')
 
 /** Overspent is red, overcommitted orange — always an icon and a word, never the colour alone. */
-const BudgetState = ({ line }: { line: BudgetLine }) => {
+const BudgetState = ({ line }: { line: EnvelopeConsumption }) => {
   if (line.isOverspent) {
     return (
       <Stack direction="row" alignItems="center" spacing={0.5} color="error.main">
@@ -69,8 +69,18 @@ const BudgetState = ({ line }: { line: BudgetLine }) => {
   )
 }
 
-const BudgetGauge = ({ nested }: { nested: NestedBudgetLine }) => {
-  const { line, depth, label } = nested
+interface BudgetGaugeProps {
+  line: EnvelopeConsumption
+  /** The category as seen from the envelope above, or the event's name. */
+  label: string
+  /** The period, or « Ponctuelle ». */
+  caption: string
+  /** What the e2e journey finds the gauge by: the category, or the event's name. */
+  name: string
+  depth?: number
+}
+
+const BudgetGauge = ({ line, label, caption, name, depth = 1 }: BudgetGaugeProps) => {
   const consumed = consumedPercent(line.consumedCents, line.amountCents)
   const withPlanned = consumedPercent(line.consumedCents + line.plannedCents, line.amountCents)
   const detail = breakdown(line)
@@ -83,14 +93,14 @@ const BudgetGauge = ({ nested }: { nested: NestedBudgetLine }) => {
     <Box
       sx={{ mb: 2, ml: (depth - 1) * 3 }}
       data-testid="budget-gauge"
-      data-category={line.categoryName}
+      data-category={name}
       data-depth={depth}
     >
       <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
         <Typography variant="body2">
           {label}
           <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-            {formatPeriod(line.mode, line.year, line.month)}
+            {caption}
           </Typography>
         </Typography>
         <Typography variant="body2" color={line.isOverspent ? 'error.main' : 'text.secondary'}>
@@ -116,6 +126,43 @@ const BudgetGauge = ({ nested }: { nested: NestedBudgetLine }) => {
         </Typography>
         <BudgetState line={line} />
       </Stack>
+    </Box>
+  )
+}
+
+const NestedGauge = ({ nested }: { nested: NestedBudgetLine }) => (
+  <BudgetGauge
+    line={nested.line}
+    label={nested.label}
+    caption={formatPeriod(nested.line.mode, nested.line.year, nested.line.month)}
+    name={nested.line.categoryName}
+    depth={nested.depth}
+  />
+)
+
+/**
+ * The annual envelopes and the one-off ones, apart from the month's budget:
+ * they count in none of its totals.
+ */
+const OutsideMonthlyBudget = ({ status }: { status: BudgetStatus }) => {
+  const annual = status.outsideMonthlyBudget?.annual ?? []
+  const oneOff = status.outsideMonthlyBudget?.oneOff ?? []
+  if (annual.length === 0 && oneOff.length === 0) return null
+
+  return (
+    <Box component="section" aria-labelledby="outside-monthly-budget" data-testid="outside-monthly-budget" sx={{ mt: 3 }}>
+      <Typography id="outside-monthly-budget" variant="subtitle1" component="h3" sx={{ fontWeight: 600 }}>
+        Hors budget mensuel
+      </Typography>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
+        Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.
+      </Typography>
+      {nestBudgetLines(annual).map((nested) => (
+        <NestedGauge key={nested.line.id} nested={nested} />
+      ))}
+      {oneOff.map((line) => (
+        <BudgetGauge key={line.id} line={line} label={line.name} caption={formatPeriod(line.mode)} name={line.name} />
+      ))}
     </Box>
   )
 }
@@ -190,7 +237,7 @@ export const BudgetStatusPanel = () => {
         {loading && <LinearProgress sx={{ mb: 2 }} />}
 
         {status && nestBudgetLines(status.budgets).map((nested) => (
-          <BudgetGauge key={nested.line.id} nested={nested} />
+          <NestedGauge key={nested.line.id} nested={nested} />
         ))}
 
         {status && status.budgets.length > 0 && (
@@ -203,6 +250,8 @@ export const BudgetStatusPanel = () => {
             — {formatCents(status.totalAvailableCents)} encore libres
           </Typography>
         )}
+
+        {status && <OutsideMonthlyBudget status={status} />}
       </CardContent>
       </Card>
     </>

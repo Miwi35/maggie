@@ -5,9 +5,23 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
-import { DeleteButton, Edit, Form, SaveButton, TextInput, Toolbar, maxLength, useNotify, useRecordContext } from 'react-admin'
+import {
+  DeleteButton,
+  Edit,
+  Form,
+  SaveButton,
+  SelectInput,
+  TextInput,
+  Toolbar,
+  maxLength,
+  useGetList,
+  useNotify,
+  useRecordContext,
+} from 'react-admin'
+import { useWatch } from 'react-hook-form'
 import type { RaRecord } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
+import { ONE_OFF } from './budgetModes'
 import { useMercure } from '../../hooks/useMercure'
 import { CreateFilterDialog } from './CreateFilterDialog'
 import { NatureSection } from './NatureSection'
@@ -54,6 +68,8 @@ export const toSheetPayload = (data: Record<string, unknown>) => {
   delete payload.recurringOccurrenceOn
   const note = payload.note
   payload.note = typeof note === 'string' && note.trim() !== '' ? note : null
+  // « Aucune » is the empty choice: the spend goes back to its category's envelopes.
+  if (payload.oneOffEnvelope === '') payload.oneOffEnvelope = null
 
   return payload
 }
@@ -74,12 +90,47 @@ const ComingSoon = ({ children }: { children: string }) => (
   </Typography>
 )
 
+/**
+ * Attributes the spend to an event (Hellfest 2026): it keeps its category but
+ * leaves the monthly and annual envelopes. Saved with « Enregistrer ».
+ */
+export const OneOffEnvelopeInput = () => {
+  const current = useWatch({ name: 'oneOffEnvelope' }) as string | null | undefined
+  const { data: envelopes = [] } = useGetList('envelopes', {
+    pagination: { page: 1, perPage: 100 },
+    sort: { field: 'year', order: 'DESC' },
+  })
+  // The one the line already carries stays offered, even beyond the first page.
+  const choices = envelopes
+    .filter((e) => e.mode === ONE_OFF || e.id === current)
+    .map((e) => ({ id: e.id, name: (e.name as string | undefined) ?? String(e.id) }))
+  if (current && !choices.some((c) => c.id === current)) {
+    choices.push({ id: current, name: 'Enveloppe ponctuelle' })
+  }
+
+  return (
+    <SelectInput
+      source="oneOffEnvelope"
+      label="Attribuer à une enveloppe ponctuelle"
+      choices={choices}
+      emptyText="Aucune"
+      fullWidth
+      helperText={
+        choices.length === 0
+          ? 'Aucune enveloppe ponctuelle : créez-en une (Hellfest, vacances…) dans les enveloppes.'
+          : 'La dépense garde sa catégorie mais sort des enveloppes du mois et de l’année.'
+      }
+    />
+  )
+}
+
 const ClassementSection = ({ record }: { record: RaRecord }) => {
   const [filtering, setFiltering] = useState(false)
 
   return (
     <Box>
       <CategoryChoiceInput />
+      <OneOffEnvelopeInput />
       <StatusInput />
       <ExceptionalInput />
       <Button onClick={() => setFiltering(true)}>Créer un filtre</Button>

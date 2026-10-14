@@ -1,5 +1,8 @@
+import Typography from '@mui/material/Typography'
 import {
   Datagrid,
+  WrapperField,
+  useRecordContext,
   ReferenceField,
   FunctionField,
   EditButton,
@@ -9,7 +12,7 @@ import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
-import { BUDGET_MODE_LABELS, formatPeriod } from './budgetModes'
+import { BUDGET_MODE_LABELS, ONE_OFF, formatPeriod } from './budgetModes'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
@@ -24,16 +27,30 @@ const ENVELOPE_LIVE: LiveConfig = {
   },
 }
 
+/** A one-off envelope is named after its event, the others after their category. */
+const EnvelopeLabel = () => {
+  const record = useRecordContext()
+  if (record?.mode === ONE_OFF) {
+    return <Typography variant="body2">{record.name as string}</Typography>
+  }
+
+  return (
+    <ReferenceField source="category" reference="categories" link={false}>
+      <CategoryPathField />
+    </ReferenceField>
+  )
+}
+
 const EnvelopeDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
-      <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
-        <CategoryPathField />
-      </ReferenceField>
+      <WrapperField label="Enveloppe">
+        <EnvelopeLabel />
+      </WrapperField>
       <FunctionField
         label="Période"
         render={(record: RaRecord) =>
-          formatPeriod(record.mode as string, record.year as number, record.month as number | null)
+          formatPeriod(record.mode as string, record.year as number | null, record.month as number | null)
         }
       />
       <FunctionField
@@ -61,7 +78,7 @@ export const EnvelopeList = () => (
       empty={
         <ListEmpty
           title="Aucune enveloppe pour l'instant"
-          description="Une enveloppe fixe ce que vous vous autorisez sur une catégorie, et les dépenses s'en déduisent au fil du mois."
+          description="Une enveloppe fixe ce que vous vous autorisez sur une catégorie, et les dépenses s'en déduisent au fil du mois. Une enveloppe ponctuelle budgète un événement."
           action="Créer une enveloppe"
         />
       }

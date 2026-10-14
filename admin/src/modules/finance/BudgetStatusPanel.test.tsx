@@ -164,4 +164,49 @@ describe('BudgetStatusPanel', () => {
     )
     expect(refresh).not.toHaveBeenCalled()
   })
+
+  test('shows the annual and one-off envelopes apart, out of the month total', () => {
+    status = {
+      ...statusOf([line({ id: 'a', categoryName: 'Loisirs', categoryPath: 'Loisirs', amountCents: 30000, consumedCents: 2500 })]),
+      outsideMonthlyBudget: {
+        annual: [line({ id: 'v', categoryName: 'Voyages', categoryPath: 'Voyages', mode: 'annual', month: null, amountCents: 120000, consumedCents: 6000 })],
+        oneOff: [
+          {
+            id: 'h',
+            name: 'Hellfest 2026',
+            mode: 'one_off',
+            amountCents: 40000,
+            currency: 'EUR',
+            spentCents: 8900,
+            committedCents: 0,
+            plannedCents: 0,
+            toArbitrateCents: 0,
+            consumedCents: 8900,
+            remainingCents: 31100,
+            availableCents: 31100,
+            isOverspent: false,
+            isOvercommitted: false,
+          },
+        ],
+      },
+    }
+
+    renderPanel()
+
+    const outside = screen.getByTestId('outside-monthly-budget')
+    expect(within(outside).getByRole('heading', { name: 'Hors budget mensuel' })).toBeInTheDocument()
+    const gauges = within(outside).getAllByTestId('budget-gauge')
+    expect(gauges.map((g) => g.dataset.category)).toEqual(['Voyages', 'Hellfest 2026'])
+    expect(gauges[0]).toHaveTextContent('Année 2026')
+    expect(gauges[1]).toHaveTextContent(/89,00\s€ \/ 400,00\s€/)
+    expect(gauges[1]).toHaveTextContent('Ponctuelle')
+  })
+
+  test('draws no « Hors budget mensuel » section when there is nothing apart', () => {
+    status = { ...statusOf([line({ id: 'a' })]), outsideMonthlyBudget: { annual: [], oneOff: [] } }
+
+    renderPanel()
+
+    expect(screen.queryByText('Hors budget mensuel')).not.toBeInTheDocument()
+  })
 })

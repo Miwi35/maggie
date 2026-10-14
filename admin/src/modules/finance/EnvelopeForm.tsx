@@ -6,8 +6,9 @@ import {
   SelectInput,
   FormDataConsumer,
   required,
+  useRecordContext,
 } from 'react-admin'
-import { BUDGET_MODE_CHOICES, MONTH_CHOICES } from './budgetModes'
+import { BUDGET_MODE_CHOICES, MONTH_CHOICES, ONE_OFF } from './budgetModes'
 import { EnvelopeSummary } from './EnvelopeSummary'
 import { FormSection } from '../../components/form/FormSection'
 import { CategoryInput } from './CategoryInput'
@@ -19,15 +20,63 @@ const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
 const halfSx = { flex: '1 1 240px' }
 
+const MODE_HELP =
+  "Mensuel : un budget qui se renouvelle chaque mois (courses, essence). Annuel : une enveloppe unique pour l'année entière, à part du budget du mois (voyages, cadeaux, matériel). Ponctuel : un événement (Hellfest 2026, des vacances), sans catégorie ni période — vous y attribuez les dépenses à la main depuis la transaction."
+
 interface EnvelopeFormProps {
   /** Create pre-fills the current period; edit keeps what is stored. */
   withDefaults?: boolean
 }
 
-export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
-  <SimpleForm sx={formSx}>
+/**
+ * A budget of a category and an event are not the same thing: once created,
+ * an envelope switches between monthly and annual, never to or from one-off.
+ */
+const ModeInput = ({ withDefaults }: EnvelopeFormProps) => {
+  const record = useRecordContext()
+  const storedOneOff = record?.mode === ONE_OFF
+  const choices = withDefaults || !record
+    ? BUDGET_MODE_CHOICES
+    : BUDGET_MODE_CHOICES.filter((c) => (c.id === ONE_OFF) === storedOneOff)
+
+  return (
+    <SelectInput
+      source="mode"
+      label="Type d'enveloppe"
+      choices={choices}
+      defaultValue={withDefaults ? 'monthly' : undefined}
+      validate={required()}
+      disabled={!withDefaults && storedOneOff}
+      fullWidth
+      helperText={MODE_HELP}
+    />
+  )
+}
+
+const AmountInputs = ({ withDefaults }: EnvelopeFormProps) => (
+  <Box sx={rowSx}>
+    <NumberInput
+      source="amountCents"
+      label="Montant de l'enveloppe (€)"
+      validate={required()}
+      format={(v?: number) => (v == null ? null : v / 100)}
+      parse={(v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))}
+      sx={halfSx}
+      helperText="Ce que vous vous autorisez à dépenser sur toute la période."
+    />
+    <TextInput
+      source="currency"
+      label="Devise"
+      defaultValue={withDefaults ? 'EUR' : undefined}
+      sx={halfSx}
+      helperText="Code ISO 4217 : EUR, CHF, USD…"
+    />
+  </Box>
+)
+
+const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
+  <>
     <FormSection
-      first
       title="Ce que vous budgétez"
       description="Une enveloppe plafonne les dépenses d'une catégorie sur une période. Les transactions de cette catégorie viennent s'en déduire automatiquement."
     />
@@ -40,38 +89,11 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
       helperText="Seules les dépenses classées dans cette catégorie sont décomptées."
     />
 
-    <Box sx={rowSx}>
-      <NumberInput
-        source="amountCents"
-        label="Montant de l'enveloppe (€)"
-        validate={required()}
-        format={(v?: number) => (v == null ? null : v / 100)}
-        parse={(v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))}
-        sx={halfSx}
-        helperText="Ce que vous vous autorisez à dépenser sur toute la période."
-      />
-      <TextInput
-        source="currency"
-        label="Devise"
-        defaultValue={withDefaults ? 'EUR' : undefined}
-        sx={halfSx}
-        helperText="Code ISO 4217 : EUR, CHF, USD…"
-      />
-    </Box>
+    <AmountInputs withDefaults={withDefaults} />
 
     <FormSection
       title="Période couverte"
       description="La période sur laquelle ce montant s'applique — c'est elle qui détermine quand le compteur repart de zéro."
-    />
-
-    <SelectInput
-      source="mode"
-      label="Rythme du budget"
-      choices={BUDGET_MODE_CHOICES}
-      defaultValue={withDefaults ? 'monthly' : undefined}
-      validate={required()}
-      fullWidth
-      helperText="Mensuel : un budget qui se renouvelle chaque mois (courses, essence). Annuel : une enveloppe unique pour l'année entière (voyages, cadeaux, matériel)."
     />
 
     <Box sx={rowSx}>
@@ -99,12 +121,54 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
         }
       </FormDataConsumer>
     </Box>
+  </>
+)
+
+const OneOffFields = ({ withDefaults }: EnvelopeFormProps) => (
+  <>
+    <FormSection
+      title="L'événement"
+      description="Une enveloppe ponctuelle n'a ni catégorie ni période. Les dépenses que vous y attribuez gardent leur catégorie mais sortent des enveloppes du mois."
+    />
+
+    <TextInput
+      source="name"
+      label="Nom de l'événement"
+      validate={required()}
+      fullWidth
+      helperText="Hellfest 2026, Vacances en Bretagne…"
+    />
+
+    <AmountInputs withDefaults={withDefaults} />
+  </>
+)
+
+export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
+  <SimpleForm sx={formSx}>
+    <FormSection
+      first
+      title="Type d'enveloppe"
+      description="Le budget du mois, une enveloppe annuelle à part, ou un événement ponctuel."
+    />
+
+    <ModeInput withDefaults={withDefaults} />
+
+    <FormDataConsumer>
+      {({ formData }) =>
+        formData.mode === ONE_OFF ? (
+          <OneOffFields withDefaults={withDefaults} />
+        ) : (
+          <CategoryBudgetFields withDefaults={withDefaults} />
+        )
+      }
+    </FormDataConsumer>
 
     <FormDataConsumer>
       {({ formData }) => (
         <EnvelopeSummary
           category={formData.category as string | undefined}
           mode={formData.mode as string | undefined}
+          name={formData.name as string | undefined}
           year={formData.year as number | undefined}
           month={formData.month as number | null | undefined}
           amountCents={formData.amountCents as number | undefined}
