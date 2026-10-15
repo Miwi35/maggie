@@ -63,7 +63,7 @@ Maggie\Cookbook\Entity\Ingredient:
     user: '@other_user'
 
 # Every recipe serves 2, the default guests of a meal: the quantities below are
-# what the meals need, unscaled (MAG-482 scales them; RescaleMealGroceriesTest
+# what the meals need, unscaled (MAG-482 scales them; MealGuestsGroceriesTest
 # covers that).
 Maggie\Cookbook\Entity\Recipe:
   curry:

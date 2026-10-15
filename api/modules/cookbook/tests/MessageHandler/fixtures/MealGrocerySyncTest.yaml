@@ -40,7 +40,7 @@ Maggie\Cookbook\Entity\Ingredient:
     shelfLifeDays: 2
 
 # Every recipe serves 2, the default guests of a meal: the quantities below are
-# what the meals need, unscaled (MAG-482 scales them; RescaleMealGroceriesTest
+# what the meals need, unscaled (MAG-482 scales them; MealGuestsGroceriesTest
 # covers that).
 Maggie\Cookbook\Entity\Recipe:
   pasta:

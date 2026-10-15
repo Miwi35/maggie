@@ -94,7 +94,7 @@ final class RecipeScaleNormalizer implements NormalizerInterface, NormalizerAwar
         $guests = $request->query->all()['guests'] ?? null;
 
         if (!\is_string($guests) || 1 !== preg_match('/^[1-9]\d{0,2}$/', $guests)) {
-            throw new BadRequestHttpException('guests must be a whole number of at least 1.');
+            throw new BadRequestHttpException('guests must be a whole number from 1 to 999.');
         }
 
         return (int) $guests;

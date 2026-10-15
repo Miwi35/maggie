@@ -21,14 +21,14 @@ class GetRecipeTool
 
     public function __invoke(string $recipeId, ?int $guests = null): string
     {
-        if (null !== $guests && $guests < 1) {
-            return json_encode(['error' => 'guests must be a whole number of at least 1.'], JSON_THROW_ON_ERROR);
-        }
-
         try {
             $user = $this->userContext->requireUser();
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        if (null !== $guests && $guests < 1) {
+            return json_encode(['error' => 'guests must be a whole number of at least 1.'], JSON_THROW_ON_ERROR);
         }
 
         $recipe = $this->recipeRepository->findOneForUser($recipeId, $user);
