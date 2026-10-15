@@ -36,6 +36,8 @@ import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
+import com.maggie.app.ui.screens.cookbook.meals.MealDetailUiState
+import com.maggie.app.ui.screens.cookbook.meals.MealDetailViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailUiState
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
@@ -106,6 +108,7 @@ class RotationNavGraphScreenTest {
         }
         val meals = mockk<MealsWeekViewModel>(relaxed = true) { every { uiState } returns state(MealsWeekUiState()) }
         val mealCreate = mockk<MealCreateViewModel>(relaxed = true) { every { uiState } returns state(MealCreateUiState()) }
+        val mealDetail = mockk<MealDetailViewModel>(relaxed = true) { every { uiState } returns state(MealDetailUiState()) }
         val grocery = mockk<GroceryViewModel>(relaxed = true) { every { uiState } returns state(GroceryUiState()) }
         val recurring = mockk<RecurringGroceryViewModel>(relaxed = true) { every { uiState } returns state(RecurringGroceryUiState()) }
         val interruption = mockk<InterruptionViewModel>(relaxed = true) {
@@ -138,6 +141,7 @@ class RotationNavGraphScreenTest {
                     viewModel { recipes }
                     viewModel { meals }
                     viewModel { mealCreate }
+                    viewModel { mealDetail }
                     viewModel { grocery }
                     viewModel { recurring }
                     viewModel { detail }

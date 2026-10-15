@@ -75,8 +75,9 @@ class Meal extends Event implements MercurePublishable
      * the meals' module agenda, and a client that still names one is ignored
      * (MAG-324).
      *
-     * Nor is the title: the API names a meal after its recipes, and a client
-     * that still sends one is ignored (MAG-378).
+     * Nor is `summary`, the title as listed: the API names a meal after its
+     * recipes unless the owner gave it a `customTitle`, and a client that still
+     * sends a `summary` is ignored (MAG-378).
      *
      * @var array<string, list<string>>
      */
@@ -113,6 +114,14 @@ class Meal extends Event implements MercurePublishable
     #[ORM\ManyToMany(targetEntity: Recipe::class)]
     #[ORM\JoinTable(name: 'meal_recipe')]
     private Collection $recipes;
+
+    // The title the owner typed on the meal's sheet. Null: the meal is titled
+    // after its recipes, and follows them (MAG-378).
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(description: 'The title the owner gave the meal; null or blank, it is titled after its recipes.')]
+    private ?string $customTitle = null;
 
     // When the owner chose which ingredients go on the grocery list (MAG-295).
     // Null: nothing is chosen yet, and the meal has put nothing on the list —
@@ -328,7 +337,9 @@ class Meal extends Event implements MercurePublishable
     /** @return Collection<int, Recipe> */
     public function getRecipes(): Collection
     {
-        return $this->recipes;
+        // Removing then adding leaves gaps in the keys, and a serialized collection with
+        // gaps is a JSON object, not the list the clients decode.
+        return new ArrayCollection($this->recipes->getValues());
     }
 
     public function addRecipe(Recipe $recipe): static
@@ -343,6 +354,20 @@ class Meal extends Event implements MercurePublishable
     public function removeRecipe(Recipe $recipe): static
     {
         $this->recipes->removeElement($recipe);
+
+        return $this;
+    }
+
+    public function getCustomTitle(): ?string
+    {
+        return $this->customTitle;
+    }
+
+    // A blank title is no title: the meal goes back to its recipes' names.
+    public function setCustomTitle(?string $customTitle): static
+    {
+        $trimmed = null === $customTitle ? '' : trim($customTitle);
+        $this->customTitle = '' === $trimmed ? null : $trimmed;
 
         return $this;
     }
@@ -413,6 +438,7 @@ class Meal extends Event implements MercurePublishable
         $doc = parent::toSearchDocument();
         $doc['date'] = $this->date?->format('Y-m-d');
         $doc['slot'] = $this->slot->value;
+        $doc['customTitle'] = $this->customTitle;
         $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->getValues();
         $doc['groceryChoiceMadeAt'] = $this->groceryChoiceMadeAt?->format('c');
         // The meal's own number only: the default is read when the meal is
@@ -428,6 +454,7 @@ class Meal extends Event implements MercurePublishable
         // the meal where the API would.
         $payload = self::filterPayload([
             'summary' => $this->getSummary(),
+            'customTitle' => $this->customTitle,
             'date' => $this->date?->format('Y-m-d'),
             'slot' => $this->slot->value,
             'recipes' => $this->recipes->map(fn (Recipe $r) => [

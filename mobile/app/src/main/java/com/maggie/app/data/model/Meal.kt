@@ -7,6 +7,9 @@ import kotlinx.serialization.Serializable
  *
  * [date] is `YYYY-MM-DD`. The API derives the instants the agenda shows from
  * it, and no client sends them.
+ *
+ * [summary] is the title the week shows: the owner's [customTitle] when he typed one, the
+ * names of the recipes otherwise (MAG-378). [recipes] are their IRIs.
  */
 @Serializable
 data class Meal(
@@ -16,4 +19,5 @@ data class Meal(
     val slot: MealSlot,
     val recipes: List<String> = emptyList(),
     val agenda: String? = null,
+    val customTitle: String? = null,
 )

@@ -495,4 +495,13 @@ object UiTags {
     /** The week view's meal (a long press asks to delete it) and the « Supprimer » of the confirmation. */
     const val MEAL_ROW = "meal_row"
     const val MEAL_DELETE_CONFIRM = "meal_delete_confirm"
+
+    /** « + » in a slot that already holds a meal: the only way to plan a second one there. */
+    const val MEAL_ADD = "meal_add"
+
+    /** The meal's sheet (MAG-378): its title, « Enregistrer », « Supprimer » and the ingredients. */
+    const val MEAL_DETAIL_TITLE = "meal_detail_title"
+    const val MEAL_DETAIL_SAVE = "meal_detail_save"
+    const val MEAL_DETAIL_DELETE = "meal_detail_delete"
+    const val MEAL_DETAIL_INGREDIENTS = "meal_detail_ingredients"
 }

@@ -46,6 +46,7 @@ import java.util.Locale
 fun MealsWeekScreen(
     viewModel: MealsWeekViewModel,
     onCreateMeal: (day: String, slot: String) -> Unit,
+    onOpenMeal: (Meal) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var mealToDelete by remember { mutableStateOf<Meal?>(null) }
@@ -158,7 +159,8 @@ fun MealsWeekScreen(
                             // Lunch
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.LUNCH] ?: emptyList(),
-                                onClick = { onCreateMeal(dayStr, "lunch") },
+                                onCreate = { onCreateMeal(dayStr, "lunch") },
+                                onOpen = onOpenMeal,
                                 onLongPress = { mealToDelete = it },
                                 modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("lunch", dayOffset.toInt())),
                             )
@@ -166,7 +168,8 @@ fun MealsWeekScreen(
                             // Dinner
                             MealSlotCell(
                                 meals = dayMeals[MealSlot.DINNER] ?: emptyList(),
-                                onClick = { onCreateMeal(dayStr, "dinner") },
+                                onCreate = { onCreateMeal(dayStr, "dinner") },
+                                onOpen = onOpenMeal,
                                 onLongPress = { mealToDelete = it },
                                 modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("dinner", dayOffset.toInt())),
                             )
@@ -178,47 +181,61 @@ fun MealsWeekScreen(
     }
 }
 
+/**
+ * An empty slot is a card that plans a meal. A slot with meals lists them — a tap opens the
+ * meal's sheet, never a second creation (MAG-378) — and ends with a « + » row to plan another.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MealSlotCell(
     meals: List<Meal>,
-    onClick: () -> Unit,
+    onCreate: () -> Unit,
+    onOpen: (Meal) -> Unit,
     onLongPress: (Meal) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.padding(2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (meals.isEmpty()) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-        ),
-    ) {
+    val colors = CardDefaults.cardColors(
+        containerColor = if (meals.isEmpty()) {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+    )
+    if (meals.isEmpty()) {
+        Card(onClick = onCreate, modifier = modifier.padding(2.dp), colors = colors) {
+            Text(
+                text = "+",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(4.dp).fillMaxWidth(),
+            )
+        }
+        return
+    }
+    Card(modifier = modifier.padding(2.dp), colors = colors) {
         Column(modifier = Modifier.padding(4.dp).fillMaxWidth()) {
-            if (meals.isEmpty()) {
+            meals.forEach { meal ->
                 Text(
-                    text = "+",
+                    text = meal.summary,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 2,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(onClick = { onOpen(meal) }, onLongClick = { onLongPress(meal) })
+                        .testTag(UiTags.MEAL_ROW),
                 )
-            } else {
-                meals.forEach { meal ->
-                    Text(
-                        text = meal.summary,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(onClick = onClick, onLongClick = { onLongPress(meal) })
-                            .testTag(UiTags.MEAL_ROW),
-                    )
-                }
             }
+            Text(
+                text = "+",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(onClick = onCreate)
+                    .testTag(UiTags.MEAL_ADD),
+            )
         }
     }
 }

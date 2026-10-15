@@ -6,7 +6,7 @@
 // polling as `recipe-api.js`.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create (sets output.recipeId) | expect-single | expect-chosen | expect-deleted | remove
+//   ACTION  create (sets output.recipeId) | expect-single | expect-chosen | expect-renamed | expect-deleted | remove
 //
 // Everything carries the ticket's number and is gone after `remove`, meal and
 // grocery lines included (deleting the meal takes its lines off the list).
@@ -17,6 +17,7 @@
 const base = E2E_BASE_URL
 const email = 'e2e@maggie.local'
 const recipeName = 'Riz au curry MAG-297'
+const ownTitle = 'Dimanche en famille'
 const riceName = 'Riz MAG-297'
 const vegetablesName = 'Légumes pour couscous MAG-297'
 
@@ -58,7 +59,7 @@ function named(path, name) {
 }
 
 function meals() {
-  return collection('/api/meals?itemsPerPage=200').filter(function (row) { return String(row.summary).includes(recipeName) })
+  return collection('/api/meals?itemsPerPage=200').filter(function (row) { return String(row.summary).includes(recipeName) || row.customTitle === ownTitle })
 }
 
 function post(path, body) {
@@ -143,6 +144,18 @@ if (ACTION === 'create') {
     }
     if (Date.now() >= deadline) {
       fail('the meal "' + recipeName + '" never carried a grocery choice within 30 s (found ' + meals().length + ' meal(s))')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'expect-renamed') {
+  // The sheet saved the owner's title (MAG-378): it is the meal's title, the recipe stays on its menu.
+  for (;;) {
+    const planned = meals()
+    if (planned.length === 1 && planned[0].customTitle === ownTitle && planned[0].summary === ownTitle && planned[0].recipes.length === 1) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('expected one meal titled "' + ownTitle + '" keeping its recipe, found ' + JSON.stringify(meals()))
     }
     pause(300)
   }

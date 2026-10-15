@@ -13432,6 +13432,14 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "customTitle": {
+                        "maxLength": 255,
+                        "description": "The title the owner gave the meal; null or blank, it is titled after its recipes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "groceryChoiceMadeAt": {
                         "readOnly": true,
                         "type": [
@@ -13609,6 +13617,14 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "customTitle": {
+                        "maxLength": 255,
+                        "description": "The title the owner gave the meal; null or blank, it is titled after its recipes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "groceryChoiceMadeAt": {
                         "readOnly": true,
                         "type": [
@@ -13781,6 +13797,14 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "customTitle": {
+                        "maxLength": 255,
+                        "description": "The title the owner gave the meal; null or blank, it is titled after its recipes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "groceryChoiceMadeAt": {
                         "readOnly": true,
@@ -13963,6 +13987,14 @@
                                     "format": "iri-reference",
                                     "example": "https://example.com/"
                                 }
+                            },
+                            "customTitle": {
+                                "maxLength": 255,
+                                "description": "The title the owner gave the meal; null or blank, it is titled after its recipes.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "groceryChoiceMadeAt": {
                                 "readOnly": true,

@@ -2,6 +2,9 @@ package com.maggie.app.ui.screens.cookbook.meals
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -36,5 +39,16 @@ class RecipeSearchScreenTest {
         compose.waitForIdle()
 
         assertEquals(0, done)
+    }
+
+    @Test
+    fun `a recipe already on the menu is no longer offered`() {
+        compose.setContent {
+            RecipeSearchScreen(recipes = recipes, chosenIds = setOf("r1"), onPick = {}, onDone = {})
+        }
+        compose.waitForIdle()
+
+        compose.onAllNodesWithText("Riz au curry").assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.MEAL_RECIPE_RESULT).assertCountEquals(1)
     }
 }

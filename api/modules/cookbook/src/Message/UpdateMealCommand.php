@@ -18,6 +18,8 @@ final readonly class UpdateMealCommand
         public ?array $recipeIds = null,
         public ?int $guests = null,
         public bool $useDefaultGuests = false,
+        /** Null leaves the title as it is; a blank one goes back to the recipes' names. */
+        public ?string $customTitle = null,
     ) {
     }
 }

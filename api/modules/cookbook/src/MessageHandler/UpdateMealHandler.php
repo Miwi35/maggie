@@ -55,6 +55,10 @@ class UpdateMealHandler
             }
         }
 
+        if (null !== $command->customTitle) {
+            $meal->setCustomTitle($command->customTitle);
+        }
+
         $meal->setSummary(MealTitle::of($meal));
 
         // Moving the meal is the `MealRescheduled` event's business, from whichever door.
