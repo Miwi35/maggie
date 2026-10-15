@@ -54,7 +54,9 @@ class PurchasedItem
     #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
     private ?Unit $packagingSizeUnit = null;
 
+    // The order of the lines, kept by the collection's OrderBy; not part of the line.
     #[ORM\Column(options: ['default' => 0])]
+    #[Ignore]
     private int $position = 0;
 
     public function __construct()

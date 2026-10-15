@@ -33,19 +33,28 @@ final class LazyAssociationCollection extends AbstractLazyCollection
         $ownerClass = $this->owner::class;
         $ownerMeta = $this->em->getClassMetadata($ownerClass);
         $targetClass = $ownerMeta->getAssociationTargetClass($this->property);
+        $mapping = $ownerMeta->getAssociationMapping($this->property);
+
+        // The mapping's `OrderBy`, which a hand-written query does not get for
+        // free: without it the lines come back in whatever order the database
+        // reads them, unlike the same entity served by Doctrine (MAG-488).
+        $orderBy = [];
+        foreach ($mapping->orderBy ?? [] as $field => $direction) {
+            $orderBy[] = \sprintf('target.%s %s', $field, 'DESC' === strtoupper($direction) ? 'DESC' : 'ASC');
+        }
 
         $rows = $this->em->createQuery(\sprintf(
-            'SELECT target FROM %1$s target WHERE target.id IN (SELECT linked.id FROM %2$s owner JOIN owner.%3$s linked WHERE owner.id = :id)',
+            'SELECT target FROM %1$s target WHERE target.id IN (SELECT linked.id FROM %2$s owner JOIN owner.%3$s linked WHERE owner.id = :id)%4$s',
             $targetClass,
             $ownerClass,
             $this->property,
+            [] === $orderBy ? '' : ' ORDER BY '.implode(', ', $orderBy),
         ))->setParameter('id', $this->ownerId, 'ulid')->getResult();
 
         // The rows' own side points at the managed twin of the owner, not at
         // this rebuilt one: the serializer would walk owner → row → twin → row
         // and report a circular reference. Detached, they can be re-pointed
         // without Doctrine ever seeing the change.
-        $mapping = $ownerMeta->getAssociationMapping($this->property);
         $inverse = $mapping->isOneToMany() ? $mapping->mappedBy : null;
         if (null !== $inverse) {
             $field = $this->em->getClassMetadata($targetClass)->reflFields[$inverse];

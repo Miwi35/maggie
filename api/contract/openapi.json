@@ -16600,10 +16600,6 @@
                             null
                         ]
                     },
-                    "position": {
-                        "default": 0,
-                        "type": "integer"
-                    },
                     "product": {
                         "readOnly": true,
                         "description": "The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line.",
@@ -16706,10 +16702,6 @@
                             null
                         ]
                     },
-                    "position": {
-                        "default": 0,
-                        "type": "integer"
-                    },
                     "product": {
                         "readOnly": true,
                         "description": "The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line.",
@@ -16811,10 +16803,6 @@
                             "jar",
                             null
                         ]
-                    },
-                    "position": {
-                        "default": 0,
-                        "type": "integer"
                     },
                     "product": {
                         "readOnly": true,

@@ -84,6 +84,10 @@ class ErrandToolsTest extends KernelTestCase
 
         $none = $this->call(self::getContainer()->get(ListPastErrandsTool::class), store: 'Lidl');
         self::assertSame(['errands' => [], 'count' => 0], $none);
+
+        // A name, not a pattern: « % » matches no store named so.
+        $wildcard = $this->call(self::getContainer()->get(ListPastErrandsTool::class), store: '%');
+        self::assertSame(['errands' => [], 'count' => 0], $wildcard);
     }
 
     public function testAnotherUsersErrandsAreNotListed(): void

@@ -24,7 +24,6 @@
                     "packagingUnit": "pack",
                     "packagingSize": 500,
                     "packagingSizeUnit": "g",
-                    "position": 0,
                     "product": "/api/products/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                 }
             ]
@@ -41,8 +40,7 @@
                     "@type": "PurchasedItem",
                     "@id": "/api/.well-known/genid/blank",
                     "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-                    "label": "Recorded free-text line",
-                    "position": 0
+                    "label": "Recorded free-text line"
                 }
             ]
         }

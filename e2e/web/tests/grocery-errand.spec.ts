@@ -921,7 +921,7 @@ test('what was bought is kept in « Courses passées », with its date and its s
   const row = pastErrands.rows().first()
   await expect(row).toContainText(SHOPS.market)
   await expect(row).toContainText(day)
-  await expect(row).toContainText('2')
+  await expect(row.getByText('2', { exact: true }), 'the number of articles bought').toBeVisible()
 
   await row.click()
   const lines = pastErrands.boughtLines()

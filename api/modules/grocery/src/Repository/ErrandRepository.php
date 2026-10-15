@@ -36,8 +36,10 @@ class ErrandRepository extends ServiceEntityRepository
             ->setMaxResults($limit);
 
         if (null !== $storeName && '' !== trim($storeName)) {
-            $qb->andWhere('LOWER(e.storeName) LIKE :store')
-                ->setParameter('store', '%'.mb_strtolower(trim($storeName)).'%');
+            // The name is a name, not a pattern: `%` and `_` are taken literally.
+            $needle = addcslashes(mb_strtolower(trim($storeName)), '%_\\');
+            $qb->andWhere("LOWER(e.storeName) LIKE :store ESCAPE '\\'")
+                ->setParameter('store', '%'.$needle.'%');
         }
 
         /** @var list<Errand> $errands */
