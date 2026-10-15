@@ -147,6 +147,11 @@ object UiTags {
     const val CATEGORY_PARENT_SEARCH = "category_parent_search"
     const val CATEGORY_DELETE = "category_delete"
 
+    /** Category screen — the icon field and the full-screen grid it opens (MAG-474). */
+    const val CATEGORY_ICON = "category_icon"
+    const val CATEGORY_ICON_SEARCH = "category_icon_search"
+    const val CATEGORY_ICON_TILE_PREFIX = "category_icon_tile_"
+
     /** Budgets — the « Hors budget mensuel » section, annual and one-off envelopes (MAG-414). */
     const val BUDGET_OUTSIDE_MONTHLY = "budget_outside_monthly"
 

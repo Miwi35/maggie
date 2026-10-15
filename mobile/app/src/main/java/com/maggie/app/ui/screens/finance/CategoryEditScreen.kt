@@ -166,9 +166,31 @@ internal fun CategoryEditScreen(
     val form = remember(editing.category?.id, editing.parent) { CategoryFormState(editing.category, editing.parent) }
     val tree = remember(state.categories) { state.tree }
     var searchingParent by rememberSaveable { mutableStateOf(false) }
+    var choosingIcon by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    // Held above the full-screen choices so the form is back where it was, not at the top.
+    val scrollState = rememberScrollState()
 
-    BackHandler(onBack = if (searchingParent) ({ searchingParent = false }) else onBack)
+    BackHandler(
+        onBack = when {
+            searchingParent -> ({ searchingParent = false })
+            choosingIcon -> ({ choosingIcon = false })
+            else -> onBack
+        },
+    )
+
+    if (choosingIcon) {
+        CategoryIconPickerScreen(
+            current = form.icon,
+            color = form.color,
+            onPick = { picked ->
+                form.icon = picked.orEmpty()
+                choosingIcon = false
+            },
+            onBack = { choosingIcon = false },
+        )
+        return
+    }
 
     if (searchingParent) {
         // Levels 1 and 2 only, and none inside the subtree being moved: three levels at most.
@@ -256,7 +278,7 @@ internal fun CategoryEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -264,6 +286,7 @@ internal fun CategoryEditScreen(
                 form = form,
                 parentName = state.categories.firstOrNull { categoryIri(it.id) == form.parent }?.let(tree::path),
                 onPickParent = { searchingParent = true },
+                onPickIcon = { choosingIcon = true },
             )
 
             if (!form.isNew) {
@@ -303,6 +326,7 @@ internal fun CategoryFormFields(
     form: CategoryFormState,
     parentName: String? = null,
     onPickParent: () -> Unit = {},
+    onPickIcon: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier.uiTagRoot(),
@@ -404,14 +428,29 @@ internal fun CategoryFormFields(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedTextField(
-                value = form.icon,
-                onValueChange = { form.icon = it },
-                label = { Text("Icône") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Helper("Nom d'icône, par exemple shopping-cart.")
+            // Same read-only field with a tap target as the parent: the choice opens a full-screen grid.
+            val iconLabel = form.icon.trim().takeIf { it.isNotEmpty() }
+                ?.let { CategoryIconCatalog.find(it)?.label ?: it }
+            Box {
+                OutlinedTextField(
+                    value = iconLabel.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Icône") },
+                    placeholder = { Text("Aucune") },
+                    leadingIcon = { CategoryGlyph(color = form.color, icon = form.icon) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .testTag(UiTags.CATEGORY_ICON)
+                        .semantics { contentDescription = "Icône, ${iconLabel ?: "aucune"}" }
+                        .clickable(role = Role.Button, onClick = onPickIcon),
+                )
+            }
+            Helper("Choisissez une icône dans la grille, ou cherchez-la par son nom : courses, voiture, restaurant…")
         }
     }
 }

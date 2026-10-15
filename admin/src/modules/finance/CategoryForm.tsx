@@ -14,6 +14,7 @@ import type { RaRecord } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
 import { OBLIGATION_CHOICES } from './obligationFlags'
 import { ColorInput } from './ColorInput'
+import { CategoryIconPicker } from './CategoryIconPicker'
 import { categoryLabel, parentChoices } from './categoryTree'
 import type { CategoryNode } from './categoryTree'
 
@@ -124,6 +125,10 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
       helperText="Cliquez sur une couleur, ou sur la pastille de droite pour en choisir une autre."
     />
 
-    <TextInput source="icon" label="Icône" fullWidth helperText="Nom d'icône, par exemple shopping-cart." />
+    <CategoryIconPicker
+      source="icon"
+      label="Icône"
+      helperText="Choisissez une icône dans la grille, ou cherchez-la par son nom : courses, voiture, restaurant…"
+    />
   </SimpleForm>
 )
