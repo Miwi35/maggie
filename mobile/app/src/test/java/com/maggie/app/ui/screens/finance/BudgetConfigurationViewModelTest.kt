@@ -4,6 +4,8 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.api.EnvelopeUpdateRequest
 import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
@@ -15,11 +17,15 @@ import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.Season
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -34,7 +40,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * The tablet's envelope editor (MAG-419): one test per transition of the tree and its right pane.
@@ -47,6 +52,9 @@ class BudgetConfigurationViewModelTest {
     private lateinit var budgetRepository: BudgetRepository
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var viewModel: BudgetViewModel
+    private val transactionRepository = mockk<TransactionRepository>()
+    private val authRepository = mockk<AuthRepository>()
+    private val mercureService = mockk<MercureService>()
 
     private val today = LocalDate.of(2026, 7, 15)
 
@@ -96,6 +104,8 @@ class BudgetConfigurationViewModelTest {
         Dispatchers.setMain(testDispatcher)
         budgetRepository = mockk()
         categoryRepository = mockk()
+        coEvery { authRepository.getUserId() } returns "user-1"
+        every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(status)
         coEvery { categoryRepository.getCategories() } returns Result.success(categories)
         coEvery { budgetRepository.getEnvelope("env-cinema") } returns Result.success(storedCinema)
@@ -107,7 +117,9 @@ class BudgetConfigurationViewModelTest {
     }
 
     private fun TestScope.open(): BudgetViewModel {
-        viewModel = BudgetViewModel(budgetRepository, categoryRepository, today)
+        viewModel = BudgetViewModel(
+            budgetRepository, categoryRepository, transactionRepository, mercureService, authRepository, today,
+        )
         advanceUntilIdle()
         return viewModel
     }
