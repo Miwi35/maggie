@@ -226,6 +226,7 @@ class BudgetViewModel(
                     updateDetail(detail.envelopeId) { it.copy(transactions = lines, isLoading = false, error = null) }
                 }
                 .onFailure { e ->
+                    if (e is CancellationException) return@onFailure
                     updateDetail(detail.envelopeId) { it.copy(isLoading = false, error = e.message ?: DETAIL_FAILED) }
                 }
         }
