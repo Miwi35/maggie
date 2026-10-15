@@ -9,8 +9,8 @@ final readonly class CreateCategorizationRuleCommand
     /** @param array<string, mixed>|null $qualification the whole qualification (`Qualification::toArray()`); omitted, the category's deprecated flag sets it on creation or on a change of category */
     public function __construct(
         public string $userId,
-        public string $labelPattern,
         public string $categoryId,
+        public ?string $labelPattern = null,
         public string $matchType = 'contains',
         public string $direction = 'any',
         public ?int $minAmountCents = null,

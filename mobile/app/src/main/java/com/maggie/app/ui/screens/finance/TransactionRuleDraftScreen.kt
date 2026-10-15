@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -54,6 +55,7 @@ fun TransactionRuleDraftScreen(
     draft: RuleDraftState,
     categories: List<Category>,
     onPatternChange: (String) -> Unit,
+    onAmountChange: (amount: String, tolerance: String) -> Unit,
     onCategoryChange: (String?) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
@@ -100,10 +102,33 @@ fun TransactionRuleDraftScreen(
                 OutlinedTextField(
                     value = draft.labelPattern,
                     onValueChange = onPatternChange,
-                    label = { Text("Le libellé contient") },
+                    label = { Text("Le libellé contient (facultatif)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_PATTERN),
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = draft.amount,
+                        onValueChange = { onAmountChange(it, draft.tolerance) },
+                        label = { Text("Montant (€)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(2f).testTag(UiTags.RULE_DRAFT_AMOUNT),
+                    )
+                    OutlinedTextField(
+                        value = draft.tolerance,
+                        onValueChange = { onAmountChange(draft.amount, it) },
+                        label = { Text("± %") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).testTag(UiTags.RULE_DRAFT_TOLERANCE),
+                    )
+                }
+                draft.amountBounds?.let { (low, high) ->
+                    Text(
+                        text = "Montant entre ${formatCents(low)} et ${formatCents(high)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
                     text = "Sens : ${directionLabel(draft.direction)}",
                     style = MaterialTheme.typography.bodySmall,
@@ -127,10 +152,11 @@ fun TransactionRuleDraftScreen(
                             .clickable(enabled = !draft.isSaving, role = Role.Button) { pickingCategory = true },
                     )
                 }
+                draft.problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 draft.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
                 Button(
                     onClick = onSave,
-                    enabled = draft.labelPattern.isNotBlank() && draft.categoryId != null && !draft.isSaving,
+                    enabled = draft.problem == null && draft.categoryId != null && !draft.isSaving,
                     modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_SAVE),
                 ) { Text("Enregistrer le filtre") }
             }
@@ -166,7 +192,7 @@ private fun MatchCount(isPreviewing: Boolean, total: Int?) {
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
         when {
             isPreviewing -> CircularProgressIndicator(modifier = Modifier.padding(4.dp))
-            total == null -> Text("Saisissez un motif pour voir les transactions concernées.", style = MaterialTheme.typography.bodyMedium)
+            total == null -> Text("Saisissez un motif ou un montant pour voir les transactions concernées.", style = MaterialTheme.typography.bodyMedium)
             total == 0 -> Text("Aucune transaction ne correspond.", style = MaterialTheme.typography.bodyMedium)
             else -> Text(
                 if (total == 1) "1 transaction correspond" else "$total transactions correspondent",

@@ -7,6 +7,9 @@ import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.MissedOccurrence
 import com.maggie.app.data.model.ProposalClaim
 import com.maggie.app.data.model.RecurringAttachReport
+import com.maggie.app.data.model.RecurringOperationPreview
+import com.maggie.app.data.model.RecurringOperationPreviewMatch
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringProposal
@@ -609,5 +612,101 @@ class RecurringOperationViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.seriesLines)
+    }
+
+    private val salaryAsked = RecurringOperationPreviewRequest(referenceAmountCents = 475000, amountTolerancePercent = 10)
+
+    private val salaryFound = RecurringOperationPreview(
+        total = 1,
+        matches = listOf(RecurringOperationPreviewMatch("tx-salary", "VIR SEPA XYZ", 465000, "2026-10-01", "acc-1")),
+    )
+
+    @Test
+    fun `an incomplete form asks for no preview and clears the previous one`() = runTest {
+        coEvery { repository.previewSeries(any()) } returns Result.success(salaryFound)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startCreate()
+        viewModel.previewRecognition(salaryAsked)
+        advanceUntilIdle()
+        assertEquals(salaryFound, viewModel.uiState.value.recognition.result)
+
+        viewModel.previewRecognition(null)
+        advanceUntilIdle()
+
+        assertEquals(SeriesRecognitionState(), viewModel.uiState.value.recognition)
+        coVerify(exactly = 1) { repository.previewSeries(any()) }
+    }
+
+    @Test
+    fun `a complete form loads, then shows the lines the series would recognise`() = runTest {
+        val sent = slot<RecurringOperationPreviewRequest>()
+        coEvery { repository.previewSeries(capture(sent)) } returns Result.success(salaryFound)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startCreate()
+
+        viewModel.previewRecognition(salaryAsked)
+        assertTrue(viewModel.uiState.value.recognition.isLoading)
+        advanceUntilIdle()
+
+        val recognition = viewModel.uiState.value.recognition
+        assertFalse(recognition.isLoading)
+        assertNull(recognition.error)
+        assertEquals(1, recognition.result!!.total)
+        assertEquals("VIR SEPA XYZ", recognition.result!!.matches.single().label)
+        assertEquals(salaryAsked, sent.captured)
+    }
+
+    @Test
+    fun `a failing preview is reported on the form and the editor stays open`() = runTest {
+        coEvery { repository.previewSeries(any()) } returns Result.failure(RuntimeException("Montant invalide"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startCreate()
+
+        viewModel.previewRecognition(salaryAsked)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Montant invalide", state.recognition.error)
+        assertNull(state.recognition.result)
+        assertFalse(state.recognition.isLoading)
+        assertNotNull(state.editing)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `a newer preview request replaces the older one, whatever order they answer in`() = runTest {
+        val asked = mutableListOf<Int>()
+        coEvery { repository.previewSeries(any()) } answers {
+            val request = firstArg<RecurringOperationPreviewRequest>()
+            asked += request.referenceAmountCents
+            Result.success(RecurringOperationPreview(total = request.referenceAmountCents))
+        }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startCreate()
+
+        viewModel.previewRecognition(salaryAsked.copy(referenceAmountCents = 1))
+        viewModel.previewRecognition(salaryAsked.copy(referenceAmountCents = 2))
+        advanceUntilIdle()
+
+        assertEquals(listOf(2), asked)
+        assertEquals(2, viewModel.uiState.value.recognition.result!!.total)
+    }
+
+    @Test
+    fun `closing the editor drops the preview`() = runTest {
+        coEvery { repository.previewSeries(any()) } returns Result.success(salaryFound)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startCreate()
+        viewModel.previewRecognition(salaryAsked)
+        advanceUntilIdle()
+
+        viewModel.closeEditor()
+
+        assertEquals(SeriesRecognitionState(), viewModel.uiState.value.recognition)
     }
 }

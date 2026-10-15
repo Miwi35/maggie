@@ -7,6 +7,7 @@
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  create | expect-attached | expect-detached | remove
+//           create-salary | expect-salary-attached | remove-salary   (MAG-475)
 //
 // Everything lives on an account of its own, so `remove` is one delete: the series and
 // the lines go with it. Dates come from TODAY, the day the stack runs at.
@@ -17,6 +18,10 @@ const email = 'e2e@maggie.local'
 const accountName = 'Courant MAG-309'
 const categoryName = 'Loyer MAG-309'
 const transactionLabel = 'LOYER SCI VERDA'
+// MAG-475: a credit the series « Salaire » must recognise by its amount alone.
+const salaryAccountName = 'Courant MAG-475'
+const salaryCategoryName = 'Revenu MAG-475'
+const salaryLabel = 'VIR SEPA XYZ'
 
 function fail(message) {
   throw new Error('[recurring-api] ' + ACTION + ': ' + message)
@@ -59,12 +64,12 @@ function post(path, body) {
   return JSON.parse(response.body)
 }
 
-function removeLeftovers() {
+function removeLeftovers(account, category) {
   collection('/api/accounts?itemsPerPage=200')
-    .filter(function (row) { return row.name === accountName })
+    .filter(function (row) { return row.name === (account || accountName) })
     .forEach(function (row) { http.request(base + row['@id'], { method: 'DELETE', headers: authorized() }) })
   collection('/api/categories?itemsPerPage=200')
-    .filter(function (row) { return row.name === categoryName })
+    .filter(function (row) { return row.name === (category || categoryName) })
     .forEach(function (row) { http.request(base + row['@id'], { method: 'DELETE', headers: authorized() }) })
 }
 
@@ -135,6 +140,38 @@ if (ACTION === 'create') {
   }
 } else if (ACTION === 'remove') {
   removeLeftovers()
+} else if (ACTION === 'create-salary') {
+  removeLeftovers(salaryAccountName, salaryCategoryName)
+  const account = post('/api/accounts', { name: salaryAccountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
+  post('/api/categories', { name: salaryCategoryName, obligation: 'income' })
+  // 4 650 EUR with a label and no payee the series will know: only its amount can recognise it.
+  post('/api/transactions', {
+    account: account['@id'],
+    label: salaryLabel,
+    amountCents: 465000,
+    currency: 'EUR',
+    bookedAt: TODAY,
+    status: 'spent',
+  })
+} else if (ACTION === 'expect-salary-attached') {
+  for (;;) {
+    const lines = collection('/api/transactions?itemsPerPage=200').filter(function (row) { return row.label === salaryLabel })
+    if (lines.length === 1 && lines[0].recurringOperation) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the line "' + salaryLabel + '" was never attached within 30 s (found ' + lines.length + ' line(s))')
+    }
+    pause(300)
+  }
+  // The series was written without any identity: the amount and its sign are all it holds.
+  const series = collection('/api/recurring_operations?itemsPerPage=200').filter(function (row) { return row.label === 'Salaire' })
+  if (series.length !== 1 || series[0].counterpartyName || series[0].labelPattern ||
+      series[0].referenceAmountCents !== 475000 || series[0].amountTolerancePercent !== 10) {
+    fail('the series "Salaire" is not the one the journey wrote: ' + JSON.stringify(series))
+  }
+} else if (ACTION === 'remove-salary') {
+  removeLeftovers(salaryAccountName, salaryCategoryName)
 } else {
   fail('unknown ACTION')
 }

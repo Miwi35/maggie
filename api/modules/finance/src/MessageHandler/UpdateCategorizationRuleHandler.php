@@ -26,6 +26,7 @@ class UpdateCategorizationRuleHandler
     public function __construct(
         private readonly UpdateCategorizationRule $updateCategorizationRule,
         private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly EntityManagerInterface $em,
         private readonly OwnedReferenceResolver $references,
         private readonly EntityManagerInterface $em,
         #[Autowire(service: 'event.bus')]
@@ -52,10 +53,9 @@ class UpdateCategorizationRuleHandler
             $rule->requalify(Qualification::fromCategory($category));
         }
         if (null !== $command->labelPattern) {
-            if ('' === $command->labelPattern) {
-                throw new \DomainException('A rule needs a label pattern to match on.');
-            }
             $rule->setLabelPattern($command->labelPattern);
+        } elseif ($command->clears('labelPattern')) {
+            $rule->setLabelPattern(null);
         }
         if (null !== $command->matchType) {
             $rule->setMatchType(MatchType::from($command->matchType));
@@ -84,6 +84,12 @@ class UpdateCategorizationRuleHandler
         $max = $rule->getMaxAmountCents();
         if (null !== $min && null !== $max && $min > $max) {
             throw new \DomainException('The minimum amount must not exceed the maximum amount.');
+        }
+
+        if (!$rule->matchCriteria()->isRecognisable()) {
+            $this->em->refresh($rule);
+
+            throw new \DomainException(CategorizationRule::UNRECOGNISABLE);
         }
 
         $rule = $this->updateCategorizationRule->execute($rule);

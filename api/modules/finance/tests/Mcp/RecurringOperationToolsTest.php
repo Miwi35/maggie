@@ -130,7 +130,6 @@ class RecurringOperationToolsTest extends KernelTestCase
         yield 'zero amount' => [['referenceAmountCents' => 0], 'referenceAmountCents'];
         yield 'tolerance out of bounds' => [['amountTolerancePercent' => 150], 'amountTolerancePercent'];
         yield 'end before the anchor' => [['endsOn' => '2027-01-01'], 'endsOn'];
-        yield 'nothing to recognise it by' => [['counterpartyName' => null], 'counterpartyName'];
         yield 'unknown period' => [['period' => 'daily'], 'daily'];
         yield 'not a date' => [['anchorOn' => '12/01/2027'], 'anchorOn'];
         yield 'weekly on the last day of the month' => [['period' => 'weekly', 'dayRule' => 'last_day_of_month'], 'dayRule'];
@@ -209,11 +208,22 @@ class RecurringOperationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call('update', recurringOperationId: $this->id('gym'), clear: ['counterpartyName']);
+        $data = $this->call('update', recurringOperationId: $this->id('gym'), amountTolerancePercent: 150);
 
         self::assertArrayHasKey('error', $data);
         self::assertSame('Club Forme', $this->reload('gym')?->getCounterpartyName());
         $this->assertMercureUpdateCount(0);
+    }
+
+    public function testTheCounterpartyCanBeClearedWhenTheAmountRemains(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->call('update', recurringOperationId: $this->id('gym'), clear: ['counterpartyName']);
+
+        self::assertTrue($data['success']);
+        self::assertNull($this->reload('gym')?->getCounterpartyName());
+        $this->assertMercureUpdatePublished('/recurring_operations/');
     }
 
     public function testUpdateOrDeleteWithoutAnIdIsRefused(): void
@@ -286,5 +296,30 @@ class RecurringOperationToolsTest extends KernelTestCase
         }
 
         return $deleted;
+    }
+
+    public function testASalaryIsCreatedFromItsAmountAlone(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call(
+            'create',
+            label: 'Salaire',
+            categoryId: $this->id('salary'),
+            accountId: $this->id('checking'),
+            referenceAmountCents: 475000,
+            anchorOn: '2026-09-28',
+            amountTolerancePercent: 10,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['recurringOperation']['counterpartyName']);
+        self::assertNull($data['recurringOperation']['labelPattern']);
+        $stored = self::getContainer()->get('doctrine.orm.entity_manager')->find(RecurringOperation::class, $data['recurringOperation']['id']);
+        self::assertNull($stored->getCounterpartyKey());
+        self::assertSame(10, $stored->getAmountTolerancePercent());
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 }

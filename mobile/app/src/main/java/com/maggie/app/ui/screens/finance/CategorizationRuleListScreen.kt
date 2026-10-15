@@ -48,6 +48,7 @@ import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.describeRuleScope
+import com.maggie.app.data.model.headline
 import com.maggie.app.data.model.matchTypeLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -134,7 +135,8 @@ fun CategorizationRuleListScreen(
                 ) {
                     items(uiState.rules, key = { it.id }) { rule ->
                         val categoryName = tree.pathOf(rule.categoryId)
-                        val scope = describeRuleScope(
+                        // Without a label the headline already says the direction and the amount.
+                        val scope = if (rule.labelPattern.isNullOrBlank()) "" else describeRuleScope(
                             rule.direction,
                             rule.minAmountCents,
                             rule.maxAmountCents,
@@ -148,7 +150,7 @@ fun CategorizationRuleListScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "${matchTypeLabel(rule.matchType)} « ${rule.labelPattern} »",
+                                        text = rule.headline(),
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(

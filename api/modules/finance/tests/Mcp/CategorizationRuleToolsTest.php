@@ -248,7 +248,7 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $refreshed = $em->find(CategorizationRule::class, $rule->getId());
         self::assertNull($refreshed->getMaxAmountCents());
         self::assertSame(1000, $refreshed->getMinAmountCents());
-        self::assertSame('CARREFOUR', $refreshed->getLabelPattern(), 'Required fields cannot be cleared');
+        self::assertNull($refreshed->getLabelPattern(), 'the debit range is enough to recognise the rule');
 
         $this->assertMercureUpdatePublished('/categorization_rules/');
         $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
@@ -464,5 +464,82 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $data = json_decode($this->tool()('simulate'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
+    }
+
+    public function testCreateAnAmountOnlyRuleFilesTheSalaryOnItsAmount(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->loginFixtureUser();
+        $salary = $this->getFixture('salary');
+
+        $data = json_decode($this->tool()('create', categoryId: (string) $salary->getId(), direction: 'credit', minAmountCents: 427500, maxAmountCents: 522500, applyToExisting: true), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['rule']['labelPattern']);
+        self::assertSame('credit', $data['rule']['direction']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(1, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_october'));
+        self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_september'));
+        self::assertNull($this->categoryOfTransaction('small_credit'));
+        self::assertNull($this->categoryOfTransaction('same_size_debit'));
+        self::assertNull($this->categoryOfTransaction('same_size_transfer'));
+        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+    }
+
+    public function testCreateWithoutLabelNorDirectedAmountIsRefusedWithTheStateGiven(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->loginFixtureUser();
+        $category = (string) $this->getFixture('salary')->getId();
+
+        foreach ([
+            [['minAmountCents' => 427500, 'maxAmountCents' => 522500], 'any'],
+            [['direction' => 'credit'], 'credit'],
+            [[], 'any'],
+        ] as [$args, $direction]) {
+            $data = json_decode($this->tool()('create', ...array_merge(['categoryId' => $category], $args)), true, 512, JSON_THROW_ON_ERROR);
+
+            self::assertArrayHasKey('error', $data);
+            self::assertSame(CategorizationRule::UNRECOGNISABLE, $data['error']);
+            self::assertSame($direction, $data['current']['direction']);
+            self::assertNull($data['current']['labelPattern']);
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testUpdateThatWouldLeaveNothingToRecogniseByIsRefusedAndChangesNothing(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+        $rule = $this->getFixture('rule_carrefour');
+
+        $data = json_decode($this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['labelPattern']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(CategorizationRule::UNRECOGNISABLE, $data['error']);
+        self::assertSame('CARREFOUR', $data['current']['labelPattern']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('CARREFOUR', $em->find(CategorizationRule::class, $rule->getId())->getLabelPattern());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testPreviewOfAnAmountOnlyRuleListsTheLinesItCatches(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode($this->tool()('preview', direction: 'credit', minAmountCents: 427500, maxAmountCents: 522500, categoryId: (string) $this->getFixture('salary')->getId()), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame(2, $data['total']);
+        self::assertEqualsCanonicalizing(['VIR SEPA XYZ', 'SALAIRE SEPTEMBRE ABC'], array_column($data['matches'], 'label'));
+
+        $refused = json_decode($this->tool()('preview', minAmountCents: 427500), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(CategorizationRule::UNRECOGNISABLE, $refused['error']);
     }
 }

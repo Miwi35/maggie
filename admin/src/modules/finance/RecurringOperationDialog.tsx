@@ -10,18 +10,22 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Typography from '@mui/material/Typography'
 import { useCreate, useGetList, useUpdate } from 'react-admin'
 import { signedAmountCents, natureOfAmount } from './transactionStatuses'
 import {
   DAY_RULE_CHOICES,
   DEFAULT_AMOUNT_TOLERANCE_PERCENT,
   DEFAULT_DATE_TOLERANCE_DAYS,
+  idOf,
   PERIOD_CHOICES,
 } from './recurringOperations'
 import type { RaRecord } from 'react-admin'
+import type { RecurringPreviewCriteria } from './useRecurringOperationPreview'
 import type { TransactionNature } from './transactionStatuses'
 import type { DayRule, RecurrencePeriod } from './recurringOperations'
 import { categoryLabel, orderedCategories } from './categoryTree'
+import { RecurringMatchesPanel } from './RecurringMatchesPanel'
 
 /** What the form opens with: a series being edited, or a transaction being generalised. */
 export interface RecurringFormValues {
@@ -73,11 +77,6 @@ interface CategoryOption extends RaRecord {
 const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
   nature === 'income' ? category.obligation === 'income' : category.obligation !== 'income'
 
-const PAYEE_REQUIRED = 'Indique une contrepartie ou un motif de libellé pour reconnaître les transactions'
-
-/** The API names the field in front of its message: « counterpartyName: … ». */
-const payeeRefusal = (e: unknown): string | null => /^counterpartyName:[ \t]*(.+)/.exec(e instanceof Error ? e.message : '')?.[1] ?? null
-
 const toEuros = (cents: number | null) => (cents === null ? '' : String(Math.abs(cents) / 100))
 
 export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }: RecurringOperationDialogProps) => {
@@ -87,7 +86,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const [amount, setAmount] = useState(toEuros(initial?.referenceAmountCents ?? null))
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [refusedPayee, setRefusedPayee] = useState<string | null>(null)
 
   const { data: accounts = [] } = useGetList<RaRecord & { name: string }>('accounts', {
     pagination: { page: 1, perPage: 200 },
@@ -119,17 +117,22 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const problems = {
     label: values.label.trim() === '' ? 'Donnez un nom à la série' : null,
     amount: !Number.isFinite(cents) || cents === 0 ? 'Saisissez un montant supérieur à 0' : null,
-    payee: values.counterpartyName.trim() === '' && values.labelPattern.trim() === '' ? PAYEE_REQUIRED : null,
     account: values.account === '' ? 'Choisissez un compte' : null,
     category: values.category === '' ? 'Choisissez une catégorie' : null,
     anchorOn: values.anchorOn === '' ? 'Indiquez la date d’une échéance' : null,
+  }
+  const previewCriteria: RecurringPreviewCriteria = {
+    referenceAmountCents: Number.isFinite(cents) && cents > 0 ? signedAmountCents(cents, nature) : null,
+    amountTolerancePercent: values.amountTolerancePercent,
+    counterpartyName: values.counterpartyName,
+    labelPattern: values.labelPattern,
+    accountId: values.account === '' ? '' : idOf(values.account),
   }
   const invalid = Object.values(problems).some((p) => p !== null)
 
   const submit = () => {
     setTouched(true)
     setError(null)
-    setRefusedPayee(null)
     if (invalid) return
 
     const referenceAmountCents = signedAmountCents(cents, nature)
@@ -150,15 +153,8 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
     }
     const options = {
       onSuccess: (saved: RaRecord) => onSaved(saved),
-      onError: (e: unknown) => {
-        const refusal = payeeRefusal(e)
-        if (refusal) {
-          setRefusedPayee(refusal)
-
-          return
-        }
-        setError(e instanceof Error && e.message ? e.message : 'Impossible d’enregistrer l’opération récurrente')
-      },
+      onError: (e: unknown) =>
+        setError(e instanceof Error && e.message ? e.message : 'Impossible d’enregistrer l’opération récurrente'),
     }
 
     if (editing) {
@@ -169,7 +165,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   }
 
   const shown = (key: keyof typeof problems) => (touched ? problems[key] : null)
-  const payeeError = shown('payee') ?? refusedPayee
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="recurring-dialog-title">
@@ -205,18 +200,19 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             label="Contrepartie attendue"
             value={values.counterpartyName}
             onChange={(e) => set('counterpartyName', e.target.value)}
-            error={Boolean(payeeError)}
-            helperText={payeeError ?? 'Qui est payé (ou qui paie), tel que la banque le nomme : c’est ce qui rattache les transactions.'}
+            helperText="Facultatif. Qui est payé (ou qui paie), tel que la banque le nomme : c’est ce qui rattache les transactions."
             fullWidth
           />
           <TextField
             label="Motif du libellé"
             value={values.labelPattern}
             onChange={(e) => set('labelPattern', e.target.value)}
-            error={Boolean(payeeError)}
-            helperText="Reconnaît les transactions dont le libellé contient… (si la banque ne nomme pas la contrepartie)."
+            helperText="Facultatif. Reconnaît les transactions dont le libellé contient… (si la banque ne nomme pas la contrepartie)."
             fullWidth
           />
+          <Typography variant="caption" color="text.secondary">
+            Sans contrepartie ni libellé, la série est reconnue par son montant ± tolérance et son sens.
+          </Typography>
           <TextField
             label="Montant de référence (€)"
             type="number"
@@ -337,6 +333,8 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
               fullWidth
             />
           </Stack>
+
+          <RecurringMatchesPanel criteria={previewCriteria} />
         </Stack>
       </DialogContent>
       <DialogActions>

@@ -9,7 +9,7 @@ import {
   FormDataConsumer,
   required,
 } from 'react-admin'
-import { MATCH_TYPE_CHOICES, DIRECTION_CHOICES, centsInput } from './categorizationRules'
+import { MATCH_TYPE_CHOICES, DIRECTION_CHOICES, RULE_NEEDS_IDENTITY, centsInput, ruleIdentifies } from './categorizationRules'
 import { FormSection } from '../../components/form/FormSection'
 import { RuleSummary } from './RuleSummary'
 import { RulePreviewPanel } from './RulePreviewPanel'
@@ -18,6 +18,12 @@ import { RulePreviewContext } from './rulePreviewContext'
 import { CategoryInput } from './CategoryInput'
 
 const formSx = { maxWidth: 680 }
+
+/** Cross-field: the label may be left out when a direction and an amount bound recognise the rule. */
+const validateRule = (values: Record<string, unknown>) =>
+  ruleIdentifies(values.labelPattern, values.direction, values.minAmountCents, values.maxAmountCents)
+    ? {}
+    : { labelPattern: RULE_NEEDS_IDENTITY }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
 const halfSx = { flex: '1 1 240px' }
 
@@ -31,11 +37,11 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
 
   return (
     <RulePreviewContext.Provider value={preview}>
-      <SimpleForm sx={formSx} toolbar={<CategorizationRuleToolbar />}>
+      <SimpleForm sx={formSx} validate={validateRule} toolbar={<CategorizationRuleToolbar />}>
         <FormSection
           first
           title="Ce que la règle reconnaît"
-          description="La règle lit le libellé de chaque transaction. La casse et les accents n'ont pas d'importance."
+          description="La règle lit le libellé de chaque transaction. La casse et les accents n'ont pas d'importance. Le libellé est facultatif si vous choisissez un sens et un montant ci-dessous."
         />
 
         <Box sx={rowSx}>
@@ -51,9 +57,8 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
           <TextInput
             source="labelPattern"
             label="…ce texte"
-            validate={required()}
             sx={halfSx}
-            helperText="Le nom du commerçant suffit : CARREFOUR, SNCF, NETFLIX…"
+            helperText="Le nom du commerçant suffit : CARREFOUR, SNCF, NETFLIX… Facultatif avec un sens et un montant."
           />
         </Box>
 
@@ -72,7 +77,7 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
 
         <FormSection
           title="Restreindre (facultatif)"
-          description="Pour distinguer deux dépenses au même libellé — par exemple un plein d'essence d'un café dans la même station."
+          description="Pour distinguer deux dépenses au même libellé — par exemple un plein d'essence d'un café dans la même station. Sans libellé, un sens (dépense ou revenu) et un montant minimum ou maximum reconnaissent à eux seuls la transaction."
         />
 
         <SelectInput

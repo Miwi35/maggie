@@ -10,7 +10,8 @@ use Maggie\Finance\Enum\MatchType;
 /**
  * What a categorization rule or a recurring operation recognises a
  * transaction by. The counterparty comes first; the label pattern stands in
- * when one side has no counterparty to compare.
+ * when one side has no counterparty to compare. With neither, a direction and
+ * a bounded amount recognise it alone (« an income of 4 750 € ± 10 % »).
  */
 final readonly class MatchCriteria
 {
@@ -26,5 +27,24 @@ final readonly class MatchCriteria
         public ?int $minAmountCents = null,
         public ?int $maxAmountCents = null,
     ) {
+    }
+
+    public function hasIdentity(): bool
+    {
+        return (null !== $this->counterpartyKey && '' !== $this->counterpartyKey)
+            || (null !== $this->labelPattern && '' !== $this->labelPattern);
+    }
+
+    /** A bound alone, without a direction, would claim every line of either sign. */
+    public function hasDirectedAmount(): bool
+    {
+        return AmountDirection::Any !== $this->direction
+            && (null !== $this->minAmountCents || null !== $this->maxAmountCents);
+    }
+
+    /** Never an empty criterion: it would claim every transaction. */
+    public function isRecognisable(): bool
+    {
+        return $this->hasIdentity() || $this->hasDirectedAmount();
     }
 }

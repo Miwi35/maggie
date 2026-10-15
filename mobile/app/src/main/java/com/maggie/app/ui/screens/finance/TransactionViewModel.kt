@@ -12,6 +12,7 @@ import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RulePreview
+import com.maggie.app.data.model.amountBoundsAround
 import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
@@ -58,11 +59,31 @@ data class RuleDraftState(
     val labelPattern: String,
     val direction: String,
     val categoryId: String?,
+    /** « 4 750 » in euros, without sign: with [tolerance] it bounds the amounts the rule catches. */
+    val amount: String = "",
+    val tolerance: String = DEFAULT_RULE_TOLERANCE,
     val preview: RulePreview? = null,
     val isPreviewing: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
-)
+) {
+    /** Absolute cents, as the rule stores them; null while no amount is given or it cannot be read. */
+    val amountBounds: Pair<Int, Int>? get() {
+        val cents = parseCents(amount) ?: return null
+        val percent = tolerance.trim().toIntOrNull() ?: return null
+        return amountBoundsAround(cents, percent)
+    }
+
+    /** Why the rule cannot be saved yet, null when it can: a label, or a direction with an amount bound, is required. */
+    val problem: String? get() = when {
+        amount.isNotBlank() && amountBounds == null -> "Montant ou écart invalide : un montant différent de zéro, un écart de 0 à 100 %."
+        labelPattern.isNotBlank() -> null
+        direction in setOf("debit", "credit") && amountBounds != null -> null
+        else -> "Indiquez un libellé, ou un montant pour reconnaître la transaction par son seul montant."
+    }
+}
+
+const val DEFAULT_RULE_TOLERANCE = "10"
 
 /** The detail screen of one line: its transfer state, and the candidates once the search opens. */
 data class TransferDetailState(
@@ -393,6 +414,14 @@ class TransactionViewModel(
         previewRule(changed, delayMs = PREVIEW_DELAY_MS)
     }
 
+    /** The amount (or its tolerance) changed: the rule may now hold on direction and amount alone. */
+    fun changeRuleAmount(amount: String, tolerance: String) {
+        val draft = _uiState.value.ruleDraft ?: return
+        val changed = draft.copy(amount = amount, tolerance = tolerance, error = null)
+        _uiState.value = _uiState.value.copy(ruleDraft = changed)
+        previewRule(changed, delayMs = PREVIEW_DELAY_MS)
+    }
+
     fun changeRuleCategory(categoryId: String?) {
         val draft = _uiState.value.ruleDraft ?: return
         val changed = draft.copy(categoryId = categoryId, error = null)
@@ -403,7 +432,7 @@ class TransactionViewModel(
     // A newer request cancels the older one: a slow answer for « CARRE » never overwrites « CARREFOUR ».
     private fun previewRule(draft: RuleDraftState, delayMs: Long) {
         previewJob?.cancel()
-        if (draft.labelPattern.isBlank()) {
+        if (draft.problem != null) {
             updateDraft { it.copy(preview = null, isPreviewing = false) }
             return
         }
@@ -412,8 +441,10 @@ class TransactionViewModel(
             delay(delayMs)
             val result = ruleRepository.previewRule(
                 RulePreviewRequest(
-                    labelPattern = draft.labelPattern.trim(),
+                    labelPattern = draft.labelPattern.trim().ifEmpty { null },
                     direction = draft.direction,
+                    minAmountCents = draft.amountBounds?.first,
+                    maxAmountCents = draft.amountBounds?.second,
                     categoryId = draft.categoryId,
                 ),
             )
@@ -427,15 +458,17 @@ class TransactionViewModel(
     fun saveRule() {
         val draft = _uiState.value.ruleDraft ?: return
         val categoryId = draft.categoryId ?: return
-        if (draft.labelPattern.isBlank() || draft.isSaving) return
+        if (draft.problem != null || draft.isSaving) return
         previewJob?.cancel()
         viewModelScope.launch {
             updateDraft { it.copy(isSaving = true, isPreviewing = false, error = null) }
             ruleRepository.createRule(
                 CategorizationRuleCreateRequest(
-                    labelPattern = draft.labelPattern.trim(),
+                    labelPattern = draft.labelPattern.trim().ifEmpty { null },
                     category = categoryIri(categoryId),
                     direction = draft.direction,
+                    minAmountCents = draft.amountBounds?.first,
+                    maxAmountCents = draft.amountBounds?.second,
                 ),
             )
                 .onSuccess {

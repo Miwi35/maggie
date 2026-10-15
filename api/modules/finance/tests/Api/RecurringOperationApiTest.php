@@ -156,17 +156,41 @@ class RecurringOperationApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
-    public function testNothingToRecogniseItByIsRefusedInFrench(): void
+    public function testTheAmountAloneRecognisesTheSeries(): void
     {
         $this->login();
         $before = $this->rows();
 
-        $this->send('POST', '/api/recurring_operations', $this->flixo(['counterpartyName' => null, 'labelPattern' => null]));
+        $this->send('POST', '/api/recurring_operations', $this->flixo([
+            'label' => 'Salaire',
+            'category' => $this->iri('categories', 'salary'),
+            'counterpartyName' => null,
+            'labelPattern' => null,
+            'referenceAmountCents' => 475000,
+            'referenceSource' => 'declared',
+            'amountTolerancePercent' => 10,
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($before + 1, $this->rows());
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getRepository(RecurringOperation::class)->findOneBy(['label' => 'Salaire']);
+        self::assertNotNull($stored);
+        self::assertNull($stored->getCounterpartyName());
+        self::assertNull($stored->getLabelPattern());
+        self::assertSame(10, $stored->getAmountTolerancePercent());
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
+    }
+
+    public function testASeriesWithoutAnAmountIsStillRefused(): void
+    {
+        $this->login();
+        $before = $this->rows();
+
+        $this->send('POST', '/api/recurring_operations', $this->flixo(['counterpartyName' => null, 'labelPattern' => null, 'referenceAmountCents' => 0]));
 
         self::assertResponseStatusCodeSame(422);
-        $violation = array_values(array_filter($this->json()['violations'] ?? [], static fn (array $v) => 'counterpartyName' === $v['propertyPath']));
-        self::assertCount(1, $violation);
-        self::assertSame('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions', $violation[0]['message']);
         self::assertSame($before, $this->rows());
         $this->assertMercureUpdateCount(0);
     }
@@ -192,7 +216,6 @@ class RecurringOperationApiTest extends WebTestCase
         yield 'negative amount tolerance' => [['amountTolerancePercent' => -1], 'amountTolerancePercent'];
         yield 'date tolerance above a month' => [['dateToleranceDays' => 32], 'dateToleranceDays'];
         yield 'end before the anchor' => [['endsOn' => '2027-01-11'], 'endsOn'];
-        yield 'nothing to recognise it by' => [['counterpartyName' => null], 'counterpartyName'];
         yield 'no label' => [['label' => ''], 'label'];
         yield 'weekly on the last day of the month' => [['period' => 'weekly', 'dayRule' => 'last_day_of_month'], 'dayRule'];
     }
@@ -339,15 +362,15 @@ class RecurringOperationApiTest extends WebTestCase
         self::assertSame('2027-12-01', $this->reload('gym')?->getEndsOn()?->format('Y-m-d'));
     }
 
-    public function testPatchLeavingNothingToRecogniseItByIsRefused(): void
+    public function testPatchRemovingTheCounterpartyLeavesTheAmountToRecogniseTheSeries(): void
     {
         $this->login();
 
         $this->send('PATCH', $this->iri('recurring_operations', 'gym'), ['counterpartyName' => null]);
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Club Forme', $this->reload('gym')?->getCounterpartyName());
-        $this->assertMercureUpdateCount(0);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->reload('gym')?->getCounterpartyName());
+        $this->assertMercureUpdatePublished('/recurring_operations/');
     }
 
     public function testPatchWithAnotherUsersCategoryIsRefused(): void

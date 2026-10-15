@@ -353,4 +353,32 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         $this->assertNothingPublishedOn('/transactions/');
         $this->assertNoElasticsearchIndexDispatched(Transaction::class);
     }
+
+    public function testAnAmountOnlyRuleIsPreviewedWithoutLookingAtTheLabel(): void
+    {
+        $this->loadFixtures('amount_only.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->preview([
+            'direction' => 'credit',
+            'minAmountCents' => 427500,
+            'maxAmountCents' => 522500,
+            'categoryId' => (string) $this->getFixture('salary')->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $data['total']);
+        self::assertSame(2, $data['changeCount']);
+        self::assertEqualsCanonicalizing(['VIR SEPA XYZ', 'SALAIRE SEPTEMBRE ABC'], $this->labels($data));
+    }
+
+    public function testAnAmountWithoutADirectionIsRefused(): void
+    {
+        $this->loadFixtures('amount_only.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->preview(['minAmountCents' => 427500, 'maxAmountCents' => 522500]);
+
+        self::assertResponseStatusCodeSame(400);
+    }
 }

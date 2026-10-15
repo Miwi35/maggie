@@ -45,7 +45,7 @@ class PreviewCategorizationRule
      */
     public function execute(
         User $user,
-        string $labelPattern,
+        ?string $labelPattern,
         string $matchType = 'contains',
         string $direction = 'any',
         ?int $minAmountCents = null,
@@ -91,12 +91,8 @@ class PreviewCategorizationRule
     }
 
     /** The rule as it would be saved, but never persisted. */
-    private function draft(User $user, string $labelPattern, string $matchType, string $direction, ?int $min, ?int $max, ?string $categoryId, int $priority, bool $isActive): CategorizationRule
+    private function draft(User $user, ?string $labelPattern, string $matchType, string $direction, ?int $min, ?int $max, ?string $categoryId, int $priority, bool $isActive): CategorizationRule
     {
-        if ('' === $labelPattern) {
-            throw new \DomainException('A rule needs a label pattern to match on.');
-        }
-
         $type = MatchType::tryFrom($matchType) ?? throw new \DomainException("Unknown match type: {$matchType}.");
         $directionEnum = AmountDirection::tryFrom($direction) ?? throw new \DomainException("Unknown direction: {$direction}.");
 
@@ -117,6 +113,10 @@ class PreviewCategorizationRule
             ->setMaxAmountCents($max)
             ->setPriority($priority)
             ->setIsActive($isActive);
+
+        if (!$draft->matchCriteria()->isRecognisable()) {
+            throw new \DomainException(CategorizationRule::UNRECOGNISABLE);
+        }
 
         if (null !== $categoryId && '' !== $categoryId) {
             if (!Ulid::isValid($categoryId)) {

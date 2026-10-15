@@ -36,10 +36,6 @@ class CreateCategorizationRuleHandler
 
         $category = $this->references->category($command->categoryId, $user);
 
-        if ('' === $command->labelPattern) {
-            throw new \DomainException('A rule needs a label pattern to match on.');
-        }
-
         if (null !== $command->minAmountCents
             && null !== $command->maxAmountCents
             && $command->minAmountCents > $command->maxAmountCents
@@ -59,6 +55,10 @@ class CreateCategorizationRuleHandler
         $rule->setMaxAmountCents($command->maxAmountCents);
         $rule->setPriority($command->priority);
         $rule->setIsActive($command->isActive);
+
+        if (!$rule->matchCriteria()->isRecognisable()) {
+            throw new \DomainException(CategorizationRule::UNRECOGNISABLE);
+        }
 
         $rule = $this->createCategorizationRule->execute($rule);
         $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), $command->applyToExisting));

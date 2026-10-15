@@ -39,6 +39,8 @@ import com.maggie.app.data.model.RecurringAttachReport
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.RecurringAttachRequest
+import com.maggie.app.data.model.RecurringOperationPreview
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringSuggestion
@@ -503,7 +505,7 @@ data class RollOverRequest(
 
 @Serializable
 data class CategorizationRuleCreateRequest(
-    val labelPattern: String,
+    val labelPattern: String? = null,
     val category: String,
     val matchType: String = "contains",
     val direction: String = "any",
@@ -1652,6 +1654,14 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(RecurringAttachRequest(dryRun = dryRun))
         }.body()
+    }
+
+    /** What a series still being written would recognise; nothing is stored. */
+    suspend fun previewRecurringOperation(request: RecurringOperationPreviewRequest): RecurringOperationPreview {
+        return client.post("$baseUrl/api/finance/recurring-operations/preview") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     suspend fun getRecurringOperationRecords(): List<RecurringOperationRecord> {

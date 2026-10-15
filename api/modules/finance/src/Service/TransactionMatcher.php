@@ -7,12 +7,14 @@ namespace Maggie\Finance\Service;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Import\MerchantExtractor;
 
 /**
  * The one engine that recognises a transaction, shared by the categorization
  * rules and the recurring operations: counterparty, then label, then
- * direction and amount bounds.
+ * direction and amount bounds — which recognise a transaction alone when the
+ * criteria name no payee and no label.
  *
  * Recognising a payee is not attaching a transaction to a series: the date
  * window and the amount tolerance of a recurring operation stay its own
@@ -22,6 +24,12 @@ class TransactionMatcher
 {
     public function matches(MatchCriteria $criteria, Transaction $transaction): bool
     {
+        // The amount alone would claim an internal transfer or a rejected
+        // payment of the same size: those are neither income nor expense.
+        if (!$criteria->hasIdentity() && TransferKind::None !== $transaction->getTransferKind()) {
+            return false;
+        }
+
         return $this->matchesIdentity($criteria, $transaction)
             && $this->matchesAmount($criteria, $transaction->getAmountCents());
     }
@@ -41,7 +49,7 @@ class TransactionMatcher
             return $expected === $actual;
         }
 
-        if (null !== $criteria->labelPattern) {
+        if (null !== $criteria->labelPattern && '' !== $criteria->labelPattern) {
             return $this->matchesLabel($criteria->labelPattern, $criteria->matchType, $transaction->getLabel());
         }
 
@@ -50,8 +58,9 @@ class TransactionMatcher
             return 1 === preg_match('/(^| )'.preg_quote($expected, '/').'( |$)/u', MerchantExtractor::key($transaction->getLabel()));
         }
 
-        // Nothing to recognise by would claim every transaction.
-        return false;
+        // No identity: the direction and the amount bounds recognise it alone.
+        // Nothing to recognise by at all would claim every transaction.
+        return $criteria->hasDirectedAmount();
     }
 
     private function matchesLabel(string $pattern, MatchType $matchType, string $label): bool

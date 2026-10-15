@@ -62,10 +62,15 @@ const ApplyRulesButton = () => {
 const RuleDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
-      <TextField source="labelPattern" label="Libellé" />
+      <FunctionField
+        label="Libellé"
+        render={(record: RaRecord) => (record.labelPattern as string | null) || 'Tout libellé'}
+      />
       <FunctionField
         label="Correspondance"
-        render={(record: RaRecord) => MATCH_TYPE_LABELS[record.matchType as string] ?? record.matchType}
+        render={(record: RaRecord) =>
+          record.labelPattern ? (MATCH_TYPE_LABELS[record.matchType as string] ?? record.matchType) : '—'
+        }
       />
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
         <CategoryPathField />

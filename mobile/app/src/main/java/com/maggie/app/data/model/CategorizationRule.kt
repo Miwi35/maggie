@@ -5,7 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CategorizationRule(
     val id: String,
-    val labelPattern: String,
+    // Null for a rule recognised by direction and amount alone.
+    val labelPattern: String? = null,
     val matchType: String = "contains",
     val direction: String = "any",
     val minAmountCents: Int? = null,
@@ -66,10 +67,36 @@ fun describeRuleScope(direction: String, minAmountCents: Int?, maxAmountCents: I
     return parts.joinToString(" · ")
 }
 
+/** What a rule says on the list: its label, or its direction and amount when it has none. */
+fun CategorizationRule.headline(): String {
+    val pattern = labelPattern?.takeIf { it.isNotBlank() }
+    if (pattern != null) return "${matchTypeLabel(matchType)} « $pattern »"
+
+    val side = when (direction) {
+        "debit" -> "Débit"
+        "credit" -> "Crédit"
+        else -> "Toute transaction"
+    }
+    val bounds = describeRuleScope("any", minAmountCents, maxAmountCents)
+    return if (bounds.isEmpty()) side else "$side $bounds"
+}
+
+/**
+ * The bounds of « [amountCents] ± [tolerancePercent] % », absolute cents as a rule stores them;
+ * null when the amount is zero or the tolerance is outside 0..100.
+ */
+fun amountBoundsAround(amountCents: Int, tolerancePercent: Int): Pair<Int, Int>? {
+    if (amountCents == 0 || tolerancePercent !in 0..100) return null
+    val reference = kotlin.math.abs(amountCents).toLong()
+    val low = (reference * (100 - tolerancePercent) + 50) / 100
+    val high = (reference * (100 + tolerancePercent) + 50) / 100
+    return low.toInt() to high.toInt()
+}
+
 /** What `POST /api/finance/categorization-rules/preview` is asked: a rule still being written. */
 @Serializable
 data class RulePreviewRequest(
-    val labelPattern: String,
+    val labelPattern: String? = null,
     val matchType: String = "contains",
     val direction: String = "any",
     val minAmountCents: Int? = null,

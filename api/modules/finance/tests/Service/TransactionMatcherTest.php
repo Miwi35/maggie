@@ -10,6 +10,8 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\Service\TransactionMatcher;
 use PHPUnit\Framework\TestCase;
 
@@ -85,11 +87,6 @@ class TransactionMatcherTest extends TestCase
         self::assertFalse($matcher->matches($criteria, $this->transaction('VIR TRANSFR 0612', -1349)), 'a three-letter payee is not found inside another word');
     }
 
-    public function testNothingToRecogniseByRecognisesNothing(): void
-    {
-        self::assertFalse((new TransactionMatcher())->matches($this->series()->matchCriteria(), $this->transaction('CB FLIXO', -1349, 'Flixo')));
-    }
-
     public function testARuleStillMatchesOnItsLabelAndAmountBoundsEvenWhenTheTransactionHasACounterparty(): void
     {
         $matcher = new TransactionMatcher();
@@ -104,5 +101,47 @@ class TransactionMatcherTest extends TestCase
         self::assertFalse($matcher->matches($rule->matchCriteria(), $this->transaction('CARREFOUR MARKET 4412', -5001, 'Carrefour Market')));
         self::assertFalse($matcher->matches($rule->matchCriteria(), $this->transaction('CARREFOUR MARKET 4412', 4599, 'Carrefour Market')));
         self::assertFalse($matcher->matches($rule->matchCriteria(), $this->transaction('MARCHE CARREFOUR', -4599)));
+    }
+
+    public function testADirectionAndAnAmountRangeRecogniseATransactionWhateverItsLabelAndCounterparty(): void
+    {
+        $matcher = new TransactionMatcher();
+        $criteria = new MatchCriteria(direction: AmountDirection::Credit, minAmountCents: 427500, maxAmountCents: 522500);
+
+        self::assertTrue($criteria->isRecognisable());
+        self::assertTrue($matcher->matches($criteria, $this->transaction('VIR SEPA XYZ', 460000, 'Employeur Un')));
+        self::assertTrue($matcher->matches($criteria, $this->transaction('SALAIRE OCTOBRE', 475000, 'Employeur Deux')));
+        self::assertFalse($matcher->matches($criteria, $this->transaction('VIR SEPA XYZ', 300000)), 'out of the range');
+        self::assertFalse($matcher->matches($criteria, $this->transaction('PRLV 4750', -475000)), 'the other direction');
+    }
+
+    public function testAnAmountAloneRecognisesNothingWithoutADirection(): void
+    {
+        $matcher = new TransactionMatcher();
+        $criteria = new MatchCriteria(minAmountCents: 427500, maxAmountCents: 522500);
+
+        self::assertFalse($criteria->isRecognisable());
+        self::assertFalse($matcher->matches($criteria, $this->transaction('VIR SEPA XYZ', 475000)));
+        self::assertFalse($matcher->matches($criteria, $this->transaction('PRLV', -475000)));
+    }
+
+    public function testACriterionWithNothingInItIsNeverRecognisable(): void
+    {
+        $matcher = new TransactionMatcher();
+
+        foreach ([new MatchCriteria(), new MatchCriteria(labelPattern: '', counterpartyKey: ''), new MatchCriteria(direction: AmountDirection::Credit)] as $criteria) {
+            self::assertFalse($criteria->isRecognisable());
+            self::assertFalse($matcher->matches($criteria, $this->transaction('ANYTHING', 100)));
+        }
+    }
+
+    public function testAnInternalTransferIsNotRecognisedOnItsAmountAlone(): void
+    {
+        $matcher = new TransactionMatcher();
+        $criteria = new MatchCriteria(direction: AmountDirection::Credit, minAmountCents: 427500, maxAmountCents: 522500);
+        $transfer = $this->transaction('VIR INTERNE', 475000)->setTransferKind(TransferKind::Internal);
+
+        self::assertFalse($matcher->matches($criteria, $transfer));
+        self::assertTrue($matcher->matches(new MatchCriteria(labelPattern: 'vir interne'), $transfer), 'a named criterion is unchanged');
     }
 }

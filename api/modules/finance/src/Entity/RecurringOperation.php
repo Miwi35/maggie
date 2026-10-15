@@ -85,7 +85,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[IndexedField(type: 'keyword')]
     private ?string $counterpartyKey = null;
 
-    /** Read in the label when there is no counterparty to compare. */
+    /** Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series. */
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255)]
     #[IndexedField(type: 'text', keyword: true)]
@@ -186,12 +186,6 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         if (RecurrencePeriod::Weekly === $this->period && DayRule::LastDayOfMonth === $this->dayRule) {
             $context->buildViolation('A weekly series falls every seven days from its anchor: it has no last day of the month.')
                 ->atPath('dayRule')
-                ->addViolation();
-        }
-
-        if (null === $this->counterpartyKey && null === $this->labelPattern) {
-            $context->buildViolation('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')
-                ->atPath('counterpartyName')
                 ->addViolation();
         }
     }
@@ -456,16 +450,34 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     /**
      * What the shared engine recognises its transactions by: the expected
      * counterparty, else the label pattern, in the direction of the reference
-     * amount. The amount tolerance is not part of it: `acceptsAmount()` and
-     * the date window are conditions of attaching, not of recognising.
+     * amount. A series with neither is recognised on the direction and the
+     * amount alone, so the tolerance bounds it. With an identity, the amount
+     * tolerance is not part of it: `acceptsAmount()` and the date window are
+     * conditions of attaching, not of recognising.
+     *
+     * @param int|null $referenceCents another reference than the stored one — a recalibration not yet written
      */
-    public function matchCriteria(): MatchCriteria
+    public function matchCriteria(?int $referenceCents = null): MatchCriteria
     {
-        return new MatchCriteria(
+        $referenceCents ??= $this->referenceAmountCents;
+        $criteria = new MatchCriteria(
             counterpartyKey: $this->counterpartyKey,
             labelPattern: $this->labelPattern,
             matchType: MatchType::Contains,
-            direction: $this->referenceAmountCents < 0 ? AmountDirection::Debit : AmountDirection::Credit,
+            direction: $referenceCents < 0 ? AmountDirection::Debit : AmountDirection::Credit,
+        );
+
+        if ($criteria->hasIdentity()) {
+            return $criteria;
+        }
+
+        $reference = abs($referenceCents);
+
+        return new MatchCriteria(
+            matchType: MatchType::Contains,
+            direction: $criteria->direction,
+            minAmountCents: intdiv($reference * (100 - $this->amountTolerancePercent) + 99, 100),
+            maxAmountCents: intdiv($reference * (100 + $this->amountTolerancePercent), 100),
         );
     }
 

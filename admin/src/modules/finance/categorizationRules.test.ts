@@ -5,6 +5,7 @@ import {
   DIRECTION_CHOICES,
   DIRECTION_LABELS,
   describeRuleScope,
+  ruleIdentifies,
 } from './categorizationRules'
 
 describe('categorizationRules', () => {
@@ -37,5 +38,20 @@ describe('describeRuleScope', () => {
   test('renders open-ended bounds', () => {
     expect(describeRuleScope('any', 1500, null)).toBe('à partir de 15,00 €')
     expect(describeRuleScope('any', null, 2000)).toBe("jusqu'à 20,00 €")
+  })
+})
+
+describe('ruleIdentifies', () => {
+  test('a label is enough, blank or not typed does not count', () => {
+    expect(ruleIdentifies('CARREFOUR', 'any', null, null)).toBe(true)
+    expect(ruleIdentifies('   ', 'any', null, null)).toBe(false)
+    expect(ruleIdentifies(null, undefined, undefined, undefined)).toBe(false)
+  })
+
+  test('without a label, a debit or credit needs an amount bound', () => {
+    expect(ruleIdentifies('', 'credit', 427500, 522500)).toBe(true)
+    expect(ruleIdentifies(null, 'debit', null, 1500)).toBe(true)
+    expect(ruleIdentifies('', 'credit', null, null)).toBe(false)
+    expect(ruleIdentifies('', 'any', 427500, 522500)).toBe(false)
   })
 })

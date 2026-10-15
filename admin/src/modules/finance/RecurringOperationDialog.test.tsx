@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, testDataProvider } from 'react-admin'
@@ -23,6 +23,12 @@ const create = vi.fn(async (_resource: string, params: { data: Record<string, un
 const update = vi.fn(async (_resource: string, params: { id: string; data: Record<string, unknown> }) => ({
   data: { id: params.id, ...params.data },
 }))
+
+const MATCH = { transactionId: 't1', label: 'VIR SEPA XYZ', amountCents: 465000, bookedAt: '2026-10-02', accountId: '01ACC' }
+
+const fetchMock = vi.fn()
+const respond = (ok: boolean, body: unknown) => Promise.resolve({ ok, json: async () => body } as Response)
+const previewBodies = () => fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string))
 
 const renderDialog = (props: Partial<React.ComponentProps<typeof RecurringOperationDialog>> = {}) => {
   const onClose = vi.fn()
@@ -51,6 +57,13 @@ describe('RecurringOperationDialog', () => {
   beforeEach(() => {
     create.mockClear()
     update.mockClear()
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockImplementation(() => respond(true, { total: 0, matches: [] }))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    fetchMock.mockReset()
   })
 
   test('opens with the default tolerances: 20 % on the amount, 5 days on the date', () => {
@@ -197,23 +210,29 @@ describe('RecurringOperationDialog', () => {
     expect(screen.getByText(/reconnaît les transactions dont le libellé contient/i)).toBeInTheDocument()
   })
 
-  test('with neither a payee nor a label pattern, says so in French on the field and writes nothing', async () => {
+  test('with neither a payee nor a label pattern, the amount and its sign are enough', async () => {
     renderDialog({
       initial: {
-        label: 'Flixo',
-        referenceAmountCents: -1349,
+        label: 'Salaire',
+        referenceAmountCents: 475000,
         account: '/api/accounts/01ACC',
-        category: '/api/categories/01SUB',
-        anchorOn: '2026-10-12',
+        category: '/api/categories/01PAY',
+        anchorOn: '2026-10-28',
+        amountTolerancePercent: 10,
       },
     })
 
+    expect(screen.getByText(/Sans contrepartie ni libellé, la série est reconnue par son montant ± tolérance et son sens/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
 
-    expect(await screen.findByText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')).toBeInTheDocument()
-    expect(screen.getByLabelText('Contrepartie attendue')).toBeInvalid()
-    expect(screen.getByLabelText(/Motif du libellé/)).toBeInvalid()
-    expect(create).not.toHaveBeenCalled()
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({
+      counterpartyName: null,
+      labelPattern: null,
+      referenceAmountCents: 475000,
+      amountTolerancePercent: 10,
+    })
+    expect(screen.queryByText(/Indique une contrepartie/)).not.toBeInTheDocument()
   })
 
   test('a label pattern alone is enough, and is sent trimmed', async () => {
@@ -234,26 +253,73 @@ describe('RecurringOperationDialog', () => {
     expect(create.mock.calls[0][1].data).toMatchObject({ counterpartyName: null, labelPattern: 'Sas Jardis' })
   })
 
-  test('an API refusal on the payee is shown on the field, without the property name', async () => {
-    create.mockRejectedValueOnce(
-      new Error('counterpartyName: Indique une contrepartie ou un motif de libellé pour reconnaître les transactions'),
-    )
-    renderDialog({
-      initial: {
-        label: 'Flixo',
-        counterpartyName: 'Flixo',
-        referenceAmountCents: -1349,
-        account: '/api/accounts/01ACC',
-        category: '/api/categories/01SUB',
-        anchorOn: '2026-10-12',
-      },
+  describe('preview of the transactions the series would recognise', () => {
+    const salary = {
+      label: 'Salaire',
+      referenceAmountCents: 475000,
+      account: '/api/accounts/01ACC',
+      category: '/api/categories/01PAY',
+      anchorOn: '2026-10-28',
+      amountTolerancePercent: 10,
+    }
+
+    test('asks nothing until an amount is typed', async () => {
+      renderDialog()
+
+      expect(await screen.findByText(/Saisissez un montant pour voir les transactions/)).toBeInTheDocument()
+      expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+    test('lists the transactions recognised by the amount alone, with their total', async () => {
+      fetchMock.mockImplementation(() => respond(true, { total: 1, matches: [MATCH] }))
+      renderDialog({ initial: salary })
 
-    expect(await screen.findByText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')).toBeInTheDocument()
-    expect(screen.getByLabelText('Contrepartie attendue')).toBeInvalid()
-    expect(screen.queryByText(/counterpartyName:/)).not.toBeInTheDocument()
+      const panel = await screen.findByRole('region', { name: 'Transactions reconnues' })
+      expect(await within(panel).findByText('VIR SEPA XYZ')).toBeInTheDocument()
+      expect(within(panel).getByText('1 transaction(s) reconnue(s)')).toBeInTheDocument()
+      expect(fetchMock.mock.calls[0][0]).toBe('/api/finance/recurring-operations/preview')
+      expect(previewBodies()[0]).toEqual({ referenceAmountCents: 475000, amountTolerancePercent: 10, accountId: '01ACC' })
+    })
+
+    test('follows the amount, the sign, the tolerance and the identity as they are typed', async () => {
+      renderDialog({ initial: salary })
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Dépense' }))
+      await userEvent.type(screen.getByLabelText('Contrepartie attendue'), ' Acme ')
+
+      await waitFor(() =>
+        expect(previewBodies().at(-1)).toEqual({
+          referenceAmountCents: -475000,
+          amountTolerancePercent: 10,
+          counterpartyName: 'Acme',
+          accountId: '01ACC',
+        }),
+      )
+    })
+
+    test('says when nothing is recognised', async () => {
+      renderDialog({ initial: salary })
+
+      expect(await screen.findByText('Aucune transaction reconnue')).toBeInTheDocument()
+    })
+
+    test('reports a refused preview without blocking the save', async () => {
+      fetchMock.mockImplementation(() => respond(false, { error: 'Tolérance invalide.' }))
+      renderDialog({ initial: salary })
+
+      expect(await screen.findByText(/Tolérance invalide\./)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    })
+
+    test('reports an unreachable preview without blocking the save', async () => {
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+      renderDialog({ initial: salary })
+
+      expect(await screen.findByText(/L'aperçu est indisponible/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Créer la série' })).toBeEnabled()
+    })
   })
 
   test('cancelling closes without writing', async () => {

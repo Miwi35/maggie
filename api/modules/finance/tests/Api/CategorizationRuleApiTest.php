@@ -386,4 +386,74 @@ class CategorizationRuleApiTest extends WebTestCase
         $persisted = $em->getRepository(Transaction::class)->findOneBy(['label' => 'CARREFOUR CITY 88']);
         self::assertSame(CategorySource::Rule, $persisted->getCategorySource());
     }
+
+    public function testAnAmountOnlyRuleIsCreatedAndFilesTheSalaryWhateverItsLabel(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $salary = $this->getFixture('salary');
+
+        $this->createRule([
+            'category' => '/api/categories/'.$salary->getId(),
+            'direction' => 'credit',
+            'minAmountCents' => 427500,
+            'maxAmountCents' => 522500,
+            'applyToExisting' => true,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $rules = $em->getRepository(CategorizationRule::class)->findAll();
+        self::assertCount(1, $rules);
+        self::assertNull($rules[0]->getLabelPattern());
+        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+
+        self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_october'));
+        self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_september'));
+        self::assertNull($this->categoryOfTransaction('small_credit'), 'out of the range');
+        self::assertNull($this->categoryOfTransaction('same_size_debit'), 'the other direction');
+        self::assertNull($this->categoryOfTransaction('same_size_transfer'), 'an internal transfer is not a salary');
+    }
+
+    public function testARuleWithNeitherLabelNorDirectedAmountIsRefused(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/amount_only.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $category = '/api/categories/'.$this->getFixture('salary')->getId();
+
+        foreach ([
+            ['category' => $category],
+            ['category' => $category, 'direction' => 'credit'],
+            ['category' => $category, 'minAmountCents' => 427500, 'maxAmountCents' => 522500],
+            ['category' => $category, 'labelPattern' => '  '],
+        ] as $body) {
+            $this->createRule($body);
+
+            self::assertResponseStatusCodeSame(422, json_encode($body, JSON_THROW_ON_ERROR));
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testPatchClearingTheLabelOfAnAmountRuleKeepsItValid(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $rule = $this->getFixture('ranged_rule');
+
+        $this->patch((string) $rule->getId(), ['labelPattern' => null, 'direction' => 'any']);
+        self::assertResponseStatusCodeSame(422, 'a range without direction leaves nothing to recognise by');
+
+        $this->patch((string) $rule->getId(), ['labelPattern' => null]);
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        self::assertNull($refreshed->getLabelPattern());
+        self::assertSame(1000, $refreshed->getMinAmountCents());
+    }
 }

@@ -318,3 +318,29 @@ fun acceptedRecurringSummary(result: AcceptRecurringSuggestionsResult): String {
     val created = if (result.created > 1) "${result.created} opérations récurrentes créées" else "${result.created} opération récurrente créée"
     return "$created, ${result.attached} transaction(s) rattachée(s), ${result.proposed} à confirmer."
 }
+
+/** What `POST /api/finance/recurring-operations/preview` is asked: the identity of a series still being written. */
+@Serializable
+data class RecurringOperationPreviewRequest(
+    val referenceAmountCents: Int,
+    val amountTolerancePercent: Int? = null,
+    val counterpartyName: String? = null,
+    val labelPattern: String? = null,
+    val accountId: String? = null,
+)
+
+@Serializable
+data class RecurringOperationPreviewMatch(
+    val transactionId: String,
+    val label: String = "",
+    val amountCents: Int = 0,
+    val bookedAt: String = "",
+    val accountId: String? = null,
+)
+
+/** The lines a series would recognise: [total] of them, the first ones in [matches]. */
+@Serializable
+data class RecurringOperationPreview(
+    val total: Int = 0,
+    val matches: List<RecurringOperationPreviewMatch> = emptyList(),
+)
