@@ -1028,7 +1028,8 @@ class TransactionRepository extends ServiceEntityRepository
 
     /**
      * The lines an operation qualified and that are still its own: a line
-     * qualified by hand since then names no operation any more.
+     * qualified by hand since then names no operation any more, and a line
+     * taken out of its series keeps what it inherited but no longer follows it.
      *
      * @return Transaction[]
      */
@@ -1036,7 +1037,7 @@ class TransactionRepository extends ServiceEntityRepository
     {
         return $this->findBy(
             $operation instanceof RecurringOperation
-                ? ['qualifiedBySeries' => $operation, 'categorySource' => CategorySource::Series]
+                ? ['qualifiedBySeries' => $operation, 'recurringOperation' => $operation, 'categorySource' => CategorySource::Series]
                 : ['qualifiedByRule' => $operation, 'categorySource' => CategorySource::Rule],
             ['bookedAt' => 'ASC', 'id' => 'ASC'],
         );

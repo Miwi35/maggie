@@ -43,6 +43,7 @@ class QualificationMigrationTest extends KernelTestCase
             't_advance' => [false, 'repayment'],
             't_brasserie' => [false, 'none'],
             't_loan' => [true, 'repayment'],
+            't_orphan' => [false, 'none'],
             't_overdraft' => [true, 'repayment'],
             't_rent' => [true, 'none'],
             't_rent_by_rule' => [true, 'none'],
@@ -89,6 +90,9 @@ class QualificationMigrationTest extends KernelTestCase
             self::assertNull($this->column($byHandOrNobody, 'qualified_by_series_id'));
         }
         self::assertSame('manual', $this->column('t_loan', 'category_source'));
+        // No rule left to name: still filed by a rule, which one is unknown.
+        self::assertSame('rule', $this->column('t_orphan', 'category_source'));
+        self::assertNull($this->column('t_orphan', 'qualified_by_rule_id'));
         self::assertContains('MAG-476: 4 transaction(s) qualified by 4 rule(s).', $this->report);
     }
 
@@ -131,7 +135,7 @@ class QualificationMigrationTest extends KernelTestCase
         }
         $this->connection->executeStatement("UPDATE transaction SET qualified_by_series_id = NULL, qualified_by_rule_id = NULL, category_source = CASE WHEN category_id IS NULL THEN 'none' ELSE 'manual' END");
         $this->connection->executeStatement("UPDATE transaction SET category_source = 'series' WHERE id = :id", ['id' => $this->id('t_rent')]);
-        foreach (['t_brasserie', 't_resto', 't_rent_by_rule', 't_advance'] as $fixture) {
+        foreach (['t_brasserie', 't_resto', 't_rent_by_rule', 't_advance', 't_orphan'] as $fixture) {
             $this->connection->executeStatement("UPDATE transaction SET category_source = 'rule' WHERE id = :id", ['id' => $this->id($fixture)]);
         }
     }
@@ -157,7 +161,7 @@ class QualificationMigrationTest extends KernelTestCase
     private static function fixtureNames(string $table): array
     {
         return array_fill_keys(match ($table) {
-            'transaction' => ['t_rent', 't_brasserie', 't_resto', 't_rent_by_rule', 't_savings', 't_stocks', 't_loan', 't_salary', 't_advance', 't_overdraft', 't_uncategorized'],
+            'transaction' => ['t_rent', 't_brasserie', 't_resto', 't_rent_by_rule', 't_savings', 't_stocks', 't_loan', 't_salary', 't_advance', 't_overdraft', 't_orphan', 't_uncategorized'],
             'recurring_operation' => ['rent', 'car_loan'],
             'categorization_rule' => ['rule_resto', 'rule_brasserie', 'rule_rent', 'rule_advance'],
             default => throw new \LogicException($table),

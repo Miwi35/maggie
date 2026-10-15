@@ -164,6 +164,14 @@ Maggie\Finance\Entity\Transaction:
     label: VIR COMBLE DECOUVERT
     category: '@overdraft_repayment'
     user: '@test_user'
+  # Filed by a rule since deleted: Restaurants has two rules, neither recognises it.
+  t_orphan:
+    account: '@checking'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-20"))>'
+    label: CB PIZZERIA
+    category: '@restaurants'
+    user: '@test_user'
   t_uncategorized:
     account: '@checking'
     amountCents: -1000

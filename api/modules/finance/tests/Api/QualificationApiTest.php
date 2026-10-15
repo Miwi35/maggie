@@ -96,6 +96,24 @@ class QualificationApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $this->getFixture('jan_loan')->getId());
     }
 
+    public function testALineTakenOutOfItsSeriesNoLongerFollowsIt(): void
+    {
+        $this->qualifyFromOperations();
+        $this->login();
+        $this->send('PATCH', $this->iri('transactions', 'feb_loan'), ['recurringOperation' => null]);
+        self::assertResponseIsSuccessful();
+        $this->resetMercure();
+
+        $this->send('PATCH', $this->iri('recurring_operations', 'car_loan'), ['category' => $this->iri('categories', 'groceries')]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Courses', $this->reload('jan_loan')->getCategory()?->getName());
+        $detached = $this->reload('feb_loan');
+        self::assertSame('Crédits', $detached->getCategory()?->getName(), 'it keeps what it inherited');
+        self::assertSame(QualificationKind::Repayment, $detached->getQualification()->getKind());
+        $this->assertNothingPublishedOn('/transactions/'.$this->getFixture('feb_loan')->getId());
+    }
+
     public function testChangingTheSeriesQualificationAloneReachesItsLines(): void
     {
         $this->qualifyFromOperations();
