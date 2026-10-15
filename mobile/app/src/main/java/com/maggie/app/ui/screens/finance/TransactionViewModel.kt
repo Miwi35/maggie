@@ -252,7 +252,7 @@ class TransactionViewModel(
     private fun loadRuleNames() {
         viewModelScope.launch {
             ruleRepository.getRules().onSuccess { rules ->
-                _uiState.value = _uiState.value.copy(ruleNames = rules.associate { it.id to it.labelPattern })
+                _uiState.value = _uiState.value.copy(ruleNames = rules.mapNotNull { rule -> rule.labelPattern?.let { rule.id to it } }.toMap())
             }
         }
     }

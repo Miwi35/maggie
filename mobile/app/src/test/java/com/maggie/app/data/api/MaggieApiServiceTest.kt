@@ -1287,6 +1287,7 @@ class MaggieApiServiceTest {
         val rule = service.createCategorizationRule(
             CategorizationRuleCreateRequest(
                 category = "/api/categories/c1",
+                qualification = Qualification.NONE,
                 direction = "credit",
                 minAmountCents = 427500,
                 maxAmountCents = 522500,
@@ -1295,7 +1296,7 @@ class MaggieApiServiceTest {
 
         assertNull(rule.labelPattern)
         assertEquals(
-            """{"category":"/api/categories/c1","direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""",
+            """{"category":"/api/categories/c1","qualification":{"mandatory":false,"kind":"none"},"direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""",
             body,
         )
     }
