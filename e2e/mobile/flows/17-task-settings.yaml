@@ -9,12 +9,14 @@ tags:
 #
 # The critical tasks alert at J-3 and J-1 (`scripts/task-settings-api.js` reset). The user
 # opens Réglages › Tâches and switches J-3 off on « Critique »; « Enregistré » shows, the
-# server holds [1], and the app, started again, reads it back: J-3 is no longer selected.
+# server holds [1], and the app, started again, reads it back: J-3 is no longer checked.
 #
 # Only that chip is touched — the order levels, which order « Aujourd'hui » in
 # `15-task-subtasks`, stay what the seed made them. The time picker, « En retard », the
 # sliders and their preview, the defaults, a refused save and the re-read on a Mercure
 # message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
+#
+# A chip is a `FilterChip` (role Checkbox): Android reports it `checked`, never `selected`.
 
 - runScript:
     file: ../scripts/task-settings-api.js
@@ -44,7 +46,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "settings_tasks_chip_critical_d3"
-      selected: true
+      checked: true
     timeout: 30000
 - tapOn:
     id: "settings_tasks_chip_critical_d3"
@@ -82,8 +84,8 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "settings_tasks_chip_critical_d1"
-      selected: true
+      checked: true
     timeout: 30000
 - assertVisible:
     id: "settings_tasks_chip_critical_d3"
-    selected: false
+    checked: false
