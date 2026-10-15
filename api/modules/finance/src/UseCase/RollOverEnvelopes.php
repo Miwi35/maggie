@@ -20,7 +20,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * does not have to be retyped every month.
  *
  * An envelope already set on the target period is left alone, which makes the
- * pass safe to re-run.
+ * pass safe to re-run. A monthly envelope's seasons are carried over with it,
+ * so each month lands at the amount of the season covering it (MAG-415).
  */
 class RollOverEnvelopes
 {
@@ -75,9 +76,22 @@ class RollOverEnvelopes
                 continue;
             }
 
-            $amountCents = $useActualSpending
-                ? $this->consumedBy($user, $source)
-                : $source->getAmountCents();
+            $amountCents = $source->getAmountCents();
+            $seasonalAmounts = $source->getSeasonalAmounts();
+            if ($useActualSpending) {
+                // What was consumed replaces the amount that budgeted the
+                // source month: its season's if one covers it, else the base.
+                $consumed = $this->consumedBy($user, $source);
+                $season = $source->getSeason();
+                if (null === $season) {
+                    $amountCents = $consumed;
+                } else {
+                    $seasonalAmounts = array_map(
+                        static fn (array $s) => $s === $season ? array_replace($s, ['amountCents' => $consumed]) : $s,
+                        $seasonalAmounts,
+                    );
+                }
+            }
 
             $stamped = $this->bus->dispatch(new CreateEnvelopeCommand(
                 userId: (string) $user->getId(),
@@ -89,6 +103,7 @@ class RollOverEnvelopes
                 currency: $source->getCurrency(),
                 // The threshold is a setting of the envelope, not of the month.
                 alertThresholdPercent: $source->getAlertThresholdPercent(),
+                seasonalAmounts: $seasonalAmounts,
             ));
 
             /** @var Envelope $envelope */
@@ -101,6 +116,9 @@ class RollOverEnvelopes
                 'categoryName' => $envelope->requireCategory()->getName(),
                 'mode' => $envelope->getMode()->value,
                 'amountCents' => $envelope->getAmountCents(),
+                'seasonalAmounts' => $envelope->getSeasonalAmounts(),
+                // What the new month is budgeted: the season covering it, else amountCents.
+                'monthAmountCents' => $envelope->getMonthAmountCents(),
                 'currency' => $envelope->getCurrency(),
                 'year' => $envelope->getYear(),
                 'month' => $envelope->getMonth(),

@@ -137,7 +137,9 @@ class GetBudgetStatus
                 'currency' => $envelope->getCurrency(),
                 'year' => $envelope->getYear(),
                 'month' => $envelope->getMonth(),
-            ] + $this->consumption($envelope->getAmountCents(), $byStatus) + [
+                // The season budgeting this month, if any: amountCents is then its amount (MAG-415).
+                'season' => $envelope->getSeason(),
+            ] + $this->consumption($envelope->getMonthAmountCents(), $byStatus) + [
                 // Past it, a bank sync makes Maggie interrupt (MAG-49).
                 'alertThresholdPercent' => $envelope->getEffectiveAlertThresholdPercent(),
             ];

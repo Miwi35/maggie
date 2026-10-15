@@ -251,6 +251,9 @@ Maggie\Finance\Entity\Envelope:
     category: '@recorded_parent_category'
     mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
     amountCents: 30000
+    # A winter season that does not cover March: recorded, not budgeted (MAG-415).
+    seasonalAmounts:
+      - { fromMonth: 11, toMonth: 2, amountCents: 45000 }
     currency: EUR
     year: 2026
     month: 3

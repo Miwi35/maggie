@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
@@ -26,6 +27,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Service\SeasonalAmounts;
 use Maggie\Finance\State\CreateEnvelopeProcessor;
 use Maggie\Finance\State\DeleteEnvelopeProcessor;
 use Maggie\Finance\State\UpdateEnvelopeProcessor;
@@ -75,7 +77,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[IndexedField(type: 'keyword')]
     private BudgetMode $mode = BudgetMode::Monthly;
 
-    /** Budgeted amount in positive integer cents. */
+    /** Budgeted amount in positive integer cents; for a monthly envelope with seasons, the amount outside them. */
     #[ORM\Column(type: 'integer')]
     #[Assert\PositiveOrZero]
     #[IndexedField(type: 'long')]
@@ -108,6 +110,22 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[Assert\Range(min: 1, max: 99)]
     #[IndexedField(type: 'integer')]
     private ?int $alertThresholdPercent = null;
+
+    /**
+     * A monthly envelope's amount for a stretch of the year (MAG-415): the
+     * month a season covers is budgeted at its amount, the others at
+     * `amountCents`. Checked by {@see SeasonalAmounts::normalize()}.
+     *
+     * @var list<array{fromMonth: int, toMonth: int, amountCents: int}>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    #[IndexedField(type: 'object', properties: [
+        'fromMonth' => ['type' => 'integer'],
+        'toMonth' => ['type' => 'integer'],
+        'amountCents' => ['type' => 'long'],
+    ])]
+    #[ApiProperty(description: 'Monthly envelopes only: [{fromMonth, toMonth, amountCents}], months 1-12, a season may cross the new year (11 → 2), two seasons never overlap. A month a season covers is budgeted at its amount, the others at amountCents.')]
+    private array $seasonalAmounts = [];
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -241,6 +259,38 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
+    /** @return list<array{fromMonth: int, toMonth: int, amountCents: int}> */
+    public function getSeasonalAmounts(): array
+    {
+        return $this->seasonalAmounts;
+    }
+
+    /** @param list<array{fromMonth: int, toMonth: int, amountCents: int}> $seasonalAmounts */
+    public function setSeasonalAmounts(array $seasonalAmounts): static
+    {
+        $this->seasonalAmounts = $seasonalAmounts;
+
+        return $this;
+    }
+
+    /**
+     * The season that covers this envelope's month, if any.
+     *
+     * @return array{fromMonth: int, toMonth: int, amountCents: int}|null
+     */
+    #[Ignore]
+    public function getSeason(): ?array
+    {
+        return null === $this->month ? null : SeasonalAmounts::covering($this->seasonalAmounts, $this->month);
+    }
+
+    /** What this envelope budgets for its period: the amount of the season covering its month, else `amountCents`. */
+    #[Ignore]
+    public function getMonthAmountCents(): int
+    {
+        return $this->getSeason()['amountCents'] ?? $this->amountCents;
+    }
+
     public function getCurrency(): string
     {
         return $this->currency;
@@ -334,6 +384,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'month' => $this->month,
             'alertThresholdPercent' => $this->alertThresholdPercent,
             'name' => $this->name,
+            'seasonalAmounts' => $this->seasonalAmounts,
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
@@ -350,6 +401,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'month' => $this->month,
             'alertThresholdPercent' => $this->alertThresholdPercent,
             'name' => $this->name,
+            'seasonalAmounts' => $this->seasonalAmounts,
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
         ], $changedProperties, ['category' => 'categoryId']);
     }
