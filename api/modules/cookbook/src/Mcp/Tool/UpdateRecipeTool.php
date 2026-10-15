@@ -15,6 +15,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
 #[McpTool(name: 'update_recipe', description: 'Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it; it replaces the full list if provided, and [] empties it.')]
 class UpdateRecipeTool
@@ -39,7 +40,8 @@ class UpdateRecipeTool
     ): string {
         try {
             // Only the user's own recipe: its utensils are resolved in its owner's catalogue.
-            $recipe = $this->recipeRepository->findOneForUser($recipeId, $this->userContext->requireUser());
+            $user = $this->userContext->requireUser();
+            $recipe = Ulid::isValid($recipeId) ? $this->recipeRepository->findOneForUser($recipeId, $user) : null;
             if (null === $recipe) {
                 return json_encode(['error' => "Recipe not found: {$recipeId}"], JSON_THROW_ON_ERROR);
             }
