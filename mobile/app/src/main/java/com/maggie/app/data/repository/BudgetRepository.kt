@@ -19,6 +19,10 @@ class BudgetRepository(
         apiService.createEnvelope(request)
     }
 
+    suspend fun setAlertThreshold(id: String, percent: Int?): Result<Envelope> = runCatching {
+        apiService.updateEnvelopeAlertThreshold(id, percent)
+    }
+
     suspend fun deleteEnvelope(id: String): Result<Unit> = runCatching {
         apiService.deleteEnvelope(id)
     }

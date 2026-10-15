@@ -1,6 +1,7 @@
 package com.maggie.app.data.interruption
 
 import com.maggie.app.BuildConfig
+import com.maggie.app.data.fcm.PushActionKind
 import com.maggie.app.data.fcm.PushChannels
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
@@ -50,6 +51,26 @@ class InterruptionsTest {
         )
         assertNull(Interruptions.of(Notification(id = "n", title = "t", relatedEntityIri = "/finance/secret"))!!.link)
         assertNull(Interruptions.of(Notification(id = "n", title = "t", relatedEntityIri = "https://evil.example/api/events/1"))!!.link)
+    }
+
+    @Test
+    fun `an envelope alert offers C'est noté and Voir les enveloppes (MAG-49)`() {
+        val payload = Interruptions.of(
+            Notification(
+                id = "n-49",
+                type = "finance",
+                title = "Loisirs : 83 % du budget (250 / 300 €)",
+                relatedEntityIri = "/finance/budgets",
+            ),
+        )!!
+
+        assertEquals("Loisirs : 83 % du budget (250 / 300 €)", payload.title)
+        assertEquals("$scheme://finance/budgets", payload.link)
+        assertEquals("Voir les enveloppes", payload.actionLabel)
+        assertEquals(
+            listOf(PushActionKind.OK, PushActionKind.GO, PushActionKind.LATER),
+            payload.actions(),
+        )
     }
 
     @Test

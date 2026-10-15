@@ -1,0 +1,137 @@
+# The envelope alert journeys (MAG-49): Maggie interrupts after a bank sync
+# takes an envelope past its threshold.
+#
+# One account for the web journey, one for the mobile one: the alert goes out
+# once per threshold and per period, so a journey that played first on a shared
+# account would leave the other nothing to see. Neither shares with another
+# journey either — the alert covers every window of its user.
+#
+# Each owns « Loisirs », 300 € this month, 210 € (70 %) already spent, a rule
+# filing « CINEMA » under it, and a bank connection whose account WireMock
+# answers with one 40 € cinema ticket booked today
+# (.docker/e2e/wiremock/mappings/enablebanking.json): 250 / 300 = 83 %.
+#
+# lastSyncedAt is tomorrow, so the sync asks from the day before yesterday
+# (three days of overlap), and the stub books its ticket two days after the
+# `date_from` it is asked — today, on the stack's clock, whatever the real one.
+
+Maggie\Core\Entity\User:
+  e2e_envelope_alert_user:
+    email: 'e2e-envelope-alert@maggie.local'
+    googleId: 'e2e-envelope-alert-google-id'
+    name: 'Sacha Enveloppe'
+  e2e_envelope_alert_mobile_user:
+    email: 'e2e-envelope-alert-mobile@maggie.local'
+    googleId: 'e2e-envelope-alert-mobile-google-id'
+    name: 'Sacha Enveloppe (mobile)'
+
+Maggie\Finance\Entity\BankConnection:
+  e2e_envelope_alert_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-envelope-alert-session'
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    lastSyncedAt: '<e2eDate("+1 day")>'
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-envelope-alert-mobile-session'
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    lastSyncedAt: '<e2eDate("+1 day")>'
+    user: '@e2e_envelope_alert_mobile_user'
+
+Maggie\Finance\Entity\Account:
+  e2e_envelope_alert_account:
+    name: Compte courant
+    bank: Mock Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    externalAccountId: 'e2e-account-envelope-alert'
+    bankConnection: '@e2e_envelope_alert_connection'
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_account:
+    name: Compte courant
+    bank: Mock Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    externalAccountId: 'e2e-account-envelope-alert-mobile'
+    bankConnection: '@e2e_envelope_alert_mobile_connection'
+    user: '@e2e_envelope_alert_mobile_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_envelope_alert_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_envelope_alert_mobile_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  e2e_envelope_alert_rule:
+    labelPattern: 'CINEMA'
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@e2e_envelope_alert_leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_rule:
+    labelPattern: 'CINEMA'
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@e2e_envelope_alert_mobile_leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@e2e_envelope_alert_mobile_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_envelope_alert_envelope:
+    category: '@e2e_envelope_alert_leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_envelope:
+    category: '@e2e_envelope_alert_mobile_leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_envelope_alert_mobile_user'
+
+Maggie\Finance\Entity\Transaction:
+  # 70 % of the envelope, typed by hand: it alerts nothing on its own.
+  e2e_envelope_alert_spent:
+    account: '@e2e_envelope_alert_account'
+    category: '@e2e_envelope_alert_leisure'
+    amountCents: -21000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CONCERT'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_envelope_alert_user'
+  e2e_envelope_alert_mobile_spent:
+    account: '@e2e_envelope_alert_mobile_account'
+    category: '@e2e_envelope_alert_mobile_leisure'
+    amountCents: -21000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CONCERT'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_envelope_alert_mobile_user'

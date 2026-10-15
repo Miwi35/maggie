@@ -1,11 +1,14 @@
 package com.maggie.app.ui.interruption
 
 import app.cash.turbine.test
+import com.maggie.app.BuildConfig
 import com.maggie.app.data.fcm.PushActionHandler
 import com.maggie.app.data.fcm.PushActionKind
 import com.maggie.app.data.fcm.PushOutcome
 import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.Interruptions
+import com.maggie.app.data.model.Notification
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -142,6 +145,52 @@ class InterruptionViewModelTest {
             assertEquals(InterruptionEvent.OpenLink(payload), awaitItem())
         }
         assertNull(shown())
+    }
+
+    private fun envelopeAlert() = Interruptions.of(
+        Notification(
+            id = "n-49",
+            type = "finance",
+            title = "Loisirs : 83 % du budget (250 / 300 €)",
+            relatedEntityIri = "/finance/budgets",
+        ),
+    )!!
+
+    @Test
+    fun `an envelope alert answered C'est noté is marked read and closed (MAG-49)`() = runTest {
+        coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Closed
+        center.offer(envelopeAlert())
+        assertEquals("n-49", shown())
+
+        viewModel.answer(PushActionKind.OK)
+
+        coVerify { handler.handle(PushActionKind.OK, match { it.notificationId == "n-49" }, any(), any()) }
+        assertNull(shown())
+    }
+
+    @Test
+    fun `an envelope alert answered Voir les enveloppes opens the envelopes (MAG-49)`() = runTest {
+        val payload = envelopeAlert()
+        center.offer(payload)
+
+        viewModel.events.test {
+            viewModel.answer(PushActionKind.GO)
+
+            val event = awaitItem() as InterruptionEvent.OpenLink
+            assertEquals("${BuildConfig.DEEP_LINK_SCHEME}://finance/budgets", event.payload.link)
+        }
+        assertNull(shown())
+    }
+
+    @Test
+    fun `an envelope alert whose read fails stays with the reason (MAG-49)`() {
+        coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable.")
+        center.offer(envelopeAlert())
+
+        viewModel.answer(PushActionKind.OK)
+
+        assertEquals("n-49", shown())
+        assertEquals("Maggie est injoignable.", viewModel.uiState.value.note)
     }
 
     @Test

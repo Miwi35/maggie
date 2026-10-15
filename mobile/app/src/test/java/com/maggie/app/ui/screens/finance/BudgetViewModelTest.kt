@@ -239,6 +239,48 @@ class BudgetViewModelTest {
     }
 
     @Test
+    fun `setAlertThreshold saves it and reloads the status (MAG-49)`() = runTest {
+        coEvery { budgetRepository.setAlertThreshold("env-1", 90) } returns
+            Result.success(Envelope(id = "env-1", amountCents = 40000, year = 2026, month = 7))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.setAlertThreshold("env-1", 90)
+        advanceUntilIdle()
+
+        coVerify { budgetRepository.setAlertThreshold("env-1", 90) }
+        coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `setAlertThreshold null puts the default back (MAG-49)`() = runTest {
+        coEvery { budgetRepository.setAlertThreshold("env-1", null) } returns
+            Result.success(Envelope(id = "env-1", amountCents = 40000, year = 2026, month = 7))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.setAlertThreshold("env-1", null)
+        advanceUntilIdle()
+
+        coVerify { budgetRepository.setAlertThreshold("env-1", null) }
+    }
+
+    @Test
+    fun `a refused threshold says why and keeps the status (MAG-49)`() = runTest {
+        coEvery { budgetRepository.setAlertThreshold("env-1", 90) } returns
+            Result.failure(RuntimeException("alertThresholdPercent: This value should be between 1 and 99."))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.setAlertThreshold("env-1", 90)
+        advanceUntilIdle()
+
+        assertEquals("alertThresholdPercent: This value should be between 1 and 99.", viewModel.uiState.value.error)
+        assertEquals(sampleStatus, viewModel.uiState.value.status)
+    }
+
+    @Test
     fun `deleteEnvelope reloads the status`() = runTest {
         coEvery { budgetRepository.deleteEnvelope("env-1") } returns Result.success(Unit)
         viewModel = buildViewModel()

@@ -41,6 +41,12 @@ const FINANCE_PATHS: Record<string, string> = {
   review: '/finance/monthly-review',
 }
 
+/** The finance screens whose button says more than « Ouvrir les finances » (API `PushMessageFactory`). */
+const FINANCE_LABELS: Record<string, string> = {
+  banks: 'Reconnecter la banque',
+  budgets: 'Voir les enveloppes',
+}
+
 const ENTITY_LABELS: Record<string, string> = {
   events: "Voir l'événement",
   tasks: 'Voir la tâche',
@@ -74,7 +80,7 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
     if (!(screen in FINANCE_PATHS)) return null
     return {
       path: FINANCE_PATHS[screen],
-      label: screen === 'banks' ? 'Reconnecter la banque' : 'Ouvrir les finances',
+      label: FINANCE_LABELS[screen] ?? 'Ouvrir les finances',
     }
   }
 

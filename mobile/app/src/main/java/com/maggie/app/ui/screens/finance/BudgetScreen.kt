@@ -56,11 +56,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EnvelopeCreateRequest
+import com.maggie.app.data.model.AlertThresholdInput
+import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.EnvelopeConsumption
 import com.maggie.app.data.model.NestedBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetPeriodLabel
@@ -72,6 +75,8 @@ import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.layout.WindowWidth
+import com.maggie.app.ui.layout.rememberAppLayout
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +87,9 @@ fun BudgetScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var editingThreshold by remember { mutableStateOf<BudgetLine?>(null) }
+    // The tablet sets the alert threshold; the phone shows it (MAG-49).
+    val canSetThreshold = rememberAppLayout().width != WindowWidth.COMPACT
     val budgets = uiState.status?.budgets ?: emptyList()
     val nested = remember(budgets) { uiState.nestedBudgets }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
@@ -185,6 +193,11 @@ fun BudgetScreen(
                                 caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
                                 depth = row.depth,
                                 onDelete = { viewModel.deleteEnvelope(row.line.id) },
+                                onEditThreshold = if (canSetThreshold) {
+                                    { editingThreshold = row.line }
+                                } else {
+                                    null
+                                },
                             )
                         }
                         if (outside != null && !outside.isEmpty) {
@@ -201,11 +214,23 @@ fun BudgetScreen(
             categories = uiState.categories,
             year = uiState.year,
             month = uiState.month,
+            withThreshold = canSetThreshold,
             onConfirm = { request ->
                 viewModel.createEnvelope(request)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
+        )
+    }
+
+    editingThreshold?.let { line ->
+        AlertThresholdDialog(
+            line = line,
+            onConfirm = { percent ->
+                viewModel.setAlertThreshold(line.id, percent)
+                editingThreshold = null
+            },
+            onDismiss = { editingThreshold = null },
         )
     }
 }
@@ -311,6 +336,7 @@ private fun BudgetCard(
     caption: String,
     depth: Int,
     onDelete: () -> Unit,
+    onEditThreshold: (() -> Unit)? = null,
 ) {
     Card(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -363,8 +389,88 @@ private fun BudgetCard(
             }
 
             BudgetState(line)
+
+            // A one-off envelope has no period: no sync weighs it against a threshold.
+            if (line is BudgetLine) {
+                AlertThreshold(line.alertThresholdPercent, onEditThreshold)
+            }
         }
     }
+}
+
+/** Where Maggie interrupts after a sync: shown on every window, set where there is room for a form. */
+@Composable
+private fun AlertThreshold(percent: Int, onEdit: (() -> Unit)?) {
+    val text = "Alerte à $percent % puis à 100 %"
+    if (onEdit == null) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp).testTag("budget_alert_threshold"),
+        )
+    } else {
+        TextButton(onClick = onEdit, modifier = Modifier.testTag("budget_alert_threshold")) {
+            Text(text = text, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** The threshold field, blank for the default: the same rule in the dialog of a new envelope and of an existing one. */
+@Composable
+private fun AlertThresholdField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text("Seuil d'alerte (%)") },
+        supportingText = { Text("Entre 1 et 99. Vide : 80 %.") },
+        isError = AlertThresholdInput.parse(value) is AlertThresholdInput.Invalid,
+        modifier = Modifier.fillMaxWidth().testTag("alert_threshold_field"),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    )
+}
+
+@Composable
+private fun AlertThresholdDialog(
+    line: BudgetLine,
+    onConfirm: (Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Blank for the default: saving untouched keeps « the default », not a frozen 80.
+    var text by remember {
+        mutableStateOf(line.alertThresholdPercent.takeIf { it != DEFAULT_ALERT_THRESHOLD_PERCENT }?.toString().orEmpty())
+    }
+    val parsed = AlertThresholdInput.parse(text)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Alerte de ${line.categoryName}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Après une synchro bancaire qui fait passer l'enveloppe au-delà de ce seuil, " +
+                        "Maggie vous prévient — une fois par période, puis une seconde fois à 100 %.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                AlertThresholdField(text) { text = it }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { (parsed as? AlertThresholdInput.Valid)?.let { onConfirm(it.percent) } },
+                enabled = parsed is AlertThresholdInput.Valid,
+            ) {
+                Text("Enregistrer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        modifier = Modifier.uiTagRoot(),
+    )
 }
 
 /** Overspent or overcommitted: the colour never speaks alone, an icon and a word go with it. */
@@ -400,15 +506,19 @@ private fun EnvelopeCreateDialog(
     categories: List<Category>,
     year: Int,
     month: Int,
+    withThreshold: Boolean,
     onConfirm: (EnvelopeCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var thresholdText by remember { mutableStateOf("") }
+    val threshold = AlertThresholdInput.parse(thresholdText)
     val tree = remember(categories) { CategoryTree(categories) }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var amountText by remember { mutableStateOf("") }
     var isMonthly by remember { mutableStateOf(true) }
 
-    val canSubmit = selectedCategoryId != null && amountText.toDoubleOrNull() != null
+    val canSubmit = selectedCategoryId != null && amountText.toDoubleOrNull() != null &&
+        threshold is AlertThresholdInput.Valid
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -448,6 +558,9 @@ private fun EnvelopeCreateDialog(
                         label = { Text("Année $year") },
                     )
                 }
+                if (withThreshold) {
+                    AlertThresholdField(thresholdText) { thresholdText = it }
+                }
             }
         },
         confirmButton = {
@@ -462,6 +575,7 @@ private fun EnvelopeCreateDialog(
                             year = year,
                             mode = if (isMonthly) "monthly" else "annual",
                             month = if (isMonthly) month else null,
+                            alertThresholdPercent = (threshold as? AlertThresholdInput.Valid)?.percent,
                         ),
                     )
                 },

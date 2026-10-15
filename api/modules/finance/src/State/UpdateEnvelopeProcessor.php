@@ -41,6 +41,8 @@ class UpdateEnvelopeProcessor implements ProcessorInterface
             month: $data->getMonth(),
             currency: $data->getCurrency(),
             name: $data->getName(),
+            alertThresholdPercent: $data->getAlertThresholdPercent(),
+            setsAlertThreshold: true,
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

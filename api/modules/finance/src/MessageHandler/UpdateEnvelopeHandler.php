@@ -65,6 +65,9 @@ class UpdateEnvelopeHandler
         if (null !== $command->currency) {
             $envelope->setCurrency($command->currency);
         }
+        if ($command->setsAlertThreshold) {
+            $envelope->setAlertThresholdPercent($command->alertThresholdPercent);
+        }
 
         if (BudgetMode::Annual === $envelope->getMode()) {
             $envelope->setMonth(null);

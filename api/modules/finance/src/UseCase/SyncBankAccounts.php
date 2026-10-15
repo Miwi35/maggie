@@ -11,11 +11,13 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Bank\EnableBanking\RateLimitedException;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
+use Maggie\Finance\Event\BankSyncCompleted;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\Specification\RealCurrency;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -46,6 +48,8 @@ class SyncBankAccounts
         private readonly MessageBusInterface $bus,
         private readonly MergeDuplicateAccounts $mergeDuplicateAccounts,
         private readonly LoggerInterface $logger,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
     ) {
     }
 
@@ -63,6 +67,7 @@ class SyncBankAccounts
         $skipped = 0;
         $calls = 0;
         $read = [];
+        $stored = [];
 
         foreach ($this->connectionRepository->findByUser($user) as $connection) {
             if (!$connection->isUsable()) {
@@ -101,6 +106,8 @@ class SyncBankAccounts
                 $imported += $outcome['imported'];
                 $skipped += $outcome['skipped'];
                 $calls += $outcome['calls'];
+                array_push($stored, ...$outcome['transactionIds']);
+                unset($outcome['transactionIds']);
                 $results[] = $outcome + [
                     'bankName' => $connection->getBankName(),
                     'accountName' => $account->getName(),
@@ -117,6 +124,7 @@ class SyncBankAccounts
             $this->em->flush();
 
             $this->foldCopies($user, $read);
+            $this->announce($user, $stored);
         }
 
         return [
@@ -154,9 +162,25 @@ class SyncBankAccounts
     }
 
     /**
+     * The movements are stored and filed by now: what reacts to them — the
+     * envelope alert first — does it on the event. A reaction that fails
+     * does not fail the sync.
+     *
+     * @param list<string> $transactionIds the movements this sync stored
+     */
+    private function announce(User $user, array $transactionIds): void
+    {
+        try {
+            $this->eventBus->dispatch(new BankSyncCompleted((string) $user->getId(), $transactionIds));
+        } catch (\Throwable $e) {
+            $this->logger->error('Reactions to a bank sync failed: {message}', ['message' => $e->getMessage(), 'exception' => $e]);
+        }
+    }
+
+    /**
      * @param array<string, string> $psuHeaders
      *
-     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, ignored: int, pages: int, calls: int, from: string, balanceCents: ?int}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, ignored: int, pages: int, calls: int, from: string, balanceCents: ?int, transactionIds: list<string>}
      */
     private function syncAccount(
         BankConnection $connection,
@@ -256,6 +280,7 @@ class SyncBankAccounts
             'calls' => $pages + 1,
             'from' => $from->format('Y-m-d'),
             'balanceCents' => $balanceCents,
+            'transactionIds' => $result['transactionIds'],
         ];
     }
 

@@ -129,6 +129,67 @@ describe('MaggieInterruptionHost', () => {
     }
   })
 
+  describe('an envelope past its threshold (MAG-49)', () => {
+    const envelopeAlert = {
+      ...reminder,
+      '@id': '/api/notifications/n3',
+      id: 'n3',
+      type: 'finance',
+      title: 'Loisirs : 83 % du budget (250 / 300 €)',
+      body: null,
+      relatedEntityIri: '/finance/budgets',
+    }
+
+    test('shows where the envelope stands, with « C\'est noté » and « Voir les enveloppes »', async () => {
+      setup()
+      feed().emit(envelopeAlert)
+
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toHaveTextContent('Loisirs : 83 % du budget (250 / 300 €)')
+      expect(screen.getByRole('button', { name: "C'est noté" })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Voir les enveloppes' })).toBeInTheDocument()
+    })
+
+    test('« C\'est noté » marks it read and stays put', async () => {
+      setup()
+      feed().emit(envelopeAlert)
+
+      await userEvent.click(await screen.findByRole('button', { name: "C'est noté" }))
+
+      expect(update).toHaveBeenCalledWith(
+        'notifications',
+        expect.objectContaining({ id: '/api/notifications/n3', data: { readAt: expect.any(String) } }),
+      )
+      expect(navigate).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    })
+
+    test('« Voir les enveloppes » opens the envelopes and marks it read', async () => {
+      setup()
+      feed().emit(envelopeAlert)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Voir les enveloppes' }))
+
+      expect(navigate).toHaveBeenCalledWith('/envelopes')
+      expect(update).toHaveBeenCalledWith(
+        'notifications',
+        expect.objectContaining({ id: '/api/notifications/n3', data: { readAt: expect.any(String) } }),
+      )
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    })
+
+    test('a read that fails still closes it: the bell keeps it unread', async () => {
+      update.mockReset().mockRejectedValue(new Error('offline'))
+      setup()
+      feed().emit(envelopeAlert)
+
+      await userEvent.click(await screen.findByRole('button', { name: "C'est noté" }))
+
+      expect(update).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    })
+  })
+
   test('a notification with nowhere to go is acknowledged', async () => {
     setup()
     feed().emit({ ...reminder, type: 'proaction', body: 'Détail', relatedEntityIri: null })

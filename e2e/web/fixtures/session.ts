@@ -90,6 +90,13 @@ export const TRANSFERS_USER_EMAIL = 'e2e-transfers@maggie.local'
  */
 export const MEALS_USER_EMAIL = 'e2e-meals@maggie.local'
 
+/**
+ * The tenth seeded account, for the envelope alert (MAG-49): a bank sync takes
+ * its « Loisirs » past 80 % and Maggie interrupts. The alert goes out once per
+ * period and covers every window of its user, so no other file signs in here.
+ */
+export const ENVELOPE_ALERT_USER_EMAIL = 'e2e-envelope-alert@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

@@ -300,3 +300,46 @@ test('a proaction asked for in the chat sits in the « Maggie » agenda, runs on
   const messages = (await (await api.get('/agent/messages?limit=10')).json()) as { role: string; content: string }[]
   expect(messages.filter((m) => m.role === 'assistant' && m.content === "C'est l'heure de boire un verre d'eau !")).toHaveLength(1)
 })
+
+/**
+ * The envelope alert, end to end (MAG-49, extends MAG-103 and MAG-102): a bank
+ * sync — Enable Banking simulated by WireMock — brings a 40 € cinema ticket to
+ * a « Loisirs » already at 70 % of its 300 €. Maggie interrupts with where the
+ * envelope stands, offers to open the envelopes, and a second sync of the same
+ * month brings nothing new and says nothing. Its own account: the alert goes
+ * out once per period, and it covers every window of its user.
+ */
+test('a bank sync that takes an envelope past 80 % interrupts, once, and « Voir les enveloppes » opens them', async ({
+  envelopeAlertUser,
+}) => {
+  const { page, api, session } = envelopeAlertUser
+  const dashboard = new DashboardPage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  const sync = async () => {
+    const response = await api.post('/api/finance/bank-connections/sync', { headers: { 'Content-Type': 'application/json' } })
+    expect(response.ok(), await response.text()).toBe(true)
+    return (await response.json()) as { imported: number }
+  }
+
+  expect((await sync()).imported).toBe(1)
+
+  const interruption = page.getByRole('alertdialog')
+  await expect(interruption).toBeVisible({ timeout: 10_000 })
+  await expect(interruption).toContainText('Loisirs : 83 % du budget (250 / 300 €)')
+  await expect(interruption.getByRole('button', { name: "C'est noté" })).toBeVisible()
+  await expect(interruption.getByRole('button', { name: 'Voir les enveloppes' })).toBeVisible()
+
+  await interruption.getByRole('button', { name: 'Voir les enveloppes' }).click()
+  await expect(interruption).toBeHidden()
+  await expect(page).toHaveURL(/\/envelopes/)
+
+  // The same month, nothing new crossed: nothing to say.
+  expect((await sync()).imported).toBe(0)
+  await expect(interruption).toBeHidden({ timeout: 5_000 })
+  const alerts = (await getCollection<{ type: string; title: string }>(api, '/api/notifications?itemsPerPage=100')).filter(
+    (n) => n.type === 'finance' && n.title.startsWith('Loisirs'),
+  )
+  expect(alerts).toHaveLength(1)
+})

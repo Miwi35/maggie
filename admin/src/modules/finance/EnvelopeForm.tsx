@@ -7,6 +7,8 @@ import {
   FormDataConsumer,
   required,
   useRecordContext,
+  minValue,
+  maxValue,
 } from 'react-admin'
 import { BUDGET_MODE_CHOICES, MONTH_CHOICES, ONE_OFF } from './budgetModes'
 import { EnvelopeSummary } from './EnvelopeSummary'
@@ -162,6 +164,21 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
         )
       }
     </FormDataConsumer>
+
+    <FormSection
+      title="Alerte"
+      description="Après une synchro bancaire qui fait passer l'enveloppe au-delà de ce seuil, Maggie vous prévient — une fois par période, puis une seconde fois à 100 %."
+    />
+
+    <NumberInput
+      source="alertThresholdPercent"
+      label="Seuil d'alerte (%)"
+      min={1}
+      max={99}
+      validate={[minValue(1), maxValue(99)]}
+      sx={halfSx}
+      helperText="Entre 1 et 99. Vide : 80 %."
+    />
 
     <FormDataConsumer>
       {({ formData }) => (

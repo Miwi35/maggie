@@ -39,7 +39,7 @@ class ImportStatement
     /**
      * @param list<StatementRow> $rows
      *
-     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, first: ?string, last: ?string, totalCents: int, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, first: ?string, last: ?string, totalCents: int, transactionIds: list<string>, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>}
      */
     public function execute(Account $account, array $rows, bool $dryRun = false): array
     {
@@ -152,6 +152,8 @@ class ImportStatement
             'first' => [] === $dates ? null : $dates[0]->format('Y-m-d'),
             'last' => [] === $dates ? null : end($dates)->format('Y-m-d'),
             'totalCents' => $totalCents,
+            // What this pass stored, for whoever reacts to the money it brought.
+            'transactionIds' => array_map(static fn (Transaction $t) => (string) $t->getId(), $written),
             'rows' => $report,
         ];
     }

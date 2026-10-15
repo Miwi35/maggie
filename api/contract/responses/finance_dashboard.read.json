@@ -158,7 +158,8 @@
             "remainingCents": -95599,
             "availableCents": -95599,
             "isOverspent": true,
-            "isOvercommitted": true
+            "isOvercommitted": true,
+            "alertThresholdPercent": 80
         }
     ],
     "topPosts": [

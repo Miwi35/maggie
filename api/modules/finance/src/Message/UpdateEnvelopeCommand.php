@@ -16,6 +16,9 @@ final readonly class UpdateEnvelopeCommand
         public ?int $month = null,
         public ?string $currency = null,
         public ?string $name = null,
+        public ?int $alertThresholdPercent = null,
+        /** Null is a value here (back to the default): this says whether to apply it. */
+        public bool $setsAlertThreshold = false,
     ) {
     }
 }

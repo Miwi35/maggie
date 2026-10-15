@@ -67,3 +67,51 @@ tags:
     timeout: 20000
 - assertNotVisible:
     id: "dashboard"
+
+# The envelope alert (MAG-49, extends MAG-102): a bank sync — Enable Banking simulated by
+# WireMock — brings a 40 € cinema ticket to a « Loisirs » at 70 % of its 300 €. Maggie
+# interrupts with where it stands, « C'est noté » and « Voir les enveloppes », which opens
+# the budgets; a second sync of the same month brings nothing new and says nothing. Its own
+# seeded account: the alert goes out once per period.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/14-interruption.yaml
+      e2e_email: e2e-envelope-alert-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/envelope-alert-sync.js
+    env:
+      IMPORTED: "1"
+
+- extendedWaitUntil:
+    visible:
+      id: "interruption"
+    timeout: 40000
+- assertVisible: "Loisirs : 83 % du budget.*"
+- assertVisible: "C'est noté"
+- assertVisible: "Voir les enveloppes"
+
+- tapOn:
+    id: "interruption_second"
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Budgets"
+    timeout: 20000
+
+# The same month, nothing new crossed: nothing to say.
+- runScript:
+    file: ../scripts/envelope-alert-sync.js
+    env:
+      IMPORTED: "0"
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertNotVisible:
+    id: "interruption"

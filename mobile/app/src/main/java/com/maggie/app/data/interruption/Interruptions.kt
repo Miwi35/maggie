@@ -46,6 +46,8 @@ object Interruptions {
         "grocery_items" to ("grocery" to "Voir la liste de courses"),
         "recipes" to ("recipe" to "Voir la recette"),
     )
+    /** The finance screens whose action says more than « Ouvrir les finances » (API `PushMessageFactory`). */
+    private val FINANCE_LABELS = mapOf("banks" to "Reconnecter la banque", "budgets" to "Voir les enveloppes")
     private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "savings-advances", "loans", "review")
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
@@ -127,7 +129,7 @@ object Interruptions {
         FINANCE_PATH.matchEntire(path)?.let { match ->
             val screen = match.groupValues[1]
             if (screen !in FINANCE_SCREENS) return null to null
-            val label = if (screen == "banks") "Reconnecter la banque" else "Ouvrir les finances"
+            val label = FINANCE_LABELS[screen] ?: "Ouvrir les finances"
             return "$scheme://finance${if (screen.isEmpty()) "" else "/$screen"}" to label
         }
         return null to null

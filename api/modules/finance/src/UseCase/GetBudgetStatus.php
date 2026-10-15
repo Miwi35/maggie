@@ -137,7 +137,10 @@ class GetBudgetStatus
                 'currency' => $envelope->getCurrency(),
                 'year' => $envelope->getYear(),
                 'month' => $envelope->getMonth(),
-            ] + $this->consumption($envelope->getAmountCents(), $byStatus);
+            ] + $this->consumption($envelope->getAmountCents(), $byStatus) + [
+                // Past it, a bank sync makes Maggie interrupt (MAG-49).
+                'alertThresholdPercent' => $envelope->getEffectiveAlertThresholdPercent(),
+            ];
         }
 
         return $lines;

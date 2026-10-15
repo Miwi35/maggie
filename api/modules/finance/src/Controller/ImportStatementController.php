@@ -95,6 +95,7 @@ final class ImportStatementController
         // one that has to be asked for.
         $dryRun = !$request->request->getBoolean('confirm');
         $result = $this->importStatement->execute($account, $parsed['rows'], $dryRun);
+        unset($result['transactionIds']);
 
         return new JsonResponse([
             'dryRun' => $dryRun,

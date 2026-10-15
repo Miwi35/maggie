@@ -267,6 +267,67 @@
           "continuation_key": null
         }
       }
+    },
+    {
+      "name": "Balances for the envelope alert accounts (MAG-49)",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-envelope-alert(-mobile)?/balances"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "balances": [
+            {
+              "balance_type": "CLBD",
+              "balance_amount": {
+                "currency": "EUR",
+                "amount": "960.00"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Transactions for the envelope alert accounts (MAG-49) — one cinema ticket, booked two days after date_from: today on the stack's clock (see api/fixtures/e2e/55-envelope-alert.yaml)",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-envelope-alert(-mobile)?/transactions"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "transactions": [
+            {
+              "entry_reference": "e2e-envelope-alert-cinema",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "40.00"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "{{date (parseDate request.query.date_from format='yyyy-MM-dd') offset='2 days' format='yyyy-MM-dd'}}",
+              "creditor": {
+                "name": "CINEMA PATHE RENNES"
+              },
+              "remittance_information": [
+                "CINEMA PATHE RENNES"
+              ]
+            }
+          ],
+          "continuation_key": null
+        },
+        "transformers": [
+          "response-template"
+        ]
+      }
     }
   ]
 }

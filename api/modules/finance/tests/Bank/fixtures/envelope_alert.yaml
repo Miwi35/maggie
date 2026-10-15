@@ -1,0 +1,44 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-alert-test@example.com
+    googleId: google-finance-alert-test
+    name: Finance Alert Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    bank: N26
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  bars:
+    name: Bars
+    parent: '@leisure'
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_bar:
+    labelPattern: OBSYDIAN
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@bars'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+  rule_cinema:
+    labelPattern: CINEMA
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'

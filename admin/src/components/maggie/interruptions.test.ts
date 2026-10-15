@@ -8,6 +8,7 @@ describe('notificationLink', () => {
     ['/api/recipes/r1', 'Voir la recette', '/recipes/%2Fapi%2Frecipes%2Fr1/show'],
     ['/api/grocery_items/g1', 'Voir la liste de courses', '/grocery'],
     ['/finance/banks', 'Reconnecter la banque', '/finance/banks'],
+    ['/finance/budgets', 'Voir les enveloppes', '/envelopes'],
     ['/finance', 'Ouvrir les finances', '/finance/dashboard'],
     ['/finance/cushion', 'Ouvrir les finances', '/finance/cushion'],
   ])('%s opens %s', (iri, label, path) => {
