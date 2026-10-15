@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
+import { AdminContext, ResourceContextProvider, memoryStore, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { CategoryList } from './CategoryList'
@@ -167,5 +167,49 @@ describe('CategoryList, three levels', () => {
     await user.click(await screen.findByRole('link', { name: 'Ajouter une sous-catégorie à Bars' }))
 
     expect(await screen.findByLabelText('Rattacher à une catégorie')).toHaveValue('Loisirs › Bars')
+  })
+})
+
+/**
+ * The list screen of a category used to be paginated: react-admin kept the
+ * page size and the sort the owner left it with, and `perPage`/`sort` on the
+ * tree list are only defaults. With the pager gone, the rows past the stored
+ * page size were hidden for good — the newest categories first (MAG-503).
+ */
+describe('CategoryList, parameters left by the paginated list', () => {
+  const owned = Array.from({ length: 30 }, (_, index) => ({
+    id: `/api/categories/${String(index).padStart(2, '0')}`,
+    name: `Catégorie ${String(index).padStart(2, '0')}`,
+    obligation: 'optional',
+    parent: null,
+  }))
+
+  const pagedProvider = testDataProvider({
+    getList: ((_resource: string, params: { pagination: { page: number; perPage: number }; sort: { field: string; order: string } }) => {
+      const sign = params.sort.order === 'DESC' ? -1 : 1
+      const sorted = [...owned].sort((a, b) => sign * String(a[params.sort.field as 'id']).localeCompare(String(b[params.sort.field as 'id'])))
+      const start = (params.pagination.page - 1) * params.pagination.perPage
+
+      return Promise.resolve({ data: sorted.slice(start, start + params.pagination.perPage), total: owned.length })
+    }) as unknown as DataProvider['getList'],
+  })
+
+  test('shows every category whatever page size and sort the old list stored', async () => {
+    render(
+      <MemoryRouter>
+        <AdminContext
+          dataProvider={pagedProvider}
+          store={memoryStore({ 'categories.listParams': { page: 1, perPage: 25, sort: 'id', order: 'DESC', filter: {} } })}
+        >
+          <ResourceContextProvider value="categories">
+            <CategoryList />
+          </ResourceContextProvider>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Catégorie 29')).toBeInTheDocument()
+    expect(screen.getByText('Catégorie 00')).toBeInTheDocument()
+    expect(screen.getAllByText(/^Catégorie \d\d$/)).toHaveLength(30)
   })
 })
