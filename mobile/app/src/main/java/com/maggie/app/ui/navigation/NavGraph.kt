@@ -120,7 +120,10 @@ import com.maggie.app.ui.screens.grocery.ProductListScreen
 import com.maggie.app.ui.screens.grocery.ProductViewModel
 import com.maggie.app.ui.screens.grocery.StoreListScreen
 import com.maggie.app.ui.screens.grocery.StoreViewModel
+import com.maggie.app.data.model.Meal
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
+import com.maggie.app.ui.screens.cookbook.meals.MealDetailDialog
+import com.maggie.app.ui.screens.cookbook.meals.MealDetailViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
@@ -406,6 +409,7 @@ fun NavGraph() {
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealCreateViewModel: MealCreateViewModel = koinViewModel()
+    val mealDetailViewModel: MealDetailViewModel = koinViewModel()
     val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
     val subtasksViewModel: SubtasksViewModel = koinViewModel()
@@ -484,6 +488,7 @@ fun NavGraph() {
     }
     var editRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var mealCreateState by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
+    var openedMeal by remember { mutableStateOf<Meal?>(null) }
     var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
@@ -1057,6 +1062,7 @@ fun NavGraph() {
                                 onCreateMeal = { day, slot ->
                                     mealCreateState = day to slot
                                 },
+                                onOpenMeal = { meal -> openedMeal = meal },
                             )
                         },
                         detail = paneRecipeId?.let { id ->
@@ -1398,6 +1404,29 @@ fun NavGraph() {
                 }
             },
             onDismiss = { mealCreateState = null },
+        )
+    }
+
+    // Meal sheet: a slot already planned opens it instead of a second creation (MAG-378).
+    openedMeal?.let { meal ->
+        MealDetailDialog(
+            meal = meal,
+            viewModel = mealDetailViewModel,
+            recipeListViewModel = recipeListViewModel,
+            onSaved = {
+                openedMeal = null
+                mealsWeekViewModel.refresh()
+            },
+            onDeleted = {
+                openedMeal = null
+                mealsWeekViewModel.refresh()
+            },
+            onChooseIngredients = {
+                openedMeal = null
+                mealToChooseIngredientsOf = meal.id
+                navController.navigate(Screen.MealIngredientChoice.route)
+            },
+            onDismiss = { openedMeal = null },
         )
     }
 

@@ -37,6 +37,7 @@ class CreateMealProcessor implements ProcessorInterface
             recipeIds: $recipeIds,
             userId: $user instanceof User ? (string) $user->getId() : null,
             guests: $data->getOwnGuests(),
+            customTitle: $data->getCustomTitle(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

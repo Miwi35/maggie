@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,7 +40,8 @@ import com.maggie.app.ui.uiTagRoot
 /**
  * The recipes to put on a meal's menu, in a full screen of their own (MAG-378): an
  * autocomplete never opens as a dropdown on the phone. A tap on a recipe adds it and
- * leaves the search open, so a menu of several dishes is chosen in one visit.
+ * leaves the search open, so a menu of several dishes is chosen in one visit. A recipe
+ * already on the menu is not offered again: a dish is on a menu once.
  */
 @Composable
 fun RecipeSearchScreen(
@@ -52,7 +52,7 @@ fun RecipeSearchScreen(
 ) {
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    val matches = recipes.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    val matches = recipes.filter { it.id !in chosenIds && it.name.contains(query.trim(), ignoreCase = true) }
 
     Dialog(
         onDismissRequest = onDone,
@@ -99,9 +99,6 @@ fun RecipeSearchScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
-                            if (recipe.id in chosenIds) {
-                                Icon(Icons.Default.Check, contentDescription = "Déjà au menu")
-                            }
                         }
                         HorizontalDivider()
                     }

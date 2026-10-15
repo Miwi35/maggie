@@ -161,6 +161,81 @@ class MealApiTest extends WebTestCase
         self::assertSame('Pâtes à la tomate', $data['summary']);
     }
 
+    public function testTheOwnerCanGiveAMealATitleOfItsOwn(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+
+        $data = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'customTitle' => 'Repas des cousins',
+            'recipes' => ['/api/recipes/'.$pasta->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('Repas des cousins', $data['summary']);
+        self::assertSame('Repas des cousins', $data['customTitle']);
+    }
+
+    public function testRenamingAMealKeepsItsTitleThroughALaterRecipeChange(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $salad = $this->getFixture('salad');
+        $created = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'recipes' => ['/api/recipes/'.$pasta->getId()],
+        ]);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $renamed = $this->patchMeal($created['id'], ['customTitle' => 'Repas des cousins']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Repas des cousins', $renamed['summary']);
+        $this->assertMercureUpdatePublished('/meals/'.$created['id']);
+        $this->assertElasticsearchIndexDispatched(Meal::class);
+
+        $swapped = $this->patchMeal($created['id'], ['recipes' => ['/api/recipes/'.$salad->getId()]]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Repas des cousins', $swapped['summary']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($created['id']);
+        self::assertSame('Repas des cousins', $stored->getSummary());
+        self::assertSame('Repas des cousins', $stored->getCustomTitle());
+    }
+
+    public function testClearingTheTitleGoesBackToTheNamesOfTheRecipes(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $created = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'customTitle' => 'Repas des cousins',
+            'recipes' => ['/api/recipes/'.$pasta->getId()],
+        ]);
+
+        $data = $this->patchMeal($created['id'], ['customTitle' => '  ']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Pâtes à la tomate', $data['summary']);
+        self::assertNull($data['customTitle'] ?? null);
+    }
+
+    public function testATitleLongerThanAnEventTitleIsRefused(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $this->postMeal(['date' => '2026-10-07', 'slot' => 'lunch', 'customTitle' => str_repeat('a', 256)]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
     public function testADayThatIsNotADayIsRefused(): void
     {
         $this->authenticateFixtureUser();

@@ -33,6 +33,7 @@ class UpdateMealProcessor implements ProcessorInterface
             // client asking for the default back, or a body that left it out.
             guests: $data->getOwnGuests(),
             useDefaultGuests: null === $data->getOwnGuests(),
+            customTitle: $data->getCustomTitle() ?? '',
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

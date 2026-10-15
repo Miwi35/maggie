@@ -51,6 +51,7 @@ class CreateMealHandler
             $meal->addRecipe($recipe);
         }
 
+        $meal->setCustomTitle($command->customTitle);
         $meal->setSummary(MealTitle::of($meal));
 
         // Nothing goes on the grocery list here: the owner chooses which

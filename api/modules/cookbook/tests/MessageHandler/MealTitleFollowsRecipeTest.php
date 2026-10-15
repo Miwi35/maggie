@@ -108,4 +108,36 @@ class MealTitleFollowsRecipeTest extends KernelTestCase
 
         self::assertSame('Pâtes', $this->reload($meal)->getSummary());
     }
+
+    public function testARenamedRecipeLeavesAMealTheOwnerTitledAlone(): void
+    {
+        $meal = $this->createMeal('pasta');
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: (string) $meal->getId(),
+            customTitle: 'Repas des cousins',
+        ));
+
+        $this->bus()->dispatch(new UpdateRecipeCommand(
+            recipeId: (string) $this->getFixture('pasta')->getId(),
+            name: 'Pâtes au pesto',
+        ));
+
+        self::assertSame('Repas des cousins', $this->reload($meal)->getSummary());
+    }
+
+    public function testAnUpdateThatSaysNothingOfTheTitleKeepsTheOwners(): void
+    {
+        $meal = $this->createMeal('pasta');
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: (string) $meal->getId(),
+            customTitle: 'Repas des cousins',
+        ));
+
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: (string) $meal->getId(),
+            slot: 'dinner',
+        ));
+
+        self::assertSame('Repas des cousins', $this->reload($meal)->getSummary());
+    }
 }

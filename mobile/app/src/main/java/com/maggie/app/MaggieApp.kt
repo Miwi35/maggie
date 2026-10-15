@@ -80,6 +80,7 @@ import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.grocery.ProductViewModel
 import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
+import com.maggie.app.ui.screens.cookbook.meals.MealDetailViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
@@ -316,6 +317,7 @@ class MaggieApp : Application() {
             viewModel { (recipeId: String) -> RecipeEditViewModel(recipeId, get(), get(), get()) }
             viewModel { MealsWeekViewModel(get(), get(), get()) }
             viewModel { MealCreateViewModel(get()) }
+            viewModel { MealDetailViewModel(get()) }
             viewModel { (mealId: String) -> MealIngredientChoiceViewModel(mealId, get()) }
             viewModel { GroceryViewModel(get(), get(), get(), get(), get()) }
             viewModel { ProductViewModel(get(), get()) }

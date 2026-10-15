@@ -19,8 +19,9 @@ tags:
 # is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
 #
 # The Menu is chosen in a full-screen search, « Créer » is tapped twice in a row and
-# makes one meal, named by the API after its recipe (MAG-378); at the end the owner
-# deletes the meal from the week with a long press, and it leaves the week.
+# makes one meal, named by the API after its recipe (MAG-378); at the end a tap on the
+# meal opens its sheet, not a second creation: the owner gives it a title of his own,
+# the week shows it, and he deletes the meal from the sheet.
 #
 # Everything is the journey's own and deleted at the end, the meal and its lines with it.
 
@@ -127,8 +128,8 @@ tags:
     notVisible: ".*Riz MAG-297.*"
     timeout: 30000
 
-# I delete the meal from the week: a long press asks, « Supprimer » confirms, and it
-# leaves the week without a reload; the API no longer has it.
+# I tap the meal: its sheet opens, with the title field. I give it a title of my
+# own, save, and the week shows it instead of the recipe's name.
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
@@ -137,7 +138,36 @@ tags:
 - extendedWaitUntil:
     visible: "Riz au curry MAG-297"
     timeout: 20000
-- longPressOn: "Riz au curry MAG-297"
+- tapOn: "Riz au curry MAG-297"
+- extendedWaitUntil:
+    visible:
+      id: "meal_detail_title"
+    timeout: 10000
+- tapOn:
+    id: "meal_detail_title"
+- inputText: "Dimanche en famille"
+- tapOn:
+    id: "meal_detail_save"
+- extendedWaitUntil:
+    visible: "Dimanche en famille"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "Riz au curry MAG-297"
+    timeout: 20000
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: expect-renamed
+
+# I delete the meal from its sheet: « Supprimer » asks, the confirmation deletes, and
+# it leaves the week without a reload; the API no longer has it.
+- tapOn: "Dimanche en famille"
+- extendedWaitUntil:
+    visible:
+      id: "meal_detail_delete"
+    timeout: 10000
+- tapOn:
+    id: "meal_detail_delete"
 - extendedWaitUntil:
     visible:
       id: "meal_delete_confirm"
@@ -145,7 +175,7 @@ tags:
 - tapOn:
     id: "meal_delete_confirm"
 - extendedWaitUntil:
-    notVisible: "Riz au curry MAG-297"
+    notVisible: "Dimanche en famille"
     timeout: 20000
 - runScript:
     file: ../scripts/meal-api.js

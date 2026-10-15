@@ -141,6 +141,8 @@ Maggie\Calendar\Entity\Proaction:
 Maggie\Cookbook\Entity\Meal:
   recorded_meal:
     summary: Recorded meal
+    # The owner's own title (MAG-378): the mobile DTO declares it, so the recording must carry it.
+    customTitle: Recorded meal
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
     # A day and a slot, no time (MAG-251): the instants are derived from it.
     date: '<(new \DateTimeImmutable("2026-03-16"))>'

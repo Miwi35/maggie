@@ -4,6 +4,7 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.MealCreateRequest
 import com.maggie.app.data.api.MealGroceryItemChoice
 import com.maggie.app.data.api.MealGroceryItemsRequest
+import com.maggie.app.data.api.MealUpdateRequest
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealGroceryPreview
 
@@ -16,6 +17,10 @@ class MealRepository(
 
     suspend fun createMeal(request: MealCreateRequest): Result<Meal> = runCatching {
         apiService.createMeal(request)
+    }
+
+    suspend fun updateMeal(id: String, request: MealUpdateRequest): Result<Meal> = runCatching {
+        apiService.updateMeal(id, request)
     }
 
     suspend fun deleteMeal(id: String): Result<Unit> = runCatching {

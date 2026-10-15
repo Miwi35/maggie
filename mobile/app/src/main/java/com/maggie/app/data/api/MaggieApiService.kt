@@ -313,6 +313,16 @@ data class MealCreateRequest(
     val recipes: List<String> = emptyList(),
 )
 
+/**
+ * What the meal's sheet saves (MAG-378): the whole menu, and the title the owner typed. A blank
+ * [customTitle] puts the title back to the recipes' names.
+ */
+@Serializable
+data class MealUpdateRequest(
+    val recipes: List<String>,
+    val customTitle: String,
+)
+
 @Serializable
 data class MealGroceryItemsRequest(val ingredients: List<MealGroceryItemChoice>)
 
@@ -1124,11 +1134,19 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
             setBody(request)
-        }.body()
+        }.orRefusal().body()
+    }
+
+    suspend fun updateMeal(id: String, request: MealUpdateRequest): Meal {
+        return client.patch("$baseUrl/api/meals/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
     }
 
     suspend fun deleteMeal(id: String) {
-        client.delete("$baseUrl/api/meals/$id")
+        client.delete("$baseUrl/api/meals/$id").orRefusal()
     }
 
     suspend fun getMealGroceryPreview(mealId: String): MealGroceryPreview {
