@@ -35,6 +35,7 @@ import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.RulePreviewMatch
 import com.maggie.app.data.model.RulePreviewRequest
@@ -394,6 +395,9 @@ class FakeTransactionTransfers(
     val notes = mutableListOf<String>()
     val rules = mutableListOf<CategorizationRuleCreateRequest>()
 
+    /** The qualifications the screen wrote by hand, with the category sent along. */
+    val qualified = mutableListOf<Pair<String?, Qualification>>()
+
     val viewModel: TransactionViewModel by lazy {
         val repository = mockk<TransactionRepository>()
         val categoryRepository = mockk<CategoryRepository>()
@@ -457,6 +461,16 @@ class FakeTransactionTransfers(
             val index = lines.indexOfFirst { it.id == firstArg<String>() }
             lines[index] = lines[index].copy(note = secondArg<String>().trim().ifEmpty { null })
             notes += secondArg<String>()
+            Result.success(lines[index])
+        }
+        coEvery { repository.setQualification(any(), any(), any()) } answers {
+            val index = lines.indexOfFirst { it.id == firstArg<String>() }
+            qualified += secondArg<String?>() to thirdArg<Qualification>()
+            lines[index] = lines[index].copy(
+                category = secondArg<String?>()?.let { "/api/categories/$it" },
+                qualification = thirdArg(),
+                qualifiedBy = "manual",
+            )
             Result.success(lines[index])
         }
         val ruleRepository = mockk<CategorizationRuleRepository>()

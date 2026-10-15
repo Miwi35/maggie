@@ -215,11 +215,13 @@ private fun CategoryTreeRow(
             Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = category.name, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = categoryKindLabel(category),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                categoryKindLabel(category)?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (row.canAddChild) {
                 IconButton(onClick = onAddChild) {

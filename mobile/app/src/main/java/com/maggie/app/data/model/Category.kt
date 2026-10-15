@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 data class Category(
     val id: String,
     val name: String,
-    val obligation: String = "optional",
+    // Deprecated by the API (a category has no nature): read only to know whether a rente
+    // can be flagged, never shown. It is "income" on a category that already took the flag.
+    val obligation: String? = null,
     // A rente: income that comes in without being worked for. Only ever true
     // on an income category, and it is what the independence counter counts.
     // Spelled as the API spells it — `passiveIncome`, not `isPassiveIncome`.
@@ -26,21 +28,5 @@ data class Category(
 /** What the screens write for a category: its full path when the API gave one, its name otherwise. */
 fun Category.displayPath(): String = path?.takeIf { it.isNotBlank() } ?: name
 
-/** Human-readable French label for an obligation flag code. */
-fun obligationLabel(obligation: String): String = when (obligation) {
-    "mandatory" -> "Obligatoire"
-    "optional" -> "Non-obligatoire"
-    "saving" -> "Épargne"
-    "investment" -> "Investissement"
-    "debt" -> "Remboursement de prêt"
-    "income" -> "Recette"
-    else -> obligation
-}
-
-/** What kind of line a category is, rente included. */
-fun categoryKindLabel(category: Category): String =
-    if (category.passiveIncome) {
-        "${obligationLabel(category.obligation)} · rente"
-    } else {
-        obligationLabel(category.obligation)
-    }
+/** What a category line says under its name: « Rente » for a rente, nothing otherwise. */
+fun categoryKindLabel(category: Category): String? = if (category.passiveIncome) "Rente" else null

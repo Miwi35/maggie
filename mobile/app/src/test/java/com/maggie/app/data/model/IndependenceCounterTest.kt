@@ -1,6 +1,7 @@
 package com.maggie.app.data.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class IndependenceCounterTest {
@@ -57,11 +58,11 @@ class IndependenceCounterTest {
     }
 
     @Test
-    fun `a category says whether it is a rente, and a recette is named`() {
+    fun `a category says whether it is a rente, and says nothing otherwise`() {
         val rent = Category(id = "1", name = "Loyers perçus", obligation = "income", passiveIncome = true)
         val salary = Category(id = "2", name = "Salaire", obligation = "income")
 
-        assertEquals("Recette · rente", categoryKindLabel(rent))
-        assertEquals("Recette", categoryKindLabel(salary))
+        assertEquals("Rente", categoryKindLabel(rent))
+        assertNull(categoryKindLabel(salary))
     }
 }

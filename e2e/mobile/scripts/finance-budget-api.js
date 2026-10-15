@@ -126,15 +126,13 @@ function removeLeftovers() {
 
 if (ACTION === 'create') {
   removeLeftovers() // a retried run starts from nothing
-  const loisirs = post('/api/categories', { name: 'Loisirs', obligation: 'optional' })
+  const loisirs = post('/api/categories', { name: 'Loisirs' })
   const bars = post('/api/categories', {
     name: 'Bars',
-    obligation: 'optional',
     parent: '/api/categories/' + loisirs.id,
   })
   const obsydian = post('/api/categories', {
     name: 'Obsydian',
-    obligation: 'optional',
     parent: '/api/categories/' + bars.id,
   })
   ;[[loisirs, 30000], [obsydian, 10000]].forEach(function (pair) {
@@ -165,7 +163,7 @@ if (ACTION === 'create') {
   awaitOne('/api/envelopes?itemsPerPage=200', hellfestName)
 } else if (ACTION === 'cinema') {
   const next = month % 12 + 1
-  const cinema = post('/api/categories', { name: 'Cinéma', obligation: 'optional' })
+  const cinema = post('/api/categories', { name: 'Cinéma' })
   post('/api/envelopes', {
     category: '/api/categories/' + cinema.id,
     mode: 'monthly',
@@ -178,11 +176,10 @@ if (ACTION === 'create') {
   awaitOne('/api/categories?itemsPerPage=200', 'Cinéma')
 } else if (ACTION === 'create-split') {
   removeLeftovers()
-  const loisirs = post('/api/categories', { name: 'Loisirs', obligation: 'optional' })
+  const loisirs = post('/api/categories', { name: 'Loisirs' })
   ;[['Bars', 10000], ['Cinéma', 5000]].forEach(function (pair) {
     const daughter = post('/api/categories', {
       name: pair[0],
-      obligation: 'optional',
       parent: '/api/categories/' + loisirs.id,
     })
     post('/api/envelopes', {

@@ -10,6 +10,7 @@ import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringSuggestion
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.recurringOperationIri
 import com.maggie.app.util.rethrowCancellation
 
 class RecurringOperationRepository(
@@ -55,6 +56,11 @@ class RecurringOperationRepository(
 
     suspend fun getSeriesTransactions(seriesId: String): Result<List<Transaction>> = runCatching {
         apiService.getTransactionsOfRecurringOperation(seriesId)
+    }.rethrowCancellation()
+
+    /** How many transactions carry the series' qualification (those set by hand do not). */
+    suspend fun countQualifiedBySeries(seriesId: String): Result<Int> = runCatching {
+        apiService.countTransactionsQualifiedBy("qualifiedBySeries", recurringOperationIri(seriesId))
     }.rethrowCancellation()
 
     suspend fun attachTransaction(transactionId: String, seriesId: String, occurrenceOn: String): Result<Unit> = runCatching {

@@ -4,7 +4,6 @@ import {
   SimpleForm,
   BooleanInput,
   TextInput,
-  SelectInput,
   AutocompleteInput,
   required,
   useGetList,
@@ -12,7 +11,6 @@ import {
 } from 'react-admin'
 import type { RaRecord } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
-import { OBLIGATION_CHOICES } from './obligationFlags'
 import { ColorInput } from './ColorInput'
 import { CategoryIconPicker } from './CategoryIconPicker'
 import { categoryLabel, parentChoices } from './categoryTree'
@@ -20,33 +18,20 @@ import type { CategoryNode } from './categoryTree'
 
 const formSx = { maxWidth: 680 }
 
-interface CategoryFormProps {
-  withDefaults?: boolean
-}
-
 /**
- * The rente flag, asked only about a recette — the API refuses it anywhere
- * else, so the box on a dépense would be a trap.
- *
- * And cleared on the way out: react-hook-form keeps the value of an unmounted
- * input, so a box ticked on a recette and then reclassified would still submit
- * `passiveIncome: true` — a 422 on a field no longer on screen, with nothing
- * for the user to correct.
+ * The rente flag: a category of recettes that come in without being worked.
+ * The API still ties it to its deprecated `obligation: income` flag, so ticking
+ * the box sets it — nothing else about the category says a nature any more.
  */
 const RenteInput = () => {
-  const obligation = useWatch({ name: 'obligation' })
+  const passiveIncome = useWatch({ name: 'passiveIncome' })
   const { setValue } = useFormContext()
-  const isIncome = 'income' === obligation
 
   useEffect(() => {
-    if (!isIncome) {
-      setValue('passiveIncome', false)
+    if (passiveIncome === true) {
+      setValue('obligation', 'income')
     }
-  }, [isIncome, setValue])
-
-  if (!isIncome) {
-    return null
-  }
+  }, [passiveIncome, setValue])
 
   return (
     <BooleanInput
@@ -82,7 +67,7 @@ const ParentInput = () => {
   )
 }
 
-export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
+export const CategoryForm = () => (
   <SimpleForm sx={formSx}>
     <FormSection
       first
@@ -99,21 +84,6 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
     />
 
     <ParentInput />
-
-    <FormSection
-      title="Nature de la dépense"
-      description="C'est ce qui distingue un dépassement sur l'essentiel d'un dépassement sur le reste, dans le score comme dans la revue mensuelle."
-    />
-
-    <SelectInput
-      source="obligation"
-      label="Obligation"
-      choices={OBLIGATION_CHOICES}
-      defaultValue={withDefaults ? 'optional' : undefined}
-      validate={required()}
-      fullWidth
-      helperText="Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses. Recette : ce qui rentre."
-    />
 
     <RenteInput />
 

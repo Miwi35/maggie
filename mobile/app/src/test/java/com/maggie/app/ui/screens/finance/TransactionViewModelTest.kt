@@ -10,6 +10,8 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.RulePreviewMatch
@@ -568,58 +570,136 @@ class TransactionViewModelTest {
         assertEquals(6240, viewModel.uiState.value.detail!!.transaction.amountCents)
     }
 
+    private val mandatoryRepayment = Qualification(mandatory = true, kind = QualificationKind.Repayment)
+
     @Test
-    fun `filing the open line puts its category on the detail and refreshes the list`() = runTest {
+    fun `qualifying the open line sends category and qualification together and takes the answer`() = runTest {
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
-        val filed = sampleTransactions[0].copy(category = "/api/categories/cat-2")
+        val qualified = sampleTransactions[0].copy(
+            category = "/api/categories/cat-2",
+            qualification = mandatoryRepayment,
+            qualifiedBy = "manual",
+        )
         var served = sampleTransactions
         coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
-        coEvery { transactionRepository.setCategory("tx-1", "cat-2") } answers {
-            served = listOf(filed, sampleTransactions[1])
-            Result.success(filed)
+        coEvery { transactionRepository.setQualification("tx-1", "cat-2", mandatoryRepayment) } answers {
+            served = listOf(qualified, sampleTransactions[1])
+            Result.success(qualified)
         }
         viewModel = newViewModel()
         advanceUntilIdle()
         viewModel.openDetail("tx-1")
         advanceUntilIdle()
 
-        viewModel.setCategory("cat-2")
+        viewModel.setQualification("cat-2", mandatoryRepayment)
         advanceUntilIdle()
 
         val detail = viewModel.uiState.value.detail!!
         assertEquals("cat-2", detail.transaction.categoryId)
+        assertEquals(mandatoryRepayment, detail.transaction.qualification)
+        assertEquals("manual", detail.transaction.qualifiedBy)
         assertFalse(detail.isSaving)
         assertNull(detail.error)
         coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
     }
 
     @Test
-    fun `a refused filing says why on the detail and keeps the category`() = runTest {
+    fun `changing only the qualification keeps the category in the same call`() = runTest {
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
-        coEvery { transactionRepository.setCategory("tx-1", "cat-2") } returns Result.failure(RuntimeException("422"))
+        val filed = sampleTransactions[0].copy(category = "/api/categories/cat-1")
+        val qualified = filed.copy(qualification = mandatoryRepayment, qualifiedBy = "manual")
+        var served = listOf(filed, sampleTransactions[1])
+        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.setQualification("tx-1", "cat-1", mandatoryRepayment) } answers {
+            served = listOf(qualified, sampleTransactions[1])
+            Result.success(qualified)
+        }
         viewModel = newViewModel()
         advanceUntilIdle()
         viewModel.openDetail("tx-1")
         advanceUntilIdle()
 
-        viewModel.setCategory("cat-2")
+        viewModel.setQualification("cat-1", mandatoryRepayment)
+        advanceUntilIdle()
+
+        coVerify { transactionRepository.setQualification("tx-1", "cat-1", mandatoryRepayment) }
+        assertEquals(mandatoryRepayment, viewModel.uiState.value.detail!!.transaction.qualification)
+    }
+
+    @Test
+    fun `a refused qualification says why on the detail and keeps the line as it was`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { transactionRepository.setQualification("tx-1", "cat-2", mandatoryRepayment) } returns
+            Result.failure(RuntimeException("422"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        viewModel.setQualification("cat-2", mandatoryRepayment)
         advanceUntilIdle()
 
         val detail = viewModel.uiState.value.detail!!
         assertEquals("422", detail.error)
         assertNull(detail.transaction.categoryId)
+        assertEquals(Qualification.NONE, detail.transaction.qualification)
         assertFalse(detail.isSaving)
     }
 
     @Test
-    fun `filing with no line open does nothing`() = runTest {
+    fun `qualifying with no line open does nothing`() = runTest {
         viewModel = newViewModel()
         advanceUntilIdle()
 
-        viewModel.setCategory("cat-2")
+        viewModel.setQualification("cat-2", mandatoryRepayment)
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { transactionRepository.setCategory(any(), any()) }
+        coVerify(exactly = 0) { transactionRepository.setQualification(any(), any(), any()) }
+    }
+
+    @Test
+    fun `opening a line set by a rule reads the rule names once, for its provenance`() = runTest {
+        val byRule = sampleTransactions[0].copy(qualifiedBy = "rule", qualifiedByRule = "/api/categorization_rules/r1")
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(byRule, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        coEvery { ruleRepository.getRules() } returns Result.success(listOf(CategorizationRule(id = "r1", labelPattern = "SNCF")))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        assertEquals(mapOf("r1" to "SNCF"), viewModel.uiState.value.ruleNames)
+        coVerify(exactly = 1) { ruleRepository.getRules() }
+    }
+
+    @Test
+    fun `a line not set by a rule does not read the rules`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { ruleRepository.getRules() }
+    }
+
+    @Test
+    fun `a line created with a qualification sends it, one without leaves it out`() = runTest {
+        val requests = mutableListOf<TransactionCreateRequest>()
+        coEvery { transactionRepository.createTransaction(capture(requests)) } returns Result.success(
+            Transaction(id = "tx-3", label = "Crédit auto", amountCents = -35000),
+        )
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.createTransaction(amountCents = -35000, label = "Crédit auto", qualification = mandatoryRepayment)
+        viewModel.createTransaction(amountCents = -1599, label = "Boulangerie")
+        advanceUntilIdle()
+
+        assertEquals(mandatoryRepayment, requests[0].qualification)
+        assertNull(requests[1].qualification)
     }
 
     // MAG-464: the single sheet — one gesture, one transition, one test.
@@ -888,6 +968,7 @@ class TransactionViewModelTest {
         openSheet()
         viewModel.openRuleDraft()
         viewModel.changeRuleCategory("cat-1")
+        viewModel.changeRuleQualification(mandatoryRepayment)
         advanceUntilIdle()
 
         viewModel.saveRule()
@@ -896,6 +977,7 @@ class TransactionViewModelTest {
         assertNull(viewModel.uiState.value.ruleDraft)
         assertEquals("Supermarché", created.captured.labelPattern)
         assertEquals("/api/categories/cat-1", created.captured.category)
+        assertEquals(mandatoryRepayment, created.captured.qualification)
         assertEquals("debit", created.captured.direction)
         coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
     }

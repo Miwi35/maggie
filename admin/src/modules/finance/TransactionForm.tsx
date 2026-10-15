@@ -29,6 +29,7 @@ import {
 import type { RaRecord } from 'react-admin'
 import type { TransactionNature } from './transactionStatuses'
 import { categoryLabel, orderedCategories } from './categoryTree'
+import type { CategoryNode } from './categoryTree'
 
 const formSx = { maxWidth: 680 }
 export const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -37,16 +38,6 @@ export const halfSx = { flex: '1 1 240px' }
 interface TransactionFormProps {
   withDefaults?: boolean
 }
-
-export interface CategoryOption extends RaRecord {
-  name: string
-  obligation: string
-}
-
-const isIncomeCategory = (category: { obligation?: string }) => category.obligation === 'income'
-
-export const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
-  nature === 'income' ? isIncomeCategory(category) : !isIncomeCategory(category)
 
 /**
  * `nature` lives in the form only: the API knows it through the sign of the
@@ -78,7 +69,7 @@ const NATURE_HELP: Record<TransactionNature, string> = {
   income: 'De l’argent qui entre sur le compte — un salaire, une rente, un remboursement.',
 }
 
-export const NatureInput = ({ categories }: { categories: CategoryOption[] }) => {
+export const NatureInput = () => {
   const { setValue, getValues } = useFormContext()
   const { field } = useController({ name: 'nature' })
   const nature: TransactionNature = field.value ?? 'expense'
@@ -88,14 +79,6 @@ export const NatureInput = ({ categories }: { categories: CategoryOption[] }) =>
     if (next === null || next === nature) return
 
     field.onChange(next)
-
-    // What was chosen for the old nature may not make sense for the new one:
-    // a Netflix subscription is not a recette, a salary is not a dépense.
-    const categoryId = getValues('category') as string | null | undefined
-    const current = categories.find((c) => c.id === categoryId)
-    if (current && !matchesNature(current, next)) {
-      setValue('category', null, { shouldDirty: true })
-    }
 
     // "Engagée" has no meaning for a recette; the closest state that does is "Attendue".
     if (next === 'income' && getValues('status') === 'committed') {
@@ -120,13 +103,6 @@ export const NatureInput = ({ categories }: { categories: CategoryOption[] }) =>
     </Box>
   )
 }
-
-/** Every category, the dépense / recette rule of the form applies to what is offered. */
-export const useTransactionCategories = () =>
-  useGetList<CategoryOption>('categories', {
-    pagination: { page: 1, perPage: 200 },
-    sort: { field: 'name', order: 'ASC' },
-  }).data ?? []
 
 /** The account, label, amount and date: what identifies a line, whatever else it is. */
 export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency?: boolean }) => (
@@ -173,30 +149,22 @@ export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency
   </>
 )
 
-/** Only the categories that fit the nature; the one the line already carries stays offered. */
+/** Every category, whatever the sign: the sense of a line comes from its amount, not from its category. */
 export const CategoryChoiceInput = ({ sx }: { sx?: object }) => {
-  const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
-  const current = useWatch({ name: 'category' }) as string | null | undefined
-  const categories = useTransactionCategories()
-
-  // Filtered here rather than by the API: "every kind but income" is not a
-  // filter it offers. A category the line already carries stays in the list so
-  // an old line, saved before the rule, does not show an empty field.
-  const choices = orderedCategories(categories).filter((c) => matchesNature(c, nature) || c.id === current)
+  const { data: categories = [] } = useGetList<CategoryNode & RaRecord>('categories', {
+    pagination: { page: 1, perPage: 200 },
+    sort: { field: 'name', order: 'ASC' },
+  })
 
   return (
     <AutocompleteInput
       source="category"
       label="Catégorie"
-      choices={choices}
+      choices={orderedCategories(categories)}
       optionText={categoryLabel}
       sx={sx}
       fullWidth={sx === undefined}
-      helperText={
-        nature === 'income'
-          ? 'Facultatif. Seules les catégories de recette sont proposées.'
-          : 'Facultatif. Les catégories de recette sont réservées aux recettes.'
-      }
+      helperText="Facultatif. Toutes les catégories sont proposées, quel que soit le sens du montant."
     />
   )
 }
@@ -249,11 +217,10 @@ export const ExceptionalInput = ({ withDefaults }: { withDefaults?: boolean }) =
 
 const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
   const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
-  const categories = useTransactionCategories()
 
   return (
     <>
-      <NatureInput categories={categories} />
+      <NatureInput />
 
       <TransactionHeaderFields />
 
@@ -290,7 +257,7 @@ export const TransactionForm = ({ withDefaults = false }: TransactionFormProps) 
     <FormSection
       first
       title="La transaction"
-      description="Dépense ou recette d'abord : c'est ce qui décide des catégories et des états proposés."
+      description="Dépense ou recette d'abord : c'est ce qui décide des états proposés."
     />
     <TransactionFields withDefaults={withDefaults} />
   </SimpleForm>

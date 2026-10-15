@@ -138,7 +138,13 @@ object UiTags {
     /** The conversation kept on screen beside the content on a wide window (MAG-35). */
     const val CHAT_PANEL = "chat_panel"
 
-    /** Category screen — the « Rente » switch, there only on a Recette (MAG-257). */
+    /** The qualification component (MAG-479): the « Obligatoire » switch and one chip per type. */
+    const val QUALIFICATION_MANDATORY = "qualification_mandatory"
+    const val QUALIFICATION_PROVENANCE = "qualification_provenance"
+    const val QUALIFICATION_REQUALIFIED = "qualification_requalified"
+    fun qualificationKind(name: String) = QUALIFICATION_KIND_PREFIX + name.lowercase()
+
+    /** Category screen — the « Rente » switch (MAG-257). */
     const val CATEGORY_PASSIVE_INCOME = "category_passive_income"
 
     /** Category screen — the parent field, the search it opens, and the deletion at the bottom (MAG-353). */
@@ -445,6 +451,9 @@ object UiTags {
      * classement, recurrence, partage, jugement, note — built by [sheetSection].
      */
     const val SHEET_SECTION_PREFIX = "sheet_section_"
+
+    /** Built by [qualificationKind]: qualification_kind_repayment, … */
+    const val QUALIFICATION_KIND_PREFIX = "qualification_kind_"
 
     /** The pills of a line in the lists; « Virement interne » and « Rejeté » keep [TRANSFER_BADGE] and [REJECTION_BADGE]. */
     const val PILL_SERIES = "pill_series"

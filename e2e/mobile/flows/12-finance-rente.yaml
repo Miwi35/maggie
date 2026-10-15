@@ -5,10 +5,10 @@ tags:
 ---
 # Declaring a rente from the phone (MAG-257, extends MAG-102).
 #
-# The category screen offers « Recette » and, on a Recette only, the « Rente » box;
-# what is created comes back from the real API with `passiveIncome: true` and the
-# list draws it « Recette · rente ». The same request over the admin is
-# `finance-independence.spec.ts`.
+# A category has no nature any more (MAG-479): the « Rente » box is always on the form;
+# ticking it sends `obligation: income` with `passiveIncome: true`, which the API
+# requires together, and the list draws the new category « Rente ». The same request
+# over the admin is `finance-independence.spec.ts`.
 #
 # What is not here: the dashboard card losing « Aucune catégorie déclarée comme
 # rente ». The e2e owner already has a rente in the seed, so the card never shows
@@ -16,7 +16,7 @@ tags:
 #
 # The name carries the ticket so a re-run on the same server finds its own line, and
 # sorts after the seeded « Loyers perçus » (already a rente): the list is alphabetical,
-# so only the new row can be the « Recette · rente » below it. The box is addressed by
+# so only the new row can be the « Rente » below it. The box is addressed by
 # its tag — a toggleable row merges its texts, which no plain « Rente » would match.
 
 - launchApp:
@@ -44,16 +44,8 @@ tags:
 - inputText: "Redevances MAG-257"
 - hideKeyboard
 
-# The box is not there until the obligation is an income: the API refuses the
-# flag anywhere else.
-- assertNotVisible:
-    id: "category_passive_income"
 - scrollUntilVisible:
-    element: "Recette"
-- tapOn: "Recette"
-
-- extendedWaitUntil:
-    visible:
+    element:
       id: "category_passive_income"
     timeout: 10000
 
@@ -67,6 +59,6 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      text: "Recette · rente"
+      text: "Rente"
       below: "Redevances MAG-257"
     timeout: 30000

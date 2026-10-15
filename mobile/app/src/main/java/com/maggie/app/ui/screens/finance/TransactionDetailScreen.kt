@@ -42,7 +42,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.TransferLeg
@@ -59,7 +61,8 @@ class TransactionSheetActions(
     val onBack: () -> Unit,
     val onSearchCounterpart: () -> Unit,
     val onRelease: () -> Unit,
-    val onPickCategory: (() -> Unit)? = null,
+    // Category and qualification go together: the API refuses one without the other.
+    val onQualify: ((categoryId: String?, qualification: Qualification) -> Unit)? = null,
     val onCreateRule: (() -> Unit)? = null,
     val onMakeRecurring: (() -> Unit)? = null,
     val onDetach: () -> Unit = {},
@@ -78,7 +81,8 @@ class TransactionSheetActions(
 fun TransactionDetailScreen(
     state: TransferDetailState,
     actions: TransactionSheetActions,
-    categoryPath: String? = null,
+    categories: List<Category> = emptyList(),
+    provenance: String? = null,
     seriesName: String? = null,
     oneOffEnvelopeName: String? = null,
 ) {
@@ -129,7 +133,7 @@ fun TransactionDetailScreen(
                 SheetSection(section) {
                     when (section) {
                         TransactionSheetSection.Nature -> NatureSection(state, actions)
-                        TransactionSheetSection.Classement -> ClassementSection(state, actions, categoryPath, oneOffEnvelopeName)
+                        TransactionSheetSection.Classement -> ClassementSection(state, actions, categories, provenance, oneOffEnvelopeName)
                         TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
                         TransactionSheetSection.Partage -> EmptySlot("Pas encore disponible")
                         TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
@@ -228,7 +232,8 @@ private fun NatureSection(state: TransferDetailState, actions: TransactionSheetA
 private fun ClassementSection(
     state: TransferDetailState,
     actions: TransactionSheetActions,
-    categoryPath: String?,
+    categories: List<Category>,
+    provenance: String?,
     oneOffEnvelopeName: String?,
 ) {
     val transaction = state.transaction
@@ -236,7 +241,27 @@ private fun ClassementSection(
         text = "État : ${transactionStatusLabel(transaction.status, transaction.amountCents)}",
         style = MaterialTheme.typography.bodyMedium,
     )
-    actions.onPickCategory?.let { CategoryField(path = categoryPath, enabled = !state.isSaving, onClick = it) }
+    actions.onQualify?.let { qualify ->
+        QualificationSection(
+            categories = categories,
+            categoryId = transaction.categoryId,
+            qualification = transaction.qualification,
+            onCategoryChange = { qualify(it, transaction.qualification) },
+            onQualificationChange = { qualify(transaction.categoryId, it) },
+            categoryTag = UiTags.TRANSACTION_CATEGORY,
+            searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+            enabled = !state.isSaving,
+            canClearCategory = true,
+        )
+        provenance?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(UiTags.QUALIFICATION_PROVENANCE),
+            )
+        }
+    }
     // Only a spend is budgeted: an income has nothing to attribute, unless it already was.
     if (transaction.amountCents < 0 || transaction.oneOffEnvelope != null) {
         actions.onPickOneOffEnvelope?.let {
@@ -306,29 +331,6 @@ private fun NoteSection(state: TransferDetailState, actions: TransactionSheetAct
 }
 
 private const val NOTE_MAX_LENGTH = 2000
-
-/** The line's category, written as its path; a tap opens the full-screen search, never a dropdown. */
-@Composable
-private fun CategoryField(path: String?, enabled: Boolean, onClick: () -> Unit) {
-    Box {
-        OutlinedTextField(
-            value = path.orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Catégorie") },
-            placeholder = { Text("Aucune catégorie") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .testTag(UiTags.TRANSACTION_CATEGORY)
-                .semantics { contentDescription = "Catégorie, ${path ?: "aucune"}" }
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        )
-    }
-}
 
 /**
  * The event the spend is attributed to (MAG-414): it keeps its category but leaves the

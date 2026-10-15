@@ -107,23 +107,23 @@ describe('TransactionForm', () => {
     expect(screen.getByLabelText('Dépense exceptionnelle')).toBeInTheDocument()
   })
 
-  test('a dépense offers every category but the income ones', async () => {
+  test('a dépense offers every category, whatever its sign', async () => {
     const user = userEvent.setup()
     renderCreate()
 
     const options = await openCategories(user)
 
-    expect(options.map((o) => o.textContent)).toEqual(['Loyer', 'Netflix'])
+    expect(options.map((o) => o.textContent)).toEqual(['Loyer', 'Netflix', 'Salaire'])
   })
 
-  test('a recette offers only the income categories', async () => {
+  test('a recette offers every category too', async () => {
     const user = userEvent.setup()
     renderCreate()
 
     await user.click(await screen.findByRole('button', { name: 'Recette' }))
     const options = await openCategories(user)
 
-    expect(options.map((o) => o.textContent)).toEqual(['Salaire'])
+    expect(options.map((o) => o.textContent)).toEqual(['Loyer', 'Netflix', 'Salaire'])
   })
 
   test('a recette says Reçue, Attendue, À arbitrer — never Dépensée or Engagée', async () => {
@@ -162,7 +162,7 @@ describe('TransactionForm', () => {
     ])
   })
 
-  test('changing the nature empties a category that no longer fits', async () => {
+  test('changing the nature keeps the category chosen', async () => {
     const user = userEvent.setup()
     renderCreate()
 
@@ -172,7 +172,7 @@ describe('TransactionForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Recette' }))
 
-    await waitFor(() => expect(screen.getByLabelText('Catégorie')).toHaveValue(''))
+    expect(screen.getByLabelText('Catégorie')).toHaveValue('Netflix')
   })
 
   test('a dépense is sent with a negative amount, though it is typed without a sign', async () => {

@@ -80,6 +80,8 @@ data class RecurringOperationUiState(
     /** The lines the stored series on the editor recognised, newest first; null until they are read. */
     val seriesLines: List<Transaction>? = null,
     val seriesLinesError: String? = null,
+    /** The lines set by the stored series on the editor that a new qualification would requalify; null while unread or unreadable. */
+    val requalifiedCount: Int? = null,
     /** The line being detached from the series. */
     val detachingId: String? = null,
     /** Set when an editor opened from a transaction closes: the screen goes back to it. */
@@ -286,10 +288,21 @@ class RecurringOperationViewModel(
             recognition = SeriesRecognitionState(),
             seriesLines = null,
             seriesLinesError = null,
+            requalifiedCount = null,
             detachingId = null,
             error = null,
         )
         loadSeriesLines(seriesId)
+        loadRequalifiedCount(seriesId)
+    }
+
+    // Only informs the owner before saving: a failed read leaves the notice out and never blocks the save.
+    private fun loadRequalifiedCount(seriesId: String) {
+        viewModelScope.launch {
+            val result = repository.countQualifiedBySeries(seriesId)
+            if (_uiState.value.editing?.record?.id != seriesId) return@launch
+            result.onSuccess { count -> _uiState.value = _uiState.value.copy(requalifiedCount = count) }
+        }
     }
 
     fun reloadSeriesLines() {

@@ -8256,6 +8256,32 @@
                         "example": "/api/recurringOperations/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                     },
                     {
+                        "name": "qualifiedBySeries",
+                        "in": "query",
+                        "description": "Restrict to one qualifiedBySeries, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/qualifiedBySeriess/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
+                        "name": "qualifiedByRule",
+                        "in": "query",
+                        "description": "Restrict to one qualifiedByRule, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/qualifiedByRules/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
                         "name": "transferKind",
                         "in": "query",
                         "description": "",

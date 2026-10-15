@@ -5,6 +5,7 @@ import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
@@ -26,10 +27,11 @@ class TransactionRepository(
         apiService.createTransaction(request)
     }
 
-    /** [categoryId] null takes the category away. */
-    suspend fun setCategory(id: String, categoryId: String?): Result<Transaction> = runCatching {
-        apiService.updateTransactionCategory(id, categoryId?.let(::categoryIri))
+    /** [categoryId] null takes the category away; the qualification goes with it. */
+    suspend fun setQualification(id: String, categoryId: String?, qualification: Qualification): Result<Transaction> = runCatching {
+        apiService.updateTransactionQualification(id, categoryId?.let(::categoryIri), qualification)
     }
+
 
     /** [envelopeId] null takes the spend back to its category's envelopes. */
     suspend fun setOneOffEnvelope(id: String, envelopeId: String?): Result<Transaction> = runCatching {

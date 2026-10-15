@@ -15,7 +15,9 @@ const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 const CATEGORIES = [
   { id: '/api/categories/loyer', name: 'Loyer', obligation: 'mandatory' },
   { id: '/api/categories/netflix', name: 'Netflix', obligation: 'optional' },
+  { id: '/api/categories/salaire', name: 'Salaire', obligation: 'income' },
 ]
+const SERIES = { id: '/api/recurring_operations/01CREDIT', label: 'Crédit auto' }
 const ACCOUNTS = [{ id: '/api/accounts/1', name: 'Compte courant' }]
 const ENVELOPES = [
   { id: '/api/envelopes/hellfest', mode: 'one_off', name: 'Hellfest 2026', amountCents: 40000 },
@@ -34,6 +36,10 @@ const RECORD = {
   isExceptional: false,
   recurringOperation: null,
   note: null,
+  qualification: { mandatory: false, kind: 'none' },
+  qualifiedBy: null,
+  qualifiedBySeries: null,
+  qualifiedByRule: null,
 }
 
 const NONE = { transferKind: 'none', transferSource: 'auto', counterpart: null }
@@ -54,7 +60,8 @@ const renderSheet = (record: Record<string, unknown> = RECORD, update = vi.fn().
     <MemoryRouter initialEntries={[`/transactions/${encodeURIComponent(record.id as string)}`]}>
       <AdminContext
         dataProvider={testDataProvider({
-          getOne: (() => Promise.resolve({ data: record })) as unknown as DataProvider['getOne'],
+          getOne: ((resource: string, params: { id: string }) =>
+            Promise.resolve({ data: resource === 'recurring_operations' && params.id === SERIES.id ? SERIES : record })) as unknown as DataProvider['getOne'],
           getList,
           getMany: (() => Promise.resolve({ data: [] })) as unknown as DataProvider['getMany'],
           update: update as unknown as DataProvider['update'],
@@ -225,6 +232,70 @@ describe('TransactionSheet', () => {
     await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
 
     expect((await screen.findAllByText(/one-off envelope only/)).length).toBeGreaterThan(0)
+  })
+
+  test('the classement section offers every category, whatever the sign of the line', async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    await user.click(await screen.findByRole('combobox', { name: /Catégorie/ }))
+
+    const options = await screen.findAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['Loyer', 'Netflix', 'Salaire'])
+  })
+
+  test('a line the owner qualified says « à la main »', async () => {
+    renderSheet({ ...RECORD, qualifiedBy: 'manual' })
+
+    expect(await screen.findByTestId('qualification-provenance')).toHaveTextContent('à la main')
+  })
+
+  test('a line a series qualified says which series', async () => {
+    renderSheet({
+      ...RECORD,
+      qualification: { mandatory: true, kind: 'repayment' },
+      qualifiedBy: 'series',
+      qualifiedBySeries: SERIES.id,
+    })
+
+    expect(await screen.findByText(/posée par la série Crédit auto/)).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Obligatoire' })).toBeChecked()
+    expect(screen.getByRole('combobox', { name: 'Type' })).toHaveTextContent('Remboursement')
+    expect(screen.getByText(/Remboursement : ici, je rembourse/)).toBeInTheDocument()
+  })
+
+  test('editing the qualification sends it whole, and the line then reads « à la main »', async () => {
+    const user = userEvent.setup()
+    const qualified = {
+      ...RECORD,
+      qualification: { mandatory: true, kind: 'repayment' },
+      qualifiedBy: 'manual',
+    }
+    const update = renderSheet(RECORD, vi.fn().mockResolvedValue({ data: qualified }))
+
+    await user.click(await screen.findByRole('switch', { name: 'Obligatoire' }))
+    await user.click(screen.getByRole('combobox', { name: 'Type' }))
+    await user.click(await screen.findByRole('option', { name: 'Remboursement' }))
+    expect(screen.queryByTestId('qualification-provenance')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(update.mock.calls[0][1].data).toMatchObject({
+      category: '/api/categories/netflix',
+      qualification: { mandatory: true, kind: 'repayment' },
+    })
+    expect(await screen.findByTestId('qualification-provenance')).toHaveTextContent('à la main')
+  })
+
+  test('a refused qualification shows the API message', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn().mockRejectedValue(new Error('qualification: Type de mouvement inconnu.'))
+    renderSheet(RECORD, update)
+
+    await user.click(await screen.findByRole('switch', { name: 'Obligatoire' }))
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
+
+    expect((await screen.findAllByText(/Type de mouvement inconnu/)).length).toBeGreaterThan(0)
   })
 
   test('offers to delete the line', async () => {

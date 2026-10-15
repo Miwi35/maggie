@@ -6,6 +6,8 @@ import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.MissedOccurrence
 import com.maggie.app.data.model.ProposalClaim
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RecurringAttachReport
 import com.maggie.app.data.model.RecurringOperationPreview
 import com.maggie.app.data.model.RecurringOperationPreviewMatch
@@ -114,6 +116,7 @@ class RecurringOperationViewModelTest {
         labelPattern = null,
         account = "/api/accounts/acc-1",
         category = "/api/categories/cat-rent",
+        qualification = Qualification.NONE,
         period = "monthly",
         dayRule = "fixed_day",
         anchorOn = "2026-03-05",
@@ -136,6 +139,7 @@ class RecurringOperationViewModelTest {
         coEvery { repository.getRecords() } returns Result.success(listOf(record))
         coEvery { repository.getSuggestions() } returns Result.success(emptyList())
         coEvery { repository.getSeriesTransactions(any()) } returns Result.success(emptyList())
+        coEvery { repository.countQualifiedBySeries(any()) } returns Result.success(0)
         mercureService = mockk()
         authRepository = mockk()
         coEvery { authRepository.getUserId() } returns "user-1"
@@ -328,6 +332,53 @@ class RecurringOperationViewModelTest {
         viewModel.startEdit("gone")
         assertNull(viewModel.uiState.value.editing)
         assertNotNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `editing reads how many lines the series would requalify`() = runTest {
+        coEvery { repository.countQualifiedBySeries("rent") } returns Result.success(3)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.requalifiedCount)
+    }
+
+    @Test
+    fun `a failed count leaves the notice out and still lets the series be saved`() = runTest {
+        coEvery { repository.countQualifiedBySeries("rent") } returns Result.failure(RuntimeException("500"))
+        coEvery { repository.update("rent", any()) } returns Result.success(record)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.requalifiedCount)
+        assertNull(viewModel.uiState.value.error)
+
+        viewModel.save(request().copy(qualification = Qualification(true, QualificationKind.Loan)))
+        advanceUntilIdle()
+
+        val sent = slot<RecurringOperationWriteRequest>()
+        coVerify { repository.update("rent", capture(sent)) }
+        assertEquals(Qualification(true, QualificationKind.Loan), sent.captured.qualification)
+        assertNull(viewModel.uiState.value.editing)
+    }
+
+    @Test
+    fun `reopening the editor starts without the previous count`() = runTest {
+        coEvery { repository.countQualifiedBySeries("rent") } returns Result.success(2)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.startEdit("rent")
+        advanceUntilIdle()
+
+        viewModel.closeEditor()
+        viewModel.startEdit("rent")
+
+        assertNull(viewModel.uiState.value.requalifiedCount)
     }
 
     @Test

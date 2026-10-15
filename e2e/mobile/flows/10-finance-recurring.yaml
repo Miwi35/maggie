@@ -25,6 +25,12 @@ tags:
 # Quand je crée la série et rattache l'historique
 # Alors la série n'a ni contrepartie ni motif et la ligne lui est rattachée en base
 #
+# MAG-479 — Quand je pose « Obligatoire » et le type « Remboursement » sur la série
+# Alors elle annonce « 1 transaction sera requalifiée », et une fois enregistrée la série
+#   et sa ligne portent la qualification (la ligne dit qu'elle vient de la série)
+# Quand la ligne est qualifiée à la main puis que la série passe à « Prêt »
+# Alors rien n'est annoncé, et la ligne posée à la main reste comme elle est
+#
 # The data is set by `scripts/recurring-api.js` on an account of its own, relative to
 # TODAY (the series starts two months back, so there is always a due date that never came).
 # Amounts are drawn the way the app draws them: « 900.00 EUR ».
@@ -95,6 +101,62 @@ tags:
 - extendedWaitUntil:
     notVisible: "Rattacher à « Loyer MAG-309 »"
     timeout: 30000
+
+# MAG-479: the series carries the qualification, and says how many lines it would requalify.
+- scrollUntilVisible:
+    element: "Loyer MAG-309"
+    timeout: 30000
+- tapOn: "Loyer MAG-309"
+- scrollUntilVisible:
+    element:
+      id: "qualification_mandatory"
+    centerElement: true
+    timeout: 30000
+- assertNotVisible:
+    id: "qualification_requalified"
+- tapOn:
+    id: "qualification_mandatory"
+- tapOn:
+    id: "qualification_kind_repayment"
+- extendedWaitUntil:
+    visible:
+      id: "qualification_requalified"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*1 transaction sera requalifiée.*"
+    timeout: 10000
+- tapOn:
+    id: "recurring_save"
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: expect-requalified
+
+# A line qualified by hand is no longer the series' to requalify: nothing is announced
+# and it keeps what the owner gave it.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: qualify-line
+- scrollUntilVisible:
+    element: "Loyer MAG-309"
+    timeout: 30000
+- tapOn: "Loyer MAG-309"
+- scrollUntilVisible:
+    element:
+      id: "qualification_kind_loan"
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "qualification_kind_loan"
+- assertNotVisible:
+    id: "qualification_requalified"
+- tapOn:
+    id: "recurring_save"
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: expect-manual-kept
 
 # MAG-438: the series unrolls its lines, and a line can be taken out of it.
 - scrollUntilVisible:

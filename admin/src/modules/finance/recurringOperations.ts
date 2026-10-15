@@ -47,6 +47,7 @@ export interface RecurringStored {
   anchorOn: string
   amountTolerancePercent: number
   dateToleranceDays: number
+  qualification?: { mandatory: boolean; kind: string } | null
 }
 
 export interface RecurringTotals {

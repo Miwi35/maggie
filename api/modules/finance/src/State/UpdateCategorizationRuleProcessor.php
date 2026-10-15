@@ -33,11 +33,13 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             }
         }
 
-        // Only a change of the qualification is sent: re-sending the stored
-        // one with a new category would keep it from following the category.
+        // Sent when it changed, or with a new category: the parameters the
+        // owner sees stay theirs, not those of the category's deprecated flag.
         $previous = $context['previous_data'] ?? null;
         $qualification = $data->getQualification()->toArray();
-        $qualificationChanged = $previous instanceof CategorizationRule && $qualification !== $previous->getQualification()->toArray();
+        $qualificationChanged = $previous instanceof CategorizationRule
+            && ($qualification !== $previous->getQualification()->toArray()
+                || (string) $data->getCategory()->getId() !== (string) $previous->getCategory()->getId());
 
         $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
             userId: (string) $data->getUser()->getId(),

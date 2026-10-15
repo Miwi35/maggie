@@ -96,6 +96,55 @@ class QualificationApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $this->getFixture('jan_loan')->getId());
     }
 
+    public function testANewCategoryOnATransactionKeepsTheParametersTheOwnerSees(): void
+    {
+        $this->qualifyFromOperations();
+        $this->login();
+
+        // « Transport » was flagged optional: the flag must not rewrite what the sheet showed.
+        $data = $this->send('PATCH', $this->iri('transactions', 'jan_loan'), [
+            'category' => $this->iri('categories', 'transport'),
+            'qualification' => ['mandatory' => true, 'kind' => 'repayment'],
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mandatory' => true, 'kind' => 'repayment'], self::parameters($data));
+        $line = $this->reload('jan_loan');
+        self::assertSame('Transport', $line->getCategory()?->getName());
+        self::assertSame('manual', $line->getQualifiedBy());
+    }
+
+    public function testANewCategoryOnASeriesOrARuleKeepsTheirParameters(): void
+    {
+        $this->qualifyFromOperations();
+        $this->login();
+
+        $series = $this->send('PATCH', $this->iri('recurring_operations', 'car_loan'), ['category' => $this->iri('categories', 'transport')]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mandatory' => true, 'kind' => 'repayment'], self::parameters($series));
+
+        $rule = $this->send('PATCH', $this->iri('categorization_rules', 'rule_fuel'), ['category' => $this->iri('categories', 'loans')]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mandatory' => true, 'kind' => 'none'], self::parameters($rule));
+        self::assertSame('Crédits', $this->reload('fuel')->getCategory()?->getName());
+        self::assertSame(QualificationKind::None, $this->reload('fuel')->getQualification()->getKind());
+    }
+
+    public function testTheLinesAnOperationQualifiedCanBeCounted(): void
+    {
+        $this->qualifyFromOperations();
+        $this->login();
+        $this->send('PATCH', $this->iri('transactions', 'feb_loan'), ['qualification' => ['mandatory' => false, 'kind' => 'loan']]);
+
+        $series = $this->send('GET', '/api/transactions?itemsPerPage=1&qualifiedBySeries='.$this->iri('recurring_operations', 'car_loan'));
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $series['totalItems'], 'the line qualified by hand is not the series\' any more');
+
+        $rule = $this->send('GET', '/api/transactions?itemsPerPage=1&qualifiedByRule='.$this->iri('categorization_rules', 'rule_fuel'));
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $rule['totalItems']);
+    }
+
     public function testALineTakenOutOfItsSeriesNoLongerFollowsIt(): void
     {
         $this->qualifyFromOperations();

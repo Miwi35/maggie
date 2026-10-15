@@ -5,8 +5,9 @@ import { AdminContext, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { RecurringOperationDialog } from './RecurringOperationDialog'
 
-const getList = vi.fn(async (resource: string) => {
+const getList = vi.fn(async (resource: string, params?: { filter?: Record<string, unknown> }) => {
   if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
+  if (resource === 'transactions') return { data: [], total: params?.filter?.qualifiedBySeries ? 3 : 0 }
 
   return {
     data: [
@@ -106,6 +107,7 @@ describe('RecurringOperationDialog', () => {
       labelPattern: null,
       account: '/api/accounts/01ACC',
       category: '/api/categories/01SUB',
+      qualification: { mandatory: false, kind: 'none' },
       period: 'monthly',
       dayRule: 'fixed_day',
       anchorOn: '2026-10-12',
@@ -141,14 +143,67 @@ describe('RecurringOperationDialog', () => {
     expect(create.mock.calls[1][1].data).toMatchObject({ referenceAmountCents: -1799, referenceSource: 'declared' })
   })
 
-  test('a recette offers recette categories only', async () => {
+  test('a recette offers every category, a Salaire series included', async () => {
     renderDialog()
 
     await userEvent.click(screen.getByRole('button', { name: 'Recette' }))
     await userEvent.click(screen.getByRole('combobox', { name: /Catégorie/ }))
 
     const options = await screen.findAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['Salaire'])
+    expect(options.map((o) => o.textContent)).toEqual(['Abonnements', 'Salaire'])
+  })
+
+  test('the qualification chosen with the category is what the series is sent', async () => {
+    renderDialog()
+
+    await userEvent.type(screen.getByLabelText(/Libellé/), 'Crédit auto')
+    await userEvent.type(screen.getByLabelText('Contrepartie attendue'), 'Banque Auto')
+    await userEvent.type(screen.getByLabelText(/Montant de référence/), '250')
+    await pick(/Compte/, 'Courant')
+    await pick(/Catégorie/, 'Abonnements')
+    await userEvent.click(screen.getByRole('switch', { name: 'Obligatoire' }))
+    await pick('Type', 'Remboursement')
+    expect(screen.getByText(/Remboursement : ici, je rembourse/)).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText(/Date d’une échéance/), '2026-10-05')
+    await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({
+      category: '/api/categories/01SUB',
+      qualification: { mandatory: true, kind: 'repayment' },
+    })
+  })
+
+  test('on a recette, remboursement reads « on me rembourse » — the sense comes from the amount', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Recette' }))
+    await userEvent.type(screen.getByLabelText(/Montant de référence/), '40')
+    await pick('Type', 'Remboursement')
+
+    expect(screen.getByText(/Remboursement : ici, on me rembourse/)).toBeInTheDocument()
+  })
+
+  test('editing says how many attached lines will be requalified, once the qualification changes', async () => {
+    renderDialog({
+      recordId: '/api/recurring_operations/01OP',
+      initial: {
+        label: 'Crédit auto',
+        counterpartyName: 'Banque Auto',
+        referenceAmountCents: -25000,
+        account: '/api/accounts/01ACC',
+        category: '/api/categories/01SUB',
+        qualification: { mandatory: true, kind: 'repayment' },
+        anchorOn: '2026-10-05',
+      },
+    })
+
+    expect(screen.queryByText(/seront requalifiées/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Obligatoire' }))
+
+    expect(await screen.findByText(/3 transactions rattachées seront requalifiées/)).toBeInTheDocument()
+    expect(screen.getByText(/qualifiées à la main ne bougent pas/)).toBeInTheDocument()
   })
 
   test('editing opens filled, updates the series and keeps its tolerances', async () => {

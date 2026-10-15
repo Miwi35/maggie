@@ -107,7 +107,7 @@ describe('MakeRecurringButton', () => {
     expect(within(dialog).getByLabelText(/Date d’une échéance/)).toHaveValue('2026-10-12')
     expect(within(dialog).getByLabelText('Tolérance sur le montant (%)')).toHaveValue(20)
     await waitFor(() => expect(within(dialog).getByRole('combobox', { name: /Compte/ })).toHaveTextContent('Courant'))
-    expect(within(dialog).getByRole('combobox', { name: /Catégorie/ })).toHaveTextContent('Abonnements')
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: /Catégorie/ })).toHaveValue('Abonnements'))
   })
 
   test('a line with no payee opens with its label as the label pattern, cleaned of its variable parts', async () => {

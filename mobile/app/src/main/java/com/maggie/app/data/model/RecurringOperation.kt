@@ -176,6 +176,7 @@ data class RecurringOperationRecord(
     val counterpartyName: String? = null,
     val labelPattern: String? = null,
     val category: String = "",
+    val qualification: Qualification = Qualification.NONE,
     val account: String = "",
     val period: String = "monthly",
     val anchorOn: String = "",

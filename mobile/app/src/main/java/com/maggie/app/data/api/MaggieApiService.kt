@@ -23,6 +23,8 @@ import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
@@ -375,7 +377,7 @@ data class AccountCreateRequest(
 @Serializable
 data class CategoryCreateRequest(
     val name: String,
-    val obligation: String = "optional",
+    val obligation: String? = null,
     val passiveIncome: Boolean = false,
     val parent: String? = null,
     val color: String? = null,
@@ -392,6 +394,8 @@ data class TransactionCreateRequest(
     val status: String = "spent",
     // yyyy-MM-dd; left out, the API books it today
     val bookedAt: String? = null,
+    // Left out, the category's own flags apply (the API reads « none » as « nothing said »).
+    val qualification: Qualification? = null,
 )
 
 @Serializable
@@ -511,6 +515,8 @@ data class RollOverRequest(
 data class CategorizationRuleCreateRequest(
     val labelPattern: String? = null,
     val category: String,
+    // No default: it is always sent, with the category.
+    val qualification: Qualification,
     val matchType: String = "contains",
     val direction: String = "any",
     val minAmountCents: Int? = null,
@@ -530,6 +536,7 @@ data class RecurringOperationWriteRequest(
     val labelPattern: String?,
     val account: String,
     val category: String,
+    val qualification: Qualification,
     val period: String,
     val dayRule: String,
     val anchorOn: String,
@@ -1372,6 +1379,16 @@ class MaggieApiService(
         return page.totalItems ?: page.member.size
     }
 
+    /** How many transactions [parameter] (`qualifiedBySeries` or `qualifiedByRule`) points at [iri]. */
+    suspend fun countTransactionsQualifiedBy(parameter: String, iri: String): Int {
+        val page = client.get("$baseUrl/api/transactions") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append(parameter, iri)
+            url.parameters.append("itemsPerPage", "1")
+        }.body<ApiCollection<Transaction>>()
+        return page.totalItems ?: page.member.size
+    }
+
     // Finance — Transactions
     suspend fun getTransactions(accountId: String? = null): List<Transaction> {
         return client.get("$baseUrl/api/transactions") {
@@ -1563,12 +1580,15 @@ class MaggieApiService(
         }.body()
     }
 
-    /** Files the transaction under [categoryIri], or takes its category away with null. */
-    suspend fun updateTransactionCategory(id: String, categoryIri: String?): Transaction {
+    /**
+     * Qualifies the transaction by hand: its category ([categoryIri], null takes it away) and its
+     * qualification, always together — the API refuses a half qualification.
+     */
+    suspend fun updateTransactionQualification(id: String, categoryIri: String?, qualification: Qualification): Transaction {
         return client.patch("$baseUrl/api/transactions/$id") {
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
-            setBody(buildJsonObject { put("category", categoryIri?.let(::JsonPrimitive) ?: JsonNull) })
+            setBody(qualificationPatch(categoryIri, qualification))
         }.orRefusal().body()
     }
 

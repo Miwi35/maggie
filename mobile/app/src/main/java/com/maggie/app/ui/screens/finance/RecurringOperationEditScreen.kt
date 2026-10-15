@@ -58,7 +58,8 @@ import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
-import com.maggie.app.data.model.categoryMatchesNature
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.requalificationNotice
 import com.maggie.app.data.model.describeHistory
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatDay
@@ -132,6 +133,7 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
     )
     var account by mutableStateOf((record?.account ?: transaction?.account)?.let { recurringAccountIri(idOfIri(it)) })
     var category by mutableStateOf((record?.category ?: transaction?.category)?.let { recurringCategoryIri(idOfIri(it)) })
+    var qualification by mutableStateOf(record?.qualification ?: transaction?.qualification ?: Qualification.NONE)
     var nature by mutableStateOf(initialCents?.let(::transactionNature) ?: TransactionNature.Expense)
         private set
     var amount by mutableStateOf(initialCents?.let { "%.2f".format(java.util.Locale.FRANCE, kotlin.math.abs(it) / 100.0) }.orEmpty())
@@ -157,9 +159,11 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
 
     fun selectNature(value: TransactionNature) {
         nature = value
-        // A heading of the other nature would be refused or misleading: ask again.
-        category = null
     }
+
+    /** Saving would requalify the lines the series set: its category or its qualification moved. */
+    val requalifies: Boolean get() = record != null &&
+        (category != recurringCategoryIri(idOfIri(record.category)) || qualification != record.qualification)
 
     fun selectPeriod(value: String) {
         period = value
@@ -228,6 +232,7 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
             labelPattern = labelPattern.trim().ifEmpty { null },
             account = account!!,
             category = category!!,
+            qualification = qualification,
             period = period,
             dayRule = dayRule,
             anchorOn = anchorOn.toString(),
@@ -271,18 +276,6 @@ internal fun RecurringOperationEditScreen(
                 selected = form.account,
                 onPick = {
                     form.account = recurringAccountIri(it.id)
-                    picking = null
-                },
-                onBack = { picking = null },
-            )
-            return
-        }
-        "category" -> {
-            RecurringCategorySearchScreen(
-                categories = state.categories.filter { categoryMatchesNature(it, form.nature) },
-                selected = form.category?.let(::idOfIri),
-                onPick = {
-                    form.category = recurringCategoryIri(it.id)
                     picking = null
                 },
                 onBack = { picking = null },
@@ -334,15 +327,22 @@ internal fun RecurringOperationEditScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
-                Button(
-                    onClick = {
-                        form.showErrors = true
-                        form.toRequest()?.let(onSave)
-                    },
-                    enabled = !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(UiTags.RECURRING_SAVE),
-                ) {
-                    Text(if (form.isNew) "Créer" else "Enregistrer")
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (form.requalifies) {
+                        requalificationNotice(state.requalifiedCount)?.let {
+                            Helper(it, modifier = Modifier.testTag(UiTags.QUALIFICATION_REQUALIFIED))
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            form.showErrors = true
+                            form.toRequest()?.let(onSave)
+                        },
+                        enabled = !state.isSaving,
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_SAVE),
+                    ) {
+                        Text(if (form.isNew) "Créer" else "Enregistrer")
+                    }
                 }
             }
         },
@@ -362,9 +362,8 @@ internal fun RecurringOperationEditScreen(
             RecurringFormFields(
                 form = form,
                 accountName = recurringAccountLabel(state.accounts, state.overview?.operations.orEmpty(), form.account),
-                categoryName = state.categories.firstOrNull { form.category == recurringCategoryIri(it.id) }?.name,
+                categories = state.categories,
                 onPickAccount = { picking = "account" },
-                onPickCategory = { picking = "category" },
             )
 
             RecognitionPreviewSection(state.recognition, hasRequest = recognition != null)
@@ -485,9 +484,10 @@ internal fun SeriesLinesSection(
 }
 
 @Composable
-private fun Helper(text: String, isError: Boolean = false) {
+private fun Helper(text: String, isError: Boolean = false, modifier: Modifier = Modifier) {
     Text(
         text = text,
+        modifier = modifier,
         style = MaterialTheme.typography.bodySmall,
         color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -536,9 +536,8 @@ internal fun recurringAccountLabel(accounts: List<Account>, series: List<Recurri
 internal fun RecurringFormFields(
     form: RecurringFormState,
     accountName: String?,
-    categoryName: String?,
+    categories: List<Category>,
     onPickAccount: () -> Unit,
-    onPickCategory: () -> Unit,
 ) {
     Column(modifier = Modifier.uiTagRoot(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -597,14 +596,18 @@ internal fun RecurringFormFields(
             )
         }
 
-        PickerRow(
-            value = categoryName.orEmpty(),
-            label = "Catégorie",
-            tag = UiTags.RECURRING_CATEGORY,
-            helper = "Où ce coût se range dans les budgets.",
-            error = form.categoryError,
-            onClick = onPickCategory,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            QualificationSection(
+                categories = categories,
+                categoryId = form.category?.let(::idOfIri),
+                qualification = form.qualification,
+                onCategoryChange = { form.category = it?.let(::recurringCategoryIri) },
+                onQualificationChange = { form.qualification = it },
+                categoryTag = UiTags.RECURRING_CATEGORY,
+                searchTag = UiTags.RECURRING_PICK_SEARCH,
+            )
+            form.categoryError?.let { Helper(it, isError = true) }
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedTextField(

@@ -70,8 +70,8 @@ class BudgetViewModelTest {
     )
 
     private val sampleCategories = listOf(
-        Category(id = "cat-2", name = "Loisirs", obligation = "optional"),
-        Category(id = "cat-1", name = "Alimentation", obligation = "mandatory"),
+        Category(id = "cat-2", name = "Loisirs"),
+        Category(id = "cat-1", name = "Alimentation"),
     )
 
     @Before

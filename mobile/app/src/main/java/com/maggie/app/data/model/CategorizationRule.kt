@@ -17,6 +17,7 @@ data class CategorizationRule(
     // What the API actually sends for the category: an IRI ("/api/categories/01H…").
     // `categoryId` is the spelling of the search index and of Mercure payloads.
     val category: String? = null,
+    val qualification: Qualification = Qualification.NONE,
 )
 
 /** Whether the rule files its matches under the category [id], whichever spelling it came in. */

@@ -51,8 +51,9 @@ class DtoContractTest {
         // recorded world has none: the reading of a candidate is the ProposalClaim half of the
         // proposal, whose fields the recorded proposal does carry.
         "RecurringProposal" to setOf("candidates"),
-        // The API omits an empty note and the recorded world writes none (MAG-464).
-        "Transaction" to setOf("note"),
+        // The API omits an empty note and the recorded world writes none (MAG-464). It also omits
+        // who qualified a line while nobody did, and the series or rule behind it (MAG-479).
+        "Transaction" to setOf("note", "qualifiedBy", "qualifiedBySeries", "qualifiedByRule"),
     )
 
     @Test

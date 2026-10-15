@@ -37,10 +37,10 @@ import org.junit.runner.RunWith
 /**
  * A category on a screen of its own (MAG-353), and declaring a rente from the phone (MAG-257).
  *
- * The flag is only ever true on an income category — the API answers 422
- * otherwise — so what the form owes is that the box exists on « Recette » and
- * nowhere else, that leaving « Recette » unticks it, and that what was ticked is
- * what leaves in the request.
+ * A category has no nature any more (MAG-479): the form has no obligation to pick, and
+ * the « Rente » box is always there. The API only accepts the flag on an income
+ * category (422 otherwise), so ticking it is what sends `obligation: income`; the
+ * form owes that, and that what was ticked is what leaves in the request.
  *
  * The deletion's question is a dialog, a window of its own, and Robolectric never
  * reaches idle once one is open (the Compose test waits out Espresso's 60 s). So the
@@ -71,10 +71,12 @@ class CategoryListScreenTest {
     }
 
     @Test
-    fun `the form offers the Recette obligation`() {
+    fun `the form asks for no nature`() {
         form()
 
-        compose.onNodeWithText("Recette").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Nature de la dépense").assertDoesNotExist()
+        compose.onNodeWithText("Recette").assertDoesNotExist()
+        compose.onNodeWithText("Épargne").assertDoesNotExist()
     }
 
     @Test
@@ -84,7 +86,6 @@ class CategoryListScreenTest {
         compose.onNodeWithText("Nom").assertIsDisplayed()
         compose.onNodeWithText("Alimentation, Loisirs, Transport…").assertIsDisplayed()
         compose.onNodeWithText("Rattacher à une catégorie").assertIsDisplayed()
-        compose.onNodeWithText("Nature de la dépense").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Couleur").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Touchez une couleur, ou « Autre couleur » pour la composer.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Icône").performScrollTo().assertIsDisplayed()
@@ -145,38 +146,24 @@ class CategoryListScreenTest {
     }
 
     @Test
-    fun `the Rente box only shows on a Recette`() {
-        form()
-
-        compose.onNodeWithText("Rente").assertDoesNotExist()
-        compose.onNodeWithText("Recette").performScrollTo().performClick()
-        compose.onNodeWithText("Rente").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Épargne").performScrollTo().performClick()
-        compose.onNodeWithText("Rente").assertDoesNotExist()
-    }
-
-    @Test
-    fun `leaving Recette unticks the Rente box`() {
+    fun `the Rente box is always there and ticks on and off`() {
         val state = form()
 
-        compose.onNodeWithText("Nom").performTextInput("Loyers perçus")
-        compose.onNodeWithText("Recette").performScrollTo().performClick()
-        compose.onNodeWithText("Rente").performScrollTo().performClick()
+        compose.onNodeWithText("Rente").performScrollTo().assertIsDisplayed().assertIsOff()
+        compose.onNodeWithText("Rente").performClick()
         compose.onNodeWithText("Rente").assertIsOn()
+        assertTrue(state.passiveIncome)
 
-        compose.onNodeWithText("Épargne").performScrollTo().performClick()
-        compose.onNodeWithText("Recette").performScrollTo().performClick()
-        compose.onNodeWithText("Rente").performScrollTo().assertIsOff()
-
+        compose.onNodeWithText("Rente").performClick()
+        compose.onNodeWithText("Rente").assertIsOff()
         assertFalse(state.toRequest().passiveIncome)
     }
 
     @Test
-    fun `a rente ticked on a Recette leaves in the request`() {
+    fun `a rente ticked leaves in the request with the income obligation`() {
         val state = form()
 
         compose.onNodeWithText("Nom").performTextInput("Loyers perçus")
-        compose.onNodeWithText("Recette").performScrollTo().performClick()
         compose.onNodeWithText("Rente").performScrollTo().performClick()
 
         assertEquals(
@@ -186,19 +173,18 @@ class CategoryListScreenTest {
     }
 
     @Test
-    fun `a plain Recette leaves without the flag`() {
+    fun `a plain category leaves with no obligation and no flag`() {
         val state = form()
 
         compose.onNodeWithText("Nom").performTextInput("Prime")
-        compose.onNodeWithText("Recette").performScrollTo().performClick()
 
         val request = state.toRequest()
-        assertEquals("income", request.obligation)
+        assertEquals(null, request.obligation)
         assertFalse(request.passiveIncome)
     }
 
     @Test
-    fun `a rente created through the API is listed as Recette · rente`() {
+    fun `a rente created through the API is listed as Rente`() {
         val categories = FakeCategories()
         list(categories)
 
@@ -211,7 +197,7 @@ class CategoryListScreenTest {
 
         assertTrue(categories.created.single().passiveIncome)
         compose.onNodeWithText("Loyers perçus").assertIsDisplayed()
-        compose.onNodeWithText("Recette · rente").assertIsDisplayed()
+        compose.onNodeWithText("Rente").assertIsDisplayed()
     }
 
     @Test
@@ -331,7 +317,6 @@ class CategoryListScreenTest {
         val before = Category(
             id = "cat-1",
             name = "Courses",
-            obligation = "mandatory",
             parent = "/api/categories/cat-0",
             color = "#4CAF50",
             icon = "shopping-cart",
@@ -343,7 +328,6 @@ class CategoryListScreenTest {
         state.name = " Courses alimentaires "
         state.color = ""
         state.parent = null
-        state.select("income")
         state.passiveIncome = true
 
         assertEquals(
@@ -358,6 +342,17 @@ class CategoryListScreenTest {
             ),
             state.changes(),
         )
+    }
+
+    @Test
+    fun `an existing obligation is only rewritten when the rente is turned on`() {
+        val income = CategoryFormState(Category(id = "cat-1", name = "Loyers", obligation = "income"))
+        income.passiveIncome = true
+        assertEquals(JsonObject(mapOf("passiveIncome" to JsonPrimitive(true))), income.changes())
+
+        val other = CategoryFormState(Category(id = "cat-2", name = "Courses", obligation = "mandatory"))
+        other.name = "Courses du mois"
+        assertEquals(JsonObject(mapOf("name" to JsonPrimitive("Courses du mois"))), other.changes())
     }
 
     @Test

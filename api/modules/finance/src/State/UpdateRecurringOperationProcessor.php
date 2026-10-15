@@ -33,11 +33,13 @@ class UpdateRecurringOperationProcessor implements ProcessorInterface
             }
         }
 
-        // Only a change of the qualification is sent: re-sending the stored
-        // one with a new category would keep it from following the category.
+        // Sent when it changed, or with a new category: the parameters the
+        // owner sees stay theirs, not those of the category's deprecated flag.
         $previous = $context['previous_data'] ?? null;
         $qualification = $data->getQualification()->toArray();
-        $qualificationChanged = $previous instanceof RecurringOperation && $qualification !== $previous->getQualification()->toArray();
+        $qualificationChanged = $previous instanceof RecurringOperation
+            && ($qualification !== $previous->getQualification()->toArray()
+                || (string) $data->getCategory()->getId() !== (string) $previous->getCategory()->getId());
 
         return $this->bus->dispatch(new UpdateRecurringOperationCommand(
             userId: (string) $data->getUser()->getId(),

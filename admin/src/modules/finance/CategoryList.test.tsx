@@ -84,8 +84,10 @@ describe('CategoryList', () => {
   test('a category declared a rente is marked as one', async () => {
     renderPage()
 
-    expect(await screen.findByText('Recette · rente')).toBeInTheDocument()
-    expect(screen.getByText('Obligatoire')).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: 'Rente' })).toBeInTheDocument()
+    // MAG-479: no nature, no obligation column.
+    expect(screen.queryByRole('columnheader', { name: 'Obligation' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Obligatoire')).not.toBeInTheDocument()
   })
 
   test('every tab opens onto something — an empty panel is a dead end', async () => {

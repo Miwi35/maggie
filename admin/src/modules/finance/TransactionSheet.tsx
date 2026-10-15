@@ -15,6 +15,7 @@ import {
   Toolbar,
   maxLength,
   useGetList,
+  useGetOne,
   useNotify,
   useRecordContext,
 } from 'react-admin'
@@ -26,8 +27,9 @@ import { useMercure } from '../../hooks/useMercure'
 import { CreateFilterDialog } from './CreateFilterDialog'
 import { NatureSection } from './NatureSection'
 import { RecurrenceSection } from './RecurrenceSection'
+import { QualificationInput, QualificationProvenance } from './Qualification'
+import { provenanceSentence } from './qualificationKinds'
 import {
-  CategoryChoiceInput,
   ExceptionalInput,
   StatusInput,
   TransactionHeaderFields,
@@ -126,12 +128,29 @@ export const OneOffEnvelopeInput = () => {
   )
 }
 
+/** Who qualified the line: the series or the rule that set it, or the owner. */
+const QualificationOrigin = ({ record }: { record: RaRecord }) => {
+  const by = record.qualifiedBy as string | null | undefined
+  const seriesId = (record.qualifiedBySeries as string | null | undefined) || null
+  const ruleId = (record.qualifiedByRule as string | null | undefined) || null
+  const { data: series } = useGetOne('recurring_operations', { id: seriesId ?? '' }, { enabled: by === 'series' && seriesId !== null })
+  const { data: rule } = useGetOne('categorization_rules', { id: ruleId ?? '' }, { enabled: by === 'rule' && ruleId !== null })
+
+  return (
+    <QualificationProvenance
+      sentence={provenanceSentence(by, series?.label as string | undefined, rule?.labelPattern as string | undefined)}
+    />
+  )
+}
+
 const ClassementSection = ({ record }: { record: RaRecord }) => {
   const [filtering, setFiltering] = useState(false)
+  const nature = (useWatch({ name: 'nature' }) as string | undefined) ?? 'expense'
 
   return (
     <Box>
-      <CategoryChoiceInput />
+      <QualificationInput sense={nature === 'income' ? 'in' : 'out'} categoryHelperText="Facultatif. Choisir ici, c’est qualifier la ligne à la main : ni une série ni une règle n’y touchera plus." />
+      <QualificationOrigin record={record} />
       <OneOffEnvelopeInput />
       <StatusInput />
       <ExceptionalInput />

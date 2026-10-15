@@ -1,11 +1,15 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RecurringFormStateTest {
@@ -157,13 +161,50 @@ class RecurringFormStateTest {
     }
 
     @Test
-    fun `changing the nature asks for the category again`() {
+    fun `changing the nature keeps the category, an income series offers every category`() {
         val form = RecurringFormState(RecurringEditing(record = rent))
 
         form.selectNature(TransactionNature.Income)
 
-        assertNull(form.category)
-        assertNull(form.toRequest())
+        assertEquals("/api/categories/cat-1", form.category)
+        assertEquals(90000, form.toRequest()!!.referenceAmountCents)
+    }
+
+    @Test
+    fun `the qualification of the series goes with the category in the request`() {
+        val form = RecurringFormState(RecurringEditing(record = rent))
+        form.qualification = Qualification(mandatory = true, kind = QualificationKind.Loan)
+
+        val request = form.toRequest()!!
+
+        assertEquals("/api/categories/cat-1", request.category)
+        assertEquals(Qualification(true, QualificationKind.Loan), request.qualification)
+    }
+
+    @Test
+    fun `a form starts from the qualification of the series, then of the line it is drawn from`() {
+        val stored = rent.copy(qualification = Qualification(true, QualificationKind.Repayment))
+        assertEquals(Qualification(true, QualificationKind.Repayment), RecurringFormState(RecurringEditing(record = stored)).qualification)
+
+        val drawn = late.copy(qualification = Qualification(false, QualificationKind.Saving))
+        assertEquals(Qualification(false, QualificationKind.Saving), RecurringFormState(RecurringEditing(transaction = drawn)).qualification)
+
+        assertEquals(Qualification.NONE, RecurringFormState(RecurringEditing()).qualification)
+    }
+
+    @Test
+    fun `saving requalifies only when the category or the qualification moved`() {
+        val form = RecurringFormState(RecurringEditing(record = rent))
+        assertFalse(form.requalifies)
+
+        form.qualification = Qualification(mandatory = true, kind = QualificationKind.None)
+        assertTrue(form.requalifies)
+
+        form.qualification = Qualification.NONE
+        form.category = "/api/categories/cat-2"
+        assertTrue(form.requalifies)
+
+        assertFalse(RecurringFormState(RecurringEditing()).requalifies)
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -47,11 +48,14 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.describeRuleScope
 import com.maggie.app.data.model.headline
 import com.maggie.app.data.model.matchTypeLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.uiTagRoot
 
 private val MATCH_TYPES = listOf("contains", "starts_with", "equals")
 
@@ -193,18 +197,19 @@ private fun RuleCreateDialog(
     onConfirm: (CategorizationRuleCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val tree = remember(categories) { CategoryTree(categories) }
     var labelPattern by remember { mutableStateOf("") }
     var matchType by remember { mutableStateOf("contains") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
+    var qualification by remember { mutableStateOf(Qualification.NONE) }
 
     val canSubmit = labelPattern.isNotBlank() && selectedCategoryId != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.uiTagRoot(),
         title = { Text("Nouvelle règle") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = labelPattern,
                     onValueChange = { labelPattern = it },
@@ -224,19 +229,15 @@ private fun RuleCreateDialog(
                         )
                     }
                 }
-                Text("Catégorie", style = MaterialTheme.typography.bodySmall)
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    categories.forEach { category ->
-                        FilterChip(
-                            selected = selectedCategoryId == category.id,
-                            onClick = { selectedCategoryId = category.id },
-                            label = { Text(tree.path(category)) },
-                        )
-                    }
-                }
+                QualificationSection(
+                    categories = categories,
+                    categoryId = selectedCategoryId,
+                    qualification = qualification,
+                    onCategoryChange = { selectedCategoryId = it },
+                    onQualificationChange = { qualification = it },
+                    categoryTag = UiTags.RULE_DRAFT_CATEGORY,
+                    searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+                )
             }
         },
         confirmButton = {
@@ -247,6 +248,7 @@ private fun RuleCreateDialog(
                         CategorizationRuleCreateRequest(
                             labelPattern = labelPattern.trim(),
                             category = "/api/categories/$categoryId",
+                            qualification = qualification,
                             matchType = matchType,
                         ),
                     )
