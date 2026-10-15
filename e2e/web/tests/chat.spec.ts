@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { test, expect, parisDay, parisTime, seedId } from '../fixtures/index.js'
+import { test, expect, parisDay, parisTime, seedDate, seedId } from '../fixtures/index.js'
 import {
   assistantText,
   calledTools,
@@ -17,6 +17,7 @@ import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
+import { TasksPage } from '../pages/TasksPage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
 
 /**
@@ -1159,6 +1160,106 @@ test('an event created last turn is deleted by its real id, with no search first
 
   // Answered, so the card does not wait in the bell of the journeys after this one.
   expect((await api.post(`/agent/approvals/${held!.id}/deny`)).ok()).toBe(true)
+})
+
+/**
+ * MAG-409: Maggie reads the day's tasks late first, offers ONE undated task when the day is
+ * light, and writes nothing until the owner says yes.
+ *
+ * 74-tasks-today.yaml scripts the model's side (agenda, `get_tasks` today, `get_tasks` someday,
+ * then the offer) and 74-tasks-schedule-someday.yaml answers « Oui, demain » with `update_task`
+ * on the id its own `get_tasks` result gave — taken from the replayed history, so the titles
+ * below are fixed and a run that left them behind is cleaned first: two ids would be one too
+ * many. What is proved is the chain: the real tools run in that order, the late task is named
+ * before the offered one, the task is still undated after the offer, and tomorrow is stored —
+ * and shown in « À venir » — after the yes. Whether a real model follows the prompt is the
+ * eval suite's.
+ */
+const TASKS_OF_THE_DAY = {
+  question: "Qu'est-ce que j'ai aujourd'hui ?",
+  late: 'Renouveler le passeport',
+  someday: 'Ranger le garage',
+  yes: 'Oui, demain',
+}
+
+/** The day after `day` (YYYY-MM-DD), by calendar arithmetic: no hour of daylight saving can move it. */
+function dayAfter(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+
+  return new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10)
+}
+
+test('the day is read late task first, one undated task is offered, and it gets tomorrow only after a yes', async ({
+  page,
+  api,
+}) => {
+  const jsonld = { Accept: 'application/ld+json' }
+  const mine = [TASKS_OF_THE_DAY.late, TASKS_OF_THE_DAY.someday]
+
+  for (const view of ['today', 'upcoming', 'someday']) {
+    const response = await api.get(`/api/tasks/view/${view}`, { headers: jsonld })
+    expect(response.ok(), `GET /api/tasks/view/${view} answered ${response.status()}`).toBe(true)
+    const members = ((await response.json()) as { member: Array<{ id: string; title: string }> }).member
+    for (const task of members.filter((member) => mine.includes(member.title))) {
+      expect((await api.delete(`/api/tasks/${task.id}`)).ok()).toBe(true)
+    }
+  }
+
+  const create = async (data: { title: string; dueDate?: string }): Promise<string> => {
+    const response = await api.post('/api/tasks', {
+      headers: { 'Content-Type': 'application/ld+json', ...jsonld },
+      data,
+    })
+    expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
+
+    return String(((await response.json()) as { id: string }).id)
+  }
+  await create({ title: TASKS_OF_THE_DAY.late, dueDate: seedDate(-2) })
+  const somedayId = await create({ title: TASKS_OF_THE_DAY.someday })
+  const dueDateOf = async (): Promise<string | null> => {
+    const response = await api.get(`/api/tasks/${somedayId}`, { headers: jsonld })
+    expect(response.ok(), `GET /api/tasks/${somedayId} answered ${response.status()}`).toBe(true)
+    const { dueDate } = (await response.json()) as { dueDate?: string | null }
+
+    return String(dueDate ?? '').slice(0, 10) || null
+  }
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+  const chat = new ChatPanel(page)
+
+  // Given a late task and an undated one, when I ask about my day:
+  const offer = await chat.send(TASKS_OF_THE_DAY.question)
+  const answer = assistantText(offer)
+  expect(isUnscripted(answer), `no scenario for the question — Maggie said: ${answer}`).toBe(false)
+  expect(calledTools(offer)).toEqual(['get_events_by_date', 'get_tasks', 'get_tasks'])
+  expect(toolResults(offer).map((result) => result.status)).toEqual(['success', 'success', 'success'])
+
+  // Then the late task comes first and the undated one is offered, not planned.
+  expect(answer).toContain(TASKS_OF_THE_DAY.late)
+  expect(answer).toContain(TASKS_OF_THE_DAY.someday)
+  expect(answer.indexOf(TASKS_OF_THE_DAY.late), 'the late task is named before the offered one').toBeLessThan(
+    answer.indexOf(TASKS_OF_THE_DAY.someday),
+  )
+  expect(await dueDateOf(), 'the offer must not write anything').toBeNull()
+
+  // When I agree, tomorrow is stored on that task, by its id.
+  const agreed = await chat.send(TASKS_OF_THE_DAY.yes)
+  expect(isUnscripted(assistantText(agreed)), `the get_tasks result never reached the history`).toBe(false)
+  expect(calledTools(agreed)).toEqual(['update_task'])
+
+  const tomorrow = dayAfter(parisDay())
+  await expect
+    .poll(dueDateOf, { timeout: 30_000, message: `the task should be due ${tomorrow}` })
+    .toBe(tomorrow)
+
+  // And it is in « À venir », no longer in « À faire un jour ».
+  const board = new TasksPage(page)
+  await board.open()
+  await board.select('À venir')
+  await expect(board.row(TASKS_OF_THE_DAY.someday)).toHaveCount(1)
+  await board.select('À faire un jour')
+  await expect(board.row(TASKS_OF_THE_DAY.someday)).toHaveCount(0)
 })
 
 /**

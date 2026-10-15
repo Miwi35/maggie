@@ -203,6 +203,12 @@ turns the citations into the last line of the answer, `Source : domaine — lien
 `96-web-search-holidays.yaml` is the journey's scenario, `96-web-search-nothing.yaml` the search that
 finds nothing. The fake logs an error when a scenario searches while `web_search` was not offered.
 
+**Tasks** (MAG-409). `74-tasks-today.yaml` answers « Qu'est-ce que j'ai aujourd'hui ? » with `get_tasks`
+(`view: today`, then `view: someday`) and `74-tasks-schedule-someday.yaml` answers « Oui, demain » with
+`update_task`, only when the replayed `get_tasks` result is in the history (`history_matches` captures the
+task id). The fake cannot compute a date, so any text or argument of a scenario may carry `${today}` and
+`${tomorrow}`: both are expanded to the Paris calendar day of the stack's clock.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

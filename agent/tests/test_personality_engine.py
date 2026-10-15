@@ -231,6 +231,24 @@ class TestPersonalityEngine:
         assert "relis les données avec tes outils" in prompt
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
+        """MAG-409: the half that lives in the prompt — the fake LLM calls whatever its fixture says."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert "get_tasks et view today" in prompt
+        assert "cite d'abord celles en retard" in prompt
+        assert "overdueDays" in prompt and "orderScore" in prompt
+        assert "view someday" in prompt
+        assert "UNE seule tâche" in prompt
+        assert "aucune tâche high ou critical" in prompt
+        # Writing waits for the user's yes.
+        assert "qu'après l'accord de l'utilisateur" in prompt
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_greet_by_the_gap(self):
         """The half of MAG-10 that lives in the prompt: the line is injected, but only this rule uses it."""
         engine = PersonalityEngine()
