@@ -20,6 +20,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useMercure } from '../../hooks/useMercure'
 import { getToken } from '../../auth/session'
+import { notificationLink } from '../maggie/interruptions'
 
 const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
@@ -146,9 +147,10 @@ export const NotificationBell = () => {
         }
       }
 
-      if (notification.relatedEntityIri) {
+      const link = notificationLink(notification.relatedEntityIri)
+      if (link) {
         setAnchorEl(null)
-        redirect(notification.relatedEntityIri)
+        redirect(link.path)
       }
     },
     [apply, dataProvider, redirect],
