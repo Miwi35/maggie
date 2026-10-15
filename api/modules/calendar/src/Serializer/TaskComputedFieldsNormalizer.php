@@ -5,24 +5,24 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Serializer;
 
 use Maggie\Calendar\Entity\Task;
-use Maggie\Calendar\Service\TaskOverdue;
+use Maggie\Calendar\Service\TaskUrgency;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 /**
- * Fills `overdueDays` just before a task is written out (MAG-405). The day
- * moves, so the number is neither stored nor indexed: every read — item,
- * collection, the day's view — gets it from here.
+ * Fills `overdueDays` (MAG-405), `urgency` and `orderScore` (MAG-406) just
+ * before a task is written out. The day moves, so they are neither stored nor
+ * indexed: every read — item, collection, the day's view — gets them from here.
  */
-final class TaskOverdueNormalizer implements NormalizerInterface, NormalizerAwareInterface
+final class TaskComputedFieldsNormalizer implements NormalizerInterface, NormalizerAwareInterface
 {
     use NormalizerAwareTrait;
 
-    private const ALREADY_CALLED = 'task_overdue_normalizer_already_called';
+    private const ALREADY_CALLED = 'task_computed_fields_normalizer_already_called';
 
     public function __construct(
-        private readonly TaskOverdue $overdue,
+        private readonly TaskUrgency $urgency,
     ) {
     }
 
@@ -30,7 +30,7 @@ final class TaskOverdueNormalizer implements NormalizerInterface, NormalizerAwar
     {
         \assert($data instanceof Task);
 
-        $this->overdue->mark($data);
+        $this->urgency->mark($data);
 
         return $this->normalizer->normalize($data, $format, $context + [self::ALREADY_CALLED => true]);
     }

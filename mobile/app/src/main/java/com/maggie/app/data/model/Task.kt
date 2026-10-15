@@ -22,6 +22,10 @@ data class Task(
     val links: List<TaskLink> = emptyList(),
     /** Whole days late (MAG-405), computed by the API in the user's timezone; absent when not late. */
     val overdueDays: Int? = null,
+    /** `low`, `normal`, `high` or `critical`: computed by the API from the criticality and the due day (MAG-406), never entered. */
+    val urgency: String? = null,
+    /** The API's order score (MAG-406): time pressure + criticality + priority, the highest first. */
+    val orderScore: Int? = null,
 ) {
     val isDone: Boolean get() = completedAt != null
 
@@ -41,6 +45,12 @@ data class Task(
         /** Siblings as the API orders them: position as plain strings, then id; no position last. */
         val SIBLING_ORDER: Comparator<Task> =
             compareBy<Task, String?>(nullsLast()) { it.position }.thenBy { it.id }
+
+        /** The API's order (MAG-406): the highest score first, then the closest due day, then Google's order. */
+        val SCORE_ORDER: Comparator<Task> =
+            compareByDescending<Task> { it.orderScore ?: 0 }
+                .thenBy(nullsLast()) { it.dueDate }
+                .then(SIBLING_ORDER)
     }
 }
 

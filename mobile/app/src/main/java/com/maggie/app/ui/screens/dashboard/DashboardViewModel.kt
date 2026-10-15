@@ -136,17 +136,20 @@ class DashboardViewModel(
             val monthEnd = today.plusMonths(1)
             val rawTasks = taskRepository.getUndoneTasks(monthEnd.toString()).filter(::listedOnItsOwn)
 
-            // Today: the API's view (MAG-405) — due today or late, the most late first, each task
-            // followed by its subtasks. The server decides which day it is, in the user's timezone.
+            // Today: the API's view (MAG-405) — due today or late, by order score (MAG-406), each
+            // task followed by its subtasks. The server decides which day it is, in the user's
+            // timezone. The other days go by the same score, sorted here.
             val todayTasks = taskRepository.getTodayTasks()
 
-            val tomorrowTasks = rawTasks.filter { t -> t.dueDay == tomorrow }
+            val tomorrowTasks = rawTasks.filter { t -> t.dueDay == tomorrow }.sortedWith(Task.SCORE_ORDER)
 
             // Week tasks (exclude today/tomorrow)
             val weekTasks = rawTasks.filter { t -> t.dueDay?.let { it > tomorrow && it < weekEnd } == true }
+                .sortedWith(Task.SCORE_ORDER)
 
             // Month tasks (exclude this week)
             val monthTasks = rawTasks.filter { t -> t.dueDay?.let { it >= weekEnd && it < monthEnd } == true }
+                .sortedWith(Task.SCORE_ORDER)
 
             _uiState.value = withEvents(DashboardUiState(
                 todayTasks = todayTasks,

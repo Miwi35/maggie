@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { TOKENS, chartColor, contextStateColor, criticalityColor } from './tokens'
+import { TOKENS, chartColor, contextStateColor, criticalityColor, urgencyColor } from './tokens'
 
 /**
  * `tokens.ts` against `design/tokens.json`, which the mobile theme reads too
@@ -54,6 +54,14 @@ describe('the design tokens', () => {
     expect(criticalityColor('high')).toBe(TOKENS.signal.danger)
     expect(criticalityColor('critical')).toBe(TOKENS.signal.critical)
     expect(criticalityColor('whatever-comes-next')).toBe(TOKENS.signal.success)
+  })
+
+  it('name a signal for every urgency the API computes (MAG-406)', () => {
+    expect(urgencyColor('low')).toBe(TOKENS.signal.neutral)
+    expect(urgencyColor('normal')).toBe(TOKENS.signal.info)
+    expect(urgencyColor('high')).toBe(TOKENS.signal.warning)
+    expect(urgencyColor('critical')).toBe(TOKENS.signal.danger)
+    expect(urgencyColor('whatever-comes-next')).toBe(TOKENS.signal.neutral)
   })
 
   it('name a signal for every state a conversation thread can be in', () => {

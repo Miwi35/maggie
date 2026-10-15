@@ -82,6 +82,8 @@ export const TOKENS = {
     neutral: '#9E9E9E',
   },
   criticality: { low: 'success', medium: 'warning', high: 'danger', critical: 'critical' },
+  /** A task's computed urgency (MAG-406) — always drawn with its icon and its word too. */
+  urgency: { low: 'neutral', normal: 'info', high: 'warning', critical: 'danger' },
   contextState: { active: 'success', dormant: 'warning', closed: 'neutral' },
   source: { meals: '#FF6B35', tasks: '#1976D2', done: 'neutral' },
   /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode. */
@@ -117,6 +119,10 @@ export const criticalityColor = (criticality: string): string =>
   signal(
     (TOKENS.criticality as Record<string, SignalName>)[criticality] ?? TOKENS.criticality.low,
   )
+
+/** The colour of a task's urgency; an unknown one reads as `low`. */
+export const urgencyColor = (urgency: string): string =>
+  signal((TOKENS.urgency as Record<string, SignalName>)[urgency] ?? TOKENS.urgency.low)
 
 /** The colour of a conversation thread's state in the Mind panel. */
 export const contextStateColor = (state: string): string =>

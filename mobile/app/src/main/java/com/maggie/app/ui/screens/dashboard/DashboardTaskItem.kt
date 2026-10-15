@@ -25,6 +25,7 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.shared.CriticalityChip
 import com.maggie.app.ui.screens.shared.TaskConstants
+import com.maggie.app.ui.screens.shared.UrgencyBadge
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -69,23 +70,15 @@ fun DashboardTaskItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Late is said in words and with an icon, never by colour alone (MAG-405).
-            if (daysLate != null) {
+            // Urgency (MAG-406) and lateness (MAG-405) are said in words and with an icon,
+            // never by colour alone.
+            if (task.urgency != null || daysLate != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.EventBusy,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = lateLabel(daysLate),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    UrgencyBadge(task.urgency)
+                    if (daysLate != null) LateLabel(daysLate)
                 }
             }
         }
@@ -97,5 +90,25 @@ fun DashboardTaskItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun LateLabel(daysLate: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Default.EventBusy,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = lateLabel(daysLate),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }

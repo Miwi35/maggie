@@ -83,6 +83,21 @@ describe('TaskEditDialog', () => {
     )
   })
 
+  test('shows the urgency the API computed, read only (MAG-406)', () => {
+    renderDialog({ ...TASK, urgency: 'critical' })
+
+    const badge = screen.getByTestId('urgency-badge')
+    expect(badge).toHaveTextContent('critique')
+    expect(badge.querySelector('svg')).not.toBeNull()
+    expect(screen.queryByRole('textbox', { name: /Urgence/ })).toBeNull()
+  })
+
+  test('shows no urgency when the task carries none', () => {
+    renderDialog()
+
+    expect(screen.queryByTestId('urgency-badge')).toBeNull()
+  })
+
   test('a subtask offers no subtasks of its own', () => {
     renderDialog(BOXES)
 

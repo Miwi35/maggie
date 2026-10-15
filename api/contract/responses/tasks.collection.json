@@ -17,6 +17,8 @@
             "position": "00000000000000000000",
             "links": [],
             "overdueDays": 33,
+            "urgency": "critical",
+            "orderScore": 111,
             "done": false,
             "googleSynced": false
         },
@@ -37,6 +39,8 @@
                     "link": "https://mail.google.com/mail/#all/abc"
                 }
             ],
+            "urgency": "low",
+            "orderScore": 3,
             "done": false,
             "googleSynced": false
         },
@@ -50,6 +54,8 @@
             "criticality": "low",
             "completedAt": "2026-03-19T10:00:00+00:00",
             "links": [],
+            "urgency": "low",
+            "orderScore": 0,
             "done": true,
             "googleSynced": false
         }
