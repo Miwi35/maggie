@@ -36,8 +36,46 @@ export function useMercure(topics: string[], onMessage: (data?: string) => void)
       topics.map((topic) => `/users/${userId}${topic}`),
     )
 
-    const es = new EventSource(url.toString(), { withCredentials: true })
-    es.onmessage = (event) => onMessageRef.current(event.data)
-    return () => es.close()
+    return subscribe(url.toString(), (data) => onMessageRef.current(data))
   }, [topics])
+}
+
+interface SharedStream {
+  source: EventSource
+  listeners: Set<(data?: string) => void>
+}
+
+const streams = new Map<string, SharedStream>()
+
+/**
+ * One EventSource per subscribe URL, however many components ask for it.
+ *
+ * Over HTTP/1.1 a browser keeps six connections per origin, and every open
+ * stream holds one for good: a screen listening three times to the same topics
+ * (its list, its header, its sheet) left the page unable to send any request
+ * once the notification bell, the chat and the agent streams had taken theirs
+ * (MAG-473).
+ */
+function subscribe(url: string, listener: (data?: string) => void): () => void {
+  let stream = streams.get(url)
+  if (!stream) {
+    const listeners = new Set<(data?: string) => void>()
+    const source = new EventSource(url, { withCredentials: true })
+    source.onmessage = (event) => {
+      for (const notify of [...listeners]) notify(event.data)
+    }
+    stream = { source, listeners }
+    streams.set(url, stream)
+  }
+
+  const shared = stream
+  shared.listeners.add(listener)
+
+  return () => {
+    shared.listeners.delete(listener)
+    if (shared.listeners.size === 0) {
+      shared.source.close()
+      streams.delete(url)
+    }
+  }
 }
