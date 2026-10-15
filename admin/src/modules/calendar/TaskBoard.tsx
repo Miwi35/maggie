@@ -13,15 +13,19 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import EventBusyIcon from '@mui/icons-material/EventBusy'
+import UpdateIcon from '@mui/icons-material/Update'
 import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { UrgencyBadge } from './UrgencyBadge'
-import { createTask, fetchTaskView, setTaskDone, TASK_VIEWS } from './taskViews'
+import { fetchDayPlan } from './dayPlan'
+import type { DayPlan } from './dayPlan'
+import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 
-const TASK_TOPICS = ['/api/tasks/{id}']
+// The day is published apart from its tasks (MAG-497): a tick moves both.
+const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}']
 const PAGE_SIZE = 30
 
 const TABS: Record<TaskView, { label: string; empty: string }> = {
@@ -31,9 +35,8 @@ const TABS: Record<TaskView, { label: string; empty: string }> = {
   done: { label: 'Faites', empty: 'Aucune tâche terminée' },
 }
 
-/** The due day a quick-created task gets in each tab: none in « À faire un jour » and « Faites ». */
+/** The due day a quick-created task gets: tomorrow in « À venir », none in « À faire un jour ». */
 const defaultDueDate = (view: TaskView): string | undefined => {
-  if (view === 'today') return localDay(new Date())
   if (view === 'upcoming') return addDays(localDay(new Date()), 1)
 
   return undefined
@@ -43,10 +46,10 @@ const shortDay = (day: string): string =>
   parseDay(day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
 /**
- * The « Tâches » page (MAG-408): four views the API sorts — « Aujourd'hui » (the
- * late first), « À venir », « À faire un jour » and « Faites » — each task in
- * exactly one. The API decides which view a task is in (it knows the user's
- * day), so the page only draws, ticks, creates and refetches.
+ * The « Tâches » page (MAG-408): « Aujourd'hui » — the day of five tasks at most
+ * and its reserve (MAG-497) — then three views the API sorts: « À venir »,
+ * « À faire un jour » and « Faites ». The API decides which view a task is in
+ * (it knows the user's day), so the page only draws, ticks, creates and refetches.
  */
 export const TaskBoard = () => {
   const notify = useNotify()
@@ -61,9 +64,37 @@ export const TaskBoard = () => {
   const [title, setTitle] = useState('')
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<ViewTask | null>(null)
+  const [day, setDay] = useState<DayPlan | null>(null)
+  const [dayFailed, setDayFailed] = useState(false)
+
+  const today = localDay(new Date())
 
   // Only the answer to the last request is drawn: a slow one must not overwrite a newer tab.
   const request = useRef(0)
+  const dayRequest = useRef(0)
+
+  // The day is read whatever the tab: the « Aujourd'hui » counter is its tasks left to do.
+  const loadDay = useCallback(() => {
+    const current = ++dayRequest.current
+    fetchDayPlan(today)
+      .then((result) => {
+        if (current !== dayRequest.current) return
+        setDay(result)
+        setDayFailed(false)
+      })
+      .catch((error: unknown) => {
+        if (current !== dayRequest.current) return
+        console.error(error)
+        setDayFailed(true)
+      })
+  }, [today])
+
+  // A write answered with the day wins over a read sent before it.
+  const showDay = useCallback((result: DayPlan) => {
+    dayRequest.current++
+    setDay(result)
+    setDayFailed(false)
+  }, [])
 
   const load = useCallback(() => {
     const current = ++request.current
@@ -92,13 +123,30 @@ export const TaskBoard = () => {
   }, [view, page])
 
   // Callbacks that outlive a render (a tick answered after a tab switch) must reload the tab shown now.
+  // On « Aujourd'hui » the view is still read: its answer carries the other tabs' counts.
   const loadRef = useRef(load)
   useEffect(() => {
     loadRef.current = load
     load()
   }, [load])
 
-  const reload = useCallback(() => loadRef.current(), [])
+  const loadDayRef = useRef(loadDay)
+  useEffect(() => {
+    loadDayRef.current = loadDay
+    loadDay()
+  }, [loadDay])
+
+  const reload = useCallback(() => {
+    loadRef.current()
+    loadDayRef.current()
+  }, [])
+
+  // The day only carries what it draws: the form wants the whole task.
+  const edit = (taskId: string) => {
+    fetchTask(taskId)
+      .then(setEditing)
+      .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
+  }
 
   useMercure(TASK_TOPICS, reload)
 
@@ -140,6 +188,12 @@ export const TaskBoard = () => {
     create()
   }
 
+  const tabLabel = (name: TaskView): string => {
+    if (name === 'today') return day ? `${TABS.today.label} (${day.total - day.done})` : TABS.today.label
+
+    return counts ? `${TABS[name].label} (${counts[name]})` : TABS[name].label
+  }
+
   const listed = new Set(tasks.flatMap((t) => [t['@id'], t.id]))
   const pages = Math.ceil(total / PAGE_SIZE)
 
@@ -154,12 +208,12 @@ export const TaskBoard = () => {
           <Tab
             key={name}
             value={name}
-            label={counts ? `${TABS[name].label} (${counts[name]})` : TABS[name].label}
+            label={tabLabel(name)}
           />
         ))}
       </Tabs>
 
-      {view !== 'done' && (
+      {view !== 'done' && view !== 'today' && (
         <TextField
           label="Nouvelle tâche"
           size="small"
@@ -172,7 +226,15 @@ export const TaskBoard = () => {
         />
       )}
 
-      {failed ? (
+      {view === 'today' ? (
+        dayFailed ? (
+          <Alert severity="error">Tâches indisponibles</Alert>
+        ) : !day ? (
+          [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
+        ) : (
+          <TaskDay day={day} today={today} onDay={showDay} onReload={reload} onEdit={edit} />
+        )
+      ) : failed ? (
         <Alert severity="error">Tâches indisponibles</Alert>
       ) : loading ? (
         [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
@@ -185,6 +247,8 @@ export const TaskBoard = () => {
           {tasks.map((task) => {
             const done = task.completedAt != null
             const late = !done && task.overdueDays != null && task.overdueDays > 0
+            // Put off, never late: a critical task keeps its own mark instead (MAG-497).
+            const postponed = task.urgency === 'critical' ? null : postponedLabel(task.postponedSince, today)
             // A subtask goes under its task, as it comes in the list.
             const indented = !!task.parent && listed.has(task.parent)
 
@@ -213,15 +277,15 @@ export const TaskBoard = () => {
                     {task.title}
                   </Typography>
                   <UrgencyBadge urgency={task.urgency} />
-                  {late && (
+                  {postponed && (
                     <Typography
                       component="span"
                       variant="caption"
-                      color="error"
+                      color="text.secondary"
                       sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
                     >
-                      <EventBusyIcon aria-hidden fontSize="inherit" />
-                      En retard de {task.overdueDays} j
+                      <UpdateIcon aria-hidden fontSize="inherit" />
+                      {postponed}
                     </Typography>
                   )}
                   {task.dueDate && (

@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
+import com.maggie.app.util.DateRanges
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -101,6 +104,11 @@ fun TaskDetailContent(
                 }
             }
 
+            // « Reportée », never « en retard » (MAG-497); a critical task keeps its mark above.
+            if (!task.isDone) {
+                TaskPostponed.labelOf(task.postponedSince, task.urgency, DateRanges.todayDate())?.let { PostponedLabel(it) }
+            }
+
             // Priority
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Flag, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -109,6 +117,22 @@ fun TaskDetailContent(
                     text = "Priorité : ${TaskConstants.PRIORITY_LABELS[task.priority] ?: task.priority}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+
+            task.estimatedMinutes?.let { minutes ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Timer, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = "Durée estimée : ${minutesLabel(minutes)}", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            task.firstStep?.takeIf { it.isNotBlank() }?.let { step ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Lightbulb, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = "Premier pas : $step", style = MaterialTheme.typography.bodyMedium)
+                }
             }
 
             // Due day: a plain date, no zone to read it in (MAG-404).

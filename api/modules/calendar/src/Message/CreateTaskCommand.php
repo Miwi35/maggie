@@ -14,6 +14,8 @@ final readonly class CreateTaskCommand
         public ?\DateTimeImmutable $completedAt = null,
         public ?string $parentId = null,
         public ?string $position = null,
+        public ?int $estimatedMinutes = null,
+        public ?string $firstStep = null,
     ) {
     }
 }

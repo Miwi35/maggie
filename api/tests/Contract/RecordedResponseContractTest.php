@@ -209,6 +209,37 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The day (MAG-497), as `/api/day-plans/{date}` sends it once the owner
+     * set it: a slot done, « Maintenant », the reserve. Read at a fixed day.
+     */
+    public function testTheDayPlanRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $path = '/api/day-plans/2026-04-22';
+        $slots = array_map(fn (string $ref): array => ['type' => 'task', 'taskId' => (string) $this->getFixture($ref)->getId()], ['recorded_done_task', 'recorded_open_task']);
+        $this->client->request('PUT', $path, [], [], array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders()), json_encode(['slots' => $slots], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotNull($body['now'], 'The recorded day has nothing left to do, so it proves nothing about `now`.');
+        self::assertNotSame([], $body['reserve'], 'The recorded day has an empty reserve.');
+
+        $this->assertMatchesContract(
+            'responses/day_plans.read.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (DayPlan.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
      * Every collection carries at least one member, or the recording proves
      * nothing about the fields.
      */

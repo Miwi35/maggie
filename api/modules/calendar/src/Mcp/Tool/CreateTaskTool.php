@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only).')]
+#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them.')]
 class CreateTaskTool
 {
     public function __construct(
@@ -30,6 +30,8 @@ class CreateTaskTool
         string $criticality = 'low',
         ?string $dueDate = null,
         ?string $parentId = null,
+        ?int $estimatedMinutes = null,
+        ?string $firstStep = null,
     ): string {
         try {
             $user = $this->userContext->getUser();
@@ -47,6 +49,8 @@ class CreateTaskTool
                 criticality: $criticality,
                 dueDate: $dueDateObj,
                 parentId: $parentId,
+                estimatedMinutes: $estimatedMinutes,
+                firstStep: $firstStep,
             ));
 
             /** @var Task $task */

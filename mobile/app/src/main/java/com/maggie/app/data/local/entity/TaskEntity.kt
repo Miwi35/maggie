@@ -19,6 +19,8 @@ data class TaskEntity(
     val parent: String? = null,
     val position: String? = null,
     val links: List<TaskLink> = emptyList(),
+    val estimatedMinutes: Int? = null,
+    val firstStep: String? = null,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Task = Task(
@@ -32,6 +34,8 @@ data class TaskEntity(
         parent = parent,
         position = position,
         links = links,
+        estimatedMinutes = estimatedMinutes,
+        firstStep = firstStep,
     )
 
     companion object {
@@ -47,6 +51,8 @@ data class TaskEntity(
                 parent = task.parent,
                 position = task.position,
                 links = task.links,
+                estimatedMinutes = task.estimatedMinutes,
+                firstStep = task.firstStep,
                 syncStatus = syncStatus,
             )
     }

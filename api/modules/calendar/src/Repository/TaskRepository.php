@@ -8,6 +8,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Core\Entity\User;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * @extends ServiceEntityRepository<Task>
@@ -141,6 +142,55 @@ class TaskRepository extends ServiceEntityRepository
             ->addOrderBy('t.id', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The open tasks that are not subtasks: what the day's reserve draws
+     * from (MAG-497).
+     *
+     * @return Task[]
+     */
+    public function findOpenTopLevel(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.parent IS NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The user's tasks among these ids, the others' and the unknown left out.
+     *
+     * @param list<string> $ids
+     *
+     * @return array<string, Task> by id
+     */
+    public function findOwnedByIds(User $user, array $ids): array
+    {
+        $ulids = array_values(array_filter($ids, Ulid::isValid(...)));
+        if ([] === $ulids) {
+            return [];
+        }
+
+        $tasks = $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('ids', array_map(static fn (string $id): string => Ulid::fromString($id)->toRfc4122(), $ulids), ArrayParameterType::STRING)
+            ->getQuery()
+            ->getResult();
+
+        $byId = [];
+        foreach ($tasks as $task) {
+            $byId[(string) $task->getId()] = $task;
+        }
+
+        return $byId;
     }
 
     /**

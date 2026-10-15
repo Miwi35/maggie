@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again).')]
+#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again —, estimatedMinutes, firstStep).')]
 class UpdateTaskTool
 {
     public function __construct(
@@ -38,6 +38,8 @@ class UpdateTaskTool
         ?array $clear = null,
         ?string $parentId = null,
         ?string $position = null,
+        ?int $estimatedMinutes = null,
+        ?string $firstStep = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -49,7 +51,7 @@ class UpdateTaskTool
             $dueDateObj = null !== $dueDate ? TaskJson::day($dueDate) : null;
 
             $completedAt = null;
-            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate', 'parent']));
+            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate', 'parent', 'estimatedMinutes', 'firstStep']));
             if (true === $done) {
                 $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
             } elseif (false === $done) {
@@ -67,6 +69,8 @@ class UpdateTaskTool
                 clearFields: $clearFields,
                 parentId: $parentId,
                 position: $position,
+                estimatedMinutes: $estimatedMinutes,
+                firstStep: $firstStep,
             ));
 
             /** @var Task $task */

@@ -24,8 +24,12 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.shared.CriticalityChip
+import com.maggie.app.ui.screens.shared.PostponedLabel
 import com.maggie.app.ui.screens.shared.TaskConstants
+import com.maggie.app.ui.screens.shared.TaskPostponed
 import com.maggie.app.ui.screens.shared.UrgencyBadge
+import com.maggie.app.util.DateRanges
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -42,9 +46,12 @@ fun DashboardTaskItem(
     nested: Boolean = false,
     /** The tag of the box, for a journey to tick this row: the dashboard's by default. */
     checkTag: String = UiTags.dashboardTaskCheck(task.id),
+    today: LocalDate = DateRanges.todayDate(),
 ) {
     val isDone = task.isDone
     val daysLate = task.daysLate
+    // « Reportée » (MAG-497) replaces the red of lateness, except on a critical task.
+    val postponed = if (isDone) null else TaskPostponed.labelOf(task.postponedSince, task.urgency, today)
 
     Row(
         modifier = Modifier
@@ -74,13 +81,16 @@ fun DashboardTaskItem(
             )
             // Urgency (MAG-406) and lateness (MAG-405) are said in words and with an icon,
             // never by colour alone.
-            if (task.urgency != null || daysLate != null) {
+            if (task.urgency != null || daysLate != null || postponed != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     UrgencyBadge(task.urgency)
-                    if (daysLate != null) LateLabel(daysLate)
+                    when {
+                        postponed != null -> PostponedLabel(postponed)
+                        daysLate != null -> LateLabel(daysLate)
+                    }
                 }
             }
         }

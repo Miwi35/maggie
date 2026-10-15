@@ -9,11 +9,13 @@ use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Enum\TaskAlertReason;
 use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
+use Maggie\Calendar\Repository\DayPlanRepository;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Calendar\Service\TaskAlert;
 use Maggie\Calendar\Service\TaskAlertSchedule;
 use Maggie\Calendar\Service\TaskOverdue;
+use Maggie\Calendar\Service\TaskPostponement;
 use Maggie\Calendar\Service\TaskUrgency;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserPreferenceRepository;
@@ -43,6 +45,7 @@ class TaskAlertScheduleTest extends TestCase
         $urgency = new TaskUrgency(
             new TaskOverdue($this->createStub(UserPreferenceRepository::class), new MockClock(self::MORNING.' 12:00:00 UTC')),
             $settingsRepository,
+            new TaskPostponement($this->createStub(DayPlanRepository::class)),
         );
 
         return new TaskAlertSchedule($tasksRepository, $settingsRepository, $urgency);

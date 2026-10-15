@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.LocalDate
 
 /** A late task says so in words, with its original day (MAG-405), and so does its urgency (MAG-406): the colour alone says nothing to everyone. */
 @RunWith(AndroidJUnit4::class)
@@ -77,6 +78,36 @@ class DashboardTaskItemScreenTest {
         compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("haute", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("En retard de 1 j").assertIsDisplayed()
+    }
+
+    /** MAG-497: an ordinary task put off says so without reproach; only a critical one stays « en retard ». */
+    @Test
+    fun `a task put off reads « reportée depuis », not its lateness`() {
+        compose.setContent {
+            DashboardTaskItem(
+                task = Task(id = "t", title = "Renvoyer le formulaire", dueDate = "2026-10-13", overdueDays = 2, urgency = "high", postponedSince = "2026-10-13"),
+                onToggleDone = {},
+                today = LocalDate.of(2026, 10, 15),
+            )
+        }
+
+        compose.onNodeWithText("reportée depuis mardi").assertIsDisplayed()
+        compose.onNodeWithText("En retard", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a critical task put off keeps its mark and its lateness`() {
+        compose.setContent {
+            DashboardTaskItem(
+                task = Task(id = "t", title = "Payer l'impôt", dueDate = "2026-10-13", overdueDays = 2, urgency = "critical", postponedSince = "2026-10-13"),
+                onToggleDone = {},
+                today = LocalDate.of(2026, 10, 15),
+            )
+        }
+
+        compose.onNodeWithText("critique", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("En retard de 2 j").assertIsDisplayed()
+        compose.onNodeWithText("reportée", substring = true).assertDoesNotExist()
     }
 
     @Test

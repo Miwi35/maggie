@@ -2,7 +2,7 @@
     "@context": "/api/contexts/Task",
     "@id": "/api/tasks",
     "@type": "Collection",
-    "totalItems": 3,
+    "totalItems": 4,
     "member": [
         {
             "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -16,9 +16,12 @@
             "dueDate": "2026-03-20",
             "position": "00000000000000000000",
             "links": [],
+            "estimatedMinutes": 20,
+            "firstStep": "Ouvrir le dossier",
             "overdueDays": 33,
             "urgency": "critical",
             "orderScore": 111,
+            "postponedSince": "2026-03-20",
             "done": false,
             "googleSynced": false
         },
@@ -39,6 +42,21 @@
                     "link": "https://mail.google.com/mail/#all/abc"
                 }
             ],
+            "urgency": "low",
+            "orderScore": 3,
+            "done": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded reserve task",
+            "priority": "medium",
+            "criticality": "low",
+            "position": "00000000000000000002",
+            "links": [],
             "urgency": "low",
             "orderScore": 3,
             "done": false,

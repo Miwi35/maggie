@@ -5,6 +5,10 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DaySlot
+import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
@@ -45,10 +49,20 @@ class TasksViewModelTest {
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private val pushes = MutableSharedFlow<MercureEvent>()
+    private val dayPushes = MutableSharedFlow<MercureEvent>()
 
     private val counts = TaskViewCounts(today = 2, upcoming = 1, someday = 1, done = 1)
     private val late = task("t1", "Renvoyer le formulaire", dueDate = "2026-10-13", overdueDays = 2)
     private val canteen = task("t2", "Payer la cantine", dueDate = "2026-10-15")
+    private val today = LocalDate.of(2026, 10, 15)
+
+    private val form = dayTask("d1", "Renvoyer le formulaire", postponedSince = "2026-10-13")
+    private val call = dayTask("d2", "Appeler le garage", minutes = 10)
+    private val bins = dayTask("d3", "Sortir les poubelles")
+    private val plants = dayTask("d4", "Arroser")
+    private val bread = dayTask("d5", "Acheter du pain")
+    private val photos = dayTask("r1", "Trier les photos")
+    private val books = dayTask("r2", "Ranger les livres")
 
     @Before
     fun setup() {
@@ -59,7 +73,9 @@ class TasksViewModelTest {
         every { authRepository.token } returns flowOf("test-jwt")
         coEvery { authRepository.getUserId() } returns "u1"
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
         serve(TaskView.TODAY, late, canteen)
+        serveDay(day(listOf(form, call), reserve = listOf(photos, books)))
     }
 
     @After
@@ -68,7 +84,46 @@ class TasksViewModelTest {
     }
 
     private fun createViewModel() =
-        TasksViewModel(taskRepository, mercureService, authRepository, today = { LocalDate.of(2026, 10, 15) })
+        TasksViewModel(taskRepository, mercureService, authRepository, today = { today })
+
+    private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
+        DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
+
+    /** The day as the API describes it: positions from 1, `now` the first slot not done. */
+    private fun day(slotted: List<DayTask>, reserve: List<DayTask> = emptyList()): DayPlan {
+        val slots = slotted.mapIndexed { index, task -> DaySlot(position = index + 1, task = task) }
+        return DayPlan(
+            id = "day",
+            date = "2026-10-15",
+            slots = slots,
+            now = slots.firstOrNull { !it.task.isDone },
+            reserve = reserve,
+            done = slots.count { it.task.isDone },
+            total = slots.size,
+        )
+    }
+
+    private fun serveDay(day: DayPlan) {
+        coEvery { taskRepository.getDayPlan(today) } returns Result.success(day)
+    }
+
+    /** The day loaded, and the PUTs it receives captured in [puts], answered with [answer] of the list sent. */
+    private fun TestScope.openDay(
+        puts: MutableList<List<String>> = mutableListOf(),
+        answer: (List<String>) -> Result<DayPlan> = { ids -> Result.success(dayOf(ids)) },
+    ): TasksViewModel {
+        coEvery { taskRepository.setDaySlots(today, capture(puts)) } answers { answer(puts.last()) }
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    private val known get() = listOf(form, call, bins, plants, bread, photos, books)
+
+    /** What the API would answer for [ids]: those in the slots, every other known task in the reserve. */
+    private fun dayOf(ids: List<String>): DayPlan =
+        day(ids.map { id -> known.first { it.id == id } }, reserve = known.filter { it.id !in ids })
 
     private fun task(
         id: String,
@@ -92,30 +147,44 @@ class TasksViewModelTest {
 
         assertEquals(TaskView.TODAY, state.view)
         assertTrue(state.isLoading)
-        assertTrue(state.tasks.isEmpty())
+        assertNull(state.day)
         assertNull(state.counts)
     }
 
     @Test
-    fun `opening the screen lands the view's tasks and the counts of every tab in the state`() = runTest {
+    fun `opening the screen lands the day and the counts of every tab in the state`() = runTest {
         val viewModel = createViewModel()
         viewModel.onOpened()
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals(listOf("t1", "t2"), state.tasks.map { it.id })
+        assertEquals(listOf("d1", "d2"), state.day?.taskIds)
+        assertEquals("d1", state.day?.now?.task?.id)
+        assertEquals(listOf("r1", "r2"), state.day?.reserve?.map { it.id })
         assertEquals(counts, state.counts)
         assertFalse(state.isLoading)
         assertNull(state.error)
         assertFalse(state.isEmpty)
+        assertFalse("The reserve is folded until asked for", state.isReserveOpen)
+    }
+
+    @Test
+    fun `the Aujourd'hui tab counts what is left of the day, the others their view`() = runTest {
+        serveDay(day(listOf(form.copy(completedAt = "2026-10-15T08:00:00Z"), call, bins)))
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertEquals("Aujourd'hui (2)", tabLabelOf(TaskView.TODAY, viewModel.uiState.value))
+        assertEquals("À venir (1)", tabLabelOf(TaskView.UPCOMING, viewModel.uiState.value))
     }
 
     @Test
     fun `a view with no task is empty, not loading and not in error`() = runTest {
-        serve(TaskView.TODAY)
+        serve(TaskView.SOMEDAY)
 
         val viewModel = createViewModel()
-        viewModel.onOpened()
+        viewModel.selectView(TaskView.SOMEDAY)
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.isEmpty)
@@ -123,8 +192,20 @@ class TasksViewModelTest {
     }
 
     @Test
+    fun `an empty day is not an empty tab, its add field and its reserve stay`() = runTest {
+        serveDay(day(emptyList(), reserve = listOf(photos)))
+
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isEmpty)
+        assertNull(viewModel.uiState.value.day?.now)
+    }
+
+    @Test
     fun `a failing read exposes the error and stops loading`() = runTest {
-        coEvery { taskRepository.getTaskView(TaskView.TODAY, null) } returns Result.failure(RuntimeException("Network error"))
+        coEvery { taskRepository.getDayPlan(today) } returns Result.failure(RuntimeException("Network error"))
 
         val viewModel = createViewModel()
         viewModel.onOpened()
@@ -136,36 +217,51 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `a refresh that fails under a list keeps the list and says so in a message`() = runTest {
+    fun `a refresh that fails under the day keeps the day and says so in a message`() = runTest {
         val viewModel = createViewModel()
         viewModel.onOpened()
         advanceUntilIdle()
 
-        coEvery { taskRepository.getTaskView(TaskView.TODAY, null) } returns Result.failure(RuntimeException("Offline"))
+        coEvery { taskRepository.getDayPlan(today) } returns Result.failure(RuntimeException("Offline"))
         viewModel.refresh()
         advanceUntilIdle()
 
-        assertEquals(2, viewModel.uiState.value.tasks.size)
+        assertEquals(2, viewModel.uiState.value.day?.total)
         assertNull(viewModel.uiState.value.error)
         assertEquals("Offline", viewModel.uiState.value.message)
     }
 
     @Test
-    fun `a refresh keeps the list on screen while it reads`() = runTest {
+    fun `a refresh keeps the day on screen while it reads`() = runTest {
         val viewModel = createViewModel()
         viewModel.onOpened()
         advanceUntilIdle()
 
-        val answer = CompletableDeferred<Result<TaskViewResponse>>()
-        coEvery { taskRepository.getTaskView(TaskView.TODAY, null) } coAnswers { answer.await() }
+        val answer = CompletableDeferred<Result<DayPlan>>()
+        coEvery { taskRepository.getDayPlan(today) } coAnswers { answer.await() }
         viewModel.refresh()
         runCurrent()
 
-        assertEquals(2, viewModel.uiState.value.tasks.size)
+        assertEquals(2, viewModel.uiState.value.day?.total)
         assertFalse(viewModel.uiState.value.isLoading)
-        answer.complete(Result.success(response(canteen)))
+        answer.complete(Result.success(day(listOf(call))))
         advanceUntilIdle()
-        assertEquals(listOf("t2"), viewModel.uiState.value.tasks.map { it.id })
+        assertEquals(listOf("d2"), viewModel.uiState.value.day?.taskIds)
+    }
+
+    @Test
+    fun `a refresh in another tab that fails under its list keeps the list`() = runTest {
+        serve(TaskView.UPCOMING, late, canteen)
+        val viewModel = createViewModel()
+        viewModel.selectView(TaskView.UPCOMING)
+        advanceUntilIdle()
+
+        coEvery { taskRepository.getTaskView(TaskView.UPCOMING, null) } returns Result.failure(RuntimeException("Offline"))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.tasks.size)
+        assertEquals("Offline", viewModel.uiState.value.message)
     }
 
     @Test
@@ -189,8 +285,8 @@ class TasksViewModelTest {
 
     @Test
     fun `an answer for the tab the user left does not overwrite the one now open`() = runTest {
-        val slowToday = CompletableDeferred<Result<TaskViewResponse>>()
-        coEvery { taskRepository.getTaskView(TaskView.TODAY, null) } coAnswers { slowToday.await() }
+        val slowToday = CompletableDeferred<Result<DayPlan>>()
+        coEvery { taskRepository.getDayPlan(today) } coAnswers { slowToday.await() }
         serve(TaskView.SOMEDAY, task("t4", "Trier les photos"))
         val viewModel = createViewModel()
         viewModel.onOpened()
@@ -198,10 +294,11 @@ class TasksViewModelTest {
 
         viewModel.selectView(TaskView.SOMEDAY)
         advanceUntilIdle()
-        slowToday.complete(Result.success(response(late, canteen)))
+        slowToday.complete(Result.success(day(listOf(form))))
         advanceUntilIdle()
 
         assertEquals(listOf("t4"), viewModel.uiState.value.tasks.map { it.id })
+        assertNull(viewModel.uiState.value.day)
     }
 
     @Test
@@ -213,17 +310,18 @@ class TasksViewModelTest {
         viewModel.selectView(TaskView.TODAY)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { taskRepository.getTaskView(TaskView.TODAY, null) }
+        coVerify(exactly = 1) { taskRepository.getDayPlan(today) }
     }
 
     @Test
     fun `ticking a task reads the active view again`() = runTest {
         coEvery { taskRepository.toggleDone("t1", true) } returns Result.success(late.copy(completedAt = "2026-10-15T08:00:00Z"))
+        serve(TaskView.UPCOMING, late, canteen)
         val viewModel = createViewModel()
-        viewModel.onOpened()
+        viewModel.selectView(TaskView.UPCOMING)
         advanceUntilIdle()
 
-        serve(TaskView.TODAY, canteen)
+        serve(TaskView.UPCOMING, canteen)
         viewModel.toggleDone(late)
         advanceUntilIdle()
 
@@ -251,8 +349,9 @@ class TasksViewModelTest {
     @Test
     fun `a tick that fails leaves the list and says so`() = runTest {
         coEvery { taskRepository.toggleDone("t1", true) } returns Result.failure(RuntimeException("boom"))
+        serve(TaskView.UPCOMING, late, canteen)
         val viewModel = createViewModel()
-        viewModel.onOpened()
+        viewModel.selectView(TaskView.UPCOMING)
         advanceUntilIdle()
 
         viewModel.toggleDone(late)
@@ -268,6 +367,7 @@ class TasksViewModelTest {
     private fun TestScope.addFrom(view: TaskView): TaskCreateRequest {
         val request = slot<TaskCreateRequest>()
         coEvery { taskRepository.createTask(capture(request)) } returns Result.success(task("new", "x"))
+        coEvery { taskRepository.setDaySlots(today, any()) } returns Result.success(day(listOf(form, call)))
         serve(view)
         val viewModel = createViewModel()
         viewModel.selectView(view)
@@ -281,11 +381,11 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `a task added in Aujourd'hui is due today`() = runTest {
+    fun `a task added in Aujourd'hui takes a slot, not a due day`() = runTest {
         val request = addFrom(TaskView.TODAY)
 
         assertEquals("Acheter du pain", request.title)
-        assertEquals("2026-10-15", request.dueDate)
+        assertNull(request.dueDate)
     }
 
     @Test
@@ -300,12 +400,13 @@ class TasksViewModelTest {
 
     @Test
     fun `adding reads the view again so the task shows up`() = runTest {
-        coEvery { taskRepository.createTask(any()) } returns Result.success(task("new", "Acheter du pain", dueDate = "2026-10-15"))
+        coEvery { taskRepository.createTask(any()) } returns Result.success(task("new", "Acheter du pain", dueDate = "2026-10-16"))
+        serve(TaskView.UPCOMING, late, canteen)
         val viewModel = createViewModel()
-        viewModel.onOpened()
+        viewModel.selectView(TaskView.UPCOMING)
         advanceUntilIdle()
 
-        serve(TaskView.TODAY, late, canteen, task("new", "Acheter du pain", dueDate = "2026-10-15"))
+        serve(TaskView.UPCOMING, late, canteen, task("new", "Acheter du pain", dueDate = "2026-10-16"))
         viewModel.onDraftChange("Acheter du pain")
         viewModel.addTask()
         advanceUntilIdle()
@@ -420,15 +521,238 @@ class TasksViewModelTest {
 
     @Test
     fun `a task changed elsewhere reads the active view again`() = runTest {
+        serve(TaskView.UPCOMING, late, canteen)
         val viewModel = createViewModel()
+        viewModel.selectView(TaskView.UPCOMING)
         viewModel.onOpened()
         advanceUntilIdle()
 
-        serve(TaskView.TODAY, canteen)
+        serve(TaskView.UPCOMING, canteen)
         pushes.emit(MercureEvent())
         advanceUntilIdle()
 
         assertEquals(listOf("t2"), viewModel.uiState.value.tasks.map { it.id })
+    }
+
+    @Test
+    fun `a day changed elsewhere is read again`() = runTest {
+        val viewModel = openDay()
+
+        serveDay(day(listOf(call, bins), reserve = listOf(form)))
+        dayPushes.emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals(listOf("d2", "d3"), viewModel.uiState.value.day?.taskIds)
+        assertEquals(1, dayPushes.subscriptionCount.value)
+    }
+
+    @Test
+    fun `a task ticked elsewhere reads the day again`() = runTest {
+        val viewModel = openDay()
+
+        serveDay(day(listOf(form.copy(completedAt = "2026-10-15T08:00:00Z"), call)))
+        pushes.emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals("d2", viewModel.uiState.value.day?.now?.task?.id)
+    }
+
+    // --- The day (MAG-497) ---
+
+    @Test
+    fun `ticking « Maintenant » moves it to the next slot at once, then reads the day again`() = runTest {
+        coEvery { taskRepository.toggleDone("d1", true) } returns Result.success(task("d1", "Renvoyer le formulaire"))
+        val viewModel = openDay()
+
+        serveDay(day(listOf(form.copy(completedAt = "2026-10-15T08:00:00Z"), call)))
+        viewModel.toggleDayTask(form)
+        // Before the server answered: the ring and « Maintenant » already moved.
+        assertEquals("d2", viewModel.uiState.value.day?.now?.task?.id)
+        assertEquals(1, viewModel.uiState.value.day?.done)
+        advanceUntilIdle()
+
+        coVerify { taskRepository.toggleDone("d1", true) }
+        assertEquals("d2", viewModel.uiState.value.day?.now?.task?.id)
+        assertEquals(1, viewModel.uiState.value.day?.done)
+        assertEquals("Aujourd'hui (1)", tabLabelOf(TaskView.TODAY, viewModel.uiState.value))
+    }
+
+    @Test
+    fun `unticking a done slot asks for completedAt null and brings « Maintenant » back to it`() = runTest {
+        val doneForm = form.copy(completedAt = "2026-10-15T08:00:00Z")
+        serveDay(day(listOf(doneForm, call)))
+        coEvery { taskRepository.toggleDone("d1", false) } returns Result.success(task("d1", "Renvoyer le formulaire"))
+        val viewModel = openDay()
+        assertEquals("d2", viewModel.uiState.value.day?.now?.task?.id)
+
+        serveDay(day(listOf(form, call)))
+        viewModel.toggleDayTask(doneForm)
+        advanceUntilIdle()
+
+        coVerify { taskRepository.toggleDone("d1", false) }
+        assertEquals("d1", viewModel.uiState.value.day?.now?.task?.id)
+        assertEquals(0, viewModel.uiState.value.day?.done)
+    }
+
+    @Test
+    fun `a tick of the day that fails puts the day back and says so`() = runTest {
+        coEvery { taskRepository.toggleDone("d1", true) } returns Result.failure(RuntimeException("boom"))
+        val viewModel = openDay()
+
+        viewModel.toggleDayTask(form)
+        advanceUntilIdle()
+
+        assertEquals("d1", viewModel.uiState.value.day?.now?.task?.id)
+        assertEquals(0, viewModel.uiState.value.day?.done)
+        assertNotNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `the reserve unfolds and folds back`() = runTest {
+        val viewModel = openDay()
+
+        viewModel.toggleReserve()
+        assertTrue(viewModel.uiState.value.isReserveOpen)
+        viewModel.toggleReserve()
+        assertFalse(viewModel.uiState.value.isReserveOpen)
+    }
+
+    @Test
+    fun `a reserve task put in the day takes the next free slot`() = runTest {
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        viewModel.putInDay("r1")
+        assertTrue(viewModel.uiState.value.isSavingDay)
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d1", "d2", "r1")), puts)
+        assertEquals(listOf("d1", "d2", "r1"), viewModel.uiState.value.day?.taskIds)
+        assertEquals(listOf("d3", "d4", "d5", "r2"), viewModel.uiState.value.day?.reserve?.map { it.id })
+        assertFalse(viewModel.uiState.value.isSavingDay)
+    }
+
+    @Test
+    fun `when the five are taken a reserve task replaces the slot chosen, which goes back to the reserve`() = runTest {
+        serveDay(dayOf(listOf("d1", "d2", "d3", "d4", "d5")))
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        viewModel.putInDay("r1", insteadOf = "d3")
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d1", "d2", "r1", "d4", "d5")), puts)
+        assertEquals(listOf("d1", "d2", "r1", "d4", "d5"), viewModel.uiState.value.day?.taskIds)
+        assertTrue(viewModel.uiState.value.day!!.reserve.any { it.id == "d3" })
+    }
+
+    @Test
+    fun `a full day and no slot named sends nothing`() = runTest {
+        serveDay(dayOf(listOf("d1", "d2", "d3", "d4", "d5")))
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        viewModel.putInDay("r1")
+        advanceUntilIdle()
+
+        assertTrue(puts.isEmpty())
+    }
+
+    @Test
+    fun `« Remettre dans la réserve » frees the slot and the ones after it move up`() = runTest {
+        serveDay(dayOf(listOf("d1", "d2", "d3")))
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        viewModel.removeFromDay("d2")
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d1", "d3")), puts)
+        assertEquals(listOf("d1", "d3"), viewModel.uiState.value.day?.taskIds)
+        assertTrue(viewModel.uiState.value.day!!.reserve.any { it.id == "d2" })
+    }
+
+    @Test
+    fun `a refused change of the day says so and keeps the day as it was`() = runTest {
+        val viewModel = openDay(answer = { Result.failure(ApiRefusalException(400, "A day holds 5 slots at most")) })
+
+        viewModel.putInDay("r1")
+        advanceUntilIdle()
+
+        assertEquals(listOf("d1", "d2"), viewModel.uiState.value.day?.taskIds)
+        assertEquals("Impossible de modifier la journée.", viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.isSavingDay)
+    }
+
+    @Test
+    fun `a task added in the day with a slot free takes it`() = runTest {
+        coEvery { taskRepository.createTask(any()) } returns Result.success(task("d5", "Acheter du pain"))
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        serveDay(dayOf(listOf("d1", "d2", "d5")))
+        viewModel.onDraftChange("Acheter du pain")
+        viewModel.addTask()
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d1", "d2", "d5")), puts)
+        assertEquals(listOf("d1", "d2", "d5"), viewModel.uiState.value.day?.taskIds)
+        assertEquals("", viewModel.uiState.value.draft)
+    }
+
+    @Test
+    fun `a task added when the five are taken waits in the reserve, no slot asked for`() = runTest {
+        serveDay(dayOf(listOf("d1", "d2", "d3", "d4", "d5")))
+        coEvery { taskRepository.createTask(any()) } returns Result.success(task("r1", "Trier les photos"))
+        val puts = mutableListOf<List<String>>()
+        val viewModel = openDay(puts)
+
+        viewModel.onDraftChange("Trier les photos")
+        viewModel.addTask()
+        advanceUntilIdle()
+
+        assertTrue(puts.isEmpty())
+        assertTrue(viewModel.uiState.value.day!!.reserve.any { it.id == "r1" })
+        assertEquals("", viewModel.uiState.value.draft)
+    }
+
+    @Test
+    fun `a task added whose slot is refused waits in the reserve and says so`() = runTest {
+        coEvery { taskRepository.createTask(any()) } returns Result.success(task("d5", "Acheter du pain"))
+        val viewModel = openDay(answer = { Result.failure(ApiRefusalException(400, "no")) })
+
+        viewModel.onDraftChange("Acheter du pain")
+        viewModel.addTask()
+        advanceUntilIdle()
+
+        assertEquals("La tâche attend dans la réserve.", viewModel.uiState.value.message)
+        assertEquals("", viewModel.uiState.value.draft)
+    }
+
+    @Test
+    fun `a task of the day is read whole before its detail opens`() = runTest {
+        val whole = task("d1", "Renvoyer le formulaire", dueDate = "2026-10-13")
+        coEvery { taskRepository.fetchTask("d1") } returns Result.success(whole)
+        val viewModel = openDay()
+
+        viewModel.openTask("d1")
+        advanceUntilIdle()
+        assertEquals(whole, viewModel.uiState.value.opened)
+
+        viewModel.onTaskOpened()
+        assertNull(viewModel.uiState.value.opened)
+    }
+
+    @Test
+    fun `a task of the day that cannot be read says so and opens nothing`() = runTest {
+        coEvery { taskRepository.fetchTask("d1") } returns Result.failure(RuntimeException("gone"))
+        val viewModel = openDay()
+
+        viewModel.openTask("d1")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.opened)
+        assertNotNull(viewModel.uiState.value.message)
     }
 
     @Test

@@ -358,8 +358,46 @@ object UiTags {
 
     fun tasksCheck(id: String) = TASKS_CHECK_PREFIX + id
 
+    /**
+     * « Aujourd'hui » is the day (MAG-497): the « Maintenant » card, its box and « Juste 10 minutes »;
+     * the ring; each slot suffixed by its position (1 to 5), its box and its menu by the task's id,
+     * « Remettre dans la réserve » in that menu; the reserve's header, each of its tasks and the
+     * button that puts one in the day by the task's id, and when the five are taken the menu's
+     * « À la place de … » entries by the slot's position; the day's own add field and its button.
+     */
+    const val TASKS_NOW = "tasks_now"
+    const val TASKS_NOW_CHECK = "tasks_now_check"
+    const val TASKS_NOW_FOCUS = "tasks_now_focus"
+    const val TASKS_RING = "tasks_ring"
+    const val TASKS_SLOT_PREFIX = "tasks_slot_"
+    const val TASKS_SLOT_CHECK_PREFIX = "tasks_slot_check_"
+    const val TASKS_SLOT_MENU_PREFIX = "tasks_slot_menu_"
+    const val TASKS_SLOT_REMOVE = "tasks_slot_remove"
+    const val TASKS_RESERVE_TOGGLE = "tasks_reserve_toggle"
+    const val TASKS_RESERVE_ITEM_PREFIX = "tasks_reserve_item_"
+    const val TASKS_RESERVE_ADD_PREFIX = "tasks_reserve_add_"
+    const val TASKS_REPLACE_PREFIX = "tasks_replace_"
+    const val TASKS_DAY_ADD_INPUT = "tasks_day_add_input"
+    const val TASKS_DAY_ADD_SUBMIT = "tasks_day_add_submit"
+
+    fun tasksSlot(position: Int) = TASKS_SLOT_PREFIX + position
+
+    fun tasksSlotCheck(id: String) = TASKS_SLOT_CHECK_PREFIX + id
+
+    fun tasksSlotMenu(id: String) = TASKS_SLOT_MENU_PREFIX + id
+
+    fun tasksReserveItem(id: String) = TASKS_RESERVE_ITEM_PREFIX + id
+
+    fun tasksReserveAdd(id: String) = TASKS_RESERVE_ADD_PREFIX + id
+
+    fun tasksReplace(position: Int) = TASKS_REPLACE_PREFIX + position
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
+
+    /** A task's create and edit screens (MAG-497): « Durée estimée » and « Premier pas ». */
+    const val TASK_ESTIMATE = "task_estimate"
+    const val TASK_FIRST_STEP = "task_first_step"
 
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
     const val APPROVAL_CARD_PREFIX = "approval_card_"

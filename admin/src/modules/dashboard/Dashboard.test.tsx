@@ -130,7 +130,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   })
 
   const VIEW: TodayTask[] = [
-    todayTask('01LATE', 'Renvoyer le formulaire', { dueDate: '2037-01-13', overdueDays: 2, urgency: 'high', orderScore: 72 }),
+    todayTask('01LATE', 'Renvoyer le formulaire', { dueDate: '2037-01-13', overdueDays: 2, postponedSince: '2037-01-13', urgency: 'high', orderScore: 72 }),
     todayTask('01MOVING', 'Préparer le déménagement', { dueDate: '2037-01-15', overdueDays: null }),
     todayTask('01BOXES', 'Réserver le camion', { parent: '/api/tasks/01MOVING' }),
   ]
@@ -157,11 +157,12 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
     vi.unstubAllGlobals()
   })
 
-  test('keeps the API order, the late task first with its lateness and original day', async () => {
+  test('keeps the API order, the late task first, put off since its original day (MAG-497)', async () => {
     render(<Dashboard />)
 
     const late = (await screen.findByText('Renvoyer le formulaire')).closest('li') as HTMLElement
-    expect(within(late).getByText('En retard de 2 j')).toBeInTheDocument()
+    expect(within(late).getByText('reportée depuis mardi')).toBeInTheDocument()
+    expect(within(late).queryByText(/En retard/)).toBeNull()
     expect(within(late).getByText(/^prévue le 13 janv/)).toBeInTheDocument()
 
     const rows = within(dailyColumn("Aujourd'hui")).getAllByRole('listitem').map((li) => li.textContent ?? '')

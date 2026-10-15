@@ -62,6 +62,8 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     use HasGoogleTaskTrackingTrait;
     use MercurePayloadFilterTrait;
 
+    public const MAX_ESTIMATED_MINUTES = 1440;
+
     // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -142,6 +144,23 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[ApiProperty(writable: false, description: 'Links Google attached to the task, read only: {type, description, link}.')]
     private array $links = [];
 
+    /** How long the owner thinks it takes, in minutes. Maggie's own: never sent to Google nor read from it (MAG-497). */
+    #[ORM\Column(nullable: true)]
+    #[IndexedField(type: 'integer')]
+    #[Assert\Range(min: 1, max: self::MAX_ESTIMATED_MINUTES)]
+    #[ApiProperty(
+        description: 'How long the task should take, in minutes (1 to 1440). Maggie\'s own: Google never sees it.',
+        openapiContext: ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => self::MAX_ESTIMATED_MINUTES],
+    )]
+    private ?int $estimatedMinutes = null;
+
+    /** The first small gesture that starts the task. Maggie's own, like `estimatedMinutes`. */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[IndexedField(type: 'text')]
+    #[Assert\Length(max: 255)]
+    #[ApiProperty(description: 'The first small step that starts the task. Maggie\'s own: Google never sees it.')]
+    private ?string $firstStep = null;
+
     /**
      * Computed on each read, never stored nor indexed: it depends on the day
      * (MAG-405). {@see \Maggie\Calendar\Serializer\TaskComputedFieldsNormalizer}
@@ -153,6 +172,9 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 
     /** Computed on each read like `overdueDays` (MAG-406). {@see \Maggie\Calendar\Service\TaskUrgency} */
     private ?int $orderScore = null;
+
+    /** Computed on each read like `overdueDays` (MAG-497). {@see \Maggie\Calendar\Service\TaskPostponement} */
+    private ?\DateTimeImmutable $postponedSince = null;
 
     public function __construct()
     {
@@ -286,6 +308,48 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return $this;
     }
 
+    public function getEstimatedMinutes(): ?int
+    {
+        return $this->estimatedMinutes;
+    }
+
+    public function setEstimatedMinutes(?int $estimatedMinutes): static
+    {
+        $this->estimatedMinutes = $estimatedMinutes;
+
+        return $this;
+    }
+
+    public function getFirstStep(): ?string
+    {
+        return $this->firstStep;
+    }
+
+    public function setFirstStep(?string $firstStep): static
+    {
+        $this->firstStep = $firstStep;
+
+        return $this;
+    }
+
+    #[ApiProperty(
+        writable: false,
+        description: 'The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
+    )]
+    #[Context(normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
+    public function getPostponedSince(): ?\DateTimeImmutable
+    {
+        return $this->postponedSince;
+    }
+
+    public function setPostponedSince(?\DateTimeImmutable $postponedSince): static
+    {
+        $this->postponedSince = $postponedSince;
+
+        return $this;
+    }
+
     #[ApiProperty(
         writable: false,
         description: 'Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user\'s timezone.',
@@ -353,6 +417,8 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'position' => $this->position,
             'links' => $this->links,
+            'estimatedMinutes' => $this->estimatedMinutes,
+            'firstStep' => $this->firstStep,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'userId' => (string) $this->user->getId(),
@@ -370,6 +436,8 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'parent' => null !== $this->parent ? '/api/tasks/'.$this->parent->getId() : null,
             'position' => $this->position,
             'links' => $this->links,
+            'estimatedMinutes' => $this->estimatedMinutes,
+            'firstStep' => $this->firstStep,
         ], $changedProperties, ['completedAt' => 'isDone']);
     }
 }

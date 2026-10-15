@@ -39,6 +39,8 @@ fun TaskCreateScreen(
     var priority by remember { mutableStateOf("medium") }
     var criticality by remember { mutableStateOf("low") }
     var dueDate by remember { mutableStateOf<LocalDate?>(null) }
+    var estimate by remember { mutableStateOf("") }
+    var firstStep by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -98,6 +100,13 @@ fun TaskCreateScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            EstimateFields(
+                estimate = estimate,
+                onEstimateChange = { estimate = it },
+                firstStep = firstStep,
+                onFirstStepChange = { firstStep = it },
+            )
+
             Button(
                 onClick = {
                     onConfirm(
@@ -107,10 +116,12 @@ fun TaskCreateScreen(
                             priority = priority,
                             criticality = criticality,
                             dueDate = TaskDueDate.toApi(dueDate),
+                            estimatedMinutes = TaskEstimate.toApi(estimate),
+                            firstStep = TaskEstimate.firstStepToApi(firstStep),
                         ),
                     )
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && TaskEstimate.isValid(estimate),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Créer")

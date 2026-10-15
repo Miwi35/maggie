@@ -1,4 +1,4 @@
-import { test, expect, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -26,6 +26,23 @@ interface StoredTask {
   title?: string
   dueDate?: string | null
   completedAt?: string | null
+}
+
+/** A task as the day sends it (MAG-497). */
+interface DayTask {
+  id: string
+  title: string
+  completedAt: string | null
+  postponedSince: string | null
+  urgency: string | null
+}
+
+interface DayPlan {
+  slots: { position: number; task: DayTask }[]
+  now: { position: number; task: DayTask } | null
+  reserve: DayTask[]
+  done: number
+  total: number
 }
 
 const DAY = seedDate()
@@ -112,10 +129,14 @@ test('ticking a task off on the dashboard completes it and takes it out of the d
 /**
  * A task due and not done stays in « Aujourd'hui », marked late — MAG-405.
  *
- * The seed has one task due today and one due two days ago: the late one goes
- * before it — by score since MAG-406 — with its lateness in words and its original
- * day, and ticking it takes it out of the day. The lateness comes from the API (`overdueDays`), counted in the
- * user's timezone: the page only draws it.
+ * The seed has one task due today and one due two days ago: on the dashboard the
+ * late one goes before it — by score since MAG-406 — with its lateness in words
+ * and its original day, and ticking it takes it out of the day. The lateness comes
+ * from the API (`overdueDays`), counted in the user's timezone: the page only draws it.
+ *
+ * On the « Tâches » page the day holds five tasks the owner chose (MAG-497): the
+ * late one waits in the reserve, « reportée depuis … » since its due day, never a
+ * reproach in red.
  */
 test('a late task stays in « Aujourd\'hui » before the day\'s own, says how late it is, and leaves when ticked', async ({ page, api }) => {
   const title = 'Renvoyer le formulaire de la mutuelle'
@@ -127,7 +148,17 @@ test('a late task stays in « Aujourd\'hui » before the day\'s own, says how la
 
   const item = await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/ld+json' } })
   expect(item.ok(), `GET /api/tasks/${taskId} answered ${item.status()}`).toBe(true)
-  expect(((await item.json()) as { overdueDays?: number | null }).overdueDays, 'the item should carry its lateness').toBe(2)
+  const stored = (await item.json()) as { overdueDays?: number | null; postponedSince?: string | null }
+  expect(stored.overdueDays, 'the item should carry its lateness').toBe(2)
+  expect(stored.postponedSince, 'put off since its due day').toBe(seedDate(-2))
+
+  // The « Tâches » page: in the reserve, put off rather than late.
+  const board = new TasksPage(page)
+  await board.open()
+  await board.openReserve()
+  await expect(board.reserveRow(title)).toHaveCount(1)
+  await expect(board.reserveRow(title)).toContainText(/reportée depuis \S+/)
+  await expect(board.reserveRow(title)).not.toContainText(/retard/i)
 
   const dashboard = new DashboardPage(page)
   await dashboard.open()
@@ -146,7 +177,9 @@ test('a late task stays in « Aujourd\'hui » before the day\'s own, says how la
     'the late task should come before the one due today',
   ).toBeLessThan(titles.findIndex((row) => row.includes('Préparer le déménagement')))
   const late = rows.filter({ hasText: title })
-  await expect(late).toContainText('En retard de 2 j')
+  // Not critical: put off, never a reproach (MAG-497).
+  await expect(late).toContainText(/reportée depuis /)
+  await expect(late).not.toContainText('En retard')
   await expect(late).toContainText('prévue le')
   await expect(rows.filter({ hasText: 'Préparer le déménagement' })).not.toContainText('En retard')
 
@@ -169,9 +202,11 @@ test('a late task stays in « Aujourd\'hui » before the day\'s own, says how la
  * The seed's three witnesses, with the default weights: « Payer la cantine »
  * (high criticality, medium priority, due today) 78, « Rendre le livre » (low,
  * low, a day late) 67, « Arroser » (low, low, due today) 55 — urgencies haute,
- * haute, normale. The API computes both; the page draws the urgency as a word with
- * an icon and keeps the API's order. Other journeys add tasks to the day, so the
- * three are compared with each other, not with the row numbers.
+ * haute, normale. The API computes both; the dashboard draws the urgency as a word
+ * with an icon and keeps the API's order, and so does the reserve of the « Tâches »
+ * page (MAG-497), where « Rendre le livre » reads « reportée depuis hier ». Other
+ * journeys add tasks to the day, so the three are compared with each other, not
+ * with the row numbers.
  */
 test('« Aujourd\'hui » goes by score, each task with its urgency in words', async ({ page, api }) => {
   const witnesses = ['Payer la cantine', 'Rendre le livre', 'Arroser']
@@ -205,24 +240,44 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
     await expect(badge, `the urgency of « ${title} »`).toHaveText(word)
     await expect(badge.locator('svg'), 'the urgency has its icon, not only a colour').toHaveCount(1)
   }
+
+  // The reserve of the day, by the same score.
+  const day = await dayPlan(api)
+  const reserved = witnesses.map((title) => day.reserve.findIndex((task) => task.title === title))
+  expect(reserved, 'the three wait in the reserve, by score').toEqual([...reserved].sort((a, b) => a - b))
+  expect(Math.min(...reserved), 'a witness is missing from the reserve').toBeGreaterThanOrEqual(0)
+
+  const board = new TasksPage(page)
+  await board.open()
+  await board.openReserve()
+  const drawn = await board.reserve.getByRole('listitem').allTextContents()
+  const order = witnesses.map((title) => drawn.findIndex((row) => row.includes(title)))
+  expect(order, `the order of the reserve: ${drawn.join(' | ')}`).toEqual([...order].sort((a, b) => a - b))
+  expect(Math.min(...order), 'a witness is missing from the reserve on screen').toBeGreaterThanOrEqual(0)
+  await expect(board.reserveRow('Rendre le livre')).toContainText('reportée depuis hier')
 })
 
 /**
  * The « Tâches » page sorts every task into one of four tabs — MAG-408.
  *
- * Four tasks of this attempt: a late one, one due in five days, one without a
- * date and a done one. Each lands in its own tab, and ticking the « À venir » one
- * moves it to « Faites ». The seed and the other journeys add tasks of their own,
- * so the counters are checked to be there and non-zero, and to follow the view's
- * own total, not to equal one.
+ * Five tasks of this attempt: a late one, a late critical one, one due in five
+ * days, one without a date and a done one. The API sorts each into its view; on
+ * the page « Aujourd'hui » is the day the owner chose (MAG-497), so the late ones
+ * wait in its reserve — the ordinary one « reportée depuis … », the critical one
+ * with its own mark — and the three others land in their own tab. Ticking the
+ * « À venir » one moves it to « Faites ». The seed and the other journeys add
+ * tasks of their own, so the counters are checked to be there and non-zero, and
+ * to follow the view's own total, not to equal one.
  */
 test('« Tâches » puts a late, an upcoming, an undated and a done task in their own tabs, and ticking moves it to « Faites »', async ({ page, api }) => {
   const late = perAttempt('Relancer le notaire')
+  const critical = perAttempt('Payer la taxe foncière')
   const upcoming = perAttempt('Réserver le train')
   const someday = perAttempt('Apprendre le piano')
   const finished = perAttempt('Envoyer les voeux')
 
   await createTask(api, { title: late, dueDate: seedDate(-3) })
+  await createTask(api, { title: critical, dueDate: seedDate(-3), criticality: 'critical' })
   await createTask(api, { title: upcoming, dueDate: seedDate(5) })
   await createTask(api, { title: someday })
   const doneId = await createTask(api, { title: finished })
@@ -231,6 +286,7 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   // Each in the view the API sorts it into, before the page is asked to show it.
   for (const [view, title] of [
     ['today', late],
+    ['today', critical],
     ['upcoming', upcoming],
     ['someday', someday],
     ['done', finished],
@@ -246,10 +302,18 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   const board = new TasksPage(page)
   await board.open()
 
-  // Given a late task: « Aujourd'hui », late first, with its lateness in words.
-  await expect(board.row(late)).toHaveCount(1)
-  await expect(board.row(late)).toContainText(/En retard de \d+ j/)
-  await expect(board.row(upcoming)).toHaveCount(0)
+  // Given a late task: in the reserve of « Aujourd'hui », put off, never late in red.
+  await board.openReserve()
+  await expect(board.reserveRow(late)).toHaveCount(1)
+  await expect(board.reserveRow(late)).toContainText(/reportée depuis \S+/)
+  await expect(board.reserveRow(late)).not.toContainText(/retard/i)
+  // A critical one keeps its word and its icon instead.
+  const criticalBadge = board.reserveRow(critical).getByTestId('urgency-badge')
+  await expect(criticalBadge).toHaveText('critique')
+  await expect(criticalBadge.locator('svg')).toHaveCount(1)
+  await expect(board.reserveRow(critical)).not.toContainText('reportée')
+  // Done, it is nowhere in the day.
+  await expect(board.reserveRow(finished)).toHaveCount(0)
 
   await board.select('À venir')
   await expect(board.row(upcoming)).toHaveCount(1)
@@ -263,7 +327,9 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   await expect(board.row(finished)).toHaveCount(1)
   await expect(board.row(someday)).toHaveCount(0)
 
-  for (const tab of ["Aujourd'hui", 'À venir', 'À faire un jour', 'Faites'] as const) {
+  // « Aujourd'hui » counts what is left of the day, which may be nothing.
+  expect(await board.count("Aujourd'hui"), "the « Aujourd'hui » counter").toBeGreaterThanOrEqual(0)
+  for (const tab of ['À venir', 'À faire un jour', 'Faites'] as const) {
     expect(await board.count(tab), `the « ${tab} » counter`).toBeGreaterThanOrEqual(1)
   }
 
@@ -286,6 +352,79 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
       message: 'the ticked task should be stored as completed',
     })
     .toBe(true)
+})
+
+/**
+ * The day holds five tasks at most, « Maintenant » on top and the rest folded
+ * away in the reserve — MAG-497, extends MAG-100.
+ *
+ * Every journey that writes today's day belongs in this block, serial: the day
+ * is one per user and date, and two journeys replacing it at once would each
+ * read the other's list. The one here puts its own back to empty at the end.
+ */
+test.describe('the day of five', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test('ticking the first task of the day moves « Maintenant » to the second, and the reserve keeps the rest folded', async ({ page, api }) => {
+    const today = parisDay()
+    const titles = Array.from({ length: 7 }, (_, i) => perAttempt(`Journée ${i + 1} — ranger le bureau`))
+    const ids: string[] = []
+
+    try {
+      // Given seven open tasks of this attempt, the second with its first step and its minutes…
+      for (const [i, title] of titles.entries()) {
+        ids.push(await createTask(api, i === 1 ? { title, firstStep: 'Vider le premier tiroir', estimatedMinutes: 10 } : { title }))
+      }
+      // …five of them in today's day, through the API.
+      const planned = await setDayPlan(api, today, ids.slice(0, 5))
+      expect(planned.slots.map((slot) => slot.task.id)).toEqual(ids.slice(0, 5))
+      expect(planned.now?.task.id).toBe(ids[0])
+      expect([planned.done, planned.total]).toEqual([0, 5])
+      expect(planned.reserve.map((task) => task.id)).toEqual(expect.arrayContaining(ids.slice(5)))
+
+      const board = new TasksPage(page)
+      await board.open()
+      await expect(board.now).toContainText(titles[0])
+      await expect(board.ring).toHaveAccessibleName('0 sur 5')
+      await expect(board.slots.getByRole('listitem')).toHaveCount(5)
+      for (const title of titles.slice(0, 5)) await expect(board.slot(title)).toHaveCount(1)
+      await expect(board.tab("Aujourd'hui")).toHaveText("Aujourd'hui (5)")
+      await expect(board.reserveToggle).toHaveAttribute('aria-expanded', 'false')
+      await expect(board.reserve).toBeHidden()
+
+      // When I tick the first in the admin…
+      await board.slot(titles[0]).getByRole('checkbox', { name: `Terminer ${titles[0]}` }).click()
+
+      // …then « Maintenant » shows the second, with its first step and its minutes…
+      await expect(board.now).toContainText(titles[1])
+      await expect(board.now).toContainText('Vider le premier tiroir')
+      await expect(board.now).toContainText('10 min')
+      // …the ring says one out of five…
+      await expect(board.ring).toHaveAccessibleName('1 sur 5')
+      await expect(board.ring).toHaveText('1 sur 5')
+      await expect(board.slot(titles[0]).getByRole('checkbox', { name: `Rouvrir ${titles[0]}` })).toBeChecked()
+      await expect(board.tab("Aujourd'hui")).toHaveText("Aujourd'hui (4)")
+      // …and the reserve is still folded, holding the two others once unfolded.
+      await expect(board.reserveToggle).toHaveAttribute('aria-expanded', 'false')
+      await expect(board.reserve).toBeHidden()
+      await board.openReserve()
+      for (const title of titles.slice(5)) await expect(board.reserveRow(title)).toHaveCount(1)
+      for (const title of titles.slice(0, 5)) await expect(board.reserveRow(title)).toHaveCount(0)
+
+      // The data agrees: the tick is the first slot's, and « now » the second.
+      await expect
+        .poll(async () => {
+          const day = await dayPlan(api, today)
+
+          return [day.done, day.total, day.now?.task.id, day.slots[0]?.task.completedAt != null]
+        }, { timeout: 30_000, message: 'the day should hold the tick' })
+        .toEqual([1, 5, ids[1], true])
+    } finally {
+      // Leave the day as the other journeys expect it: empty, and none of these tasks around.
+      await setDayPlan(api, today, [])
+      for (const id of ids) await api.delete(`/api/tasks/${id}`)
+    }
+  })
 })
 
 /**
@@ -434,7 +573,10 @@ async function completeTask(api: APIRequestContext, taskId: string): Promise<voi
 }
 
 /** Creates a task through the API and returns its id. */
-async function createTask(api: APIRequestContext, data: { title: string; dueDate?: string }): Promise<string> {
+async function createTask(
+  api: APIRequestContext,
+  data: { title: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string },
+): Promise<string> {
   const response = await api.post('/api/tasks', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
     data,
@@ -442,6 +584,25 @@ async function createTask(api: APIRequestContext, data: { title: string; dueDate
   expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
 
   return String(((await response.json()) as { id: string }).id)
+}
+
+/** Today's day (MAG-497), as the API reads it. */
+async function dayPlan(api: APIRequestContext, date = parisDay()): Promise<DayPlan> {
+  const response = await api.get(`/api/day-plans/${date}`, { headers: { Accept: 'application/json' } })
+  expect(response.ok(), `GET /api/day-plans/${date} answered ${response.status()}`).toBe(true)
+
+  return (await response.json()) as DayPlan
+}
+
+/** Replaces the whole list of the day's tasks, in order; answers the day as it stands. */
+async function setDayPlan(api: APIRequestContext, date: string, taskIds: string[]): Promise<DayPlan> {
+  const response = await api.put(`/api/day-plans/${date}`, {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    data: { slots: taskIds.map((taskId) => ({ type: 'task', taskId })) },
+  })
+  expect(response.ok(), `PUT /api/day-plans/${date} answered ${response.status()}`).toBe(true)
+
+  return (await response.json()) as DayPlan
 }
 
 /** The titles of a view of the « Tâches » page, as the API sorts them. */

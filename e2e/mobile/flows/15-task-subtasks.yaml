@@ -24,12 +24,13 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-# A task due two days ago and never done stays in « Aujourd'hui », said late in words
-# and with its original day (MAG-405). Ticking it takes it out of the day.
+# A task due two days ago and never done stays in « Aujourd'hui », with its original
+# day (MAG-405), said « reportée » rather than late (MAG-497: the weekday it was due, the
+# wording is `TaskPostponedTest`'s). Ticking it takes it out of the day.
 - extendedWaitUntil:
     visible: "Renvoyer le formulaire de la mutuelle"
     timeout: 30000
-- assertVisible: "En retard de 2 j"
+- assertVisible: "reportée depuis .*"
 - assertVisible: "prévue le .*"
 # Its own box is the day's second: since MAG-406 the day goes by score, and « Payer
 # la cantine » (78) comes before it (72). `leftOf` would not do — it keeps every box
@@ -63,7 +64,7 @@ tags:
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      text: "En retard de 1 j"
+      text: "reportée depuis hier"
       below: "Rendre le livre"
     timeout: 20000
 - extendedWaitUntil:

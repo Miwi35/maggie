@@ -33,7 +33,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 12: the stretches of calendar already read, with the time of the read (MAG-430).
     // 13: tasks carry their parent, position and links, and the due date is a day (MAG-404).
     // 14: answers carry the owner's thumb and its comment (MAG-23).
-    version = 14,
+    // 15: tasks carry their estimated duration and first step (MAG-497).
+    version = 15,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

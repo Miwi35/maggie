@@ -87,6 +87,33 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the day deserialises from the recorded response, its slots, now and reserve`() {
+        val body = readRecording("day_plans.read")
+        val day = json.decodeFromJsonElement(serializer<DayPlan>(), body)
+
+        assertTrue("The recording day_plans.read has no slot, so it proves nothing.", day.slots.isNotEmpty())
+        assertTrue("The recording day_plans.read has an empty reserve, so it proves nothing.", day.reserve.isNotEmpty())
+        assertDeclaredFieldsExist("DayPlan", serializer<DayPlan>(), body.keys, "day_plans.read")
+        assertDeclaredFieldsExist("DaySlot", serializer<DaySlot>(), keysOf(body, "slots"), "day_plans.read")
+        val tasks = body["slots"]!!.jsonArray.flatMap { it.jsonObject["task"]!!.jsonObject.keys } + keysOf(body, "reserve")
+        assertDeclaredFieldsExist("DayTask", serializer<DayTask>(), tasks.toSet(), "day_plans.read")
+        assertEquals(20, day.now?.task?.estimatedMinutes)
+        assertEquals("Ouvrir le dossier", day.now?.task?.firstStep)
+        assertEquals("2026-03-20", day.now?.task?.postponedSince)
+        assertEquals(day.total - day.done, day.left)
+    }
+
+    @Test
+    fun `a task carries its estimate, first step and the day it was put off under the names the API sends`() {
+        val view = json.decodeFromJsonElement(serializer<TaskViewResponse>(), readRecording("tasks.view_today"))
+        val open = view.member.first { it.title == "Recorded open task" }
+
+        assertEquals(20, open.estimatedMinutes)
+        assertEquals("Ouvrir le dossier", open.firstStep)
+        assertEquals("2026-03-20", open.postponedSince)
+    }
+
+    @Test
     fun `proactions deserialise from the recorded response`() =
         assertCollectionContract("proactions", serializer<Proaction>(), "Proaction")
 

@@ -1,0 +1,67 @@
+{
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "date": "2026-04-22",
+    "confirmedAt": "2026-04-22T12:00:00+00:00",
+    "slots": [
+        {
+            "position": 1,
+            "type": "task",
+            "task": {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Recorded completed task",
+                "estimatedMinutes": null,
+                "firstStep": null,
+                "completedAt": "2026-03-19T10:00:00+00:00",
+                "dueDate": null,
+                "postponedSince": null,
+                "urgency": "low",
+                "criticality": "low"
+            }
+        },
+        {
+            "position": 2,
+            "type": "task",
+            "task": {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Recorded open task",
+                "estimatedMinutes": 20,
+                "firstStep": "Ouvrir le dossier",
+                "completedAt": null,
+                "dueDate": "2026-03-20",
+                "postponedSince": "2026-03-20",
+                "urgency": "critical",
+                "criticality": "high"
+            }
+        }
+    ],
+    "now": {
+        "position": 2,
+        "type": "task",
+        "task": {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded open task",
+            "estimatedMinutes": 20,
+            "firstStep": "Ouvrir le dossier",
+            "completedAt": null,
+            "dueDate": "2026-03-20",
+            "postponedSince": "2026-03-20",
+            "urgency": "critical",
+            "criticality": "high"
+        }
+    },
+    "reserve": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded reserve task",
+            "estimatedMinutes": null,
+            "firstStep": null,
+            "completedAt": null,
+            "dueDate": null,
+            "postponedSince": null,
+            "urgency": "low",
+            "criticality": "low"
+        }
+    ],
+    "done": 1,
+    "total": 2
+}

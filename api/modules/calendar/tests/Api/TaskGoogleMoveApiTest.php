@@ -99,6 +99,21 @@ class TaskGoogleMoveApiTest extends WebTestCase
         self::assertSame(['Réserver le camion', 'Changer d\'adresse', 'Résilier la box'], $this->subtaskTitles());
     }
 
+    /** The estimate and the first step are Maggie's own (MAG-497): writing them sends Google nothing. */
+    public function testTheEstimateAndTheFirstStepStayInMaggie(): void
+    {
+        $moving = $this->getFixture('moving');
+        $this->google->expects(self::never())->method('patchTask');
+        $this->google->expects(self::never())->method('updateTask');
+        $this->google->expects(self::never())->method('moveTask');
+
+        $this->patch($moving, ['estimatedMinutes' => 45, 'firstStep' => 'Acheter des cartons']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(45, $this->reload($moving)->getEstimatedMinutes());
+        self::assertSame('Acheter des cartons', $this->reload($moving)->getFirstStep());
+    }
+
     /** @param array<string, mixed> $payload */
     private function patch(Task $task, array $payload): void
     {

@@ -6,7 +6,7 @@
     "counts": {
         "today": 2,
         "upcoming": 0,
-        "someday": 0,
+        "someday": 1,
         "done": 1
     },
     "member": [
@@ -25,9 +25,12 @@
             "parent": null,
             "position": "00000000000000000000",
             "links": [],
+            "estimatedMinutes": 20,
+            "firstStep": "Ouvrir le dossier",
             "overdueDays": 33,
             "urgency": "critical",
             "orderScore": 111,
+            "postponedSince": "2026-03-20",
             "googleTaskId": null,
             "googleTaskListId": null,
             "googleTaskEtag": null,
@@ -56,9 +59,12 @@
                     "link": "https://mail.google.com/mail/#all/abc"
                 }
             ],
+            "estimatedMinutes": null,
+            "firstStep": null,
             "overdueDays": null,
             "urgency": "low",
             "orderScore": 3,
+            "postponedSince": null,
             "googleTaskId": null,
             "googleTaskListId": null,
             "googleTaskEtag": null,

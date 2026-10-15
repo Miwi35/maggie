@@ -30,7 +30,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
@@ -52,6 +52,8 @@ class UpdateTaskProcessor implements ProcessorInterface
             clearFields: $clearFields,
             parentId: null === $previous || $parentId !== $previousParentId ? $parentId : null,
             position: null === $previous || $data->getPosition() !== $previous->getPosition() ? $data->getPosition() : null,
+            estimatedMinutes: null === $previous || $data->getEstimatedMinutes() !== $previous->getEstimatedMinutes() ? $data->getEstimatedMinutes() : null,
+            firstStep: null === $previous || $data->getFirstStep() !== $previous->getFirstStep() ? $data->getFirstStep() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent

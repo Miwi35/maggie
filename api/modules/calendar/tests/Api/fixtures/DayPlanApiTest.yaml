@@ -1,0 +1,66 @@
+# The day (MAG-497). The tests pin the clock at Wednesday 2026-10-14 12:00 UTC (Paris).
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  # Due Monday, not done: « reportée depuis lundi », never late in red.
+  t1:
+    title: Rappeler le garage
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    estimatedMinutes: 10
+    firstStep: Trouver le numéro
+    position: '00000000000000000001'
+    user: '@test_user'
+  t2:
+    title: Trier le courrier
+    position: '00000000000000000002'
+    user: '@test_user'
+  t3:
+    title: Arroser les plantes
+    position: '00000000000000000003'
+    user: '@test_user'
+  t4:
+    title: Réserver le train
+    position: '00000000000000000004'
+    user: '@test_user'
+  t5:
+    title: Payer la cantine
+    position: '00000000000000000005'
+    user: '@test_user'
+  t6:
+    title: Ranger le garage
+    position: '00000000000000000006'
+    user: '@test_user'
+  # Due Monday too, but critical: keeps its word and its icon.
+  critical:
+    title: Déclarer les impôts
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    position: '00000000000000000007'
+    user: '@test_user'
+  # Never in the reserve: a subtask, a done task, another user's task.
+  sub:
+    title: Noter les horaires
+    parent: '@t1'
+    position: '00000000000000000001'
+    user: '@test_user'
+  done:
+    title: Faite hier
+    completedAt: '<(new \DateTimeImmutable("2026-10-13 18:00"))>'
+    position: '00000000000000000008'
+    user: '@test_user'
+  others:
+    title: Someone else's
+    user: '@other_user'

@@ -12,6 +12,8 @@ export interface TodayTask {
   completedAt?: string | null
   /** Days late; null or absent when the task is not late. */
   overdueDays?: number | null
+  /** The day it has been put off since, `YYYY-MM-DD` (MAG-497). */
+  postponedSince?: string | null
   /** IRI of the task it is a subtask of. */
   parent?: string | null
   /** Computed by the API (MAG-406): `low`, `normal`, `high` or `critical`. */

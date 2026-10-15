@@ -46,6 +46,46 @@ describe('TaskCreateDialog', () => {
     expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('dueDate')
   })
 
+  test('posts the estimated minutes and the first step when given (MAG-497)', async () => {
+    render(<TaskCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déclarer les impôts' } })
+    fireEvent.change(screen.getByLabelText('Durée estimée'), { target: { value: '30' } })
+    fireEvent.change(screen.getByLabelText('Premier pas'), { target: { value: 'Retrouver le numéro fiscal' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'tasks',
+        expect.objectContaining({
+          data: expect.objectContaining({ estimatedMinutes: 30, firstStep: 'Retrouver le numéro fiscal' }),
+        }),
+      ),
+    )
+  })
+
+  test('leaves the minutes and the first step out when empty', async () => {
+    render(<TaskCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déménager' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('estimatedMinutes')
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('firstStep')
+  })
+
+  test('refuses minutes out of 1 to 1440', async () => {
+    render(<TaskCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déménager' } })
+    fireEvent.change(screen.getByLabelText('Durée estimée'), { target: { value: '0' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    expect(screen.getByText('Entre 1 et 1440 minutes')).toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   test('refuses an empty title', async () => {
     render(<TaskCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />)
 
