@@ -85,6 +85,14 @@ class TestTheDay:
         assert answer.count("Ranger le garage") == 1, "one task offered, not a list"
 
 
+    async def test_a_refusal_line_naming_another_scenario_does_not_hijack_the_question(self, api):
+        merged = "Refusé : supprimer l'événement Vidange\nQu'est-ce que j'ai aujourd'hui ?"
+
+        result = await ask([{"role": "user", "content": merged}])
+
+        assert called(result) == ["get_events_by_date", "get_tasks", "get_tasks"]
+
+
 class TestTheYes:
     async def test_tomorrow_is_written_on_the_task_the_read_returned(self, api):
         first = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])

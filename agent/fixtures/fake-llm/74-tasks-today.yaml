@@ -3,12 +3,16 @@
 # The model's side, in the order the prompt asks for: the agenda and `get_tasks` with
 # `view: today` (late tasks first, ranked by the API), then `view: someday` because the day
 # is light, then ONE task to offer — and nothing written until the user says yes (see
-# 78-tasks-schedule-someday.yaml). The fake does not read tool results, so the titles below
+# 74-tasks-schedule-someday.yaml). The fake does not read tool results, so the titles below
 # are the ones the journey creates: what is proved is that the real tools run in this order
 # and that the late task is named before the offered one.
 #
 # « qu'est-ce que j'ai aujourd'hui », without « prévu » or « mon agenda »: those belong to
 # 30-upcoming-events.yaml.
+#
+# Numbered before 75-create-event-to-delete.yaml on purpose: after a refused action the thread
+# ends on the decision line (« … Vidange »), which the history merges into the next question,
+# and "vidange" would win over this scenario.
 name: tasks-today
 description: Read the day's agenda and tasks, then offer one undated task to plan.
 

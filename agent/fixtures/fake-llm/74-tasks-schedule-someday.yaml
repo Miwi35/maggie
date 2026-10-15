@@ -1,4 +1,4 @@
-# « Oui, demain » after 78-tasks-today.yaml offered « Ranger le garage » (MAG-409).
+# « Oui, demain » after 74-tasks-today.yaml offered « Ranger le garage » (MAG-409).
 #
 # The task is written only now that the user agreed, and by the id its own `get_tasks` result
 # gave: `history_matches` captures it from the replayed `tool_result` (as in
