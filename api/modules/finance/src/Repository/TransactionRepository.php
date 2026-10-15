@@ -17,7 +17,7 @@ use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\CategorySource;
-use Maggie\Finance\Enum\ObligationFlag;
+use Maggie\Finance\Enum\QualificationKind;
 use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
@@ -210,6 +210,39 @@ class TransactionRepository extends ServiceEntityRepository
         }
 
         return $totals;
+    }
+
+    /**
+     * The part of {@see sumByStatusForCategoriesBetween}'s spent and
+     * committed debits that the transactions themselves qualify as mandatory,
+     * as positive cents. A category holds mandatory and optional lines side
+     * by side: the qualification decides, not the category.
+     *
+     * @param list<Ulid> $categoryIds
+     */
+    public function sumMandatoryConsumedForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): int
+    {
+        $total = $this->createQueryBuilder('t')
+            ->select('SUM(t.amountCents)')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
+            ->andWhere('t.category IN (:categories)')
+            ->andWhere('t.oneOffEnvelope IS NULL')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.qualification.mandatory = true')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
+            ->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return abs((int) $total);
     }
 
     /**
@@ -500,26 +533,26 @@ class TransactionRepository extends ServiceEntityRepository
 
     /**
      * Everyday consumption over a half-open period, as positive cents: spent
-     * and committed debits, without the exceptional ones and the loan
-     * payments (counted on their own by the debt timeline).
+     * and committed debits, without the exceptional ones, the repayments
+     * (counted on their own by the debt timeline) and what is put aside
+     * (saving, investment) — all read off the transaction's qualification.
      */
     public function sumConsumedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
         $total = $this->createQueryBuilder('t')
             ->select('SUM(t.amountCents)')
-            ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.isExceptional = false')
-            ->andWhere('c.id IS NULL OR c.obligation != :debt')
+            ->andWhere('t.qualification.kind NOT IN (:outsideLifestyle)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
-            ->setParameter('debt', ObligationFlag::Debt->value)
+            ->setParameter('outsideLifestyle', [QualificationKind::Repayment->value, QualificationKind::Saving->value, QualificationKind::Investment->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
             ->getQuery()
@@ -675,29 +708,30 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Debits of a period that are up for review: everything outside the
-     * mandatory categories, uncategorized spends included — those are
-     * precisely the ones worth a second look. Biggest first.
+     * Debits of a period that are up for review: everything the transaction
+     * does not qualify as mandatory, nor as a loan or a repayment —
+     * uncategorized spends included, those are precisely the ones worth a
+     * second look. Biggest first.
      *
      * @return Transaction[]
      */
     public function findReviewableBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         return $this->createQueryBuilder('t')
-            ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
-            ->andWhere('c.id IS NULL OR c.obligation != :mandatory')
+            ->andWhere('t.qualification.mandatory = false')
+            ->andWhere('t.qualification.kind NOT IN (:notReviewable)')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
-            ->setParameter('mandatory', ObligationFlag::Mandatory->value)
+            ->setParameter('notReviewable', [QualificationKind::Repayment->value, QualificationKind::Loan->value])
             ->orderBy('t.amountCents', 'ASC')
             ->getQuery()
             ->getResult();

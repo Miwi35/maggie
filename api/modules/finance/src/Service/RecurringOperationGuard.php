@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Finance\Service;
 
 use Maggie\Finance\Entity\RecurringOperation;
-use Maggie\Finance\Exception\IncompatibleCategoryException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -17,13 +16,11 @@ class RecurringOperationGuard
 {
     public function __construct(
         private readonly ValidatorInterface $validator,
-        private readonly TransactionNatureGuard $natureGuard,
     ) {
     }
 
     /**
-     * @throws \DomainException              when a constraint of the entity fails
-     * @throws IncompatibleCategoryException when the category contradicts the sign of the amount
+     * @throws \DomainException when a constraint of the entity fails
      */
     public function assertValid(RecurringOperation $operation): void
     {
@@ -37,8 +34,6 @@ class RecurringOperationGuard
 
             throw new \DomainException(implode(' ', $messages));
         }
-
-        $this->natureGuard->assertCompatible($operation->getReferenceAmountCents(), $operation->getCategory());
     }
 
     /** An ISO date, at midnight. */

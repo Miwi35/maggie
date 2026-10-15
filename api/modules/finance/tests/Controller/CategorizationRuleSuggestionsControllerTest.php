@@ -230,17 +230,17 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
         self::assertSame(-1230, $bakery['totalCents']);
     }
 
-    public function testAHeadingThatCannotHoldTheMoneyIsNotProposed(): void
+    public function testTheHeadingOfThePurchasesIsProposedForTheRefundsToo(): void
     {
         $this->loadFixtures('rule_suggestions_noise.yaml');
         $this->authenticateAsUser($this->getFixture('test_user'));
 
         $refunds = array_column($this->suggestions(), null, 'pattern')['LA FERME DU COIN'];
 
-        // The purchases went under an expense; a rule filing refunds there
-        // would be refused on every line.
+        // A category has no nature any more: the heading the purchases went
+        // under holds the refunds as well.
         self::assertSame('credit', $refunds['direction']);
-        self::assertNull($refunds['categoryName']);
+        self::assertSame('Nourriture', $refunds['categoryName']);
     }
 
     public function testAnEmptyAcceptanceIsRefused(): void

@@ -74,7 +74,7 @@ class ApplyCategorizationRulesControllerTest extends WebTestCase
         self::assertSame(1, $data['scanned']);
     }
 
-    public function testARuleNeverClaimsALineItsCategoryContradicts(): void
+    public function testARuleFilesACreditUnderAnExpenseCategoryToo(): void
     {
         $this->loadFixtures('categorization_rule_nature.yaml');
         $this->authenticateAsUser($this->getFixture('test_user'));
@@ -86,12 +86,12 @@ class ApplyCategorizationRulesControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(1, $data['categorized']);
+        self::assertSame(2, $data['categorized']);
         self::assertSame(2, $data['scanned']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertNull($em->find(Transaction::class, $refund->getId())->getCategory());
+        self::assertNotNull($em->find(Transaction::class, $refund->getId())->getCategory(), 'no category nature: a refund can go under an expense');
         self::assertNotNull($em->find(Transaction::class, $ticket->getId())->getCategory());
     }
 }

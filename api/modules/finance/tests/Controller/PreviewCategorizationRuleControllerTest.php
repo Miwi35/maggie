@@ -147,12 +147,12 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
-        // The refund is a credit: an expense heading cannot hold it, so the rule claims nothing there.
-        self::assertSame(6, $data['total']);
-        self::assertSame(3, $data['changeCount']);
+        // A heading has no nature: the refund is claimed like any other line.
+        self::assertSame(7, $data['total']);
+        self::assertSame(4, $data['changeCount']);
         self::assertEqualsCanonicalizing([
             'NETFLIX.COM 4412', 'NETFLIX.COM 4413', 'NETFLIX.COM 4414',
-            'NETFLIX.COM BY HAND', 'NETFLIX.COM ALREADY FILED', 'NETFLIX PREMIUM 4K',
+            'NETFLIX.COM BY HAND', 'NETFLIX.COM ALREADY FILED', 'NETFLIX PREMIUM 4K', 'NETFLIX REMBOURSEMENT',
         ], $this->labels($data));
     }
 
@@ -207,7 +207,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
 
         // Raised above the "PREMIUM" rule, the same criteria take the line.
         $outranking = $this->preview($criteria + ['priority' => 100]);
-        self::assertSame(4, $outranking['changeCount']);
+        self::assertSame(5, $outranking['changeCount']);
     }
 
     public function testEditingARuleReplacesItInThePreview(): void
@@ -221,7 +221,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         ]);
 
         // The "PREMIUM" rule is the one being edited: it no longer stands in the way.
-        self::assertSame(4, $data['changeCount']);
+        self::assertSame(5, $data['changeCount']);
     }
 
     public function testAnEditedRuleKeepsItsPlaceAmongRulesOfEqualPriority(): void
@@ -263,7 +263,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
             'isActive' => false,
         ]);
 
-        self::assertSame(6, $data['total']);
+        self::assertSame(7, $data['total']);
         self::assertSame(0, $data['changeCount']);
     }
 
@@ -328,8 +328,8 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
             'categoryId' => (string) $this->getFixture('subscriptions')->getId(),
         ]);
 
-        self::assertSame(61, $data['total']);
-        self::assertSame(58, $data['changeCount']);
+        self::assertSame(62, $data['total']);
+        self::assertSame(59, $data['changeCount']);
         self::assertCount(50, $data['matches']);
         // The newest 50: the older bulk lines are the ones cut.
         self::assertContains('NETFLIX.COM 4414', $this->labels($data));

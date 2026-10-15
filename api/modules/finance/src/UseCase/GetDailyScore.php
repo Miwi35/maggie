@@ -6,7 +6,6 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Enum\DailyScore;
-use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Repository\TransactionRepository;
 
 /**
@@ -39,7 +38,7 @@ class GetDailyScore
 
         foreach ($budget['budgets'] as $line) {
             if ($line['isOverspent']) {
-                $isMandatory = $line['categoryObligation'] === ObligationFlag::Mandatory->value;
+                $isMandatory = $this->isMandatoryOverrun($line);
                 if ($isMandatory) {
                     $overspentMandatory[] = $line;
                 } else {
@@ -136,6 +135,20 @@ class GetDailyScore
                 'source' => $reference['source'],
             ],
         ];
+    }
+
+    /**
+     * An envelope is over its amount because of an obligation when the
+     * transactions qualified as mandatory weigh on it and what is not
+     * mandatory would have fitted alone. The envelope's category says nothing:
+     * two lines of the same category may be told apart.
+     *
+     * @param array<string, mixed> $line
+     */
+    private function isMandatoryOverrun(array $line): bool
+    {
+        return $line['mandatoryConsumedCents'] > 0
+            && $line['consumedCents'] - $line['mandatoryConsumedCents'] <= $line['amountCents'];
     }
 
     /**

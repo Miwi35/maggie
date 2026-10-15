@@ -28,6 +28,7 @@ Maggie\Finance\Entity\Transaction:
   rent_august:
     account: '@checking'
     category: '@rent'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
     amountCents: -90000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-08-02"))>'

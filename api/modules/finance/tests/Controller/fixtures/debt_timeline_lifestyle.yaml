@@ -68,6 +68,7 @@ Maggie\Finance\Entity\Transaction:
   car_payment:
     account: '@checking'
     category: '@loan_repayment'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::Repayment))>'
     amountCents: -20000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'

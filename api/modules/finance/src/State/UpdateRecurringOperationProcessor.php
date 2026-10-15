@@ -9,12 +9,11 @@ use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Message\UpdateRecurringOperationCommand;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** @implements ProcessorInterface<RecurringOperation, RecurringOperation> */
 class UpdateRecurringOperationProcessor implements ProcessorInterface
 {
-    use DispatchesRecurringOperationTrait;
-
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -40,7 +39,7 @@ class UpdateRecurringOperationProcessor implements ProcessorInterface
         $qualification = $data->getQualification()->toArray();
         $qualificationChanged = $previous instanceof RecurringOperation && $qualification !== $previous->getQualification()->toArray();
 
-        return $this->dispatchForResult($this->bus, new UpdateRecurringOperationCommand(
+        return $this->bus->dispatch(new UpdateRecurringOperationCommand(
             userId: (string) $data->getUser()->getId(),
             recurringOperationId: (string) $data->getId(),
             label: $data->getLabel(),
@@ -58,6 +57,6 @@ class UpdateRecurringOperationProcessor implements ProcessorInterface
             endsOn: $data->getEndsOn()?->format('Y-m-d'),
             clearFields: $clearFields,
             qualification: $qualificationChanged ? $qualification : null,
-        ));
+        ))->last(HandledStamp::class)->getResult();
     }
 }

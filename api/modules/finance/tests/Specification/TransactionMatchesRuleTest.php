@@ -57,21 +57,21 @@ class TransactionMatchesRuleTest extends KernelTestCase
         self::assertFalse($this->spec->isSatisfiedBy($rule, $credit));
     }
 
-    public function testACreditCannotBeFiledUnderAnExpenseCategory(): void
+    public function testACreditMatchingTheCriteriaIsClaimedWhateverTheCategory(): void
     {
         $rule = $this->getFixture('rule_premium');
         $rule->setDirection(AmountDirection::Any);
         $credit = $this->getFixture('netflix_refund');
         $credit->setLabel('NETFLIX PREMIUM REFUND');
 
-        self::assertFalse($this->spec->isSatisfiedBy($rule, $credit));
+        self::assertTrue($this->spec->isSatisfiedBy($rule, $credit));
     }
 
-    public function testACriteriaWithoutACategoryOnlyLooksAtTheLine(): void
+    public function testACriteriaOnlyLooksAtTheLine(): void
     {
         $criteria = $this->getFixture('rule_premium')->matchCriteria();
 
-        self::assertTrue($this->spec->matches($criteria, null, $this->getFixture('netflix_premium')));
-        self::assertFalse($this->spec->matches($criteria, null, $this->getFixture('netflix_july')));
+        self::assertTrue($this->spec->matches($criteria, $this->getFixture('netflix_premium')));
+        self::assertFalse($this->spec->matches($criteria, $this->getFixture('netflix_july')));
     }
 }

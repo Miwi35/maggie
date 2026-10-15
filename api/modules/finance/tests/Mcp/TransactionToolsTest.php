@@ -764,7 +764,7 @@ class TransactionToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
-    public function testCreateRefusesAnIncomeCategoryOnAnExpense(): void
+    public function testCreateAcceptsAnIncomeCategoryOnAnExpense(): void
     {
         $this->loadFixtures('transaction.yaml');
         $this->loginFixtureUser();
@@ -773,18 +773,20 @@ class TransactionToolsTest extends KernelTestCase
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
         $data = json_decode(
-            $tool('create', accountId: (string) $account->getId(), amountCents: -500, label: 'Erreur', bookedAt: '2026-07-20', categoryId: (string) $paycheck->getId()),
+            $tool('create', accountId: (string) $account->getId(), amountCents: -500, label: 'Avance à un ami', bookedAt: '2026-07-20', categoryId: (string) $paycheck->getId()),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
 
-        self::assertStringContainsString('income category', $data['error']);
+        self::assertArrayNotHasKey('error', $data);
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(2, $em->getRepository(Transaction::class)->findAll());
+        $stored = $em->getRepository(Transaction::class)->findOneBy(['label' => 'Avance à un ami']);
+        self::assertSame(-500, $stored->getAmountCents());
+        self::assertSame('Salaire', $stored->getCategory()?->getName());
     }
 
-    public function testUpdateAndCategorizeRefuseAnExpenseCategoryOnAnIncome(): void
+    public function testUpdateAndCategorizeAcceptAnExpenseCategoryOnAnIncome(): void
     {
         $this->loadFixtures('transaction.yaml');
         $this->loginFixtureUser();
@@ -794,14 +796,14 @@ class TransactionToolsTest extends KernelTestCase
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
 
         $categorized = json_decode($tool('categorize', transactionId: (string) $salary->getId(), categoryId: (string) $food->getId()), true, 512, JSON_THROW_ON_ERROR);
-        self::assertStringContainsString('expense category', $categorized['error']);
+        self::assertArrayNotHasKey('error', $categorized);
 
         $updated = json_decode($tool('update', transactionId: (string) $salary->getId(), categoryId: (string) $food->getId()), true, 512, JSON_THROW_ON_ERROR);
-        self::assertStringContainsString('expense category', $updated['error']);
+        self::assertArrayNotHasKey('error', $updated);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertNull($em->find(Transaction::class, $salary->getId())->getCategory());
+        self::assertSame('Alimentation', $em->find(Transaction::class, $salary->getId())->getCategory()?->getName());
     }
 
     /** @return array<string, mixed> */

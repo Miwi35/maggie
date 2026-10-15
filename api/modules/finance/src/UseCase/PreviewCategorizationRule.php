@@ -64,7 +64,7 @@ class PreviewCategorizationRule
         $changeCount = 0;
 
         foreach ($this->transactionRepository->findByUser($user) as $transaction) {
-            if (!$this->matchesRule->matches($draft->matchCriteria(), $category, $transaction)) {
+            if (!$this->matchesRule->matches($draft->matchCriteria(), $transaction)) {
                 continue;
             }
 

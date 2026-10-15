@@ -18,7 +18,6 @@ use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\RecurringOperationGuard;
-use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -30,7 +29,6 @@ class UpdateTransactionHandler
         private readonly UpdateTransaction $updateTransaction,
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
-        private readonly TransactionNatureGuard $natureGuard,
         private readonly AttachRecurringTransactions $attachRecurring,
     ) {
     }
@@ -79,8 +77,6 @@ class UpdateTransactionHandler
             $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }
         $this->applyQualification($transaction, $command);
-
-        $this->natureGuard->assertStillCompatible($transaction);
 
         $this->applyTransfer($transaction, $command);
         // After the marking: a line made a transfer in the same update is no spend to attribute.
