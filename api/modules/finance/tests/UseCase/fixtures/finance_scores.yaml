@@ -1,0 +1,157 @@
+# October 2026 for the week and month scores (MAG-416): a 1 500 € monthly budget
+# (rent 700 €, energy 80 €, groceries 720 € — so a variable part of 720 €), the
+# rent and the energy as recurring series (the 5th and the 10th) and as paid,
+# a complete cushion and 3 000 € of groceries a year earlier — so, but for the
+# rhythm, a month spending less than that is green. Tests add the groceries.
+# Nothing in 2026 is on the real clock: the tests ask for a date.
+
+Maggie\Core\Entity\User:
+  scores_user:
+    email: finance-scores@example.com
+    googleId: google-finance-scores
+    name: Finance Scores User
+  other_user:
+    email: finance-scores-other@example.com
+    googleId: google-finance-scores-other
+    name: Finance Scores Other User
+
+Maggie\Finance\Entity\Account:
+  scores_checking:
+    name: Courant scores
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@scores_user'
+  scores_livret:
+    name: Livret scores
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 2000000
+    isCushion: true
+    user: '@scores_user'
+  other_checking:
+    name: Courant other
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  scores_housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@scores_user'
+  scores_energy:
+    name: Énergie
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@scores_user'
+  scores_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@scores_user'
+  scores_travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@scores_user'
+  other_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  scores_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 520000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@scores_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  scores_rent:
+    label: Loyer
+    counterpartyName: PROPRIO
+    category: '@scores_housing'
+    account: '@scores_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-05"))>'
+    referenceAmountCents: -70000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@scores_user'
+  scores_energy_op:
+    label: Énergie
+    counterpartyName: EDF
+    category: '@scores_energy'
+    account: '@scores_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-10"))>'
+    referenceAmountCents: -8000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@scores_user'
+
+Maggie\Finance\Entity\Envelope:
+  scores_housing_october:
+    category: '@scores_housing'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 70000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@scores_user'
+  scores_energy_october:
+    category: '@scores_energy'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 8000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@scores_user'
+  scores_food_october:
+    category: '@scores_food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 72000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@scores_user'
+  scores_travel_2026:
+    category: '@scores_travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 100000
+    currency: EUR
+    year: 2026
+    month: null
+    user: '@scores_user'
+
+Maggie\Finance\Entity\Transaction:
+  scores_rent_paid:
+    account: '@scores_checking'
+    category: '@scores_housing'
+    amountCents: -70000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: Loyer
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@scores_user'
+  scores_energy_paid:
+    account: '@scores_checking'
+    category: '@scores_energy'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-10"))>'
+    label: Énergie
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@scores_user'
+  scores_food_last_october:
+    account: '@scores_checking'
+    category: '@scores_food'
+    amountCents: -300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2025-10-04"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@scores_user'

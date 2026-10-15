@@ -21,7 +21,7 @@ MCP_TOOL_NAMES = (
     "delete_task",
     "end_errand",
     "generate_grocery_list",
-    "get_daily_score",
+    "get_finance_scores",
     "get_events_by_date",
     "get_finance_dashboard",
     "get_grocery_list",

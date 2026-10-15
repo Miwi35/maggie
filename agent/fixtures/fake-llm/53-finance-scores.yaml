@@ -1,0 +1,16 @@
+# « Où j'en suis ce mois-ci ? » (MAG-416): the week and month scores with their
+# spending rhythm, through `get_finance_scores` (no date — today). The fake does
+# not read the result: the journey asserts the tool ran and reads the same
+# document on `GET /api/finance/scores`; the figures each case gives are
+# `GetFinanceScoresTest`'s business.
+name: finance-scores
+description: Read the week and month scores and their rhythm through MCP.
+
+match:
+  user_matches: "où j.en suis ce mois"
+
+turns:
+  - tools:
+      - name: get_finance_scores
+        input: {}
+  - text: "Ce mois-ci, vous êtes au-dessus du rythme : vous avez dépensé plus que ce que votre budget prévoit à cette date, loyer compris."
