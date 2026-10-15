@@ -10698,7 +10698,7 @@
                     },
                     "amountCents": {
                         "minimum": 0,
-                        "description": "Budgeted amount in positive integer cents.",
+                        "description": "Budgeted amount in positive integer cents; for a monthly envelope with seasons, the amount outside them.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -10735,6 +10735,16 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "seasonalAmounts": {
+                        "description": "Monthly envelopes only: [{fromMonth, toMonth, amountCents}], months 1-12, a season may cross the new year (11 → 2), two seasons never overlap. A month a season covers is budgeted at its amount, the others at amountCents.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
                     },
                     "user": {
                         "type": "string",
@@ -10806,7 +10816,7 @@
                     },
                     "amountCents": {
                         "minimum": 0,
-                        "description": "Budgeted amount in positive integer cents.",
+                        "description": "Budgeted amount in positive integer cents; for a monthly envelope with seasons, the amount outside them.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -10843,6 +10853,16 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "seasonalAmounts": {
+                        "description": "Monthly envelopes only: [{fromMonth, toMonth, amountCents}], months 1-12, a season may cross the new year (11 → 2), two seasons never overlap. A month a season covers is budgeted at its amount, the others at amountCents.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
                     },
                     "user": {
                         "type": "string",
@@ -10914,7 +10934,7 @@
                     },
                     "amountCents": {
                         "minimum": 0,
-                        "description": "Budgeted amount in positive integer cents.",
+                        "description": "Budgeted amount in positive integer cents; for a monthly envelope with seasons, the amount outside them.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -10951,6 +10971,16 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "seasonalAmounts": {
+                        "description": "Monthly envelopes only: [{fromMonth, toMonth, amountCents}], months 1-12, a season may cross the new year (11 → 2), two seasons never overlap. A month a season covers is budgeted at its amount, the others at amountCents.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
                     },
                     "user": {
                         "type": "string",
@@ -11023,7 +11053,7 @@
                             },
                             "amountCents": {
                                 "minimum": 0,
-                                "description": "Budgeted amount in positive integer cents.",
+                                "description": "Budgeted amount in positive integer cents; for a monthly envelope with seasons, the amount outside them.",
                                 "default": 0,
                                 "type": "integer"
                             },
@@ -11060,6 +11090,16 @@
                                     "integer",
                                     "null"
                                 ]
+                            },
+                            "seasonalAmounts": {
+                                "description": "Monthly envelopes only: [{fromMonth, toMonth, amountCents}], months 1-12, a season may cross the new year (11 → 2), two seasons never overlap. A month a season covers is budgeted at its amount, the others at amountCents.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "integer"
+                                    }
+                                }
                             },
                             "user": {
                                 "type": "string",

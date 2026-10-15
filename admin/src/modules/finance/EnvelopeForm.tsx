@@ -5,12 +5,17 @@ import {
   NumberInput,
   SelectInput,
   FormDataConsumer,
+  ArrayInput,
+  SimpleFormIterator,
+  AddItemButton,
+  RemoveItemButton,
   required,
   useRecordContext,
   minValue,
   maxValue,
 } from 'react-admin'
-import { BUDGET_MODE_CHOICES, MONTH_CHOICES, ONE_OFF } from './budgetModes'
+import { BUDGET_MODE_CHOICES, MONTH_CHOICES, MONTH_LABELS, ONE_OFF, overlappingMonth } from './budgetModes'
+import type { Season } from './budgetModes'
 import { EnvelopeSummary } from './EnvelopeSummary'
 import { FormSection } from '../../components/form/FormSection'
 import { CategoryInput } from './CategoryInput'
@@ -55,14 +60,58 @@ const ModeInput = ({ withDefaults }: EnvelopeFormProps) => {
   )
 }
 
+const toCents = (v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))
+const toEuros = (v?: number) => (v == null ? null : v / 100)
+
+/** The API refuses two seasons sharing a month (400): say which before sending. */
+const validateSeasons = (seasons?: Array<Partial<Season> | null>) => {
+  const month = overlappingMonth(seasons ?? [])
+  return month == null
+    ? undefined
+    : `Deux saisons couvrent ${MONTH_LABELS[month]?.toLowerCase() ?? month} : une saison ne peut pas en chevaucher une autre.`
+}
+
+/**
+ * A monthly envelope budgeted differently over part of the year (MAG-415):
+ * Cinéma 45 € from November to February, the envelope's amount otherwise.
+ */
+const SeasonsInput = () => (
+  <>
+    <FormSection
+      title="Saisons"
+      description="Un autre montant sur une partie de l'année (Cinéma 45 € de novembre à février). Les mois hors saison gardent le montant de l'enveloppe ; la reconduction crée chaque mois au montant de sa saison."
+    />
+    <ArrayInput source="seasonalAmounts" label={false} defaultValue={[]} validate={validateSeasons}>
+      <SimpleFormIterator
+        inline
+        disableReordering
+        disableClear
+        addButton={<AddItemButton label="Ajouter une saison" />}
+        removeButton={<RemoveItemButton label="Retirer la saison" />}
+      >
+        <SelectInput source="fromMonth" label="De" choices={MONTH_CHOICES} validate={required()} sx={{ minWidth: 140 }} />
+        <SelectInput source="toMonth" label="À" choices={MONTH_CHOICES} validate={required()} sx={{ minWidth: 140 }} />
+        <NumberInput
+          source="amountCents"
+          label="Montant (€)"
+          validate={required()}
+          format={toEuros}
+          parse={toCents}
+          sx={{ maxWidth: 160 }}
+        />
+      </SimpleFormIterator>
+    </ArrayInput>
+  </>
+)
+
 const AmountInputs = ({ withDefaults }: EnvelopeFormProps) => (
   <Box sx={rowSx}>
     <NumberInput
       source="amountCents"
       label="Montant de l'enveloppe (€)"
       validate={required()}
-      format={(v?: number) => (v == null ? null : v / 100)}
-      parse={(v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))}
+      format={toEuros}
+      parse={toCents}
       sx={halfSx}
       helperText="Ce que vous vous autorisez à dépenser sur toute la période."
     />
@@ -123,6 +172,8 @@ const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
         }
       </FormDataConsumer>
     </Box>
+
+    <FormDataConsumer>{({ formData }) => formData.mode !== 'annual' && <SeasonsInput />}</FormDataConsumer>
   </>
 )
 

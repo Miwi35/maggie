@@ -19,6 +19,8 @@ final readonly class UpdateEnvelopeCommand
         public ?int $alertThresholdPercent = null,
         /** Null is a value here (back to the default): this says whether to apply it. */
         public bool $setsAlertThreshold = false,
+        /** @var list<array{fromMonth: int, toMonth: int, amountCents: int}>|null the new seasons, replacing the old ones; null leaves them as they are */
+        public ?array $seasonalAmounts = null,
     ) {
     }
 }

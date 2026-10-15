@@ -2,7 +2,13 @@ import { describe, test, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { AdminContext, Edit, ResourceContextProvider, testDataProvider } from 'react-admin'
+import {
+  AdminContext,
+  Edit,
+  RecordContextProvider,
+  ResourceContextProvider,
+  testDataProvider,
+} from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { EnvelopeForm } from './EnvelopeForm'
 
@@ -70,6 +76,31 @@ const renderEdit = () => {
   )
   return update
 }
+
+const WINTER = { fromMonth: 11, toMonth: 2, amountCents: 4500 }
+
+/** The edit form of Cinéma, 20 € a month in October 2026. */
+const renderSeasonEdit = (seasonalAmounts: Array<typeof WINTER>) =>
+  render(
+    <AdminContext dataProvider={dataProvider}>
+      <ResourceContextProvider value="envelopes">
+        <RecordContextProvider
+          value={{
+            id: '/api/envelopes/1',
+            category: '/api/categories/1',
+            mode: 'monthly',
+            amountCents: 2000,
+            currency: 'EUR',
+            year: 2026,
+            month: 10,
+            seasonalAmounts,
+          }}
+        >
+          <EnvelopeForm />
+        </RecordContextProvider>
+      </ResourceContextProvider>
+    </AdminContext>,
+  )
 
 describe('EnvelopeForm', () => {
   test('groups the fields under explained sections', async () => {
@@ -192,5 +223,55 @@ describe('EnvelopeForm', () => {
 
     await waitFor(() => expect(threshold).toBeInvalid())
     expect(update).not.toHaveBeenCalled()
+  })
+
+  test('shows the seasons of a monthly envelope', async () => {
+    renderSeasonEdit([WINTER])
+
+    expect(await screen.findByText('Saisons')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('45')).toBeInTheDocument()
+    expect(screen.getByText('Novembre')).toBeInTheDocument()
+    expect(screen.getByText('Février')).toBeInTheDocument()
+  })
+
+  test('adds a season and removes it', async () => {
+    const user = userEvent.setup()
+    renderSeasonEdit([])
+
+    await user.click(await screen.findByRole('button', { name: 'Ajouter une saison' }))
+    expect(await screen.findByLabelText(/^De(?![a-z])/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^À(?![a-z])/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Montant \(€\)/)).toBeInTheDocument()
+
+    // React-admin shows a row's remove button on hover only.
+    await user.click(screen.getByLabelText('Retirer la saison'))
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/^De(?![a-z])/)).not.toBeInTheDocument()
+    })
+  })
+
+  test('refuses two seasons sharing a month before sending them', async () => {
+    const user = userEvent.setup()
+    renderSeasonEdit([WINTER, { fromMonth: 2, toMonth: 3, amountCents: 3000 }])
+
+    // An untouched edit form cannot be saved: change the base amount first.
+    await user.clear(await screen.findByLabelText(/Montant de l'enveloppe/i))
+    await user.type(screen.getByLabelText(/Montant de l'enveloppe/i), '25')
+    await user.click(await screen.findByRole('button', { name: /Enregistrer|Save|ra\.action\.save/ }))
+
+    expect(await screen.findByText(/Deux saisons couvrent février/i)).toBeInTheDocument()
+  })
+
+  test('an annual envelope has no seasons', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    expect(await screen.findByText('Saisons')).toBeInTheDocument()
+    await user.click(screen.getByLabelText(/Type d'enveloppe/i))
+    await user.click(await screen.findByRole('option', { name: 'Annuel' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Saisons')).not.toBeInTheDocument()
+    })
   })
 })

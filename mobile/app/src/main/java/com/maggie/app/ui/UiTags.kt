@@ -147,6 +147,9 @@ object UiTags {
     /** Budgets — the « Hors budget mensuel » section, annual and one-off envelopes (MAG-414). */
     const val BUDGET_OUTSIDE_MONTHLY = "budget_outside_monthly"
 
+    /** Budgets — the seasons of a new monthly envelope, on the tablet (MAG-415). */
+    const val BUDGET_SEASONS = "budget_seasons"
+
     /** A transaction's one-off envelope on its detail screen, and the full-screen choice it opens (MAG-414). */
     const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
     const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"

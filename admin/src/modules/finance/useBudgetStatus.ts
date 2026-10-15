@@ -26,6 +26,8 @@ export interface BudgetLine extends EnvelopeConsumption {
   mode: string
   year: number
   month: number | null
+  /** The season budgeting this month (amountCents is then its amount), null otherwise (MAG-415). */
+  season?: { fromMonth: number; toMonth: number; amountCents: number } | null
 }
 
 /** A one-off envelope (Hellfest 2026): every spend ever attributed to it, no period. */

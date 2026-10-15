@@ -13,6 +13,8 @@ tags:
 # unchanged. Then, given a one-off « Hellfest 2026 » of 400 € and an 89 € ticket filed in
 # Loisirs (154 / 300 €), when the ticket is attributed to Hellfest from its sheet, then
 # « Hors budget mensuel » shows Hellfest 89 / 400 € and Loisirs is back to 65 / 300 €.
+# Last, given Cinéma at 20 € with a season at 45 € from next month on, when this month is
+# rolled into the next, then next month's Cinéma reads 45 € and names its season (MAG-415).
 # The same journeys over the admin are in `finance-budget.spec.ts`.
 #
 # What is not here: the red and orange states with their icon and word, and the totals
@@ -114,6 +116,24 @@ tags:
 - extendedWaitUntil:
     visible: "Hellfest 2026"
     timeout: 10000
+
+# Cinéma 20 € this month, 45 € in a season from next month on: rolled over, next month
+# reads the season's amount and names it.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: cinema
+      TODAY: ${TODAY}
+- tapOn: "Mois suivant"
+- tapOn: "Reconduire le mois précédent"
+- extendedWaitUntil:
+    visible: "Cinéma"
+    timeout: 30000
+- scrollUntilVisible:
+    element: ".*45[.,]00 EUR · saison.*"
+- extendedWaitUntil:
+    visible: ".*45[.,]00 EUR · saison.*"
+    timeout: 30000
 
 # Left as found.
 - runScript:

@@ -164,6 +164,18 @@ class DtoContractTest {
         assertCollectionContract("envelopes", serializer<Envelope>(), "Envelope")
 
     @Test
+    fun `an envelope's seasons deserialise from the recorded response`() {
+        val members = readRecording("envelopes.collection")["member"]!!.jsonArray
+        val seasonKeys = members
+            .flatMap { it.jsonObject["seasonalAmounts"]?.jsonArray.orEmpty() }
+            .flatMap { it.jsonObject.keys }
+            .toSet()
+        assertTrue("No recorded envelope carries a season: the recording proves nothing about it.", seasonKeys.isNotEmpty())
+
+        assertDeclaredFieldsExist("Season", serializer<Season>(), seasonKeys, "envelopes.collection")
+    }
+
+    @Test
     fun `the budget status deserialises from the recorded response, with what lies outside the month`() {
         val body = readRecording("finance_budget_status.read")
 

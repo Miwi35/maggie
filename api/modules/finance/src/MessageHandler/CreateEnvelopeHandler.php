@@ -10,6 +10,7 @@ use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Message\CreateEnvelopeCommand;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
+use Maggie\Finance\Service\SeasonalAmounts;
 use Maggie\Finance\UseCase\CreateEnvelope;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -30,6 +31,10 @@ class CreateEnvelopeHandler
             ?? throw new \DomainException('User not found.');
 
         $mode = BudgetMode::from($command->mode);
+
+        if ([] !== $command->seasonalAmounts && BudgetMode::Monthly !== $mode) {
+            throw new \DomainException('Only a monthly envelope has seasonal amounts.');
+        }
 
         $envelope = new Envelope();
         $envelope->setUser($user);
@@ -75,7 +80,18 @@ class CreateEnvelopeHandler
         $envelope->setCategory($category);
         $envelope->setYear($command->year);
         $envelope->setMonth($month);
+        $envelope->setSeasonalAmounts($this->seasons($command->seasonalAmounts));
 
         return $this->createEnvelope->execute($envelope);
+    }
+
+    /** @return list<array{fromMonth: int, toMonth: int, amountCents: int}> */
+    private function seasons(mixed $seasons): array
+    {
+        try {
+            return SeasonalAmounts::normalize($seasons);
+        } catch (\InvalidArgumentException $e) {
+            throw new \DomainException($e->getMessage(), 0, $e);
+        }
     }
 }

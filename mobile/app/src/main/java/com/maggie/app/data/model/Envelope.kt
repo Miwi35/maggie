@@ -15,8 +15,50 @@ data class Envelope(
     val category: String? = null,
     // What a one-off envelope is for (« Hellfest 2026 »); the API omits it on the others.
     val name: String? = null,
+    // A monthly envelope's amounts for stretches of the year; amountCents is the rest (MAG-415).
+    val seasonalAmounts: List<Season> = emptyList(),
 ) {
     val isOneOff: Boolean get() = mode == ONE_OFF_MODE
+}
+
+/**
+ * A stretch of the year a monthly envelope is budgeted differently (MAG-415):
+ * Cinéma 45 € from November to February. It may cross the new year (11 → 2).
+ */
+@Serializable
+data class Season(
+    val fromMonth: Int,
+    val toMonth: Int,
+    val amountCents: Int,
+) {
+    /** The months it covers, in order: 11 → 2 is 11, 12, 1, 2. */
+    val months: List<Int>
+        get() = generateSequence(fromMonth) { if (it == toMonth) null else it % 12 + 1 }
+            .take(12)
+            .toList()
+}
+
+private val MONTH_SHORT = listOf(
+    "janv.", "févr.", "mars", "avr.", "mai", "juin",
+    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+)
+
+/** « saison nov.–févr. », or « saison juil. » for a single month. */
+fun seasonLabel(season: Season): String {
+    val from = MONTH_SHORT.getOrNull(season.fromMonth - 1) ?: season.fromMonth.toString()
+    val to = MONTH_SHORT.getOrNull(season.toMonth - 1) ?: season.toMonth.toString()
+    return if (season.fromMonth == season.toMonth) "saison $from" else "saison $from–$to"
+}
+
+/** The first month two seasons share, or null: the API refuses overlapping seasons (400). */
+fun overlappingMonth(seasons: List<Season>): Int? {
+    val taken = mutableSetOf<Int>()
+    for (season in seasons) {
+        for (month in season.months) {
+            if (!taken.add(month)) return month
+        }
+    }
+    return null
 }
 
 /** An event (Hellfest 2026): a name and an amount, spends attributed to it by hand. */
@@ -52,6 +94,8 @@ data class BudgetLine(
     override val currency: String = "EUR",
     val year: Int = 0,
     val month: Int? = null,
+    // The season budgeting this month: amountCents is then its amount (MAG-415).
+    val season: Season? = null,
     override val spentCents: Int = 0,
     override val committedCents: Int = 0,
     override val plannedCents: Int = 0,
@@ -156,6 +200,16 @@ fun monthLabel(month: Int): String = MONTH_NAMES.getOrNull(month - 1) ?: month.t
 /** Label of the period a budget covers: "Juillet 2026" or "Année 2026". */
 fun budgetPeriodLabel(mode: String, year: Int, month: Int?): String =
     if (mode == "annual" || month == null) "Année $year" else "${monthLabel(month)} $year"
+
+/**
+ * What a monthly envelope's card says under its name: the period, and when a season budgets
+ * the month, its amount and the season — « Novembre 2026 · 45,00 € · saison nov.–févr. ».
+ */
+fun budgetCaption(line: BudgetLine): String {
+    val period = budgetPeriodLabel(line.mode, line.year, line.month)
+    val season = line.season ?: return period
+    return "$period · ${formatCents(line.amountCents, line.currency)} · ${seasonLabel(season)}"
+}
 
 /** Share of a budget already spent, in [0f, 1f], for a progress indicator. */
 fun consumedFraction(spentCents: Int, amountCents: Int): Float {

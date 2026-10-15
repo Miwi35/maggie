@@ -110,4 +110,35 @@ class EnvelopeTest {
     fun `a budget line without a threshold reads the default (MAG-49)`() {
         assertEquals(80, BudgetLine(id = "e", categoryId = "c", categoryName = "Loisirs").alertThresholdPercent)
     }
+
+    private val winter = Season(fromMonth = 11, toMonth = 2, amountCents = 4500)
+
+    @Test
+    fun `a season may cross the new year`() {
+        assertEquals(listOf(11, 12, 1, 2), winter.months)
+        assertEquals(listOf(7), Season(7, 7, 0).months)
+    }
+
+    @Test
+    fun `seasonLabel names a season by its months`() {
+        assertEquals("saison nov.–févr.", seasonLabel(winter))
+        assertEquals("saison juil.", seasonLabel(Season(7, 7, 0)))
+    }
+
+    @Test
+    fun `overlappingMonth finds the month two seasons share`() {
+        assertEquals(2, overlappingMonth(listOf(winter, Season(2, 3, 3000))))
+        assertEquals(null, overlappingMonth(listOf(winter, Season(7, 8, 1000))))
+    }
+
+    @Test
+    fun `budgetCaption gives the month's amount and its season`() {
+        val line = BudgetLine(
+            id = "e", categoryId = "c", categoryName = "Cinéma",
+            amountCents = 4500, year = 2026, month = 11, season = winter,
+        )
+
+        assertEquals("Novembre 2026 · ${formatCents(4500)} · saison nov.–févr.", budgetCaption(line))
+        assertEquals("Mars 2027", budgetCaption(line.copy(month = 3, year = 2027, amountCents = 2000, season = null)))
+    }
 }

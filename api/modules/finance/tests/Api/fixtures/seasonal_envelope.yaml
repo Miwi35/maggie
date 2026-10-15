@@ -1,0 +1,72 @@
+# Cinéma 20 € a month, 45 € from November to February (MAG-415): its October
+# 2026 envelope and its February 2027 one, next to an annual Voyages envelope.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-seasonal-test@example.com
+    googleId: google-finance-seasonal-test
+    name: Finance Seasonal Test User
+  other_user:
+    email: finance-seasonal-other@example.com
+    googleId: google-finance-seasonal-other
+    name: Finance Seasonal Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  cinema:
+    name: Cinéma
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  cinema_october:
+    category: '@cinema'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 2000
+    seasonalAmounts:
+      - { fromMonth: 11, toMonth: 2, amountCents: 4500 }
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  cinema_february:
+    category: '@cinema'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 2000
+    seasonalAmounts:
+      - { fromMonth: 11, toMonth: 2, amountCents: 4500 }
+    currency: EUR
+    year: 2027
+    month: 2
+    user: '@test_user'
+  travel_2026:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 120000
+    currency: EUR
+    year: 2026
+    month: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  february_film:
+    account: '@checking'
+    category: '@cinema'
+    amountCents: -1000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-02-06"))>'
+    label: Séance Pathé
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

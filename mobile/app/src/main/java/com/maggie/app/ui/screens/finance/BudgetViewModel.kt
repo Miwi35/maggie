@@ -8,7 +8,9 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.NestedBudgetLine
+import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.nestBudgetLines
+import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -124,6 +126,13 @@ class BudgetViewModel(
     }
 
     fun createEnvelope(request: EnvelopeCreateRequest) {
+        // The API refuses two seasons sharing a month: say which before sending (MAG-415).
+        overlappingMonth(request.seasonalAmounts)?.let { month ->
+            _uiState.value = _uiState.value.copy(
+                error = "Deux saisons couvrent ${monthLabel(month).lowercase()} : une saison ne peut pas en chevaucher une autre.",
+            )
+            return
+        }
         viewModelScope.launch {
             try {
                 budgetRepository.createEnvelope(request).getOrThrow()

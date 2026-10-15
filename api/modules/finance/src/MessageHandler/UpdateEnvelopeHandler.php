@@ -9,6 +9,7 @@ use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Message\UpdateEnvelopeCommand;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
+use Maggie\Finance\Service\SeasonalAmounts;
 use Maggie\Finance\UseCase\UpdateEnvelope;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -67,6 +68,16 @@ class UpdateEnvelopeHandler
         }
         if ($command->setsAlertThreshold) {
             $envelope->setAlertThresholdPercent($command->alertThresholdPercent);
+        }
+        if (null !== $command->seasonalAmounts) {
+            try {
+                $envelope->setSeasonalAmounts(SeasonalAmounts::normalize($command->seasonalAmounts));
+            } catch (\InvalidArgumentException $e) {
+                throw new \DomainException($e->getMessage(), 0, $e);
+            }
+        }
+        if ([] !== $envelope->getSeasonalAmounts() && BudgetMode::Monthly !== $envelope->getMode()) {
+            throw new \DomainException('Only a monthly envelope has seasonal amounts.');
         }
 
         if (BudgetMode::Annual === $envelope->getMode()) {

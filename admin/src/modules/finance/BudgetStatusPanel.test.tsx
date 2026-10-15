@@ -209,4 +209,23 @@ describe('BudgetStatusPanel', () => {
 
     expect(screen.queryByText('Hors budget mensuel')).not.toBeInTheDocument()
   })
+
+  test('names the season budgeting the month', () => {
+    status = statusOf([
+      line({
+        id: 'cinema',
+        categoryName: 'Cinéma',
+        categoryPath: 'Cinéma',
+        month: 11,
+        amountCents: 4500,
+        season: { fromMonth: 11, toMonth: 2, amountCents: 4500 },
+      }),
+    ])
+
+    renderPanel()
+
+    const gauge = screen.getByTestId('budget-gauge')
+    expect(within(gauge).getByText(/Novembre 2026 · saison nov\.–févr\./)).toBeInTheDocument()
+    expect(within(gauge).getByText(/45,00/)).toBeInTheDocument()
+  })
 })

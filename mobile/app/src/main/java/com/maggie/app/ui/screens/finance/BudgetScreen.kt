@@ -65,11 +65,14 @@ import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.Season
 import com.maggie.app.data.model.budgetBreakdown
+import com.maggie.app.data.model.budgetCaption
 import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
+import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
@@ -94,6 +97,8 @@ fun BudgetScreen(
     val nested = remember(budgets) { uiState.nestedBudgets }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     val snackbarHostState = remember { SnackbarHostState() }
+    // The phone consults; the tablet also sets an envelope's seasons (spec, rule 8).
+    val editsSeasons = rememberAppLayout().width != WindowWidth.COMPACT
 
     LaunchedEffect(uiState.rollOverMessage) {
         uiState.rollOverMessage?.let {
@@ -190,7 +195,7 @@ fun BudgetScreen(
                             BudgetCard(
                                 line = row.line,
                                 label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
-                                caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
+                                caption = budgetCaption(row.line),
                                 depth = row.depth,
                                 onDelete = { viewModel.deleteEnvelope(row.line.id) },
                                 onEditThreshold = if (canSetThreshold) {
@@ -215,6 +220,7 @@ fun BudgetScreen(
             year = uiState.year,
             month = uiState.month,
             withThreshold = canSetThreshold,
+            editsSeasons = editsSeasons,
             onConfirm = { request ->
                 viewModel.createEnvelope(request)
                 showCreateDialog = false
@@ -507,6 +513,7 @@ private fun EnvelopeCreateDialog(
     year: Int,
     month: Int,
     withThreshold: Boolean,
+    editsSeasons: Boolean,
     onConfirm: (EnvelopeCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -516,9 +523,14 @@ private fun EnvelopeCreateDialog(
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var amountText by remember { mutableStateOf("") }
     var isMonthly by remember { mutableStateOf(true) }
+    var seasons by remember { mutableStateOf(listOf<SeasonDraft>()) }
 
+    val parsedSeasons = seasons.map { it.toSeason() }
+    // Two seasons sharing a month keep the dialog open rather than losing what was typed.
+    val seasonsOverlap = isMonthly && overlappingMonth(parsedSeasons.filterNotNull()) != null
     val canSubmit = selectedCategoryId != null && amountText.toDoubleOrNull() != null &&
-        threshold is AlertThresholdInput.Valid
+        threshold is AlertThresholdInput.Valid &&
+        (!isMonthly || parsedSeasons.all { it != null }) && !seasonsOverlap
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -561,6 +573,16 @@ private fun EnvelopeCreateDialog(
                 if (withThreshold) {
                     AlertThresholdField(thresholdText) { thresholdText = it }
                 }
+                if (editsSeasons && isMonthly) {
+                    SeasonsEditor(seasons = seasons, onChange = { seasons = it })
+                    if (seasonsOverlap) {
+                        Text(
+                            "Deux saisons couvrent le même mois.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -576,6 +598,7 @@ private fun EnvelopeCreateDialog(
                             mode = if (isMonthly) "monthly" else "annual",
                             month = if (isMonthly) month else null,
                             alertThresholdPercent = (threshold as? AlertThresholdInput.Valid)?.percent,
+                            seasonalAmounts = if (isMonthly) parsedSeasons.filterNotNull() else emptyList(),
                         ),
                     )
                 },
@@ -591,4 +614,65 @@ private fun EnvelopeCreateDialog(
         },
         modifier = Modifier.uiTagRoot(),
     )
+}
+
+/** A season being typed: months 1-12 and an amount in euros, checked on [toSeason]. */
+private data class SeasonDraft(val from: String = "", val to: String = "", val euros: String = "") {
+    fun toSeason(): Season? {
+        val fromMonth = from.toIntOrNull()?.takeIf { it in 1..12 } ?: return null
+        val toMonth = to.toIntOrNull()?.takeIf { it in 1..12 } ?: return null
+        val amount = euros.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 } ?: return null
+        return Season(fromMonth, toMonth, (amount * 100).roundToInt())
+    }
+}
+
+/**
+ * A monthly envelope's seasons, on the tablet (MAG-415): Cinéma 45 € from November (11)
+ * to February (2); the months no season covers keep the envelope's amount.
+ */
+@Composable
+private fun SeasonsEditor(seasons: List<SeasonDraft>, onChange: (List<SeasonDraft>) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag(UiTags.BUDGET_SEASONS)) {
+        Text("Saisons", style = MaterialTheme.typography.bodySmall)
+        Text(
+            "Un autre montant sur une partie de l'année ; les autres mois gardent le budget.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        seasons.forEachIndexed { index, draft ->
+            fun update(changed: SeasonDraft) = onChange(seasons.toMutableList().also { it[index] = changed })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = draft.from,
+                    onValueChange = { update(draft.copy(from = it)) },
+                    label = { Text("Du mois") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = draft.to,
+                    onValueChange = { update(draft.copy(to = it)) },
+                    label = { Text("Au mois") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = draft.euros,
+                    onValueChange = { update(draft.copy(euros = it)) },
+                    label = { Text("€") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { onChange(seasons.filterIndexed { i, _ -> i != index }) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Retirer la saison")
+                }
+            }
+        }
+        TextButton(onClick = { onChange(seasons + SeasonDraft()) }) {
+            Text("Ajouter une saison")
+        }
+    }
 }
