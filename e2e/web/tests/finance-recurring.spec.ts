@@ -669,8 +669,8 @@ test('a series without counterparty nor label recognises a credit by its amount 
  *   Alors la fiche de la transaction indique Remboursement, Obligatoire et « posée par la série Crédit auto »
  *   Quand la série devient non obligatoire
  *   Alors la transaction suit
- *   Quand je qualifie une autre ligne à la main
- *   Alors sa fiche dit « à la main » et la série n'y touche plus
+ *   Quand je qualifie cette ligne à la main
+ *   Alors sa fiche dit « à la main » et un changement de la série n'y touche plus
  */
 test('a series qualifies its transactions, a hand qualification stays put (MAG-479)', async ({ otherUser }) => {
   const { api, page } = otherUser
@@ -687,12 +687,10 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
   const categoryId = await created(api, '/api/categories', { name: categoryName })
   createdCategoryIds.push(categoryId)
 
-  // Given a monthly debit, and a second one the series will not recognise by itself.
+  // Given a monthly debit.
   const thisMonth = parisDay().slice(0, 7)
   const label = `PRLV CREDIT AUTO MAG-479 ESSAI ${attempt}`
-  const handLabel = `VIREMENT PONCTUEL MAG-479 ESSAI ${attempt}`
   await debit(api, accountId, label, -25000, `${monthBefore(thisMonth, 1)}-05`)
-  const handLine = await debit(api, accountId, handLabel, -4000, `${thisMonth}-06`)
 
   // When I make a series of it, mandatory, of type repayment (every category is offered).
   const list = new FinanceAccountsPage(page)
@@ -738,22 +736,23 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
   await expect(qualification.getByRole('switch', { name: 'Obligatoire' })).not.toBeChecked()
   await expect(qualification.getByRole('combobox', { name: 'Type' })).toContainText('Remboursement')
 
-  // When I qualify the other line by hand, its sheet says so.
-  qualification = await sheet(handLabel)
+  // When I qualify that same line by hand, its sheet says so.
+  qualification = await sheet(label)
   await qualification.getByRole('switch', { name: 'Obligatoire' }).check()
   const saving = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/transactions/'))
   await list.content.getByRole('button', { name: 'Enregistrer' }).click()
   expect((await saving).status()).toBe(200)
-  qualification = await sheet(handLabel)
+  qualification = await sheet(label)
   await expect(qualification.getByRole('switch', { name: 'Obligatoire' })).toBeChecked()
   await expect(list.content.getByTestId('qualification-provenance')).toContainText('à la main')
 
   // And a later change of the series does not touch it.
   const again = await api.patch(`/api/recurring_operations/${series.id}`, {
     headers: { 'Content-Type': 'application/merge-patch+json' },
-    data: { qualification: { mandatory: true, kind: 'repayment' } },
+    data: { qualification: { mandatory: false, kind: 'saving' } },
   })
   expect(again.status(), await again.text()).toBe(200)
-  const stored = await api.get(`/api/transactions/${handLine.id}`)
-  expect(((await stored.json()) as { qualifiedBy?: string; qualification?: { mandatory?: boolean } }).qualifiedBy).toBe('manual')
+  const line = (await getCollection<StoredTransaction>(api, '/api/transactions?itemsPerPage=100')).find((t) => t.label === label)
+  const stored = await api.get(`/api/transactions/${line?.id}`)
+  expect(await stored.json()).toMatchObject({ qualifiedBy: 'manual', qualification: { mandatory: true, kind: 'repayment' } })
 })

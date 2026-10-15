@@ -399,7 +399,7 @@ describe('CategorizationRuleForm', () => {
       })
     })
 
-    test('a rule saved with no choice is sent with the empty qualification, not the category flag', async () => {
+    test('a rule saved with no choice is sent with the empty qualification (the API then reads the category flag)', async () => {
       const user = userEvent.setup()
       renderCreate()
 

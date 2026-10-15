@@ -152,6 +152,22 @@ describe('CreateFilterDialog', () => {
     expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeDisabled()
   })
 
+  test('the qualification of the line is offered, can be changed and is sent with the rule', async () => {
+    const user = userEvent.setup()
+    renderDialog({ ...TRANSACTION, qualification: { mandatory: true, kind: 'repayment' } })
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByLabelText('Catégorie')).toHaveValue('Alimentation'))
+    const mandatory = within(dialog).getByRole('switch', { name: 'Obligatoire' })
+    expect(mandatory).toBeChecked()
+    expect(within(dialog).getByText(/je rembourse/)).toBeInTheDocument()
+
+    await user.click(mandatory)
+    await user.click(within(dialog).getByRole('button', { name: 'Créer le filtre' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({ qualification: { mandatory: false, kind: 'repayment' } })
+  })
+
   test('an API refusal is shown and the dialog stays open', async () => {
     create.mockRejectedValue(new Error('Cette règle existe déjà.'))
     const user = userEvent.setup()
