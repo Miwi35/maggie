@@ -198,6 +198,38 @@ class EnvelopeApiTest extends WebTestCase
         self::assertSame(80, $envelope->getEffectiveAlertThresholdPercent());
     }
 
+    /**
+     * The admin sends the whole record back, its `id` an IRI (recette of
+     * MAG-49: every edit from the admin failed with a 400).
+     */
+    public function testUpdateWithTheAdminBodyPersistsTheThreshold(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        /** @var Envelope $envelope */
+        $envelope = $this->getFixture('food_july');
+        $envelopeId = $envelope->getId();
+
+        $this->client->request('GET', '/api/envelopes/'.$envelopeId, [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseStatusCodeSame(200);
+        $record = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $body = array_filter($record, static fn (string $key): bool => !str_starts_with($key, '@'), ARRAY_FILTER_USE_KEY);
+        $body['id'] = '/api/envelopes/'.$envelopeId;
+        $body['originId'] = (string) $envelopeId;
+        $body['alertThresholdPercent'] = 85;
+
+        $this->patch($envelopeId, $body);
+
+        self::assertResponseStatusCodeSame(200);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(85, $em->find(Envelope::class, $envelopeId)->getAlertThresholdPercent());
+    }
+
     /** @return iterable<string, array{int}> */
     public static function thresholdsOutOfBounds(): iterable
     {

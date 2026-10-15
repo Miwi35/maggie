@@ -6,6 +6,7 @@ namespace Maggie\Finance\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -53,6 +54,8 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    // The admin sends the record back with its IRI as `id`: never denormalized.
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     /** The category budgeted; none for a one-off envelope, which spends are attributed to by hand. */
