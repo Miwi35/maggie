@@ -582,6 +582,10 @@ test.describe('categories on three levels', () => {
       }),
     )
 
+    await waitForIndexed<{ name?: string }>(api, '/api/categories', (c) => c.name === 'Loisirs', {
+      what: 'The category Loisirs',
+    })
+
     // When I set its threshold to 90 %.
     const budget = new FinanceBudgetPage(page)
     await budget.open()
