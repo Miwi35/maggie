@@ -1,0 +1,16 @@
+# "What is in season?" (MAG-494) — the read of the seasonality calendar. No
+# month: the tool takes the current one in the user's timezone, which the e2e
+# clock pins. The answer names the potiron the journey puts on the list; the
+# fake does not read the tool's result, so the journey asserts the call and its
+# outcome, and the data it served, never this wording.
+name: seasonal-produce
+description: Say what is in season through get_seasonal_produce.
+
+match:
+  user_matches: "(qu'est-ce qui est|c'est quoi|quoi) de saison|fruits et l[ée]gumes de saison"
+
+turns:
+  - tools:
+      - name: get_seasonal_produce
+        input: {}
+  - text: "En ce moment, c'est la saison du potiron, des poireaux et des pommes. Le potiron de ta liste est de saison."
