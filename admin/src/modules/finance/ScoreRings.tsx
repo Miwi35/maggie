@@ -58,7 +58,7 @@ const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
       <ButtonBase
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={`${title} : ${word}, ${formatCents(rhythm.remainingCents)} restants. Afficher les raisons`}
+        aria-label={`${title} : ${word}, ${hasBudget ? `${formatCents(rhythm.remainingCents)} restants` : 'aucune enveloppe'}. Afficher les raisons`}
         sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 2, p: 1 }}
       >
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -137,11 +137,16 @@ const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
 
       {open && (
         <Box component="ul" data-testid="score-reasons" sx={{ m: 0, mt: 1, pl: 2, textAlign: 'left' }}>
-          {score.reasons.map((reason) => (
+          {score.reasons.length === 0 && (
+            <Typography component="li" variant="caption">
+              Rien à signaler.
+            </Typography>
+          )}
+          {score.reasons.map((reason, index) => (
             <Typography
               component="li"
               variant="caption"
-              key={`${reason.code}-${reason.categoryName ?? ''}`}
+              key={`${reason.code}-${reason.categoryName ?? ''}-${index}`}
             >
               {reasonText(reason)}
             </Typography>

@@ -56,6 +56,37 @@ describe('useFinanceScores', () => {
     expect(result.current.scores).not.toBeNull()
   })
 
+  test('drops the scores of the previous month and ignores a late answer', async () => {
+    const answers: Array<(value: unknown) => void> = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => new Promise((resolve) => answers.push(resolve))),
+    )
+    const answer = (marker: string) => ({
+      ok: true,
+      json: () => Promise.resolve({ ...scores(), date: marker }),
+    })
+
+    const { result, rerender } = renderHook(({ month }) => useFinanceScores(2020, month), {
+      initialProps: { month: 2 },
+    })
+    await waitFor(() => expect(answers).toHaveLength(1))
+    await act(async () => answers[0](answer('2020-02-29')))
+    await waitFor(() => expect(result.current.scores?.date).toBe('2020-02-29'))
+
+    rerender({ month: 3 })
+    expect(result.current.scores).toBeNull()
+    await waitFor(() => expect(answers).toHaveLength(2))
+
+    rerender({ month: 4 })
+    await waitFor(() => expect(answers).toHaveLength(3))
+
+    await act(async () => answers[2](answer('2020-04-30')))
+    await act(async () => answers[1](answer('2020-03-31')))
+
+    expect(result.current.scores?.date).toBe('2020-04-30')
+  })
+
   test('reports an error when the network is down', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
 

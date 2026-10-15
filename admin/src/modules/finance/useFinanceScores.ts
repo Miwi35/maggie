@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatCents } from './accountTypes'
 
 export type ScoreStatus = 'green' | 'neutral' | 'orange' | 'red'
@@ -130,7 +130,10 @@ export function useFinanceScores(year: number, month: number) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  const latest = useRef(0)
+
   const refresh = useCallback(async () => {
+    const request = ++latest.current
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
@@ -144,16 +147,25 @@ export function useFinanceScores(year: number, month: number) {
       if (!res.ok) {
         throw new Error(`scores answered ${res.status}`)
       }
-      setScores((await res.json()) as FinanceScores)
+      const body = (await res.json()) as FinanceScores
+      if (request !== latest.current) {
+        return
+      }
+      setScores(body)
       setError(false)
     } catch {
-      setError(true)
+      if (request === latest.current) {
+        setError(true)
+      }
     } finally {
-      setLoading(false)
+      if (request === latest.current) {
+        setLoading(false)
+      }
     }
   }, [year, month])
 
   useEffect(() => {
+    setScores(null)
     refresh()
   }, [refresh])
 
