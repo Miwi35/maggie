@@ -937,6 +937,420 @@
                 }
             }
         },
+        "/api/aisles": {
+            "get": {
+                "operationId": "api_aisles_get_collection",
+                "tags": [
+                    "Aisle"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Aisle collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Aisle.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchemaNoPagination"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Aisle.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Aisle"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Aisle.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Aisle resources.",
+                "description": "Retrieves the collection of Aisle resources.",
+                "parameters": [
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "store",
+                        "in": "query",
+                        "description": "Restrict to one store, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_aisles_post",
+                "tags": [
+                    "Aisle"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Aisle resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Aisle resource.",
+                "description": "Creates a Aisle resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Aisle resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Aisle"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Aisle"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Aisle"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/aisles/{id}": {
+            "get": {
+                "operationId": "api_aisles_id_get",
+                "tags": [
+                    "Aisle"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Aisle resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Aisle resource.",
+                "description": "Retrieves a Aisle resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Aisle identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_aisles_id_delete",
+                "tags": [
+                    "Aisle"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Aisle resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Aisle resource.",
+                "description": "Removes the Aisle resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Aisle identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_aisles_id_patch",
+                "tags": [
+                    "Aisle"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Aisle resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Aisle.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Aisle resource.",
+                "description": "Updates the Aisle resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Aisle identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Aisle resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Aisle.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/categorization_rules": {
             "get": {
                 "operationId": "api_categorization_rules_get_collection",
@@ -10410,6 +10824,133 @@
                     }
                 ]
             },
+            "Aisle": {
+                "type": "object",
+                "description": "A shelf of one store, where its products are picked up, in the order the\nowner walks through the shop (MAG-493). The same product may be in a\ndifferent aisle in each store: {@see ProductAisle}.\n\nThe name is checked by the use cases (not blank, unique per store whatever\nthe case), so that the API and the MCP tools answer the same 400.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "store": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "name": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "Aisle.html": {
+                "type": "object",
+                "description": "A shelf of one store, where its products are picked up, in the order the\nowner walks through the shop (MAG-493). The same product may be in a\ndifferent aisle in each store: {@see ProductAisle}.\n\nThe name is checked by the use cases (not blank, unique per store whatever\nthe case), so that the API and the MCP tools answer the same 400.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "store": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "name": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "Aisle.jsonMergePatch": {
+                "type": "object",
+                "description": "A shelf of one store, where its products are picked up, in the order the\nowner walks through the shop (MAG-493). The same product may be in a\ndifferent aisle in each store: {@see ProductAisle}.\n\nThe name is checked by the use cases (not blank, unique per store whatever\nthe case), so that the API and the MCP tools answer the same 400.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "store": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "name": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "Aisle.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "store": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "name": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "position": {
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "user": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            }
+                        }
+                    }
+                ],
+                "description": "A shelf of one store, where its products are picked up, in the order the\nowner walks through the shop (MAG-493). The same product may be in a\ndifferent aisle in each store: {@see ProductAisle}.\n\nThe name is checked by the use cases (not blank, unique per store whatever\nthe case), so that the API and the MCP tools answer the same 400."
+            },
             "BankConnection": {
                 "type": "object",
                 "properties": {
@@ -12866,6 +13407,24 @@
                     "label": {
                         "readOnly": true,
                         "type": "string"
+                    },
+                    "aisle": {
+                        "readOnly": true,
+                        "description": "The aisle of the line's product in the line's store, null when either is\nmissing or the product has no aisle there (« Sans rayon », MAG-493).",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
                     }
                 }
             },
@@ -12981,6 +13540,24 @@
                     "label": {
                         "readOnly": true,
                         "type": "string"
+                    },
+                    "aisle": {
+                        "readOnly": true,
+                        "description": "The aisle of the line's product in the line's store, null when either is\nmissing or the product has no aisle there (« Sans rayon », MAG-493).",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
                     }
                 }
             },
@@ -13096,6 +13673,24 @@
                     "label": {
                         "readOnly": true,
                         "type": "string"
+                    },
+                    "aisle": {
+                        "readOnly": true,
+                        "description": "The aisle of the line's product in the line's store, null when either is\nmissing or the product has no aisle there (« Sans rayon », MAG-493).",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
                     }
                 }
             },
@@ -13502,6 +14097,16 @@
                     },
                     "autoRestock": {
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -13680,6 +14285,16 @@
                     },
                     "autoRestock": {
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -13858,6 +14473,16 @@
                     },
                     "autoRestock": {
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },
@@ -14037,6 +14662,16 @@
                             },
                             "autoRestock": {
                                 "type": "boolean"
+                            },
+                            "aisles": {
+                                "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
                             }
                         },
                         "required": [
@@ -15955,6 +16590,16 @@
                         "description": "Whether running out puts it back on the list by itself.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -16136,6 +16781,16 @@
                         "description": "Whether running out puts it back on the list by itself.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -16317,6 +16972,16 @@
                         "description": "Whether running out puts it back on the list by itself.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "aisles": {
+                        "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },
@@ -16499,6 +17164,16 @@
                                 "description": "Whether running out puts it back on the list by itself.",
                                 "default": false,
                                 "type": "boolean"
+                            },
+                            "aisles": {
+                                "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
                             }
                         },
                         "required": [
@@ -20801,6 +21476,10 @@
         {
             "name": "Transaction",
             "description": "Resource 'Transaction' operations."
+        },
+        {
+            "name": "Aisle",
+            "description": "A shelf of one store, where its products are picked up, in the order the\nowner walks through the shop (MAG-493). The same product may be in a\ndifferent aisle in each store: {@see ProductAisle}.\n\nThe name is checked by the use cases (not blank, unique per store whatever\nthe case), so that the API and the MCP tools answer the same 400."
         },
         {
             "name": "Errand",

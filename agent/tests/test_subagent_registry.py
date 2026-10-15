@@ -32,6 +32,7 @@ MCP_TOOL_NAMES = (
     "list_past_errands",
     "manage_accounts",
     "manage_agendas",
+    "manage_aisles",
     "manage_categories",
     "manage_categorization_rules",
     "manage_envelopes",

@@ -36,7 +36,8 @@
                         "carbsPer100g": 71,
                         "fatPer100g": 1.5,
                         "stockState": "in_stock",
-                        "autoRestock": false
+                        "autoRestock": false,
+                        "aisles": []
                     },
                     "quantity": 200,
                     "ingredientName": "Recorded Ingredient",

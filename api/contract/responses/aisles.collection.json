@@ -1,0 +1,30 @@
+{
+    "@context": "/api/contexts/Aisle",
+    "@id": "/api/aisles",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/aisles/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Aisle",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "store": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Aisle",
+            "position": 1,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/aisles{?store}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "store",
+                "property": "store",
+                "required": false
+            }
+        ]
+    }
+}

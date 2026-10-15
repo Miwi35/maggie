@@ -8,9 +8,12 @@ use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Exception\InvalidAisleException;
 use Maggie\Grocery\Message\UpdateProductCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\GroceryListAisles;
+use Maggie\Grocery\Service\OwnedAisles;
 use Maggie\Grocery\UseCase\UpdateProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -21,6 +24,8 @@ class UpdateProductHandler
         private readonly UpdateProduct $updateProduct,
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
+        private readonly OwnedAisles $ownedAisles,
+        private readonly GroceryListAisles $groceryListAisles,
     ) {
     }
 
@@ -83,8 +88,49 @@ class UpdateProductHandler
             $product->setAutoRestock($command->autoRestock);
         }
         $product->assertRestockQuantityIsValid();
+        if (null !== $command->aisles) {
+            $this->applyAisles($product, $command->aisles);
+        }
 
-        return $this->updateProduct->execute($product);
+        $product = $this->updateProduct->execute($product);
+        if (null !== $command->aisles) {
+            $this->groceryListAisles->announce($product->getUser());
+        }
+
+        return $product;
+    }
+
+    /**
+     * @param list<array{store: string, aisle: ?string}> $aisles
+     *
+     * @throws InvalidAisleException
+     */
+    private function applyAisles(Product $product, array $aisles): void
+    {
+        $user = $product->getUser();
+
+        $wanted = [];
+        foreach ($aisles as $entry) {
+            $store = $this->ownedAisles->store($user, $entry['store']);
+            $key = (string) $store->getId();
+            if (\array_key_exists($key, $wanted)) {
+                throw new InvalidAisleException(sprintf('One aisle per store: "%s" is given twice.', $store->getName()));
+            }
+            $wanted[$key] = null !== $entry['aisle'] ? $this->ownedAisles->aisleOfStore($user, $store, $entry['aisle']) : $store;
+        }
+
+        foreach ($product->getAisleAssignments()->toArray() as $assignment) {
+            if (!\array_key_exists((string) $assignment->getStore()->getId(), $wanted)) {
+                $product->detachAisleIn($assignment->getStore());
+            }
+        }
+        foreach ($wanted as $aisleOrStore) {
+            if ($aisleOrStore instanceof Store) {
+                $product->detachAisleIn($aisleOrStore);
+            } else {
+                $product->assignAisle($aisleOrStore);
+            }
+        }
     }
 
     private function ownedStore(string $storeId, Product $product): Store

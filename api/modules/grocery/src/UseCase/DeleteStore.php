@@ -6,6 +6,7 @@ namespace Maggie\Grocery\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Grocery\Entity\Store;
+use Maggie\Grocery\Repository\AisleRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 
 class DeleteStore
@@ -13,6 +14,8 @@ class DeleteStore
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ProductRepository $productRepository,
+        private readonly AisleRepository $aisleRepository,
+        private readonly DeleteAisle $deleteAisle,
     ) {
     }
 
@@ -29,6 +32,12 @@ class DeleteStore
             if ($product->getFallbackStore() === $store) {
                 $product->setFallbackStore(null);
             }
+        }
+
+        // Its aisles go with it, announced like the products they leave.
+        foreach ($this->aisleRepository->findByStore($store) as $aisle) {
+            $this->deleteAisle->detachProducts($aisle);
+            $this->em->remove($aisle);
         }
 
         $this->em->remove($store);

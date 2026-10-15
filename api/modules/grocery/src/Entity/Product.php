@@ -13,6 +13,8 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
@@ -33,6 +35,7 @@ use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\State\CreateProductProcessor;
 use Maggie\Grocery\State\DeleteProductProcessor;
 use Maggie\Grocery\State\UpdateProductProcessor;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -143,9 +146,31 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[IndexedField(type: 'boolean')]
     private bool $autoRestock = false;
 
+    /**
+     * Its aisle in each store, one at most per store (MAG-493). Read and
+     * written as `aisles`: this collection is the storage, never serialised.
+     *
+     * @var Collection<int, ProductAisle>
+     */
+    #[ORM\OneToMany(targetEntity: ProductAisle::class, mappedBy: 'product', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ApiProperty(readable: false, writable: false)]
+    #[Ignore]
+    private Collection $aisleAssignments;
+
+    /**
+     * What a PATCH sent as `aisles`, null when it sent nothing: the processor
+     * hands it to the command, whose handler checks and applies it.
+     *
+     * @var list<array{store: string, aisle: ?string}>|null
+     */
+    #[ApiProperty(readable: false, writable: false)]
+    #[Ignore]
+    private ?array $aislesInput = null;
+
     public function __construct()
     {
         $this->id = new Ulid();
+        $this->aisleAssignments = new ArrayCollection();
     }
 
     public function getId(): Ulid
@@ -376,6 +401,96 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    /** @return Collection<int, ProductAisle> */
+    public function getAisleAssignments(): Collection
+    {
+        return $this->aisleAssignments;
+    }
+
+    /**
+     * Its aisle in each store, as bare ids: `[{store, aisle}]`.
+     *
+     * @return list<array{store: string, aisle: string}>
+     */
+    public function getAisles(): array
+    {
+        $aisles = [];
+        foreach ($this->aisleAssignments as $assignment) {
+            $aisles[] = [
+                'store' => (string) $assignment->getStore()->getId(),
+                'aisle' => (string) $assignment->getAisle()->getId(),
+            ];
+        }
+
+        return $aisles;
+    }
+
+    /**
+     * Only remembers what was sent; {@see \Maggie\Grocery\MessageHandler\UpdateProductHandler} applies it.
+     * Each entry is `{store, aisle}`, ids or IRIs, `aisle` null for « Sans rayon ».
+     *
+     * @param array<int, array<string, string|null>> $aisles
+     */
+    public function setAisles(array $aisles): static
+    {
+        $input = [];
+        foreach ($aisles as $entry) {
+            $input[] = [
+                'store' => (string) ($entry['store'] ?? ''),
+                'aisle' => isset($entry['aisle']) && '' !== $entry['aisle'] ? (string) $entry['aisle'] : null,
+            ];
+        }
+        $this->aislesInput = $input;
+
+        return $this;
+    }
+
+    /** @return list<array{store: string, aisle: ?string}>|null */
+    public function getAislesInput(): ?array
+    {
+        return $this->aislesInput;
+    }
+
+    public function aisleIn(Store $store): ?Aisle
+    {
+        return $this->assignmentIn($store)?->getAisle();
+    }
+
+    /** Puts the product in this aisle of the aisle's store, in place of the one it had there. */
+    public function assignAisle(Aisle $aisle): static
+    {
+        $assignment = $this->assignmentIn($aisle->getStore());
+        if (null === $assignment) {
+            $this->aisleAssignments->add(new ProductAisle($this, $aisle));
+        } elseif ($assignment->getAisle() !== $aisle) {
+            $assignment->setAisle($aisle);
+        }
+
+        return $this;
+    }
+
+    /** « Sans rayon » in this store. */
+    public function detachAisleIn(Store $store): static
+    {
+        $assignment = $this->assignmentIn($store);
+        if (null !== $assignment) {
+            $this->aisleAssignments->removeElement($assignment);
+        }
+
+        return $this;
+    }
+
+    private function assignmentIn(Store $store): ?ProductAisle
+    {
+        foreach ($this->aisleAssignments as $assignment) {
+            if ((string) $assignment->getStore()->getId() === (string) $store->getId()) {
+                return $assignment;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Called by the handlers next to assertPackagingIsConsistent().
      *
@@ -450,6 +565,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'stockState' => $this->stockState->value,
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
-        ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId']);
+            'aisles' => $this->getAisles(),
+        ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId', 'aisleAssignments' => 'aisles']);
     }
 }

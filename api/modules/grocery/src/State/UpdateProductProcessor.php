@@ -68,6 +68,7 @@ class UpdateProductProcessor implements ProcessorInterface
             restockQuantity: $data->getRestockQuantity(),
             autoRestock: $data->isAutoRestock(),
             clearFields: $clearFields,
+            aisles: $data->getAislesInput(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
