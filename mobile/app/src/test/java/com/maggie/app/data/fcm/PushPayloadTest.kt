@@ -40,12 +40,18 @@ class PushPayloadTest {
 
     @Test
     fun `the channel is the one the server named, else the one of the type`() {
-        assertEquals(PushChannels.FINANCE, payload("reminder", channel = "finance").channel)
+        assertEquals(PushChannels.FINANCE, payload("reminder", channel = PushChannels.FINANCE).channel)
         assertEquals(PushChannels.REMINDERS, payload("reminder").channel)
         assertEquals(PushChannels.REMINDERS, payload("task_due").channel)
         assertEquals(PushChannels.APPROVALS, payload("approval").channel)
         assertEquals(PushChannels.FINANCE, payload("consent_expiring").channel)
         assertEquals(PushChannels.CHAT, payload("proaction").channel)
+    }
+
+    @Test
+    fun `a channel of the previous generation is replaced by the type's`() {
+        assertEquals(PushChannels.REMINDERS, payload("reminder", channel = "chat").channel)
+        assertEquals(PushChannels.CHAT, payload("proaction", channel = "chat").channel)
     }
 
     @Test
