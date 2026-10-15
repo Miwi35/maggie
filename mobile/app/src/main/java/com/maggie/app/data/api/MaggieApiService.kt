@@ -33,6 +33,7 @@ import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Season
+import com.maggie.app.data.model.ONE_OFF_MODE
 import com.maggie.app.data.model.targetsCategory
 import com.maggie.app.data.model.RecurringAttachReport
 import com.maggie.app.data.model.RulePreview
@@ -106,6 +107,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
@@ -385,6 +387,56 @@ data class EnvelopeCreateRequest(
     // Monthly only: the amounts of stretches of the year, amountCents being the rest (MAG-415).
     val seasonalAmounts: List<Season> = emptyList(),
 )
+
+/** A one-off envelope (Hellfest 2026): a name and an amount, no category and no period. */
+@Serializable
+data class OneOffEnvelopeCreateRequest(
+    val name: String,
+    val amountCents: Int,
+    // No default: kotlinx leaves defaults out of the body, and the API's own default is « monthly ».
+    val mode: String,
+    val currency: String = "EUR",
+)
+
+/**
+ * What the tablet's editor writes back to an envelope (MAG-419). A monthly envelope keeps its month
+ * and its seasons; an annual one has neither (the API refuses seasons off a monthly envelope, 400);
+ * a one-off one is its [name] and its amount. A null [alertThresholdPercent] puts the default back.
+ */
+data class EnvelopeUpdateRequest(
+    val amountCents: Int,
+    val mode: String,
+    val month: Int? = null,
+    val seasonalAmounts: List<Season> = emptyList(),
+    val alertThresholdPercent: Int? = null,
+    val name: String? = null,
+) {
+    /** The merge-patch body: nulls are spelled out, because absent would mean « unchanged ». */
+    fun toJson(): JsonObject = buildJsonObject {
+        put("amountCents", JsonPrimitive(amountCents))
+        if (mode == ONE_OFF_MODE) {
+            name?.let { put("name", JsonPrimitive(it)) }
+            return@buildJsonObject
+        }
+        put("mode", JsonPrimitive(mode))
+        put("month", month?.let(::JsonPrimitive) ?: JsonNull)
+        put("alertThresholdPercent", alertThresholdPercent?.let(::JsonPrimitive) ?: JsonNull)
+        put(
+            "seasonalAmounts",
+            buildJsonArray {
+                seasonalAmounts.forEach { season ->
+                    add(
+                        buildJsonObject {
+                            put("fromMonth", JsonPrimitive(season.fromMonth))
+                            put("toMonth", JsonPrimitive(season.toMonth))
+                            put("amountCents", JsonPrimitive(season.amountCents))
+                        },
+                    )
+                }
+            },
+        )
+    }
+}
 
 @Serializable
 data class EnvelopeSplitChild(
@@ -1311,12 +1363,35 @@ class MaggieApiService(
         }.body<ApiCollection<Envelope>>().member
     }
 
+    suspend fun getEnvelope(id: String): Envelope {
+        return client.get("$baseUrl/api/envelopes/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.orRefusal().body()
+    }
+
     suspend fun createEnvelope(request: EnvelopeCreateRequest): Envelope {
         return client.post("$baseUrl/api/envelopes") {
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
             setBody(request)
-        }.body()
+        }.orRefusal().body()
+    }
+
+    suspend fun createOneOffEnvelope(request: OneOffEnvelopeCreateRequest): Envelope {
+        return client.post("$baseUrl/api/envelopes") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** Writes the envelope's amount, mode, month, seasons and threshold in one go (the tablet's editor). */
+    suspend fun updateEnvelope(id: String, request: EnvelopeUpdateRequest): Envelope {
+        return client.patch("$baseUrl/api/envelopes/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request.toJson())
+        }.orRefusal().body()
     }
 
     /** Sets the envelope's alert threshold; null puts it back to the default. */
@@ -1329,7 +1404,7 @@ class MaggieApiService(
     }
 
     suspend fun deleteEnvelope(id: String) {
-        client.delete("$baseUrl/api/envelopes/$id")
+        client.delete("$baseUrl/api/envelopes/$id").orRefusal()
     }
 
     /** Shares a mother's amount between her daughters in one go; a 400 means nothing was changed. */

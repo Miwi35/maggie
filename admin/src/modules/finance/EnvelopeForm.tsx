@@ -60,11 +60,11 @@ const ModeInput = ({ withDefaults }: EnvelopeFormProps) => {
   )
 }
 
-const toCents = (v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))
-const toEuros = (v?: number) => (v == null ? null : v / 100)
+export const toCents = (v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100))
+export const toEuros = (v?: number) => (v == null ? null : v / 100)
 
 /** The API refuses two seasons sharing a month (400): say which before sending. */
-const validateSeasons = (seasons?: Array<Partial<Season> | null>) => {
+export const validateSeasons = (seasons?: Array<Partial<Season> | null>) => {
   const month = overlappingMonth(seasons ?? [])
   return month == null
     ? undefined
@@ -75,7 +75,7 @@ const validateSeasons = (seasons?: Array<Partial<Season> | null>) => {
  * A monthly envelope budgeted differently over part of the year (MAG-415):
  * Cinéma 45 € from November to February, the envelope's amount otherwise.
  */
-const SeasonsInput = () => (
+export const SeasonsInput = () => (
   <>
     <FormSection
       title="Saisons"
@@ -104,17 +104,35 @@ const SeasonsInput = () => (
   </>
 )
 
+/** The envelope's amount, in euros on screen and cents on the wire. */
+export const AmountInput = ({ helperText }: { helperText?: string }) => (
+  <NumberInput
+    source="amountCents"
+    label="Montant de l'enveloppe (€)"
+    validate={required()}
+    format={toEuros}
+    parse={toCents}
+    sx={halfSx}
+    helperText={helperText}
+  />
+)
+
+/** Alert threshold in percent, 1 to 99; empty means 80 %. */
+export const AlertThresholdInput = () => (
+  <NumberInput
+    source="alertThresholdPercent"
+    label="Seuil d'alerte (%)"
+    min={1}
+    max={99}
+    validate={[minValue(1), maxValue(99)]}
+    sx={halfSx}
+    helperText="Entre 1 et 99. Vide : 80 %."
+  />
+)
+
 const AmountInputs = ({ withDefaults }: EnvelopeFormProps) => (
   <Box sx={rowSx}>
-    <NumberInput
-      source="amountCents"
-      label="Montant de l'enveloppe (€)"
-      validate={required()}
-      format={toEuros}
-      parse={toCents}
-      sx={halfSx}
-      helperText="Ce que vous vous autorisez à dépenser sur toute la période."
-    />
+    <AmountInput helperText="Ce que vous vous autorisez à dépenser sur toute la période." />
     <TextInput
       source="currency"
       label="Devise"
@@ -221,15 +239,7 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
       description="Après une synchro bancaire qui fait passer l'enveloppe au-delà de ce seuil, Maggie vous prévient — une fois par période, puis une seconde fois à 100 %."
     />
 
-    <NumberInput
-      source="alertThresholdPercent"
-      label="Seuil d'alerte (%)"
-      min={1}
-      max={99}
-      validate={[minValue(1), maxValue(99)]}
-      sx={halfSx}
-      helperText="Entre 1 et 99. Vide : 80 %."
-    />
+    <AlertThresholdInput />
 
     <FormDataConsumer>
       {({ formData }) => (

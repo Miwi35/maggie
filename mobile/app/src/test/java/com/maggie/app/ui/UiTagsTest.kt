@@ -65,4 +65,10 @@ class UiTagsTest {
     fun `a savings advance's button is suffixed by the advance`() {
         assertEquals("savings_advance_done_adv-1", UiTags.savingsAdvanceDone("adv-1"))
     }
+
+    /** `budget_node_<category name>`: a tablet journey taps « Obsydian » by its name (MAG-419). */
+    @Test
+    fun `a budget tree node is suffixed by its category's name`() {
+        assertEquals("budget_node_Obsydian", UiTags.budgetNode("Obsydian"))
+    }
 }

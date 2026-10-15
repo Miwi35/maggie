@@ -11,7 +11,6 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useNotify, useRefresh } from 'react-admin'
-import { useMercure } from '../../hooks/useMercure'
 import { DailyScoreBanner } from './DailyScoreBanner'
 import { EnvelopeSplitSlider } from './EnvelopeSplitSlider'
 import { PeriodPicker } from './PeriodPicker'
@@ -19,11 +18,8 @@ import { formatCents } from './accountTypes'
 import { consumedPercent, formatPeriod, formatSeason } from './budgetModes'
 import { nestBudgetLines } from './budgetTree'
 import type { NestedBudgetLine } from './budgetTree'
-import { useBudgetStatus } from './useBudgetStatus'
 import { useRollOverEnvelopes } from './useRollOverEnvelopes'
 import type { BudgetLine, BudgetStatus, EnvelopeConsumption } from './useBudgetStatus'
-
-const BUDGET_TOPICS = ['/api/envelopes/{id}', '/api/transactions/{id}']
 
 /** "250,00 € dépensés · 300,00 € engagés · 800,00 € planifiés" */
 const breakdown = (line: EnvelopeConsumption): string =>
@@ -212,17 +208,32 @@ const OutsideMonthlyBudget = ({ status, onSplitSaved }: { status: BudgetStatus; 
   )
 }
 
-/** Consumed-vs-budget gauges for a period, shown above the envelope list. */
-export const BudgetStatusPanel = () => {
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const { status, loading, refresh } = useBudgetStatus(year, month)
+interface BudgetStatusPanelProps {
+  year: number
+  month: number
+  onYearChange: (year: number) => void
+  onMonthChange: (month: number) => void
+  status: BudgetStatus | null
+  loading: boolean
+  refresh: () => void | Promise<void>
+}
+
+/**
+ * Consumed-vs-budget gauges for a period, shown above the envelope tree. The
+ * period and the status belong to the screen, which the tree follows too.
+ */
+export const BudgetStatusPanel = ({
+  year,
+  month,
+  onYearChange,
+  onMonthChange,
+  status,
+  loading,
+  refresh,
+}: BudgetStatusPanelProps) => {
   const { rollOver, running } = useRollOverEnvelopes()
   const notify = useNotify()
   const refreshList = useRefresh()
-
-  useMercure(BUDGET_TOPICS, () => { refresh() })
 
   const previous = new Date(year, month - 2, 1)
 
@@ -271,8 +282,8 @@ export const BudgetStatusPanel = () => {
           <PeriodPicker
             year={year}
             month={month}
-            onYearChange={setYear}
-            onMonthChange={setMonth}
+            onYearChange={onYearChange}
+            onMonthChange={onMonthChange}
           />
           <Button
             size="small"
