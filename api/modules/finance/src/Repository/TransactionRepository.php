@@ -212,6 +212,51 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * What the envelopes of a set of categories consumed each day of a
+     * half-open period: spent and committed debits, as positive cents per
+     * Y-m-d. Same scope as {@see sumByStatusForCategoriesBetween} — transfers
+     * and spends attributed to a one-off envelope are out. A day with nothing
+     * is absent.
+     *
+     * @param list<Ulid> $categoryIds
+     *
+     * @return array<string, int>
+     */
+    public function sumConsumedPerDayForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        if ([] === $categoryIds) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
+            ->andWhere('t.category IN (:categories)')
+            ->andWhere('t.oneOffEnvelope IS NULL')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
+            ->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getResult();
+
+        $perDay = [];
+        foreach ($rows as $row) {
+            $day = $row['bookedAt']->format('Y-m-d');
+            $perDay[$day] = ($perDay[$day] ?? 0) + abs((int) $row['amountCents']);
+        }
+
+        return $perDay;
+    }
+
+    /**
      * Debits attributed to the user's one-off envelopes, whenever booked, per
      * envelope id then per status, as positive cents. An envelope nothing was
      * attributed to is absent.

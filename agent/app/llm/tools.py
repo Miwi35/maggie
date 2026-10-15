@@ -377,7 +377,7 @@ PENDING_APPROVAL_MESSAGE = (
 A2A_ALLOWED_TOOLS = frozenset(
     {
         "check_conflicts",
-        "get_daily_score",
+        "get_finance_scores",
         "get_events_by_date",
         "get_finance_dashboard",
         "get_grocery_list",

@@ -605,6 +605,38 @@ test('asking for the weather runs get_weather against the simulated Open-Meteo',
   await expect(chat.bubbles(WEATHER.answer)).toHaveCount(1)
 })
 
+/**
+ * 53-finance-scores.yaml — « Où j'en suis ce mois-ci ? » reads the week and month scores through
+ * `get_finance_scores` (MAG-416). The fake does not read the result: what is asserted is the tool that
+ * ran and the document the same endpoint gives; the figures of each case (rent on the 5th, above or in
+ * the rhythm) are `GetFinanceScoresTest`'s. The screens that show it are MAG-417's.
+ */
+const FINANCE_SCORES = {
+  question: "Où j'en suis ce mois-ci ?",
+  answer:
+    'Ce mois-ci, vous êtes au-dessus du rythme : vous avez dépensé plus que ce que votre budget prévoit à cette date, loyer compris.',
+}
+
+test('« où j\'en suis ce mois-ci ? » reads the week and month scores through get_finance_scores', async ({ page, api }) => {
+  await new DashboardPage(page).open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(FINANCE_SCORES.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+  expect(calledTools(events)).toContain('get_finance_scores')
+  expect(toolResults(events)).toContainEqual({ toolName: 'get_finance_scores', status: 'success' })
+  await expect(chat.bubbles(FINANCE_SCORES.answer)).toHaveCount(1)
+
+  const response = await api.get('/api/finance/scores')
+  expect(response.status(), await response.text()).toBe(200)
+  const scores = (await response.json()) as Record<string, { status: string; label: string; reasons: unknown[] }>
+  for (const period of ['week', 'month', 'global']) {
+    expect(['green', 'neutral', 'orange', 'red']).toContain(scores[period].status)
+    expect(scores[period].reasons.length).toBeGreaterThan(0)
+  }
+})
+
 /** 96-web-search-holidays.yaml — the model searches the web; the answer ends on its source line (MAG-384). */
 const WEB_SEARCH = {
   question: 'Quelles sont les dates des vacances de la Toussaint 2026 à Rennes ?',
