@@ -241,6 +241,35 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The morning's proposal (MAG-498), as `/api/day-plans/{date}/proposal`
+     * sends it: slots with their reason, the ranked reserve, the minutes.
+     */
+    public function testTheDayProposalRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        // Twenty minutes left of the evening: one task fits, the others wait in the ranked reserve.
+        Clock::set(new MockClock('2026-04-22 19:40:00 UTC'));
+        $path = '/api/day-plans/2026-04-22/proposal';
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotSame([], $body['slots'], 'The recorded proposal has no slot, so it proves nothing about them.');
+        self::assertNotSame([], $body['reserveRanked'], 'The recorded proposal has an empty reserve.');
+
+        $this->assertMatchesContract(
+            'responses/day_plans.proposal.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (DayProposal.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
      * Every collection carries at least one member, or the recording proves
      * nothing about the fields.
      */
