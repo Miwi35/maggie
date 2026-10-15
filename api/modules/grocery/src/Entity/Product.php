@@ -567,7 +567,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return null === $this->seasonMonths ? null : \in_array($month, $this->seasonMonths, true);
     }
 
-    /** Fills inSeason for that month — the month of the user's timezone, {@see \Maggie\Grocery\Service\SeasonCalendar}. */
+    /** Fills inSeason for that month — the month of the user's timezone, {@see SeasonCalendar}. */
     public function markSeason(int $month): static
     {
         $this->seasonMonth = $month;
