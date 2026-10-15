@@ -6,7 +6,7 @@ One line in the Actions list per event (MAG-244), each saying what it is (`run-n
 
 | Event | Workflow | Line | Jobs |
 |---|---|---|---|
-| Push on a PR (draft included) | `ci.yml` (`Pull request`) | `PR #120 · <title>` | path detection → lint, tests, e2e, mobile unit tests, `PR checks passed` |
+| Push on a PR, marked ready | `ci.yml` (`Pull request`) | `PR #120 · <title>` (`· draft` on a draft) | path detection → lint, tests, mobile unit tests, e2e (ready only), `PR checks passed` (`· draft` on a draft) |
 | Merge group of the merge queue | `ci.yml` (`Pull request`) | `Merge queue · <group ref>` | the same jobs on main + the PRs ahead + this PR |
 | Merge on `main` | `main.yml` (`Main`) | `main · CI puis déploiement · <commit message>` | `tested` → `ci.yml` called (skipped for a tree already tested) → gate → builds → deploy → smoke (or rollback) → mobile app published |
 | Every night | `nightly.yml` (`Nuit`) | `Nuit · CI complète + eval du modèle réel` | `ci.yml` called with no path filter and without the e2e journeys (`suite: no-e2e`), beside the real-model eval |
@@ -18,7 +18,7 @@ No `workflow_run` anywhere: a chained workflow that does not apply shows up as a
 
 ## CI Workflow (`.github/workflows/ci.yml`)
 
-**Trigger:** `pull_request` on `main` (opened, synchronize, reopened — drafts included), `merge_group` (the merge queue), and `workflow_call` from `main.yml` and `nightly.yml`. Jobs stay in `ci.yml` rather than behind a `uses:` of their own: a required check is a job name, and a job behind `uses:` is renamed `Caller / Job`. It is the whole pull-request pipeline: the checks below are its jobs, and a job with nothing to do is skipped, not a workflow. `Mobile Unit Tests (release)` (formerly `mobile.yml`) is a job of it. The agent guard and the freeze are not: they live in Cyrus (`cyrus-pilot`, MAG-469).
+**Trigger:** `pull_request` on `main` (opened, synchronize, reopened, ready_for_review — drafts included, light), `merge_group` (the merge queue), and `workflow_call` from `main.yml` and `nightly.yml`. Jobs stay in `ci.yml` rather than behind a `uses:` of their own: a required check is a job name, and a job behind `uses:` is renamed `Caller / Job`. It is the whole pull-request pipeline: the checks below are its jobs, and a job with nothing to do is skipped, not a workflow. `Mobile Unit Tests (release)` (formerly `mobile.yml`) is a job of it. The agent guard and the freeze are not: they live in Cyrus (`cyrus-pilot`, MAG-469).
 
 ### Jobs (run in parallel)
 
@@ -49,7 +49,7 @@ No `workflow_run` anywhere: a chained workflow that does not apply shows up as a
 
 GitHub's native **merge queue** on `main` replaces the dispatcher's home-made merge train (MAG-243, MAG-262). A public repository on the free plan runs 20 jobs at once, so CI stays targeted (path filters, impacted journeys).
 
-- **CI from the first push, drafts included.** `ci.yml` runs on `pull_request` (`opened`, `synchronize`, `reopened`) for drafts and ready PRs alike; no `ready_for_review` (marking ready changes no file, the head already carries its checks). A new push cancels the previous run of the same PR (`concurrency: ci-<workflow>-<ref>`, `cancel-in-progress` on `pull_request` only).
+- **Draft: light CI. Ready: full CI** (15 Oct.). A draft's run (`profile: light`, title ending `· draft`) plays Detect changes, lints, unit tests and contracts, no e2e; its aggregators are named `… · draft`, so the required checks never report on a draft and its run never proves a merge. `ready_for_review` and every push of a ready PR play the full targeted CI, e2e included; Cyrus promotes a draft green in light CI (at most 2 PRs in full CI at once) and merges only on a full run of its head. One concurrency group per profile (`ci-<workflow>-<ref>-light|-full`, `cancel-in-progress` on `pull_request` only): a draft's run never cancels a ready one.
 - **The queue tests main + the PRs ahead.** `gh pr merge <n> --squash --auto` puts a green PR in the queue (or arms auto-merge until it is green). GitHub builds a merge group — the head of `main`, the PRs ahead of it, this PR — and runs `ci.yml` on `merge_group` (`checks_requested`). There the path filters and the e2e selection compare `merge_group.base_sha` with `merge_group.head_sha`, not the PR with its base.
 - **Merges in order.** A green group fast-forwards `main` to the commit it tested, PR after PR, each one a squash commit. `main.yml` then skips the CI already run on that commit (below) and deploys.
 - **A failing entry is removed alone.** Keep « only merge non-failing pull requests » on: a PR merges only on its own group's green. A red group takes its PR out of the queue; the groups behind it are rebuilt without it and re-run.

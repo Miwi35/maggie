@@ -15,6 +15,25 @@ name: Pull request
 # and this one. That run is the one the queue merges on, so every required check
 # reports there too — the path filters and the journey selection compare the
 # group with main (`merge_group.base_sha`), not the PR with its base.
+#
+# Two profiles on a pull request (owner, 15 Oct.: « la CI doit prioriser les PR
+# ready et main, elle tourne trop pour rien sur les drafts »), output `profile`
+# of `Detect changes`:
+#   - `light` — a draft: Detect changes, the lints, the unit tests (API with its
+#     contract suite, agent, ciqual, admin, mobile release), the infra lint. No
+#     e2e: no Playwright shard, no e2e APK, no e2e-flavor unit tests, no Maestro
+#     lot, no merged report, no stack. The three aggregators run under another
+#     name — `E2E Stack (smoke journey) · draft`, `E2E Mobile (phone) · draft`,
+#     `PR checks passed · draft` — so the required checks of those names never
+#     report on a draft: a draft's head stays « Expected » on GitHub, never
+#     mergeable, until the ready PR's full run reports them.
+#   - `full` — a ready PR (`ready_for_review` starts it, every push after it),
+#     a merge group, `main.yml` and the nights: the targeted CI, e2e included.
+# A light run is never a proof that a head may merge: its run-name ends with
+# « · draft » (below), and Cyrus's dispatcher merges only on a run whose title
+# does not (cyrus-pilot, `ci_proof`). It promotes a draft green in light CI —
+# marks it ready, which starts the full run — and merges on that full run.
+# Order of delivery: this profile needs the dispatcher that reads it first.
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
@@ -22,12 +41,12 @@ run-name: >-
       || 'CI' }}
 
 on:
-  # Drafts included (owner's decision, 9 Oct.: CI from the PR's first push): a
-  # draft gets the same targeted CI as a ready PR. No `ready_for_review`: marking
-  # a draft ready changes no file, and its head already carries its checks.
+  # Drafts included (owner's decision, 9 Oct.: CI from the PR's first push), in
+  # the light profile (15 Oct.). `ready_for_review` starts the full profile on a
+  # head that only had the light one: marking ready is what plays the e2e.
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
   # The merge queue on main: the group (main + the PRs ahead + this one) must be
   # green on the required checks before GitHub fast-forwards main to it.
   merge_group:
@@ -78,7 +97,15 @@ concurrency:
   # group has a ref of its own (`gh-readonly-queue/main/pr-<n>-<sha>`) and is
   # never cancelled here: the queue itself drops the groups it rebuilds.
   # `PR checks passed` turns a cancelled run red.
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  #
+  # One group per profile on a pull request (`-light` for a draft, `-full` for a
+  # ready PR): a draft's run never cancels a ready PR's full run — of the same
+  # head or an older one (6 Oct.: a run started as a draft cancelled the real one
+  # of the same head, #142…) — and marking ready does not cancel the light run
+  # either: each profile only cancels its own older run.
+  group: >-
+    ci-${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'pull_request'
+    && (github.event.pull_request.draft && '-light' || '-full') || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -91,6 +118,9 @@ jobs:
       pull-requests: read
       actions: read
     outputs:
+      # `light` on a draft pull request, `full` everywhere else (the header). The
+      # e2e outputs below are false in `light`: no e2e job starts.
+      profile: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'light' || 'full' }}
       # `suite` (a `workflow_call` input, empty on a pull request): `e2e` runs the
       # e2e jobs alone (nightly-e2e.yml), `no-e2e` everything but them (nightly.yml).
       # A pull request, a merge group and a push on main apply the path filters;
@@ -107,9 +137,10 @@ jobs:
       #
       # On main (`e2e: smoke`, MAG-484) the web stack still starts when the
       # selection plays, but in one lot that plays the smoke journey only
-      # (`web_journeys` false), and the mobile journeys do not play.
-      e2e: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.e2e == 'true' }}
-      mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && steps.select.outputs.mobile == 'true' }}
+      # (`web_journeys` false), and the mobile journeys do not play. A draft
+      # (`profile` light) plays neither.
+      e2e: ${{ inputs.suite != 'no-e2e' && !(github.event_name == 'pull_request' && github.event.pull_request.draft) && steps.select.outputs.e2e == 'true' }}
+      mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && !(github.event_name == 'pull_request' && github.event.pull_request.draft) && steps.select.outputs.mobile == 'true' }}
       web_journeys: ${{ inputs.e2e != 'smoke' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
       web_lots: ${{ inputs.e2e == 'smoke' && '[1]' || steps.select.outputs.web_lots }}
@@ -826,8 +857,12 @@ jobs:
   # job skipped because nothing a stack runs has changed. `if: always()` so it
   # runs — and fails — when a shard is red, instead of being skipped with them,
   # which a branch protection would read as a pass.
+  # In the light profile (a draft) it is named « … · draft »: no journey played,
+  # and the required check `E2E Stack (smoke journey)` must not read green on a
+  # head no journey ran on. It stays absent from a draft's head (« Expected »),
+  # so GitHub sees nothing mergeable until the ready PR's full run reports it.
   e2e-stack:
-    name: E2E Stack (smoke journey)
+    name: ${{ github.event.pull_request.draft && 'E2E Stack (smoke journey) · draft' || 'E2E Stack (smoke journey)' }}
     needs: [changes, e2e-shard]
     if: always()
     runs-on: ubuntu-latest
@@ -837,8 +872,10 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           SHARDS: ${{ needs.e2e-shard.result }}
           WANTED: ${{ needs.changes.outputs.e2e }}
+          PROFILE: ${{ needs.changes.outputs.profile }}
         run: |
-          echo "changes=$CHANGES shards=$SHARDS e2e wanted=$WANTED"
+          echo "changes=$CHANGES shards=$SHARDS e2e wanted=$WANTED profile=$PROFILE"
+          [ "$PROFILE" != light ] || echo "::notice::draft (light CI): no e2e journey played; marking the PR ready plays them"
           [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
           if [ "$WANTED" = true ]; then
             [ "$SHARDS" = success ] || { echo "::error::an e2e shard did not succeed ($SHARDS)"; exit 1; }
@@ -1321,8 +1358,9 @@ jobs:
   # request runs; on the nightly run it aggregates the three. `if: always()` so a
   # red job fails it instead of skipping it, which branch protection would read as
   # a pass. A shard skipped because the APK failed is not `success` either.
+  # « … · draft » in the light profile, as `e2e-stack`.
   e2e-mobile:
-    name: E2E Mobile (phone)
+    name: ${{ github.event.pull_request.draft && 'E2E Mobile (phone) · draft' || 'E2E Mobile (phone)' }}
     needs: [changes, e2e-mobile-build, e2e-mobile-unit, e2e-mobile-device]
     if: always()
     runs-on: ubuntu-latest
@@ -1334,8 +1372,9 @@ jobs:
           UNIT: ${{ needs.e2e-mobile-unit.result }}
           DEVICES: ${{ needs.e2e-mobile-device.result }}
           WANTED: ${{ needs.changes.outputs.mobile }}
+          PROFILE: ${{ needs.changes.outputs.profile }}
         run: |
-          echo "changes=$CHANGES build=$BUILD unit=$UNIT devices=$DEVICES mobile wanted=$WANTED"
+          echo "changes=$CHANGES build=$BUILD unit=$UNIT devices=$DEVICES mobile wanted=$WANTED profile=$PROFILE"
           [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
           if [ "$WANTED" = true ]; then
             [ "$BUILD" = success ] || { echo "::error::the e2e APK did not build ($BUILD)"; exit 1; }
@@ -1384,16 +1423,17 @@ jobs:
   # required check as green, so a run that tested nothing, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
   # auto-merge merged pull requests no test had run on. `if: always()` makes this
-  # job run on every pull request — drafts included, since they run their CI now
-  # (9 Oct.): GitHub never merges or enqueues a draft, so its verdict is only
-  # information — and on every merge group, and infra/scripts/pr-checks-gate.sh
+  # job run on every pull request — drafts included (9 Oct.), named « PR checks
+  # passed · draft » in the light profile (15 Oct.): the light verdict, never the
+  # required check, which only a ready PR's full run reports — and on every merge
+  # group, and infra/scripts/pr-checks-gate.sh
   # turns every skip that `Detect changes` did not decide into red. A push on main
   # or the nightly run has no branch protection to satisfy.
   #
   # The list below is the script's (infra/scripts/pr-checks-gate.sh): keep the two
   # in step. The old required checks stay required beside this one.
   pr-checks:
-    name: PR checks passed
+    name: ${{ github.event.pull_request.draft && 'PR checks passed · draft' || 'PR checks passed' }}
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
     if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
