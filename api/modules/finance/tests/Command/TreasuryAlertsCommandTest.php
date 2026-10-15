@@ -13,8 +13,8 @@ use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Finance\Command\TreasuryAlertsCommand;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -218,7 +218,7 @@ final class TreasuryAlertsCommandTest extends KernelTestCase
         $category = $this->getFixture('salary_'.$who);
         \assert($category instanceof Category);
 
-        $this->book($who, $amountCents, $bookedAt, 'VIR ACME SALAIRE')->assignCategory($category, CategorySource::Manual);
+        $this->book($who, $amountCents, $bookedAt, 'VIR ACME SALAIRE')->qualify(Qualification::none($category), null);
         $this->flushWithoutTransactionEffects($this->em);
     }
 

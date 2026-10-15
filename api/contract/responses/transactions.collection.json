@@ -17,6 +17,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
@@ -37,6 +42,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
@@ -58,6 +68,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -81,6 +96,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -104,6 +124,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -127,6 +152,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
@@ -148,6 +178,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
@@ -169,6 +204,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
@@ -190,6 +230,11 @@
             "status": "spent",
             "retrospect": "unrated",
             "categorySource": "none",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",

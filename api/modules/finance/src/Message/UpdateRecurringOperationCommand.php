@@ -10,7 +10,10 @@ final readonly class UpdateRecurringOperationCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'counterpartyName'|'labelPattern'|'endsOn'> $clearFields */
+    /**
+     * @param list<'counterpartyName'|'labelPattern'|'endsOn'> $clearFields
+     * @param array<string, mixed>|null                        $qualification the whole qualification (`Qualification::toArray()`); omitted, the category's deprecated flag sets it on creation or on a change of category
+     */
     public function __construct(
         public string $userId,
         public string $recurringOperationId,
@@ -28,6 +31,7 @@ final readonly class UpdateRecurringOperationCommand
         public ?int $dateToleranceDays = null,
         public ?string $endsOn = null,
         public array $clearFields = [],
+        public ?array $qualification = null,
     ) {
     }
 }

@@ -34,6 +34,12 @@ class UpdateRecurringOperationProcessor implements ProcessorInterface
             }
         }
 
+        // Only a change of the qualification is sent: re-sending the stored
+        // one with a new category would keep it from following the category.
+        $previous = $context['previous_data'] ?? null;
+        $qualification = $data->getQualification()->toArray();
+        $qualificationChanged = $previous instanceof RecurringOperation && $qualification !== $previous->getQualification()->toArray();
+
         return $this->dispatchForResult($this->bus, new UpdateRecurringOperationCommand(
             userId: (string) $data->getUser()->getId(),
             recurringOperationId: (string) $data->getId(),
@@ -51,6 +57,7 @@ class UpdateRecurringOperationProcessor implements ProcessorInterface
             dateToleranceDays: $data->getDateToleranceDays(),
             endsOn: $data->getEndsOn()?->format('Y-m-d'),
             clearFields: $clearFields,
+            qualification: $qualificationChanged ? $qualification : null,
         ));
     }
 }

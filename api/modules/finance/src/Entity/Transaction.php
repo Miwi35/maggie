@@ -37,6 +37,8 @@ use Maggie\Finance\State\CreateTransactionProcessor;
 use Maggie\Finance\State\DeleteTransactionProcessor;
 use Maggie\Finance\State\TransactionCollectionProvider;
 use Maggie\Finance\State\UpdateTransactionProcessor;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -147,11 +149,42 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[IndexedField(type: 'keyword')]
     private RetrospectVerdict $retrospect = RetrospectVerdict::Unrated;
 
-    /** How the category was set: by hand, by a rule, or not at all. */
+    /**
+     * Who set the qualification — the category with it: by hand, a rule, the
+     * series, or nobody. Read over REST as `qualifiedBy`, which names the
+     * operation too.
+     */
     #[ORM\Column(length: 20, enumType: CategorySource::class)]
     #[Assert\NotNull]
     #[IndexedField(type: 'keyword')]
     private CategorySource $categorySource = CategorySource::None;
+
+    /**
+     * Whether the line is mandatory and what kind of movement it is, copied
+     * whole from the operation that recognised it, or set by hand. Its
+     * category is `category` above (see `Qualification`).
+     */
+    #[ORM\Embedded(class: Qualification::class)]
+    #[IndexedField(type: 'object', properties: Qualification::SEARCH_MAPPING)]
+    // Built anew from the body, never merged into the stored one: a PATCH
+    // naming one parameter and not the other is refused, not completed.
+    #[ApiProperty(genId: false)]
+    #[Context(denormalizationContext: [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false])]
+    private Qualification $qualification;
+
+    /** The series that qualified this line, while `categorySource` is `series`. */
+    #[ORM\ManyToOne(targetEntity: RecurringOperation::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false)]
+    #[IndexedRelation(targetEntity: RecurringOperation::class, sourceField: 'qualifiedBySeriesId')]
+    private ?RecurringOperation $qualifiedBySeries = null;
+
+    /** The rule that qualified this line, while `categorySource` is `rule`. */
+    #[ORM\ManyToOne(targetEntity: CategorizationRule::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false)]
+    #[IndexedRelation(targetEntity: CategorizationRule::class, sourceField: 'qualifiedByRuleId')]
+    private ?CategorizationRule $qualifiedByRule = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     #[IndexedField(type: 'date')]
@@ -248,6 +281,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     {
         $this->id = new Ulid();
         $this->bookedAt = new \DateTimeImmutable();
+        $this->qualification = Qualification::none();
     }
 
     public function getId(): Ulid
@@ -432,14 +466,86 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
-    /** Record who decided the category, stamping when it happened. */
-    public function assignCategory(?Category $category, CategorySource $source): static
+    /** The whole qualification, its category included. */
+    public function getQualification(): Qualification
     {
-        $this->category = $category;
-        $this->categorySource = null === $category ? CategorySource::None : $source;
-        $this->categorizedAt = null === $category ? null : new \DateTimeImmutable();
+        return $this->qualification->withCategory($this->category);
+    }
+
+    /**
+     * For the deserializer only: the processor turns a changed qualification
+     * into `qualify(…, null)`, the owner's own. The category travels apart,
+     * as `category`.
+     */
+    public function setQualification(Qualification $qualification): static
+    {
+        $this->qualification = $qualification->withCategory(null);
 
         return $this;
+    }
+
+    /**
+     * Copies a qualification whole onto this line — never field by field —
+     * recording who set it: the operation that recognised the line, or the
+     * owner by hand (`null`). A qualification by hand that says nothing (no
+     * category, every parameter at its default) leaves the line unqualified,
+     * free for the rules again.
+     */
+    public function qualify(Qualification $qualification, ?QualifyingOperation $by): static
+    {
+        $this->category = $qualification->getCategory();
+        $this->qualification = $qualification->withCategory(null);
+        $this->qualifiedBySeries = $by instanceof RecurringOperation ? $by : null;
+        $this->qualifiedByRule = $by instanceof CategorizationRule ? $by : null;
+        $this->categorySource = match (true) {
+            $by instanceof RecurringOperation => CategorySource::Series,
+            $by instanceof CategorizationRule => CategorySource::Rule,
+            $qualification->carriesNothing() => CategorySource::None,
+            default => CategorySource::Manual,
+        };
+        $this->categorizedAt = null === $this->category ? null : new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    /** Takes over the qualification of another line, with who set it: the twin a merge keeps. */
+    public function takeQualificationOf(self $other): static
+    {
+        $this->category = $other->category;
+        $this->qualification = $other->qualification;
+        $this->categorySource = $other->categorySource;
+        $this->qualifiedBySeries = $other->qualifiedBySeries;
+        $this->qualifiedByRule = $other->qualifiedByRule;
+        $this->categorizedAt = $other->categorizedAt;
+
+        return $this;
+    }
+
+    /**
+     * Who set the qualification: `manual`, `series` (`qualifiedBySeries`
+     * names it), `rule` (`qualifiedByRule`), or null when nobody did.
+     */
+    #[ApiProperty(writable: false)]
+    public function getQualifiedBy(): ?string
+    {
+        return CategorySource::None === $this->categorySource ? null : $this->categorySource->value;
+    }
+
+    public function getQualifiedBySeries(): ?RecurringOperation
+    {
+        return $this->qualifiedBySeries;
+    }
+
+    public function getQualifiedByRule(): ?CategorizationRule
+    {
+        return $this->qualifiedByRule;
+    }
+
+    /** Whether the owner qualified this line by hand: no operation requalifies it. Not serialized: `qualifiedBy` says it. */
+    #[ApiProperty(readable: false)]
+    public function isQualifiedByHand(): bool
+    {
+        return CategorySource::Manual === $this->categorySource;
     }
 
     public function getTransferKind(): TransferKind
@@ -602,9 +708,9 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
     /**
      * Makes this line the given occurrence of a series, recording who decided
-     * it. The series' category comes with it, as a rule's would, unless the
-     * owner set the category by hand: the transaction's category is the truth,
-     * the series' only a default.
+     * it. The series' qualification comes with it, as a rule's would, unless
+     * the owner qualified the line by hand: the transaction's qualification is
+     * the truth, the series' only a default.
      */
     public function attachToRecurring(RecurringOperation $operation, \DateTimeImmutable $occurrenceOn, RecurringLinkSource $source): static
     {
@@ -612,14 +718,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         $this->recurringOccurrenceOn = $occurrenceOn->setTime(0, 0);
         $this->recurringSource = $source;
 
-        if (CategorySource::Manual !== $this->categorySource) {
-            $this->assignCategory($operation->getCategory(), CategorySource::Series);
+        if (!$this->isQualifiedByHand()) {
+            $this->qualify($operation->getQualification(), $operation);
         }
 
         return $this;
     }
 
-    /** Takes this line out of its series; the category it inherited stays. */
+    /** Takes this line out of its series; the qualification it inherited stays. */
     public function detachFromRecurring(RecurringLinkSource $source): static
     {
         $this->recurringOperation = null;
@@ -686,6 +792,9 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
             'categorySource' => $this->categorySource->value,
+            'qualification' => $this->qualification->toArray(),
+            'qualifiedBySeriesId' => null !== $this->qualifiedBySeries ? (string) $this->qualifiedBySeries->getId() : null,
+            'qualifiedByRuleId' => null !== $this->qualifiedByRule ? (string) $this->qualifiedByRule->getId() : null,
             'retrospect' => $this->retrospect->value,
             'categorizedAt' => $this->categorizedAt?->format(\DateTimeInterface::ATOM),
             'transferKind' => $this->transferKind->value,
@@ -716,6 +825,10 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
             'categorySource' => $this->categorySource->value,
+            'qualification' => $this->qualification->toArray(),
+            'qualifiedBy' => $this->getQualifiedBy(),
+            'qualifiedBySeriesId' => null !== $this->qualifiedBySeries ? (string) $this->qualifiedBySeries->getId() : null,
+            'qualifiedByRuleId' => null !== $this->qualifiedByRule ? (string) $this->qualifiedByRule->getId() : null,
             'retrospect' => $this->retrospect->value,
             'transferKind' => $this->transferKind->value,
             'transferSource' => $this->transferSource->value,
@@ -728,7 +841,10 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringSource' => $this->recurringSource->value,
             'note' => $this->note,
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
-        ], $changedProperties, [
+        ], self::withDerivedProperties($changedProperties), [
+            ...Qualification::changedPropertyMap(),
+            'qualifiedBySeries' => 'qualifiedBySeriesId',
+            'qualifiedByRule' => 'qualifiedByRuleId',
             'account' => 'accountId',
             'category' => 'categoryId',
             'counterpart' => 'counterpartId',
@@ -736,5 +852,22 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringOperation' => 'recurringOperationId',
             'oneOffEnvelope' => 'oneOffEnvelopeId',
         ]);
+    }
+
+    /**
+     * `qualifiedBy` is read off `categorySource`: a differential update that
+     * changes the one must carry the other.
+     *
+     * @param string[]|null $changedProperties
+     *
+     * @return string[]|null
+     */
+    private static function withDerivedProperties(?array $changedProperties): ?array
+    {
+        if (null === $changedProperties || !\in_array('categorySource', $changedProperties, true)) {
+            return $changedProperties;
+        }
+
+        return [...$changedProperties, 'qualifiedBy'];
     }
 }

@@ -7,9 +7,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\RecurringLinkSource;
@@ -262,7 +262,7 @@ class GetReferenceSalaryTest extends KernelTestCase
         $transaction->setLabel($isBonus ? 'VIR ACME PRIME' : 'VIR '.$series->getCounterpartyName());
 
         if ($isBonus) {
-            $transaction->assignCategory($this->getFixture('bonus'), CategorySource::Manual);
+            $transaction->qualify(Qualification::none($this->getFixture('bonus')), null);
         } else {
             $transaction->setCounterpartyName($series->getCounterpartyName());
             $transaction->attachToRecurring($series, $occurrenceOn, RecurringLinkSource::Manual);

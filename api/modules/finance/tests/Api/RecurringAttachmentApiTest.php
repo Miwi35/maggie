@@ -6,6 +6,8 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
@@ -141,7 +143,12 @@ class RecurringAttachmentApiTest extends WebTestCase
         // Filed by a rule: the PATCH re-sends that category, which must not
         // pass for the owner's own choice.
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $this->getFixture('apr_gym_dearer')->assignCategory($this->getFixture('groceries'), CategorySource::Rule);
+        $rule = (new CategorizationRule())
+            ->setUser($this->getFixture('apr_gym_dearer')->getUser())
+            ->setLabelPattern('GYM')
+            ->setCategory($this->getFixture('groceries'));
+        $em->persist($rule);
+        $this->getFixture('apr_gym_dearer')->qualify($rule->getQualification(), $rule);
         $em->flush();
 
         $data = $this->send('PATCH', $this->iri('transactions', 'apr_gym_dearer'), [
@@ -241,7 +248,7 @@ class RecurringAttachmentApiTest extends WebTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         /** @var Transaction $byHand */
         $byHand = $this->getFixture('apr_gym_dearer');
-        $byHand->assignCategory($this->getFixture('groceries'), CategorySource::Manual);
+        $byHand->qualify(Qualification::none($this->getFixture('groceries')), null);
         self::getContainer()->get(AttachRecurringTransactions::class)->attachByHand($byHand, $this->getFixture('gym'));
         $em->flush();
         $this->resetMercure();

@@ -9,6 +9,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Doctrine\TransactionListener;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
@@ -152,7 +153,7 @@ class TransactionListenerTest extends KernelTestCase
     public function testAChangeThatNoRuleAndNoDetectionReadsSendsNothing(): void
     {
         $transaction = $this->stored('plain_expense');
-        $transaction->assignCategory($this->em()->find(Category::class, $this->getFixture('food')->getId()), \Maggie\Finance\Enum\CategorySource::Manual);
+        $transaction->qualify(Qualification::none($this->em()->find(Category::class, $this->getFixture('food')->getId())), null);
         $transaction->setIsExceptional(true);
         $this->em()->flush();
 

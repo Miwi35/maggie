@@ -12,6 +12,7 @@ use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\QualifyingOperation;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
@@ -1023,6 +1024,23 @@ class TransactionRepository extends ServiceEntityRepository
     public function findAttachedTo(RecurringOperation $operation): array
     {
         return $this->findBy(['recurringOperation' => $operation], ['recurringOccurrenceOn' => 'ASC', 'id' => 'ASC']);
+    }
+
+    /**
+     * The lines an operation qualified and that are still its own: a line
+     * qualified by hand since then names no operation any more, and a line
+     * taken out of its series keeps what it inherited but no longer follows it.
+     *
+     * @return Transaction[]
+     */
+    public function findQualifiedBy(QualifyingOperation $operation): array
+    {
+        return $this->findBy(
+            $operation instanceof RecurringOperation
+                ? ['qualifiedBySeries' => $operation, 'recurringOperation' => $operation, 'categorySource' => CategorySource::Series]
+                : ['qualifiedByRule' => $operation, 'categorySource' => CategorySource::Rule],
+            ['bookedAt' => 'ASC', 'id' => 'ASC'],
+        );
     }
 
     /**

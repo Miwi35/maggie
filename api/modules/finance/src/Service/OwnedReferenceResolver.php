@@ -6,11 +6,13 @@ namespace Maggie\Finance\Service;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
+use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
@@ -30,6 +32,7 @@ class OwnedReferenceResolver
         private readonly TransactionRepository $transactionRepository,
         private readonly RecurringOperationRepository $recurringOperationRepository,
         private readonly EnvelopeRepository $envelopeRepository,
+        private readonly CategorizationRuleRepository $ruleRepository,
     ) {
     }
 
@@ -86,5 +89,16 @@ class OwnedReferenceResolver
         }
 
         return $operation;
+    }
+
+    public function categorizationRule(string $id, User $owner): CategorizationRule
+    {
+        $rule = Ulid::isValid($id) ? $this->ruleRepository->find($id) : null;
+
+        if (!$rule instanceof CategorizationRule || !$rule->getUser()->getId()->equals($owner->getId())) {
+            throw new \DomainException("Categorization rule not found: {$id}");
+        }
+
+        return $rule;
     }
 }

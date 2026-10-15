@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -39,8 +38,7 @@ class ApplyCategorizationRules
             $this->bus->dispatch(new UpdateTransactionCommand(
                 userId: (string) $user->getId(),
                 transactionId: (string) $transaction->getId(),
-                categoryId: (string) $rule->getCategory()->getId(),
-                categorySource: CategorySource::Rule->value,
+                qualifiedByRuleId: (string) $rule->getId(),
             ));
 
             ++$categorized;

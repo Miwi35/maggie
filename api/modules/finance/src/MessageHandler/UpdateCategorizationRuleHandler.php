@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Event\CategorizationRuleSaved;
+use Maggie\Finance\Event\OperationQualificationSaved;
 use Maggie\Finance\Message\UpdateCategorizationRuleCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
@@ -23,6 +27,7 @@ class UpdateCategorizationRuleHandler
         private readonly UpdateCategorizationRule $updateCategorizationRule,
         private readonly CategorizationRuleRepository $ruleRepository,
         private readonly OwnedReferenceResolver $references,
+        private readonly EntityManagerInterface $em,
         #[Autowire(service: 'event.bus')]
         private readonly MessageBusInterface $eventBus,
     ) {
@@ -33,9 +38,18 @@ class UpdateCategorizationRuleHandler
         $rule = $this->ruleRepository->findOneBy(['id' => $command->categorizationRuleId, 'user' => $command->userId])
             ?? throw new \DomainException("Categorization rule not found: {$command->categorizationRuleId}");
 
-        if (null !== $command->categoryId) {
-            $category = $this->references->category($command->categoryId, $rule->getUser());
-            $rule->setCategory($category);
+        // As loaded, not as held: over REST the deserializer may already have
+        // written the new category on this very object.
+        $formerCategory = $this->em->getUnitOfWork()->getOriginalEntityData($rule)['category'] ?? $rule->getCategory();
+        $category = null !== $command->categoryId
+            ? $this->references->category($command->categoryId, $rule->getUser())
+            : $rule->getCategory();
+        if (null !== $command->qualification) {
+            $rule->requalify(Qualification::fromArray($command->qualification, $category));
+        } elseif (!$formerCategory instanceof Category || !$formerCategory->getId()->equals($category->getId())) {
+            // Until MAG-479 has the clients send a qualification, a new
+            // category carries the one its deprecated flag meant.
+            $rule->requalify(Qualification::fromCategory($category));
         }
         if (null !== $command->labelPattern) {
             if ('' === $command->labelPattern) {
@@ -73,6 +87,7 @@ class UpdateCategorizationRuleHandler
         }
 
         $rule = $this->updateCategorizationRule->execute($rule);
+        $this->eventBus->dispatch(new OperationQualificationSaved(CategorizationRule::class, (string) $rule->getId()));
         $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), $command->applyToExisting));
 
         return $rule;

@@ -51,6 +51,11 @@ class UpdateTransactionProcessor implements ProcessorInterface
         $categoryChanged = null === $previous
             || (string) $category?->getId() !== (string) $previous->getCategory()?->getId();
 
+        // The qualification likewise: only a change is the owner's own.
+        $qualification = $data->getQualification();
+        $qualificationChanged = null !== $previous
+            && $qualification->toArray() !== $previous->getQualification()->toArray();
+
         $clearFields = $categoryChanged && null === $category ? ['categoryId'] : [];
         if ($recurringChanged && null === $series) {
             $clearFields[] = 'recurringOperation';
@@ -90,6 +95,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             currency: $data->getCurrency(),
             isExceptional: $data->isExceptional(),
             categoryId: $categoryChanged && null !== $category ? (string) $category->getId() : null,
+            qualification: $qualificationChanged ? $qualification->toArray() : null,
             retrospect: $data->getRetrospect()->value,
             recurringOperationId: $recurringChanged && null !== $series ? (string) $series->getId() : null,
             // Left as it was, the occurrence is the one nearest the booking day.

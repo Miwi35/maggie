@@ -7,6 +7,7 @@ namespace Maggie\Finance\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Exception\IncompatibleCategoryException;
 use Maggie\Finance\Message\CreateTransactionCommand;
@@ -42,6 +43,8 @@ class CreateTransactionProcessor implements ProcessorInterface
             isExceptional: $data->isExceptional(),
             categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
             note: $data->getNote(),
+            // Left at its default, the body named none: the category's applies.
+            qualification: $data->getQualification()->toArray() === Qualification::none()->toArray() ? null : $data->getQualification()->toArray(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

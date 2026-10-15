@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
@@ -33,7 +34,10 @@ class CreateRecurringOperationHandler
 
         $operation = new RecurringOperation();
         $operation->setUser($user);
-        $operation->setCategory($this->references->category($command->categoryId, $user));
+        $category = $this->references->category($command->categoryId, $user);
+        $operation->requalify(null !== $command->qualification
+            ? Qualification::fromArray($command->qualification, $category)
+            : Qualification::fromCategory($category));
         $operation->setAccount($this->references->account($command->accountId, $user));
         $operation->setLabel($command->label);
         $operation->setCounterpartyName($command->counterpartyName);

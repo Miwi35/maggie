@@ -9923,6 +9923,9 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
                     "direction": {
                         "default": "any",
                         "type": "string",
@@ -10000,6 +10003,9 @@
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification.html_noid"
                     },
                     "direction": {
                         "default": "any",
@@ -10079,6 +10085,9 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
                     "direction": {
                         "default": "any",
                         "type": "string",
@@ -10154,6 +10163,9 @@
                                 "type": "string",
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "qualification": {
+                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
                             },
                             "direction": {
                                 "default": "any",
@@ -10240,6 +10252,8 @@
                         "type": "string"
                     },
                     "obligation": {
+                        "description": "Deprecated (MAG-476): a category has no nature any more, the transaction\ncarries its own `qualification`. Still read by the calculations until\nMAG-477 and still accepted from the clients until MAG-479 removes it;\nno qualification path writes it.",
+                        "deprecated": true,
                         "default": "optional",
                         "type": "string",
                         "enum": [
@@ -10317,6 +10331,8 @@
                         "type": "string"
                     },
                     "obligation": {
+                        "description": "Deprecated (MAG-476): a category has no nature any more, the transaction\ncarries its own `qualification`. Still read by the calculations until\nMAG-477 and still accepted from the clients until MAG-479 removes it;\nno qualification path writes it.",
+                        "deprecated": true,
                         "default": "optional",
                         "type": "string",
                         "enum": [
@@ -10394,6 +10410,8 @@
                         "type": "string"
                     },
                     "obligation": {
+                        "description": "Deprecated (MAG-476): a category has no nature any more, the transaction\ncarries its own `qualification`. Still read by the calculations until\nMAG-477 and still accepted from the clients until MAG-479 removes it;\nno qualification path writes it.",
+                        "deprecated": true,
                         "default": "optional",
                         "type": "string",
                         "enum": [
@@ -10472,6 +10490,8 @@
                                 "type": "string"
                             },
                             "obligation": {
+                                "description": "Deprecated (MAG-476): a category has no nature any more, the transaction\ncarries its own `qualification`. Still read by the calculations until\nMAG-477 and still accepted from the clients until MAG-479 removes it;\nno qualification path writes it.",
+                                "deprecated": true,
                                 "default": "optional",
                                 "type": "string",
                                 "enum": [
@@ -15523,6 +15543,66 @@
                     }
                 ]
             },
+            "Qualification.html_noid": {
+                "type": "object",
+                "properties": {
+                    "mandatory": {
+                        "description": "An obligation the owner cannot cut: rent, a loan, insurance.",
+                        "type": "boolean"
+                    },
+                    "kind": {
+                        "description": "What kind of movement it is; the direction is the sign of the amount.",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "saving",
+                            "investment",
+                            "loan",
+                            "repayment"
+                        ]
+                    }
+                }
+            },
+            "Qualification.jsonld_noid": {
+                "type": "object",
+                "properties": {
+                    "mandatory": {
+                        "description": "An obligation the owner cannot cut: rent, a loan, insurance.",
+                        "type": "boolean"
+                    },
+                    "kind": {
+                        "description": "What kind of movement it is; the direction is the sign of the amount.",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "saving",
+                            "investment",
+                            "loan",
+                            "repayment"
+                        ]
+                    }
+                }
+            },
+            "Qualification_noid": {
+                "type": "object",
+                "properties": {
+                    "mandatory": {
+                        "description": "An obligation the owner cannot cut: rent, a loan, insurance.",
+                        "type": "boolean"
+                    },
+                    "kind": {
+                        "description": "What kind of movement it is; the direction is the sign of the amount.",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "saving",
+                            "investment",
+                            "loan",
+                            "repayment"
+                        ]
+                    }
+                }
+            },
             "Recipe": {
                 "type": "object",
                 "properties": {
@@ -16292,6 +16372,9 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
                     "account": {
                         "description": "Its currency is the operation's: there is no other.",
                         "type": "string",
@@ -16422,6 +16505,9 @@
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification.html_noid"
                     },
                     "account": {
                         "description": "Its currency is the operation's: there is no other.",
@@ -16554,6 +16640,9 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
                     "account": {
                         "description": "Its currency is the operation's: there is no other.",
                         "type": "string",
@@ -16679,6 +16768,9 @@
                                 "type": "string",
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "qualification": {
+                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
                             },
                             "account": {
                                 "description": "Its currency is the operation's: there is no other.",
@@ -17752,7 +17844,7 @@
                         ]
                     },
                     "categorySource": {
-                        "description": "How the category was set: by hand, by a rule, or not at all.",
+                        "description": "Who set the qualification — the category with it: by hand, a rule, the\nseries, or nobody. Read over REST as `qualifiedBy`, which names the\noperation too.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -17761,6 +17853,29 @@
                             "rule",
                             "series"
                         ]
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "qualifiedBySeries": {
+                        "readOnly": true,
+                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualifiedByRule": {
+                        "readOnly": true,
+                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "categorizedAt": {
                         "type": [
@@ -17864,6 +17979,14 @@
                     },
                     "exceptional": {
                         "readOnly": true
+                    },
+                    "qualifiedBy": {
+                        "readOnly": true,
+                        "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -17968,7 +18091,7 @@
                         ]
                     },
                     "categorySource": {
-                        "description": "How the category was set: by hand, by a rule, or not at all.",
+                        "description": "Who set the qualification — the category with it: by hand, a rule, the\nseries, or nobody. Read over REST as `qualifiedBy`, which names the\noperation too.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -17977,6 +18100,29 @@
                             "rule",
                             "series"
                         ]
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification.html_noid"
+                    },
+                    "qualifiedBySeries": {
+                        "readOnly": true,
+                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualifiedByRule": {
+                        "readOnly": true,
+                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "categorizedAt": {
                         "type": [
@@ -18080,6 +18226,14 @@
                     },
                     "exceptional": {
                         "readOnly": true
+                    },
+                    "qualifiedBy": {
+                        "readOnly": true,
+                        "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -18184,7 +18338,7 @@
                         ]
                     },
                     "categorySource": {
-                        "description": "How the category was set: by hand, by a rule, or not at all.",
+                        "description": "Who set the qualification — the category with it: by hand, a rule, the\nseries, or nobody. Read over REST as `qualifiedBy`, which names the\noperation too.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -18193,6 +18347,29 @@
                             "rule",
                             "series"
                         ]
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "qualifiedBySeries": {
+                        "readOnly": true,
+                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualifiedByRule": {
+                        "readOnly": true,
+                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "categorizedAt": {
                         "type": [
@@ -18296,6 +18473,14 @@
                     },
                     "exceptional": {
                         "readOnly": true
+                    },
+                    "qualifiedBy": {
+                        "readOnly": true,
+                        "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -18393,7 +18578,7 @@
                                 ]
                             },
                             "categorySource": {
-                                "description": "How the category was set: by hand, by a rule, or not at all.",
+                                "description": "Who set the qualification — the category with it: by hand, a rule, the\nseries, or nobody. Read over REST as `qualifiedBy`, which names the\noperation too.",
                                 "default": "none",
                                 "type": "string",
                                 "enum": [
@@ -18402,6 +18587,29 @@
                                     "rule",
                                     "series"
                                 ]
+                            },
+                            "qualification": {
+                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
+                            },
+                            "qualifiedBySeries": {
+                                "readOnly": true,
+                                "description": "The series that qualified this line, while `categorySource` is `series`.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "qualifiedByRule": {
+                                "readOnly": true,
+                                "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
                             },
                             "categorizedAt": {
                                 "type": [
@@ -18505,6 +18713,14 @@
                             },
                             "exceptional": {
                                 "readOnly": true
+                            },
+                            "qualifiedBy": {
+                                "readOnly": true,
+                                "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             }
                         },
                         "required": [

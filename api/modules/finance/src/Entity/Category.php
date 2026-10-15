@@ -79,7 +79,14 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[IndexedField(type: 'text', keyword: true)]
     private ?string $path = null; // @phpstan-ignore property.unusedType (set by the Elasticsearch hydrator)
 
+    /**
+     * Deprecated (MAG-476): a category has no nature any more, the transaction
+     * carries its own `qualification`. Still read by the calculations until
+     * MAG-477 and still accepted from the clients until MAG-479 removes it;
+     * no qualification path writes it.
+     */
     #[ORM\Column(length: 20, enumType: ObligationFlag::class)]
+    #[ApiProperty(deprecationReason: 'A category has no nature: read the qualification of the transaction, the series or the rule.')]
     #[Assert\NotNull]
     #[IndexedField(type: 'keyword')]
     private ObligationFlag $obligation = ObligationFlag::Optional;

@@ -6,19 +6,20 @@ namespace Maggie\Finance\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\ReferenceAmountSource;
+use Maggie\Finance\Event\OperationQualificationSaved;
 use Maggie\Finance\Message\UpdateRecurringOperationCommand;
 use Maggie\Finance\Repository\RecurringOperationRepository;
-use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\RecurringOperationGuard;
-use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\UpdateRecurringOperation;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class UpdateRecurringOperationHandler
@@ -29,8 +30,8 @@ class UpdateRecurringOperationHandler
         private readonly OwnedReferenceResolver $references,
         private readonly RecurringOperationGuard $guard,
         private readonly EntityManagerInterface $em,
-        private readonly TransactionRepository $transactionRepository,
-        private readonly TransactionNatureGuard $natureGuard,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
     ) {
     }
 
@@ -46,8 +47,16 @@ class UpdateRecurringOperationHandler
         try {
             $user = $operation->getUser();
 
-            if (null !== $command->categoryId) {
-                $operation->setCategory($this->references->category($command->categoryId, $user));
+            $category = null !== $command->categoryId
+                ? $this->references->category($command->categoryId, $user)
+                : $operation->getCategory();
+            $categoryChanged = !$formerCategory instanceof Category || !$formerCategory->getId()->equals($category->getId());
+            if (null !== $command->qualification) {
+                $operation->requalify(Qualification::fromArray($command->qualification, $category));
+            } elseif ($categoryChanged) {
+                // Until MAG-479 has the clients send a qualification, a new
+                // category carries the one its deprecated flag meant.
+                $operation->requalify(Qualification::fromCategory($category));
             }
             if (null !== $command->accountId) {
                 $operation->setAccount($this->references->account($command->accountId, $user));
@@ -100,28 +109,9 @@ class UpdateRecurringOperationHandler
             throw $e;
         }
 
-        if (!$formerCategory instanceof Category || !$formerCategory->getId()->equals($operation->getCategory()->getId())) {
-            $this->propagateCategory($operation);
-        }
+        $operation = $this->updateRecurringOperation->execute($operation);
+        $this->eventBus->dispatch(new OperationQualificationSaved(RecurringOperation::class, (string) $operation->getId()));
 
-        return $this->updateRecurringOperation->execute($operation);
-    }
-
-    /**
-     * The series' category is the default of its lines: a new one reaches
-     * every line attached to it, except those the owner categorised by hand —
-     * the transaction's category is the truth (spec, point 8).
-     */
-    private function propagateCategory(RecurringOperation $operation): void
-    {
-        foreach ($this->transactionRepository->findAttachedTo($operation) as $transaction) {
-            // A line the new category contradicts — the series turned from an
-            // expense into an income — keeps its own rather than be refused.
-            if (CategorySource::Manual === $transaction->getCategorySource()
-                || !$this->natureGuard->isCompatible($transaction->getAmountCents(), $operation->getCategory())) {
-                continue;
-            }
-            $transaction->assignCategory($operation->getCategory(), CategorySource::Series);
-        }
+        return $operation;
     }
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
@@ -78,20 +78,7 @@ class UpdateTransactionHandler
         if (null !== $command->retrospect) {
             $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }
-        if (null !== $command->categoryId) {
-            // '' is the historical way to empty the category; clearFields is the explicit one.
-            if ('' === $command->categoryId) {
-                $transaction->assignCategory(null, CategorySource::None);
-            } else {
-                $category = $this->references->category($command->categoryId, $transaction->getUser());
-                $transaction->assignCategory(
-                    $category,
-                    CategorySource::from($command->categorySource ?? CategorySource::Manual->value),
-                );
-            }
-        } elseif ($command->clears('categoryId')) {
-            $transaction->assignCategory(null, CategorySource::None);
-        }
+        $this->applyQualification($transaction, $command);
 
         $this->natureGuard->assertStillCompatible($transaction);
 
@@ -110,6 +97,38 @@ class UpdateTransactionHandler
         }
 
         return $this->updateTransaction->execute($transaction);
+    }
+
+    /**
+     * Qualifies the line with a rule's whole qualification, or with the
+     * owner's own — never field by field: what is not given is the current
+     * category, while a category given alone carries the qualification its
+     * deprecated flag meant (until MAG-479 has the clients send one).
+     */
+    private function applyQualification(Transaction $transaction, UpdateTransactionCommand $command): void
+    {
+        if (null !== $command->qualifiedByRuleId) {
+            $rule = $this->references->categorizationRule($command->qualifiedByRuleId, $transaction->getUser());
+            $transaction->qualify($rule->getQualification(), $rule);
+
+            return;
+        }
+
+        // '' is the historical way to empty the category; clearFields is the explicit one.
+        $clearsCategory = '' === $command->categoryId || (null === $command->categoryId && $command->clears('categoryId'));
+        $category = match (true) {
+            $clearsCategory => null,
+            null !== $command->categoryId => $this->references->category($command->categoryId, $transaction->getUser()),
+            default => $transaction->getCategory(),
+        };
+
+        if (null !== $command->qualification) {
+            $transaction->qualify(Qualification::fromArray($command->qualification, $category), null);
+        } elseif ($clearsCategory) {
+            $transaction->qualify(Qualification::none(), null);
+        } elseif (null !== $command->categoryId && null !== $category) {
+            $transaction->qualify(Qualification::fromCategory($category), null);
+        }
     }
 
     /**

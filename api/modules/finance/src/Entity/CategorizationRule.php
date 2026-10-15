@@ -29,7 +29,9 @@ use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\State\CreateCategorizationRuleProcessor;
 use Maggie\Finance\State\DeleteCategorizationRuleProcessor;
 use Maggie\Finance\State\UpdateCategorizationRuleProcessor;
+use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Ignore;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -47,7 +49,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
     new Patch(processor: UpdateCategorizationRuleProcessor::class),
     new Delete(processor: DeleteCategorizationRuleProcessor::class),
 ])]
-class CategorizationRule implements MercurePublishable, OwnedByUserInterface, IndexableInterface
+class CategorizationRule implements MercurePublishable, OwnedByUserInterface, IndexableInterface, QualifyingOperation
 {
     use MercurePayloadFilterTrait;
 
@@ -73,6 +75,18 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     #[Assert\NotNull]
     #[IndexedRelation(targetEntity: Category::class, sourceField: 'categoryId')]
     private Category $category;
+
+    /**
+     * Whether its lines are mandatory and what kind of movement they are,
+     * copied whole, with `category`, onto every transaction it recognises.
+     */
+    #[ORM\Embedded(class: Qualification::class)]
+    #[IndexedField(type: 'object', properties: Qualification::SEARCH_MAPPING)]
+    // Built anew from the body, never merged into the stored one: a PATCH
+    // naming one parameter and not the other is refused, not completed.
+    #[ApiProperty(genId: false)]
+    #[Context(denormalizationContext: [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false])]
+    private Qualification $qualification;
 
     #[ORM\Column(length: 20, enumType: AmountDirection::class)]
     #[Assert\NotNull]
@@ -111,6 +125,7 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     public function __construct()
     {
         $this->id = new Ulid();
+        $this->qualification = Qualification::none();
     }
 
     #[Assert\Callback]
@@ -163,6 +178,29 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     public function setCategory(Category $category): static
     {
         $this->category = $category;
+
+        return $this;
+    }
+
+    public function getQualification(): Qualification
+    {
+        return $this->qualification->withCategory($this->category);
+    }
+
+    /** For the deserializer: the parameters only, the category travels as `category`. */
+    public function setQualification(Qualification $qualification): static
+    {
+        $this->qualification = $qualification->withCategory(null);
+
+        return $this;
+    }
+
+    /** Takes a whole qualification, its category included: an operation always has one. */
+    public function requalify(Qualification $qualification): static
+    {
+        $this->category = $qualification->getCategory()
+            ?? throw new \DomainException('An operation is qualified with a category.');
+        $this->qualification = $qualification->withCategory(null);
 
         return $this;
     }
@@ -285,6 +323,7 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
             'maxAmountCents' => $this->maxAmountCents,
             'priority' => $this->priority,
             'isActive' => $this->isActive,
+            'qualification' => $this->qualification->toArray(),
             'categoryId' => (string) $this->category->getId(),
             'userId' => (string) $this->user->getId(),
         ];
@@ -301,7 +340,8 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
             'maxAmountCents' => $this->maxAmountCents,
             'priority' => $this->priority,
             'isActive' => $this->isActive,
+            'qualification' => $this->qualification->toArray(),
             'categoryId' => (string) $this->category->getId(),
-        ], $changedProperties, ['category' => 'categoryId']);
+        ], $changedProperties, [...Qualification::changedPropertyMap(), 'category' => 'categoryId']);
     }
 }
