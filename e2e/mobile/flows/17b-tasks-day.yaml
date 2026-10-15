@@ -1,0 +1,103 @@
+appId: com.maggie.app.e2e
+name: 17b-tasks-day
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/day-plan-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-other@maggie.local
+---
+# « Aujourd'hui » is the day (MAG-497): five tasks at most, « Maintenant » on the first one
+# not done, the ring, and the rest in a reserve folded under its count.
+#
+# Given today's day holding five tasks of the journey's own (`scripts/day-plan-api.js`
+# PUTs /api/day-plans/{TODAY}) and a sixth due three days ago, when a task is added from
+# the day, then it waits in the reserve — the five keep their slots, which the script
+# reads back — and the task due on a past day reads « reportée », never late in red.
+#
+# It signs in as the seed's second user, so the day and the reserve of the main one, which
+# `17-tasks-views` reads, stay as the seed made them; `onFlowComplete` deletes the tasks
+# and empties the day even when a step failed. The wording of « reportée » (hier, the
+# weekday, the date) is `TaskPostponedTest`'s; ticking, replacing a slot and putting a
+# task back in the reserve are `TasksViewModelTest`'s and `TasksDayScreenTest`'s.
+
+- runScript:
+    file: ../scripts/day-plan-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17b-tasks-day.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+# The day: « Maintenant » on the first slot, the ring, the five in order.
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 30000
+- assertVisible:
+    id: "tasks_ring"
+- assertVisible:
+    id: "tasks_slot_1"
+- assertVisible: ".*Jour 1 MAG-497.*"
+
+# Added from the day while the five are taken: it waits in the reserve.
+- scrollUntilVisible:
+    element:
+      id: "tasks_day_add_input"
+    timeout: 20000
+- tapOn:
+    id: "tasks_day_add_input"
+- inputText: "Ajout MAG-497"
+- tapOn:
+    id: "tasks_day_add_submit"
+- hideKeyboard
+- runScript:
+    file: ../scripts/day-plan-api.js
+    env:
+      ACTION: expect-reserve
+      TODAY: ${TODAY}
+      TITLE: Ajout MAG-497
+      EMAIL: e2e-other@maggie.local
+
+# The reserve is folded until its header is tapped.
+- scrollUntilVisible:
+    element:
+      id: "tasks_reserve_toggle"
+    timeout: 20000
+- tapOn:
+    id: "tasks_reserve_toggle"
+- scrollUntilVisible:
+    element: ".*Ajout MAG-497.*"
+    timeout: 20000
+
+# Due three days ago and never done: « reportée », in words, under its title.
+- scrollUntilVisible:
+    element: ".*Passée MAG-497.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*reportée depuis.*"
+      below: ".*Passée MAG-497.*"
+    timeout: 20000
+- assertNotVisible: ".*En retard.*"

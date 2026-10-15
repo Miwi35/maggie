@@ -80,4 +80,14 @@ class UiTagsTest {
         assertEquals("settings_tasks_overdue_high", UiTags.settingsTasksOverdue("high"))
         assertEquals("settings_task_order_timePressure", UiTags.settingsTaskOrder("timePressure"))
     }
+
+    /** `e2e/mobile/flows/17b-tasks-day.yaml` spells the day's slots and the reserve's rows by hand (MAG-497). */
+    @Test
+    fun `the day's slots are suffixed by position, its tasks by id`() {
+        assertEquals("tasks_slot_3", UiTags.tasksSlot(3))
+        assertEquals("tasks_slot_check_01ABC", UiTags.tasksSlotCheck("01ABC"))
+        assertEquals("tasks_reserve_item_01ABC", UiTags.tasksReserveItem("01ABC"))
+        assertEquals("tasks_reserve_add_01ABC", UiTags.tasksReserveAdd("01ABC"))
+        assertEquals("tasks_replace_2", UiTags.tasksReplace(2))
+    }
 }

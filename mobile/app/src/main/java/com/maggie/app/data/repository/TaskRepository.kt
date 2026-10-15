@@ -5,6 +5,9 @@ import com.maggie.app.data.api.TaskCreateRequest
 import com.maggie.app.data.local.dao.TaskDao
 import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.local.entity.TaskEntity
+import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DayPlanUpdateRequest
+import com.maggie.app.data.model.DaySlotRequest
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewResponse
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.LocalDate
 
 class TaskRepository(
     private val apiService: MaggieApiService,
@@ -87,6 +91,26 @@ class TaskRepository(
     /** One read of a view (MAG-408): its tasks, the counts of the four views, and for « done » the page asked. */
     suspend fun getTaskView(view: TaskView, page: Int? = null): Result<TaskViewResponse> = runCatching {
         apiService.getTaskView(view.key, page)
+    }.rethrowCancellation()
+
+    /**
+     * The server's task, else the cached one: the day lists a shorter task, and its detail must not
+     * show a cache older than the row it was opened from.
+     */
+    suspend fun fetchTask(id: String): Result<Task> = runCatching {
+        apiService.getTask(id).also { taskDao.upsertAll(listOf(TaskEntity.fromModel(it))) }
+    }.rethrowCancellation().recoverCatching { error ->
+        taskDao.getById(id)?.toModel() ?: throw error
+    }.rethrowCancellation()
+
+    /** The day of [date] (MAG-497), created empty on its first read. */
+    suspend fun getDayPlan(date: LocalDate): Result<DayPlan> = runCatching {
+        apiService.getDayPlan(date.toString())
+    }.rethrowCancellation()
+
+    /** Replaces the day's slots by [taskIds], in order, five at most: what is left out goes back to the reserve. */
+    suspend fun setDaySlots(date: LocalDate, taskIds: List<String>): Result<DayPlan> = runCatching {
+        apiService.updateDayPlan(date.toString(), DayPlanUpdateRequest(taskIds.map(DaySlotRequest::task)))
     }.rethrowCancellation()
 
     suspend fun toggleDone(taskId: String, done: Boolean): Result<Task> = runCatching {

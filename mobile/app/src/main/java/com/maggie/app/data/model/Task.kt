@@ -26,6 +26,12 @@ data class Task(
     val urgency: String? = null,
     /** The API's order score (MAG-406): time pressure + criticality + priority, the highest first. */
     val orderScore: Int? = null,
+    /** How long the owner thinks it takes, 1 to 1440 minutes (MAG-497). */
+    val estimatedMinutes: Int? = null,
+    /** The first concrete gesture, to start without thinking (MAG-497). */
+    val firstStep: String? = null,
+    /** Read only (MAG-497): the first past day it was due or planned and left undone, `YYYY-MM-DD`. */
+    val postponedSince: String? = null,
 ) {
     val isDone: Boolean get() = completedAt != null
 

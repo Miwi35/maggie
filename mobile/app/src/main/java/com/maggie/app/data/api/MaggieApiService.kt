@@ -59,6 +59,8 @@ import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasurySettings
 import com.maggie.app.data.model.TreasurySettingsResult
 import com.maggie.app.data.model.DailyScore
+import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DayPlanUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.Loan
@@ -168,6 +170,10 @@ data class TaskCreateRequest(
     val dueDate: String? = null,
     /** The parent's IRI, for a subtask: the API puts it last among its siblings. */
     val parent: String? = null,
+    /** 1 to 1440 minutes (MAG-497). */
+    val estimatedMinutes: Int? = null,
+    /** The first concrete gesture (MAG-497). */
+    val firstStep: String? = null,
 )
 
 @Serializable
@@ -761,6 +767,22 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             page?.let { url.parameters.append("page", it.toString()) }
         }.body()
+    }
+
+    // The day (MAG-497): plain JSON; a refused list (400: six slots, a task twice) carries its reason in `error`.
+    suspend fun getDayPlan(date: String): DayPlan {
+        return client.get("$baseUrl/api/day-plans/$date") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** Replaces the day's whole list of slots, in order; the answer is the day as [getDayPlan] reads it. */
+    suspend fun updateDayPlan(date: String, request: DayPlanUpdateRequest): DayPlan {
+        return client.put("$baseUrl/api/day-plans/$date") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     suspend fun createTask(request: TaskCreateRequest): Task {

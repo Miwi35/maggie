@@ -3,12 +3,15 @@ name: 17-tasks-views
 tags:
   - calendar
 ---
-# The Tâches screen, in four tabs (MAG-408): « Aujourd'hui » (late first), « À venir »,
-# « À faire un jour », « Faites ». Reached from the drawer / the rail.
+# The Tâches screen, in four tabs (MAG-408): « Aujourd'hui », « À venir »,
+# « À faire un jour », « Faites ». Reached from the drawer / the rail. « Aujourd'hui »
+# is the day since MAG-497: five slots and a reserve folded under its count
+# (`17b-tasks-day` plays it).
 #
 # The witnesses are the seeded tasks of `api/fixtures/e2e/20-calendar.yaml`, each in
 # the one view the API puts it in: « Renvoyer le formulaire de la mutuelle » (due two
-# days ago, never done: late), « Appeler le garage » (in three days), « Trier les
+# days ago, never done: put off, so it waits in the day's reserve, « reportée »),
+# « Appeler le garage » (in three days), « Trier les
 # photos de vacances » (no day), « Sortir les poubelles » (done yesterday). The tab
 # labels carry counts, which the seed and the other journeys move: they are not
 # asserted (the tabs are tapped by id). The ordering and the counts are the API's
@@ -36,11 +39,23 @@ tags:
       id: "tasks"
     timeout: 20000
 
-# « Aujourd'hui » opens first, the late task in it with its lateness in words.
+# « Aujourd'hui » opens first, on the day: the seed plans none, so the late task waits in
+# the reserve, folded, and reads « reportée » — never late in red (MAG-497).
 - extendedWaitUntil:
-    visible: "Renvoyer le formulaire de la mutuelle"
+    visible:
+      id: "tasks_reserve_toggle"
     timeout: 30000
-- assertVisible: "En retard de 2 j"
+- tapOn:
+    id: "tasks_reserve_toggle"
+- scrollUntilVisible:
+    element: ".*Renvoyer le formulaire de la mutuelle.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*reportée depuis.*"
+      below: ".*Renvoyer le formulaire de la mutuelle.*"
+    timeout: 20000
+- assertNotVisible: ".*En retard.*"
 
 - tapOn:
     id: "tasks_tab_upcoming"

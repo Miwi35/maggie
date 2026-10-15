@@ -49,6 +49,8 @@ fun TaskEditScreen(
     var criticality by remember { mutableStateOf(task.criticality) }
     var done by remember { mutableStateOf(task.isDone) }
     var dueDate by remember { mutableStateOf(TaskDueDate.fromApi(task.dueDate)) }
+    var estimate by remember { mutableStateOf(task.estimatedMinutes?.toString().orEmpty()) }
+    var firstStep by remember { mutableStateOf(task.firstStep.orEmpty()) }
 
     Scaffold(
         topBar = {
@@ -108,6 +110,13 @@ fun TaskEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            EstimateFields(
+                estimate = estimate,
+                onEstimateChange = { estimate = it },
+                firstStep = firstStep,
+                onFirstStepChange = { firstStep = it },
+            )
+
             // Subtasks apply at once, as in the sheet: « Enregistrer » is for the fields above.
             if (!task.isSubtask) {
                 SubtasksSection(state = subtasks, actions = subtaskActions)
@@ -131,9 +140,12 @@ fun TaskEditScreen(
                         put("criticality", criticality)
                         put("dueDate", TaskDueDate.toApi(dueDate))
                         put("completedAt", if (done) Instant.now().toString() else null)
+                        // An emptied field clears the task's: null is sent, not left out.
+                        put("estimatedMinutes", TaskEstimate.toApi(estimate))
+                        put("firstStep", TaskEstimate.firstStepToApi(firstStep))
                     })
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() && TaskEstimate.isValid(estimate),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Enregistrer")

@@ -59,14 +59,19 @@ internal fun addHintOf(view: TaskView): String = when (view) {
     TaskView.DONE -> ""
 }
 
-/** « Aujourd'hui (3) »: the count comes with every read of a view, so the other tabs stay true. */
-internal fun tabLabelOf(view: TaskView, state: TasksUiState): String =
-    state.counts?.let { "${view.label} (${it[view]})" } ?: view.label
+/**
+ * « Aujourd'hui (3) »: the count comes with every read of a view, so the other tabs stay true.
+ * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due.
+ */
+internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
+    val count = if (view == TaskView.TODAY) state.day?.left else state.counts?.get(view)
+    return count?.let { "${view.label} ($it)" } ?: view.label
+}
 
 /**
  * Tasks in four tabs (MAG-408), as the admin shows them. The list is the API's: its order, its
- * views, subtasks after their parent. [onTaskClick] opens the detail, a sheet or the pane beside
- * the list, which the caller draws.
+ * views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
+ * [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +87,14 @@ fun TasksScreen(
         onDispose { viewModel.onClosed() }
     }
 
+    // A task of the day is read whole before its detail opens.
+    LaunchedEffect(state.opened) {
+        state.opened?.let {
+            onTaskClick(it)
+            viewModel.onTaskOpened()
+        }
+    }
+
     Column(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
         ScrollableTabRow(selectedTabIndex = TaskView.entries.indexOf(state.view), edgePadding = 0.dp) {
             TaskView.entries.forEach { view ->
@@ -94,8 +107,15 @@ fun TasksScreen(
             }
         }
 
-        if (state.view.addable) {
-            QuickAdd(state = state, viewModel = viewModel)
+        // The day has its own add field, between its five and its reserve.
+        if (state.view.addable && state.view != TaskView.TODAY) {
+            QuickAdd(
+                state = state,
+                viewModel = viewModel,
+                hint = addHintOf(state.view),
+                inputTag = UiTags.TASKS_ADD_INPUT,
+                submitTag = UiTags.TASKS_ADD_SUBMIT,
+            )
         }
 
         state.message?.let { message ->
@@ -114,13 +134,13 @@ fun TasksScreen(
         }
 
         PullToRefreshBox(
-            isRefreshing = state.isLoading && state.tasks.isNotEmpty(),
+            isRefreshing = state.isLoading && state.hasContent,
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
             when {
                 state.error != null -> ErrorState(state.error.orEmpty(), onRetry = viewModel::refresh)
-                state.isLoading && state.tasks.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                state.isLoading && !state.hasContent -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     CircularProgressIndicator()
                 }
                 state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
@@ -132,14 +152,27 @@ fun TasksScreen(
                         modifier = Modifier.testTag(UiTags.TASKS_EMPTY),
                     )
                 }
-                else -> TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                else -> {
+                    val day = state.day
+                    if (state.view == TaskView.TODAY && day != null) {
+                        DayContent(day = day, state = state, viewModel = viewModel)
+                    } else {
+                        TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun QuickAdd(state: TasksUiState, viewModel: TasksViewModel) {
+internal fun QuickAdd(
+    state: TasksUiState,
+    viewModel: TasksViewModel,
+    hint: String,
+    inputTag: String,
+    submitTag: String,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -148,17 +181,17 @@ private fun QuickAdd(state: TasksUiState, viewModel: TasksViewModel) {
         OutlinedTextField(
             value = state.draft,
             onValueChange = viewModel::onDraftChange,
-            placeholder = { Text(addHintOf(state.view)) },
+            placeholder = { Text(hint) },
             singleLine = true,
             enabled = !state.isAdding,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { viewModel.addTask() }),
-            modifier = Modifier.weight(1f).testTag(UiTags.TASKS_ADD_INPUT),
+            modifier = Modifier.weight(1f).testTag(inputTag),
         )
         IconButton(
             onClick = viewModel::addTask,
             enabled = state.draft.isNotBlank() && !state.isAdding,
-            modifier = Modifier.testTag(UiTags.TASKS_ADD_SUBMIT),
+            modifier = Modifier.testTag(submitTag),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Ajouter la tâche")
         }
