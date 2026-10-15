@@ -221,4 +221,19 @@ class EnvelopeSplitControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
         self::assertSame(10000, $this->amountOf('bars_october'));
     }
+
+    public function testAOneOffEnvelopeHasNothingToShareAndIsRefused(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->split($this->id('hellfest'), ['children' => [
+            ['envelopeId' => $this->id('bars_october'), 'amountCents' => 1000],
+        ]]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame([], $this->json()['children']);
+        self::assertSame(10000, $this->amountOf('bars_october'));
+        $this->assertMercureUpdateCount(0);
+    }
 }

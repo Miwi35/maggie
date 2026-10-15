@@ -82,3 +82,9 @@ Maggie\Finance\Entity\Envelope:
     year: 2026
     month: 10
     user: '@other_user'
+  hellfest:
+    mode: '<(Maggie\Finance\Enum\BudgetMode::OneOff)>'
+    name: Hellfest 2026
+    amountCents: 40000
+    currency: EUR
+    user: '@test_user'
