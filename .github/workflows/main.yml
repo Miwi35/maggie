@@ -66,8 +66,8 @@ jobs:
           set -o pipefail
           bash infra/scripts/tested-tree.sh | tee -a "$GITHUB_STEP_SUMMARY"
 
-  # The whole suite of a pull request, whatever changed except what the path
-  # filters skip on a push (`github.event_name` is `push` in the called workflow,
+  # The suite of a pull request but its e2e journeys (`e2e: smoke`, MAG-484):
+  # whatever changed except what the path filters skip on a push (`github.event_name` is `push` in the called workflow,
   # as it was when CI ran on main by itself). The write permissions are the
   # ceiling of the jobs the file also holds (the coverage comment): a
   # called workflow may not ask for more than its caller, even for a job it skips.
@@ -77,6 +77,11 @@ jobs:
     needs: tested
     if: ${{ always() && !cancelled() && needs.tested.outputs.skip != 'true' }}
     uses: ./.github/workflows/ci.yml
+    # The journeys played on the pull request, and all of them play at night
+    # (nightly-e2e.yml): main starts the stack for the smoke journey only, and
+    # the deployment waits for nothing else (MAG-484).
+    with:
+      e2e: smoke
     permissions:
       contents: read
       packages: write
