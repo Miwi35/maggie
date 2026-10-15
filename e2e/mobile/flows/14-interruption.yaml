@@ -69,8 +69,9 @@ tags:
     id: "dashboard"
 
 # The morning task alert (MAG-410): the cron files a `task_due` notification titled « Dans 3 j : … »;
-# the open app says it with the button that goes to the task. The cron run and the task it opens
-# are the smoke journey's and the JVM tests' (the seeded task's id is not known to a scripted scenario).
+# the open app says it with « Fait » (which completes the task) and « Plus tard »; opening the task
+# from the notification, and the cron run itself, are the JVM tests' and the smoke journey's (the
+# seeded task's id is not known to a scripted scenario).
 - runScript:
     file: ../scripts/interruption-api.js
     env:
@@ -80,7 +81,7 @@ tags:
       id: "interruption"
     timeout: 40000
 - assertVisible: "Dans 3 j : Appeler le garage"
-- assertVisible: "Voir la tâche"
+- assertVisible: "Fait"
 - tapOn:
     id: "interruption_later"
 - extendedWaitUntil:

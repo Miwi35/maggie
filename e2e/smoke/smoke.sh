@@ -736,7 +736,8 @@ step "11b. A critical task due in three days becomes a « Dans 3 j » notificati
 # task is created for three days from that Paris day.
 paris_now="$(TZ=Europe/Paris date -d "@$now_epoch" +%H:%M)"
 # Three calendar days on the Paris wall clock, not 3 * 86400 s: a clock change in between is 23 or 25 hours.
-task_due_day="$(TZ=Europe/Paris date -d "$(TZ=Europe/Paris date -d "@$now_epoch" '+%F %T') + 3 days" +%F)"
+# No "+" before "3 days": after a time, GNU date reads it as a UTC offset and adds one day only.
+task_due_day="$(TZ=Europe/Paris date -d "$(TZ=Europe/Paris date -d "@$now_epoch" '+%F %T') 3 days" +%F)"
 task_title="Tâche smoke $(date -u -d "@$now_epoch" +%H%M%S)"
 
 assert_eq "$paris_now" \
