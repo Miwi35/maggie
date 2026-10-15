@@ -150,6 +150,8 @@
             "year": 2026,
             "month": 3,
             "season": null,
+            "allocatedToChildrenCents": null,
+            "freeCents": null,
             "amountCents": 30000,
             "spentCents": 125599,
             "committedCents": 0,
