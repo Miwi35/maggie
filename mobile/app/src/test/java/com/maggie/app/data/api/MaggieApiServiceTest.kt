@@ -941,6 +941,19 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `attachRecurringOperations reads an attachment, which carries no reason`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"dryRun":true,"scanned":1,"attached":1,"proposed":0,"attachments":[{"transactionId":"t1","label":"VIR SEPA XYZ","bookedAt":"2030-11-13","amountCents":465000,"reason":null,"recurringOperationId":"s1","recurringOperationLabel":"Salaire","occurrenceOn":"2030-11-13","dateGapDays":0,"referenceAmountCents":475000,"amountChangePercent":-2}],"proposals":[]}"""
+            },
+        )
+
+        val report = service.attachRecurringOperations(dryRun = true)
+
+        assertEquals("s1", report.attachments.single().recurringOperationId)
+    }
+
+    @Test
     fun `createRecurringOperation posts the whole series, nulls included`() = runBlocking {
         var method: HttpMethod? = null
         var url: String? = null

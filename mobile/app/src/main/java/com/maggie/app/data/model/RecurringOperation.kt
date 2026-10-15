@@ -96,7 +96,8 @@ data class RecurringProposal(
     val label: String,
     val bookedAt: String = "",
     val amountCents: Int = 0,
-    val reason: String = "",
+    // Null on an attachment: nothing broke, there is no reason to give.
+    val reason: String? = null,
     val recurringOperationId: String? = null,
     val recurringOperationLabel: String? = null,
     val occurrenceOn: String? = null,
@@ -281,7 +282,7 @@ fun describeReason(proposal: RecurringProposal, currency: String = "EUR"): Strin
                 "${money(proposal.amountCents, currency)}, ${signedPercent(proposal.amountChangePercent)}"
         }
         "ambiguous" -> "plusieurs opérations récurrentes peuvent la réclamer"
-        else -> proposal.reason
+        else -> proposal.reason.orEmpty()
     }
 }
 
