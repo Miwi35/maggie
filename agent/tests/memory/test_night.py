@@ -695,6 +695,64 @@ class TestTheTidying:
         assert asked == 1 and len(model.asked("tidy")) == 1
 
 
+class TestTidyingMoreFichesThanOneAskCanShow:
+    async def test_every_fiche_gets_its_turn_and_none_is_marked_done_unseen(self, env, chat_db):
+        when = NOW - timedelta(hours=3)
+        path = await conversation(chat_db, env, "Quinze choses sur moi.", when)
+        for index in range(14):
+            await seed(env, f"Fait numéro {index}", f"Fait numéro {index}", path, minute(when), dossiers=("Faits",))
+        model = NightModel()
+        night = keeper(env, model)
+
+        await run(night)
+
+        shown = "\n".join(model.asked("tidy"))
+        assert len(model.asked("tidy")) == 3, "14 fiches, 6 shown per request"
+        assert all(f"### Faits/Fait numéro {index}.md" in shown for index in range(14))
+        await run(night, NOW + timedelta(days=1))
+        assert len(model.asked("tidy")) == 3, "nothing changed since"
+
+
+class TestWhenSomethingGoesWrongInTheNight:
+    async def test_a_step_that_fails_is_retried_then_given_up_so_the_pass_ends(self, env, chat_db, monkeypatch):
+        await conversation(chat_db, env, "Un mot.", NOW - timedelta(hours=3))
+        night = keeper(env, NightModel())
+        monkeypatch.setattr(night, "_step_regularites", AsyncMock(side_effect=RuntimeError("boom")))
+
+        first = await run(night)
+        assert first.status == "running" and first.report["echecs"] == {"step:regularites": 1}
+        second = await run(night, NOW + timedelta(minutes=10), force=False)
+
+        assert second.status == "done" and second.id == first.id
+        assert any("régularités" in line or "regularites" in line for line in second.report["reste"])
+        assert "step:rangement" in second.done
+
+    async def test_a_carte_with_no_summary_is_a_failure_and_not_a_carte(self, env, chat_db):
+        path = await conversation(chat_db, env, "Un mot.", NOW - timedelta(hours=3))
+        model = NightModel(carte={"resume": "  ", "moments": []})
+
+        run_ = await run(keeper(env, model))
+
+        assert not carte_mod.parse(env.local(path)).carte.resume
+        assert run_.report["echecs"] and "cartes" not in run_.report
+
+    async def test_a_replacement_of_a_claim_the_fiche_does_not_hold_is_reported(self, env, chat_db):
+        when = NOW - timedelta(hours=3)
+        path = await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
+        await seed(env, RENNES, RENNES, path, minute(when))
+        model = NightModel(
+            consolidate=proposal(
+                chemin=FICHE_RENNES,
+                claims=[{"texte": LYON, "heure": minute(when)}],
+                remplace=[{"texte": "Le propriétaire habite à Nantes", "motif": "Lyon"}],
+            )
+        )
+
+        run_ = await run(keeper(env, model))
+
+        assert "Nantes" in json.dumps(run_.report["laissees"], ensure_ascii=False)
+
+
 class TestSettingAsideWhatWasCircumstance:
     OLD = NOW - timedelta(days=60)
 

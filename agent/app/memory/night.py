@@ -68,6 +68,7 @@ FICHE_EXCERPT = 2500
 ENCODING_PAGE = 20
 ENCODING_MAX_PAGES = 50
 MAX_OPERATIONS = 10
+MAX_TIDY_BATCHES = 5
 MAX_MERGED = 4
 FORGET_BATCH = 25
 REGULARITY_FRESH = 8
@@ -381,7 +382,17 @@ class NightKeeper:
             for step in STEPS:
                 if f"step:{step}" in run.done:
                     continue
-                await getattr(self, f"_step_{step}")(pass_)
+                try:
+                    await getattr(self, f"_step_{step}")(pass_)
+                except (TickLimit, ModelDown, RunLimit):
+                    raise
+                except Exception:
+                    logger.exception("Night of %s: the step %s failed", user_id, step)
+                    pass_.failed(f"step:{step}", "erreur inattendue")
+                    await pass_.save()
+                    if not pass_.gave_up(f"step:{step}"):
+                        return run
+                    pass_.note("reste", f"étape « {step} » abandonnée après une erreur")
                 run.done.append(f"step:{step}")
                 await pass_.save()
         except TickLimit:
@@ -475,13 +486,19 @@ class NightKeeper:
             except ProposalError as e:
                 p.failed(unit, str(e))
                 continue
-            await conversations.update_carte_of_file(
+            if not _line(proposal.get("resume")):
+                p.failed(unit, "le modèle n'a rendu aucun résumé")
+                continue
+            written = await conversations.update_carte_of_file(
                 p.user_id,
                 conversation.path,
                 lambda carte, proposal=proposal, text=text: merge_carte(carte, proposal, text),
                 reason=p.reason("carte rattrapée"),
                 service=p.service,
             )
+            if not written:
+                p.failed(unit, "la conversation n'a pas de fil connu")
+                continue
             p.note("cartes", _stem(conversation.path))
 
     # ------------------------------------------------------------------ 2. the conversations, one by one
@@ -643,6 +660,12 @@ class NightKeeper:
             for raw in replace:
                 old = held.get(fiches.norm(_line(raw.get("texte"))))
                 if old is None:
+                    wanted = fiches.norm(_line(raw.get("texte")))
+                    if wanted and wanted not in {c.key for c in before.replaced}:
+                        p.note(
+                            "laissees",
+                            {"unite": chemin, "pourquoi": f"«{_line(raw.get('texte'))}» ne figure pas dans la fiche"},
+                        )
                     continue
                 if old.heure and newest and old.heure > newest:
                     raise fiches.FicheError(
@@ -806,17 +829,25 @@ class NightKeeper:
     # ------------------------------------------------------------------ 4. the tidying
 
     async def _step_rangement(self, p: _Pass) -> None:
+        for _ in range(MAX_TIDY_BATCHES):
+            if not await self._tidy_batch(p):
+                return
+        p.note("reste", "rangement : des fiches changées attendent la prochaine nuit")
+
+    async def _tidy_batch(self, p: _Pass) -> bool:
+        """Ask for the tidying of the next fiches that changed. True when some are still waiting for their turn."""
         listed = [f for f in await p.service.fiches(p.user_id) if not f.unreadable]
         seen = await memory_night_repo.seen(p.user_id, SCOPE_TIDIED)
         changed = [f for f in listed if seen.get(f.card_id) != f.content_hash]
         if not changed:
-            return
+            return False
+        shown = changed[:FICHES_OPENED]
         changed_paths = {f.path for f in changed}
         lines = [
             ("* " if f.path in changed_paths else "  ") + _fiche_line(f).removeprefix("- ")
             for f in listed[:FICHES_LISTED]
         ]
-        detail = "\n\n".join(f"### {f.path}\n{_claims_text(f)}" for f in changed[:FICHES_OPENED])
+        detail = "\n\n".join(f"### {f.path}\n{_claims_text(f)}" for f in shown)
         request = (
             "Fiches :\n"
             + "\n".join(lines)
@@ -828,13 +859,16 @@ class NightKeeper:
             proposal = await p.ask(TIDY_SYSTEM, request)
         except ProposalError as e:
             p.failed("rangement", str(e))
-            return
+            return False
         for op in _items(proposal.get("operations"))[:MAX_OPERATIONS]:
             try:
                 await self._tidy(p, op)
             except (fiches.FicheError, paths.UnsafePath, UnreadableFile) as e:
                 p.note("laissees", {"unite": "rangement", "pourquoi": str(e)})
-        await self._mark_tidied(p, await p.service.fiches(p.user_id))
+        # Only what the model was shown is done: the others keep their turn, tonight or the next night.
+        looked_at = {f.card_id for f in shown}
+        await self._mark_tidied(p, [f for f in await p.service.fiches(p.user_id) if f.card_id in looked_at])
+        return len(changed) > len(shown)
 
     async def _mark_tidied(self, p: _Pass, listed: list[IndexedFile]) -> None:
         for fiche in listed:
