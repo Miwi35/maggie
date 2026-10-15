@@ -7,6 +7,8 @@ namespace Maggie\Calendar\UseCase;
 use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Message\CreateTaskSettingsCommand;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
+use Maggie\Calendar\Service\TaskAlertSchedule;
+use Maggie\Calendar\Service\TaskOrderWeights;
 use Maggie\Core\Entity\User;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -37,12 +39,24 @@ class GetTaskSettings
         return $created;
     }
 
-    /** @return array{id: string, orderWeights: array<string, array<string, int>>} */
+    /**
+     * The settings as the screens read them, with the defaults their
+     * « Valeurs par défaut » button puts back.
+     *
+     * @return array<string, mixed>
+     */
     public static function describe(TaskSettings $settings): array
     {
         return [
             'id' => (string) $settings->getId(),
             'orderWeights' => $settings->getOrderWeights(),
+            'alertSchedule' => $settings->getAlertSchedule(),
+            'morningTime' => $settings->getMorningTime(),
+            'defaults' => [
+                'orderWeights' => TaskOrderWeights::DEFAULTS,
+                'alertSchedule' => TaskAlertSchedule::DEFAULTS,
+                'morningTime' => TaskSettings::DEFAULT_MORNING_TIME,
+            ],
         ];
     }
 }

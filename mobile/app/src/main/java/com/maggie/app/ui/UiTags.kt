@@ -455,6 +455,19 @@ object UiTags {
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 
     /**
+     * Settings > Tâches (MAG-407): the row of the list, « Heure du matin », the days before the
+     * due day of an urgency (the prefix takes `critical`, `high` or `normal`), « Valeurs par
+     * défaut », « Enregistrer », and the line that says it went through.
+     */
+    const val SETTINGS_TASKS = "settings_tasks"
+    const val SETTINGS_TASKS_MORNING = "settings_tasks_morning"
+    const val SETTINGS_TASKS_DAYS_PREFIX = "settings_tasks_days_"
+    const val SETTINGS_TASKS_CRITICAL_DAYS = "settings_tasks_days_critical"
+    const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"
+    const val SETTINGS_TASKS_SAVE = "settings_tasks_save"
+    const val SETTINGS_TASKS_SAVED = "settings_tasks_saved"
+
+    /**
      * The meal being planned (MAG-378): the « Menu » field that opens the recipe search, the
      * recipes chosen under it and their remove buttons, and « Créer ».
      */

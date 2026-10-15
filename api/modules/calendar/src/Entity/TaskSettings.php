@@ -7,6 +7,7 @@ namespace Maggie\Calendar\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
+use Maggie\Calendar\Service\TaskAlertSchedule;
 use Maggie\Calendar\Service\TaskOrderWeights;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
@@ -15,8 +16,8 @@ use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * The task settings, one row per user, created on first read (MAG-406). The
- * alert schedule and the morning time join them with MAG-407.
+ * The task settings, one row per user, created on first read: the weights of
+ * the order (MAG-406), the alert schedule and the morning time (MAG-407).
  *
  * Read and written through `/api/task-settings/me`, never through an API
  * Platform operation on an identifier-less path, which would build a fresh
@@ -27,6 +28,9 @@ use Symfony\Component\Uid\Ulid;
 class TaskSettings implements MercurePublishable, OwnedByUserInterface
 {
     use MercurePayloadFilterTrait;
+
+    public const DEFAULT_MORNING_TIME = '08:00';
+    public const MORNING_TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -43,6 +47,18 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
      */
     #[ORM\Column(type: Types::JSON)]
     private array $orderWeights = TaskOrderWeights::DEFAULTS;
+
+    /**
+     * The alerts of each urgency: {@see TaskAlertSchedule}.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    #[ORM\Column(type: Types::JSON)]
+    private array $alertSchedule = TaskAlertSchedule::DEFAULTS;
+
+    /** The « morning » the alerts go out, `HH:MM` in the user's timezone. */
+    #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_MORNING_TIME])]
+    private string $morningTime = self::DEFAULT_MORNING_TIME;
 
     public function __construct()
     {
@@ -80,11 +96,43 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    /** @return array<string, array{daysBefore: list<int>, dueDay: bool, overdueEveryDays: int|null}> every urgency, the defaults filling what is not stored */
+    public function getAlertSchedule(): array
+    {
+        return TaskAlertSchedule::complete($this->alertSchedule);
+    }
+
+    /** @param array<string, array{daysBefore: list<int>, dueDay: bool, overdueEveryDays: int|null}> $alertSchedule */
+    public function setAlertSchedule(array $alertSchedule): static
+    {
+        $this->alertSchedule = $alertSchedule;
+
+        return $this;
+    }
+
+    public function getMorningTime(): string
+    {
+        return $this->morningTime;
+    }
+
+    /** @throws \InvalidArgumentException when it is not `HH:MM` */
+    public function setMorningTime(string $morningTime): static
+    {
+        if (1 !== preg_match(self::MORNING_TIME_PATTERN, $morningTime)) {
+            throw new \InvalidArgumentException(\sprintf('morningTime must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $morningTime));
+        }
+        $this->morningTime = $morningTime;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
         return self::filterPayload([
             'orderWeights' => $this->getOrderWeights(),
+            'alertSchedule' => $this->getAlertSchedule(),
+            'morningTime' => $this->morningTime,
         ], $changedProperties);
     }
 }

@@ -326,11 +326,24 @@ final class MercureTopicContractTest extends WebTestCase
      * subscribes to. Leaving it out of the contract made that subscription
      * look wrong when it was the contract that was incomplete.
      *
+     * Nor filtered on being an API resource: TaskSettings is served by a REST
+     * controller at /api/task-settings/me and publishes to
+     * /api/task_settings/{id}, which both settings screens subscribe to
+     * (MAG-407).
+     *
      * @return iterable<class-string, string>
      */
     private function publishableResources(): iterable
     {
-        foreach ($this->apiResourceClasses() as $resourceClass) {
+        $classes = iterator_to_array($this->apiResourceClasses(), false);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        foreach ($em->getMetadataFactory()->getAllMetadata() as $metadata) {
+            if (!$metadata->isMappedSuperclass && !\in_array($metadata->getName(), $classes, true)) {
+                $classes[] = $metadata->getName();
+            }
+        }
+
+        foreach ($classes as $resourceClass) {
             if (!is_a($resourceClass, MercurePublishable::class, true)) {
                 continue;
             }

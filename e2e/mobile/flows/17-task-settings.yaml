@@ -1,0 +1,108 @@
+appId: com.maggie.app.e2e
+name: 17-task-settings
+tags:
+  - settings
+  - calendar
+---
+# Réglages › Tâches (MAG-407): when Maggie alerts on a task, per urgency, and the weights
+# of the task order.
+#
+# The user opens Réglages › Tâches, sets « Heure du matin » to 07:30 and the critical
+# tasks' « Jours avant l'échéance » to 1, saves; the server holds them
+# (`scripts/task-settings-api.js`), and the app, started again, reads them back.
+#
+# The values are the web journey's (`task-settings.spec.ts`, which runs as the
+# neighbour and puts the defaults back). Nothing else reads the alert schedule or the
+# morning time yet, so they are left as saved. Only those two fields are touched — the weights, which order
+# « Aujourd'hui » in `15-task-subtasks`, stay what the seed made them. Edits, defaults,
+# a refused save and the re-read on a Mercure message are the JVM's business
+# (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17-task-settings.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks"
+    timeout: 20000
+- tapOn:
+    id: "settings_tasks"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_morning"
+    timeout: 30000
+- tapOn:
+    id: "settings_tasks_morning"
+- eraseText
+- inputText: "07:30"
+- hideKeyboard
+
+- tapOn:
+    id: "settings_tasks_days_critical"
+- eraseText
+- inputText: "1"
+- hideKeyboard
+
+- scrollUntilVisible:
+    element:
+      id: "settings_tasks_save"
+    timeout: 30000
+- tapOn:
+    id: "settings_tasks_save"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_saved"
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/task-settings-api.js
+    env:
+      ACTION: expect
+      MORNING: "07:30"
+      CRITICAL_DAYS: "1"
+
+# Read back from the server, not from the screen that typed them: the app starts again,
+# still signed in, and opens the section fresh.
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/17-task-settings.yaml
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks"
+    timeout: 30000
+- tapOn:
+    id: "settings_tasks"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_morning"
+      text: ".*07:30.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_days_critical"
+      text: ".*1.*"
+    timeout: 20000
+# « 3, 1 » holds a 1 as well: the seed's value must be gone.
+- assertNotVisible:
+    id: "settings_tasks_days_critical"
+    text: ".*3, 1.*"

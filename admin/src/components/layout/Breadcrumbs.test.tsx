@@ -78,6 +78,12 @@ describe('Breadcrumbs', () => {
     expect(labels()).toEqual(['Agenda', 'Événements', 'Nouveau'])
   })
 
+  test('the task settings sit under Paramètres', () => {
+    renderAt('/settings/tasks')
+
+    expect(labels()).toEqual(['Paramètres', 'Tâches'])
+  })
+
   test('a settings page sits under its module', () => {
     renderAt('/settings/agent')
 

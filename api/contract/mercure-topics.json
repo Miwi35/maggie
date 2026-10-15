@@ -1,6 +1,7 @@
 {
     "Account": "/users/{userId}/api/accounts/{id}",
     "Agenda": "/users/{userId}/api/agendas/{id}",
+    "BankConnection": "/users/{userId}/api/bank_connections/{id}",
     "CategorizationRule": "/users/{userId}/api/categorization_rules/{id}",
     "Category": "/users/{userId}/api/categories/{id}",
     "Envelope": "/users/{userId}/api/envelopes/{id}",
@@ -18,7 +19,9 @@
     "SafetyCushion": "/users/{userId}/api/safety_cushions/{id}",
     "Store": "/users/{userId}/api/stores/{id}",
     "Task": "/users/{userId}/api/tasks/{id}",
+    "TaskSettings": "/users/{userId}/api/task_settings/{id}",
     "Transaction": "/users/{userId}/api/transactions/{id}",
+    "TreasurySettings": "/users/{userId}/api/treasury_settings/{id}",
     "User": "/users/{userId}/api/users/{id}",
     "UserPreference": "/users/{userId}/api/user_preferences/{id}"
 }

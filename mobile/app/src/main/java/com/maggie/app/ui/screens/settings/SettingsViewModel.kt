@@ -26,6 +26,9 @@ import kotlinx.serialization.json.put
 
 const val DEFAULT_AGENT_NAME = "Maggie"
 
+private const val TASK_SETTINGS_UNREADABLE = "Impossible de lire les réglages des tâches."
+private const val TASK_SETTINGS_UNSAVED = "Les réglages des tâches n'ont pas été enregistrés."
+
 data class SettingsUiState(
     val user: User? = null,
     val preferences: UserPreference? = null,
@@ -36,6 +39,8 @@ data class SettingsUiState(
     val agentName: String = DEFAULT_AGENT_NAME,
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** Réglages › Tâches (MAG-407), loaded and failing on its own. */
+    val tasks: TaskSettingsUiState = TaskSettingsUiState(),
 )
 
 class SettingsViewModel(
@@ -55,6 +60,7 @@ class SettingsViewModel(
 
     init {
         loadProfile()
+        loadTaskSettings()
         subscribeToMercure()
     }
 
@@ -81,6 +87,86 @@ class SettingsViewModel(
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
         }
+    }
+
+    fun loadTaskSettings() {
+        viewModelScope.launch {
+            updateTasks { it.copy(isLoading = true, error = null) }
+            try {
+                val settings = apiService.getTaskSettings()
+                updateTasks {
+                    it.copy(settings = settings, form = TaskSettingsForm.from(settings.values), isLoading = false)
+                }
+            } catch (e: Exception) {
+                updateTasks { it.copy(isLoading = false, error = e.message ?: TASK_SETTINGS_UNREADABLE) }
+            }
+        }
+    }
+
+    /**
+     * The form as the user edits it, [change] applied to the form as it is now (not as the
+     * screen last drew it, so no keystroke is lost); nothing is sent before [saveTaskSettings].
+     */
+    fun editTaskSettings(change: (TaskSettingsForm) -> TaskSettingsForm) {
+        updateTasks { tasks ->
+            val form = tasks.form ?: return@updateTasks tasks
+            tasks.copy(form = change(form), saved = false, error = null)
+        }
+    }
+
+    /** « Valeurs par défaut »: the form takes the server's defaults, unsaved. */
+    fun resetTaskSettingsToDefaults() {
+        val defaults = _uiState.value.tasks.settings?.defaults ?: return
+        editTaskSettings { TaskSettingsForm.from(defaults) }
+    }
+
+    /** « Enregistrer »: the whole form, replaced by what the server kept (it sorts the days, for one). */
+    fun saveTaskSettings() {
+        val tasks = _uiState.value.tasks
+        val form = tasks.form ?: return
+        if (tasks.isSaving) return
+        val values = form.toValues().getOrElse { invalid ->
+            updateTasks { it.copy(error = invalid.message, saved = false) }
+            return
+        }
+        viewModelScope.launch {
+            updateTasks { it.copy(isSaving = true, error = null, saved = false) }
+            try {
+                val settings = apiService.updateTaskSettings(values)
+                updateTasks {
+                    it.copy(
+                        settings = settings,
+                        form = TaskSettingsForm.from(settings.values),
+                        isSaving = false,
+                        saved = true,
+                    )
+                }
+            } catch (e: Exception) {
+                updateTasks { it.copy(isSaving = false, error = e.message ?: TASK_SETTINGS_UNSAVED) }
+            }
+        }
+    }
+
+    /**
+     * A change published by the server (the admin, Maggie, this very save): read again. The
+     * form follows only when it holds no edit of its own — a change elsewhere must not wipe
+     * what the user is typing.
+     */
+    private suspend fun rereadTaskSettings() {
+        val settings = try { apiService.getTaskSettings() } catch (_: Exception) { return }
+        updateTasks { current ->
+            val untouched = current.form == null ||
+                current.settings?.let { current.form == TaskSettingsForm.from(it.values) } == true
+            current.copy(
+                settings = settings,
+                form = if (untouched) TaskSettingsForm.from(settings.values) else current.form,
+                isLoading = false,
+            )
+        }
+    }
+
+    private inline fun updateTasks(change: (TaskSettingsUiState) -> TaskSettingsUiState) {
+        _uiState.value = _uiState.value.copy(tasks = change(_uiState.value.tasks))
     }
 
     fun updateTheme(theme: String) {
@@ -200,6 +286,12 @@ class SettingsViewModel(
                         userPreferenceRepository.refresh()
                         _uiState.value = _uiState.value.copy(preferences = userPreferenceRepository.preference.value)
                     }
+            }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASK_SETTINGS))
+                    .catch { /* SSE reconnects automatically */ }
+                    .coalesced()
+                    .collect { rereadTaskSettings() }
             }
             launch {
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))

@@ -1,0 +1,99 @@
+{
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "orderWeights": {
+        "timePressure": {
+            "overdue": 65,
+            "overduePerDay": 2,
+            "overdueMax": 85,
+            "today": 55,
+            "tomorrow": 45,
+            "in2To3Days": 30,
+            "in4To7Days": 15,
+            "in8To30Days": 5,
+            "later": 0
+        },
+        "criticality": {
+            "critical": 30,
+            "high": 20,
+            "medium": 10,
+            "low": 0
+        },
+        "priority": {
+            "high": 6,
+            "medium": 3,
+            "low": 0
+        }
+    },
+    "alertSchedule": {
+        "critical": {
+            "daysBefore": [
+                3,
+                1
+            ],
+            "dueDay": true,
+            "overdueEveryDays": 1
+        },
+        "high": {
+            "daysBefore": [
+                1
+            ],
+            "dueDay": true,
+            "overdueEveryDays": 1
+        },
+        "normal": {
+            "daysBefore": [],
+            "dueDay": true,
+            "overdueEveryDays": 2
+        }
+    },
+    "morningTime": "08:00",
+    "defaults": {
+        "orderWeights": {
+            "timePressure": {
+                "overdue": 65,
+                "overduePerDay": 2,
+                "overdueMax": 85,
+                "today": 55,
+                "tomorrow": 45,
+                "in2To3Days": 30,
+                "in4To7Days": 15,
+                "in8To30Days": 5,
+                "later": 0
+            },
+            "criticality": {
+                "critical": 30,
+                "high": 20,
+                "medium": 10,
+                "low": 0
+            },
+            "priority": {
+                "high": 6,
+                "medium": 3,
+                "low": 0
+            }
+        },
+        "alertSchedule": {
+            "critical": {
+                "daysBefore": [
+                    3,
+                    1
+                ],
+                "dueDay": true,
+                "overdueEveryDays": 1
+            },
+            "high": {
+                "daysBefore": [
+                    1
+                ],
+                "dueDay": true,
+                "overdueEveryDays": 1
+            },
+            "normal": {
+                "daysBefore": [],
+                "dueDay": true,
+                "overdueEveryDays": 2
+            }
+        },
+        "morningTime": "08:00"
+    }
+}

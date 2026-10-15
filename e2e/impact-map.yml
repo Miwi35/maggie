@@ -337,6 +337,8 @@ web:
     areas: [design, settings]
   e2e/web/tests/agent-settings.spec.ts:
     areas: [settings]
+  e2e/web/tests/task-settings.spec.ts:
+    areas: [settings, calendar]
   e2e/web/tests/search.spec.ts:
     areas: [search, calendar, cookbook, realtime]
   e2e/web/tests/mag-130-controls.spec.ts:
@@ -527,6 +529,10 @@ mobile:
       - e2e/mobile/scripts/interruption-api.js
       - mobile/app/src/main/java/com/maggie/app/data/{fcm,interruption}/**
       - mobile/app/src/main/java/com/maggie/app/ui/interruption/**
+  e2e/mobile/flows/17-task-settings.yaml:
+    areas: [settings, calendar]
+    paths:
+      - e2e/mobile/scripts/task-settings-api.js
   e2e/mobile/flows/15-mind-tab.yaml:
     areas: [chat, calendar, realtime]
     paths:
