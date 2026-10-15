@@ -79,6 +79,14 @@ Maggie\Grocery\Entity\Product:
     user: '@other_user'
     preferredStore: '@other_store'
 
+# A recipe's ingredient is a product too, and lands on the list the same way.
+Maggie\Cookbook\Entity\Ingredient:
+  farine:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+
 Maggie\Grocery\Entity\ProductAisle:
   pommes_fruits:
     __construct: ['@pommes', '@fruits']

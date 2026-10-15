@@ -264,6 +264,20 @@ class AisleApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatchedFor(Product::class, $this->id('lait'));
     }
 
+    public function testAnIngredientIsPutInAnAisleThroughTheProductsEndpoint(): void
+    {
+        $this->load();
+
+        $data = $this->call('PATCH', '/api/products/'.$this->id('farine'), ['aisles' => [
+            ['store' => $this->id('carrefour'), 'aisle' => $this->id('boulangerie')],
+        ]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([['store' => $this->id('carrefour'), 'aisle' => $this->id('boulangerie')]], $data['aisles']);
+        $this->em()->clear();
+        self::assertCount(1, $this->em()->getRepository(ProductAisle::class)->findBy(['product' => $this->id('farine')]));
+    }
+
     public function testPatchingTheProductWithoutAislesKeepsThem(): void
     {
         $this->load();
