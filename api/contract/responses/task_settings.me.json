@@ -24,6 +24,11 @@
             "low": 0
         }
     },
+    "orderLevels": {
+        "timePressure": 2,
+        "criticality": 2,
+        "priority": 2
+    },
     "alertSchedule": {
         "critical": {
             "daysBefore": [
@@ -71,6 +76,11 @@
                 "medium": 3,
                 "low": 0
             }
+        },
+        "orderLevels": {
+            "timePressure": 2,
+            "criticality": 2,
+            "priority": 2
         },
         "alertSchedule": {
             "critical": {

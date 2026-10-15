@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Controller;
 
+use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Message\UpdateTaskSettingsCommand;
+use Maggie\Calendar\Service\TaskOrderPreview;
+use Maggie\Calendar\Service\TaskOrderWeights;
 use Maggie\Calendar\UseCase\GetTaskSettings;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -21,15 +24,18 @@ use Symfony\Component\Routing\Attribute\Route;
  * build a fresh entity (MeOperationContractTest). The PUT applies the fields
  * it is sent, and in `orderWeights` the weights it is sent: the others keep
  * their value, and so do the urgencies and keys of `alertSchedule`.
+ * `orderLevels` sets a group's weights by level, as the sliders of « Ce qui
+ * passe en premier » do ({@see TaskOrderWeights::fromLevels()}).
  */
 final class TaskSettingsController
 {
-    private const FIELDS = ['orderWeights', 'alertSchedule', 'morningTime'];
+    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime'];
 
     public function __construct(
         private readonly Security $security,
         private readonly GetTaskSettings $getTaskSettings,
         private readonly MessageBusInterface $bus,
+        private readonly TaskOrderPreview $preview,
     ) {
     }
 
@@ -42,6 +48,24 @@ final class TaskSettingsController
         }
 
         return new JsonResponse(GetTaskSettings::describe($this->getTaskSettings->forUser($user)));
+    }
+
+    /** Five real tasks in the order the saved weights give, for the sliders' preview. */
+    #[Route('/api/task-settings/me/preview', name: 'api_task_settings_preview', methods: ['GET'])]
+    public function preview(): JsonResponse
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return new JsonResponse(['member' => array_map(static fn (Task $task): array => [
+            'id' => (string) $task->getId(),
+            'title' => $task->getTitle(),
+            'dueDate' => $task->getDueDate()?->format('Y-m-d'),
+            'urgency' => $task->getUrgency()?->value,
+            'orderScore' => $task->getOrderScore(),
+        ], $this->preview->for($user))]);
     }
 
     #[Route('/api/task-settings/me', name: 'api_task_settings_update', methods: ['PUT'])]
@@ -79,13 +103,23 @@ final class TaskSettingsController
             return new JsonResponse(['error' => 'morningTime must be a time "HH:MM"'], Response::HTTP_BAD_REQUEST);
         }
 
+        $orderWeights = $body['orderWeights'] ?? null;
+        if (\array_key_exists('orderLevels', $body)) {
+            try {
+                // A group given a level takes the scaled weights, over any sent for it.
+                $orderWeights = array_replace($orderWeights ?? [], TaskOrderWeights::fromLevels($body['orderLevels']));
+            } catch (\InvalidArgumentException $e) {
+                return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
         $settings = $this->getTaskSettings->forUser($user);
 
         try {
             $this->bus->dispatch(new UpdateTaskSettingsCommand(
                 userId: (string) $user->getId(),
                 taskSettingsId: (string) $settings->getId(),
-                orderWeights: $body['orderWeights'] ?? null,
+                orderWeights: $orderWeights,
                 alertSchedule: $body['alertSchedule'] ?? null,
                 morningTime: $body['morningTime'] ?? null,
             ));

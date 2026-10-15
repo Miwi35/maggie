@@ -46,3 +46,41 @@ Maggie\Calendar\Entity\Task:
     dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
     position: '00000000000000000001'
     user: '@test_user'
+
+  # Not in « Aujourd'hui »: with the three above, the five of the sliders' preview (MAG-407).
+  taxes:
+    title: Déclarer les impôts
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@test_user'
+
+  dentist:
+    title: Appeler le dentiste
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Medium)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-15"))>'
+    user: '@test_user'
+
+  # Sixth by the spec's weights: out of the preview.
+  shutter:
+    title: Repeindre le volet
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    user: '@test_user'
+
+  # Done, or someone else's: never in the preview.
+  filed:
+    title: Classer les factures
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-10-12 18:00:00"))>'
+    user: '@test_user'
+
+  not_mine:
+    title: Tâche d'un autre
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    user: '@other_user'
