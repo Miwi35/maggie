@@ -201,9 +201,14 @@ class ContextRepository:
             return list(result.scalars().all())
 
     async def find_to_encode(
-        self, silent_before: datetime, now: datetime | None = None, limit: int = 20, offset: int = 0
+        self,
+        silent_before: datetime,
+        now: datetime | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        user_id: str | None = None,
     ) -> list[ConversationContext]:
-        """The threads of every user with something to encode and silent since `silent_before` (MAG-15).
+        """The threads (of `user_id` only, if given) with something to encode and silent since `silent_before` (MAG-15).
 
         « Something to encode » is a message after `encoded_up_to`; « silent » is the clock of the
         messages themselves, not `updated_at` (a routed message touches it before it is answered) nor
@@ -218,13 +223,14 @@ class ContextRepository:
             in_context,
             or_(ConversationContext.encoded_up_to.is_(None), Message.created_at > ConversationContext.encoded_up_to),
         )
+        query = select(ConversationContext).where(
+            ConversationContext.updated_at < silent_before, unencoded, ~recent, ~answering
+        )
+        if user_id is not None:
+            query = query.where(ConversationContext.user_id == user_id)
         async with agent_session() as session:
             result = await session.execute(
-                select(ConversationContext)
-                .where(ConversationContext.updated_at < silent_before, unencoded, ~recent, ~answering)
-                .order_by(ConversationContext.updated_at.asc())
-                .limit(limit)
-                .offset(offset)
+                query.order_by(ConversationContext.updated_at.asc()).limit(limit).offset(offset)
             )
             return list(result.scalars().all())
 

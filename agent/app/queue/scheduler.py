@@ -251,18 +251,19 @@ async def _style_synthesis_loop() -> None:
         await asyncio.sleep(settings.style_synthesis_interval_hours * 3600)
 
 
-async def run_memory_encoding(now: datetime | None = None) -> int:
+async def run_memory_encoding(now: datetime | None = None, user_id: str | None = None) -> int:
     """Write the carte and the obvious fiches of every thread silent for `memory_encode_after_seconds` (MAG-15).
 
     Not the dormancy clock: a thread is encoded a few minutes after its last message, once, and
     again only if it is spoken in and goes quiet again. Returns how many threads were encoded.
+    `user_id` narrows the pass to one user (the e2e stack's way of running it on demand).
     """
     now = now or _utcnow()
     silent_before = now - timedelta(seconds=settings.memory_encode_after_seconds)
     encoded = 0
     offset = 0
     for _ in range(ENCODING_MAX_PAGES):
-        page = await context_repo.find_to_encode(silent_before, now, ENCODING_PAGE, offset)
+        page = await context_repo.find_to_encode(silent_before, now, ENCODING_PAGE, offset, user_id)
         encoded_here = 0
         for ctx in page:
             # Never raises: a thread that cannot be encoded now is found again at the next cycle.

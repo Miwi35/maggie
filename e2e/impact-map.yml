@@ -322,6 +322,7 @@ web:
     paths:
       - 'agent/app/memory/**'
       - 'agent/app/queue/scheduler.py'
+      - 'agent/app/e2e.py'
       - 'agent/fixtures/fake-llm/*-memory-*.yaml'
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]

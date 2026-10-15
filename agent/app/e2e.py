@@ -6,6 +6,7 @@ the API's `E2eSurfaceAbsenceTest`: `tests/test_e2e_surface.py`.
 """
 
 import hmac
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
@@ -18,6 +19,7 @@ from app.llm.transcription import cleanup_requests, reset_cleanup_requests
 from app.memory import paths as memory_paths
 from app.memory.bucket import BucketError, FakeBucket
 from app.memory.service import memory_service
+from app.queue import scheduler
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
 
 
@@ -148,6 +150,17 @@ async def memory_sync(user_id: MemoryUser) -> dict[str, object]:
         "conflicts": report.conflicts,
         "reindexed": report.reindexed,
     }
+
+
+@router.post("/memory/{user_id}/encode")
+async def memory_encode(user_id: MemoryUser) -> dict[str, int]:
+    """Run the encoding pass of one user as if the silence had gone past its delay (MAG-15).
+
+    The stack's clock barely ticks (MAG-234), so waiting `memory_encode_after_seconds` would never
+    end: the pass is given a later instant instead, and looks at that user's threads only.
+    """
+    later = datetime.now(UTC) + timedelta(seconds=settings.memory_encode_after_seconds + 5)
+    return {"encoded": await scheduler.run_memory_encoding(later, user_id)}
 
 
 @router.post("/memory/{user_id}/write")

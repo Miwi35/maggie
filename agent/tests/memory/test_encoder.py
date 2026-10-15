@@ -18,7 +18,7 @@ from app.memory import carte as carte_mod
 from app.memory import conversations, encoder
 from app.memory.encoder import PassageEncoder, parse_proposal
 from app.queue import scheduler
-from tests.memory.conftest import USER_A
+from tests.memory.conftest import USER_A, USER_B
 
 SHIPPED = Path(__file__).resolve().parents[2] / "fixtures" / "fake-llm"
 PARIS = ZoneInfo("Europe/Paris")
@@ -548,3 +548,56 @@ class TestTheShippedScenario:
 
         assert fiche_files(env) == []
         assert carte_mod.parse(conversation_text(env, context_id)).carte.resume == ""
+
+
+class TestOneUserOnly:
+    async def test_the_listing_can_be_narrowed_to_one_user(self, chat_db):
+        mine = exchange(chat_db)
+        exchange(chat_db, user_id=USER_B)
+
+        listed = await context_repo.find_to_encode(NOW - AFTER, NOW, user_id=USER_A)
+
+        assert [str(c.id) for c in listed] == [mine]
+
+    async def test_a_pass_narrowed_to_one_user_leaves_the_other_threads_alone(self, env, chat_db):
+        mine = exchange(chat_db)
+        theirs = exchange(chat_db, user_id=USER_B)
+
+        with patch("app.queue.scheduler.memory_encoder", encoder_with(env, ScriptedModel(proposal()))):
+            assert await scheduler.run_memory_encoding(NOW, user_id=USER_A) == 1
+
+        assert (await context(mine)).encoded_up_to is not None
+        assert (await context(theirs)).encoded_up_to is None
+
+
+class TestTheE2eRoute:
+    """The journey cannot wait for the clock: the stack's one is nearly frozen (MAG-234), so the route runs the pass at a later instant."""
+
+    async def test_it_encodes_the_threads_of_the_user_that_just_went_quiet_in_the_stack_clock(self, env, chat_db):
+        from app import e2e
+
+        context_id = exchange(chat_db, when=datetime.now(UTC) - timedelta(seconds=30))
+        encode = PassageEncoder(service=env.service)
+        encode.client = FakeAnthropicClient(fixtures_dir=SHIPPED)
+
+        with patch("app.queue.scheduler.memory_encoder", encode):
+            assert await e2e.memory_encode(USER_A) == {"encoded": 1}
+            assert await e2e.memory_encode(USER_A) == {"encoded": 0}
+
+        assert fiche_files(env) == [f"Famille/{CLAIM}.md"]
+        assert "encodage au fil de l'eau" in journal(env)
+        assert (await context(context_id)).encoded_up_to is not None
+
+    def test_it_needs_the_token(self, monkeypatch):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from app.e2e import setup_e2e
+
+        monkeypatch.setattr("app.e2e.settings.tts_provider", "fake")
+        monkeypatch.setattr("app.e2e.settings.e2e_login_token", "token-for-the-test")
+        app = FastAPI()
+        setup_e2e(app)
+
+        with TestClient(app) as client:
+            assert client.post(f"/e2e/memory/{USER_A}/encode").status_code == 401

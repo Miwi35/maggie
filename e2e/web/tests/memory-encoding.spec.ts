@@ -7,10 +7,13 @@ import { DashboardPage } from '../pages/DashboardPage.js'
 /**
  * Encoding along the way (MAG-15, extends MAG-99 and MAG-17).
  *
- * After a few minutes of silence on a subject — twenty seconds in this stack — a background pass writes
- * the carte of the passage on top of its conversation file and the obvious fiche, without waiting for the
- * night, and says in `journal.md` that it was this pass. Nothing is asked of Maggie during the turn: the
- * answer below calls no tool. The model is the fake (13-memory-encoding.yaml) and the bucket the simulated one.
+ * After a few minutes of silence on a subject, a background pass writes the carte of the passage on top of
+ * its conversation file and the obvious fiche, without waiting for the night, and says in `journal.md` that
+ * it was this pass. Nothing is asked of Maggie during the turn: the answer below calls no tool. The model is
+ * the fake (13-memory-encoding.yaml) and the bucket the simulated one.
+ *
+ * The stack's clock barely ticks in CI (MAG-234), so the silence cannot be waited for: the journey asks the
+ * agent to run the pass at an instant past the delay (`POST /e2e/memory/{user}/encode`), for this user only.
  */
 
 const MEMORY_LOCK = 'memory-folder'
@@ -43,6 +46,7 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
     const state = async (): Promise<State> => call<State>(api, 'get', `${user}/state`)
     const inBucket = async (path: string): Promise<string> =>
       (await call<{ text: string }>(api, 'get', `bucket/${user}/${encode(path)}`)).text
+    const encodeNow = async (): Promise<number> => (await call<{ encoded: number }>(api, 'post', `${user}/encode`)).encoded
     const push = async (): Promise<void> => {
       expect((await call<{ ok: boolean }>(api, 'post', `${user}/sync`)).ok).toBe(true)
     }
@@ -69,6 +73,7 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
 
     // When the silence goes past the delay, Then the obvious fiche exists, with no other action from anyone.
     const written = async (): Promise<boolean> => {
+      await encodeNow()
       await push()
       return (await state()).local.includes(FICHE)
     }
@@ -79,7 +84,8 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
     expect(files).toHaveLength(1)
     const conversation = files[0]
     const text = await inBucket(conversation)
-    const minute = text.match(/^## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire/m)?.[1]
+    const said = new RegExp(`^## (\\d{4}-\\d{2}-\\d{2} \\d{2}h\\d{2}) — Propriétaire\\n[^\\n]*\\n\\n${SENTENCE}`, 'm')
+    const minute = text.match(said)?.[1]
     expect(minute, 'the owner message has its minute').toBeDefined()
     const fiche = await inBucket(FICHE)
     expect(fiche).toContain(`- ${CLAIM} — dit · ${conversation} · ${minute}`)
@@ -90,7 +96,7 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
     expect(text.slice(0, text.indexOf('# '))).toContain('resume:')
     expect(text).toContain(SENTENCE)
     expect(text).toContain(ANSWER)
-    expect(text.match(/^## \d{4}-\d{2}-\d{2} \d{2}h\d{2} — Propriétaire/gm)).toHaveLength(1)
+    expect(text.split(SENTENCE)).toHaveLength(2)
 
     // And the journal says it was this pass, for the carte and for the fiche (its line follows the file by a beat).
     const journalLine = new RegExp(`créé \`${FICHE}\` — encodage au fil de l'eau`)
@@ -103,7 +109,7 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
     expect(journal).toMatch(new RegExp(`modifié \`${conversation}\` — encodage au fil de l'eau`))
 
     // A pass that runs again finds nothing new: no second carte, no second fiche.
-    await new Promise((resolve) => setTimeout(resolve, 12_000))
+    expect(await encodeNow()).toBe(0)
     await push()
     const later = await inBucket('journal.md')
     expect(later.match(/encodage au fil de l'eau/g)).toHaveLength(journal.match(/encodage au fil de l'eau/g)!.length)
