@@ -94,6 +94,48 @@ class ElasticsearchEntityHydratorCollectionTest extends KernelTestCase
         self::assertSame($expected, $this->ids($hydrated->getIngredients()));
     }
 
+    public function testTheLinesOfAHydratedRecipeLeadBackToIt(): void
+    {
+        $recipe = $this->em()->getRepository(Recipe::class)->findOneBy(['name' => 'Pâtes à la tomate']);
+        self::assertNotNull($recipe);
+
+        $hydrated = $this->hydrate($recipe);
+
+        self::assertInstanceOf(Recipe::class, $hydrated);
+        self::assertCount(2, $hydrated->getIngredients());
+        foreach ($hydrated->getIngredients() as $line) {
+            self::assertSame($hydrated, $line->getRecipe());
+        }
+    }
+
+    public function testTheItemsOfAHydratedGroceryListLeadBackToIt(): void
+    {
+        $list = $this->em()->getRepository(GroceryList::class)->findOneBy([]);
+        self::assertNotNull($list);
+
+        $hydrated = $this->hydrate($list);
+
+        self::assertInstanceOf(GroceryList::class, $hydrated);
+        self::assertCount(2, $hydrated->getItems());
+        foreach ($hydrated->getItems() as $item) {
+            self::assertSame($hydrated, $item->getGroceryList());
+        }
+    }
+
+    public function testTheEventsOfAHydratedAgendaLeadBackToIt(): void
+    {
+        $agenda = $this->em()->getRepository(Agenda::class)->findOneBy([]);
+        self::assertNotNull($agenda);
+
+        $hydrated = $this->hydrate($agenda);
+
+        self::assertInstanceOf(Agenda::class, $hydrated);
+        self::assertCount(2, $hydrated->getEvents());
+        foreach ($hydrated->getEvents() as $event) {
+            self::assertSame($hydrated, $event->getAgenda());
+        }
+    }
+
     public function testAnAgendaComesBackWithItsEvents(): void
     {
         $agenda = $this->em()->getRepository(Agenda::class)->findOneBy([]);

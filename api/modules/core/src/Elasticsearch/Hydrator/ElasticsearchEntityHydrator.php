@@ -38,7 +38,7 @@ final class ElasticsearchEntityHydrator
         $collections = $this->getCollectionProperties($ref);
         if (isset($source['id'])) {
             foreach ($collections as $propName) {
-                $this->setProperty($ref, $entity, $propName, new LazyAssociationCollection($this->em, $entityClass, Ulid::fromString($source['id']), $propName));
+                $this->setProperty($ref, $entity, $propName, new LazyAssociationCollection($this->em, $entity, Ulid::fromString($source['id']), $propName));
             }
         }
 
