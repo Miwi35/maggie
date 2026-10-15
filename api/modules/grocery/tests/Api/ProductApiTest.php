@@ -119,6 +119,34 @@ class ProductApiTest extends WebTestCase
         self::assertSame((string) $halles->getId(), (string) $this->reload($product)->getPreferredStore()?->getId());
     }
 
+    public function testPatchSendingBackTheWholeRecordReadBeforeSavesIt(): void
+    {
+        $product = $this->load('product_with_stores');
+        $bio = $this->getFixture('bio');
+
+        $this->client->request('GET', '/api/products/'.$product->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        // What react-admin's Hydra data provider sends on « Enregistrer »: the whole record
+        // read, `id` replaced by the IRI, `originId` added, the form's edit applied.
+        $record['originId'] = (string) $product->getId();
+        $record['id'] = $record['@id'];
+        $record['fallbackStore'] = '/api/stores/'.$bio->getId();
+        $record['name'] = 'Câpres fines';
+
+        $this->patch($product, $record);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertSame('Câpres fines', $reloaded->getName());
+        self::assertSame((string) $bio->getId(), (string) $reloaded->getFallbackStore()?->getId());
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
     public function testPatchWithNullPreferredStoreClearsItAndKeepsTheOthers(): void
     {
         $product = $this->load('product_with_stores');

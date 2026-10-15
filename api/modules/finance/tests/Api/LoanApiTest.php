@@ -125,6 +125,37 @@ class LoanApiTest extends WebTestCase
             : $headers, json_encode($body, JSON_THROW_ON_ERROR));
     }
 
+    /**
+     * The admin sends the whole record read back, its `id` an IRI and an
+     * `originId` added (MAG-480: every edit from the admin must save).
+     */
+    public function testPatchSendingBackTheWholeRecordReadBeforeSavesIt(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $id = (string) $this->getFixture('car')->getId();
+
+        $this->client->request('GET', '/api/loans/'.$id, [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $body['id'] = $body['@id'];
+        $body['originId'] = $id;
+        $body['name'] = 'Crédit renommé';
+
+        $this->patch($id, $body);
+
+        self::assertResponseIsSuccessful();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Crédit renommé', $em->find(Loan::class, $id)->getName());
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
     public function testPatchLoanRequiresAuthentication(): void
     {
         $this->loadFixtures('loan.yaml');

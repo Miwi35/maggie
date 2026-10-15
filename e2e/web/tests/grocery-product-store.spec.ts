@@ -117,3 +117,50 @@ test('the usual shop chosen in the product form is saved and still there when th
     await api.delete(iri)
   }
 })
+
+/**
+ * MAG-480: « Modifier le produit » answered 400 « not a valid Ulid » for a
+ * product that is a cookbook ingredient (the products list shows both). The
+ * subclass did not inherit the read-only `id`, so the IRI the form sends back
+ * was parsed as a Ulid.
+ */
+test('an ingredient opened as a product saves its usual shop from the product form — MAG-480', async ({
+  page,
+  api,
+}) => {
+  const name = `Riz MAG-480 ${Date.now()}`
+  const created = await api.post('/api/ingredients', { headers: LD, data: { name, category: 'grain' } })
+  expect(created.status(), `the API refused the ingredient: ${await created.text()}`).toBe(201)
+  const ingredientIri = ((await created.json()) as { '@id': string })['@id']
+  const iri = ingredientIri.replace('/api/ingredients/', '/api/products/')
+
+  try {
+    await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => row.name === name, {
+      what: 'The new ingredient',
+    })
+
+    const shell = new AdminShell(page)
+    await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+
+    const shop = shell.content.getByLabel('Magasin habituel')
+    await shop.fill('Primeur')
+    await page.getByRole('option', { name: 'Primeur du marché' }).click()
+
+    const patched = page.waitForResponse(
+      (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+    )
+    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+    const response = await patched
+    expect(response.status(), `the API refused the product: ${await response.text()}`).toBe(200)
+
+    const greengrocer = `/api/stores/${seedId('e2e_store_greengrocer')}`
+    await waitForIndexed<ProductRow>(
+      api,
+      '/api/products?itemsPerPage=200',
+      (row) => row.name === name && row.preferredStore === greengrocer,
+      { what: 'The ingredient with the shop chosen in the product form' },
+    )
+  } finally {
+    await api.delete(ingredientIri)
+  }
+})

@@ -54,11 +54,13 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     use MercurePayloadFilterTrait;
 
     // The admin sends a record back with `id` set to its IRI; the id is never
-    // writable, so it must not be parsed as a Ulid on the way in.
+    // writable, so it must not be parsed as a Ulid on the way in. Protected, not
+    // private: an Ingredient is a Product row, and API Platform reads the
+    // attribute through the subclass, which cannot see a private property.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     #[ApiProperty(writable: false)]
-    private Ulid $id;
+    protected Ulid $id;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
