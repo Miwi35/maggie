@@ -88,6 +88,21 @@ class MealsWeekViewModel(
         }
     }
 
+    /** A meal the sheet saved or deleted replaces or leaves the week at once: the index serving the week may not have caught up yet. */
+    fun mealSaved(meal: Meal) {
+        _uiState.update { state ->
+            state.copy(
+                mealsByDaySlot = state.mealsByDaySlot.mapValues { (_, slots) ->
+                    slots.mapValues { (_, meals) -> meals.map { if (it.id == meal.id) meal else it } }
+                },
+            )
+        }
+    }
+
+    fun mealDeleted(mealId: String) {
+        _uiState.update { it.copy(mealsByDaySlot = it.mealsByDaySlot.without(mealId)) }
+    }
+
     fun dismissDeleteError() {
         _uiState.update { it.copy(deleteError = null) }
     }

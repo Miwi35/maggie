@@ -1417,13 +1417,13 @@ fun NavGraph() {
             meal = meal,
             viewModel = mealDetailViewModel,
             recipeListViewModel = recipeListViewModel,
-            onSaved = {
+            onSaved = { saved ->
                 openedMeal = null
-                mealsWeekViewModel.refresh()
+                mealsWeekViewModel.mealSaved(saved)
             },
             onDeleted = {
                 openedMeal = null
-                mealsWeekViewModel.refresh()
+                mealsWeekViewModel.mealDeleted(meal.id)
             },
             onChooseIngredients = {
                 openedMeal = null

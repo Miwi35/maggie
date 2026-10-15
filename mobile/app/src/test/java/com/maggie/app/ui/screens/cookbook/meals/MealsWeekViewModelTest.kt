@@ -167,6 +167,36 @@ class MealsWeekViewModelTest {
     }
 
     @Test
+    fun `a meal saved from its sheet shows its new title without a reload`() = runTest(testDispatcher) {
+        val meals = listOf(aMeal("2026-10-07"), aMeal("2026-10-07", MealSlot.DINNER))
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(meals)
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.mealSaved(meals[0].copy(summary = "Dimanche en famille", customTitle = "Dimanche en famille"))
+
+        val day = viewModel.uiState.value.mealsByDaySlot[LocalDate.parse("2026-10-07")]
+        assertEquals("Dimanche en famille", day?.get(MealSlot.LUNCH)?.single()?.summary)
+        assertEquals("Déjeuner", day?.get(MealSlot.DINNER)?.single()?.summary)
+        coVerify(exactly = 1) { mealRepository.getMeals(any(), any()) }
+    }
+
+    @Test
+    fun `a meal deleted from its sheet leaves the week without a reload`() = runTest(testDispatcher) {
+        val meals = listOf(aMeal("2026-10-07"), aMeal("2026-10-07", MealSlot.DINNER))
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(meals)
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.mealDeleted(meals[0].id)
+
+        val day = viewModel.uiState.value.mealsByDaySlot[LocalDate.parse("2026-10-07")]
+        assertEquals(emptyList<Meal>(), day?.get(MealSlot.LUNCH))
+        assertEquals(1, day?.get(MealSlot.DINNER)?.size)
+        coVerify(exactly = 1) { mealRepository.getMeals(any(), any()) }
+    }
+
+    @Test
     fun `a refused deletion keeps the meal and says why`() = runTest(testDispatcher) {
         val meal = aMeal("2026-10-07")
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(meal))

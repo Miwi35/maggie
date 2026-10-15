@@ -41,7 +41,7 @@ fun MealDetailDialog(
     meal: Meal,
     viewModel: MealDetailViewModel,
     recipeListViewModel: RecipeListViewModel,
-    onSaved: () -> Unit,
+    onSaved: (Meal) -> Unit,
     onDeleted: () -> Unit,
     onChooseIngredients: () -> Unit,
     onDismiss: () -> Unit,
@@ -126,7 +126,7 @@ fun MealDetailDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { viewModel.save { onSaved() } },
+                onClick = { viewModel.save(onSaved) },
                 enabled = !state.isBusy && state.hasChanges,
                 modifier = Modifier.testTag(UiTags.MEAL_DETAIL_SAVE),
             ) {
