@@ -12,8 +12,10 @@ set -euo pipefail
 # (`if: always()` in ci.yml) and that reads skipped for what it is.
 #
 # Green only when everything that had to run ran and succeeded — on a pull
-# request (a draft too, since 9 Oct.: GitHub never merges or enqueues a draft)
-# and on a merge group of the merge queue alike:
+# request (a draft too, since 9 Oct.: in the light profile of 15 Oct. the job is
+# named « PR checks passed · draft », its e2e outputs are false and the two e2e
+# aggregators pass with nothing wanted — the light verdict, never the required
+# check) and on a merge group of the merge queue alike:
 #   - `Detect changes` succeeded;
 #   - every job below succeeded — or was skipped *by the decision of `Detect
 #     changes`* (its path filter said false). A job without a filter is expected
