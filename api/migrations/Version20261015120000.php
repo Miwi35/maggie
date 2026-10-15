@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The alert schedule and the morning time of the task settings (MAG-407). The
  * rows already there take the spec's schedule and 08:00.
  */
-final class Version20261015020000 extends AbstractMigration
+final class Version20261015120000 extends AbstractMigration
 {
     public function getDescription(): string
     {
