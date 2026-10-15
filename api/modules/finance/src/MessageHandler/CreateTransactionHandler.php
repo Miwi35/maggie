@@ -11,7 +11,6 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
-use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\CreateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -21,7 +20,6 @@ class CreateTransactionHandler
     public function __construct(
         private readonly CreateTransaction $createTransaction,
         private readonly OwnedReferenceResolver $references,
-        private readonly TransactionNatureGuard $natureGuard,
         private readonly UserRepository $userRepository,
     ) {
     }
@@ -49,7 +47,6 @@ class CreateTransactionHandler
         $category = null;
         if (null !== $command->categoryId) {
             $category = $this->references->category($command->categoryId, $user);
-            $this->natureGuard->assertCompatible($command->amountCents, $category);
         }
         // A line entered by hand is qualified by hand; a category alone carries
         // what its deprecated flag meant, until MAG-479 has the clients send one.

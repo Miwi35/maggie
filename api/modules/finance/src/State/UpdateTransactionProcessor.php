@@ -7,7 +7,6 @@ namespace Maggie\Finance\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Exception\IncompatibleCategoryException;
 use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Message\UpdateTransactionCommand;
@@ -115,7 +114,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             return $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
-            if ($cause instanceof IncompatibleCategoryException || $cause instanceof OneOffAttributionException) {
+            if ($cause instanceof OneOffAttributionException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
             }
             if ($cause instanceof RecurringAttachmentException) {

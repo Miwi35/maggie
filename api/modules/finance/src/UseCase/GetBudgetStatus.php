@@ -129,12 +129,12 @@ class GetBudgetStatus
             $parentEnvelope = $this->nesting->motherOf($envelope, $envelopesByCategory);
             $allocatedToChildrenCents = $allocatedByMother[(string) $envelope->getId()] ?? null;
 
-            $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
-                $user,
-                $this->selfAndDescendantIds($category, $childrenByParent),
+            $categoryIds = $this->selfAndDescendantIds($category, $childrenByParent);
+            $period = [
                 $envelope->getPeriodStart() ?? throw new \LogicException('A one-off envelope has no period.'),
                 $envelope->getPeriodEnd() ?? throw new \LogicException('A one-off envelope has no period.'),
-            );
+            ];
+            $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween($user, $categoryIds, ...$period);
 
             $lines[] = [
                 'id' => (string) $envelope->getId(),
@@ -142,7 +142,6 @@ class GetBudgetStatus
                 'categoryName' => $category->getName(),
                 'categoryPath' => $category->getPath(),
                 'parentEnvelopeId' => null === $parentEnvelope ? null : (string) $parentEnvelope->getId(),
-                'categoryObligation' => $category->getObligation()->value,
                 'mode' => $envelope->getMode()->value,
                 'currency' => $envelope->getCurrency(),
                 'year' => $envelope->getYear(),
@@ -153,6 +152,8 @@ class GetBudgetStatus
                 'allocatedToChildrenCents' => $allocatedToChildrenCents,
                 'freeCents' => null === $allocatedToChildrenCents ? null : $envelope->getMonthAmountCents() - $allocatedToChildrenCents,
             ] + $this->consumption($envelope->getMonthAmountCents(), $byStatus) + [
+                // How much of the consumption the transactions themselves qualify as mandatory (MAG-477).
+                'mandatoryConsumedCents' => $this->transactionRepository->sumMandatoryConsumedForCategoriesBetween($user, $categoryIds, ...$period),
                 // Past it, a bank sync makes Maggie interrupt (MAG-49).
                 'alertThresholdPercent' => $envelope->getEffectiveAlertThresholdPercent(),
             ];

@@ -133,7 +133,6 @@ class RecurringOperationToolsTest extends KernelTestCase
         yield 'nothing to recognise it by' => [['counterpartyName' => null], 'counterpartyName'];
         yield 'unknown period' => [['period' => 'daily'], 'daily'];
         yield 'not a date' => [['anchorOn' => '12/01/2027'], 'anchorOn'];
-        yield 'income category on an expense' => [['categoryId' => 'salary'], 'income category'];
         yield 'weekly on the last day of the month' => [['period' => 'weekly', 'dayRule' => 'last_day_of_month'], 'dayRule'];
     }
 

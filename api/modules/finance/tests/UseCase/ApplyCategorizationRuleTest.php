@@ -72,7 +72,9 @@ class ApplyCategorizationRuleTest extends KernelTestCase
         // The "PREMIUM" rule outranks it, and a manual choice is never overwritten.
         self::assertNull($this->categoryOf('netflix_premium'));
         self::assertSame($leisure, $this->categoryOf('netflix_by_hand'));
-        self::assertSame(3, $result['categorized']);
+        // The refund goes under the heading as well: a category has no nature.
+        self::assertSame($subscriptions, $this->categoryOf('netflix_refund'));
+        self::assertSame(4, $result['categorized']);
 
         $em = $this->em;
         $em->clear();
@@ -89,7 +91,7 @@ class ApplyCategorizationRuleTest extends KernelTestCase
 
         $result = $this->apply->execute($rule);
 
-        self::assertSame(4, $result['categorized']);
+        self::assertSame(5, $result['categorized']);
         self::assertSame((string) $this->getFixture('subscriptions')->getId(), $this->categoryOf('netflix_premium'));
     }
 

@@ -28,7 +28,7 @@ use Symfony\Component\Uid\Ulid;
  * Colour, for the week and the month alike: red once the period's budget is
  * exceeded; otherwise it follows the rhythm — 95 % of the expected spending
  * or more is orange, under 80 % is green, in between is neutral. The month
- * keeps its own rules on top (a mandatory category over its envelope is red,
+ * keeps its own rules on top (an envelope overrun caused by mandatory transactions is red,
  * a planned overrun orange, and green still needs what MAG-274 asks of it).
  * A pure read: it publishes nothing and indexes nothing.
  */

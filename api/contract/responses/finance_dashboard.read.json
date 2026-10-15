@@ -144,7 +144,6 @@
             "categoryName": "Recorded Parent Category",
             "categoryPath": "Recorded Parent Category",
             "parentEnvelopeId": null,
-            "categoryObligation": "optional",
             "mode": "monthly",
             "currency": "EUR",
             "year": 2026,
@@ -162,6 +161,7 @@
             "availableCents": -95599,
             "isOverspent": true,
             "isOvercommitted": true,
+            "mandatoryConsumedCents": 0,
             "alertThresholdPercent": 80
         }
     ],

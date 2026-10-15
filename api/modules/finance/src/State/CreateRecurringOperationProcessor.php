@@ -12,12 +12,11 @@ use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Message\CreateRecurringOperationCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** @implements ProcessorInterface<RecurringOperation, RecurringOperation> */
 class CreateRecurringOperationProcessor implements ProcessorInterface
 {
-    use DispatchesRecurringOperationTrait;
-
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly Security $security,
@@ -29,7 +28,7 @@ class CreateRecurringOperationProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
-        return $this->dispatchForResult($this->bus, new CreateRecurringOperationCommand(
+        return $this->bus->dispatch(new CreateRecurringOperationCommand(
             userId: (string) $user->getId(),
             label: $data->getLabel(),
             categoryId: (string) $data->getCategory()->getId(),
@@ -46,6 +45,6 @@ class CreateRecurringOperationProcessor implements ProcessorInterface
             endsOn: $data->getEndsOn()?->format('Y-m-d'),
             // Left at its default, the body named none: the category's applies.
             qualification: $data->getQualification()->toArray() === Qualification::none()->toArray() ? null : $data->getQualification()->toArray(),
-        ));
+        ))->last(HandledStamp::class)->getResult();
     }
 }

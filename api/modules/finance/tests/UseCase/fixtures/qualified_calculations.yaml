@@ -1,0 +1,237 @@
+# One category, « Essence », flagged optional — the old flag would call every
+# line below optional — and lines of different qualifications under it (MAG-477).
+# September: a mandatory fill-up pushes a 100 € envelope over. August: an
+# optional one does. July: 30 € mandatory and 120 € optional — the optional
+# part alone overruns. A roomy « Loisirs » envelope keeps the total budget
+# out of the way, so only the category verdict is read. June: what the monthly review keeps and drops. March:
+# what the measured lifestyle keeps and drops.
+Maggie\Core\Entity\User:
+  test_user:
+    email: qualified-calculations@example.com
+    googleId: google-qualified-calculations
+    name: Qualified Calculations User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  fuel:
+    name: Essence
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  fuel_9:
+    category: '@fuel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+  fuel_8:
+    category: '@fuel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 8
+    user: '@test_user'
+  fuel_7:
+    category: '@fuel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+  leisure_9:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 1000000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+  leisure_8:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 1000000
+    currency: EUR
+    year: 2026
+    month: 8
+    user: '@test_user'
+  leisure_7:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 1000000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  sept_fuel_mandatory:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-04"))>'
+    label: Plein obligatoire (trajet pro)
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  sept_fuel_optional:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -1000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-06"))>'
+    label: Plein de week-end
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  aug_fuel_optional:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-04"))>'
+    label: Plein de vacances
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jul_fuel_mandatory:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-04"))>'
+    label: Plein obligatoire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jul_fuel_optional:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-06"))>'
+    label: Plein de loisir
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jun_fuel_plain:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-06-03"))>'
+    label: Plein ordinaire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jun_fuel_mandatory:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-06-04"))>'
+    label: Plein obligatoire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jun_fuel_repayment:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Repayment))>'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-06-05"))>'
+    label: Remboursement ami
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  jun_fuel_loan:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Loan))>'
+    amountCents: -2000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-06-06"))>'
+    label: Prêt à un ami
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  mar_fuel_plain:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-03"))>'
+    label: Plein ordinaire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  mar_fuel_mandatory:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+    amountCents: -4000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-04"))>'
+    label: Plein obligatoire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  mar_fuel_repayment:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Repayment))>'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-05"))>'
+    label: Remboursement ami
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  mar_fuel_saving:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Saving))>'
+    amountCents: -2000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-06"))>'
+    label: Mise de côté
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  mar_fuel_investment:
+    account: '@checking'
+    category: '@fuel'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Investment))>'
+    amountCents: -1000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-07"))>'
+    label: Achat ETF
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

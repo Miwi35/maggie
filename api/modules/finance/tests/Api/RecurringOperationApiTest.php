@@ -214,15 +214,13 @@ class RecurringOperationApiTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
-    public function testAnIncomeCategoryOnAnExpenseIsRefused(): void
+    public function testAnIncomeCategoryOnAnExpenseIsAccepted(): void
     {
         $this->login();
-        $before = $this->rows();
 
         $this->send('POST', '/api/recurring_operations', $this->flixo(['category' => $this->iri('categories', 'salary')]));
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame($before, $this->rows());
+        self::assertResponseStatusCodeSame(201);
     }
 
     /**

@@ -21,7 +21,6 @@ use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\RecurringOperationGuard;
-use Maggie\Finance\Service\TransactionNatureGuard;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -65,7 +64,6 @@ class SuggestRecurringOperations
         private readonly RecurringOperationRepository $operationRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly AccountRepository $accountRepository,
-        private readonly TransactionNatureGuard $natureGuard,
         private readonly MessageBusInterface $bus,
     ) {
     }
@@ -293,8 +291,8 @@ class SuggestRecurringOperations
     }
 
     /**
-     * The heading the owner already gave this payee, the most used one that
-     * fits the money; else the dictionary's guess, if the owner has that heading.
+     * The heading the owner already gave this payee, the most used one;
+     * else the dictionary's guess, if the owner has that heading.
      *
      * @param list<Transaction>       $rows
      * @param array<string, Category> $categoriesByName
@@ -305,7 +303,7 @@ class SuggestRecurringOperations
         $tally = [];
         foreach ($rows as $row) {
             $category = $row->getCategory();
-            if (null === $category || !$this->natureGuard->isCompatible($reference, $category)) {
+            if (null === $category) {
                 continue;
             }
             $id = (string) $category->getId();
@@ -324,9 +322,8 @@ class SuggestRecurringOperations
         }
 
         $guess = MerchantDictionary::categoryFor($merchant, $reference > 0);
-        $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
 
-        return null !== $category && $this->natureGuard->isCompatible($reference, $category) ? $category : null;
+        return null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
     }
 
     /** @param array<string, mixed> $entry */

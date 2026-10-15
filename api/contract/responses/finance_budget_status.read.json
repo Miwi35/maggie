@@ -15,7 +15,6 @@
             "categoryName": "Recorded Parent Category",
             "categoryPath": "Recorded Parent Category",
             "parentEnvelopeId": null,
-            "categoryObligation": "optional",
             "mode": "monthly",
             "currency": "EUR",
             "year": 2026,
@@ -33,6 +32,7 @@
             "availableCents": -95599,
             "isOverspent": true,
             "isOvercommitted": true,
+            "mandatoryConsumedCents": 0,
             "alertThresholdPercent": 80
         }
     ],
@@ -44,7 +44,6 @@
                 "categoryName": "Recorded Category",
                 "categoryPath": "Recorded Parent Category › Recorded Category",
                 "parentEnvelopeId": null,
-                "categoryObligation": "optional",
                 "mode": "annual",
                 "currency": "EUR",
                 "year": 2026,
@@ -62,6 +61,7 @@
                 "availableCents": -278297,
                 "isOverspent": true,
                 "isOvercommitted": true,
+                "mandatoryConsumedCents": 0,
                 "alertThresholdPercent": 80
             }
         ],
