@@ -462,6 +462,27 @@ describe('MealsWeekView — the day is the day', () => {
     // And nowhere else — the day before is the cell the bug used.
     expect(within(screen.getByTestId('meal-cell-lunch-1')).queryByText(/Tartiflette/)).toBeNull()
   })
+
+  test.each(weeks)('names a meal by its summary when the API gives its recipes as IRIs only (%s)', async (wednesday) => {
+    at(wednesday)
+    mockGetList.mockImplementation(
+      answer(agendas, [
+        {
+          id: '01MEAL',
+          '@id': '/api/meals/01MEAL',
+          date: wednesday,
+          slot: 'lunch',
+          summary: 'Déjeuner : Tartiflette',
+          recipes: ['/api/recipes/01TARTIFLETTE'],
+        },
+      ]),
+    )
+
+    render(<MealsWeekView />)
+
+    const wednesdayLunch = await screen.findByTestId('meal-cell-lunch-2')
+    await waitFor(() => expect(within(wednesdayLunch).getByText(/Tartiflette/)).toBeTruthy())
+  })
 })
 
 /**

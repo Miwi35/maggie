@@ -89,6 +89,22 @@ describe('CalendarView — module agendas', { timeout: 60_000 }, () => {
     expect(mockGetList).toHaveBeenCalledWith('meals', expect.anything())
   })
 
+  test('a meal whose recipes the API gives as IRIs is titled by its summary', async () => {
+    ANSWERS.meals = [
+      { id: '/api/meals/01MEAL', date: isoDay, slot: 'lunch', summary: 'Pâtes', recipes: ['/api/recipes/r1'] },
+    ]
+    try {
+      render(<CalendarView moduleKey="cookbook" />)
+
+      await screen.findByText(/Déj: Pâtes/)
+      expect(screen.queryByText(/undefined/)).not.toBeInTheDocument()
+    } finally {
+      ANSWERS.meals = [
+        { id: '/api/meals/01MEAL', date: isoDay, slot: 'lunch', summary: 'Déjeuner', recipes: [{ id: 'r1', name: 'Pâtes' }] },
+      ]
+    }
+  })
+
   test('the module view still switches between week and month', async () => {
     render(<CalendarView moduleKey="cookbook" />)
 
