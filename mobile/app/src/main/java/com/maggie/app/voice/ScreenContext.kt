@@ -27,7 +27,7 @@ import android.content.Intent
  * ([LateScreenshot]), and [withArrivedScreenshot] turns it into [hasScreenshot].
  * [screenshotMiss] says why there is none when Android was asked for one: the
  * overlay shows it beside the rest, the model is told nothing of it — alone, it is
- * no context.
+ * no context, so an invocation that brings nothing else shows no reason either.
  */
 data class ScreenContext(
     val appPackage: String? = null,

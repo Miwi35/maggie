@@ -295,4 +295,54 @@ class AssistLaunchCoordinatorTest {
 
         assertNull(launches.single().screenshotMiss)
     }
+
+    @Test
+    fun `a wait given up for a reason tells the overlay`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshotAbandoned(ScreenshotMiss.HIDDEN)
+
+        assertEquals(listOf<ScreenshotMiss?>(ScreenshotMiss.HIDDEN), late)
+        assertFalse(coordinator.waitingForScreenshot)
+        assertFalse("it comes too late to be kept", coordinator.onScreenshot(kept = true))
+    }
+
+    @Test
+    fun `a wait given up because Maggie was summoned again says nothing`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshotAbandoned()
+
+        assertTrue(late.isEmpty())
+    }
+
+    @Test
+    fun `giving up when nothing is awaited tells nobody`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onScreenshot(kept = true)
+
+        coordinator.onScreenshotAbandoned(ScreenshotMiss.HIDDEN)
+
+        assertTrue(late.isEmpty())
+    }
+
+    @Test
+    fun `a late screenshot that could not be written is unreadable`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshot(kept = false)
+
+        assertEquals(listOf<ScreenshotMiss?>(ScreenshotMiss.UNREADABLE), late)
+    }
 }

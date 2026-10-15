@@ -103,9 +103,15 @@ class AssistLaunchCoordinator(
         launch()
     }
 
-    /** The session stops waiting: a screenshot that still comes is refused. */
-    fun onScreenshotAbandoned() {
-        if (waitingForScreenshot) screenshotReceived = true
+    /**
+     * The session stops waiting: a screenshot that still comes is refused. With a [miss],
+     * the overlay is told why ([onLateScreenshot]) instead of saying « en cours… » for
+     * good; without one — the user summoned Maggie again — the next invocation speaks.
+     */
+    fun onScreenshotAbandoned(miss: ScreenshotMiss? = null) {
+        if (!waitingForScreenshot) return
+        screenshotReceived = true
+        if (miss != null) onLateScreenshot(miss)
     }
 
     /**

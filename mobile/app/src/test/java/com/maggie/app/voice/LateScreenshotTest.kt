@@ -3,9 +3,16 @@ package com.maggie.app.voice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class LateScreenshotTest {
+
+    /** A process-wide object: each test starts from nothing. */
+    @Before
+    fun reset() {
+        LateScreenshot.consume()
+    }
 
     @Test
     fun `a screenshot that will not come reaches the overlay with its reason`() {

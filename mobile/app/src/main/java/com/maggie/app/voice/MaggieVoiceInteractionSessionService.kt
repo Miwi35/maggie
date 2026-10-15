@@ -37,9 +37,8 @@ private class MaggieVoiceInteractionSession(
     private val giveUp = Runnable { coordinator.onTimeout() }
     private val stopWaitingForScreenshot = Runnable {
         Log.i(TAG, "Screenshot still missing after ${LATE_SCREENSHOT_TIMEOUT_MS} ms: given up")
-        coordinator.onScreenshotAbandoned()
-        LateScreenshot.miss(ScreenshotMiss.LATE)
-        finish()
+        // Through lateScreenshot, which tells the overlay and finishes the session.
+        coordinator.onScreenshotAbandoned(ScreenshotMiss.LATE)
     }
 
     override fun onShow(args: Bundle?, showFlags: Int) {
@@ -148,8 +147,8 @@ private class MaggieVoiceInteractionSession(
         // now, and a session left alive would swallow the next invocation.
         if (coordinator.waitingForScreenshot) {
             handler.removeCallbacks(stopWaitingForScreenshot)
-            coordinator.onScreenshotAbandoned()
-            finish()
+            Log.i(TAG, "Hidden while waiting for the screenshot")
+            coordinator.onScreenshotAbandoned(ScreenshotMiss.HIDDEN)
         }
         if (!coordinator.hasLaunched) ScreenshotEncoder.file(service).delete()
         coordinator.onDismissed()

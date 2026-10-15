@@ -13,13 +13,16 @@ enum class ScreenshotMiss(val reason: String) {
     NOT_OFFERED("Android ne l'a pas proposée"),
 
     /** Android sent `null`: the setting is off, or the screen in front forbids capture. */
-    REFUSED("Android l'a refusée (réglage « Analyse des images à l'écran » ?)"),
+    REFUSED("Android l'a refusée (réglage de capture d'écran de l'assistant ?)"),
 
     /** It came, but could not be encoded or written. */
     UNREADABLE("elle n'a pas pu être enregistrée"),
 
     /** The overlay opened before it and it never came. */
     LATE("elle n'est pas arrivée à temps"),
+
+    /** The overlay opened before it, then Android hid the session that was waiting for it. */
+    HIDDEN("Android a fermé la session avant de la livrer"),
     ;
 
     companion object {

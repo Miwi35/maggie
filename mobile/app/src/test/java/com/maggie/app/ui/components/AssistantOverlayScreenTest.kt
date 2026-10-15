@@ -206,4 +206,18 @@ class AssistantOverlayScreenTest {
 
         compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true).assertDoesNotExist()
     }
+
+    @Test
+    fun `a screenshot announced but not readable says so`() {
+        // No file in the cache: what the overlay finds when the session wrote nothing usable.
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(appLabel = "Chrome", hasScreenshot = true),
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
+            .assertTextEquals("Capture d'écran indisponible : elle n'a pas pu être lue")
+    }
 }
