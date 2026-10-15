@@ -184,6 +184,9 @@ class FinanceDashboardViewModelTest {
     fun `a declared reference salary reaches the state with its source`() = runTest {
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns
             Result.success(dashboardWith(ReferenceSalary(monthlyCents = 300000, source = "declared")))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
         val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
         assertEquals(300000, reference?.monthlyCents)
         assertEquals("declared", reference?.source)
@@ -193,6 +196,9 @@ class FinanceDashboardViewModelTest {
     fun `a measured reference salary reaches the state with its source`() = runTest {
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns
             Result.success(dashboardWith(ReferenceSalary(monthlyCents = 495000, source = "measured")))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
         val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
         assertEquals(495000, reference?.monthlyCents)
         assertEquals("measured", reference?.source)
@@ -239,6 +245,10 @@ class FinanceDashboardViewModelTest {
     @Test
     fun `scores that fail to load leave the dashboard whole and say so`() = runTest {
         coEvery { dashboardRepository.getScores(any()) } returns Result.failure(RuntimeException("scores down"))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
         val state = viewModel.uiState.value
         assertEquals("scores down", state.scoresError)
         assertNull(state.scores)
@@ -250,6 +260,10 @@ class FinanceDashboardViewModelTest {
     @Test
     fun `a dashboard that fails to load leaves the scores whole`() = runTest {
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.failure(RuntimeException("boom"))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
         assertEquals(scores, viewModel.uiState.value.scores)
         assertNull(viewModel.uiState.value.scoresError)
     }
