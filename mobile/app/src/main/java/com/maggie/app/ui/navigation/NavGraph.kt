@@ -134,9 +134,12 @@ import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
+import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_FILTER_ID
 import com.maggie.app.ui.screens.chat.ChatScreen
 import com.maggie.app.ui.screens.notifications.NotificationScreen
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
+import com.maggie.app.ui.screens.proactions.ProactionDetailContent
+import com.maggie.app.ui.screens.proactions.ProactionDetailSheet
 import com.maggie.app.ui.screens.proactions.ProactionScreen
 import com.maggie.app.ui.screens.search.SearchScreen
 import com.maggie.app.ui.screens.shared.EventCreateScreen
@@ -445,6 +448,8 @@ fun NavGraph() {
     // restored over a forgotten selection would be a blank screen.
     var selectedEvent by rememberSavedSelection<ExpandedEvent>()
     var selectedTask by rememberSavedSelection<Task>()
+    // One of Maggie's runs: kept by id and read from the calendar's list, so it follows a move and closes on a delete.
+    var selectedProactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var recurrenceConfirm by remember { mutableStateOf<Pair<ExpandedEvent, Boolean>?>(null) }
 
     // Transient state for edit screens
@@ -480,6 +485,7 @@ fun NavGraph() {
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas
+    val selectedProaction = calendarUiState.proactions.firstOrNull { it.id == selectedProactionId }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -605,6 +611,7 @@ fun NavGraph() {
         if (dropsPaneSelection(currentRoute, layout.detailPaneFits)) {
             selectedEvent = null
             selectedTask = null
+            selectedProactionId = null
         }
     }
 
@@ -860,6 +867,7 @@ fun NavGraph() {
                 composable(Screen.Calendar.route) {
                     val event = selectedEvent
                     val task = selectedTask
+                    val proaction = selectedProaction
                     ListDetailPane(
                         showsDetailPane = paneShown,
                         list = {
@@ -869,14 +877,30 @@ fun NavGraph() {
                                 onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
                                 onEventClick = {
                                     // A meal is edited in the Cuisine module, not as an event.
-                                    if (it.agendaIri != MEALS_FILTER_ID) {
+                                    if (it.agendaIri == PROACTIONS_FILTER_ID) {
                                         selectedTask = null
+                                        selectedEvent = null
+                                        selectedProactionId = it.id
+                                    } else if (it.agendaIri != MEALS_FILTER_ID) {
+                                        selectedTask = null
+                                        selectedProactionId = null
                                         selectedEvent = it
                                     }
                                 },
                             )
                         },
                         detail = when {
+                            proaction != null -> ({
+                                ProactionDetailContent(
+                                    proaction = proaction,
+                                    onMove = { calendarViewModel.moveProaction(proaction.id, it) },
+                                    onDelete = {
+                                        selectedProactionId = null
+                                        calendarViewModel.deleteProaction(proaction.id)
+                                    },
+                                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                                )
+                            })
                             event != null -> ({
                                 EventDetailContent(
                                     event = event,
@@ -1408,6 +1432,18 @@ fun NavGraph() {
                 onDismiss = { selectedEvent = null },
                 onEdit = { editEvent(event) },
                 onDelete = { deleteEvent(event) },
+            )
+        }
+
+        selectedProaction?.let { proaction ->
+            ProactionDetailSheet(
+                proaction = proaction,
+                onDismiss = { selectedProactionId = null },
+                onMove = { calendarViewModel.moveProaction(proaction.id, it) },
+                onDelete = {
+                    selectedProactionId = null
+                    calendarViewModel.deleteProaction(proaction.id)
+                },
             )
         }
 

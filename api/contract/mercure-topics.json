@@ -10,6 +10,7 @@
     "Loan": "/users/{userId}/api/loans/{id}",
     "Meal": "/users/{userId}/api/meals/{id}",
     "Notification": "/users/{userId}/api/notifications/{id}",
+    "Proaction": "/users/{userId}/api/proactions/{id}",
     "Product": "/users/{userId}/api/products/{id}",
     "Recipe": "/users/{userId}/api/recipes/{id}",
     "RecurringGroceryItem": "/users/{userId}/api/recurring_grocery_items/{id}",

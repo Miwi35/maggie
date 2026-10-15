@@ -13,6 +13,10 @@ Maggie\Calendar\Entity\Agenda:
     name: Maggie
     module: agent
     user: '@test_user'
+  other_maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@other_user'
   perso:
     name: Perso
     isDefault: true
@@ -24,3 +28,15 @@ Maggie\Calendar\Entity\Proaction:
     summary: Dépose Ael
     startAt: '<(new \DateTimeImmutable("2037-01-15T08:30:00+01:00"))>'
     agenda: '@maggie_agenda'
+  later_failed_proaction:
+    prompt: Prépare le résumé de la semaine
+    summary: Résumé de la semaine
+    startAt: '<(new \DateTimeImmutable("2037-01-17T18:00:00+01:00"))>'
+    agenda: '@maggie_agenda'
+    __calls:
+      - markFailed: ['Le modèle ne répond pas', '<(new \DateTimeImmutable("2037-01-17T18:01:00+01:00"))>']
+  other_users_proaction:
+    prompt: Une proaction qui n'est pas la sienne
+    summary: Pas la sienne
+    startAt: '<(new \DateTimeImmutable("2037-01-15T09:00:00+01:00"))>'
+    agenda: '@other_maggie_agenda'

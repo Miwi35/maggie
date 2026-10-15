@@ -31,6 +31,12 @@ Maggie\Calendar\Entity\Agenda:
     googleCalendarId: recorded@group.calendar.google.com
     user: '@recorded_user'
 
+  recorded_maggie_agenda:
+    name: Maggie
+    color: '#7C4DFF'
+    module: agent
+    user: '@recorded_user'
+
 Maggie\Calendar\Entity\Event:
   recorded_event:
     summary: Recorded event
@@ -111,6 +117,26 @@ Maggie\Cookbook\Entity\Recipe:
     tags: ['quick', 'vegetarian']
     notes: The notes the client renders
     user: '@recorded_user'
+
+Maggie\Calendar\Entity\Proaction:
+  recorded_proaction:
+    prompt: Recorded proaction prompt
+    summary: Recorded proaction
+    startAt: '<(new \DateTimeImmutable("2026-03-17 08:30"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-17 08:35"))>'
+    agenda: '@recorded_maggie_agenda'
+    __calls:
+      - markCompleted: ['Recorded answer', '<(new \DateTimeImmutable("2026-03-17 08:31"))>']
+
+  # The failed one carries `error`, which the completed one leaves out.
+  recorded_failed_proaction:
+    prompt: Recorded failed proaction prompt
+    summary: Recorded failed proaction
+    startAt: '<(new \DateTimeImmutable("2026-03-17 18:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-17 18:05"))>'
+    agenda: '@recorded_maggie_agenda'
+    __calls:
+      - markFailed: ['Recorded error', '<(new \DateTimeImmutable("2026-03-17 18:01"))>']
 
 Maggie\Cookbook\Entity\Meal:
   recorded_meal:

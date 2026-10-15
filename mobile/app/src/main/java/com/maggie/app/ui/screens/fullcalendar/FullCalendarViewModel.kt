@@ -14,12 +14,14 @@ import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
+import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.model.endDateAfter
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
@@ -38,9 +40,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -58,11 +62,18 @@ data class FullCalendarUiState(
     val isLoadingGoogle: Boolean = false,
     // The « Repas » line of the filters: the meals are not an agenda of the user's (MAG-354).
     val mealsEnabled: Boolean = true,
+    // The « Maggie » line: her proactions are events of an internal agenda, not one of the user's (MAG-328).
+    val proactions: List<Proaction> = emptyList(),
+    val proactionsEnabled: Boolean = true,
 )
 
 /** The id of the one « Repas » line, and of the meals' [ExpandedEvent.agendaIri]. */
 const val MEALS_FILTER_ID = "__meals__"
 const val MEALS_COLOR = "#FF6B35"
+
+/** The id of the one « Maggie » line, and of the proactions' [ExpandedEvent.agendaIri]. */
+const val PROACTIONS_FILTER_ID = "__proactions__"
+const val PROACTIONS_COLOR = "#7C4DFF"
 
 class FullCalendarViewModel(
     private val eventRepository: EventRepository,
@@ -72,9 +83,11 @@ class FullCalendarViewModel(
     private val authRepository: AuthRepository,
     private val userPreferenceRepository: UserPreferenceRepository,
     private val mealRepository: MealRepository,
+    private val proactionRepository: ProactionRepository,
     // A module's own view (MAG-354): only what that module files, nothing of the user's
     // agendas, events or tasks. `null` is the general calendar.
     private val module: String? = null,
+    private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FullCalendarUiState())
@@ -82,6 +95,7 @@ class FullCalendarViewModel(
 
     private var allEvents: List<Event> = emptyList()
     private var meals: List<Meal> = emptyList()
+    private var proactions: List<Proaction> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
     private val loader = SingleFlight(viewModelScope) { load() }
     private var forceNext = false
@@ -207,6 +221,11 @@ class FullCalendarViewModel(
         expandForCurrentRange()
     }
 
+    fun toggleProactions() {
+        _uiState.value = _uiState.value.copy(proactionsEnabled = !_uiState.value.proactionsEnabled)
+        expandForCurrentRange()
+    }
+
     fun toggleAgenda(agendaId: String) {
         agendasSettled = true
         val current = _uiState.value.enabledAgendas.toMutableSet()
@@ -243,11 +262,12 @@ class FullCalendarViewModel(
             val tasks = taskRepository.getUndoneTasks()
             // Best effort: the meals failing must not blank the user's own calendar.
             val mealsFailure = loadMeals()
+            val proactionsFailure = loadProactions()
 
             _uiState.value = _uiState.value.copy(
                 tasks = tasks,
                 isLoading = false,
-                error = mealsFailure?.message,
+                error = (mealsFailure ?: proactionsFailure)?.message,
             )
             expandForCurrentRange()
         } catch (e: CancellationException) {
@@ -344,6 +364,22 @@ class FullCalendarViewModel(
         return result.exceptionOrNull()
     }
 
+    // Same rule as the meals: a reply that lands after the user has left the range is dropped.
+    // Best effort too: Maggie's runs failing must not blank the user's own calendar.
+    private suspend fun loadProactions(): Throwable? {
+        if (module != null) return null
+        val period = visiblePeriod()
+        val range = period.asRange()
+        val result = proactionRepository.getProactions(range.start.toString(), range.end.toString())
+        result.onSuccess {
+            if (visiblePeriod() == period) {
+                proactions = it
+                _uiState.value = _uiState.value.copy(proactions = it)
+            }
+        }
+        return result.exceptionOrNull()
+    }
+
     private fun onRangeChanged() {
         expandForCurrentRange()
         loadVisiblePeriod()
@@ -352,6 +388,71 @@ class FullCalendarViewModel(
             if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
             expandForCurrentRange()
         }
+        viewModelScope.launch {
+            val failure = loadProactions()
+            if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
+            expandForCurrentRange()
+        }
+    }
+
+    /**
+     * Each run as a timed event of the « Maggie » line: « 08:30 Summary », closed with ✓ or ⚠ once it
+     * is past and done or failed. The id stays the proaction's, which is also its event id.
+     */
+    private fun proactionEvents(): List<ExpandedEvent> {
+        if (module != null || !_uiState.value.proactionsEnabled) return emptyList()
+        val now = clock.instant()
+        val range = getVisibleRange()
+        return proactions.mapNotNull { proaction ->
+            val start = proaction.startAt?.let(::instantOf) ?: return@mapNotNull null
+            if (start < range.start || start >= range.end) return@mapNotNull null
+            val end = proaction.endAt?.let(::instantOf) ?: start
+            val time = start.atZone(DateRanges.zone).toLocalTime().format(PROACTION_TIME)
+            val mark = when {
+                end > now -> ""
+                proaction.isCompleted -> " ✓"
+                proaction.isFailed -> " ⚠"
+                else -> ""
+            }
+            ExpandedEvent(
+                id = proaction.id,
+                summary = "$time ${proaction.summary}$mark",
+                startAt = start.toString(),
+                endAt = end.toString(),
+                timeZone = proaction.timeZone ?: DateRanges.zone.id,
+                agendaIri = PROACTIONS_FILTER_ID,
+                agendaColor = PROACTIONS_COLOR,
+                agendaName = "Maggie",
+            )
+        }.sortedBy { it.sortKey }
+    }
+
+    /** Moves a run to [startAt]; the API keeps it five minutes long. The list is read again either way. */
+    fun moveProaction(id: String, startAt: Instant) {
+        viewModelScope.launch {
+            proactionRepository.move(id, startAt.toString())
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+            reloadProactions()
+        }
+    }
+
+    fun deleteProaction(id: String) {
+        viewModelScope.launch {
+            proactionRepository.delete(id)
+                .onSuccess {
+                    proactions = proactions.filterNot { it.id == id }
+                    _uiState.value = _uiState.value.copy(proactions = proactions)
+                    expandForCurrentRange()
+                }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+            reloadProactions()
+        }
+    }
+
+    private suspend fun reloadProactions() {
+        val failure = loadProactions()
+        if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
+        expandForCurrentRange()
     }
 
     private fun mealEvents(): List<ExpandedEvent> {
@@ -385,7 +486,7 @@ class FullCalendarViewModel(
                 val agendaId = event.agendaIri?.removePrefix("/api/agendas/")
                 agendaId == null || agendaId in enabledAgendas
             }
-        _uiState.value = _uiState.value.copy(expandedEvents = expanded + mealEvents())
+        _uiState.value = _uiState.value.copy(expandedEvents = expanded + mealEvents() + proactionEvents())
     }
 
     fun createAgenda(name: String, color: String?, description: String?) {
@@ -441,7 +542,7 @@ class FullCalendarViewModel(
                     if (!authenticated) return@collectLatest
                     val userId = authRepository.getUserId() ?: return@collectLatest
                     merge(
-                        *listOf(MercureTopics.TASKS, MercureTopics.MEALS).map { topic ->
+                        *listOf(MercureTopics.TASKS, MercureTopics.MEALS, MercureTopics.PROACTIONS).map { topic ->
                             mercureService.subscribe(MercureTopics.userScoped(userId, topic))
                                 .catch { /* SSE reconnects automatically */ }
                         }.toTypedArray(),
@@ -458,7 +559,8 @@ class FullCalendarViewModel(
                 taskRepository.refreshTasks()
                 _uiState.value = _uiState.value.copy(tasks = taskRepository.getUndoneTasks())
             }
-            val failure = loadMeals()
+            val mealsFailure = loadMeals()
+            val failure = loadProactions() ?: mealsFailure
             if (failure != null) _uiState.value = _uiState.value.copy(error = failure.message)
             expandForCurrentRange()
         } catch (e: CancellationException) {
@@ -466,5 +568,13 @@ class FullCalendarViewModel(
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(error = e.message)
         }
+    }
+
+    private companion object {
+        val PROACTION_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+        // The API may answer with an offset (`+02:00`) where the timeline parses instants.
+        fun instantOf(value: String): Instant? =
+            runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
     }
 }

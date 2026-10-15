@@ -91,6 +91,11 @@ final class QueryParameterContractTest extends WebTestCase
             'date[before]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
             'order[date]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
         ],
+        '/api/proactions' => [
+            'startAt[after]' => 'admin CalendarView, mobile getProactions',
+            'startAt[before]' => 'admin CalendarView, mobile getProactions',
+            'order[startAt]' => 'admin CalendarView and AgentSettings, mobile getProactions',
+        ],
         '/api/notifications' => [
             'exists[readAt]' => 'admin NotificationBell, mobile getNotifications',
             'order[createdAt]' => 'admin NotificationBell',

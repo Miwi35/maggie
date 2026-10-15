@@ -293,7 +293,7 @@ class MaggieApp : Application() {
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
-            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
+            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
@@ -307,7 +307,7 @@ class MaggieApp : Application() {
                 )
             }
             viewModel { SearchViewModel(get()) }
-            viewModel { ProactionViewModel(get()) }
+            viewModel { ProactionViewModel(get(), get(), get()) }
             viewModel { RecipeListViewModel(get(), get(), get()) }
             viewModel { (recipeId: String) -> RecipeDetailViewModel(recipeId, get(), get(), get()) }
             viewModel { (recipeId: String) -> RecipeEditViewModel(recipeId, get(), get(), get()) }

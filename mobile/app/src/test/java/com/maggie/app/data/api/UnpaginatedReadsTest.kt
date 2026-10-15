@@ -125,6 +125,34 @@ class UnpaginatedReadsTest {
     }
 
     @Test
+    fun `getProactions reads the 37 runs of the period in one request, soonest first`() = runBlocking {
+        val server = FakeCollection(37, pageSize) { """{"id":"p$it","summary":"Proaction $it","executionStatus":"pending"}""" }
+
+        val result = MaggieApiService(server.client())
+            .getProactions("2026-10-01T00:00:00+02:00", "2026-11-01T00:00:00+01:00")
+
+        assertEquals(37, result.size)
+        val url = server.single()
+        assertEquals("/api/proactions", url.encodedPath)
+        assertEquals("false", url.parameters["pagination"])
+        assertEquals("asc", url.parameters["order[startAt]"])
+        assertEquals("2026-10-01T00:00:00+02:00", url.parameters["startAt[after]"])
+        assertEquals("2026-11-01T00:00:00+01:00", url.parameters["startAt[before]"])
+    }
+
+    @Test
+    fun `getProactions without a period asks for every run`() = runBlocking {
+        val server = FakeCollection(3, pageSize) { """{"id":"p$it","summary":"Proaction $it"}""" }
+
+        MaggieApiService(server.client()).getProactions()
+
+        val url = server.single()
+        assertEquals("asc", url.parameters["order[startAt]"])
+        assertNull(url.parameters["startAt[after]"])
+        assertNull(url.parameters["startAt[before]"])
+    }
+
+    @Test
     fun `an empty collection is an empty list`() = runBlocking {
         assertEquals(0, MaggieApiService(events(0).client()).getEvents("2026-10-01T00:00:00Z", "2026-11-01T00:00:00Z").size)
     }

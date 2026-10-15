@@ -1,0 +1,81 @@
+appId: com.maggie.app.e2e
+name: 16-proaction-agenda
+tags:
+  - calendar
+  - proactions
+---
+# Maggie's proactions live in the agenda (MAG-328).
+#
+# Given a proaction tomorrow at 08:30 (filed the way Maggie files one, through
+# `schedule_proaction`, by `scripts/proaction-api.js`), the user opens the agenda and
+# sees it with its time; opens it, deletes it; it leaves the agenda, and the
+# Proactions screen of the settings no longer lists it.
+#
+# The month is the view the calendar opens on, so tomorrow can be in the next one (on
+# the last day of a month): the flow gives the proaction time to arrive and only steps
+# forward when it still is not on screen, as `13-meals-planning.yaml` does.
+
+- runScript:
+    file: ../scripts/proaction-api.js
+    env:
+      ACTION: create
+      SUMMARY: "Rappel MAG-328"
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/16-proaction-agenda.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+- extendedWaitUntil:
+    visible: ".*08:30 Rappel MAG-328.*"
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*08:30 Rappel MAG-328.*"
+    commands:
+      - tapOn:
+          id: "calendar_next"
+- extendedWaitUntil:
+    visible: ".*08:30 Rappel MAG-328.*"
+    timeout: 20000
+
+# The detail: Maggie's instruction and the status, in French.
+- tapOn: ".*08:30 Rappel MAG-328.*"
+- extendedWaitUntil:
+    visible:
+      id: "proaction_detail_title"
+    timeout: 20000
+- assertVisible: "En attente"
+- assertVisible: ".*Rappelle à Meven.*"
+
+- tapOn:
+    id: "proaction_detail_delete"
+- extendedWaitUntil:
+    notVisible: ".*08:30 Rappel MAG-328.*"
+    timeout: 20000
+
+# Gone for good, on the server and in the settings' list.
+- runScript:
+    file: ../scripts/proaction-api.js
+    env:
+      ACTION: expect
+      SUMMARY: "Rappel MAG-328"
+      STATE: absent
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- tapOn: "Maggie"
+- tapOn: "Proactions"
+- extendedWaitUntil:
+    visible: "Aucune proaction"
+    timeout: 20000
+- assertNotVisible: ".*Rappel MAG-328.*"

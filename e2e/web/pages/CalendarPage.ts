@@ -484,6 +484,11 @@ export class CalendarPage extends AdminShell {
     })
   }
 
+  /** The « Maggie » line of the sidebar: the internal agenda her proactions sit in (MAG-328). */
+  maggieAgendaRow(): Locator {
+    return this.content.getByTestId('maggie-agenda-row')
+  }
+
   /** The sidebar checkbox that shows or hides one agenda. */
   agendaCheckbox(name: string): Locator {
     return this.agendaRow(name).getByRole('checkbox')

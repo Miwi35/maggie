@@ -30,6 +30,7 @@ import RadioGroup from '@mui/material/RadioGroup'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
@@ -64,6 +65,7 @@ import type { EventReminders } from './ReminderPicker'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
 import { addUntilToRrule, expandRrule, expandRruleDays } from './recurrenceUtils'
+import { PROACTION_COLOR } from './proaction'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -83,6 +85,13 @@ function authFetch(path: string, options: RequestInit = {}) {
 const bareId = (id: string) => id.split('/').pop() ?? id
 const eventIri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
 const mealIri = (id: string) => (id.startsWith('/') ? id : `/api/meals/${id}`)
+
+const PROACTION_LINE = '__proactions__'
+const PROACTION_PREFIX = 'proaction-'
+/** The ULID, from the bare id or the IRI the Hydra provider puts in `record.id`. */
+const proactionUlid = (id: string) => bareId(id.startsWith(PROACTION_PREFIX) ? id.slice(PROACTION_PREFIX.length) : id)
+/** A mark in front of the label once the run is over: done, or failed. */
+const PROACTION_MARKS: Record<string, string> = { completed: '\u2713 ', failed: '\u26A0 ' }
 
 const MEAL_COLOR = SOURCE_COLORS.meals
 const TASK_DONE_COLOR = SOURCE_COLORS.done
@@ -117,7 +126,7 @@ interface GoogleCalendar {
   backgroundColor?: string
 }
 
-const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}']
+const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}']
 const AGENDA_TOPICS = ['/api/agendas/{id}']
 const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
@@ -168,6 +177,18 @@ interface CalendarMeal {
   slot: string
   summary: string
   recipes: { id: string; name: string }[]
+}
+
+/** One run of Maggie, served by `/api/proactions` and filed in her « Maggie » agenda (MAG-328). */
+interface CalendarProaction {
+  id: string
+  summary: string
+  startAt: string
+  endAt: string
+  prompt: string
+  executionStatus: string
+  response: string | null
+  error: string | null
 }
 
 type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
@@ -537,6 +558,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [rawEvents, setRawEvents] = useState<CalendarEvent[]>([])
   const [rawTasks, setRawTasks] = useState<CalendarTask[]>([])
   const [rawMeals, setRawMeals] = useState<CalendarMeal[]>([])
+  const [rawProactions, setRawProactions] = useState<CalendarProaction[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
@@ -594,7 +616,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         const fresh = cals.filter((c) => !known.has(c.id))
         for (const c of fresh) known.add(c.id)
         setEnabledCalendars((prev) => {
-          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__', '__meals__'])
+          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__', '__meals__', PROACTION_LINE])
           // Keep existing toggles (a hidden agenda stays hidden), show the agendas never seen before
           const next = new Set(prev)
           for (const c of fresh) next.add(c.id)
@@ -625,7 +647,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     const shown = calendars.filter((c) => savedIds.has(bareId(c.id)))
     // Every saved agenda deleted since: an empty screen would look broken, not filtered.
     if (0 === shown.length) return
-    setEnabledCalendars(new Set([...shown.map((c) => c.id), '__tasks__', '__meals__']))
+    setEnabledCalendars(new Set([...shown.map((c) => c.id), '__tasks__', '__meals__', PROACTION_LINE]))
   }, [preferences, calendars])
 
   // --- Agenda sidebar handlers ---
@@ -800,8 +822,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         filter: { 'date[after]': localDay(new Date(start)), 'date[before]': localDay(new Date(end)) },
       })
 
-      Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals])
-        .then(([rangeResult, recurringResult, overlappingResult, tasksResult, mealsResult]) => {
+      // Maggie's runs of the range: instants, like events, but their own index.
+      const rangeProactions = moduleCalendar ? nothing : dataProvider.getList('proactions', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'startAt[after]': start, 'startAt[before]': end },
+      })
+
+      Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals, rangeProactions])
+        .then(([rangeResult, recurringResult, overlappingResult, tasksResult, mealsResult, proactionsResult]) => {
           if (seq !== fetchSeqRef.current) return
           const seen = new Set<string>()
           const merged: CalendarEvent[] = []
@@ -814,6 +843,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           setRawEvents(merged)
           setRawTasks(tasksResult.data as unknown as CalendarTask[])
           setRawMeals(mealsResult.data as unknown as CalendarMeal[])
+          setRawProactions(proactionsResult.data as unknown as CalendarProaction[])
         })
         .catch(console.error)
     },
@@ -1027,18 +1057,54 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     })
   }, [rawMeals, theme])
 
+  // --- Map proactions → FullCalendar timed events of the « Maggie » agenda ---
+  const proactionEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    return rawProactions.map((p) => {
+      const failed = p.executionStatus === 'failed'
+      const color = failed ? theme.palette.error.main : PROACTION_COLOR
+      return {
+        id: `${PROACTION_PREFIX}${proactionUlid(p.id)}`,
+        title: `${PROACTION_MARKS[p.executionStatus] ?? ''}${p.summary}`,
+        start: p.startAt,
+        end: p.endAt,
+        allDay: false,
+        calendarId: PROACTION_LINE,
+        backgroundColor: color,
+        borderColor: color,
+        textColor: getEventTextColor(theme, color),
+        // Her run is five minutes long by construction, and is moved only while it has not run.
+        durationEditable: false,
+        startEditable: p.executionStatus === 'pending',
+        classNames: [`proaction-${p.executionStatus}`],
+        extendedProps: {
+          isProaction: true,
+          summary: p.summary,
+          calendarId: PROACTION_LINE,
+          proaction: {
+            prompt: p.prompt,
+            executionStatus: p.executionStatus,
+            response: p.response ?? null,
+            error: p.error ?? null,
+          },
+        },
+      }
+    })
+  }, [rawProactions, theme])
+
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
-    if (!enabledCalendars) return [...coloredEvents, ...taskEvents, ...mealEvents]
+    if (!enabledCalendars) return [...coloredEvents, ...taskEvents, ...mealEvents, ...proactionEvents]
     const calFiltered = coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
     const tasksVisible = enabledCalendars.has('__tasks__')
     const mealsVisible = enabledCalendars.has('__meals__')
+    const proactionsVisible = enabledCalendars.has(PROACTION_LINE)
     return [
       ...calFiltered,
       ...(tasksVisible ? taskEvents : []),
       ...(mealsVisible ? mealEvents : []),
+      ...(proactionsVisible ? proactionEvents : []),
     ]
-  }, [coloredEvents, enabledCalendars, taskEvents, mealEvents])
+  }, [coloredEvents, enabledCalendars, taskEvents, mealEvents, proactionEvents])
 
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
@@ -1089,17 +1155,19 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       arg.jsEvent.preventDefault()
       const fcEvent = arg.event
       const calId = fcEvent.extendedProps.calendarId || ''
-      const color = calendarColorMap.get(calId) || theme.palette.primary.main
+      const isProaction = Boolean(fcEvent.extendedProps.isProaction)
+      const color = isProaction ? PROACTION_COLOR : calendarColorMap.get(calId) || theme.palette.primary.main
       const { start, end } = fromFullCalendar(fcEvent.start, fcEvent.end, fcEvent.allDay)
 
       setPopoverEvent({
         id: fcEvent.id,
-        title: fcEvent.title,
+        title: isProaction ? fcEvent.extendedProps.summary : fcEvent.title,
+        proaction: fcEvent.extendedProps.proaction,
         start,
         end,
         allDay: fcEvent.allDay,
         color,
-        calendarName: calendarNameMap.get(calId) || '',
+        calendarName: isProaction ? 'Maggie' : calendarNameMap.get(calId) || '',
         description: fcEvent.extendedProps.description,
         location: fcEvent.extendedProps.location,
         reminders: fcEvent.extendedProps.reminders,
@@ -1131,6 +1199,23 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           .delete('tasks', { id: taskId, previousData: { id: taskId } })
           .then(() => {
             notify('Tâche supprimée', { type: 'success' })
+            refreshEvents()
+          })
+          .catch((error: Error) => {
+            notify(`Erreur: ${error.message}`, { type: 'error' })
+          })
+        return
+      }
+
+      // A proaction is cancelled through the event route, which is also the one that moves it
+      if (eventId.startsWith(PROACTION_PREFIX)) {
+        const id = eventIri(proactionUlid(eventId))
+        setPopoverAnchorEl(null)
+        setPopoverEvent(null)
+        dataProvider
+          .delete('events', { id, previousData: { id } })
+          .then(() => {
+            notify('Proaction annulée', { type: 'success' })
             refreshEvents()
           })
           .catch((error: Error) => {
@@ -1229,7 +1314,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         return
       }
 
-      if (!current || eventId.startsWith('meal-')) return
+      if (!current || eventId.startsWith('meal-') || eventId.startsWith(PROACTION_PREFIX)) return
 
       const masterEventId = current.masterEventId || eventId.split('__')[0]
       const master = rawEvents.find((e) => e.id === masterEventId)
@@ -1308,6 +1393,32 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const handleEventUpdate = useCallback(
     (arg: EventDropArg | EventResizeDoneArg) => {
       const { event } = arg
+
+      if (event.extendedProps.isProaction) {
+        // A run has a time and nothing else: dropped on the all-day row, it goes back.
+        if (event.allDay) {
+          arg.revert()
+          notify('Une proaction a une heure : elle ne peut pas durer toute la journée', { type: 'warning' })
+          return
+        }
+        const id = eventIri(proactionUlid(event.id))
+        dataProvider
+          .update('events', {
+            id,
+            // The end follows the start on the server: only the start is sent.
+            data: { startAt: event.start?.toISOString() },
+            previousData: { id },
+          })
+          .then(() => {
+            notify('Proaction déplacée', { type: 'success' })
+          })
+          .catch((error: Error) => {
+            arg.revert()
+            notify(`Erreur: ${error.message}`, { type: 'error' })
+          })
+        return
+      }
+
       const isVirtual = event.extendedProps.isVirtualOccurrence
 
       if (isVirtual) {
@@ -2048,6 +2159,35 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             >
               Autres agendas
             </Typography>
+            <Box
+              data-testid="maggie-agenda-row"
+              onClick={() => toggleCalendar(PROACTION_LINE)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                py: 0.25,
+                px: 0.5,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Checkbox
+                size="small"
+                checked={enabledCalendars?.has(PROACTION_LINE) ?? true}
+                tabIndex={-1}
+                disableRipple
+                sx={{
+                  p: 0.25,
+                  color: PROACTION_COLOR,
+                  '&.Mui-checked': { color: PROACTION_COLOR },
+                }}
+              />
+              <AutoAwesomeIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
+              <Typography variant="body2">
+                Maggie
+              </Typography>
+            </Box>
             <Box
               onClick={() => toggleCalendar('__meals__')}
               sx={{
