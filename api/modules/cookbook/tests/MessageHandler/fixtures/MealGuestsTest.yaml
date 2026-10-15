@@ -1,0 +1,51 @@
+# The guests of a meal and the grocery list (MAG-482): the ticket's pasta,
+# 400 g for 4, and a rice bought by the 500 g pack.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-guests@example.com
+    googleId: google-meal-guests
+    name: Meal Guests User
+
+Maggie\Calendar\Entity\Agenda:
+  repas_agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  # No packaging: the need is what goes on the list.
+  pasta_product:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+  rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes au beurre
+    servings: 4
+    user: '@test_user'
+  curry:
+    name: Riz au curry
+    servings: 4
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  ri_pasta:
+    recipe: '@pasta'
+    ingredient: '@pasta_product'
+    quantity: 400
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_rice:
+    recipe: '@curry'
+    ingredient: '@rice'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'

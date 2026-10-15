@@ -69,6 +69,10 @@ framework:
             'Maggie\Cookbook\Message\ReleaseMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\ConsolidateGroceryListCommand': sync
             'Maggie\Cookbook\Event\MealPassed': sync
+            'Maggie\Cookbook\Event\MealGuestsChanged': sync
+            'Maggie\Cookbook\Message\RescaleMealGroceriesCommand': sync
+            'Maggie\Cookbook\Message\CreateMealSettingsCommand': sync
+            'Maggie\Cookbook\Message\UpdateMealSettingsCommand': sync
             'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
             'Maggie\Grocery\Message\AddRecurringGroceryItemCommand': sync

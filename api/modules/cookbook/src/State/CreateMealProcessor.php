@@ -36,6 +36,7 @@ class CreateMealProcessor implements ProcessorInterface
             slot: $data->getSlot()->value,
             recipeIds: $recipeIds,
             userId: $user instanceof User ? (string) $user->getId() : null,
+            guests: $data->getOwnGuests(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

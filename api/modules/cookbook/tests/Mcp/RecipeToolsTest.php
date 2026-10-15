@@ -71,6 +71,39 @@ class RecipeToolsTest extends KernelTestCase
         self::assertSame('Tomate', $data['recipe']['ingredients'][0]['ingredient']);
     }
 
+    public function testGetRecipeScalesTheQuantitiesToTheGuestsAndStoresNothing(): void
+    {
+        // 500 g for 4 is 750 g for 6 (MAG-482).
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+        $recipeId = (string) $this->getFixture('pasta')->getId();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        $data = json_decode(self::getContainer()->get(GetRecipeTool::class)($recipeId, guests: 6), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertEquals(750, $data['recipe']['ingredients'][0]['quantity']);
+        self::assertSame(6, $data['recipe']['scaledFor']);
+        self::assertEquals(1.5, $data['recipe']['scaleFactor']);
+        self::assertSame(4, $data['recipe']['servings']);
+
+        $em->clear();
+        $stored = $em->find(Recipe::class, $recipeId);
+        self::assertSame(500.0, $stored?->getIngredients()->first()->getQuantity());
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Recipe::class);
+    }
+
+    public function testGetRecipeRefusesGuestsBelowOne(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(self::getContainer()->get(GetRecipeTool::class)((string) $this->getFixture('pasta')->getId(), guests: 0), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('at least 1', $data['error']);
+    }
+
     public function testSearchRecipesByName(): void
     {
         $this->loadFixtures('recipe.yaml');

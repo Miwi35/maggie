@@ -10,6 +10,7 @@
     "Ingredient": "/users/{userId}/api/ingredients/{id}",
     "Loan": "/users/{userId}/api/loans/{id}",
     "Meal": "/users/{userId}/api/meals/{id}",
+    "MealSettings": "/users/{userId}/api/meal_settings/{id}",
     "Notification": "/users/{userId}/api/notifications/{id}",
     "Proaction": "/users/{userId}/api/proactions/{id}",
     "Product": "/users/{userId}/api/products/{id}",

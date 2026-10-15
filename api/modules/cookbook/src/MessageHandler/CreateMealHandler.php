@@ -43,6 +43,7 @@ class CreateMealHandler
         // The day is the meal's reference; setDate derives the instants the
         // agenda shows it on (MAG-251).
         $meal->setDate(Meal::dayFromString($command->date));
+        $meal->setGuests(Meal::guestsFrom($command->guests));
 
         foreach ($command->recipeIds as $recipeId) {
             $recipe = $this->recipeRepository->findOneForUser($recipeId, $agenda->getUser())

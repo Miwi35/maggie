@@ -123,6 +123,26 @@ class Meal extends Event implements MercurePublishable
     #[ApiProperty(writable: false)]
     private ?\DateTimeImmutable $groceryChoiceMadeAt = null;
 
+    // How many people the meal is cooked for (MAG-482). Null in the database:
+    // the meal follows the owner's default (`MealSettings::$defaultGuests`),
+    // and changing that default changes it. The API always serves the number
+    // that counts — this one, or the default — with `guestsIsDefault`; a
+    // client sends `null` to give the meal back to the default.
+    #[ORM\Column(nullable: true)]
+    #[Assert\Positive(message: 'A meal is cooked for at least one guest.')]
+    #[IndexedField(type: 'integer')]
+    #[ApiProperty(
+        description: 'How many people the meal is cooked for: the recipes\' quantities scale to it. Null on write gives the meal back to the user\'s default (meal settings); the read always carries the number that counts, guestsIsDefault telling which.',
+        openapiContext: ['type' => 'integer', 'minimum' => 1, 'nullable' => true, 'example' => 4],
+    )]
+    private ?int $guests = null;
+
+    // The owner's default, read by {@see \Maggie\Cookbook\Service\MealGuests}
+    // before the meal is written out. Not stored: the default lives in the
+    // meal settings, and a copy here would go stale when it changes.
+    #[Ignore]
+    private ?int $defaultGuests = null;
+
     public function __construct()
     {
         parent::__construct();
@@ -339,6 +359,54 @@ class Meal extends Event implements MercurePublishable
         return $this;
     }
 
+    /**
+     * The guests a command carries, checked: at least one, or null for the
+     * owner's default.
+     *
+     * @throws \DomainException when it is below one
+     */
+    public static function guestsFrom(?int $guests): ?int
+    {
+        if (null !== $guests && $guests < 1) {
+            throw new \DomainException("A meal is cooked for at least one guest, not {$guests}.");
+        }
+
+        return $guests;
+    }
+
+    public function getGuests(): int
+    {
+        return $this->guests ?? $this->defaultGuests ?? MealSettings::DEFAULT_GUESTS;
+    }
+
+    public function setGuests(?int $guests): static
+    {
+        $this->guests = $guests;
+
+        return $this;
+    }
+
+    public function getGuestsIsDefault(): bool
+    {
+        return null === $this->guests;
+    }
+
+    /** The guests the meal names itself, null when it follows the default. */
+    #[Ignore]
+    public function getOwnGuests(): ?int
+    {
+        return $this->guests;
+    }
+
+    /** The owner's default, for a meal that names no guests: see {@see \Maggie\Cookbook\Service\MealGuests}. */
+    #[Ignore]
+    public function useDefaultGuests(int $defaultGuests): static
+    {
+        $this->defaultGuests = $defaultGuests;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -347,6 +415,9 @@ class Meal extends Event implements MercurePublishable
         $doc['slot'] = $this->slot->value;
         $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->getValues();
         $doc['groceryChoiceMadeAt'] = $this->groceryChoiceMadeAt?->format('c');
+        // The meal's own number only: the default is read when the meal is
+        // written out, so changing it needs no reindexing.
+        $doc['guests'] = $this->guests;
 
         return $doc;
     }
@@ -355,7 +426,7 @@ class Meal extends Event implements MercurePublishable
     {
         // The day, not the instants: a screen reading this payload has to put
         // the meal where the API would.
-        return self::filterPayload([
+        $payload = self::filterPayload([
             'summary' => $this->getSummary(),
             'date' => $this->date?->format('Y-m-d'),
             'slot' => $this->slot->value,
@@ -364,6 +435,16 @@ class Meal extends Event implements MercurePublishable
                 'name' => $r->getName(),
             ])->getValues(),
             'groceryChoiceMadeAt' => $this->groceryChoiceMadeAt?->format('c'),
+            'guests' => $this->getGuests(),
+            'guestsIsDefault' => $this->getGuestsIsDefault(),
         ], $changedProperties);
+
+        // One column, two keys: the number alone cannot tell the screen whether
+        // it still follows the default.
+        if (\array_key_exists('guests', $payload)) {
+            $payload['guestsIsDefault'] = $this->getGuestsIsDefault();
+        }
+
+        return $payload;
     }
 }

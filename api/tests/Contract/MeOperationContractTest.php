@@ -17,7 +17,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
  * The identifier-less operations — /users/me, /user_preferences/me,
- * /safety_cushions/me — and the rule that keeps them working.
+ * /safety_cushions/me, and the settings controllers /task-settings/me and
+ * /meal-settings/me — and the rule that keeps them working.
  *
  * a1deb6d: on a uriTemplate with no identifier, API Platform does not hydrate
  * the object the provider returned. It builds a fresh one, so every field the
@@ -242,7 +243,7 @@ final class MeOperationContractTest extends WebTestCase
     {
         $this->existingPreference();
 
-        foreach (['/api/users/me', '/api/user_preferences/me', '/api/safety_cushions/me'] as $path) {
+        foreach (['/api/users/me', '/api/user_preferences/me', '/api/safety_cushions/me', '/api/task-settings/me', '/api/meal-settings/me'] as $path) {
             $this->client->request('GET', $path, [], [], array_merge(
                 ['HTTP_ACCEPT' => 'application/ld+json'],
                 $this->authHeaders(),
@@ -250,6 +251,26 @@ final class MeOperationContractTest extends WebTestCase
 
             self::assertResponseIsSuccessful(sprintf('GET %s is no longer reachable.', $path));
         }
+    }
+
+    /**
+     * The meal settings' write (MAG-482) is a controller's PUT, not an API
+     * Platform operation: a body without the field is refused, never read as
+     * the entity's default — the shape of a1deb6d on a settings screen.
+     */
+    public function testThePutOfTheMealSettingsKeepsTheDefaultABodyLeavesOut(): void
+    {
+        $this->existingPreference();
+        $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
+
+        $this->client->request('PUT', '/api/meal-settings/me', [], [], $headers, json_encode(['defaultGuests' => 5], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('PUT', '/api/meal-settings/me', [], [], $headers, '{}');
+        self::assertResponseStatusCodeSame(400);
+
+        $this->client->request('GET', '/api/meal-settings/me', [], [], $this->authHeaders());
+        self::assertSame(5, $this->decodeResponse()['defaultGuests'], 'a partial PUT reset the default — the shape of a1deb6d.');
     }
 
     public function testThePatchRequiresAuthentication(): void

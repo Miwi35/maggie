@@ -81,6 +81,26 @@ class MealRepository extends ServiceEntityRepository
         return array_values($unique);
     }
 
+    /**
+     * The meals still to be eaten — today included — that name no guests and
+     * so are cooked for the user's default (MAG-482).
+     *
+     * @return Meal[]
+     */
+    public function findUpcomingOnDefaultGuestsForUser(User $user): array
+    {
+        return $this->createQueryBuilder('m')
+            ->join('m.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('m.guests IS NULL')
+            ->andWhere('m.date >= :today')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('today', $this->today(), Types::DATE_IMMUTABLE)
+            ->orderBy('m.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** The meal, if it is the user's: another user's meal is not found. */
     public function findOneForUser(string $id, User $user): ?Meal
     {

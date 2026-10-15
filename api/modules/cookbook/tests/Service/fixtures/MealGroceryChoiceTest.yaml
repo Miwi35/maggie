@@ -62,6 +62,9 @@ Maggie\Cookbook\Entity\Ingredient:
     category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
     user: '@other_user'
 
+# Every recipe serves 2, the default guests of a meal: the quantities below are
+# what the meals need, unscaled (MAG-482 scales them; MealGuestsGroceriesTest
+# covers that).
 Maggie\Cookbook\Entity\Recipe:
   curry:
     name: Riz au curry
@@ -79,7 +82,7 @@ Maggie\Cookbook\Entity\Recipe:
   # 500 g of rice: with the curry's 300 g, 800 g is two 500 g packs, not 1 + 1 by luck.
   big_rice:
     name: Riz pour la tablée
-    servings: 6
+    servings: 2
     user: '@test_user'
   other_recipe:
     name: Riz cantonais

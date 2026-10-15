@@ -39,10 +39,13 @@ Maggie\Cookbook\Entity\Ingredient:
     user: '@test_user'
     shelfLifeDays: 2
 
+# Every recipe serves 2, the default guests of a meal: the quantities below are
+# what the meals need, unscaled (MAG-482 scales them; MealGuestsGroceriesTest
+# covers that).
 Maggie\Cookbook\Entity\Recipe:
   pasta:
     name: Pâtes à la tomate
-    servings: 4
+    servings: 2
     tags: ['pasta']
     user: '@test_user'
   # Shares its tomatoes with the pasta: two meals, one grocery line.
@@ -64,7 +67,7 @@ Maggie\Cookbook\Entity\Recipe:
     user: '@test_user'
   big_pasta:
     name: Pâtes généreuses
-    servings: 6
+    servings: 2
     tags: ['big']
     user: '@test_user'
   pasta_by_the_piece:
