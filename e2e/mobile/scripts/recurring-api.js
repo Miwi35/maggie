@@ -108,7 +108,8 @@ if (ACTION === 'create') {
   removeLeftovers() // a retried run starts from nothing
   const anchorOn = firstDue()
   const account = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
-  const category = post('/api/categories', { name: categoryName, obligation: 'mandatory' })
+  // Optional: the series starts without « Obligatoire », which the journey then switches on.
+  const category = post('/api/categories', { name: categoryName, obligation: 'optional' })
   post('/api/recurring_operations', {
     label: 'Loyer MAG-309',
     counterpartyName: transactionLabel, // the line's payee is its whole label: the key must be the same

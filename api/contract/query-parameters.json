@@ -41,6 +41,8 @@
         "account": "mobile getTransactions, narrowing to one account",
         "category": "mobile countTransactionsOfCategory, the weight of a deletion",
         "recurringOperation": "admin RecurringOperationsPage and mobile getTransactionsOfRecurringOperation, the transactions a series recognised",
+        "qualifiedBySeries": "admin RecurringOperationDialog and mobile, how many transactions a series requalifies (MAG-479)",
+        "qualifiedByRule": "admin CategorizationRuleForm and mobile, how many transactions a rule requalifies (MAG-479)",
         "order[bookedAt]": "admin RecurringOperationsPage, mobile getTransactions"
     },
     "/api/grocery_lists": {

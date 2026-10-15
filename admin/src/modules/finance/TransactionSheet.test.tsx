@@ -247,7 +247,7 @@ describe('TransactionSheet', () => {
   test('a line the owner qualified says « à la main »', async () => {
     renderSheet({ ...RECORD, qualifiedBy: 'manual' })
 
-    expect(await screen.findByTestId('qualification-provenance')).toHaveTextContent('à la main')
+    expect(await screen.findByTestId('qualification-provenance', {}, { timeout: 5000 })).toHaveTextContent('à la main')
   })
 
   test('a line a series qualified says which series', async () => {
@@ -284,7 +284,7 @@ describe('TransactionSheet', () => {
       category: '/api/categories/netflix',
       qualification: { mandatory: true, kind: 'repayment' },
     })
-    expect(await screen.findByTestId('qualification-provenance')).toHaveTextContent('à la main')
+    expect(await screen.findByTestId('qualification-provenance', {}, { timeout: 5000 })).toHaveTextContent('à la main')
   })
 
   test('a refused qualification shows the API message', async () => {

@@ -150,9 +150,10 @@ export const RequalifiedNoticeInput = ({ filterKey }: { filterKey: 'qualifiedByS
   const editing = record?.id !== undefined
   const category = useWatch({ name: 'category' }) as string | null | undefined
   const qualification = useWatch({ name: 'qualification' }) as QualificationValue | null | undefined
+  const scope = filterKey === 'qualifiedBySeries' ? { qualifiedBySeries: record?.id } : { qualifiedByRule: record?.id }
   const { total } = useGetList(
     'transactions',
-    { pagination: { page: 1, perPage: 1 }, filter: { [filterKey]: record?.id } },
+    { pagination: { page: 1, perPage: 1 }, filter: scope },
     { enabled: editing },
   )
   const before = (record?.qualification as QualificationValue | null | undefined) ?? NO_QUALIFICATION

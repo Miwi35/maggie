@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { AdminContext, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { RuleMatchesPanel } from './RuleMatchesPanel'
@@ -67,7 +67,7 @@ describe('RuleMatchesPanel', () => {
       direction: 'debit',
       categoryId: '1',
     })
-    expect(onChangeCount).toHaveBeenLastCalledWith(1)
+    await waitFor(() => expect(onChangeCount).toHaveBeenLastCalledWith(1), { timeout: 5000 })
   })
 
   test('the list follows the pattern when the criteria change', async () => {

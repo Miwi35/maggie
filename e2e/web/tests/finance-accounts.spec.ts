@@ -255,7 +255,7 @@ test('an account with no transaction offers a way to add one', async ({ otherUse
  * "Salaire" belongs to the owner, and the neighbour's finance module starts
  * empty. Suffixed with the attempt like the account of the first journey.
  */
-test('choosing Recette offers income categories only, and files a positive transaction', async ({
+test('choosing Recette offers every category, and files a positive transaction', async ({
   otherUser,
 }) => {
   const attempt = test.info().retry
@@ -302,7 +302,7 @@ test('choosing Recette offers income categories only, and files a positive trans
 
   const offered = await accounts.offeredCategories()
   expect(offered, 'an income category is offered on a recette').toContain(salary)
-  expect(offered, 'an optional category is not').not.toContain(subscription)
+  expect(offered, 'the nature no longer filters: an optional category is offered too (MAG-479)').toContain(subscription)
   await otherUser.page.keyboard.press('Escape')
 
   // The form is already open, so it is filled here rather than through

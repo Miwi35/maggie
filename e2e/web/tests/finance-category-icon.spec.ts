@@ -29,8 +29,6 @@ test('typing « courses » in the icon picker leaves the cart, and the list show
     await categories.open()
     await categories.createCategory.click()
     await categories.content.getByLabel('Nom').fill(NAME)
-    await categories.content.getByLabel('Obligation').click()
-    await page.getByRole('option', { name: 'Non-obligatoire' }).click()
 
     // When I open the picker: no icon yet, and nothing to type by heart.
     await categories.content.getByRole('button', { name: 'Icône : Aucune' }).click()
