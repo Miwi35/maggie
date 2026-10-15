@@ -16,6 +16,8 @@ from app.db.instruction_model import Instruction  # noqa: F401 — register mode
 from app.db.memory_index_model import (  # noqa: F401 — register models with AgentBase before create_all
     MemoryFile,
     MemoryLink,
+    MemoryNightRun,
+    MemoryNightSeen,
     MemoryOutbox,
     MemoryTerm,
     MemoryUsage,

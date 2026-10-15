@@ -1,0 +1,12 @@
+# The context router, for the message that moves house (MAG-159): it opens a thread of its own, so the
+# journey has two conversations — Rennes, then « finalement Lyon » — which the night reads one after the other.
+# Numbered below 10-context-router-existing.yaml, which would otherwise keep the message in the first thread.
+name: context-router-night-lyon
+description: Open a second thread for the message that says the owner finally moves to Lyon.
+
+match:
+  system_contains: "routeur de contexte"
+  user_matches: 'Message : .*Lyon'
+
+turns:
+  - text: '{"context_id": null, "label": "Déménagement à Lyon"}'

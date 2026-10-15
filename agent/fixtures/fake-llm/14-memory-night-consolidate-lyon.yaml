@@ -1,0 +1,18 @@
+# The night (MAG-159) rereads the second conversation: « finalement Lyon » replaces the claim of the Rennes
+# fiche. The new claim cites this conversation and its minute; the old one stays in the fiche, marked replaced.
+name: memory-night-consolidate-lyon
+description: The night settles the contradiction between Rennes and Lyon, the most recent word winning.
+
+match:
+  system_contains: "tu relis une conversation"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+Finalement, je m.installe à Lyon'
+
+turns:
+  - text: |
+      {"fiches": [{"chemin": "Lieu de vie/Le propriétaire habite à Rennes.md", "titre": "Le propriétaire habite à Lyon",
+         "dossiers": [], "resume": "Où habite le propriétaire : Lyon, après Rennes", "personnes": [],
+         "evoque": ["adresse"], "alias": [],
+         "ajouts": [{"texte": "Le propriétaire habite à Lyon", "heure": "\1"}],
+         "remplace": [{"texte": "Le propriétaire habite à Rennes", "motif": "il s'installe finalement à Lyon"}],
+         "doute": null}],
+       "carte": {"personnes": [], "evoque": ["changement d'adresse"]}}

@@ -186,7 +186,7 @@ async def _check_source(
     return rel, entry
 
 
-async def _stored_entry(service: MemoryService, user_id: str, claim: Claim) -> dict[str, Any]:
+async def stored_entry(service: MemoryService, user_id: str, claim: Claim) -> dict[str, Any]:
     """The carte entry of a claim already accepted in an earlier version: its source is not asked again."""
     entry: dict[str, Any] = {"titre": claim.source, "provenance": claim.provenance}
     if paths.is_syncable(claim.source):
@@ -271,6 +271,7 @@ async def write_fiche(
     alias: list[Any] | None = None,
     today: date,
     allow_legacy: bool = False,
+    settle_question: bool = False,
     reason: str = "",
 ) -> dict[str, Any]:
     """Write (or rewrite) a fiche from its claims. Raises `FicheError` with what to change."""
@@ -302,7 +303,7 @@ async def write_fiche(
             claim.source,
             claim.heure,
         ):
-            entry = await _stored_entry(service, user_id, claim)
+            entry = await stored_entry(service, user_id, claim)
         else:
             claim.source, entry = await _check_source(service, user_id, claim, allow_legacy=allow_legacy)
         entries[(entry["titre"], claim.provenance)] = entry
@@ -328,7 +329,7 @@ async def write_fiche(
             + ". Keep them in `affirmations`, or put them in `remplacees` with the reason: nothing is erased."
         )
     for claim in moved + before.replaced:
-        entry = await _stored_entry(service, user_id, claim)
+        entry = await stored_entry(service, user_id, claim)
         entries.setdefault((entry["titre"], claim.provenance), entry)
 
     resume = _one_line(resume) if resume is not None else carte.resume
@@ -343,7 +344,12 @@ async def write_fiche(
         alias=_list(alias) or carte.alias,
         liens=carte.liens,
         sources=list(entries.values()),
-        extra=carte.extra,
+        # A fiche written again is alive again (the night set it aside); a question stays until it is settled.
+        extra={
+            k: v
+            for k, v in carte.extra.items()
+            if k != carte_mod.ARCHIVED_KEY and not (settle_question and k == carte_mod.QUESTION_KEY)
+        },
     )
     body = Body(known=known, replaced=before.replaced + moved, rest=before.rest)
     text = carte_mod.render(merged, render_body(body))

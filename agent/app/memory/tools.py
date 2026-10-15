@@ -280,6 +280,7 @@ async def handle_write_fiche(arguments: dict, user_id: str) -> str:
             evoque=arguments.get("evoque"),
             alias=arguments.get("alias"),
             today=datetime.now(tz).date(),
+            settle_question=True,
         )
     except (fiches.FicheError, paths.UnsafePath, carte_mod.UnreadableFile) as e:
         return _dump({"error": str(e), "enregistre": False})
