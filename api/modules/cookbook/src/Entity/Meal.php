@@ -119,6 +119,7 @@ class Meal extends Event implements MercurePublishable
     // after its recipes, and follows them (MAG-378).
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255)]
+    #[IndexedField(type: 'keyword')]
     #[ApiProperty(description: 'The title the owner gave the meal; null or blank, it is titled after its recipes.')]
     private ?string $customTitle = null;
 
@@ -435,6 +436,7 @@ class Meal extends Event implements MercurePublishable
         $doc = parent::toSearchDocument();
         $doc['date'] = $this->date?->format('Y-m-d');
         $doc['slot'] = $this->slot->value;
+        $doc['customTitle'] = $this->customTitle;
         $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->getValues();
         $doc['groceryChoiceMadeAt'] = $this->groceryChoiceMadeAt?->format('c');
         // The meal's own number only: the default is read when the meal is

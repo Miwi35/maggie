@@ -1062,7 +1062,11 @@ fun NavGraph() {
                                 onCreateMeal = { day, slot ->
                                     mealCreateState = day to slot
                                 },
-                                onOpenMeal = { meal -> openedMeal = meal },
+                                onOpenMeal = { meal ->
+                                    // Started before the sheet draws: a meal reopened never shows the last opening's state.
+                                    mealDetailViewModel.open(meal)
+                                    openedMeal = meal
+                                },
                             )
                         },
                         detail = paneRecipeId?.let { id ->

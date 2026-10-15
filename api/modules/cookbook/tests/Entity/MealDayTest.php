@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Tests\Entity;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Enum\MealSlot;
+use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -280,5 +282,34 @@ final class MealDayTest extends TestCase
         self::assertSame('lunch', $payload['slot']);
         self::assertArrayNotHasKey('startAt', $payload);
         self::assertArrayNotHasKey('endAt', $payload);
+    }
+
+    /**
+     * Collections and items are rebuilt from the Elasticsearch document alone (MAG-378): a title
+     * the document leaves out comes back null on the week, and the sheet saves that null over
+     * the owner's title.
+     */
+    public function testTheOwnersTitleSurvivesTheRoundTripThroughElasticsearch(): void
+    {
+        $meal = $this->aMeal('2026-10-07');
+        $meal->setCustomTitle('Repas des cousins');
+        $agenda = $meal->getAgenda();
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getReference')->willReturnCallback(fn (string $class, mixed $id): ?object => $agenda);
+        $source = $meal->toSearchDocument();
+        $source['id'] = (string) $meal->getId();
+
+        $hydrated = (new ElasticsearchEntityHydrator($em))->hydrate($source, Meal::class);
+
+        self::assertInstanceOf(Meal::class, $hydrated);
+        self::assertSame('Repas des cousins', $hydrated->getCustomTitle());
+    }
+
+    public function testTheMappingDeclaresTheOwnersTitle(): void
+    {
+        $mapping = (new IndexMetadataReader())->getMapping(Meal::class);
+
+        self::assertSame(['type' => 'keyword'], $mapping['customTitle']);
     }
 }
