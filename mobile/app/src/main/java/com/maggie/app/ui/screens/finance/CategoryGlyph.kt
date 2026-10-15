@@ -20,7 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /** The Material icon behind the names a category's `icon` field takes (« shopping-cart »); null when the name is not one we draw. */
-internal fun categoryIcon(name: String?): ImageVector? = CategoryIconCatalog.find(name)?.icon
+internal fun categoryIcon(name: String?): ImageVector? = name?.trim()?.lowercase()?.let(CategoryIconVectors::find)
 
 internal fun categoryColorOrNull(hex: String?): Color? {
     val code = hex?.let(CategoryColors::normalize) ?: return null

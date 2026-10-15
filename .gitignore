@@ -118,6 +118,7 @@ infra/k8s/secrets.yaml
 !/scripts/prompt-lab/
 !/scripts/coverage/
 !/scripts/e2e/
+!/scripts/category-icons/
 # JWT cached by `mcp-session.sh login`
 /scripts/prompt-lab/.token
 

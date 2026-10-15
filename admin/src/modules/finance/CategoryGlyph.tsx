@@ -1,60 +1,28 @@
+import { createElement } from 'react'
 import Box from '@mui/material/Box'
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
-import BoltIcon from '@mui/icons-material/Bolt'
-import CloudIcon from '@mui/icons-material/Cloud'
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
-import FavoriteIcon from '@mui/icons-material/Favorite'
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
-import FlightIcon from '@mui/icons-material/Flight'
-import HomeIcon from '@mui/icons-material/Home'
+import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon'
 import LabelIcon from '@mui/icons-material/Label'
-import LocalGasStationIcon from '@mui/icons-material/LocalGasStation'
-import MovieIcon from '@mui/icons-material/Movie'
-import PaymentsIcon from '@mui/icons-material/Payments'
-import RedeemIcon from '@mui/icons-material/Redeem'
-import RepeatIcon from '@mui/icons-material/Repeat'
-import RestaurantIcon from '@mui/icons-material/Restaurant'
-import SavingsIcon from '@mui/icons-material/Savings'
-import SchoolIcon from '@mui/icons-material/School'
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports'
-import StarIcon from '@mui/icons-material/Star'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import TvIcon from '@mui/icons-material/Tv'
-import UndoIcon from '@mui/icons-material/Undo'
-import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism'
-import WaterDropIcon from '@mui/icons-material/WaterDrop'
-import WifiIcon from '@mui/icons-material/Wifi'
+import { CATEGORY_ICON_SHAPES } from './categoryIconShapes.generated'
 
-/** The Material icon behind each name a category's `icon` field takes (« shopping-cart »). */
-export const CATEGORY_ICONS: Record<string, typeof HomeIcon> = {
-  home: HomeIcon,
-  'shopping-cart': ShoppingCartIcon,
-  repeat: RepeatIcon,
-  'water-drop': WaterDropIcon,
-  bolt: BoltIcon,
-  wifi: WifiIcon,
-  tv: TvIcon,
-  cloud: CloudIcon,
-  'sports-esports': SportsEsportsIcon,
-  'trending-up': TrendingUpIcon,
-  'local-gas-station': LocalGasStationIcon,
-  'account-balance': AccountBalanceIcon,
-  'error-outline': ErrorOutlineIcon,
-  payments: PaymentsIcon,
-  star: StarIcon,
-  'volunteer-activism': VolunteerActivismIcon,
-  undo: UndoIcon,
-  redeem: RedeemIcon,
-  restaurant: RestaurantIcon,
-  'directions-car': DirectionsCarIcon,
-  flight: FlightIcon,
-  school: SchoolIcon,
-  favorite: FavoriteIcon,
-  'fitness-center': FitnessCenterIcon,
-  movie: MovieIcon,
-  savings: SavingsIcon,
+interface CategoryIconProps extends Omit<SvgIconProps, 'children'> {
+  /** The value of `Category.icon` (« shopping-cart »). A name we do not draw shows as a generic tag. */
+  name: string
+}
+
+/** The Material icon behind a name a category's `icon` field takes, drawn from the generated shapes. */
+export const CategoryIcon = ({ name, ...props }: CategoryIconProps) => {
+  const shape = Object.hasOwn(CATEGORY_ICON_SHAPES, name) ? CATEGORY_ICON_SHAPES[name] : undefined
+  if (shape === undefined) {
+    return <LabelIcon {...props} />
+  }
+
+  return (
+    <SvgIcon {...props}>
+      {typeof shape === 'string'
+        ? <path d={shape} />
+        : shape.map(([tag, attributes], i) => createElement(tag, { ...attributes, key: i }))}
+    </SvgIcon>
+  )
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/
@@ -80,7 +48,6 @@ interface CategoryGlyphProps {
 export const CategoryGlyph = ({ color, icon }: CategoryGlyphProps) => {
   const fill = typeof color === 'string' && HEX.test(color) ? color.toUpperCase() : null
   const name = typeof icon === 'string' ? icon.trim().toLowerCase() : ''
-  const Icon = name === '' ? null : (CATEGORY_ICONS[name] ?? LabelIcon)
 
   return (
     <Box
@@ -103,7 +70,7 @@ export const CategoryGlyph = ({ color, icon }: CategoryGlyphProps) => {
         color: fill ? readableOn(fill) : 'text.secondary',
       }}
     >
-      {Icon && <Icon sx={{ fontSize: 18 }} />}
+      {name !== '' && <CategoryIcon name={name} sx={{ fontSize: 18 }} />}
     </Box>
   )
 }

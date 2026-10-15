@@ -228,6 +228,21 @@ tasks:
       - docker builder prune -f
 
   # ===========================================================================
+  # Category icons (MAG-502)
+  # ===========================================================================
+  icons:generate:
+    desc: Regenerate the category icon catalogue of the admin and the mobile app (task icons:generate -- --check to only compare)
+    # Every Material icon both clients can draw: needs the network (npm registry, Google Maven)
+    # and writes design/category-icons.json plus the four generated client files. One-shot
+    # container, on this checkout's own files, so it is safe from a worktree.
+    cmds:
+      - |
+        mkdir -p "${TMPDIR:-/tmp}/maggie-icons-cache"
+        docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e TMPDIR=/cache \
+          -v "${TMPDIR:-/tmp}/maggie-icons-cache":/cache -v "{{.ROOT_DIR}}":/repo -w /repo \
+          ghcr.io/miwi35/mirror/python:3.12-slim python scripts/category-icons/generate.py {{.CLI_ARGS}}
+
+  # ===========================================================================
   # Testing
   # ===========================================================================
   test:all:
