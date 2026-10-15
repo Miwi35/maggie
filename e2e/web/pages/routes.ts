@@ -27,6 +27,7 @@ export const ROUTES = {
   meals: '/meals',
   ingredients: '/ingredients',
   preferences: '/settings/preferences',
+  taskSettings: '/settings/tasks',
   googleSettings: '/settings/google',
   agentSettings: '/settings/agent',
   // Finance (MAG-102). Four screens are react-admin resources and the others are

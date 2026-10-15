@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -39,6 +41,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -64,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.Lifecycle
@@ -80,7 +84,7 @@ import com.maggie.app.voice.AssistantRoleState
 import org.koin.androidx.compose.koinViewModel
 
 private enum class SettingsSection {
-    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, VOICE, AGENT, ABOUT
+    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, TASKS, VOICE, AGENT, ABOUT
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,6 +119,10 @@ fun SettingsScreen(
             onBack = { currentSection = SettingsSection.LIST },
         )
         SettingsSection.NOTIFICATIONS -> NotificationsSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.TASKS -> TasksSection(
             viewModel = viewModel,
             onBack = { currentSection = SettingsSection.LIST },
         )
@@ -212,6 +220,15 @@ private fun SettingsList(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             SettingsRow(
+                icon = Icons.Outlined.TaskAlt,
+                title = "Tâches",
+                subtitle = "Alertes, ordre des tâches",
+                onClick = { onSectionClick(SettingsSection.TASKS) },
+                modifier = Modifier.testTag(UiTags.SETTINGS_TASKS),
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
                 icon = Icons.Outlined.Mic,
                 title = "Voix",
                 subtitle = "Assistant par défaut, mot d'activation",
@@ -265,9 +282,10 @@ private fun SettingsRow(
     title: String,
     subtitle: String? = null,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -652,6 +670,156 @@ private fun InterruptionSoundSwitch() {
             modifier = Modifier.testTag(UiTags.SETTINGS_INTERRUPTION_SOUND),
         )
     }
+}
+
+/**
+ * Réglages › Tâches (MAG-407): when Maggie alerts on a task, per urgency, and the weights that
+ * order the tasks (MAG-406). The form is sent whole by « Enregistrer »; « Valeurs par défaut »
+ * only fills it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TasksSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val tasks = uiState.tasks
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Tâches") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val form = tasks.form
+            if (form == null) {
+                if (tasks.isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    tasks.error?.let { TaskSettingsError(it) }
+                    OutlinedButton(onClick = { viewModel.loadTaskSettings() }) { Text("Réessayer") }
+                }
+                return@Column
+            }
+
+            Text("Alertes", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = form.morningTime,
+                onValueChange = { text -> viewModel.editTaskSettings { it.copy(morningTime = text) } },
+                label = { Text("Heure du matin") },
+                placeholder = { Text("08:00") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.SETTINGS_TASKS_MORNING),
+            )
+
+            TaskSettingsForm.URGENCY_LABELS.forEach { (urgency, label) ->
+                val rule = form.alertSchedule[urgency] ?: return@forEach
+                HorizontalDivider()
+                Text(label, style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(
+                    value = rule.daysBefore,
+                    onValueChange = { text -> viewModel.editTaskSettings { f -> f.withAlert(urgency) { it.copy(daysBefore = text) } } },
+                    label = { Text("Jours avant l'échéance") },
+                    placeholder = { Text("3, 1") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag(UiTags.SETTINGS_TASKS_DAYS_PREFIX + urgency),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Le jour J", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = rule.dueDay,
+                        onCheckedChange = { checked -> viewModel.editTaskSettings { f -> f.withAlert(urgency) { it.copy(dueDay = checked) } } },
+                    )
+                }
+                OutlinedTextField(
+                    value = rule.overdueEveryDays,
+                    onValueChange = { text -> viewModel.editTaskSettings { f -> f.withAlert(urgency) { it.copy(overdueEveryDays = text) } } },
+                    label = { Text("En retard, tous les … jours") },
+                    supportingText = { Text("Vide : jamais") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Text(
+                "Basse : jamais d'alerte, seulement l'affichage.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider()
+            Text("Ordre des tâches", style = MaterialTheme.typography.titleMedium)
+            TaskSettingsForm.WEIGHT_GROUPS.forEach { (group, groupLabel) ->
+                Text(groupLabel, style = MaterialTheme.typography.titleSmall)
+                TaskSettingsForm.WEIGHT_LABELS[group].orEmpty().forEach { (key, label) ->
+                    OutlinedTextField(
+                        value = form.orderWeights[group]?.get(key).orEmpty(),
+                        onValueChange = { text -> viewModel.editTaskSettings { it.withWeight(group, key, text) } },
+                        label = { Text(label) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            tasks.error?.let { TaskSettingsError(it) }
+            if (tasks.saved) {
+                Text(
+                    "Réglages enregistrés",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_SAVED),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.resetTaskSettingsToDefaults() },
+                    enabled = tasks.settings != null && !tasks.isSaving,
+                    modifier = Modifier.weight(1f).testTag(UiTags.SETTINGS_TASKS_DEFAULTS),
+                ) {
+                    Text("Valeurs par défaut")
+                }
+                Button(
+                    onClick = { viewModel.saveTaskSettings() },
+                    enabled = !tasks.isSaving,
+                    modifier = Modifier.weight(1f).testTag(UiTags.SETTINGS_TASKS_SAVE),
+                ) {
+                    Text("Enregistrer")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskSettingsError(message: String) {
+    Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

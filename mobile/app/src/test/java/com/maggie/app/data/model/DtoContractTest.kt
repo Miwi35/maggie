@@ -197,6 +197,20 @@ class DtoContractTest {
     fun `user preferences deserialise from the recorded response`() =
         assertItemContract("user_preferences.me", serializer<UserPreference>(), "UserPreference")
 
+    @Test
+    fun `task settings deserialise from the recorded response`() {
+        assertItemContract("task_settings.me", serializer<TaskSettings>(), "TaskSettings")
+        val body = readRecording("task_settings.me")
+        val defaults = body["defaults"]!!.jsonObject
+        assertDeclaredFieldsExist("TaskSettingsValues", serializer<TaskSettingsValues>(), defaults.keys, "task_settings.me")
+        // Every urgency's rule, in the settings and in the defaults, so each key is proved where the app reads it.
+        listOf(body, defaults).forEach { settings ->
+            settings["alertSchedule"]!!.jsonObject.values.forEach { rule ->
+                assertDeclaredFieldsExist("AlertRule", serializer<AlertRule>(), rule.jsonObject.keys, "task_settings.me")
+            }
+        }
+    }
+
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {
         val body = readRecording("$name.collection")
         val members = body["member"]?.jsonArray

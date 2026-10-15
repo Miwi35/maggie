@@ -72,6 +72,8 @@ import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.apiValue
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskSettings
+import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -832,6 +834,22 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             setBody(data)
         }.body()
+    }
+
+    // Task settings (MAG-407): the order weights and the alert schedule. Plain JSON, not
+    // API Platform; a refused write (400) carries its reason in `error`.
+    suspend fun getTaskSettings(): TaskSettings {
+        return client.get("$baseUrl/api/task-settings/me") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateTaskSettings(values: TaskSettingsValues): TaskSettings {
+        return client.put("$baseUrl/api/task-settings/me") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(values)
+        }.orRefusal().body()
     }
 
     // Chat — agent-owned endpoints

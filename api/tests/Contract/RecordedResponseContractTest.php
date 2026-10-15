@@ -74,6 +74,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'recurring_operations.collection' => '/api/recurring_operations',
         'users.me' => '/api/users/me',
         'user_preferences.me' => '/api/user_preferences/me',
+        'task_settings.me' => '/api/task-settings/me',
         'finance_monthly_review.read' => '/api/finance/monthly-review?year=2026&month=3',
         'finance_daily_score.read' => '/api/finance/daily-score?year=2026&month=3',
         'finance_cushion_status.read' => '/api/finance/cushion-status',

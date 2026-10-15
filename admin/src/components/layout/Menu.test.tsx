@@ -88,3 +88,14 @@ describe('CustomMenu — the agent entry', () => {
     expect(await screen.findByText('Alfred')).toHaveAttribute('aria-current', 'page')
   })
 })
+
+describe('CustomMenu — the task settings entry', () => {
+  test('sits under Paramètres, after Préférences, and opens /settings/tasks', async () => {
+    stubPersonality('Maggie')
+    await renderMenu()
+
+    const entries = (await screen.findAllByRole('menuitem')).map((item) => item.getAttribute('href'))
+    expect(entries).toContain('/settings/tasks')
+    expect(entries.indexOf('/settings/tasks')).toBe(entries.indexOf('/settings/preferences') + 1)
+  })
+})

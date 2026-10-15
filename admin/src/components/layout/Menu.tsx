@@ -26,6 +26,7 @@ import EggIcon from '@mui/icons-material/Egg'
 import CategoryIcon from '@mui/icons-material/Category'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import TuneIcon from '@mui/icons-material/Tune'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
@@ -326,6 +327,12 @@ export const CustomMenu = () => {
                 to="/settings/preferences"
                 primaryText="Préférences"
                 leftIcon={<TuneIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/settings/tasks"
+                primaryText="Tâches"
+                leftIcon={<TaskAltIcon />}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

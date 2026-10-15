@@ -7,6 +7,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\TaskSettings;
+use Maggie\Calendar\Service\TaskAlertSchedule;
 use Maggie\Calendar\Service\TaskOrderWeights;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -16,7 +17,7 @@ use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Clock\NativeClock;
 
-/** The task settings over REST, and the order of « Aujourd'hui » their weights set (MAG-406). */
+/** The task settings over REST — the order weights (MAG-406), the alert schedule and the morning time (MAG-407) — and the order of « Aujourd'hui » their weights set. */
 class TaskSettingsApiTest extends WebTestCase
 {
     use FixtureLoaderTrait;
@@ -93,6 +94,11 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame((string) $created->getId(), $data['id']);
         self::assertSame(TaskOrderWeights::DEFAULTS, $data['orderWeights']);
         self::assertSame(65, $data['orderWeights']['timePressure']['overdue']);
+        self::assertSame(TaskAlertSchedule::DEFAULTS, $data['alertSchedule']);
+        self::assertSame([3, 1], $data['alertSchedule']['critical']['daysBefore']);
+        self::assertSame(2, $data['alertSchedule']['normal']['overdueEveryDays']);
+        self::assertSame('08:00', $data['morningTime']);
+        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00'], $data['defaults']);
         $this->assertMercurePublishedOnce('/api/task_settings/'.$created->getId());
     }
 
@@ -117,9 +123,59 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame(0, $this->settingsOf('other_user')?->getOrderWeights()['timePressure']['overdue']);
     }
 
+    public function testPutChangesTheScheduleAndTheMorningAndPublishes(): void
+    {
+        $data = $this->put('{"morningTime": "07:30", "alertSchedule": {"critical": {"daysBefore": [1]}, "normal": {"overdueEveryDays": null}}}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('07:30', $data['morningTime']);
+        self::assertSame([1], $data['alertSchedule']['critical']['daysBefore']);
+        self::assertTrue($data['alertSchedule']['critical']['dueDay'], 'a key not sent keeps its value');
+        self::assertNull($data['alertSchedule']['normal']['overdueEveryDays']);
+        self::assertSame(TaskOrderWeights::DEFAULTS, $data['orderWeights'], 'a field not sent keeps its value');
+
+        $stored = $this->settingsOf('test_user');
+        self::assertNotNull($stored);
+        self::assertSame('07:30', $stored->getMorningTime());
+        self::assertSame(['daysBefore' => [1], 'dueDay' => true, 'overdueEveryDays' => 1], $stored->getAlertSchedule()['critical']);
+        self::assertSame(TaskAlertSchedule::DEFAULTS['high'], $stored->getAlertSchedule()['high']);
+        self::assertSame('08:00', $this->settingsOf('other_user')?->getMorningTime());
+
+        $topic = '/api/task_settings/'.$stored->getId();
+        $this->assertMercureUpdatePublished($topic);
+        $payloads = $this->mercurePayloadsOn($topic);
+        self::assertSame('07:30', end($payloads)['morningTime']);
+        self::assertSame([1], end($payloads)['alertSchedule']['critical']['daysBefore']);
+        // The settings are not searched: nothing is indexed.
+        $this->assertNoElasticsearchIndexDispatched(TaskSettings::class);
+    }
+
+    public function testTheDefaultsSentBackRestoreTheSettings(): void
+    {
+        $this->put('{"morningTime": "06:15", "alertSchedule": {"high": {"dueDay": false}}, "orderWeights": {"priority": {"high": 9}}}');
+        self::assertResponseIsSuccessful();
+        $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
+        $defaults = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['defaults'];
+
+        $data = $this->put(json_encode($defaults, JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($defaults, ['orderWeights' => $data['orderWeights'], 'alertSchedule' => $data['alertSchedule'], 'morningTime' => $data['morningTime']]);
+        self::assertSame('08:00', $this->settingsOf('test_user')?->getMorningTime());
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function badBodies(): iterable
     {
+        yield 'an invalid morning time' => ['{"morningTime": "25:00"}', 'morningTime'];
+        yield 'a morning time without minutes' => ['{"morningTime": "8"}', 'morningTime'];
+        yield 'a morning time that is not a string' => ['{"morningTime": 8}', 'morningTime'];
+        yield 'an unknown urgency' => ['{"alertSchedule": {"urgent": {"dueDay": true}}}', 'urgent'];
+        yield 'the low urgency' => ['{"alertSchedule": {"low": {"dueDay": true}}}', 'low'];
+        yield 'negative days before' => ['{"alertSchedule": {"critical": {"daysBefore": [-3]}}}', 'alertSchedule.critical.daysBefore'];
+        yield 'a negative period late' => ['{"alertSchedule": {"normal": {"overdueEveryDays": -1}}}', 'alertSchedule.normal.overdueEveryDays'];
+        yield 'a schedule that is not an object' => ['{"alertSchedule": 3}', 'alertSchedule'];
+        yield 'a good field with a bad one changes neither' => ['{"morningTime": "07:00", "alertSchedule": {"high": {"dueDay": "yes"}}}', 'alertSchedule.high.dueDay'];
         yield 'a negative weight' => ['{"orderWeights": {"priority": {"high": -1}}}', 'orderWeights.priority.high'];
         yield 'an unknown weight' => ['{"orderWeights": {"timePressure": {"yesterday": 3}}}', 'yesterday'];
         yield 'an unknown group' => ['{"orderWeights": {"urgency": {"high": 3}}}', 'urgency'];
@@ -142,7 +198,10 @@ class TaskSettingsApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(400);
         self::assertStringContainsString($named, $data['error']);
-        self::assertSame(TaskOrderWeights::DEFAULTS, $this->settingsOf('test_user')?->getOrderWeights());
+        $stored = $this->settingsOf('test_user');
+        self::assertSame(TaskOrderWeights::DEFAULTS, $stored?->getOrderWeights());
+        self::assertSame(TaskAlertSchedule::DEFAULTS, $stored->getAlertSchedule());
+        self::assertSame('08:00', $stored->getMorningTime());
         $this->assertMercureUpdateCount(0);
     }
 

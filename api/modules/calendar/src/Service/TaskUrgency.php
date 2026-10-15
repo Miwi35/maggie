@@ -135,7 +135,7 @@ final class TaskUrgency implements ResetInterface
     }
 
     /** Days from today to the due day, negative when past; null when undated or done. */
-    private static function daysUntilDue(Task $task, \DateTimeImmutable $today): ?int
+    public static function daysUntilDue(Task $task, \DateTimeImmutable $today): ?int
     {
         $dueDate = $task->getDueDate();
         if ($task->isDone() || null === $dueDate) {
