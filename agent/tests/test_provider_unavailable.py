@@ -19,6 +19,7 @@ import pytest
 from app.db.models import Message
 from app.llm.gateway import API_ERROR_MESSAGE, LLMGateway
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
+from app.memory.agent_memory import MemoryBlocks
 
 CREDIT_MESSAGE = (
     "Your credit balance is too low to access the Anthropic API. "
@@ -48,6 +49,7 @@ def _gateway_with_failing_client(error: Exception) -> LLMGateway:
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
     gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway

@@ -9,6 +9,7 @@ from app.db.models import Message
 from app.llm.gateway import LLMGateway
 from app.llm.last_exchange import last_exchange_section
 from app.llm.streaming import StreamingGateway
+from app.memory.agent_memory import MemoryBlocks
 
 
 async def _write(
@@ -126,14 +127,14 @@ class TestLastExchangeSection:
 def _streaming_gateway() -> StreamingGateway:
     gateway = StreamingGateway()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
     return gateway
 
 
 def _llm_gateway() -> LLMGateway:
     gateway = LLMGateway()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
     return gateway
 
 

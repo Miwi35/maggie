@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -13,6 +14,7 @@ from app.db.pending_action_repository import pending_action_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.style_synthesis import style_synthesizer
+from app.mcp.client import mcp_client
 from app.memory.encoder import memory_encoder
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
@@ -25,6 +27,7 @@ EXECUTION_INTERVAL = 60  # seconds
 ENCODING_PAGE = 20  # threads looked at per query by the encoding pass
 ENCODING_MAX_PAGES = 50  # pages per cycle: what is left is found again at the next one
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
+PLANNING_AGENDA_TIMEOUT = 5.0  # seconds: reading the day's events for the recall; past it, planning goes on without
 
 
 def daily_planning_prompt(today: date) -> str:
@@ -121,6 +124,29 @@ def next_planning_time(now: datetime, tz: ZoneInfo | None = None) -> datetime:
     return target.astimezone(UTC)
 
 
+async def planning_agenda(user_id: str, day: date) -> str:
+    """The day's events as plain text (title, place, description) — what the planning's memory recall reads (MAG-16).
+
+    Never raises and never waits long: the planning does its own reading of the agenda, this one only
+    feeds the recall, so an API that does not answer costs the recall and nothing else.
+    """
+    try:
+        raw = await asyncio.wait_for(
+            mcp_client.call_tool("get_events_by_date", {"date": day.isoformat()}, user_id=user_id),
+            PLANNING_AGENDA_TIMEOUT,
+        )
+        events = json.loads(raw).get("events", [])
+    except Exception as e:
+        logger.warning(f"Could not read the agenda of {day} for the planning recall: {e}")
+        return ""
+    parts = [
+        " ".join(str(event[key]) for key in ("summary", "location", "description") if event.get(key))
+        for event in events
+        if isinstance(event, dict)
+    ]
+    return "\n".join(part for part in parts if part)
+
+
 async def generate_proactions(
     gateway: LLMGateway, user_id: str, *, dry_run: bool = False, now: datetime | None = None
 ) -> dict:
@@ -131,9 +157,13 @@ async def generate_proactions(
     logger.info(f"Running daily proaction planning for user {user_id}")
     today = (now or datetime.now(UTC)).astimezone(await resolve_user_timezone(user_id)).date()
     prompt = daily_planning_prompt(today)
+    options: dict = {"silent": True}
     if dry_run:
-        return await gateway.proaction(prompt, user_id, silent=True, dry_run=True)
-    return await gateway.proaction(prompt, user_id, silent=True)
+        options["dry_run"] = True
+    # Level 2 of the recall on the coming day: what the events call back, not the planning prompt.
+    if about := await planning_agenda(user_id, today):
+        options["about"] = about
+    return await gateway.proaction(prompt, user_id, **options)
 
 
 async def plan_user(gateway: LLMGateway, user_id: str) -> None:

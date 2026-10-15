@@ -40,6 +40,14 @@ MEMORY_TOOLS = [
             "type": "object",
             "properties": {
                 "requete": {"type": "string", "description": "Words to look for (a name, a subject, a phrase)"},
+                "termes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des "
+                        "mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+                    ),
+                },
                 "limite": {
                     "type": "integer",
                     "description": f"How many results (default {SEARCH_LIMIT}, max {MAX_SEARCH_LIMIT})",
@@ -166,6 +174,16 @@ def _hit(found: IndexedFile, query: str) -> dict[str, Any]:
     }
 
 
+MAX_TERMS = 5
+
+
+def _terms(raw: Any) -> list[str]:
+    """The associated terms Maggie chose, at most MAX_TERMS, blanks dropped."""
+    if not isinstance(raw, list):
+        return []
+    return [t.strip() for t in raw if isinstance(t, str) and t.strip()][:MAX_TERMS]
+
+
 async def handle_search(arguments: dict, user_id: str) -> str:
     if (down := _unavailable()) is not None:
         return down
@@ -176,10 +194,17 @@ async def handle_search(arguments: dict, user_id: str) -> str:
         limit = min(max(int(arguments.get("limite") or SEARCH_LIMIT), 1), MAX_SEARCH_LIMIT)
     except (TypeError, ValueError):
         limit = SEARCH_LIMIT
-    found = await memory_service.search(user_id, query, limit)
+    queries = [query, *_terms(arguments.get("termes"))]
+    hits: list[Any] = []
+    seen: set[str] = set()
+    for q in queries:
+        for f in await memory_service.search(user_id, q, limit):
+            if f.path not in seen:
+                seen.add(f.path)
+                hits.append(_hit(f, q))
     return _dump(
         {
-            "resultats": [_hit(f, query) for f in found],
+            "resultats": hits[:limit],
             "rappel": "Un extrait n'est pas la fiche : ouvre-la (memory_open) avant d'affirmer quoi que ce soit.",
         }
     )

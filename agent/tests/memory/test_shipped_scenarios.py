@@ -74,3 +74,24 @@ async def test_the_anecdote_is_answered_without_a_tool_and_the_fiche_cites_its_c
     third = await turn("Que sais-tu de la salle de concert ?", system=f"Tes fiches :\n{listed}")
     assert [call["name"] for call in third["tool_calls"]] == ["memory_open"]
     assert "l'UBU" in third["response"]
+
+
+async def test_a_carte_brought_back_by_the_recall_is_answered_from_without_a_search(env):
+    from app.memory.agent_memory import render_recalled
+    from app.memory.recall import Recalled
+
+    recalled = render_recalled(
+        [
+            Recalled(
+                "Famille/Françoise et les roses.md", "fiche", "id", "Françoise et les roses",
+                "Françoise n'aime pas les roses", [], [], 3.0,
+            )
+        ]
+    )
+
+    answered = await turn("Un bouquet pour la fête des mères", system=f"Tu tiens ta mémoire.\n\n{recalled}")
+    unanswered = await turn("Un bouquet pour la fête des mères", system="Tu tiens ta mémoire.")
+
+    assert answered["tool_calls"] == []
+    assert "Évite les roses" in answered["response"]
+    assert "aucun scénario" in unanswered["response"]

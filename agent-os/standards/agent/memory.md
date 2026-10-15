@@ -25,5 +25,16 @@ Maggie's memory is a folder of Markdown files per user, in an S3 bucket. **The f
 - Emptying the index loses nothing: `task agent:memory:rebuild` (or `MemoryService.rebuild`) restores everything from the files except the counters.
 - Every query is filtered by `user_id`; ship a two-user isolation test (MAG-108).
 
+## Recall at four levels (MAG-16)
+Search stays on the foundation index — no embeddings. Code: `agent/app/memory/recall.py` (scoring), `agent_memory.py` (blocks), `prompt_cache.py` (`build_system`).
+1. **Permanent profile**: `render_profile` lists the fiches (path + resume) — the `MEMORY_PROFILE_MAX` (80) most opened, sorted by path, then « … et N autres » — in a system block of its own. The text only changes when a fiche does, so the block stays cached.
+2. **Automatic recall, every turn**: `recall_for_turn` scores the **cartes alone** (never the body) against the message: `evoque` and `alias` 3.0, a person 2.5, a moment on the day the message is about 3.0, a proper name in the title or resume 2.5, other title words 1.2, resume words 0.6; a conversation weighs ×0.7. Words are folded (accents, case, plural, elision, glued « l'UBU » → « lubu », fuzzy ≥ 0.85 for aliases). At least `MEMORY_RECALL_THRESHOLD` (2.5), at most `MEMORY_RECALL_MAX` (3); the current thread's file is left out. It is **bounded** by `MEMORY_RECALL_TIMEOUT_SECONDS` (0.8): past it, or on any error, the turn goes on without it. Same recall for chat, voice (same stream), proactions and the 5h planning (`about` = the day's events, read by `scheduler.planning_agenda`, never raising).
+3. **Search by Maggie**: `memory_search` with `requete` and optional `termes` (≤ 5 associated terms she chooses, results merged).
+4. **Opening**: `memory_open` for the detail.
+
+Prompt order: stable (cached) → moment skills (cached) → profile (cached) → recalled cartes (not cached, changes every message) → volatile (notice, directives, date). A memory write never touches the first block. Four breakpoints at most with the tools.
+
+Metrics: `maggie_memory_recall_seconds{source}`, `maggie_memory_recall_total{source,outcome}` (recalled | empty | timeout | error), `maggie_memory_recalled_cartes`, `maggie_memory_block_tokens{block}` (profile | recalled, 4 characters a token). Weights are constants in `recall.py`: tune them there, with a test case from real use.
+
 ## Tests
 Use `FakeBucket` (`app.memory.bucket`), never a mock of the S3 client for behaviour; `agent/tests/memory/conftest.py` has the fixtures. SQLite stands in for Postgres in unit tests: search is `LIKE` there, FTS is covered by the e2e journey `e2e/web/tests/memory-folder.spec.ts`.

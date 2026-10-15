@@ -12,6 +12,7 @@ from app.llm.tools import ToolRouter
 from app.mcp.client import McpClient
 from app.proactions.api import Proaction, ProactionApiUnreachable
 from app.queue.proaction_consumer import execute_proaction
+from app.memory.agent_memory import MemoryBlocks
 
 API_PROACTION = {
     "id": "01JPROACTION0000000000000A",
@@ -129,6 +130,7 @@ def _gateway() -> LLMGateway:
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
     gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway
@@ -484,6 +486,32 @@ TREASURY_OUTLOOK = {
     "advice": {"amountCents": 10000, "sourceAccountName": "Livret A", "sourceAmountCents": 10000},
 }
 MCP_URL = "http://nginx/_mcp"
+
+
+class TestRecallSource:
+    """The recall of a proaction names where it runs from, so its cost is told apart in the metrics (MAG-16)."""
+
+    @staticmethod
+    async def _blocks_call(**kwargs):
+        gateway = _gateway()
+        gateway._build_system_prompt = AsyncMock(return_value=[])
+        loop = AsyncMock(return_value={"response": "C'est l'heure.", "tool_calls": []})
+        resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Rappels"})
+        with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
+            await gateway.proaction("Planifie la journée", "user-1", **kwargs)
+        return gateway._build_system_prompt.await_args.kwargs
+
+    async def test_a_planning_run_recalls_on_the_events_of_the_day(self):
+        kwargs = await self._blocks_call(silent=True, about="Fête des mères chez Françoise")
+
+        assert kwargs["about"] == "Fête des mères chez Françoise"
+        assert kwargs["source"] == "planning"
+
+    async def test_without_events_the_recall_reads_the_prompt_itself(self):
+        kwargs = await self._blocks_call()
+
+        assert kwargs["about"] == "Planifie la journée"
+        assert kwargs["source"] == "proaction"
 
 
 class TestTreasuryAlertProaction:

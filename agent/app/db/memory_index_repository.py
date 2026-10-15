@@ -55,6 +55,21 @@ class IndexedFile:
 
 
 @dataclass(frozen=True)
+class CardView:
+    """A carte alone, with its terms: what the recall at each turn reads. No text — the body stays on disk."""
+
+    path: str
+    kind: str
+    card_id: str
+    title: str
+    resume: str
+    moments: list[str]
+    personnes: list[str]
+    evoque: list[str]
+    alias: list[str]
+
+
+@dataclass(frozen=True)
 class OutboxEntry:
     user_id: str
     path: str
@@ -123,6 +138,43 @@ class MemoryIndexRepository:
             if kind:
                 query = query.where(MemoryFile.kind == kind)
             return [_as_indexed(row) for row in (await session.execute(query)).scalars().all()]
+
+    async def cards(self, user_id: str) -> list[CardView]:
+        """Every readable carte of this user, with the situations, aliases and people it carries (no body)."""
+        async with agent_session() as session:
+            files = await session.execute(
+                select(
+                    MemoryFile.path,
+                    MemoryFile.kind,
+                    MemoryFile.card_id,
+                    MemoryFile.title,
+                    MemoryFile.resume,
+                    MemoryFile.moments,
+                    MemoryFile.personnes,
+                )
+                .where(MemoryFile.user_id == user_id, MemoryFile.unreadable.is_(None))
+                .order_by(MemoryFile.path)
+            )
+            term_rows = await session.execute(
+                select(MemoryTerm.path, MemoryTerm.kind, MemoryTerm.term).where(MemoryTerm.user_id == user_id)
+            )
+            terms: dict[str, dict[str, list[str]]] = {}
+            for path, kind, term in term_rows.all():
+                terms.setdefault(path, {}).setdefault(kind, []).append(term)
+            return [
+                CardView(
+                    path=path,
+                    kind=kind,
+                    card_id=card_id,
+                    title=title,
+                    resume=resume or "",
+                    moments=list(moments or []),
+                    personnes=list(personnes or []),
+                    evoque=sorted(terms.get(path, {}).get(TERM_EVOQUE, [])),
+                    alias=sorted(terms.get(path, {}).get(TERM_ALIAS, [])),
+                )
+                for path, kind, card_id, title, resume, moments, personnes in files.all()
+            ]
 
     async def upsert(
         self,
@@ -440,6 +492,7 @@ __all__ = [
     "OP_APPEND",
     "OP_DELETE",
     "OP_PUT",
+    "CardView",
     "IndexedFile",
     "Keep",
     "OutboxEntry",

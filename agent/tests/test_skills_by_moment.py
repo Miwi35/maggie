@@ -11,6 +11,7 @@ from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL
 from app.skills.index import MOMENT_SKILLS_MAX_CHARS, SkillIndex
+from app.memory.agent_memory import MemoryBlocks
 
 DELIVER = Skill(
     name="delivrer-un-rappel",
@@ -48,7 +49,7 @@ def _gateway() -> LLMGateway:
     gateway = LLMGateway()
     gateway.client = MagicMock()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
     gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
     gateway._resolve_proaction_context = AsyncMock(return_value=None)
     return gateway
@@ -146,7 +147,7 @@ class TestChat:
             contexts.find_active = AsyncMock(return_value=[])
             gateway = StreamingGateway.__new__(StreamingGateway)
             gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-            gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+            gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
             blocks = await gateway._build_system_prompt("user-1")
 
         text = _text(blocks)
