@@ -87,7 +87,7 @@ class GetRecurringOperations
             'categoryName' => $operation->getCategory()->getName(),
             'accountId' => (string) $operation->getAccount()->getId(),
             'accountName' => $operation->getAccount()->getName(),
-            'accountBank' => $operation->getAccount()->getBank(),
+            'accountBank' => $operation->getAccount()->effectiveBank(),
             'period' => $operation->getPeriod()->value,
             'dayRule' => $operation->getDayRule()->value,
             'referenceAmountCents' => $operation->getReferenceAmountCents(),

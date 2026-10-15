@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.MissedOccurrence
 import com.maggie.app.data.model.PriceChange
 import com.maggie.app.data.model.RecurringSeries
@@ -160,5 +161,28 @@ class RecurringOperationScreenTest {
         compose.setContent { SeriesCard(series = series, record = null) }
 
         compose.onNodeWithText("Espèces · Sport").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the form reads the bank of the overview when the account has none of its own`() {
+        val accounts = listOf(Account(id = "a1", name = "Courant", bank = null))
+        val series = listOf(calm.copy(accountId = "a1", accountName = "Courant", accountBank = "Revolut"))
+
+        assertEquals("Courant · Revolut", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
+    }
+
+    @Test
+    fun `the form keeps the typed bank of the account`() {
+        val accounts = listOf(Account(id = "a1", name = "Courant", bank = "Crédit Agricole"))
+        val series = listOf(calm.copy(accountId = "a1", accountBank = "Revolut"))
+
+        assertEquals("Courant · Crédit Agricole", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
+    }
+
+    @Test
+    fun `the form shows only the name of an account without a bank anywhere`() {
+        val accounts = listOf(Account(id = "a1", name = "Espèces"))
+
+        assertEquals("Espèces", recurringAccountLabel(accounts, emptyList(), recurringAccountIri("a1")))
     }
 }

@@ -53,6 +53,7 @@ import com.maggie.app.data.model.DAY_RULE_CHOICES
 import com.maggie.app.data.model.DEFAULT_AMOUNT_TOLERANCE_PERCENT
 import com.maggie.app.data.model.DEFAULT_DATE_TOLERANCE_DAYS
 import com.maggie.app.data.model.PERIOD_CHOICES
+import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
@@ -70,7 +71,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 
-private fun recurringAccountIri(id: String) = "/api/accounts/$id"
+internal fun recurringAccountIri(id: String) = "/api/accounts/$id"
 
 private fun recurringCategoryIri(id: String) = "/api/categories/$id"
 
@@ -342,7 +343,7 @@ internal fun RecurringOperationEditScreen(
 
             RecurringFormFields(
                 form = form,
-                accountName = state.accounts.firstOrNull { form.account == recurringAccountIri(it.id) }?.let { accountLabel(it.name, it.bank) },
+                accountName = recurringAccountLabel(state.accounts, state.overview?.operations.orEmpty(), form.account),
                 categoryName = state.categories.firstOrNull { form.category == recurringCategoryIri(it.id) }?.name,
                 onPickAccount = { picking = "account" },
                 onPickCategory = { picking = "category" },
@@ -461,6 +462,12 @@ private fun PickerRow(
         Helper(error ?: helper, isError = error != null)
     }
 }
+
+/** « Compte · Banque » for the form's account; the overview's bank covers an account whose own `bank` is empty but whose live link names one. */
+internal fun recurringAccountLabel(accounts: List<Account>, series: List<RecurringSeries>, accountIri: String?): String? =
+    accounts.firstOrNull { accountIri == recurringAccountIri(it.id) }?.let { account ->
+        accountLabel(account.name, account.bank?.takeIf { it.isNotBlank() } ?: series.firstOrNull { it.accountId == account.id }?.accountBank)
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

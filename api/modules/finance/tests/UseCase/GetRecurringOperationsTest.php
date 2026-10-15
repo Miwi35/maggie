@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\UseCase;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\UseCase\GetRecurringOperations;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -75,6 +76,27 @@ class GetRecurringOperationsTest extends KernelTestCase
         self::assertSame('EUR', $flixo['currency']);
         self::assertSame(5, $flixo['attachmentCount']);
         self::assertSame('2027-05-12', $flixo['lastAttachedOn']);
+    }
+
+    public function testAnAccountWithoutBankReadsTheBankOfItsLiveConnection(): void
+    {
+        $connection = new BankConnection();
+        $connection->setUser($this->getFixture('test_user'));
+        $connection->setBankName('Revolut');
+        $connection->activate('session-1', new \DateTimeImmutable('+60 days'));
+        $this->em->persist($connection);
+        $this->getFixture('checking')->setBank(null)->setBankConnection($connection);
+        $this->em->flush();
+
+        self::assertSame('Revolut', $this->operation('flixo')['accountBank']);
+    }
+
+    public function testAnAccountTypedInWithoutBankHasNone(): void
+    {
+        $this->getFixture('checking')->setBank(null);
+        $this->em->flush();
+
+        self::assertNull($this->operation('flixo')['accountBank']);
     }
 
     public function testTheCostIsRightForTheFourPeriodicities(): void

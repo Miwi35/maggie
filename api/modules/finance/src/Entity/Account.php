@@ -136,6 +136,17 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this->bank;
     }
 
+    /** The typed-in bank, else the one of the live link: accounts linked before the bank was recorded have none typed. */
+    public function effectiveBank(): ?string
+    {
+        $bank = trim($this->bank ?? '');
+        if ('' === $bank && null !== $this->bankConnection) {
+            $bank = trim($this->bankConnection->getBankName());
+        }
+
+        return '' === $bank ? null : $bank;
+    }
+
     public function setBank(?string $bank): static
     {
         $this->bank = $bank;
