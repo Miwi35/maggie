@@ -32,6 +32,7 @@ import com.maggie.app.data.model.BankConnectionsResponse
 import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.Season
 import com.maggie.app.data.model.targetsCategory
 import com.maggie.app.data.model.RecurringAttachReport
 import com.maggie.app.data.model.RulePreview
@@ -381,6 +382,8 @@ data class EnvelopeCreateRequest(
     val month: Int? = null,
     val currency: String = "EUR",
     val alertThresholdPercent: Int? = null,
+    // Monthly only: the amounts of stretches of the year, amountCents being the rest (MAG-415).
+    val seasonalAmounts: List<Season> = emptyList(),
 )
 
 @Serializable

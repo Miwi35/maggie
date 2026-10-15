@@ -10,6 +10,7 @@ import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.RollOverResult
+import com.maggie.app.data.model.Season
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
@@ -254,6 +255,28 @@ class BudgetViewModelTest {
     }
 
     @Test
+    fun `createEnvelope sends the seasons of a monthly envelope`() = runTest {
+        coEvery { budgetRepository.createEnvelope(any()) } returns Result.success(
+            Envelope(id = "env-3", amountCents = 2000, year = 2026, month = 7),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        val request = EnvelopeCreateRequest(
+            category = "/api/categories/cat-2",
+            amountCents = 2000,
+            year = 2026,
+            month = 7,
+            seasonalAmounts = listOf(Season(fromMonth = 11, toMonth = 2, amountCents = 4500)),
+        )
+
+        viewModel.createEnvelope(request)
+        advanceUntilIdle()
+
+        coVerify { budgetRepository.createEnvelope(request) }
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
     fun `setAlertThreshold null puts the default back (MAG-49)`() = runTest {
         coEvery { budgetRepository.setAlertThreshold("env-1", null) } returns
             Result.success(Envelope(id = "env-1", amountCents = 40000, year = 2026, month = 7))
@@ -278,6 +301,52 @@ class BudgetViewModelTest {
 
         assertEquals("alertThresholdPercent: This value should be between 1 and 99.", viewModel.uiState.value.error)
         assertEquals(sampleStatus, viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `createEnvelope refuses two seasons sharing a month without calling the API`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.createEnvelope(
+            EnvelopeCreateRequest(
+                category = "/api/categories/cat-2",
+                amountCents = 2000,
+                year = 2026,
+                month = 7,
+                seasonalAmounts = listOf(Season(11, 2, 4500), Season(2, 3, 3000)),
+            ),
+        )
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { budgetRepository.createEnvelope(any()) }
+        assertEquals(
+            "Deux saisons couvrent février : une saison ne peut pas en chevaucher une autre.",
+            viewModel.uiState.value.error,
+        )
+    }
+
+    @Test
+    fun `a month in its season carries the season to the screen`() = runTest {
+        val winter = Season(fromMonth = 11, toMonth = 2, amountCents = 4500)
+        coEvery { budgetRepository.getBudgetStatus(2026, 11) } returns Result.success(
+            BudgetStatus(
+                year = 2026,
+                month = 11,
+                budgets = listOf(
+                    BudgetLine(
+                        id = "cinema", categoryId = "cat-3", categoryName = "Cinéma",
+                        amountCents = 4500, year = 2026, month = 11, season = winter,
+                    ),
+                ),
+            ),
+        )
+        viewModel = BudgetViewModel(budgetRepository, categoryRepository, LocalDate.of(2026, 11, 3))
+        advanceUntilIdle()
+
+        val line = viewModel.uiState.value.nestedBudgets.single().line
+        assertEquals(4500, line.amountCents)
+        assertEquals(winter, line.season)
     }
 
     @Test
