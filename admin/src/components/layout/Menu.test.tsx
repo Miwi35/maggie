@@ -111,11 +111,11 @@ describe('CustomMenu — the task settings entry', () => {
 })
 
 describe('CustomMenu — the meal settings entry', () => {
-  test('sits under Paramètres, after Tâches, and opens /settings/meals', async () => {
+  test('sits under Paramètres, after Ce qui passe en premier, and opens /settings/meals', async () => {
     stubPersonality('Maggie')
     await renderMenu()
 
     const entries = (await screen.findAllByRole('menuitem')).map((item) => item.getAttribute('href'))
-    expect(entries.indexOf('/settings/meals')).toBe(entries.indexOf('/settings/tasks') + 1)
+    expect(entries.indexOf('/settings/meals')).toBe(entries.indexOf('/settings/tasks/order') + 1)
   })
 })
