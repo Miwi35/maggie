@@ -107,6 +107,7 @@ private fun signedIn(): Pair<AuthRepository, MercureService> {
     val auth = mockk<AuthRepository>()
     val mercure = mockk<MercureService>()
     every { auth.token } returns flowOf("jwt")
+    every { auth.isAuthenticated } returns flowOf(true)
     coEvery { auth.getUserId() } returns "user-neighbour"
     every { mercure.subscribe(any()) } returns emptyFlow()
     return auth to mercure

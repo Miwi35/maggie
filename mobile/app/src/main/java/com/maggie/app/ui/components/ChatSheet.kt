@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,7 +103,7 @@ fun ChatSheet(
             Column(modifier = Modifier.fillMaxWidth().uiTagRoot()) {
                 ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
-                ChatHistory(
+                ChatTabbedBody(
                     viewModel = viewModel,
                     listState = listState,
                     modifier = Modifier.weight(1f),
@@ -171,7 +172,7 @@ fun ChatSheet(
                     Column(modifier = Modifier.fillMaxSize()) {
                         ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
-                        ChatHistory(
+                        ChatTabbedBody(
                             viewModel = viewModel,
                             listState = listState,
                             modifier = Modifier.weight(1f),
@@ -233,7 +234,7 @@ fun ChatPanel(
         ) {
             ChatHeader(onClose = null, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
 
-            ChatHistory(
+            ChatTabbedBody(
                 viewModel = viewModel,
                 listState = listState,
                 modifier = Modifier.weight(1f),
@@ -247,6 +248,38 @@ fun ChatPanel(
                 windowIsResizedByKeyboard = true,
                 leading = { ChatMicButton(onMicClick) },
             )
+        }
+    }
+}
+
+/**
+ * « Chat | Mind » over the conversation, or over what Maggie is doing (MAG-403). Under the
+ * tabs only the middle changes: the input row or the voice bar stays, so a request sent from
+ * the Mind tab can be watched as it runs.
+ */
+@Composable
+private fun ChatTabbedBody(
+    viewModel: ChatViewModel,
+    listState: ChatListState,
+    modifier: Modifier = Modifier,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    var tab by rememberSaveable { mutableStateOf(ChatTab.CHAT) }
+
+    Column(modifier = modifier) {
+        ChatTabs(selected = tab, onSelect = { tab = it }, awaitingCount = uiState.awaitingApprovalCount)
+        Box(modifier = Modifier.weight(1f)) {
+            when (tab) {
+                ChatTab.CHAT -> ChatHistory(viewModel = viewModel, listState = listState, modifier = Modifier.fillMaxSize())
+                ChatTab.MIND -> MindContent(
+                    agentState = uiState.agentState,
+                    toolCalls = uiState.toolCalls,
+                    approvals = uiState.pendingApprovals,
+                    onApprove = viewModel::approve,
+                    onDeny = viewModel::deny,
+                    onDismissApproval = viewModel::dismissApproval,
+                )
+            }
         }
     }
 }

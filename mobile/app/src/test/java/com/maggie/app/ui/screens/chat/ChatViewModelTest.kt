@@ -29,6 +29,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -80,6 +81,7 @@ class ChatViewModelTest {
         approvalRepository = mockk()
         coEvery { approvalRepository.getPending() } returns Result.success(emptyList())
         every { approvalRepository.observe() } returns emptyFlow()
+        every { authRepository.isAuthenticated } returns flowOf(true)
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
@@ -101,6 +103,27 @@ class ChatViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
+        verify { mercureService.subscribe("/chat/user-1") }
+    }
+
+    @Test
+    fun `listens for held actions once the sign-in is over, even when it ends after the view model exists`() = runTest {
+        val session = MutableStateFlow(false)
+        val announced = MutableSharedFlow<PendingApproval>()
+        every { authRepository.isAuthenticated } returns session
+        coEvery { authRepository.getUserId() } answers { if (session.value) "user-1" else null }
+        every { approvalRepository.observe() } returns announced
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
+
+        session.value = true
+        advanceUntilIdle()
+        announced.emit(PendingApproval(id = "a1", toolName = "delete_event", summary = "Supprimer l'événement « X »"))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
         verify { mercureService.subscribe("/chat/user-1") }
     }
 
@@ -2494,5 +2517,197 @@ class ChatViewModelTest {
 
         assertNull(feedbackOf("msg-1"))
         coVerify(exactly = 0) { repository.rateMessage(any(), any(), any()) }
+    }
+
+    // --- The Mind tab: Maggie's state, her tool calls, the held actions (MAG-403) ---
+
+    /** A turn the test writes by hand, one event at a time. */
+    private suspend fun kotlinx.coroutines.test.TestScope.liveRun(): Channel<AgUiEvent> {
+        val events = Channel<AgUiEvent>(Channel.UNLIMITED)
+        every { repository.sendMessageStream("Salut", any(), any()) } returns events.receiveAsFlow()
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.sendMessage("Salut")
+        runCurrent()
+        return events
+    }
+
+    private fun kotlinx.coroutines.test.TestScope.push(events: Channel<AgUiEvent>, event: AgUiEvent) {
+        events.trySend(event)
+        runCurrent()
+    }
+
+    @Test
+    fun `Maggie is at rest until a turn starts`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(AgentState.IDLE, viewModel.uiState.value.agentState)
+        assertTrue(viewModel.uiState.value.toolCalls.isEmpty())
+    }
+
+    @Test
+    fun `a run that starts makes Maggie think, and finishing sends her back to rest`() = runTest {
+        val events = liveRun()
+
+        push(events, AgUiEvent.RunStarted("run-1"))
+        assertEquals(AgentState.THINKING, viewModel.uiState.value.agentState)
+
+        push(events, AgUiEvent.RunFinished("run-1"))
+        assertEquals(AgentState.IDLE, viewModel.uiState.value.agentState)
+        events.close()
+    }
+
+    @Test
+    fun `a tool call that starts makes Maggie act and shows as running`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_upcoming_events"))
+
+        val state = viewModel.uiState.value
+        assertEquals(AgentState.ACTING, state.agentState)
+        assertEquals(listOf(ToolCallItem("call-1", "get_upcoming_events", ToolCallStatus.RUNNING)), state.toolCalls)
+        events.close()
+    }
+
+    @Test
+    fun `a tool call that ends succeeds and Maggie goes back to thinking`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_upcoming_events"))
+
+        push(events, AgUiEvent.ToolCallEnd("call-1", "get_upcoming_events"))
+
+        val state = viewModel.uiState.value
+        assertEquals(AgentState.THINKING, state.agentState)
+        assertEquals(ToolCallStatus.SUCCESS, state.toolCalls.single().status)
+        events.close()
+    }
+
+    @Test
+    fun `the result of a tool call is its status, a held one waiting for validation`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "delete_event"))
+        push(events, AgUiEvent.ToolCallStart("call-2", "create_task"))
+        push(events, AgUiEvent.ToolCallEnd("call-1", "delete_event"))
+        push(events, AgUiEvent.ToolCallEnd("call-2", "create_task"))
+
+        push(events, AgUiEvent.ToolResult("call-1", "delete_event", "pending_approval"))
+        push(events, AgUiEvent.ToolResult("call-2", "create_task", "error"))
+
+        assertEquals(
+            listOf(ToolCallStatus.PENDING_APPROVAL, ToolCallStatus.ERROR),
+            viewModel.uiState.value.toolCalls.map { it.status },
+        )
+        events.close()
+    }
+
+    @Test
+    fun `a status the app does not know leaves the call as it was`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_weather"))
+
+        push(events, AgUiEvent.ToolResult("call-1", "get_weather", "something-new"))
+
+        assertEquals(ToolCallStatus.RUNNING, viewModel.uiState.value.toolCalls.single().status)
+        events.close()
+    }
+
+    @Test
+    fun `the next turn keeps the last ten finished calls and drops the stuck ones`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        repeat(12) { n ->
+            push(events, AgUiEvent.ToolCallStart("done-$n", "get_weather"))
+            push(events, AgUiEvent.ToolCallEnd("done-$n", "get_weather"))
+        }
+        push(events, AgUiEvent.ToolCallStart("stuck", "get_weather"))
+        push(events, AgUiEvent.RunFinished("run-1"))
+
+        push(events, AgUiEvent.RunStarted("run-2"))
+
+        val ids = viewModel.uiState.value.toolCalls.map { it.id }
+        assertEquals((2..11).map { "done-$it" }, ids)
+        events.close()
+    }
+
+    @Test
+    fun `cutting Maggie off sends her to rest and stops the calls still running`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_weather"))
+        coEvery { repository.interruptChat(any(), any()) } returns
+            ChatMessage(id = "i-1", role = "assistant", content = "x", createdAt = "2026-10-13T10:00:00Z")
+        push(events, AgUiEvent.TextMessageStart("resp-1"))
+        push(events, AgUiEvent.TextMessageContent("resp-1", "Un instant"))
+
+        viewModel.interrupt()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(AgentState.IDLE, state.agentState)
+        assertEquals(ToolCallStatus.ERROR, state.toolCalls.single().status)
+        events.close()
+    }
+
+    @Test
+    fun `a turn that never answers sends Maggie back to rest`() = runTest {
+        every { repository.sendMessageStream("Salut", any(), any()) } returns flow {
+            emit(AgUiEvent.RunStarted("run-1"))
+            emit(AgUiEvent.ToolCallStart("call-1", "get_weather"))
+            throw RuntimeException("connection lost")
+        }
+        coEvery { repository.sendMessage(any(), any(), any()) } returns emptyList()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Salut")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(AgentState.IDLE, state.agentState)
+        assertEquals(ToolCallStatus.ERROR, state.toolCalls.single().status)
+    }
+
+    @Test
+    fun `the badge counts the held actions and follows them as they arrive and are decided`() = runTest {
+        val stream = MutableSharedFlow<PendingApproval>(extraBufferCapacity = 4)
+        every { approvalRepository.observe() } returns stream
+        coEvery { approvalRepository.getPending() } returns Result.success(emptyList())
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
+
+        stream.emit(approval("ap-1"))
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
+
+        stream.emit(approval("ap-2"))
+        advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.awaitingApprovalCount)
+
+        stream.emit(approval("ap-1", status = PendingApproval.STATUS_DENIED))
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
+    }
+
+    @Test
+    fun `denying from the Mind tab takes the badge away once the agent confirms`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        coEvery { approvalRepository.deny("ap-1") } returns
+            Result.success(approval("ap-1", status = PendingApproval.STATUS_DENIED))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.awaitingApprovalCount)
+
+        viewModel.deny("ap-1")
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
     }
 }
