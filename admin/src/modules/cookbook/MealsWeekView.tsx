@@ -84,7 +84,8 @@ interface Meal {
   date: string
   slot: string
   summary: string
-  recipes: Recipe[]
+  /** Objects when the API embeds them, IRIs (strings) when it does not. */
+  recipes: (Recipe | string)[] | null
 }
 
 type PendingMoves = Map<string, { date: string; slot: string; until: number }>
@@ -162,6 +163,9 @@ function MealItem({
     disabled,
     attributes: { roleDescription: 'repas déplaçable' },
   })
+  // A recipe the API only names by IRI has no name to show: the meal's own
+  // summary, which is titled after its recipes, stands in.
+  const namedRecipes = (meal.recipes ?? []).filter((r): r is Recipe => 'object' === typeof r && !!r.name)
 
   return (
     <Box
@@ -194,10 +198,10 @@ function MealItem({
       </IconButton>
       <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
       <Box sx={{ flex: '1 1 4rem', minWidth: 0 }}>
-        {meal.recipes?.map((r: Recipe) => (
+        {namedRecipes.map((r) => (
           <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
         ))}
-        {(!meal.recipes || meal.recipes.length === 0) && (
+        {namedRecipes.length === 0 && (
           <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
             {meal.summary}
           </Typography>

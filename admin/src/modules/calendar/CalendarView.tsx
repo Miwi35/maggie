@@ -98,7 +98,9 @@ const TASK_DONE_COLOR = SOURCE_COLORS.done
 const MEAL_SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
 const mealTitle = (m: CalendarMeal) => {
   const label = MEAL_SLOT_LABELS[m.slot] || m.slot
-  const recipeName = m.recipes?.length ? m.recipes.map((r) => r.name).join(', ') : m.summary
+  // An IRI has no name to show: the summary, titled after the recipes, stands in.
+  const names = (m.recipes ?? []).flatMap((r) => ('object' === typeof r && r.name ? [r.name] : []))
+  const recipeName = names.length ? names.join(', ') : m.summary
   return `${label}: ${recipeName}`
 }
 
@@ -176,7 +178,8 @@ interface CalendarMeal {
   date: string
   slot: string
   summary: string
-  recipes: { id: string; name: string }[]
+  /** Objects when the API embeds them, IRIs (strings) when it does not. */
+  recipes: ({ id: string; name: string } | string)[] | null
 }
 
 /** One run of Maggie, served by `/api/proactions` and filed in her « Maggie » agenda (MAG-328). */
