@@ -17,9 +17,9 @@ use Symfony\Component\Serializer\Attribute\Ignore;
  * onto each of them (spec « Opération et transaction »). The direction is not
  * in it: it is the sign of the amount.
  *
- * Embedded as is in `Transaction`, `RecurringOperation` and
- * `CategorizationRule`. A new parameter is one field here plus its migration:
- * it then exists on the three entities, is copied by `Transaction::qualify()`,
+ * Embedded as is in `Transaction` and `RecurringOperation` (every operation,
+ * with or without recurrence). A new parameter is one field here plus its
+ * migration: it then exists on both entities, is copied by `Transaction::qualify()`,
  * serialized, published and offered to the MCP tools — `QualificationContractTest`
  * fails until it is.
  *

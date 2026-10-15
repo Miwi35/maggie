@@ -8,22 +8,23 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\MerchantDictionary;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\MatchType;
-use Maggie\Finance\Event\CategorizationRuleSaved;
+use Maggie\Finance\Event\OperationSaved;
 use Maggie\Finance\Import\MerchantExtractor;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * Reads the statement back and proposes the rules it implies.
+ * Reads the statement back and proposes the rules it implies: operations
+ * without recurrence, each with the body that creates it.
  *
  * Writing rules from a blank page means remembering how your bank spells each
  * shop — nobody does that. The history already holds the answer: the merchants
@@ -39,7 +40,7 @@ class SuggestCategorizationRules
 
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
-        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $operationRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
@@ -51,7 +52,8 @@ class SuggestCategorizationRules
     /**
      * @return list<array{
      *     pattern: string, occurrences: int, totalCents: int, direction: string,
-     *     categoryId: ?string, categoryName: ?string, samples: list<string>
+     *     categoryId: ?string, categoryName: ?string, samples: list<string>,
+     *     operation: array{labelPattern: string, matchType: string, direction: string, priority: int, categoryId: ?string}
      * }>
      */
     public function suggest(User $user, int $minOccurrences = self::MIN_OCCURRENCES): array
@@ -62,7 +64,7 @@ class SuggestCategorizationRules
         }
 
         $covered = [];
-        foreach ($this->ruleRepository->findActiveForUser($user) as $rule) {
+        foreach ($this->operationRepository->findActiveWithoutRecurrenceForUser($user) as $rule) {
             $covered[MerchantExtractor::key($rule->getLabelPattern() ?? '')] = true;
         }
 
@@ -148,6 +150,15 @@ class SuggestCategorizationRules
                 'categoryId' => null === $category ? null : (string) $category->getId(),
                 'categoryName' => $category?->getName(),
                 'samples' => $group['samples'],
+                // The operation without recurrence accepting it creates, as
+                // `POST /api/operations` and `manage_operations` take it.
+                'operation' => [
+                    'labelPattern' => $group['pattern'],
+                    'matchType' => MatchType::Contains->value,
+                    'direction' => $direction->value,
+                    'priority' => self::priorityOf($group['pattern']),
+                    'categoryId' => null === $category ? null : (string) $category->getId(),
+                ],
             ];
         }
 
@@ -158,7 +169,8 @@ class SuggestCategorizationRules
     }
 
     /**
-     * Turns accepted suggestions into rules and files the history under them:
+     * Turns accepted suggestions into operations without recurrence and files
+     * the history under them:
      * a rule the user cannot see working is a rule they do not trust.
      *
      * @param list<array<string, mixed>> $accepted straight from the request:
@@ -184,16 +196,14 @@ class SuggestCategorizationRules
                 continue;
             }
 
-            $rule = new CategorizationRule();
+            $rule = new RecurringOperation();
             $rule->setUser($user);
             $rule->setLabelPattern($pattern);
             $rule->setMatchType(MatchType::Contains);
             $rule->setCategory($category);
             $direction = \is_string($entry['direction'] ?? null) ? $entry['direction'] : '';
             $rule->setDirection(AmountDirection::tryFrom($direction) ?? AmountDirection::Any);
-            // Longer patterns are the specific ones: "INTERMARCHE ESSENCE"
-            // has to be read before "INTERMARCHE".
-            $rule->setPriority(mb_strlen($pattern));
+            $rule->setPriority(self::priorityOf($pattern));
 
             $this->em->persist($rule);
             $created[] = $rule;
@@ -203,20 +213,20 @@ class SuggestCategorizationRules
 
         foreach ($created as $rule) {
             $this->bus->dispatch(new IndexDocumentCommand(
-                entityClass: CategorizationRule::class,
+                entityClass: RecurringOperation::class,
                 entityId: (string) $rule->getId(),
             ));
         }
 
         // Once all are stored: each rule is applied knowing the ones that outrank it.
         foreach ($created as $rule) {
-            $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), true));
+            $this->eventBus->dispatch(new OperationSaved((string) $rule->getId(), true));
         }
 
         return [
             'created' => \count($created),
             'patterns' => array_map(
-                static fn (CategorizationRule $rule) => (string) $rule->getLabelPattern(),
+                static fn (RecurringOperation $rule) => (string) $rule->getLabelPattern(),
                 $created,
             ),
             'categorized' => $uncategorizedBefore - $this->transactionRepository->countUncategorizedForUser($user),
@@ -240,6 +250,15 @@ class SuggestCategorizationRules
         }
 
         return $best['category'] ?? null;
+    }
+
+    /**
+     * Longer patterns are the specific ones: "INTERMARCHE ESSENCE" has to be
+     * read before "INTERMARCHE".
+     */
+    private static function priorityOf(string $pattern): int
+    {
+        return mb_strlen(trim($pattern));
     }
 
     /** A merchant only ever paid is a debit rule; one that also refunds is not. */

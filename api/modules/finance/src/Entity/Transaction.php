@@ -172,19 +172,22 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[Context(denormalizationContext: [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false])]
     private Qualification $qualification;
 
-    /** The series that qualified this line, while `categorySource` is `series`. */
+    /** The operation with a recurrence that qualified this line, while `categorySource` is `series`. */
     #[ORM\ManyToOne(targetEntity: RecurringOperation::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[ApiProperty(writable: false)]
     #[IndexedRelation(targetEntity: RecurringOperation::class, sourceField: 'qualifiedBySeriesId')]
     private ?RecurringOperation $qualifiedBySeries = null;
 
-    /** The rule that qualified this line, while `categorySource` is `rule`. */
-    #[ORM\ManyToOne(targetEntity: CategorizationRule::class)]
+    /**
+     * The operation without recurrence — what a categorization rule was — that
+     * qualified this line, while `categorySource` is `rule`.
+     */
+    #[ORM\ManyToOne(targetEntity: RecurringOperation::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[ApiProperty(writable: false)]
-    #[IndexedRelation(targetEntity: CategorizationRule::class, sourceField: 'qualifiedByRuleId')]
-    private ?CategorizationRule $qualifiedByRule = null;
+    #[IndexedRelation(targetEntity: RecurringOperation::class, sourceField: 'qualifiedByRuleId')]
+    private ?RecurringOperation $qualifiedByRule = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     #[IndexedField(type: 'date')]
@@ -537,15 +540,15 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
      * category, every parameter at its default) leaves the line unqualified,
      * free for the rules again.
      */
-    public function qualify(Qualification $qualification, ?QualifyingOperation $by): static
+    public function qualify(Qualification $qualification, ?RecurringOperation $by): static
     {
         $this->category = $qualification->getCategory();
         $this->qualification = $qualification->withCategory(null);
-        $this->qualifiedBySeries = $by instanceof RecurringOperation ? $by : null;
-        $this->qualifiedByRule = $by instanceof CategorizationRule ? $by : null;
+        $this->qualifiedBySeries = true === $by?->hasRecurrence() ? $by : null;
+        $this->qualifiedByRule = false === $by?->hasRecurrence() ? $by : null;
         $this->categorySource = match (true) {
-            $by instanceof RecurringOperation => CategorySource::Series,
-            $by instanceof CategorizationRule => CategorySource::Rule,
+            null !== $this->qualifiedBySeries => CategorySource::Series,
+            null !== $this->qualifiedByRule => CategorySource::Rule,
             $qualification->carriesNothing() => CategorySource::None,
             default => CategorySource::Manual,
         };
@@ -582,7 +585,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this->qualifiedBySeries;
     }
 
-    public function getQualifiedByRule(): ?CategorizationRule
+    public function getQualifiedByRule(): ?RecurringOperation
     {
         return $this->qualifiedByRule;
     }

@@ -6,10 +6,10 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -27,9 +27,9 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->resetAsyncTransport();
     }
 
-    private function tool(): ManageCategorizationRulesTool
+    private function tool(): ManageOperationsTool
     {
-        return self::getContainer()->get(ManageCategorizationRulesTool::class);
+        return self::getContainer()->get(ManageOperationsTool::class);
     }
 
     public function testCreateRulePersistsAndPublishes(): void
@@ -42,15 +42,15 @@ class CategorizationRuleToolsTest extends KernelTestCase
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
-        self::assertSame('UGC', $data['rule']['labelPattern']);
-        self::assertSame('contains', $data['rule']['matchType']);
-        self::assertSame((string) $category->getId(), $data['rule']['categoryId']);
+        self::assertSame('UGC', $data['operation']['labelPattern']);
+        self::assertSame('contains', $data['operation']['matchType']);
+        self::assertSame((string) $category->getId(), $data['operation']['categoryId']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(2, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(2, $em->getRepository(RecurringOperation::class)->findAll());
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     private function categoryOfTransaction(string $fixture): ?string
@@ -99,7 +99,7 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $leisure = $this->getFixture('leisure');
 
         $data = json_decode(
-            $this->tool()('update', categorizationRuleId: (string) $this->getFixture('rule_carrefour')->getId(), labelPattern: 'UGC', categoryId: (string) $leisure->getId(), applyToExisting: true),
+            $this->tool()('update', operationId: (string) $this->getFixture('rule_carrefour')->getId(), labelPattern: 'UGC', categoryId: (string) $leisure->getId(), applyToExisting: true),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -130,10 +130,10 @@ class CategorizationRuleToolsTest extends KernelTestCase
         self::assertTrue($data['matches'][0]['wouldChange']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(1, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(1, $em->getRepository(RecurringOperation::class)->findAll());
         self::assertNull($this->categoryOfTransaction('uncategorized_cinema'));
         $this->assertNothingPublishedOn('/transactions/');
-        $this->assertNothingPublishedOn('/categorization_rules/');
+        $this->assertNothingPublishedOn('/recurring_operations/');
     }
 
     public function testPreviewRequiresAPattern(): void
@@ -197,8 +197,8 @@ class CategorizationRuleToolsTest extends KernelTestCase
 
         $data = json_decode($this->tool()('list'), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertCount(2, $data['rules']);
-        self::assertSame('UGC', $data['rules'][0]['labelPattern']);
+        self::assertCount(2, $data['operations']);
+        self::assertSame('UGC', $data['operations'][0]['labelPattern']);
     }
 
     public function testUpdateChangesTheRuleAndPublishes(): void
@@ -208,22 +208,22 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $rule = $this->getFixture('rule_carrefour');
 
         $data = json_decode(
-            $this->tool()('update', categorizationRuleId: (string) $rule->getId(), labelPattern: 'CARREFOUR MARKET', isActive: false),
+            $this->tool()('update', operationId: (string) $rule->getId(), labelPattern: 'CARREFOUR MARKET', isActive: false),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
 
         self::assertTrue($data['success']);
-        self::assertSame('CARREFOUR MARKET', $data['rule']['labelPattern']);
-        self::assertFalse($data['rule']['isActive']);
+        self::assertSame('CARREFOUR MARKET', $data['operation']['labelPattern']);
+        self::assertFalse($data['operation']['isActive']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertFalse($em->find(CategorizationRule::class, $rule->getId())->isActive());
+        self::assertFalse($em->find(RecurringOperation::class, $rule->getId())->isActive());
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testClearRemovesAnAmountBound(): void
@@ -233,25 +233,25 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $rule = $this->getFixture('ranged_rule');
 
         $data = json_decode(
-            $this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['maxAmountCents', 'labelPattern']),
+            $this->tool()('update', operationId: (string) $rule->getId(), clear: ['maxAmountCents', 'labelPattern']),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
 
         self::assertTrue($data['success']);
-        self::assertNull($data['rule']['maxAmountCents']);
-        self::assertSame(1000, $data['rule']['minAmountCents']);
+        self::assertNull($data['operation']['maxAmountCents']);
+        self::assertSame(1000, $data['operation']['minAmountCents']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        $refreshed = $em->find(RecurringOperation::class, $rule->getId());
         self::assertNull($refreshed->getMaxAmountCents());
         self::assertSame(1000, $refreshed->getMinAmountCents());
         self::assertNull($refreshed->getLabelPattern(), 'the debit range is enough to recognise the rule');
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testClearBothBoundsOpensTheRange(): void
@@ -261,15 +261,15 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $rule = $this->getFixture('ranged_rule');
 
         $data = json_decode(
-            $this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['minAmountCents', 'maxAmountCents']),
+            $this->tool()('update', operationId: (string) $rule->getId(), clear: ['minAmountCents', 'maxAmountCents']),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
 
         self::assertTrue($data['success']);
-        self::assertNull($data['rule']['minAmountCents']);
-        self::assertNull($data['rule']['maxAmountCents']);
+        self::assertNull($data['operation']['minAmountCents']);
+        self::assertNull($data['operation']['maxAmountCents']);
     }
 
     public function testClearOnAnUnknownRuleReturnsAnError(): void
@@ -278,7 +278,7 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode(
-            $this->tool()('update', categorizationRuleId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['minAmountCents']),
+            $this->tool()('update', operationId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['minAmountCents']),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -293,15 +293,15 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $rule = $this->getFixture('rule_carrefour');
 
-        $data = json_decode($this->tool()('delete', categorizationRuleId: (string) $rule->getId()), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode($this->tool()('delete', operationId: (string) $rule->getId()), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertNull($em->find(CategorizationRule::class, $rule->getId()));
+        self::assertNull($em->find(RecurringOperation::class, $rule->getId()));
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchDeleteDispatched('categorization_rules');
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchDeleteDispatched('recurring_operations');
     }
 
     public function testApplyCategorizesTheMatchingHistoryOnly(): void
@@ -417,7 +417,7 @@ class CategorizationRuleToolsTest extends KernelTestCase
         );
 
         self::assertTrue($data['success']);
-        self::assertSame('UGC CINE CITE', $data['rule']['labelPattern']);
+        self::assertSame('UGC CINE CITE', $data['operation']['labelPattern']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
@@ -425,16 +425,16 @@ class CategorizationRuleToolsTest extends KernelTestCase
         self::assertSame((string) $leisure->getId(), (string) $refreshed->getCategory()->getId());
         self::assertSame(CategorySource::Manual, $refreshed->getCategorySource());
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertMercureUpdatePublished('/recurring_operations/');
         $this->assertMercureUpdatePublished('/transactions/');
     }
 
     public function testLearnStripsTheNoisyTailOfABankLabel(): void
     {
-        self::assertSame('CARREFOUR MARKET', ManageCategorizationRulesTool::patternFromLabel('CARREFOUR MARKET 4412'));
-        self::assertSame('SNCF CONNECT', ManageCategorizationRulesTool::patternFromLabel('SNCF CONNECT  12/09 REF 8891'));
-        self::assertSame('UGC CINE CITE', ManageCategorizationRulesTool::patternFromLabel('UGC CINE CITE BERCY'));
-        self::assertSame('4412', ManageCategorizationRulesTool::patternFromLabel('4412'));
+        self::assertSame('CARREFOUR MARKET', ManageOperationsTool::patternFromLabel('CARREFOUR MARKET 4412'));
+        self::assertSame('SNCF CONNECT', ManageOperationsTool::patternFromLabel('SNCF CONNECT  12/09 REF 8891'));
+        self::assertSame('UGC CINE CITE', ManageOperationsTool::patternFromLabel('UGC CINE CITE BERCY'));
+        self::assertSame('4412', ManageOperationsTool::patternFromLabel('4412'));
     }
 
     public function testANewTransactionIsCategorizedOnCreation(): void
@@ -475,17 +475,17 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $data = json_decode($this->tool()('create', categoryId: (string) $salary->getId(), direction: 'credit', minAmountCents: 427500, maxAmountCents: 522500, applyToExisting: true), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue($data['success']);
-        self::assertNull($data['rule']['labelPattern']);
-        self::assertSame('credit', $data['rule']['direction']);
+        self::assertNull($data['operation']['labelPattern']);
+        self::assertSame('credit', $data['operation']['direction']);
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(1, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(1, $em->getRepository(RecurringOperation::class)->findAll());
         self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_october'));
         self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_september'));
         self::assertNull($this->categoryOfTransaction('small_credit'));
         self::assertNull($this->categoryOfTransaction('same_size_debit'));
         self::assertNull($this->categoryOfTransaction('same_size_transfer'));
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testCreateWithoutLabelNorDirectedAmountIsRefusedWithTheStateGiven(): void
@@ -502,13 +502,13 @@ class CategorizationRuleToolsTest extends KernelTestCase
             $data = json_decode($this->tool()('create', ...array_merge(['categoryId' => $category], $args)), true, 512, JSON_THROW_ON_ERROR);
 
             self::assertArrayHasKey('error', $data);
-            self::assertSame(CategorizationRule::UNRECOGNISABLE, $data['error']);
+            self::assertSame(RecurringOperation::UNRECOGNISABLE, $data['error']);
             self::assertSame($direction, $data['current']['direction']);
             self::assertNull($data['current']['labelPattern']);
         }
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(0, $em->getRepository(RecurringOperation::class)->findAll());
         $this->assertMercureUpdateCount(0);
     }
 
@@ -518,13 +518,13 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $rule = $this->getFixture('rule_carrefour');
 
-        $data = json_decode($this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['labelPattern']), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode($this->tool()('update', operationId: (string) $rule->getId(), clear: ['labelPattern']), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(CategorizationRule::UNRECOGNISABLE, $data['error']);
+        self::assertStringContainsString(RecurringOperation::UNRECOGNISABLE, $data['error']);
         self::assertSame('CARREFOUR', $data['current']['labelPattern']);
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertSame('CARREFOUR', $em->find(CategorizationRule::class, $rule->getId())->getLabelPattern());
+        self::assertSame('CARREFOUR', $em->find(RecurringOperation::class, $rule->getId())->getLabelPattern());
         $this->assertMercureUpdateCount(0);
     }
 
@@ -540,6 +540,6 @@ class CategorizationRuleToolsTest extends KernelTestCase
         self::assertEqualsCanonicalizing(['VIR SEPA XYZ', 'SALAIRE SEPTEMBRE ABC'], array_column($data['matches'], 'label'));
 
         $refused = json_decode($this->tool()('preview', minAmountCents: 427500), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(CategorizationRule::UNRECOGNISABLE, $refused['error']);
+        self::assertSame(RecurringOperation::UNRECOGNISABLE, $refused['error']);
     }
 }

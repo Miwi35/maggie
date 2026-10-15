@@ -6,7 +6,7 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -230,7 +230,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $older = $this->getFixture('rule_premium');
         // Created after it, so it comes after it on a tie.
-        $newer = (new CategorizationRule())
+        $newer = (new RecurringOperation())
             ->setUser($older->getUser())
             ->setLabelPattern('premium')
             ->setCategory($this->getFixture('subscriptions'))
@@ -339,7 +339,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
     {
         $this->signIn();
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $rulesBefore = $em->getRepository(CategorizationRule::class)->count([]);
+        $rulesBefore = $em->getRepository(RecurringOperation::class)->count([]);
 
         $this->preview([
             'labelPattern' => 'netflix',
@@ -347,7 +347,7 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         ]);
 
         $em->clear();
-        self::assertSame($rulesBefore, $em->getRepository(CategorizationRule::class)->count([]));
+        self::assertSame($rulesBefore, $em->getRepository(RecurringOperation::class)->count([]));
         // Only the line that was already filed there: the preview moved nothing.
         self::assertCount(1, $em->getRepository(Transaction::class)->findBy(['category' => $this->getFixture('subscriptions')->getId()]));
         $this->assertNothingPublishedOn('/transactions/');

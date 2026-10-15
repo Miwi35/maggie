@@ -11,7 +11,6 @@ use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
@@ -38,11 +37,13 @@ final class QualificationContractTest extends KernelTestCase
     private const ENTITIES = [
         'Transaction' => Transaction::class,
         'RecurringOperation' => RecurringOperation::class,
-        'CategorizationRule' => CategorizationRule::class,
     ];
 
+    /** Every resource that serves them: an operation is served as series, rule and operation (MAG-478). */
+    private const SCHEMAS = ['Transaction', 'RecurringOperation', 'CategorizationRule', 'Operation'];
+
     /** The MCP tools that read and write it. */
-    private const TOOLS = ['manage_transactions', 'manage_recurring_operations', 'manage_categorization_rules'];
+    private const TOOLS = ['manage_transactions', 'manage_operations'];
 
     public function testTheQualificationHasParameters(): void
     {
@@ -97,7 +98,7 @@ final class QualificationContractTest extends KernelTestCase
         self::assertIsArray($document);
         $schemas = $document['components']['schemas'];
 
-        foreach (array_keys(self::ENTITIES) as $resource) {
+        foreach (self::SCHEMAS as $resource) {
             foreach ([$resource, $resource.'.jsonld', $resource.'.jsonMergePatch'] as $name) {
                 if (!isset($schemas[$name])) {
                     continue;
@@ -161,7 +162,6 @@ final class QualificationContractTest extends KernelTestCase
             Transaction::class => (new Transaction())->setUser($user)->setAccount($account)->setLabel('PRLV')->qualify($qualification, null),
             RecurringOperation::class => (new RecurringOperation())->setUser($user)->setAccount($account)->setLabel('Crédit auto')
                 ->setAnchorOn(new \DateTimeImmutable('2027-01-05'))->setReferenceAmountCents(-25000)->requalify($qualification),
-            CategorizationRule::class => (new CategorizationRule())->setUser($user)->setLabelPattern('AUTO')->requalify($qualification),
             default => throw new \LogicException($entity),
         };
     }

@@ -7,13 +7,11 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Core\Mcp\MissingMcpUserException;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\QualificationKind;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
-use Maggie\Finance\Mcp\Tool\ManageRecurringOperationsTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Maggie\Finance\UseCase\ApplyCategorizationRules;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
@@ -21,8 +19,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * The qualification through Maggie (MAG-476): `mandatory` and `kind` read and
- * written by manage_transactions, manage_recurring_operations and
- * manage_categorization_rules, always together — one without the other is
+ * written by manage_transactions and manage_operations, always together — one without the other is
  * refused with the qualification in place.
  */
 class QualificationToolsTest extends KernelTestCase
@@ -101,7 +98,7 @@ class QualificationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call(ManageRecurringOperationsTool::class, 'update', recurringOperationId: $this->id('car_loan'), mandatory: true, kind: 'debt');
+        $data = $this->call(ManageOperationsTool::class, 'update', operationId: $this->id('car_loan'), mandatory: true, kind: 'debt');
 
         self::assertStringContainsString('kind is one of: none, saving, investment, loan, repayment', $data['error']);
         self::assertSame(QualificationKind::Repayment, $this->reload(RecurringOperation::class, 'car_loan')->getQualification()->getKind());
@@ -112,8 +109,9 @@ class QualificationToolsTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = $this->call(
-            ManageRecurringOperationsTool::class,
+            ManageOperationsTool::class,
             'create',
+            period: 'monthly',
             label: 'Prêt étudiant',
             categoryId: $this->id('transport'),
             accountId: $this->id('checking'),
@@ -124,21 +122,21 @@ class QualificationToolsTest extends KernelTestCase
             kind: 'loan',
         );
 
-        self::assertTrue($data['recurringOperation']['mandatory']);
-        self::assertSame('loan', $data['recurringOperation']['kind']);
-        $created = $this->reload(RecurringOperation::class, null, $data['recurringOperation']['id']);
+        self::assertTrue($data['operation']['mandatory']);
+        self::assertSame('loan', $data['operation']['kind']);
+        $created = $this->reload(RecurringOperation::class, null, $data['operation']['id']);
         self::assertSame(QualificationKind::Loan, $created->getQualification()->getKind());
         $this->assertMercureUpdatePublished('/recurring_operations/');
-        $this->assertElasticsearchIndexDispatchedFor(RecurringOperation::class, $data['recurringOperation']['id']);
+        $this->assertElasticsearchIndexDispatchedFor(RecurringOperation::class, $data['operation']['id']);
     }
 
     public function testChangingASeriesRequalifiesItsLines(): void
     {
         $this->loginFixtureUser();
 
-        $data = $this->call(ManageRecurringOperationsTool::class, 'update', recurringOperationId: $this->id('car_loan'), mandatory: false, kind: 'loan');
+        $data = $this->call(ManageOperationsTool::class, 'update', operationId: $this->id('car_loan'), mandatory: false, kind: 'loan');
 
-        self::assertSame('loan', $data['recurringOperation']['kind']);
+        self::assertSame('loan', $data['operation']['kind']);
         $line = $this->reload(Transaction::class, 'jan_loan');
         self::assertFalse($line->getQualification()->isMandatory());
         self::assertSame(QualificationKind::Loan, $line->getQualification()->getKind());
@@ -152,10 +150,10 @@ class QualificationToolsTest extends KernelTestCase
         $this->call(ManageTransactionsTool::class, 'update', transactionId: $this->id('fuel'), mandatory: true, kind: 'none');
         $this->resetMercure();
 
-        $data = $this->call(ManageCategorizationRulesTool::class, 'update', categorizationRuleId: $this->id('rule_fuel'), mandatory: false, kind: 'investment');
+        $data = $this->call(ManageOperationsTool::class, 'update', operationId: $this->id('rule_fuel'), mandatory: false, kind: 'investment');
 
-        self::assertSame('investment', $data['rule']['kind']);
-        self::assertSame(QualificationKind::Investment, $this->reload(CategorizationRule::class, 'rule_fuel')->getQualification()->getKind());
+        self::assertSame('investment', $data['operation']['kind']);
+        self::assertSame(QualificationKind::Investment, $this->reload(RecurringOperation::class, 'rule_fuel')->getQualification()->getKind());
         self::assertSame(QualificationKind::None, $this->reload(Transaction::class, 'fuel')->getQualification()->getKind());
         $this->assertNothingPublishedOn('/transactions/'.$this->id('fuel'));
     }
@@ -164,12 +162,12 @@ class QualificationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $this->call(ManageCategorizationRulesTool::class, 'update', categorizationRuleId: $this->id('rule_fuel'), mandatory: false, kind: 'investment');
+        $this->call(ManageOperationsTool::class, 'update', operationId: $this->id('rule_fuel'), mandatory: false, kind: 'investment');
 
         $fuel = $this->reload(Transaction::class, 'fuel');
         self::assertSame(QualificationKind::Investment, $fuel->getQualification()->getKind());
         self::assertSame('rule', $fuel->getQualifiedBy());
-        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertMercureUpdatePublished('/recurring_operations/');
         $this->assertMercureUpdatePublished('/transactions/'.$this->id('fuel'));
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('fuel'));
     }
@@ -178,10 +176,10 @@ class QualificationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call(ManageCategorizationRulesTool::class, 'update', categorizationRuleId: $this->id('rule_fuel'), mandatory: false);
+        $data = $this->call(ManageOperationsTool::class, 'update', operationId: $this->id('rule_fuel'), mandatory: false);
 
         self::assertSame(['categoryId' => $this->id('transport'), 'mandatory' => true, 'kind' => 'none'], $data['currentQualification']);
-        self::assertTrue($this->reload(CategorizationRule::class, 'rule_fuel')->getQualification()->isMandatory());
+        self::assertTrue($this->reload(RecurringOperation::class, 'rule_fuel')->getQualification()->isMandatory());
     }
 
     /**

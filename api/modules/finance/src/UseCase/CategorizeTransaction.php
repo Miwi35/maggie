@@ -4,39 +4,40 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\UseCase;
 
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Specification\TransactionMatchesRule;
 
 /**
- * Files a transaction under the category of the first rule that claims it.
- * A category set by hand, or inherited from the series the line settles, is
- * never overwritten.
+ * Gives a transaction the qualification of the first operation without
+ * recurrence that claims it — what a categorization rule did. A qualification
+ * set by hand, or inherited from the series the line settles, is never
+ * overwritten: the series attach their lines first.
  */
 class CategorizeTransaction
 {
     public function __construct(
-        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $operationRepository,
         private readonly TransactionMatchesRule $matchesRule,
     ) {
     }
 
     /**
-     * The rule that claims this transaction, if any.
+     * The operation without recurrence that claims this transaction, if any.
      */
-    public function match(Transaction $transaction): ?CategorizationRule
+    public function match(Transaction $transaction): ?RecurringOperation
     {
-        return $this->winner($transaction, $this->ruleRepository->findActiveForUser($transaction->getUser()));
+        return $this->winner($transaction, $this->operationRepository->findActiveWithoutRecurrenceForUser($transaction->getUser()));
     }
 
     /**
-     * The first of these rules to claim the transaction.
+     * The first of these operations to claim the transaction.
      *
-     * @param iterable<CategorizationRule> $rules in the order they get their say: highest priority first
+     * @param iterable<RecurringOperation> $rules in the order they get their say: highest priority first
      */
-    public function winner(Transaction $transaction, iterable $rules): ?CategorizationRule
+    public function winner(Transaction $transaction, iterable $rules): ?RecurringOperation
     {
         foreach ($rules as $rule) {
             if ($this->matchesRule->isSatisfiedBy($rule, $transaction)) {
@@ -47,7 +48,7 @@ class CategorizeTransaction
         return null;
     }
 
-    /** Whether the rules may still file this line: it has no category, and none was removed by hand. */
+    /** Whether the operations without recurrence may still file this line: it has no category, and none was removed by hand. */
     public function awaitsCategory(Transaction $transaction): bool
     {
         return null === $transaction->getCategory() && CategorySource::Manual !== $transaction->getCategorySource();

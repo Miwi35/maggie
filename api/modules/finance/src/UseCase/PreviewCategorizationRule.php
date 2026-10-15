@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Specification\TransactionMatchesRule;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * What a rule would catch, before it is saved: the transactions its criteria
+ * What an operation without recurrence — a rule — would catch, before it is saved: the transactions its criteria
  * recognise, and among them the ones applying it to the history would change.
  * Nothing is written.
  */
@@ -25,7 +25,7 @@ class PreviewCategorizationRule
 
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
-        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $operationRepository,
         private readonly OwnedReferenceResolver $references,
         private readonly TransactionMatchesRule $matchesRule,
         private readonly CategorizeTransaction $categorizeTransaction,
@@ -34,7 +34,7 @@ class PreviewCategorizationRule
 
     /**
      * @param ?string $categoryId where the rule would file; without it, lines are listed but none would change
-     * @param ?string $ruleId     the saved rule being edited, which these criteria replace
+     * @param ?string $ruleId     the saved operation being edited, which these criteria replace
      *
      * @return array{total: int, changeCount: int, matches: list<array{
      *     transactionId: string, label: string, amountCents: int, bookedAt: string,
@@ -54,8 +54,13 @@ class PreviewCategorizationRule
         int $priority = 0,
         bool $isActive = true,
         ?string $ruleId = null,
+        ?string $counterpartyName = null,
     ): array {
-        $draft = $this->draft($user, $labelPattern, $matchType, $direction, $minAmountCents, $maxAmountCents, $categoryId, $priority, $isActive);
+        $draft = $this->draft($user, $labelPattern, $matchType, $direction, $minAmountCents, $maxAmountCents, $categoryId, $priority, $isActive)
+            ->setCounterpartyName($counterpartyName);
+        if (!$draft->matchCriteria()->isRecognisable()) {
+            throw new \DomainException(RecurringOperation::UNRECOGNISABLE);
+        }
         $category = null === $categoryId || '' === $categoryId ? null : $draft->getCategory();
         $rules = null === $category ? [] : $this->rulesWith($draft, $user, $ruleId);
 
@@ -91,7 +96,7 @@ class PreviewCategorizationRule
     }
 
     /** The rule as it would be saved, but never persisted. */
-    private function draft(User $user, ?string $labelPattern, string $matchType, string $direction, ?int $min, ?int $max, ?string $categoryId, int $priority, bool $isActive): CategorizationRule
+    private function draft(User $user, ?string $labelPattern, string $matchType, string $direction, ?int $min, ?int $max, ?string $categoryId, int $priority, bool $isActive): RecurringOperation
     {
         $type = MatchType::tryFrom($matchType) ?? throw new \DomainException("Unknown match type: {$matchType}.");
         $directionEnum = AmountDirection::tryFrom($direction) ?? throw new \DomainException("Unknown direction: {$direction}.");
@@ -104,7 +109,7 @@ class PreviewCategorizationRule
             throw new \DomainException('The minimum amount must not exceed the maximum amount.');
         }
 
-        $draft = (new CategorizationRule())
+        $draft = (new RecurringOperation())
             ->setUser($user)
             ->setLabelPattern($labelPattern)
             ->setMatchType($type)
@@ -113,10 +118,6 @@ class PreviewCategorizationRule
             ->setMaxAmountCents($max)
             ->setPriority($priority)
             ->setIsActive($isActive);
-
-        if (!$draft->matchCriteria()->isRecognisable()) {
-            throw new \DomainException(CategorizationRule::UNRECOGNISABLE);
-        }
 
         if (null !== $categoryId && '' !== $categoryId) {
             if (!Ulid::isValid($categoryId)) {
@@ -133,24 +134,24 @@ class PreviewCategorizationRule
      * say. On a tie a new draft comes last, as a rule created now would; one being
      * edited keeps the place its id gives it.
      *
-     * @return list<CategorizationRule>
+     * @return list<RecurringOperation>
      */
-    private function rulesWith(CategorizationRule $draft, User $user, ?string $ruleId): array
+    private function rulesWith(RecurringOperation $draft, User $user, ?string $ruleId): array
     {
         $others = array_values(array_filter(
-            $this->ruleRepository->findActiveForUser($user),
-            static fn (CategorizationRule $rule) => (string) $rule->getId() !== $ruleId,
+            $this->operationRepository->findActiveWithoutRecurrenceForUser($user),
+            static fn (RecurringOperation $rule) => (string) $rule->getId() !== $ruleId,
         ));
 
         // A rule being edited keeps the place its id gives it among equals; a new one comes last.
-        $edited = null === $ruleId || !Ulid::isValid($ruleId) ? null : $this->ruleRepository->find($ruleId);
-        $rank = $edited instanceof CategorizationRule && $edited->getUser()->getId()->equals($user->getId())
+        $edited = null === $ruleId || !Ulid::isValid($ruleId) ? null : $this->operationRepository->find($ruleId);
+        $rank = $edited instanceof RecurringOperation && !$edited->hasRecurrence() && $edited->getUser()->getId()->equals($user->getId())
             ? (string) $edited->getId()
             : null;
 
-        $before = array_filter($others, static fn (CategorizationRule $rule) => $rule->getPriority() > $draft->getPriority()
+        $before = array_filter($others, static fn (RecurringOperation $rule) => $rule->getPriority() > $draft->getPriority()
             || ($rule->getPriority() === $draft->getPriority() && (null === $rank || strcmp((string) $rule->getId(), $rank) < 0)));
-        $after = array_filter($others, static fn (CategorizationRule $rule) => !\in_array($rule, $before, true));
+        $after = array_filter($others, static fn (RecurringOperation $rule) => !\in_array($rule, $before, true));
 
         return [...$before, $draft, ...$after];
     }

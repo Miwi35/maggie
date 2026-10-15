@@ -13,7 +13,7 @@ use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Mcp\Tool\ManageAccountsTool;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
-use Maggie\Finance\Mcp\Tool\ManageRecurringOperationsTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class RecurringOperationToolsTest extends KernelTestCase
@@ -34,7 +34,7 @@ class RecurringOperationToolsTest extends KernelTestCase
     /** @return array<string, mixed> */
     private function call(string $action, mixed ...$arguments): array
     {
-        $tool = self::getContainer()->get(ManageRecurringOperationsTool::class);
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
 
         return json_decode($tool($action, ...$arguments), true, 512, JSON_THROW_ON_ERROR);
     }
@@ -84,6 +84,7 @@ class RecurringOperationToolsTest extends KernelTestCase
 
         $data = $this->call(
             'create',
+            period: 'monthly',
             label: 'Abonnement Flixo',
             categoryId: $this->id('subscriptions'),
             accountId: $this->id('checking'),
@@ -93,7 +94,7 @@ class RecurringOperationToolsTest extends KernelTestCase
         );
 
         self::assertTrue($data['success']);
-        $operation = $data['recurringOperation'];
+        $operation = $data['operation'];
         self::assertSame(-1349, $operation['monthlyCostCents']);
         self::assertSame(-16188, $operation['yearlyCostCents']);
         self::assertSame('EUR', $operation['currency']);
@@ -118,7 +119,7 @@ class RecurringOperationToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $before = $this->rows();
 
-        $data = $this->call('create', label: 'Abonnement Flixo', categoryId: $this->id('subscriptions'), referenceAmountCents: -1349, anchorOn: '2027-01-12');
+        $data = $this->call('create', label: 'Abonnement Flixo', categoryId: $this->id('subscriptions'), referenceAmountCents: -1349, anchorOn: '2027-01-12', period: 'monthly');
 
         self::assertStringContainsString('accountId', $data['error']);
         self::assertSame($before, $this->rows());
@@ -147,6 +148,7 @@ class RecurringOperationToolsTest extends KernelTestCase
         }
 
         $data = $this->call('create', ...array_merge([
+            'period' => 'monthly',
             'label' => 'Abonnement Flixo',
             'categoryId' => $this->id('subscriptions'),
             'accountId' => $this->id('checking'),
@@ -166,7 +168,7 @@ class RecurringOperationToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $before = $this->rows();
 
-        $base = ['label' => 'Flixo', 'referenceAmountCents' => -1349, 'anchorOn' => '2027-01-12', 'counterpartyName' => 'Flixo'];
+        $base = ['period' => 'monthly', 'label' => 'Flixo', 'referenceAmountCents' => -1349, 'anchorOn' => '2027-01-12', 'counterpartyName' => 'Flixo'];
 
         $data = $this->call('create', ...$base + ['categoryId' => $this->id('other_secret'), 'accountId' => $this->id('checking')]);
         self::assertStringContainsString('Category not found', $data['error']);
@@ -183,15 +185,15 @@ class RecurringOperationToolsTest extends KernelTestCase
 
         $data = $this->call('list');
 
-        self::assertSame(['Salle de sport'], array_column($data['recurringOperations'], 'label'));
-        self::assertSame(-36000, $data['recurringOperations'][0]['yearlyCostCents']);
+        self::assertSame(['Salle de sport'], array_column($data['operations'], 'label'));
+        self::assertSame(-36000, $data['operations'][0]['yearlyCostCents']);
     }
 
     public function testUpdateChangesOnlyWhatIsGivenAndPublishes(): void
     {
         $this->loginFixtureUser();
 
-        $data = $this->call('update', recurringOperationId: $this->id('gym'), referenceAmountCents: -3500, period: 'quarterly', clear: ['endsOn']);
+        $data = $this->call('update', operationId: $this->id('gym'), referenceAmountCents: -3500, period: 'quarterly', clear: ['endsOn']);
 
         self::assertTrue($data['success']);
         $refreshed = $this->reload('gym');
@@ -208,7 +210,7 @@ class RecurringOperationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call('update', recurringOperationId: $this->id('gym'), amountTolerancePercent: 150);
+        $data = $this->call('update', operationId: $this->id('gym'), amountTolerancePercent: 150);
 
         self::assertArrayHasKey('error', $data);
         self::assertSame('Club Forme', $this->reload('gym')?->getCounterpartyName());
@@ -219,7 +221,7 @@ class RecurringOperationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call('update', recurringOperationId: $this->id('gym'), clear: ['counterpartyName']);
+        $data = $this->call('update', operationId: $this->id('gym'), clear: ['counterpartyName']);
 
         self::assertTrue($data['success']);
         self::assertNull($this->reload('gym')?->getCounterpartyName());
@@ -230,16 +232,16 @@ class RecurringOperationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        self::assertStringContainsString('recurringOperationId', $this->call('update', label: 'X')['error']);
-        self::assertStringContainsString('recurringOperationId', $this->call('delete')['error']);
+        self::assertStringContainsString('operationId', $this->call('update', label: 'X')['error']);
+        self::assertStringContainsString('operationId', $this->call('delete')['error']);
     }
 
     public function testAnotherUsersSeriesCannotBeTouched(): void
     {
         $this->loginFixtureUser();
 
-        self::assertStringContainsString('not found', $this->call('update', recurringOperationId: $this->id('other_rent'), referenceAmountCents: -1)['error']);
-        self::assertStringContainsString('not found', $this->call('delete', recurringOperationId: $this->id('other_rent'))['error']);
+        self::assertStringContainsString('not found', $this->call('update', operationId: $this->id('other_rent'), referenceAmountCents: -1)['error']);
+        self::assertStringContainsString('not found', $this->call('delete', operationId: $this->id('other_rent'))['error']);
 
         self::assertSame(-90000, $this->reload('other_rent')?->getReferenceAmountCents());
     }
@@ -248,7 +250,7 @@ class RecurringOperationToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->call('delete', recurringOperationId: $this->id('gym'));
+        $data = $this->call('delete', operationId: $this->id('gym'));
 
         self::assertTrue($data['success']);
         self::assertNull($this->reload('gym'));
@@ -305,6 +307,7 @@ class RecurringOperationToolsTest extends KernelTestCase
 
         $data = $this->call(
             'create',
+            period: 'monthly',
             label: 'Salaire',
             categoryId: $this->id('salary'),
             accountId: $this->id('checking'),
@@ -314,9 +317,9 @@ class RecurringOperationToolsTest extends KernelTestCase
         );
 
         self::assertTrue($data['success']);
-        self::assertNull($data['recurringOperation']['counterpartyName']);
-        self::assertNull($data['recurringOperation']['labelPattern']);
-        $stored = self::getContainer()->get('doctrine.orm.entity_manager')->find(RecurringOperation::class, $data['recurringOperation']['id']);
+        self::assertNull($data['operation']['counterpartyName']);
+        self::assertNull($data['operation']['labelPattern']);
+        $stored = self::getContainer()->get('doctrine.orm.entity_manager')->find(RecurringOperation::class, $data['operation']['id']);
         self::assertNull($stored->getCounterpartyKey());
         self::assertSame(10, $stored->getAmountTolerancePercent());
         $this->assertMercureUpdatePublished('/recurring_operations/');

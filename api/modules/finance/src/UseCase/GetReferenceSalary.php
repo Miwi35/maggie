@@ -60,7 +60,7 @@ class GetReferenceSalary
         $today = ($today ?? new \DateTimeImmutable('today'))->setTime(0, 0);
 
         $operations = [];
-        foreach ($this->operationRepository->findByUser($user) as $operation) {
+        foreach ($this->operationRepository->findSeriesByUser($user) as $operation) {
             if (self::isSalary($operation, $today)) {
                 $operations[] = $this->describe($operation);
             }

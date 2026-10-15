@@ -8,8 +8,8 @@ use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 
 /**
- * What a categorization rule or a recurring operation recognises a
- * transaction by. The counterparty comes first; the label pattern stands in
+ * What an operation, with or without recurrence, recognises a transaction
+ * by. The counterparty comes first; the label pattern stands in
  * when one side has no counterparty to compare. With neither, a direction and
  * a bounded amount recognise it alone (« an income of 4 750 € ± 10 % »).
  */

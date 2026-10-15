@@ -30,7 +30,7 @@ class DeleteAccountHandler
         $account = $this->accountRepository->findOneBy(['id' => $command->accountId, 'user' => $command->userId])
             ?? throw new \DomainException("Account not found: {$command->accountId}");
 
-        // The database cascade removes the account's transactions and recurring operations without any command of their own.
+        // The database cascade removes the account's transactions and series without any command of their own.
         $transactionIds = array_map(
             fn ($transaction) => (string) $transaction->getId(),
             $this->transactionRepository->findByAccount($account),

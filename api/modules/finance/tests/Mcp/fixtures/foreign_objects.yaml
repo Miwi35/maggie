@@ -44,7 +44,7 @@ Maggie\Finance\Entity\Envelope:
     month: 7
     user: '@other_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   foreign_rule:
     labelPattern: CARREFOUR
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

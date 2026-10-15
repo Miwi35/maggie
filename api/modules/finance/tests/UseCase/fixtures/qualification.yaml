@@ -41,8 +41,6 @@ Maggie\Finance\Entity\RecurringOperation:
     anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
     referenceAmountCents: -25000
     user: '@test_user'
-
-Maggie\Finance\Entity\CategorizationRule:
   rule_fuel:
     labelPattern: TOTALENERGIES
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

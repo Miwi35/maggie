@@ -23,11 +23,14 @@ import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
 
-const RULE_TOPICS = ['/api/categorization_rules/{id}']
+// A rule is an operation without recurrence (MAG-478): published at the
+// operation's IRI, with the series, which this list leaves out.
+const RULE_TOPICS = ['/api/recurring_operations/{id}']
 
 const RULE_LIVE: LiveConfig = {
   topics: RULE_TOPICS,
   required: ['labelPattern', 'matchType', 'category'],
+  accept: (row) => row.period == null,
   references: {
     categoryId: { field: 'category', collection: '/api/categories' },
   },

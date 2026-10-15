@@ -12,6 +12,10 @@
             "counterpartyName": "LOYER SCI VERDA",
             "counterpartyKey": "loyer sci verda",
             "labelPattern": "SCI VERDA",
+            "matchType": "contains",
+            "direction": "any",
+            "priority": 0,
+            "isActive": true,
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "qualification": {
                 "@type": "Qualification",
@@ -38,6 +42,10 @@
             "label": "Salle de sport",
             "counterpartyName": "SALLE FORME",
             "counterpartyKey": "salle forme",
+            "matchType": "contains",
+            "direction": "any",
+            "priority": 0,
+            "isActive": true,
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "qualification": {
                 "@type": "Qualification",
@@ -63,6 +71,10 @@
             "label": "Recorded salary",
             "counterpartyName": "RECORDED EMPLOYER",
             "counterpartyKey": "recorded employer",
+            "matchType": "contains",
+            "direction": "any",
+            "priority": 0,
+            "isActive": true,
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "qualification": {
                 "@type": "Qualification",
@@ -81,5 +93,18 @@
             "monthlyCostCents": 495000,
             "yearlyCostCents": 5940000
         }
-    ]
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/recurring_operations{?exists[period]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[period]",
+                "property": "period",
+                "required": false
+            }
+        ]
+    }
 }

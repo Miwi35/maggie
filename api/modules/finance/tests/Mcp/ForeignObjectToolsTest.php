@@ -7,16 +7,16 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Entity\Account;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Mcp\Tool\ManageAccountsTool;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
 use Maggie\Finance\Mcp\Tool\ManageEnvelopesTool;
 use Maggie\Finance\Mcp\Tool\ManageLoansTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -43,7 +43,7 @@ class ForeignObjectToolsTest extends KernelTestCase
         yield 'transactions' => [ManageTransactionsTool::class, 'transactionId', 'foreign_transaction', Transaction::class, 'getLabel', 'Supermarché étranger'];
         yield 'envelopes' => [ManageEnvelopesTool::class, 'envelopeId', 'foreign_envelope', Envelope::class, 'getAmountCents', 40000];
         yield 'categories' => [ManageCategoriesTool::class, 'categoryId', 'foreign_category', Category::class, 'getName', 'Catégorie étrangère'];
-        yield 'categorization rules' => [ManageCategorizationRulesTool::class, 'categorizationRuleId', 'foreign_rule', CategorizationRule::class, 'getLabelPattern', 'CARREFOUR'];
+        yield 'categorization rules' => [ManageOperationsTool::class, 'operationId', 'foreign_rule', RecurringOperation::class, 'getLabelPattern', 'CARREFOUR'];
         yield 'accounts' => [ManageAccountsTool::class, 'accountId', 'foreign_account', Account::class, 'getName', 'Compte étranger'];
         yield 'loans' => [ManageLoansTool::class, 'loanId', 'foreign_loan', Loan::class, 'getName', 'Crédit étranger'];
     }
@@ -148,7 +148,7 @@ class ForeignObjectToolsTest extends KernelTestCase
 
     public function testLearningFromAnotherUsersTransactionIsRefusedAndCreatesNoRule(): void
     {
-        $result = $this->decode(self::getContainer()->get(ManageCategorizationRulesTool::class)(
+        $result = $this->decode(self::getContainer()->get(ManageOperationsTool::class)(
             'learn',
             transactionId: (string) $this->getFixture('foreign_transaction')->getId(),
             categoryId: (string) $this->getFixture('own_category')->getId(),
@@ -156,7 +156,7 @@ class ForeignObjectToolsTest extends KernelTestCase
 
         $this->assertRefused($result, 'Transaction not found');
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findBy(['user' => $this->getFixture('test_user')]));
+        self::assertCount(0, $em->getRepository(RecurringOperation::class)->findBy(['user' => $this->getFixture('test_user')]));
     }
 
     public function testSettingAnEnvelopeOnAnotherUsersCategoryIsRefused(): void

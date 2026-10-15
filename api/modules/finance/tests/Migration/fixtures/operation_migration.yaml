@@ -1,0 +1,112 @@
+# The data as it stood before MAG-478: the series in their table, the rules in
+# theirs (written by the test itself — the entity is gone), and the lines each
+# of them qualified.
+Maggie\Core\Entity\User:
+  test_user:
+    email: operation-migration@example.com
+    googleId: google-operation-migration
+    name: Operation Migration User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  restaurants:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  transport:
+    name: Transport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  rent:
+    label: Loyer
+    counterpartyName: SCI VERDA
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -90000
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  t_rent:
+    account: '@checking'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-05"))>'
+    label: PRLV SCI VERDA JANVIER
+    counterpartyName: SCI VERDA
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_resto:
+    account: '@checking'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-08"))>'
+    label: CB RESTO DU COIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_brasserie:
+    account: '@checking'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-09"))>'
+    label: BRASSERIE RESTO DU PORT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_salary:
+    account: '@checking'
+    amountCents: 475000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-28"))>'
+    label: VIR SEPA ACME PAIE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_fuel:
+    account: '@checking'
+    amountCents: -6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-12"))>'
+    label: CB TOTAL ENERGIES
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_by_hand:
+    account: '@checking'
+    amountCents: -1800
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-14"))>'
+    label: CB RESTO RAPIDE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  t_orphan:
+    account: '@checking'
+    amountCents: -1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-15"))>'
+    label: CB KIOSQUE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

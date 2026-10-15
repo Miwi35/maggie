@@ -352,7 +352,7 @@ class CategoryToolsTest extends KernelTestCase
         $deleted = $this->deletedDocuments();
         self::assertContains(['categories', (string) $this->getFixture('restaurants')->getId()], $deleted);
         self::assertContains(['envelopes', (string) $this->getFixture('food_july')->getId()], $deleted);
-        self::assertContains(['categorization_rules', (string) $this->getFixture('rule_restaurant')->getId()], $deleted);
+        self::assertContains(['recurring_operations', (string) $this->getFixture('rule_restaurant')->getId()], $deleted);
     }
 
     /** @return array<int, array{string, string}> */

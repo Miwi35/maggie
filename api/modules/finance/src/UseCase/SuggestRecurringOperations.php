@@ -15,12 +15,12 @@ use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\AttachRecurringOperationsCommand;
-use Maggie\Finance\Message\CreateRecurringOperationCommand;
+use Maggie\Finance\Message\CreateOperationCommand;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
-use Maggie\Finance\Service\RecurringOperationGuard;
+use Maggie\Finance\Service\OperationGuard;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -81,7 +81,7 @@ class SuggestRecurringOperations
         $minOccurrences = max($minOccurrences, self::FLOOR_OCCURRENCES);
 
         $covered = [];
-        foreach ($this->operationRepository->findByUser($user) as $operation) {
+        foreach ($this->operationRepository->findSeriesByUser($user) as $operation) {
             $key = $operation->getCounterpartyKey()
                 ?? MerchantExtractor::key($operation->getLabelPattern() ?? '');
             if ('' !== $key) {
@@ -171,7 +171,7 @@ class SuggestRecurringOperations
     public function accept(User $user, array $accepted): array
     {
         $covered = [];
-        foreach ($this->operationRepository->findByUser($user) as $operation) {
+        foreach ($this->operationRepository->findSeriesByUser($user) as $operation) {
             $covered[$operation->getCounterpartyKey() ?? MerchantExtractor::key($operation->getLabelPattern() ?? '')] = true;
         }
 
@@ -327,7 +327,7 @@ class SuggestRecurringOperations
     }
 
     /** @param array<string, mixed> $entry */
-    private function commandFor(User $user, array $entry): ?CreateRecurringOperationCommand
+    private function commandFor(User $user, array $entry): ?CreateOperationCommand
     {
         $string = static fn (string $field): ?string => \is_string($entry[$field] ?? null) && '' !== trim($entry[$field]) ? trim($entry[$field]) : null;
 
@@ -360,12 +360,12 @@ class SuggestRecurringOperations
         }
 
         try {
-            RecurringOperationGuard::date($anchorOn, 'anchorOn');
+            OperationGuard::date($anchorOn, 'anchorOn');
         } catch (\DomainException) {
             return null;
         }
 
-        return new CreateRecurringOperationCommand(
+        return new CreateOperationCommand(
             userId: (string) $user->getId(),
             label: mb_substr($label, 0, 255),
             categoryId: $categoryId,

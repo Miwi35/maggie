@@ -6,7 +6,6 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
@@ -143,7 +142,7 @@ class RecurringAttachmentApiTest extends WebTestCase
         // Filed by a rule: the PATCH re-sends that category, which must not
         // pass for the owner's own choice.
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $rule = (new CategorizationRule())
+        $rule = (new RecurringOperation())
             ->setUser($this->getFixture('apr_gym_dearer')->getUser())
             ->setLabelPattern('GYM')
             ->setCategory($this->getFixture('groceries'));

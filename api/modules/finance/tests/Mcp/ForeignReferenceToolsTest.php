@@ -6,13 +6,13 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
 use Maggie\Finance\Mcp\Tool\ManageEnvelopesTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -137,45 +137,45 @@ class ForeignReferenceToolsTest extends KernelTestCase
 
     public function testCreateRuleWithAnotherUsersCategoryIsRefused(): void
     {
-        $before = $this->rows(CategorizationRule::class);
+        $before = $this->rows(RecurringOperation::class);
 
-        $tool = self::getContainer()->get(ManageCategorizationRulesTool::class);
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
         $result = $tool('create', labelPattern: 'BOULANGERIE', categoryId: $this->id('other_secret'));
 
         $this->assertRefused($result);
-        self::assertSame($before, $this->rows(CategorizationRule::class));
+        self::assertSame($before, $this->rows(RecurringOperation::class));
     }
 
     public function testUpdateRuleWithAnotherUsersCategoryIsRefused(): void
     {
-        $tool = self::getContainer()->get(ManageCategorizationRulesTool::class);
-        $result = $tool('update', categorizationRuleId: $this->id('rule_carrefour'), categoryId: $this->id('other_secret'));
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
+        $result = $tool('update', operationId: $this->id('rule_carrefour'), categoryId: $this->id('other_secret'));
 
         $this->assertRefused($result);
-        self::assertSame('Alimentation', $this->reload(CategorizationRule::class, 'rule_carrefour')->getCategory()->getName());
+        self::assertSame('Alimentation', $this->reload(RecurringOperation::class, 'rule_carrefour')->getCategory()->getName());
     }
 
     public function testLearnRuleFromAnotherUsersTransactionIsRefused(): void
     {
-        $before = $this->rows(CategorizationRule::class);
+        $before = $this->rows(RecurringOperation::class);
 
-        $tool = self::getContainer()->get(ManageCategorizationRulesTool::class);
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
         $result = $tool('learn', transactionId: $this->id('other_purchase'), categoryId: $this->id('food'));
 
         $this->assertRefused($result);
-        self::assertSame($before, $this->rows(CategorizationRule::class));
+        self::assertSame($before, $this->rows(RecurringOperation::class));
         self::assertSame('Cadeaux secrets', $this->reload(Transaction::class, 'other_purchase')->getCategory()->getName());
     }
 
     public function testLearnRuleWithAnotherUsersCategoryIsRefused(): void
     {
-        $before = $this->rows(CategorizationRule::class);
+        $before = $this->rows(RecurringOperation::class);
 
-        $tool = self::getContainer()->get(ManageCategorizationRulesTool::class);
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
         $result = $tool('learn', transactionId: $this->id('groceries'), categoryId: $this->id('other_secret'));
 
         $this->assertRefused($result);
-        self::assertSame($before, $this->rows(CategorizationRule::class));
+        self::assertSame($before, $this->rows(RecurringOperation::class));
     }
 
     public function testCreateCategoryWithAnotherUsersParentIsRefused(): void
