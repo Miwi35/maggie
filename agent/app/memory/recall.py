@@ -561,6 +561,17 @@ async def recall(
     return await asyncio.to_thread(rank, cards, text, today, exclude=exclude, limit=limit, threshold=threshold)
 
 
+async def _recall_outside_thread(user_id: str, text: str, today: date, context_id: str | None) -> list[Recalled]:
+    """The recall, leaving out the current thread's own file: it would come back for everything said in it."""
+    exclude: set[str] = set()
+    if context_id:
+        # Reads the folder when the thread's file is not known yet: off the event loop, inside the delay.
+        own = await asyncio.to_thread(conversations.find_file, memory_service, user_id, context_id)
+        if own:
+            exclude.add(own)
+    return await recall(user_id, text, today, exclude=frozenset(exclude))
+
+
 async def recall_for_turn(
     user_id: str,
     text: str,
@@ -569,23 +580,15 @@ async def recall_for_turn(
     source: str,
     context_id: str | None = None,
 ) -> list[Recalled]:
-    """The recall of a turn, bounded: past the delay, or on any failure, nothing — the turn goes on without it.
-
-    The current thread's own file is left out: it would come back for everything said in it.
-    """
+    """The recall of a turn, bounded: past the delay, or on any failure, nothing — the turn goes on without it."""
     started = time.monotonic()
     outcome = "empty"
     found: list[Recalled] = []
     try:
         if not memory_service.enabled or not text.strip():
             return []
-        exclude: set[str] = set()
-        if context_id:
-            own = conversations.find_file(memory_service, user_id, context_id)
-            if own:
-                exclude.add(own)
         found = await asyncio.wait_for(
-            recall(user_id, text, today, exclude=frozenset(exclude)), settings.memory_recall_timeout_seconds
+            _recall_outside_thread(user_id, text, today, context_id), settings.memory_recall_timeout_seconds
         )
         outcome = "recalled" if found else "empty"
     except TimeoutError:

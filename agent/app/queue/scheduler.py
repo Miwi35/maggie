@@ -161,8 +161,8 @@ async def generate_proactions(
     if dry_run:
         options["dry_run"] = True
     # Level 2 of the recall on the coming day: what the events call back, not the planning prompt.
-    if about := await planning_agenda(user_id, today):
-        options["about"] = about
+    # An empty day recalls nothing: the planning prompt's own words (« agenda », « proaction ») must not.
+    options["about"] = await planning_agenda(user_id, today)
     return await gateway.proaction(prompt, user_id, **options)
 
 

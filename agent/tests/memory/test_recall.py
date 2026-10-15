@@ -195,6 +195,18 @@ class TestLevelTwoDelay:
         assert asyncio.get_running_loop().time() - started < 1
         assert self.outcome("chat", "timeout") == before + 1
 
+    async def test_looking_for_the_thread_s_own_file_is_inside_the_delay(self, env, memory, monkeypatch):
+        import time
+
+        monkeypatch.setattr(settings, "memory_recall_timeout_seconds", 0.05)
+        before = self.outcome("chat", "timeout")
+
+        with patch("app.memory.recall.conversations.find_file", side_effect=lambda *a: time.sleep(0.5)):
+            found = await recall_for_turn(USER_A, "un bouquet", TODAY, source="chat", context_id="ctx-1")
+
+        assert found == []
+        assert self.outcome("chat", "timeout") == before + 1
+
     async def test_a_failure_of_the_recall_never_fails_the_turn(self, env, memory, monkeypatch):
         monkeypatch.setattr(recall_module, "recall", AsyncMock(side_effect=RuntimeError("boom")))
         before = self.outcome("proaction", "error")
@@ -274,6 +286,20 @@ class TestProfile:
         assert all(f"Famille/Cadeau {n}.md" in blocks.profile for n in range(5))
         assert blocks.recalled.count("\n- ") == 3
         assert "Famille/Cadeau" not in blocks.notice
+
+    async def test_a_slow_recall_still_gives_the_profile(self, env, memory, monkeypatch):
+        await env.service.write(USER_A, "Famille/Roses.md", carte(resume="Roses", evoque=["fête des mères"]))
+
+        async def slow(*args, **kwargs):
+            await asyncio.sleep(5)
+
+        monkeypatch.setattr(recall_module, "recall", slow)
+        monkeypatch.setattr(settings, "memory_recall_timeout_seconds", 0.05)
+
+        blocks = await memory.blocks(USER_A, "Un bouquet pour la fête des mères", today=TODAY)
+
+        assert "Famille/Roses.md" in blocks.profile
+        assert blocks.recalled == ""
 
     async def test_opening_a_fiche_does_not_rewrite_the_profile_text_of_a_small_folder(self, env, memory):
         await env.service.write(USER_A, "Famille/Roses.md", carte(resume="Roses"))

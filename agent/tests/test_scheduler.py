@@ -195,7 +195,7 @@ class TestWhoIsPlanned:
 
         gateway.proaction.assert_awaited_once()
         assert gateway.proaction.await_args.args[1] == "user-42"
-        assert gateway.proaction.await_args.kwargs == {"silent": True}
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "about": ""}
 
     async def test_one_failing_user_does_not_stop_the_others(self, agent_db, monkeypatch):
         await instruction_repo.store("user-a", "Rule 1")
@@ -617,7 +617,7 @@ class TestDailyPlanningPrompt:
 
         prompt = gateway.proaction.await_args.args[0]
         assert "2026-10-14" in prompt
-        assert gateway.proaction.await_args.kwargs == {"silent": True, "dry_run": True}
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "dry_run": True, "about": ""}
 
 
 class TestPlanningRecall:
