@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Core\Elasticsearch\Hydrator;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ManyToMany;
+use Doctrine\ORM\Mapping\OneToMany;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\SearchDocumentValue;
 use Symfony\Component\Uid\Ulid;
@@ -31,12 +33,21 @@ final class ElasticsearchEntityHydrator
             $this->setProperty($ref, $entity, 'id', Ulid::fromString($source['id']));
         }
 
+        // The to-many sides are not in the document (or only as a summary of
+        // the lines): they are read from the database when something looks.
+        $collections = $this->getCollectionProperties($ref);
+        if (isset($source['id'])) {
+            foreach ($collections as $propName) {
+                $this->setProperty($ref, $entity, $propName, new LazyAssociationCollection($this->em, $entityClass, Ulid::fromString($source['id']), $propName));
+            }
+        }
+
         // Collect relation metadata
         $relations = $this->getRelationMap($ref);
 
         // Set all other fields from source
         foreach ($source as $key => $value) {
-            if ('id' === $key) {
+            if ('id' === $key || \in_array($key, $collections, true)) {
                 continue;
             }
 
@@ -62,6 +73,28 @@ final class ElasticsearchEntityHydrator
         }
 
         return $entity;
+    }
+
+    /**
+     * @param \ReflectionClass<object> $ref
+     *
+     * @return list<string>
+     */
+    private function getCollectionProperties(\ReflectionClass $ref): array
+    {
+        $names = [];
+        $current = $ref;
+
+        do {
+            foreach ($current->getProperties() as $prop) {
+                if ([] !== $prop->getAttributes(OneToMany::class) || [] !== $prop->getAttributes(ManyToMany::class)) {
+                    $names[] = $prop->getName();
+                }
+            }
+            $current = $current->getParentClass();
+        } while (false !== $current);
+
+        return $names;
     }
 
     /**

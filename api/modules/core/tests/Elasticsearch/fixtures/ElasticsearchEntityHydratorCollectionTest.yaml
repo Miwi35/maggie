@@ -1,0 +1,73 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: hydrator-collections@example.com
+    googleId: google-hydrator-collections
+    name: Hydrator Collections
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    user: '@test_user'
+  salad:
+    name: Salade verte
+    servings: 2
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  pasta_tomato:
+    recipe: '@pasta'
+    ingredient: '@tomato'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  pasta_tomato_again:
+    recipe: '@pasta'
+    ingredient: '@tomato'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_tomato:
+    groceryList: '@grocery_list'
+    product: '@tomato'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  item_milk:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+
+Maggie\Calendar\Entity\Agenda:
+  agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  event_one:
+    summary: Dentiste
+    startAt: '<(new \DateTimeImmutable("2026-10-20 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-20 11:00"))>'
+    agenda: '@agenda'
+  event_two:
+    summary: Réunion
+    startAt: '<(new \DateTimeImmutable("2026-10-21 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-21 11:00"))>'
+    agenda: '@agenda'
