@@ -1,0 +1,36 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-utensil-test@example.com
+    googleId: google-cookbook-utensil-test
+    name: Cookbook Utensil Test User
+  other_user:
+    email: cookbook-utensil-other@example.com
+    googleId: google-cookbook-utensil-other
+    name: Cookbook Utensil Other User
+
+Maggie\Cookbook\Entity\Utensil:
+  thermomix:
+    name: Thermomix
+    user: '@test_user'
+  pan:
+    name: Poêle
+    user: '@test_user'
+  other_oven:
+    name: Four
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  crepes:
+    name: Crêpes
+    servings: 4
+    user: '@test_user'
+    utensils: ['@pan', '@thermomix']
+  soup:
+    name: Soupe
+    servings: 2
+    user: '@test_user'
+  other_recipe:
+    name: Tarte de l'autre
+    servings: 4
+    user: '@other_user'
+    utensils: ['@other_oven']

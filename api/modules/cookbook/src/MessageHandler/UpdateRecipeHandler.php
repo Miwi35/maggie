@@ -13,6 +13,7 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\Service\MealTitle;
+use Maggie\Cookbook\Service\RecipeUtensils;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Enum\Unit;
@@ -27,6 +28,7 @@ class UpdateRecipeHandler
         private readonly MealRepository $mealRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly RecipeUtensils $recipeUtensils,
     ) {
     }
 
@@ -62,6 +64,10 @@ class UpdateRecipeHandler
                 $ri->setUnit(Unit::from($item['unit']));
                 $recipe->addIngredient($ri);
             }
+        }
+
+        if (null !== $command->utensils) {
+            $recipe->replaceUtensils($this->recipeUtensils->resolve($command->utensils, $recipe->getUser()));
         }
 
         $recipe->setUpdatedAt(new \DateTimeImmutable());

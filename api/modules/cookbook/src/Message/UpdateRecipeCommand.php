@@ -13,6 +13,7 @@ final readonly class UpdateRecipeCommand
     /**
      * @param string[]|null                                                                                    $tags
      * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null $ingredients
+     * @param list<array{id: string}|array{name: string}>|null                                                 $utensils    by id or by name, the whole list
      * @param list<'notes'>                                                                                    $clearFields
      */
     public function __construct(
@@ -22,6 +23,7 @@ final readonly class UpdateRecipeCommand
         public ?array $tags = null,
         public ?string $notes = null,
         public ?array $ingredients = null,
+        public ?array $utensils = null,
         public array $clearFields = [],
     ) {
     }

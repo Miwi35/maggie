@@ -85,6 +85,19 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
     #[ORM\OneToMany(targetEntity: RecipeIngredient::class, mappedBy: 'recipe', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $ingredients;
 
+    /**
+     * What the recipe is made with, from its owner's catalogue (MAG-489). Read
+     * as the embedded utensils (`@id`, `id`, `name`…); written by the
+     * processors from the raw body — by id or by name — never by the
+     * deserializer, which would read a name as an IRI.
+     *
+     * @var Collection<int, Utensil>
+     */
+    #[ORM\ManyToMany(targetEntity: Utensil::class)]
+    #[ORM\JoinTable(name: 'recipe_utensil')]
+    #[ApiProperty(writable: false, readableLink: true)]
+    private Collection $utensils;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -95,6 +108,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
     {
         $this->id = new Ulid();
         $this->ingredients = new ArrayCollection();
+        $this->utensils = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
@@ -196,6 +210,60 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this;
     }
 
+    /**
+     * By name, so the sheet lists them the same way whichever store served it.
+     *
+     * @return list<Utensil>
+     */
+    public function getUtensils(): array
+    {
+        $utensils = $this->utensils->getValues();
+        usort($utensils, static fn (Utensil $a, Utensil $b) => strcasecmp($a->getName(), $b->getName()));
+
+        return $utensils;
+    }
+
+    /**
+     * Replaces the whole list: the ones left out are unlinked, the utensils
+     * themselves stay in the catalogue.
+     *
+     * @param iterable<Utensil> $utensils
+     */
+    public function replaceUtensils(iterable $utensils): static
+    {
+        $wanted = [];
+        foreach ($utensils as $utensil) {
+            $wanted[(string) $utensil->getId()] = $utensil;
+        }
+
+        foreach ($this->utensils->toArray() as $current) {
+            if (!isset($wanted[(string) $current->getId()])) {
+                $this->utensils->removeElement($current);
+            }
+        }
+        foreach ($wanted as $utensil) {
+            $this->addUtensil($utensil);
+        }
+
+        return $this;
+    }
+
+    public function addUtensil(Utensil $utensil): static
+    {
+        if (!$this->utensils->contains($utensil)) {
+            $this->utensils->add($utensil);
+        }
+
+        return $this;
+    }
+
+    public function removeUtensil(Utensil $utensil): static
+    {
+        $this->utensils->removeElement($utensil);
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -246,6 +314,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'tags' => $this->tags,
             'notes' => $this->notes,
             'ingredients' => $this->ingredientsPayload(),
+            'utensils' => array_map(static fn (Utensil $utensil) => $utensil->toRecipePayload(), $this->getUtensils()),
         ], $changedProperties);
     }
 

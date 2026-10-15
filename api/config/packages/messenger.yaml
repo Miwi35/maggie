@@ -73,6 +73,9 @@ framework:
             'Maggie\Cookbook\Message\RescaleMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\CreateMealSettingsCommand': sync
             'Maggie\Cookbook\Message\UpdateMealSettingsCommand': sync
+            'Maggie\Cookbook\Message\CreateUtensilCommand': sync
+            'Maggie\Cookbook\Message\RenameUtensilCommand': sync
+            'Maggie\Cookbook\Message\DeleteUtensilCommand': sync
             'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
             'Maggie\Grocery\Message\AddRecurringGroceryItemCommand': sync

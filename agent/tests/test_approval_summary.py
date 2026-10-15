@@ -118,6 +118,14 @@ class TestManageToolsWithTheDeleteAction:
         assert summary == "Supprimer l'agenda « Famille »"
         mcp.call_tool.assert_awaited_once_with("manage_agendas", {"action": "list"}, user_id="user-1")
 
+    async def test_a_utensil_is_found_in_the_list_action(self, mcp):
+        mcp.call_tool.return_value = reply({"utensils": [{"id": ULID, "name": "Poêle"}]})
+
+        summary = await build_summary("manage_utensils", {"action": "delete", "utensilId": ULID}, "user-1")
+
+        assert summary == "Supprimer l'ustensile « Poêle »"
+        mcp.call_tool.assert_awaited_once_with("manage_utensils", {"action": "list"}, user_id="user-1")
+
     async def test_the_list_action_is_never_the_one_that_deletes(self, mcp):
         await build_summary("manage_stores", {"action": "delete", "storeId": ULID}, "user-1")
 

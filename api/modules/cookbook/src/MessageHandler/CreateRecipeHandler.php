@@ -10,6 +10,7 @@ use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
+use Maggie\Cookbook\Service\RecipeUtensils;
 use Maggie\Cookbook\UseCase\CreateRecipe;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
@@ -24,6 +25,7 @@ class CreateRecipeHandler
         private readonly UserRepository $userRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly RecipeUtensils $recipeUtensils,
     ) {
     }
 
@@ -52,6 +54,10 @@ class CreateRecipeHandler
                 $ri->setUnit(Unit::from($item['unit']));
                 $recipe->addIngredient($ri);
             }
+        }
+
+        if (null !== $command->utensils) {
+            $recipe->replaceUtensils($this->recipeUtensils->resolve($command->utensils, $user));
         }
 
         return $this->createRecipe->execute($recipe);

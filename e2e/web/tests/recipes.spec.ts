@@ -491,6 +491,41 @@ test.describe('Recipes and meals', () => {
     )
   })
 
+  test('a recipe created with two utensils lists them when read back, and the catalogue holds them — MAG-489', async ({ api }) => {
+    // Given a recipe written with two utensils by name, neither in the catalogue yet
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const utensils = [`Casserole MAG-489 ${stamp}`, `Poêle MAG-489 ${stamp}`]
+    const created = await api.post('/api/recipes', { headers, data: { name: `Omelette MAG-489 ${stamp}`, utensils } })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    const { '@id': iri, name } = (await created.json()) as { '@id': string; name: string }
+
+    interface Utensil {
+      id: string
+      name: string
+    }
+    const namesOf = (list: Utensil[] | undefined) => (list ?? []).map((utensil) => utensil.name)
+
+    // When it is read back — the item and the list are served from Elasticsearch,
+    // whose document does not hold the utensils
+    const listed = await waitForIndexed<{ name: string; utensils?: Utensil[] }>(api, '/api/recipes?pagination=false', (r) => r.name === name, {
+      what: 'The recipe with its utensils',
+    })
+    expect(namesOf(listed.utensils)).toEqual(utensils)
+
+    const read = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+    expect(read.ok()).toBeTruthy()
+    const record = (await read.json()) as { utensils: Utensil[] }
+
+    // Then it lists them, and the catalogue holds them, once each
+    expect(namesOf(record.utensils)).toEqual(utensils)
+    for (const utensil of record.utensils) {
+      await waitForIndexed<Utensil>(api, '/api/utensils?pagination=false', (u) => u.id === utensil.id, { what: `The utensil ${utensil.name}` })
+    }
+    const catalogue = await getCollection<Utensil>(api, '/api/utensils?pagination=false')
+    expect(catalogue.filter((u) => utensils.includes(u.name)).map((u) => u.name).sort()).toEqual(utensils)
+  })
+
   test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({
     page,
     api,

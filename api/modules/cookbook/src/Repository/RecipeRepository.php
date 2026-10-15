@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Entity\Utensil;
 use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<Recipe> */
@@ -47,5 +48,16 @@ class RecipeRepository extends ServiceEntityRepository
             ->getResult();
 
         return array_values(array_filter($recipes, static fn (Recipe $recipe) => in_array($tag, $recipe->getTags(), true)));
+    }
+
+    /** @return Recipe[] the recipes made with that utensil */
+    public function findByUtensil(Utensil $utensil): array
+    {
+        return $this->createQueryBuilder('r')
+            ->join('r.utensils', 'u')
+            ->where('u = :utensil')
+            ->setParameter('utensil', $utensil->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
     }
 }
