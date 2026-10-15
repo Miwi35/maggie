@@ -177,7 +177,7 @@ describe('RecurringOperationDialog', () => {
     await userEvent.type(screen.getByLabelText(/Libellé/), 'Crédit auto')
     await userEvent.type(screen.getByLabelText('Contrepartie attendue'), 'Banque Auto')
     await userEvent.type(screen.getByLabelText(/Montant de référence/), '250')
-    await pick(/Compte/, 'Courant')
+    await pick(/Compte/, 'Crédit Agricole · EUR · Courant')
     await pick(/Catégorie/, 'Abonnements')
     await userEvent.click(screen.getByRole('switch', { name: 'Obligatoire' }))
     await pick('Type', 'Remboursement')
