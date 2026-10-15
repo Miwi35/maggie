@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TaskBoard } from './TaskBoard'
 import type { ViewTask } from './taskViews'
+import { resetMorningOffer } from './dayPlan'
 import type { DayTask } from './dayPlan'
 
 const mockNotify = vi.fn()
@@ -73,6 +74,8 @@ const PHOTOS = dayTask('01PHOTOS', 'Trier les photos')
 
 /** The day the mocked API holds; the PUT and the PATCH write it as the real one would. */
 let state: { slots: DayTask[]; reserve: DayTask[] }
+let morningTime: string | null = null
+let confirmedAt: string | null = null
 
 const describeDay = () => {
   const slots = state.slots.map((t, i) => ({ position: i + 1, type: 'task', task: t }))
@@ -80,7 +83,7 @@ const describeDay = () => {
   return {
     id: '01DAY',
     date: '2026-10-15',
-    confirmedAt: null,
+    confirmedAt,
     slots,
     now: slots.find((slot) => slot.task.completedAt == null) ?? null,
     reserve: state.reserve,
@@ -104,8 +107,23 @@ const respond = (url: string, init?: RequestInit): Response => {
   const view = /\/tasks\/view\/(\w+)/.exec(url)
   if (view) return viewResponse(view[1])
 
+  if (url.endsWith('/task-settings/me')) return json(morningTime ? { morningTime } : {})
+
+  if (url.endsWith('/day-plans/2026-10-15/proposal')) {
+    const entry = (t: DayTask, reason: string) => ({ reason, minutes: t.estimatedMinutes ?? 15, task: t })
+
+    return json({
+      date: '2026-10-15',
+      slots: [BANK, CANTEEN].map((t, i) => ({ position: i + 1, type: 'task', ...entry(t, 'postponed') })),
+      reserveRanked: [entry(WATER, 'whenever'), entry(BOOK, 'quick')],
+      totalMinutes: 25,
+      freeMinutes: 150,
+    })
+  }
+
   if (/\/day-plans\/2026-10-15$/.test(url)) {
     if (method === 'PUT') {
+      confirmedAt = '2026-10-15T08:40:00+00:00'
       const ids = (JSON.parse(init!.body as string) as { slots: { taskId: string }[] }).slots.map((s) => s.taskId)
       const all = [...state.slots, ...state.reserve]
       state = {
@@ -165,6 +183,9 @@ describe('TaskBoard', () => {
     vi.clearAllMocks()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
+    morningTime = null
+    confirmedAt = null
+    resetMorningOffer()
     vi.stubGlobal('fetch', mockFetch)
     vi.stubGlobal('EventSource', MockEventSource)
     localStorage.setItem('user', JSON.stringify({ id: 'U1' }))
@@ -669,6 +690,69 @@ describe('TaskBoard', () => {
       await waitFor(() => expect(viewCalls().filter((url) => url.includes('/view/someday')).length).toBeGreaterThan(1))
       expect(screen.getByText('Renvoyer le formulaire')).toBeTruthy()
       expect(screen.queryByText('Préparer le déménagement')).toBeNull()
+    })
+  })
+
+  describe('« Ta journée » — the morning (MAG-498)', () => {
+    test('opens at the first visit after the morning time while the day is not confirmed', async () => {
+      morningTime = '08:00'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('region', { name: 'Ta journée' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Maintenant' })).toBeNull()
+    })
+
+    test('does not open before the morning time', async () => {
+      morningTime = '11:00'
+      render(<TaskBoard />)
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('does not open once the day is confirmed', async () => {
+      morningTime = '08:00'
+      confirmedAt = '2026-10-15T08:40:00+00:00'
+      render(<TaskBoard />)
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('opens once: back on the page without confirming does not loop', async () => {
+      const user = setup()
+      morningTime = '08:00'
+      const first = render(<TaskBoard />)
+      await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
+      await screen.findByRole('region', { name: 'Maintenant' })
+      first.unmount()
+
+      render(<TaskBoard />)
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('« C\'est parti » writes the proposal and shows the day', async () => {
+      const user = setup()
+      morningTime = '08:00'
+      render(<TaskBoard />)
+
+      await user.click(await screen.findByRole('button', { name: "C'est parti" }))
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(putBodies()).toEqual([['01BANK', '01CANTEEN']])
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('« Changer » opens it on demand, even when the day is confirmed', async () => {
+      const user = setup()
+      confirmedAt = '2026-10-15T08:40:00+00:00'
+      render(<TaskBoard />)
+
+      await user.click(await screen.findByRole('button', { name: 'Changer' }))
+
+      expect(await screen.findByRole('region', { name: 'Ta journée' })).toBeInTheDocument()
     })
   })
 })

@@ -54,6 +54,8 @@ interface TaskDayProps {
   onReload: () => void
   /** Opens the edit form of a task, by id. */
   onEdit: (taskId: string) => void
+  /** Opens the morning's proposal again (MAG-498). */
+  onChange?: () => void
 }
 
 const FREE = 'place:free'
@@ -360,7 +362,7 @@ const ReserveRow = ({ task, today, slots, busy, onEdit, onPlace }: ReserveRowPro
  * first not done — on top, and the reserve folded away below. Every change
  * sends the whole list to the API, which answers the day as it stands.
  */
-export const TaskDay = ({ day, today, onDay, onReload, onEdit }: TaskDayProps) => {
+export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskDayProps) => {
   const notify = useNotify()
   const [busy, setBusy] = useState(false)
   const [reserveOpen, setReserveOpen] = useState(false)
@@ -468,7 +470,14 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit }: TaskDayProps) =
         <Typography variant="subtitle1" component="h2">
           Mes 5
         </Typography>
-        <DayRing done={day.done} total={day.total} />
+        <Stack direction="row" alignItems="center" spacing={1}>
+          {onChange && (
+            <Button size="small" color="inherit" onClick={onChange} disabled={busy}>
+              Changer
+            </Button>
+          )}
+          <DayRing done={day.done} total={day.total} />
+        </Stack>
       </Stack>
 
       <List disablePadding aria-label="Mes 5">

@@ -18,8 +18,9 @@ import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
+import { TaskMorning } from './TaskMorning'
 import { UrgencyBadge } from './UrgencyBadge'
-import { fetchDayPlan } from './dayPlan'
+import { claimMorning, fetchDayPlan, fetchMorningTime, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
@@ -66,6 +67,7 @@ export const TaskBoard = () => {
   const [editing, setEditing] = useState<ViewTask | null>(null)
   const [day, setDay] = useState<DayPlan | null>(null)
   const [dayFailed, setDayFailed] = useState(false)
+  const [preparing, setPreparing] = useState(false)
 
   const today = localDay(new Date())
 
@@ -136,10 +138,35 @@ export const TaskBoard = () => {
     loadDay()
   }, [loadDay])
 
+  // The morning opens once, at the first visit after the morning time while the day is not confirmed (MAG-498).
+  const confirmedAt = day ? day.confirmedAt : undefined
+  useEffect(() => {
+    if (confirmedAt === undefined || confirmedAt !== null) return
+    let current = true
+    fetchMorningTime()
+      .then((morningTime) => {
+        if (current && morningDue(new Date(), morningTime, confirmedAt) && claimMorning()) setPreparing(true)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      current = false
+    }
+  }, [confirmedAt])
+
   const reload = useCallback(() => {
     loadRef.current()
     loadDayRef.current()
   }, [])
+
+  const confirmMorning = useCallback(
+    (result: DayPlan) => {
+      showDay(result)
+      setPreparing(false)
+      reload()
+    },
+    [showDay, reload],
+  )
 
   // The day only carries what it draws: the form wants the whole task.
   const edit = (taskId: string) => {
@@ -226,13 +253,15 @@ export const TaskBoard = () => {
         />
       )}
 
-      {view === 'today' ? (
+      {view === 'today' && preparing ? (
+        <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
+      ) : view === 'today' ? (
         dayFailed ? (
           <Alert severity="error">Tâches indisponibles</Alert>
         ) : !day ? (
           [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
         ) : (
-          <TaskDay day={day} today={today} onDay={showDay} onReload={reload} onEdit={edit} />
+          <TaskDay day={day} today={today} onDay={showDay} onReload={reload} onEdit={edit} onChange={() => setPreparing(true)} />
         )
       ) : failed ? (
         <Alert severity="error">Tâches indisponibles</Alert>
