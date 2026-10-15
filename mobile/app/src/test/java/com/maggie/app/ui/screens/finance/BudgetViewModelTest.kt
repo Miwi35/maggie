@@ -26,6 +26,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -766,6 +767,55 @@ class BudgetViewModelTest {
 
         assertEquals(listOf("t-1", "t-2"), viewModel.uiState.value.detail!!.transactions.map { it.id })
         coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `a Mercure update on envelopes reloads the sums`() = runTest {
+        loadTree()
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.ENVELOPES)) } returns events
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        events.emit(MercureEvent(type = "update", data = "{}"))
+        advanceUntilIdle()
+
+        coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `a slow answer for an earlier period does not overwrite the period now shown`() = runTest {
+        val slowJuly = CompletableDeferred<Result<BudgetStatus>>()
+        val august = BudgetStatus(year = 2026, month = 8, totalBudgetedCents = 1)
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } coAnswers { slowJuly.await() }
+        coEvery { budgetRepository.getBudgetStatus(2026, 8) } returns Result.success(august)
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.shiftPeriod(1)
+        advanceUntilIdle()
+        slowJuly.complete(Result.success(treeStatus))
+        advanceUntilIdle()
+
+        assertEquals(august, viewModel.uiState.value.status)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a slow reading of closed lines does not reopen the detail`() = runTest {
+        loadTree()
+        val slow = CompletableDeferred<Result<List<Transaction>>>()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } coAnswers { slow.await() }
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        viewModel.closeDetail()
+        slow.complete(Result.success(listOf(spend("t-1", "OBSYDIAN"))))
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail)
     }
 
     @Test

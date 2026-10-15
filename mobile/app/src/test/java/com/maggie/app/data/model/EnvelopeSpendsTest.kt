@@ -86,4 +86,14 @@ class EnvelopeSpendsTest {
 
         assertEquals(listOf(true, false), rows.map { it.hasChildren })
     }
+
+    @Test
+    fun `a line read twice is counted once`() {
+        val lines = listOf(
+            tx("same", "2026-07-10T00:00:00+00:00"),
+            tx("same", "2026-07-10T00:00:00+00:00"),
+        )
+
+        assertEquals(listOf("same"), envelopeSpends(lines, 2026, 7).map { it.id })
+    }
 }

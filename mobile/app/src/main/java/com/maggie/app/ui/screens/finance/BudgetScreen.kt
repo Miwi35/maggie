@@ -103,10 +103,8 @@ fun BudgetScreen(
     val visibleBudgets = uiState.visibleBudgets
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     val snackbarHostState = remember { SnackbarHostState() }
-    // The phone consults; the tablet also sets an envelope's seasons (spec, rule 8).
+    // The tree is built (and seasons set) on the tablet and the web; the phone folds, unfolds and reads it (spec, rule 8).
     val editsSeasons = rememberAppLayout().width != WindowWidth.COMPACT
-    // The tree is built on the tablet and the web; the phone folds, unfolds and reads it (spec, rule 8).
-    val editsTree = editsSeasons
 
     LaunchedEffect(uiState.rollOverMessage) {
         uiState.rollOverMessage?.let {
@@ -148,7 +146,7 @@ fun BudgetScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (editsTree) {
+            if (editsSeasons) {
                 FloatingActionButton(onClick = { showCreateDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Nouvelle enveloppe")
                 }
@@ -222,7 +220,7 @@ fun BudgetScreen(
                                 onMoveSplitBoundary = viewModel::moveSplitBoundary,
                                 onSaveSplit = viewModel::saveSplit,
                                 onCancelSplit = viewModel::cancelSplit,
-                                onDelete = if (editsTree) {
+                                onDelete = if (editsSeasons) {
                                     { viewModel.deleteEnvelope(row.line.id) }
                                 } else {
                                     null
@@ -241,10 +239,10 @@ fun BudgetScreen(
                                 expanded = uiState.expanded,
                                 onToggle = viewModel::toggleExpanded,
                                 onOpen = { line -> viewModel.openDetail(line, line.categoryPath.ifEmpty { line.categoryName }) },
-                                onDelete = if (editsTree) viewModel::deleteEnvelope else null,
+                                onDelete = if (editsSeasons) viewModel::deleteEnvelope else null,
                             )
                         }
-                        if (!editsTree) {
+                        if (!editsSeasons) {
                             item(key = "edit-elsewhere") {
                                 Text(
                                     "Les enveloppes se règlent sur la tablette ou le web.",

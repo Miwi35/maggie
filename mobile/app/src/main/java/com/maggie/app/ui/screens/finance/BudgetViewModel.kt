@@ -33,6 +33,8 @@ import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -209,11 +211,16 @@ class BudgetViewModel(
     }
 
     fun closeDetail() {
+        detailJob?.cancel()
         _uiState.value = _uiState.value.copy(detail = null)
     }
 
+    private var detailJob: Job? = null
+    private var refreshJob: Job? = null
+
     private fun loadDetail(detail: EnvelopeDetail) {
-        viewModelScope.launch {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
             transactionRepository.getEnvelopeSpends(detail.categoryIds, detail.year, detail.month)
                 .onSuccess { lines ->
                     updateDetail(detail.envelopeId) { it.copy(transactions = lines, isLoading = false, error = null) }
@@ -239,14 +246,18 @@ class BudgetViewModel(
         }
     }
 
+    // A newer read replaces the one in flight: a slow answer for an earlier period must not overwrite it.
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val state = _uiState.value
             try {
                 val status = budgetRepository.getBudgetStatus(state.year, state.month).getOrThrow()
                 _uiState.value = _uiState.value.copy(status = status, isLoading = false)
                 reconcileEditor()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }

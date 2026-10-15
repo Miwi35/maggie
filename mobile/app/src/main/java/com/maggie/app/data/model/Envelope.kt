@@ -302,6 +302,7 @@ fun envelopeSpends(lines: List<Transaction>, year: Int, month: Int?): List<Trans
     val from = periodStart(year, month)
     val until = if (month == null) from.plusYears(1) else from.plusMonths(1)
     return lines
+        .distinctBy { it.id }
         .filter { it.amountCents < 0 && it.transferKind == "none" && it.oneOffEnvelope == null }
         .filter { line -> bookedDate(line.bookedAt.orEmpty())?.let { it >= from && it < until } == true }
         .sortedByDescending { it.bookedAt }
