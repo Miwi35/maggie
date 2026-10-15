@@ -224,6 +224,11 @@ tags:
 - inputText: "MAG-475"
 - hideKeyboard
 - tapOn: "Revenu MAG-475"
+- scrollUntilVisible:
+    element:
+      id: "recurring_amount"
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: "recurring_amount"
 - inputText: "4750"
