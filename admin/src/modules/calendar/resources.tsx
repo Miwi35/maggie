@@ -2,6 +2,7 @@ import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
 import { CalendarView } from './CalendarView'
+import { TaskBoard } from './TaskBoard'
 
 export const calendarResources = (
   <>
@@ -10,6 +11,6 @@ export const calendarResources = (
     </CustomRoutes>
     <ResourceGuesser name="agendas" />
     <ResourceGuesser name="events" />
-    <ResourceGuesser name="tasks" />
+    <ResourceGuesser name="tasks" list={TaskBoard} />
   </>
 )
