@@ -1377,6 +1377,15 @@ class MaggieApiService(
         }.orRefusal().body()
     }
 
+    /** Attributes the spend to the one-off envelope [envelopeIri], or takes the attribution back with null. */
+    suspend fun updateTransactionOneOffEnvelope(id: String, envelopeIri: String?): Transaction {
+        return client.patch("$baseUrl/api/transactions/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("oneOffEnvelope", envelopeIri?.let(::JsonPrimitive) ?: JsonNull) })
+        }.orRefusal().body()
+    }
+
     /** Writes the transaction's note; null (or blank) erases it. */
     suspend fun updateTransactionNote(id: String, note: String?): Transaction {
         return client.patch("$baseUrl/api/transactions/$id") {

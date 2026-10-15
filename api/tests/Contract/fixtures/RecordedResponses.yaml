@@ -244,7 +244,47 @@ Maggie\Finance\Entity\Category:
     standardKey: salary
     user: '@recorded_user'
 
+# One envelope of each mode (MAG-414): a monthly one in the month's budget, an
+# annual one and a one-off one beside it, with a spend attributed to the latter.
+Maggie\Finance\Entity\Envelope:
+  recorded_monthly_envelope:
+    category: '@recorded_parent_category'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: 2026
+    month: 3
+    user: '@recorded_user'
+
+  recorded_annual_envelope:
+    category: '@recorded_category'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 120000
+    currency: EUR
+    year: 2026
+    month: null
+    user: '@recorded_user'
+
+  recorded_one_off_envelope:
+    name: Recorded event
+    mode: '<(Maggie\Finance\Enum\BudgetMode::OneOff)>'
+    amountCents: 40000
+    currency: EUR
+    year: null
+    month: null
+    user: '@recorded_user'
+
 Maggie\Finance\Entity\Transaction:
+  recorded_one_off_spend:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -8900
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-20"))>'
+    label: Recorded ticket
+    oneOffEnvelope: '@recorded_one_off_envelope'
+    user: '@recorded_user'
+
   recorded_transaction:
     account: '@recorded_account'
     category: '@recorded_category'

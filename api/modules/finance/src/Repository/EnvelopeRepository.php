@@ -53,8 +53,20 @@ class EnvelopeRepository extends ServiceEntityRepository
     }
 
     /**
+     * The user's one-off envelopes, events with no period: all of them, the
+     * newest first.
+     *
+     * @return Envelope[]
+     */
+    public function findOneOffByUser(User $user): array
+    {
+        return $this->findBy(['user' => $user, 'mode' => BudgetMode::OneOff], ['id' => 'DESC']);
+    }
+
+    /**
      * Envelopes covering a period: the monthly ones for that month plus the
      * annual ones for that year. A null month keeps every envelope of the year.
+     * One-off envelopes have no year, so never cover one.
      *
      * @return Envelope[]
      */

@@ -1,0 +1,79 @@
+{
+    "year": 2026,
+    "month": 3,
+    "totalBudgetedCents": 30000,
+    "totalSpentCents": 125599,
+    "totalCommittedCents": 0,
+    "totalPlannedCents": 0,
+    "totalConsumedCents": 125599,
+    "totalRemainingCents": -95599,
+    "totalAvailableCents": -95599,
+    "budgets": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Parent Category",
+            "categoryPath": "Recorded Parent Category",
+            "parentEnvelopeId": null,
+            "categoryObligation": "optional",
+            "mode": "monthly",
+            "currency": "EUR",
+            "year": 2026,
+            "month": 3,
+            "amountCents": 30000,
+            "spentCents": 125599,
+            "committedCents": 0,
+            "plannedCents": 0,
+            "toArbitrateCents": 0,
+            "consumedCents": 125599,
+            "remainingCents": -95599,
+            "availableCents": -95599,
+            "isOverspent": true,
+            "isOvercommitted": true
+        }
+    ],
+    "outsideMonthlyBudget": {
+        "annual": [
+            {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Recorded Category",
+                "categoryPath": "Recorded Parent Category › Recorded Category",
+                "parentEnvelopeId": null,
+                "categoryObligation": "optional",
+                "mode": "annual",
+                "currency": "EUR",
+                "year": 2026,
+                "month": null,
+                "amountCents": 120000,
+                "spentCents": 398297,
+                "committedCents": 0,
+                "plannedCents": 0,
+                "toArbitrateCents": 0,
+                "consumedCents": 398297,
+                "remainingCents": -278297,
+                "availableCents": -278297,
+                "isOverspent": true,
+                "isOvercommitted": true
+            }
+        ],
+        "oneOff": [
+            {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "name": "Recorded event",
+                "mode": "one_off",
+                "currency": "EUR",
+                "amountCents": 40000,
+                "spentCents": 8900,
+                "committedCents": 0,
+                "plannedCents": 0,
+                "toArbitrateCents": 0,
+                "consumedCents": 8900,
+                "remainingCents": 31100,
+                "availableCents": 31100,
+                "isOverspent": false,
+                "isOvercommitted": false
+            }
+        ]
+    }
+}

@@ -17,6 +17,10 @@ const CATEGORIES = [
   { id: '/api/categories/netflix', name: 'Netflix', obligation: 'optional' },
 ]
 const ACCOUNTS = [{ id: '/api/accounts/1', name: 'Compte courant' }]
+const ENVELOPES = [
+  { id: '/api/envelopes/hellfest', mode: 'one_off', name: 'Hellfest 2026', amountCents: 40000 },
+  { id: '/api/envelopes/loisirs', mode: 'monthly', category: '/api/categories/netflix', year: 2026, month: 10 },
+]
 
 const RECORD = {
   id: '/api/transactions/01TX',
@@ -34,10 +38,13 @@ const RECORD = {
 
 const NONE = { transferKind: 'none', transferSource: 'auto', counterpart: null }
 const fetchMock = vi.fn()
+const envelopeFilters: Record<string, unknown>[] = []
 let transferState: unknown = NONE
 
-const getList = ((resource: string) => {
-  const data = resource === 'categories' ? CATEGORIES : resource === 'accounts' ? ACCOUNTS : []
+const getList = ((resource: string, params?: { filter?: Record<string, unknown> }) => {
+  if (resource === 'envelopes') envelopeFilters.push(params?.filter ?? {})
+  const data =
+    resource === 'categories' ? CATEGORIES : resource === 'accounts' ? ACCOUNTS : resource === 'envelopes' ? ENVELOPES : []
 
   return Promise.resolve({ data, total: data.length })
 }) as unknown as DataProvider['getList']
@@ -166,6 +173,60 @@ describe('TransactionSheet', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
+  test('offers the one-off envelopes only, to attribute the spend to', async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    await user.click(await screen.findByLabelText('Attribuer à une enveloppe ponctuelle'))
+
+    expect(await screen.findByRole('option', { name: 'Hellfest 2026' })).toBeInTheDocument()
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByText('Aucune')).toBeInTheDocument()
+    expect(within(listbox).getAllByRole('option')).toHaveLength(2)
+    // Asked of the API: the one-off envelopes would sort after a page of monthly ones.
+    expect(envelopeFilters).toContainEqual({ mode: 'one_off' })
+  })
+
+  test('Enregistrer attributes the spend to the chosen one-off envelope', async () => {
+    const user = userEvent.setup()
+    const update = renderSheet()
+
+    await user.click(await screen.findByLabelText('Attribuer à une enveloppe ponctuelle'))
+    await user.click(await screen.findByRole('option', { name: 'Hellfest 2026' }))
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    const data = update.mock.calls[0][1].data as Record<string, unknown>
+    expect(data.oneOffEnvelope).toBe('/api/envelopes/hellfest')
+    expect(data.category).toBe('/api/categories/netflix')
+  })
+
+  test('choosing « Aucune » takes the attribution back', async () => {
+    const user = userEvent.setup()
+    const update = renderSheet({ ...RECORD, oneOffEnvelope: '/api/envelopes/hellfest' })
+
+    const field = await screen.findByLabelText('Attribuer à une enveloppe ponctuelle')
+    await waitFor(() => expect(field).toHaveTextContent('Hellfest 2026'))
+    await user.click(field)
+    await user.click(within(await screen.findByRole('listbox')).getByText('Aucune'))
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect((update.mock.calls[0][1].data as Record<string, unknown>).oneOffEnvelope).toBeNull()
+  })
+
+  test('a refused attribution shows the API message', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn().mockRejectedValue(new Error('A spend is attributed by hand to a one-off envelope only.'))
+    renderSheet(RECORD, update)
+
+    await user.click(await screen.findByLabelText('Attribuer à une enveloppe ponctuelle'))
+    await user.click(await screen.findByRole('option', { name: 'Hellfest 2026' }))
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save/ }))
+
+    expect((await screen.findAllByText(/one-off envelope only/)).length).toBeGreaterThan(0)
+  })
+
   test('offers to delete the line', async () => {
     renderSheet()
 
@@ -179,6 +240,13 @@ describe('toSheetPayload', () => {
 
     expect(toSheetPayload({ ...base, note: '   ' }).note).toBeNull()
     expect(toSheetPayload({ ...base, note: 'À revoir' }).note).toBe('À revoir')
+  })
+
+  test('« Aucune » sends a null attribution, a chosen envelope its IRI', () => {
+    const base = { label: 'X', amount: 5, nature: 'expense', bookedAt: '2026-10-12', account: '/api/accounts/1' }
+
+    expect(toSheetPayload({ ...base, oneOffEnvelope: '' }).oneOffEnvelope).toBeNull()
+    expect(toSheetPayload({ ...base, oneOffEnvelope: '/api/envelopes/h' }).oneOffEnvelope).toBe('/api/envelopes/h')
   })
 
   test('never carries the series, which the gestures already wrote', () => {

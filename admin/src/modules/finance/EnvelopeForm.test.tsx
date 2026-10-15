@@ -69,11 +69,51 @@ describe('EnvelopeForm', () => {
 
     expect(await screen.findByLabelText(/Mois budgété/i)).toBeInTheDocument()
 
-    await user.click(screen.getByLabelText(/Rythme du budget/i))
+    await user.click(screen.getByLabelText(/Type d'enveloppe/i))
     await user.click(await screen.findByRole('option', { name: 'Annuel' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText(/Mois budgété/i)).not.toBeInTheDocument()
     })
+  })
+
+  test('a one-off envelope asks for a name and no category nor period', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(await screen.findByLabelText(/Type d'enveloppe/i))
+    await user.click(await screen.findByRole('option', { name: 'Ponctuel' }))
+
+    expect(await screen.findByLabelText(/Nom de l'événement/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Catégorie/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Mois budgété/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('Période couverte')).not.toBeInTheDocument()
+  })
+
+  test('restates a one-off envelope once named', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(await screen.findByLabelText(/Type d'enveloppe/i))
+    await user.click(await screen.findByRole('option', { name: 'Ponctuel' }))
+    expect(await screen.findByText(/Donnez un nom et un montant/i)).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/Nom de l'événement/i), 'Hellfest 2026')
+    await user.type(screen.getByLabelText(/Montant de l'enveloppe/i), '400')
+
+    expect(await screen.findByText(/hors budget mensuel/i)).toBeInTheDocument()
+    expect(screen.getByText('Hellfest 2026')).toBeInTheDocument()
+  })
+
+  test('refuses to save a one-off envelope without a name', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(await screen.findByLabelText(/Type d'enveloppe/i))
+    await user.click(await screen.findByRole('option', { name: 'Ponctuel' }))
+    await user.type(await screen.findByLabelText(/Montant de l'enveloppe/i), '400')
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Save|ra\.action\.save/ }))
+
+    expect((await screen.findAllByText(/requis|required/i)).length).toBeGreaterThan(0)
   })
 })

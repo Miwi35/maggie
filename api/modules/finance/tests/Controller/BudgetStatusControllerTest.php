@@ -64,7 +64,7 @@ class BudgetStatusControllerTest extends WebTestCase
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(2026, $data['year']);
         self::assertSame(7, $data['month']);
-        self::assertCount(2, $data['budgets']);
+        self::assertCount(1, $data['budgets']);
 
         $byCategory = array_column($data['budgets'], null, 'categoryName');
 
@@ -74,13 +74,19 @@ class BudgetStatusControllerTest extends WebTestCase
         self::assertSame(35401, $byCategory['Alimentation']['remainingCents']);
         self::assertFalse($byCategory['Alimentation']['isOverspent']);
 
-        // The annual leisure envelope spans the year, so the March debit counts.
-        self::assertSame('annual', $byCategory['Loisirs']['mode']);
-        self::assertSame(1200, $byCategory['Loisirs']['spentCents']);
+        // The annual leisure envelope is kept apart from the month's budget...
+        self::assertArrayNotHasKey('Loisirs', $byCategory);
+        self::assertSame(40000, $data['totalBudgetedCents']);
+        self::assertSame(4599, $data['totalSpentCents']);
+        self::assertSame(35401, $data['totalRemainingCents']);
 
-        self::assertSame(160000, $data['totalBudgetedCents']);
-        self::assertSame(5799, $data['totalSpentCents']);
-        self::assertSame(154201, $data['totalRemainingCents']);
+        // ...and spans the year, so the March debit counts in it.
+        $annual = $data['outsideMonthlyBudget']['annual'];
+        self::assertCount(1, $annual);
+        self::assertSame('annual', $annual[0]['mode']);
+        self::assertSame('Loisirs', $annual[0]['categoryName']);
+        self::assertSame(1200, $annual[0]['spentCents']);
+        self::assertSame(118800, $annual[0]['remainingCents']);
     }
 
     public function testDefaultsToTheCurrentPeriod(): void
@@ -158,5 +164,75 @@ class BudgetStatusControllerTest extends WebTestCase
         self::assertNull($data['budgets'][0]['parentEnvelopeId']);
         self::assertSame(10000, $data['totalBudgetedCents']);
         self::assertSame(4000, $data['totalSpentCents']);
+    }
+
+    public function testASpendAttributedToAOneOffEnvelopeLeavesItsCategorysEnvelope(): void
+    {
+        $this->loadFixtures('one_off_envelope.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        // Hellfest 2026 = 400 €; the 89 € ticket is classed Loisirs, then attributed to Hellfest.
+        $this->client->request('PATCH', '/api/transactions/'.$this->getFixture('ticket')->getId(), [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode(['oneOffEnvelope' => '/api/envelopes/'.$this->getFixture('hellfest')->getId()], JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $data = $this->budgetStatus(2026, 10);
+
+        // Loisirs keeps only the 25 € bar: neither the ticket nor the tent attributed to Hellfest.
+        $leisure = array_column($data['budgets'], null, 'categoryName')['Loisirs'];
+        self::assertSame(2500, $leisure['consumedCents']);
+        self::assertSame(0, $leisure['plannedCents']);
+
+        $hellfest = array_column($data['outsideMonthlyBudget']['oneOff'], null, 'name')['Hellfest 2026'];
+        self::assertSame('one_off', $hellfest['mode']);
+        self::assertSame(40000, $hellfest['amountCents']);
+        self::assertSame(8900, $hellfest['consumedCents']);
+        self::assertSame(3000, $hellfest['plannedCents']);
+        self::assertSame(31100, $hellfest['remainingCents']);
+        self::assertSame(28100, $hellfest['availableCents']);
+        self::assertFalse($hellfest['isOverspent']);
+
+        // The other user's one-off envelope is not listed.
+        self::assertCount(1, $data['outsideMonthlyBudget']['oneOff']);
+
+        // Taking the attribution back puts the ticket back in Loisirs.
+        $this->client->request('PATCH', '/api/transactions/'.$this->getFixture('ticket')->getId(), [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode(['oneOffEnvelope' => null], JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $data = $this->budgetStatus(2026, 10);
+        self::assertSame(11400, array_column($data['budgets'], null, 'categoryName')['Loisirs']['consumedCents']);
+        self::assertSame(0, array_column($data['outsideMonthlyBudget']['oneOff'], null, 'name')['Hellfest 2026']['consumedCents']);
+    }
+
+    public function testAnAnnualEnvelopeStaysOutOfTheMonthsTotals(): void
+    {
+        $this->loadFixtures('one_off_envelope.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->budgetStatus(2026, 10);
+
+        // Loisirs 300 € is the month's whole budget: Voyages 1 200 € is annual.
+        self::assertSame(30000, $data['totalBudgetedCents']);
+        self::assertSame(['Loisirs'], array_column($data['budgets'], 'categoryName'));
+
+        $travel = $data['outsideMonthlyBudget']['annual'][0];
+        self::assertSame('Voyages', $travel['categoryName']);
+        self::assertSame(120000, $travel['amountCents']);
+        self::assertSame(6000, $travel['consumedCents']);
+        self::assertNull($travel['parentEnvelopeId']);
+    }
+
+    /** @return array<string, mixed> */
+    private function budgetStatus(int $year, int $month): array
+    {
+        $this->client->request('GET', sprintf('/api/finance/budget-status?year=%d&month=%d', $year, $month), [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+
+        return json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
     }
 }

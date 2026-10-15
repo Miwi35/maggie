@@ -29,12 +29,13 @@ class CreateEnvelopeProcessor implements ProcessorInterface
 
         $stamped = $this->bus->dispatch(new CreateEnvelopeCommand(
             userId: (string) $user->getId(),
-            categoryId: (string) $data->getCategory()->getId(),
+            categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
             amountCents: $data->getAmountCents(),
             year: $data->getYear(),
             mode: $data->getMode()->value,
             month: $data->getMonth(),
             currency: $data->getCurrency(),
+            name: $data->getName(),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

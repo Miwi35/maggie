@@ -10,7 +10,9 @@
 // polled for, never read once.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €) | remove
+//   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €)
+//           | hellfest (a one-off « Hellfest 2026 » of 400 € and an 89 € ticket in Loisirs, MAG-414)
+//           | remove
 //   TODAY   the seed's anchor day, YYYY-MM-DD: the month the screen opens on
 //
 // Everything is the journey's own, named after the ticket, and gone after `remove`.
@@ -19,6 +21,7 @@
 const base = E2E_BASE_URL
 const email = 'e2e-other@maggie.local'
 const accountName = 'Compte MAG-412'
+const hellfestName = 'Hellfest 2026'
 const year = parseInt(TODAY.substring(0, 4), 10)
 const month = parseInt(TODAY.substring(5, 7), 10)
 
@@ -101,6 +104,10 @@ function removeLeftovers() {
         .map(function (envelope) { return envelope['@id'] })
     })
   })
+  // A one-off envelope has no category to be found by: it goes by its name.
+  collection('/api/envelopes?itemsPerPage=200')
+    .filter(function (envelope) { return envelope.name === hellfestName })
+    .forEach(function (envelope) { envelopeIds.push(envelope['@id']) })
   envelopeIds.forEach(function (iri) {
     http.request(base + iri, { method: 'DELETE', headers: authorized() })
   })
@@ -147,6 +154,13 @@ if (ACTION === 'create') {
   const account = awaitOne('/api/accounts?itemsPerPage=200', accountName)
   const bars = awaitOne('/api/categories?itemsPerPage=200', 'Bars')
   spend(account.id, bars.id, 'BARS MAG-412', 2500)
+} else if (ACTION === 'hellfest') {
+  const account = awaitOne('/api/accounts?itemsPerPage=200', accountName)
+  const loisirs = awaitOne('/api/categories?itemsPerPage=200', 'Loisirs')
+  post('/api/envelopes', { mode: 'one_off', name: hellfestName, amountCents: 40000, currency: 'EUR' })
+  spend(account.id, loisirs.id, 'BILLET HELLFEST MAG-414', 8900)
+  // The sheet offers the one-off envelopes it reads from the list.
+  awaitOne('/api/envelopes?itemsPerPage=200', hellfestName)
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

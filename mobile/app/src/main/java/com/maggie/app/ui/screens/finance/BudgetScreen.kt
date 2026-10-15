@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -51,10 +52,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EnvelopeCreateRequest
-import com.maggie.app.data.model.BudgetLine
+import com.maggie.app.data.model.EnvelopeConsumption
+import com.maggie.app.data.model.NestedBudgetLine
+import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
@@ -65,6 +69,8 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
@@ -143,13 +149,14 @@ fun BudgetScreen(
                 }
             }
 
+            val outside = uiState.status?.outsideMonthlyBudget
             when {
-                uiState.isLoading && budgets.isEmpty() -> {
+                uiState.isLoading && budgets.isEmpty() && outside?.isEmpty != false -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
-                budgets.isEmpty() -> {
+                budgets.isEmpty() && outside?.isEmpty != false -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "Aucune enveloppe pour cette période.\nReconduisez le mois précédent ou créez-en une.",
@@ -163,13 +170,25 @@ fun BudgetScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (budgets.isEmpty()) {
+                            item {
+                                Text(
+                                    "Aucune enveloppe mensuelle pour cette période.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         items(nested, key = { it.line.id }) { row ->
                             BudgetCard(
                                 line = row.line,
-                                categoryLabel = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
+                                label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
+                                caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
                                 depth = row.depth,
                                 onDelete = { viewModel.deleteEnvelope(row.line.id) },
                             )
+                        }
+                        if (outside != null && !outside.isEmpty) {
+                            outsideMonthlyBudget(outside, uiState.nestedAnnualBudgets, onDelete = viewModel::deleteEnvelope)
                         }
                     }
                 }
@@ -246,10 +265,50 @@ private fun PeriodSelector(
     }
 }
 
+/**
+ * « Hors budget mensuel »: the annual envelopes of the year and the one-off ones (Hellfest 2026),
+ * which count in none of the month's totals (MAG-414).
+ */
+private fun LazyListScope.outsideMonthlyBudget(
+    outside: OutsideMonthlyBudget,
+    annual: List<NestedBudgetLine>,
+    onDelete: (String) -> Unit,
+) {
+    item(key = "outside-monthly-budget") {
+        Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
+            Text("Hors budget mensuel", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    items(annual, key = { it.line.id }) { row ->
+        BudgetCard(
+            line = row.line,
+            label = row.label.ifEmpty { row.line.categoryName },
+            caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
+            depth = row.depth,
+            onDelete = { onDelete(row.line.id) },
+        )
+    }
+    items(outside.oneOff, key = { it.id }) { line ->
+        BudgetCard(
+            line = line,
+            label = line.name,
+            caption = "Ponctuelle",
+            depth = 1,
+            onDelete = { onDelete(line.id) },
+        )
+    }
+}
+
 @Composable
 private fun BudgetCard(
-    line: BudgetLine,
-    categoryLabel: String,
+    line: EnvelopeConsumption,
+    label: String,
+    caption: String,
     depth: Int,
     onDelete: () -> Unit,
 ) {
@@ -261,9 +320,9 @@ private fun BudgetCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = categoryLabel, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = label, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = budgetPeriodLabel(line.mode, line.year, line.month),
+                        text = caption,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -310,7 +369,7 @@ private fun BudgetCard(
 
 /** Overspent or overcommitted: the colour never speaks alone, an icon and a word go with it. */
 @Composable
-private fun BudgetState(line: BudgetLine) {
+private fun BudgetState(line: EnvelopeConsumption) {
     val (icon, color) = when {
         line.isOverspent -> Icons.Default.ErrorOutline to MaterialTheme.colorScheme.error
         line.isOvercommitted -> Icons.Default.WarningAmber to MaterialTheme.colorScheme.tertiary
@@ -416,5 +475,6 @@ private fun EnvelopeCreateDialog(
                 Text("Annuler")
             }
         },
+        modifier = Modifier.uiTagRoot(),
     )
 }

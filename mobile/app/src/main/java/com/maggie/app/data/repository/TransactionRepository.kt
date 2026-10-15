@@ -3,11 +3,13 @@ package com.maggie.app.data.repository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.categoryIri
+import com.maggie.app.data.model.envelopeIri
 
 class TransactionRepository(
     private val apiService: MaggieApiService,
@@ -27,6 +29,16 @@ class TransactionRepository(
     /** [categoryId] null takes the category away. */
     suspend fun setCategory(id: String, categoryId: String?): Result<Transaction> = runCatching {
         apiService.updateTransactionCategory(id, categoryId?.let(::categoryIri))
+    }
+
+    /** [envelopeId] null takes the spend back to its category's envelopes. */
+    suspend fun setOneOffEnvelope(id: String, envelopeId: String?): Result<Transaction> = runCatching {
+        apiService.updateTransactionOneOffEnvelope(id, envelopeId?.let(::envelopeIri))
+    }
+
+    /** The events a spend can be attributed to: the one-off envelopes, newest first. */
+    suspend fun getOneOffEnvelopes(): Result<List<Envelope>> = runCatching {
+        apiService.getEnvelopes().filter { it.isOneOff }.sortedByDescending { it.id }
     }
 
     /** A blank [note] erases it. */

@@ -1,27 +1,43 @@
 {
-    "score": "neutral",
+    "score": "red",
     "year": 2026,
     "month": 3,
     "reasons": [
         {
-            "code": "no_budget"
+            "code": "optional_category_exceeded",
+            "categoryName": "Recorded Parent Category",
+            "amountCents": 95599
+        },
+        {
+            "code": "total_budget_exceeded",
+            "amountCents": 95599
+        },
+        {
+            "code": "cushion_incomplete",
+            "amountCents": 1361544
+        },
+        {
+            "code": "above_last_year",
+            "amountCents": 130249
         }
     ],
     "budget": {
-        "totalBudgetedCents": 0,
-        "totalConsumedCents": 0,
+        "totalBudgetedCents": 30000,
+        "totalConsumedCents": 125599,
         "totalPlannedCents": 0,
-        "totalAvailableCents": 0,
-        "overspentCategories": []
+        "totalAvailableCents": -95599,
+        "overspentCategories": [
+            "Recorded Parent Category"
+        ]
     },
     "cushion": {
         "state": "building",
         "blocksGreenScore": true
     },
     "comparison": {
-        "thisMonthCents": 121349,
+        "thisMonthCents": 130249,
         "sameMonthLastYearCents": 0,
-        "differenceCents": 121349,
+        "differenceCents": 130249,
         "isBetter": false
     },
     "referenceSalary": {

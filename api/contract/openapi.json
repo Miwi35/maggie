@@ -1891,6 +1891,33 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "mode",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "mode[]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
                     }
                 ]
             },
@@ -10644,16 +10671,29 @@
                         "format": "ulid"
                     },
                     "category": {
-                        "type": "string",
+                        "description": "The category budgeted; none for a one-off envelope, which spends are attributed to by hand.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "name": {
+                        "maxLength": 120,
+                        "description": "What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "mode": {
                         "default": "monthly",
                         "type": "string",
                         "enum": [
                             "monthly",
-                            "annual"
+                            "annual",
+                            "one_off"
                         ]
                     },
                     "amountCents": {
@@ -10672,12 +10712,16 @@
                     "year": {
                         "minimum": 2000,
                         "maximum": 2100,
-                        "type": "integer"
+                        "description": "Null for a one-off envelope only.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "month": {
                         "minimum": 1,
                         "maximum": 12,
-                        "description": "Month 1-12 for a monthly envelope, null for an annual one.",
+                        "description": "Month 1-12 for a monthly envelope, null for an annual or one-off one.",
                         "type": [
                             "integer",
                             "null"
@@ -10690,19 +10734,24 @@
                     },
                     "periodStart": {
                         "readOnly": true,
-                        "description": "First day of the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day of the period this envelope budgets; null for a one-off envelope, which has none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "periodEnd": {
                         "readOnly": true,
-                        "description": "First day after the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day after the period this envelope budgets; null for a one-off envelope.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     }
                 },
                 "required": [
-                    "category",
                     "mode",
                     "currency"
                 ]
@@ -10716,16 +10765,29 @@
                         "format": "ulid"
                     },
                     "category": {
-                        "type": "string",
+                        "description": "The category budgeted; none for a one-off envelope, which spends are attributed to by hand.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "name": {
+                        "maxLength": 120,
+                        "description": "What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "mode": {
                         "default": "monthly",
                         "type": "string",
                         "enum": [
                             "monthly",
-                            "annual"
+                            "annual",
+                            "one_off"
                         ]
                     },
                     "amountCents": {
@@ -10744,12 +10806,16 @@
                     "year": {
                         "minimum": 2000,
                         "maximum": 2100,
-                        "type": "integer"
+                        "description": "Null for a one-off envelope only.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "month": {
                         "minimum": 1,
                         "maximum": 12,
-                        "description": "Month 1-12 for a monthly envelope, null for an annual one.",
+                        "description": "Month 1-12 for a monthly envelope, null for an annual or one-off one.",
                         "type": [
                             "integer",
                             "null"
@@ -10762,19 +10828,24 @@
                     },
                     "periodStart": {
                         "readOnly": true,
-                        "description": "First day of the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day of the period this envelope budgets; null for a one-off envelope, which has none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "periodEnd": {
                         "readOnly": true,
-                        "description": "First day after the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day after the period this envelope budgets; null for a one-off envelope.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     }
                 },
                 "required": [
-                    "category",
                     "mode",
                     "currency"
                 ]
@@ -10788,16 +10859,29 @@
                         "format": "ulid"
                     },
                     "category": {
-                        "type": "string",
+                        "description": "The category budgeted; none for a one-off envelope, which spends are attributed to by hand.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "name": {
+                        "maxLength": 120,
+                        "description": "What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "mode": {
                         "default": "monthly",
                         "type": "string",
                         "enum": [
                             "monthly",
-                            "annual"
+                            "annual",
+                            "one_off"
                         ]
                     },
                     "amountCents": {
@@ -10816,12 +10900,16 @@
                     "year": {
                         "minimum": 2000,
                         "maximum": 2100,
-                        "type": "integer"
+                        "description": "Null for a one-off envelope only.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "month": {
                         "minimum": 1,
                         "maximum": 12,
-                        "description": "Month 1-12 for a monthly envelope, null for an annual one.",
+                        "description": "Month 1-12 for a monthly envelope, null for an annual or one-off one.",
                         "type": [
                             "integer",
                             "null"
@@ -10834,14 +10922,20 @@
                     },
                     "periodStart": {
                         "readOnly": true,
-                        "description": "First day of the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day of the period this envelope budgets; null for a one-off envelope, which has none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "periodEnd": {
                         "readOnly": true,
-                        "description": "First day after the period this envelope budgets.",
-                        "type": "string",
+                        "description": "First day after the period this envelope budgets; null for a one-off envelope.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     }
                 }
@@ -10860,16 +10954,29 @@
                                 "format": "ulid"
                             },
                             "category": {
-                                "type": "string",
+                                "description": "The category budgeted; none for a one-off envelope, which spends are attributed to by hand.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "name": {
+                                "maxLength": 120,
+                                "description": "What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "mode": {
                                 "default": "monthly",
                                 "type": "string",
                                 "enum": [
                                     "monthly",
-                                    "annual"
+                                    "annual",
+                                    "one_off"
                                 ]
                             },
                             "amountCents": {
@@ -10888,12 +10995,16 @@
                             "year": {
                                 "minimum": 2000,
                                 "maximum": 2100,
-                                "type": "integer"
+                                "description": "Null for a one-off envelope only.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "month": {
                                 "minimum": 1,
                                 "maximum": 12,
-                                "description": "Month 1-12 for a monthly envelope, null for an annual one.",
+                                "description": "Month 1-12 for a monthly envelope, null for an annual or one-off one.",
                                 "type": [
                                     "integer",
                                     "null"
@@ -10906,19 +11017,24 @@
                             },
                             "periodStart": {
                                 "readOnly": true,
-                                "description": "First day of the period this envelope budgets.",
-                                "type": "string",
+                                "description": "First day of the period this envelope budgets; null for a one-off envelope, which has none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             },
                             "periodEnd": {
                                 "readOnly": true,
-                                "description": "First day after the period this envelope budgets.",
-                                "type": "string",
+                                "description": "First day after the period this envelope budgets; null for a one-off envelope.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             }
                         },
                         "required": [
-                            "category",
                             "mode",
                             "currency"
                         ]
@@ -17628,6 +17744,15 @@
                             "manual"
                         ]
                     },
+                    "oneOffEnvelope": {
+                        "description": "The one-off envelope (Hellfest 2026) this spend was attributed to by\nhand. It keeps its category but leaves the monthly and annual envelopes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "note": {
                         "maxLength": 2000,
                         "description": "What the owner wants to remember about this line; blank means none.",
@@ -17834,6 +17959,15 @@
                             "auto",
                             "manual"
                         ]
+                    },
+                    "oneOffEnvelope": {
+                        "description": "The one-off envelope (Hellfest 2026) this spend was attributed to by\nhand. It keeps its category but leaves the monthly and annual envelopes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "note": {
                         "maxLength": 2000,
@@ -18042,6 +18176,15 @@
                             "manual"
                         ]
                     },
+                    "oneOffEnvelope": {
+                        "description": "The one-off envelope (Hellfest 2026) this spend was attributed to by\nhand. It keeps its category but leaves the monthly and annual envelopes.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "note": {
                         "maxLength": 2000,
                         "description": "What the owner wants to remember about this line; blank means none.",
@@ -18241,6 +18384,15 @@
                                     "auto",
                                     "manual"
                                 ]
+                            },
+                            "oneOffEnvelope": {
+                                "description": "The one-off envelope (Hellfest 2026) this spend was attributed to by\nhand. It keeps its category but leaves the monthly and annual envelopes.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
                             },
                             "note": {
                                 "maxLength": 2000,

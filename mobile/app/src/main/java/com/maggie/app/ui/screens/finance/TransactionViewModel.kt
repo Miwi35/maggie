@@ -10,6 +10,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.Transaction
@@ -43,7 +44,14 @@ data class TransactionUiState(
     val seriesNames: Map<String, String> = emptyMap(),
     // The « Créer un filtre » screen, opened from the sheet of the open line.
     val ruleDraft: RuleDraftState? = null,
-)
+    // The events a spend can be attributed to (MAG-414), read when the sheet needs them.
+    val oneOffEnvelopes: List<Envelope> = emptyList(),
+    val isLoadingOneOffEnvelopes: Boolean = false,
+) {
+    /** The name of the event the open line is attributed to, once the envelopes are read. */
+    fun oneOffEnvelopeNameOf(transaction: Transaction): String? =
+        transaction.oneOffEnvelopeId?.let { id -> oneOffEnvelopes.firstOrNull { it.id == id }?.name }
+}
 
 /** A rule being written from a line: its criteria, and the lines it would catch as they change. */
 data class RuleDraftState(
@@ -204,6 +212,45 @@ class TransactionViewModel(
         val transaction = _uiState.value.transactions.firstOrNull { it.id == transactionId } ?: return
         _uiState.value = _uiState.value.copy(detail = TransferDetailState(transaction = transaction, isLoading = true))
         loadDetailInfo(transactionId)
+        // The sheet names the event an attributed line belongs to.
+        if (transaction.oneOffEnvelope != null && _uiState.value.oneOffEnvelopes.isEmpty()) {
+            loadOneOffEnvelopes()
+        }
+    }
+
+    /** Reads the one-off envelopes, for the full-screen choice and the sheet's « Événement » field. */
+    fun loadOneOffEnvelopes() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOneOffEnvelopes = true)
+            transactionRepository.getOneOffEnvelopes()
+                .onSuccess { envelopes ->
+                    _uiState.value = _uiState.value.copy(oneOffEnvelopes = envelopes, isLoadingOneOffEnvelopes = false)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(isLoadingOneOffEnvelopes = false)
+                    _uiState.value.detail?.let { open -> updateDetail(open.transaction.id) { it.copy(error = e.message) } }
+                }
+        }
+    }
+
+    /**
+     * Attributes the open line to the one-off envelope [envelopeId]: it keeps its category but
+     * leaves the monthly and annual envelopes. Null takes the attribution back.
+     */
+    fun setOneOffEnvelope(envelopeId: String?) {
+        val open = _uiState.value.detail ?: return
+        val id = open.transaction.id
+        viewModelScope.launch {
+            updateDetail(id) { it.copy(isSaving = true, error = null) }
+            transactionRepository.setOneOffEnvelope(id, envelopeId)
+                .onSuccess { updated ->
+                    updateDetail(id) {
+                        it.copy(isSaving = false, transaction = it.transaction.copy(oneOffEnvelope = updated.oneOffEnvelope))
+                    }
+                    refresh()
+                }
+                .onFailure { e -> updateDetail(id) { it.copy(isSaving = false, error = e.message) } }
+        }
     }
 
     /** An incident opens the detail of its payment, which names the credit that gave it back. */

@@ -7,6 +7,7 @@ namespace Maggie\Finance\UseCase;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
@@ -22,6 +23,12 @@ use Symfony\Component\Uid\Ulid;
  * category and in those of all its ancestors, whichever of them have one. The
  * totals only add the root envelopes — those with no envelope above them —
  * so a spend is never counted twice.
+ *
+ * Only the monthly envelopes make the month's budget (`budgets` and the
+ * totals). The annual ones (a calendar year) and the one-off ones (an event,
+ * Hellfest 2026) are reported apart, in `outsideMonthlyBudget`. A spend
+ * attributed by hand to a one-off envelope keeps its category but counts in
+ * that envelope only, out of the monthly and annual ones.
  *
  * The status decides the weight — spent and committed are money already out
  * (consumed), planned is set aside (reserved), to-arbitrate counts for nothing
@@ -39,13 +46,15 @@ class GetBudgetStatus
     /** @return array<string, mixed> */
     public function execute(User $user, int $year, int $month): array
     {
-        $budgets = [];
-        $totalBudgeted = 0;
-        $totalSpent = 0;
-        $totalCommitted = 0;
-        $totalPlanned = 0;
-
-        $envelopes = $this->envelopeRepository->findCoveringPeriod($user, $year, $month);
+        $monthly = [];
+        $annual = [];
+        foreach ($this->envelopeRepository->findCoveringPeriod($user, $year, $month) as $envelope) {
+            if (BudgetMode::Monthly === $envelope->getMode()) {
+                $monthly[] = $envelope;
+            } elseif (BudgetMode::Annual === $envelope->getMode()) {
+                $annual[] = $envelope;
+            }
+        }
 
         $childrenByParent = [];
         foreach ($this->categoryRepository->findByUser($user) as $category) {
@@ -54,60 +63,19 @@ class GetBudgetStatus
             }
         }
 
-        $envelopesByCategory = [];
-        foreach ($envelopes as $envelope) {
-            $envelopesByCategory[(string) $envelope->getCategory()->getId()][] = $envelope;
-        }
+        $budgets = $this->categoryLines($user, $monthly, $childrenByParent);
 
-        foreach ($envelopes as $envelope) {
-            $parentEnvelope = $this->nearestEnvelopeAbove($envelope, $envelopesByCategory);
-
-            $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
-                $user,
-                $this->selfAndDescendantIds($envelope->getCategory(), $childrenByParent),
-                $envelope->getPeriodStart(),
-                $envelope->getPeriodEnd(),
-            );
-
-            $spentCents = $byStatus[TransactionStatus::Spent->value];
-            $committedCents = $byStatus[TransactionStatus::Committed->value];
-            $plannedCents = $byStatus[TransactionStatus::Planned->value];
-            $toArbitrateCents = $byStatus[TransactionStatus::ToArbitrate->value];
-
-            $consumedCents = $spentCents + $committedCents;
-            $amountCents = $envelope->getAmountCents();
-
-            if (null === $parentEnvelope) {
-                $totalBudgeted += $amountCents;
-                $totalSpent += $spentCents;
-                $totalCommitted += $committedCents;
-                $totalPlanned += $plannedCents;
+        $totalBudgeted = 0;
+        $totalSpent = 0;
+        $totalCommitted = 0;
+        $totalPlanned = 0;
+        foreach ($budgets as $line) {
+            if (null === $line['parentEnvelopeId']) {
+                $totalBudgeted += $line['amountCents'];
+                $totalSpent += $line['spentCents'];
+                $totalCommitted += $line['committedCents'];
+                $totalPlanned += $line['plannedCents'];
             }
-
-            $budgets[] = [
-                'id' => (string) $envelope->getId(),
-                'categoryId' => (string) $envelope->getCategory()->getId(),
-                'categoryName' => $envelope->getCategory()->getName(),
-                'categoryPath' => $envelope->getCategory()->getPath(),
-                'parentEnvelopeId' => null === $parentEnvelope ? null : (string) $parentEnvelope->getId(),
-                'categoryObligation' => $envelope->getCategory()->getObligation()->value,
-                'mode' => $envelope->getMode()->value,
-                'amountCents' => $amountCents,
-                'currency' => $envelope->getCurrency(),
-                'year' => $envelope->getYear(),
-                'month' => $envelope->getMonth(),
-                'spentCents' => $spentCents,
-                'committedCents' => $committedCents,
-                'plannedCents' => $plannedCents,
-                'toArbitrateCents' => $toArbitrateCents,
-                // Money already gone, and what is left after it.
-                'consumedCents' => $consumedCents,
-                'remainingCents' => $amountCents - $consumedCents,
-                // What is actually free to spend once plans are set aside.
-                'availableCents' => $amountCents - $consumedCents - $plannedCents,
-                'isOverspent' => $consumedCents > $amountCents,
-                'isOvercommitted' => $consumedCents + $plannedCents > $amountCents,
-            ];
         }
 
         $totalConsumed = $totalSpent + $totalCommitted;
@@ -123,30 +91,122 @@ class GetBudgetStatus
             'totalRemainingCents' => $totalBudgeted - $totalConsumed,
             'totalAvailableCents' => $totalBudgeted - $totalConsumed - $totalPlanned,
             'budgets' => $budgets,
+            'outsideMonthlyBudget' => [
+                'annual' => $this->categoryLines($user, $annual, $childrenByParent),
+                'oneOff' => $this->oneOffLines($user),
+            ],
         ];
     }
 
     /**
-     * The envelope of the closest ancestor category that has one, the one of
-     * the same mode when the ancestor has several.
+     * One line per envelope of a category, nested among envelopes of the same
+     * mode only: an annual envelope never holds a monthly one.
      *
-     * @param array<string, list<Envelope>> $envelopesByCategory
+     * @param list<Envelope>            $envelopes
+     * @param array<string, list<Ulid>> $childrenByParent
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function categoryLines(User $user, array $envelopes, array $childrenByParent): array
+    {
+        $envelopesByCategory = [];
+        foreach ($envelopes as $envelope) {
+            $envelopesByCategory[(string) $envelope->requireCategory()->getId()][] = $envelope;
+        }
+
+        $lines = [];
+        foreach ($envelopes as $envelope) {
+            $category = $envelope->requireCategory();
+            $parentEnvelope = $this->nearestEnvelopeAbove($envelope, $envelopesByCategory);
+
+            $byStatus = $this->transactionRepository->sumByStatusForCategoriesBetween(
+                $user,
+                $this->selfAndDescendantIds($category, $childrenByParent),
+                $envelope->getPeriodStart() ?? throw new \LogicException('A one-off envelope has no period.'),
+                $envelope->getPeriodEnd() ?? throw new \LogicException('A one-off envelope has no period.'),
+            );
+
+            $lines[] = [
+                'id' => (string) $envelope->getId(),
+                'categoryId' => (string) $category->getId(),
+                'categoryName' => $category->getName(),
+                'categoryPath' => $category->getPath(),
+                'parentEnvelopeId' => null === $parentEnvelope ? null : (string) $parentEnvelope->getId(),
+                'categoryObligation' => $category->getObligation()->value,
+                'mode' => $envelope->getMode()->value,
+                'currency' => $envelope->getCurrency(),
+                'year' => $envelope->getYear(),
+                'month' => $envelope->getMonth(),
+            ] + $this->consumption($envelope->getAmountCents(), $byStatus);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The one-off envelopes have no period: each weighs every spend ever
+     * attributed to it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function oneOffLines(User $user): array
+    {
+        $sums = $this->transactionRepository->sumByStatusForOneOffEnvelopes($user);
+        $none = array_fill_keys(array_column(TransactionStatus::cases(), 'value'), 0);
+
+        $lines = [];
+        foreach ($this->envelopeRepository->findOneOffByUser($user) as $envelope) {
+            $lines[] = [
+                'id' => (string) $envelope->getId(),
+                'name' => $envelope->getName(),
+                'mode' => $envelope->getMode()->value,
+                'currency' => $envelope->getCurrency(),
+            ] + $this->consumption($envelope->getAmountCents(), $sums[(string) $envelope->getId()] ?? $none);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param array<string, int> $byStatus
+     *
+     * @return array<string, int|bool>
+     */
+    private function consumption(int $amountCents, array $byStatus): array
+    {
+        $spentCents = $byStatus[TransactionStatus::Spent->value];
+        $committedCents = $byStatus[TransactionStatus::Committed->value];
+        $plannedCents = $byStatus[TransactionStatus::Planned->value];
+        $consumedCents = $spentCents + $committedCents;
+
+        return [
+            'amountCents' => $amountCents,
+            'spentCents' => $spentCents,
+            'committedCents' => $committedCents,
+            'plannedCents' => $plannedCents,
+            'toArbitrateCents' => $byStatus[TransactionStatus::ToArbitrate->value],
+            // Money already gone, and what is left after it.
+            'consumedCents' => $consumedCents,
+            'remainingCents' => $amountCents - $consumedCents,
+            // What is actually free to spend once plans are set aside.
+            'availableCents' => $amountCents - $consumedCents - $plannedCents,
+            'isOverspent' => $consumedCents > $amountCents,
+            'isOvercommitted' => $consumedCents + $plannedCents > $amountCents,
+        ];
+    }
+
+    /**
+     * The envelope of the closest ancestor category that has one.
+     *
+     * @param array<string, list<Envelope>> $envelopesByCategory envelopes of a single mode
      */
     private function nearestEnvelopeAbove(Envelope $envelope, array $envelopesByCategory): ?Envelope
     {
-        for ($ancestor = $envelope->getCategory()->getParent(); null !== $ancestor; $ancestor = $ancestor->getParent()) {
+        for ($ancestor = $envelope->requireCategory()->getParent(); null !== $ancestor; $ancestor = $ancestor->getParent()) {
             $candidates = $envelopesByCategory[(string) $ancestor->getId()] ?? [];
-            if ([] === $candidates) {
-                continue;
+            if ([] !== $candidates) {
+                return $candidates[0];
             }
-
-            foreach ($candidates as $candidate) {
-                if ($candidate->getMode() === $envelope->getMode()) {
-                    return $candidate;
-                }
-            }
-
-            return $candidates[0];
         }
 
         return null;

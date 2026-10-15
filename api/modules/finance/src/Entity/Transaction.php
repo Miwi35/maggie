@@ -224,6 +224,15 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[IndexedField(type: 'keyword')]
     private RecurringLinkSource $recurringSource = RecurringLinkSource::Auto;
 
+    /**
+     * The one-off envelope (Hellfest 2026) this spend was attributed to by
+     * hand. It keeps its category but leaves the monthly and annual envelopes.
+     */
+    #[ORM\ManyToOne(targetEntity: Envelope::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: Envelope::class, sourceField: 'oneOffEnvelopeId')]
+    private ?Envelope $oneOffEnvelope = null;
+
     /** What the owner wants to remember about this line; blank means none. */
     #[ORM\Column(type: 'text', nullable: true)]
     #[Assert\Length(max: self::NOTE_MAX_LENGTH)]
@@ -640,6 +649,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getOneOffEnvelope(): ?Envelope
+    {
+        return $this->oneOffEnvelope;
+    }
+
+    public function setOneOffEnvelope(?Envelope $oneOffEnvelope): static
+    {
+        $this->oneOffEnvelope = $oneOffEnvelope;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -677,6 +698,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
             'note' => $this->note,
+            'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -705,12 +727,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
             'note' => $this->note,
+            'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
         ], $changedProperties, [
             'account' => 'accountId',
             'category' => 'categoryId',
             'counterpart' => 'counterpartId',
             'repays' => 'repaysId',
             'recurringOperation' => 'recurringOperationId',
+            'oneOffEnvelope' => 'oneOffEnvelopeId',
         ]);
     }
 }

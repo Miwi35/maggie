@@ -105,6 +105,7 @@ fun TransactionListScreen(
     }
     var searchingCounterpart by remember { mutableStateOf(false) }
     var searchingCategory by remember { mutableStateOf(false) }
+    var choosingOneOffEnvelope by remember { mutableStateOf(false) }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
@@ -129,6 +130,19 @@ fun TransactionListScreen(
                     searchingCounterpart = false
                 },
                 onBack = { searchingCounterpart = false },
+            )
+        } else if (choosingOneOffEnvelope) {
+            OneOffEnvelopeSearchScreen(
+                envelopes = uiState.oneOffEnvelopes,
+                selectedId = detail.transaction.oneOffEnvelopeId,
+                isLoading = uiState.isLoadingOneOffEnvelopes,
+                error = detail.error,
+                onLoad = viewModel::loadOneOffEnvelopes,
+                onPick = { envelope ->
+                    viewModel.setOneOffEnvelope(envelope?.id)
+                    choosingOneOffEnvelope = false
+                },
+                onBack = { choosingOneOffEnvelope = false },
             )
         } else if (searchingCategory) {
             val nature = transactionNature(detail.transaction.amountCents)
@@ -162,9 +176,11 @@ fun TransactionListScreen(
                     onMakeRecurring = onMakeRecurring?.let { open -> { open(detail.transaction) } },
                     onDetach = viewModel::detachFromSeries,
                     onSaveNote = viewModel::setNote,
+                    onPickOneOffEnvelope = { choosingOneOffEnvelope = true },
                 ),
                 categoryPath = tree.pathOf(detail.transaction.categoryId),
                 seriesName = seriesNameOf(detail.transaction, uiState.seriesNames),
+                oneOffEnvelopeName = uiState.oneOffEnvelopeNameOf(detail.transaction),
             )
         }
         return

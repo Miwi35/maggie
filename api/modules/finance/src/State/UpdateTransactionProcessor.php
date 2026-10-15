@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Exception\IncompatibleCategoryException;
+use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -54,6 +55,25 @@ class UpdateTransactionProcessor implements ProcessorInterface
         if ($recurringChanged && null === $series) {
             $clearFields[] = 'recurringOperation';
         }
+        $oneOff = $data->getOneOffEnvelope();
+        $oneOffChanged = (string) $oneOff?->getId() !== (string) $previous?->getOneOffEnvelope()?->getId();
+        if ($oneOffChanged && null === $oneOff) {
+            $clearFields[] = 'oneOffEnvelope';
+        }
+        $accountId = (string) $data->getAccount()->getId();
+
+        // API Platform reads every IRI of the PATCH through the item provider —
+        // Elasticsearch, whose copies Doctrine does not manage and would take
+        // for new entities on flush. The changes are known by now and go to the
+        // handler as ids, which it resolves itself: the line keeps the stored
+        // relations until then.
+        if (null !== $previous) {
+            $data->setAccount($previous->getAccount());
+            $data->setCategory($previous->getCategory());
+            $data->setRecurringOperation($previous->getRecurringOperation());
+            $data->setOneOffEnvelope($previous->getOneOffEnvelope());
+        }
+
         // The merged line carries the note whether or not the PATCH named it: null is an explicit clear.
         if (null === $data->getNote()) {
             $clearFields[] = 'note';
@@ -62,7 +82,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
         $envelope = $this->dispatch(new UpdateTransactionCommand(
             userId: (string) $data->getUser()->getId(),
             transactionId: (string) $data->getId(),
-            accountId: (string) $data->getAccount()->getId(),
+            accountId: $accountId,
             amountCents: $data->getAmountCents(),
             label: $data->getLabel(),
             bookedAt: $data->getBookedAt()->format(\DateTimeInterface::ATOM),
@@ -75,6 +95,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             // Left as it was, the occurrence is the one nearest the booking day.
             recurringOccurrenceOn: $occurrenceMoved && null !== $series ? $occurrenceOn : null,
             note: $data->getNote(),
+            oneOffEnvelopeId: $oneOffChanged && null !== $oneOff ? (string) $oneOff->getId() : null,
             // A null category after the merge-patch is an explicit clear
             clearFields: $clearFields,
         ));
@@ -88,7 +109,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             return $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
-            if ($cause instanceof IncompatibleCategoryException) {
+            if ($cause instanceof IncompatibleCategoryException || $cause instanceof OneOffAttributionException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
             }
             if ($cause instanceof RecurringAttachmentException) {

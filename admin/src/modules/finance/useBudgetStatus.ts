@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export interface BudgetLine {
-  id: string
-  categoryId: string
-  categoryName: string
-  /** « Loisirs › Bars › Obsydian » */
-  categoryPath: string
-  /** The envelope of the closest ancestor category that has one, null for a root. */
-  parentEnvelopeId: string | null
-  mode: string
+/** What weighs on an envelope, whatever its mode. */
+export interface EnvelopeConsumption {
   amountCents: number
   currency: string
-  year: number
-  month: number | null
   spentCents: number
   committedCents: number
   plannedCents: number
@@ -22,6 +13,26 @@ export interface BudgetLine {
   availableCents: number
   isOverspent: boolean
   isOvercommitted: boolean
+}
+
+export interface BudgetLine extends EnvelopeConsumption {
+  id: string
+  categoryId: string
+  categoryName: string
+  /** « Loisirs › Bars › Obsydian » */
+  categoryPath: string
+  /** The envelope of the closest ancestor category that has one, null for a root. */
+  parentEnvelopeId: string | null
+  mode: string
+  year: number
+  month: number | null
+}
+
+/** A one-off envelope (Hellfest 2026): every spend ever attributed to it, no period. */
+export interface OneOffBudgetLine extends EnvelopeConsumption {
+  id: string
+  name: string
+  mode: 'one_off'
 }
 
 export interface BudgetStatus {
@@ -34,7 +45,13 @@ export interface BudgetStatus {
   totalConsumedCents: number
   totalRemainingCents: number
   totalAvailableCents: number
+  /** The monthly envelopes: the month's budget, which the totals add up. */
   budgets: BudgetLine[]
+  /** Apart from the month's budget: the annual envelopes of the year, and the one-off ones. */
+  outsideMonthlyBudget?: {
+    annual: BudgetLine[]
+    oneOff: OneOffBudgetLine[]
+  }
 }
 
 function apiFetch(path: string) {

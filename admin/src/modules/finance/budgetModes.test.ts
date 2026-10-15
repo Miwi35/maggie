@@ -5,7 +5,7 @@ import {
   MONTH_CHOICES,
   formatPeriod,
   consumedPercent,
-  clearMonthOnAnnual,
+  toEnvelopePayload,
 } from './budgetModes'
 
 describe('budgetModes', () => {
@@ -15,8 +15,8 @@ describe('budgetModes', () => {
     }
   })
 
-  test('covers the two API budget modes', () => {
-    expect(BUDGET_MODE_CHOICES.map((c) => c.id)).toEqual(['monthly', 'annual'])
+  test('covers the three API budget modes', () => {
+    expect(BUDGET_MODE_CHOICES.map((c) => c.id)).toEqual(['monthly', 'annual', 'one_off'])
   })
 
   test('offers the twelve months', () => {
@@ -33,6 +33,10 @@ describe('formatPeriod', () => {
 
   test('names the year of an annual envelope', () => {
     expect(formatPeriod('annual', 2026, null)).toBe('Année 2026')
+  })
+
+  test('calls a one-off envelope by what it is, having no period', () => {
+    expect(formatPeriod('one_off', null, null)).toBe('Ponctuelle')
   })
 
   test('falls back to the year when a monthly envelope has no month', () => {
@@ -55,9 +59,9 @@ describe('consumedPercent', () => {
   })
 })
 
-describe('clearMonthOnAnnual', () => {
+describe('toEnvelopePayload', () => {
   test('drops the month of an annual envelope', () => {
-    expect(clearMonthOnAnnual({ mode: 'annual', month: 7, amountCents: 100 })).toEqual({
+    expect(toEnvelopePayload({ mode: 'annual', month: 7, amountCents: 100 })).toEqual({
       mode: 'annual',
       month: null,
       amountCents: 100,
@@ -66,6 +70,16 @@ describe('clearMonthOnAnnual', () => {
 
   test('leaves a monthly envelope untouched', () => {
     const data = { mode: 'monthly', month: 7 }
-    expect(clearMonthOnAnnual(data)).toEqual(data)
+    expect(toEnvelopePayload(data)).toEqual(data)
+  })
+
+  test('sends a one-off envelope without category nor period', () => {
+    expect(
+      toEnvelopePayload({ mode: 'one_off', name: 'Hellfest 2026', category: '/api/categories/1', year: 2026, month: 10, amountCents: 40000 }),
+    ).toEqual({ mode: 'one_off', name: 'Hellfest 2026', category: null, year: null, month: null, amountCents: 40000 })
+  })
+
+  test('drops a name typed before switching to a monthly envelope', () => {
+    expect(toEnvelopePayload({ mode: 'monthly', name: 'Hellfest', month: 7 })).toEqual({ mode: 'monthly', month: 7 })
   })
 })

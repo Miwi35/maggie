@@ -1,12 +1,12 @@
 {
     "year": 2026,
     "month": 3,
-    "reviewableCents": 125599,
+    "reviewableCents": 134499,
     "keptCents": 0,
     "avoidableCents": 0,
-    "unratedCents": 125599,
+    "unratedCents": 134499,
     "ratedCount": 0,
-    "pendingCount": 3,
+    "pendingCount": 4,
     "optimisationScore": null,
     "isComplete": false,
     "pending": [
@@ -16,6 +16,16 @@
             "amountCents": -120000,
             "currency": "EUR",
             "bookedAt": "2026-03-05",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "retrospect": "unrated"
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded ticket",
+            "amountCents": -8900,
+            "currency": "EUR",
+            "bookedAt": "2026-03-20",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "categoryName": "Recorded Category",
             "retrospect": "unrated"
@@ -42,7 +52,7 @@
         }
     ],
     "comparison": {
-        "thisMonthCents": 121349,
+        "thisMonthCents": 130249,
         "previousMonthCents": 91349,
         "recentAverageCents": 60899,
         "sameMonthLastYearCents": 0
@@ -52,8 +62,8 @@
         "source": "expected"
     },
     "consumedVsReference": {
-        "consumedCents": 121349,
-        "differenceCents": -373651,
-        "percentOfReference": 25
+        "consumedCents": 130249,
+        "differenceCents": -364751,
+        "percentOfReference": 26
     }
 }

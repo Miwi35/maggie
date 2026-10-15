@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -26,11 +28,14 @@ use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\State\CreateEnvelopeProcessor;
 use Maggie\Finance\State\DeleteEnvelopeProcessor;
 use Maggie\Finance\State\UpdateEnvelopeProcessor;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: EnvelopeRepository::class)]
+// The transaction sheet offers the one-off envelopes alone (`?mode=one_off`).
+#[ApiFilter(SearchFilter::class, properties: ['mode' => 'exact'])]
 #[Indexed(index: 'envelopes', module: 'finance')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -43,15 +48,23 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
 {
     use MercurePayloadFilterTrait;
 
+    public const int NAME_MAX_LENGTH = 120;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
 
+    /** The category budgeted; none for a one-off envelope, which spends are attributed to by hand. */
     #[ORM\ManyToOne(targetEntity: Category::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    #[Assert\NotNull]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[IndexedRelation(targetEntity: Category::class, sourceField: 'categoryId')]
-    private Category $category;
+    private ?Category $category = null;
+
+    /** What a one-off envelope is for (« Hellfest 2026 »); the others are named by their category. */
+    #[ORM\Column(length: self::NAME_MAX_LENGTH, nullable: true)]
+    #[Assert\Length(max: self::NAME_MAX_LENGTH)]
+    #[IndexedField(type: 'text', keyword: true)]
+    private ?string $name = null;
 
     #[ORM\Column(length: 20, enumType: BudgetMode::class)]
     #[Assert\NotNull]
@@ -71,12 +84,13 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[IndexedField(type: 'keyword')]
     private string $currency = 'EUR';
 
-    #[ORM\Column(type: 'integer')]
+    /** Null for a one-off envelope only. */
+    #[ORM\Column(type: 'integer', nullable: true)]
     #[Assert\Range(min: 2000, max: 2100)]
     #[IndexedField(type: 'integer')]
-    private int $year;
+    private ?int $year = null;
 
-    /** Month 1-12 for a monthly envelope, null for an annual one. */
+    /** Month 1-12 for a monthly envelope, null for an annual or one-off one. */
     #[ORM\Column(type: 'integer', nullable: true)]
     #[Assert\Range(min: 1, max: 12)]
     #[IndexedField(type: 'integer')]
@@ -96,6 +110,46 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[Assert\Callback]
     public function validatePeriod(ExecutionContextInterface $context): void
     {
+        // A one-off envelope's year is the constructor's default, dropped on
+        // creation: only the fields a client may actually send are checked.
+        if (BudgetMode::OneOff === $this->mode) {
+            if (null === $this->name || '' === trim($this->name)) {
+                $context->buildViolation('A one-off envelope requires a name.')
+                    ->atPath('name')
+                    ->addViolation();
+            }
+            if (null !== $this->category) {
+                $context->buildViolation('A one-off envelope has no category: spends are attributed to it by hand.')
+                    ->atPath('category')
+                    ->addViolation();
+            }
+            if (null !== $this->month) {
+                $context->buildViolation('A one-off envelope has no period.')
+                    ->atPath('month')
+                    ->addViolation();
+            }
+
+            return;
+        }
+
+        if (null !== $this->name) {
+            $context->buildViolation('Only a one-off envelope has a name: the others are named by their category.')
+                ->atPath('name')
+                ->addViolation();
+        }
+
+        if (null === $this->category) {
+            $context->buildViolation('A monthly or annual envelope requires a category.')
+                ->atPath('category')
+                ->addViolation();
+        }
+
+        if (null === $this->year) {
+            $context->buildViolation('A monthly or annual envelope requires a year.')
+                ->atPath('year')
+                ->addViolation();
+        }
+
         if (BudgetMode::Monthly === $this->mode && null === $this->month) {
             $context->buildViolation('A monthly envelope requires a month.')
                 ->atPath('month')
@@ -114,16 +168,40 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this->id;
     }
 
-    public function getCategory(): Category
+    public function getCategory(): ?Category
     {
         return $this->category;
     }
 
-    public function setCategory(Category $category): static
+    /** The category of a monthly or annual envelope, which always has one. */
+    public function requireCategory(): Category
+    {
+        return $this->category ?? throw new \LogicException('A one-off envelope has no category.');
+    }
+
+    public function setCategory(?Category $category): static
     {
         $this->category = $category;
 
         return $this;
+    }
+
+    public function getName(): ?string
+    {
+        return $this->name;
+    }
+
+    public function setName(?string $name): static
+    {
+        $this->name = null === $name || '' === trim($name) ? null : trim($name);
+
+        return $this;
+    }
+
+    #[Ignore]
+    public function isOneOff(): bool
+    {
+        return BudgetMode::OneOff === $this->mode;
     }
 
     public function getMode(): BudgetMode
@@ -162,12 +240,12 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
-    public function getYear(): int
+    public function getYear(): ?int
     {
         return $this->year;
     }
 
-    public function setYear(int $year): static
+    public function setYear(?int $year): static
     {
         $this->year = $year;
 
@@ -198,16 +276,20 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return $this;
     }
 
-    /** First day of the period this envelope budgets. */
-    public function getPeriodStart(): \DateTimeImmutable
+    /** First day of the period this envelope budgets; null for a one-off envelope, which has none. */
+    public function getPeriodStart(): ?\DateTimeImmutable
     {
+        if (null === $this->year) {
+            return null;
+        }
+
         return new \DateTimeImmutable(sprintf('%04d-%02d-01', $this->year, $this->month ?? 1));
     }
 
-    /** First day after the period this envelope budgets. */
-    public function getPeriodEnd(): \DateTimeImmutable
+    /** First day after the period this envelope budgets; null for a one-off envelope. */
+    public function getPeriodEnd(): ?\DateTimeImmutable
     {
-        return $this->getPeriodStart()->modify(BudgetMode::Monthly === $this->mode ? '+1 month' : '+1 year');
+        return $this->getPeriodStart()?->modify(BudgetMode::Monthly === $this->mode ? '+1 month' : '+1 year');
     }
 
     /** @return array<string, mixed> */
@@ -219,7 +301,8 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'currency' => $this->currency,
             'year' => $this->year,
             'month' => $this->month,
-            'categoryId' => (string) $this->category->getId(),
+            'name' => $this->name,
+            'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -233,7 +316,8 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'currency' => $this->currency,
             'year' => $this->year,
             'month' => $this->month,
-            'categoryId' => (string) $this->category->getId(),
+            'name' => $this->name,
+            'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
         ], $changedProperties, ['category' => 'categoryId']);
     }
 }

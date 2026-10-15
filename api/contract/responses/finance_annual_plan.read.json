@@ -6,7 +6,7 @@
     "totalDecidedCents": 846000,
     "totalToArbitrateCents": 0,
     "totalSuggestedCents": 846000,
-    "totalEnvelopedCents": 0,
+    "totalEnvelopedCents": 120000,
     "categories": [
         {
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -23,8 +23,8 @@
             "toArbitrateCents": 0,
             "decidedCents": 846000,
             "plannedEvents": [],
-            "envelopeId": null,
-            "envelopeCents": null,
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "envelopeCents": 120000,
             "suggestedCents": 846000
         }
     ]

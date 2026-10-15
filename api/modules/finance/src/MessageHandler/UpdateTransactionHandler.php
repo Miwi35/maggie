@@ -11,6 +11,7 @@ use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
@@ -95,6 +96,8 @@ class UpdateTransactionHandler
         $this->natureGuard->assertStillCompatible($transaction);
 
         $this->applyTransfer($transaction, $command);
+        // After the marking: a line made a transfer in the same update is no spend to attribute.
+        $this->applyOneOffEnvelope($transaction, $command);
         $this->applyRepays($transaction, $command);
         $this->applyRecurring($transaction, $command);
 
@@ -107,6 +110,38 @@ class UpdateTransactionHandler
         }
 
         return $this->updateTransaction->execute($transaction);
+    }
+
+    /**
+     * Attributes the spend by hand to a one-off envelope (Hellfest 2026), or
+     * takes it back: it keeps its category either way, and only leaves the
+     * monthly and annual envelopes while attributed.
+     */
+    private function applyOneOffEnvelope(Transaction $transaction, UpdateTransactionCommand $command): void
+    {
+        if (null === $command->oneOffEnvelopeId) {
+            if ($command->clears('oneOffEnvelope')) {
+                $transaction->setOneOffEnvelope(null);
+            }
+
+            return;
+        }
+
+        try {
+            $envelope = $this->references->envelope($command->oneOffEnvelopeId, $transaction->getUser());
+        } catch (\DomainException $e) {
+            throw new OneOffAttributionException($e->getMessage(), 0, $e);
+        }
+
+        if (!$envelope->isOneOff()) {
+            throw new OneOffAttributionException('A spend is attributed by hand to a one-off envelope only: the monthly and annual ones follow its category.');
+        }
+        // An envelope weighs spends only: an income or a neutral movement would sit there counting for nothing.
+        if ($transaction->getAmountCents() >= 0 || TransferKind::None !== $transaction->getTransferKind()) {
+            throw new OneOffAttributionException('Only a spend is attributed to a one-off envelope, not an income nor a transfer.');
+        }
+
+        $transaction->setOneOffEnvelope($envelope);
     }
 
     /**

@@ -15,6 +15,7 @@ final readonly class UpdateEnvelopeCommand
         public ?string $mode = null,
         public ?int $month = null,
         public ?string $currency = null,
+        public ?string $name = null,
     ) {
     }
 }

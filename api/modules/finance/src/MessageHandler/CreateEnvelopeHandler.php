@@ -29,9 +29,38 @@ class CreateEnvelopeHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $category = $this->references->category($command->categoryId, $user);
-
         $mode = BudgetMode::from($command->mode);
+
+        $envelope = new Envelope();
+        $envelope->setUser($user);
+        $envelope->setMode($mode);
+        $envelope->setAmountCents($command->amountCents);
+        $envelope->setCurrency($command->currency);
+
+        if (BudgetMode::OneOff === $mode) {
+            if (null === $command->name || '' === trim($command->name)) {
+                throw new \DomainException('A one-off envelope requires a name.');
+            }
+            if (null !== $command->categoryId) {
+                throw new \DomainException('A one-off envelope has no category: spends are attributed to it by hand.');
+            }
+
+            // An event, not a period: no year nor month whatever was sent.
+            $envelope->setName($command->name);
+            $envelope->setYear(null);
+            $envelope->setMonth(null);
+
+            return $this->createEnvelope->execute($envelope);
+        }
+
+        if (null === $command->categoryId) {
+            throw new \DomainException('A monthly or annual envelope requires a category.');
+        }
+        if (null === $command->year) {
+            throw new \DomainException('A monthly or annual envelope requires a year.');
+        }
+
+        $category = $this->references->category($command->categoryId, $user);
         $month = BudgetMode::Monthly === $mode ? $command->month : null;
 
         if (BudgetMode::Monthly === $mode && null === $month) {
@@ -42,14 +71,9 @@ class CreateEnvelopeHandler
             throw new \DomainException('An envelope already budgets this category for that period.');
         }
 
-        $envelope = new Envelope();
-        $envelope->setUser($user);
         $envelope->setCategory($category);
-        $envelope->setMode($mode);
-        $envelope->setAmountCents($command->amountCents);
         $envelope->setYear($command->year);
         $envelope->setMonth($month);
-        $envelope->setCurrency($command->currency);
 
         return $this->createEnvelope->execute($envelope);
     }
