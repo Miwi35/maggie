@@ -84,6 +84,8 @@ Maggie\Calendar\Entity\Task:
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
     dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
     position: '00000000000000000000'
+    estimatedMinutes: 20
+    firstStep: Ouvrir le dossier
     user: '@recorded_user'
 
   # A subtask as Google sends one (MAG-404): its parent, its place, a link.
@@ -94,6 +96,14 @@ Maggie\Calendar\Entity\Task:
     parent: '@recorded_open_task'
     position: '00000000000000000001'
     links: [{type: email, description: 'Le mail du déménageur', link: 'https://mail.google.com/mail/#all/abc'}]
+    user: '@recorded_user'
+
+  # Open, undated, in no slot: the day's reserve (MAG-497).
+  recorded_reserve_task:
+    title: Recorded reserve task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    position: '00000000000000000002'
     user: '@recorded_user'
 
   recorded_done_task:

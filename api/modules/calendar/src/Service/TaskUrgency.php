@@ -40,6 +40,7 @@ final class TaskUrgency implements ResetInterface
     public function __construct(
         private readonly TaskOverdue $overdue,
         private readonly TaskSettingsRepository $settingsRepository,
+        private readonly TaskPostponement $postponement,
     ) {
     }
 
@@ -104,7 +105,7 @@ final class TaskUrgency implements ResetInterface
         return $this->overdue->today($user);
     }
 
-    /** Fills the task's `overdueDays`, `urgency` and `orderScore` for today, in its owner's timezone and with their weights. */
+    /** Fills the task's `overdueDays`, `urgency`, `orderScore` and `postponedSince` for today, in its owner's timezone and with their weights. */
     public function mark(Task $task): Task
     {
         $this->overdue->mark($task);
@@ -112,7 +113,8 @@ final class TaskUrgency implements ResetInterface
 
         return $task
             ->setUrgency($this->urgency($task, $today))
-            ->setOrderScore($this->orderScore($task, $today, $this->weightsOf($task->getUser())));
+            ->setOrderScore($this->orderScore($task, $today, $this->weightsOf($task->getUser())))
+            ->setPostponedSince($this->postponement->since($task, $today));
     }
 
     public function reset(): void

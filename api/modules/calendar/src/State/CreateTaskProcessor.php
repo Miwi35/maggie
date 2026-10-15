@@ -39,6 +39,8 @@ class CreateTaskProcessor implements ProcessorInterface
                 completedAt: $data->getCompletedAt(),
                 parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
                 position: $data->getPosition(),
+                estimatedMinutes: $data->getEstimatedMinutes(),
+                firstStep: $data->getFirstStep(),
             ));
         } catch (HandlerFailedException $e) {
             if ($e->getPrevious() instanceof InvalidTaskParentException) {

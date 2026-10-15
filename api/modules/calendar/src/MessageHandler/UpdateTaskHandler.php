@@ -8,6 +8,7 @@ use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
 use Maggie\Calendar\UseCase\UpdateTask;
 use Psr\Log\LoggerInterface;
@@ -59,6 +60,19 @@ class UpdateTaskHandler
             $task->setCompletedAt(null);
         }
 
+        // Maggie's own fields: Google never hears of them, so no push either.
+        TaskEstimate::check($command->estimatedMinutes, $command->firstStep);
+        if (null !== $command->estimatedMinutes) {
+            $task->setEstimatedMinutes($command->estimatedMinutes);
+        } elseif ($command->clears('estimatedMinutes')) {
+            $task->setEstimatedMinutes(null);
+        }
+        if (null !== $command->firstStep) {
+            $task->setFirstStep(TaskEstimate::firstStep($command->firstStep));
+        } elseif ($command->clears('firstStep')) {
+            $task->setFirstStep(null);
+        }
+
         // A new parent, or none: the task goes last among its new siblings
         // unless the command says where.
         $parentMoved = false;
@@ -100,7 +114,12 @@ class UpdateTaskHandler
 
         $task = $this->updateTask->execute($task);
 
-        if ($task->isGoogleSynced()) {
+        // Only Maggie's own fields changed: nothing for Google.
+        $ownOnly = [] === $changedFields && null === $command->priority && null === $command->criticality
+            && (null !== $command->estimatedMinutes || null !== $command->firstStep
+                || $command->clears('estimatedMinutes') || $command->clears('firstStep'));
+
+        if ($task->isGoogleSynced() && !$ownOnly) {
             $pushCommand = new PushTaskToGoogleCommand(
                 taskId: (string) $task->getId(),
                 changedFields: $changedFields ?: null,

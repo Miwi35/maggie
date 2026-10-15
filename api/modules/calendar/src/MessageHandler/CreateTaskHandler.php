@@ -7,6 +7,7 @@ use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
+use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
@@ -51,6 +52,9 @@ class CreateTaskHandler
         if (null !== $command->completedAt) {
             $task->setCompletedAt($command->completedAt);
         }
+        TaskEstimate::check($command->estimatedMinutes, $command->firstStep);
+        $task->setEstimatedMinutes($command->estimatedMinutes);
+        $task->setFirstStep(TaskEstimate::firstStep($command->firstStep));
         if (null !== $command->parentId) {
             $task->setParent($this->hierarchy->parentFor(null, $user, $command->parentId));
         }

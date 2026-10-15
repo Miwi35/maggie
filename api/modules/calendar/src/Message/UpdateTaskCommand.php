@@ -8,7 +8,7 @@ final readonly class UpdateTaskCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'description'|'dueDate'|'completedAt'|'parent'> $clearFields */
+    /** @param list<'description'|'dueDate'|'completedAt'|'parent'|'estimatedMinutes'|'firstStep'> $clearFields */
     public function __construct(
         public string $taskId,
         public ?string $title = null,
@@ -20,6 +20,8 @@ final readonly class UpdateTaskCommand
         public array $clearFields = [],
         public ?string $parentId = null,
         public ?string $position = null,
+        public ?int $estimatedMinutes = null,
+        public ?string $firstStep = null,
     ) {
     }
 }

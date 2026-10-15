@@ -6,7 +6,7 @@
     "counts": {
         "today": 2,
         "upcoming": 0,
-        "someday": 0,
+        "someday": 1,
         "done": 1
     },
     "member": [
@@ -25,9 +25,12 @@
             "parent": null,
             "position": null,
             "links": [],
+            "estimatedMinutes": null,
+            "firstStep": null,
             "overdueDays": null,
             "urgency": "low",
             "orderScore": 0,
+            "postponedSince": null,
             "googleTaskId": null,
             "googleTaskListId": null,
             "googleTaskEtag": null,

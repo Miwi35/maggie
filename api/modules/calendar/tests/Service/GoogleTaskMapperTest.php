@@ -52,6 +52,26 @@ class GoogleTaskMapperTest extends TestCase
         self::assertSame([], $task->getLinks());
     }
 
+    /** The estimate and the first step are Maggie's own (MAG-497): a change on Google loses neither, and Google is never sent them. */
+    public function testAChangeOnGoogleKeepsTheEstimateAndTheFirstStep(): void
+    {
+        $googleTask = new GoogleTask();
+        $googleTask->setId('g-1');
+        $googleTask->setTitle('Rappeler le garage, renommée sur Google');
+        $googleTask->setNotes('Notes changées sur Google');
+        $googleTask->setStatus('needsAction');
+
+        $existing = (new Task())->setTitle('Rappeler le garage')->setEstimatedMinutes(10)->setFirstStep('Trouver le numéro');
+        $task = (new GoogleTaskMapper())->fromGoogle($googleTask, new User(), $existing);
+
+        self::assertSame('Rappeler le garage, renommée sur Google', $task->getTitle());
+        self::assertSame(10, $task->getEstimatedMinutes());
+        self::assertSame('Trouver le numéro', $task->getFirstStep());
+
+        $sent = (new GoogleTaskMapper())->toGoogle($task)->toSimpleObject();
+        self::assertStringNotContainsString('Trouver le numéro', (string) json_encode($sent));
+    }
+
     /** The day goes as Google's midnight UTC, whatever zone the object holds. */
     public function testToGoogleSendsTheDayAtMidnightUtc(): void
     {

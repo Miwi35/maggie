@@ -17848,6 +17848,23 @@
                             }
                         }
                     },
+                    "estimatedMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "How long the task should take, in minutes (1 to 1440). Maggie's own: Google never sees it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstStep": {
+                        "maxLength": 255,
+                        "description": "The first small step that starts the task. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "overdueDays": {
                         "readOnly": true,
                         "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -17873,6 +17890,16 @@
                         "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "postponedSince": {
+                        "readOnly": true,
+                        "description": "The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "googleTaskId": {
                         "type": [
@@ -17995,6 +18022,23 @@
                             }
                         }
                     },
+                    "estimatedMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "How long the task should take, in minutes (1 to 1440). Maggie's own: Google never sees it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstStep": {
+                        "maxLength": 255,
+                        "description": "The first small step that starts the task. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "overdueDays": {
                         "readOnly": true,
                         "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -18020,6 +18064,16 @@
                         "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "postponedSince": {
+                        "readOnly": true,
+                        "description": "The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "googleTaskId": {
                         "type": [
@@ -18142,6 +18196,23 @@
                             }
                         }
                     },
+                    "estimatedMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "How long the task should take, in minutes (1 to 1440). Maggie's own: Google never sees it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstStep": {
+                        "maxLength": 255,
+                        "description": "The first small step that starts the task. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "overdueDays": {
                         "readOnly": true,
                         "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -18167,6 +18238,16 @@
                         "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "postponedSince": {
+                        "readOnly": true,
+                        "description": "The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "googleTaskId": {
                         "type": [
@@ -18291,6 +18372,23 @@
                                     }
                                 }
                             },
+                            "estimatedMinutes": {
+                                "minimum": 1,
+                                "maximum": 1440,
+                                "description": "How long the task should take, in minutes (1 to 1440). Maggie's own: Google never sees it.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "firstStep": {
+                                "maxLength": 255,
+                                "description": "The first small step that starts the task. Maggie's own: Google never sees it.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "overdueDays": {
                                 "readOnly": true,
                                 "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -18316,6 +18414,16 @@
                                 "description": "The order score: time pressure + criticality + priority, with the user's weights. The highest first. Computed on read.",
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "postponedSince": {
+                                "readOnly": true,
+                                "description": "The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-01"
                             },
                             "googleTaskId": {
                                 "type": [

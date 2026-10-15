@@ -8,9 +8,11 @@ use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Enum\TaskUrgencyLevel;
+use Maggie\Calendar\Repository\DayPlanRepository;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Calendar\Service\TaskOrderWeights;
 use Maggie\Calendar\Service\TaskOverdue;
+use Maggie\Calendar\Service\TaskPostponement;
 use Maggie\Calendar\Service\TaskUrgency;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserPreferenceRepository;
@@ -31,6 +33,7 @@ class TaskUrgencyTest extends TestCase
         $this->urgency = new TaskUrgency(
             new TaskOverdue($this->createStub(UserPreferenceRepository::class), new MockClock(self::TODAY.' 12:00:00 UTC')),
             $this->createStub(TaskSettingsRepository::class),
+            new TaskPostponement($this->createStub(DayPlanRepository::class)),
         );
         $this->today = new \DateTimeImmutable(self::TODAY.' 00:00:00', new \DateTimeZone('UTC'));
     }

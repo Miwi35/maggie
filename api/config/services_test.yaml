@@ -4,3 +4,10 @@ services:
 
     Symfony\Component\Mercure\HubInterface:
         alias: App\Tests\Support\InMemoryMercureHub
+
+    # The transitions of a task, as their listeners receive them (MAG-497).
+    App\Tests\Support\TaskTransitionRecorder:
+        public: true
+        tags:
+            - { name: messenger.message_handler, bus: event.bus, handles: Maggie\Calendar\Event\TaskCompleted }
+            - { name: messenger.message_handler, bus: event.bus, handles: Maggie\Calendar\Event\TaskReopened }
