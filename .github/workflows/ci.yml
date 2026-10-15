@@ -16,24 +16,21 @@ name: Pull request
 # reports there too — the path filters and the journey selection compare the
 # group with main (`merge_group.base_sha`), not the PR with its base.
 #
-# Two profiles on a pull request (owner, 15 Oct.: « la CI doit prioriser les PR
-# ready et main, elle tourne trop pour rien sur les drafts »), output `profile`
-# of `Detect changes`:
-#   - `light` — a draft: Detect changes, the lints, the unit tests (API with its
-#     contract suite, agent, ciqual, admin, mobile release), the infra lint. No
-#     e2e: no Playwright shard, no e2e APK, no e2e-flavor unit tests, no Maestro
-#     lot, no merged report, no stack. The three aggregators run under another
-#     name — `E2E Stack (smoke journey) · draft`, `E2E Mobile (phone) · draft`,
-#     `PR checks passed · draft` — so the required checks of those names never
-#     report on a draft: a draft's head stays « Expected » on GitHub, never
-#     mergeable, until the ready PR's full run reports them.
-#   - `full` — a ready PR (`ready_for_review` starts it, every push after it),
-#     a merge group, `main.yml` and the nights: the targeted CI, e2e included.
-# A light run is never a proof that a head may merge: its run-name ends with
-# « · draft » (below), and Cyrus's dispatcher merges only on a run whose title
-# does not (cyrus-pilot, `ci_proof`). It promotes a draft green in light CI —
-# marks it ready, which starts the full run — and merges on that full run.
-# Order of delivery: this profile needs the dispatcher that reads it first.
+# No CI on a draft (owner, 16 Oct.: « MR draft => pas de CI. Au moment de
+# passer ready, rebase + CI »): a draft's events start a run whose jobs are all
+# skipped, `Detect changes` included — no runner, no minute. The three
+# aggregators are named `E2E Stack (smoke journey) · draft`, `E2E Mobile (phone)
+# · draft` and `PR checks passed · draft` there, so the required checks of those
+# names never report on a draft: its head stays « Expected » on GitHub, never
+# mergeable. The run-name ends with « · draft », and Cyrus's dispatcher never
+# merges on such a run (cyrus-pilot, `ci_proof`).
+# A ready PR (`ready_for_review`, then every push — a repair) runs the targeted
+# CI: lints, unit tests, coverage, and the e2e journeys its diff selects
+# (`scripts/e2e/impacted.sh`, often none or one lot). Cyrus's train picks a
+# draft, rebases it on main, marks it ready and merges on that run. A push on a
+# ready PR whose head is behind main runs nothing either (`fresh`, « … · en
+# retard »): the train rebases it when it is next to merge.
+# Order of delivery: the dispatcher that promotes drafts without a draft CI first.
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
@@ -41,9 +38,8 @@ run-name: >-
       || 'CI' }}
 
 on:
-  # Drafts included (owner's decision, 9 Oct.: CI from the PR's first push), in
-  # the light profile (15 Oct.). `ready_for_review` starts the full profile on a
-  # head that only had the light one: marking ready is what plays the e2e.
+  # A draft's events start a run whose jobs all skip (16 Oct.): no CI on a draft.
+  # `ready_for_review` starts the CI of the ready PR.
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -62,8 +58,9 @@ on:
         type: string
         required: false
         default: all
-      # Re-play once a Maestro flow that failed, and call it flaky if it passes
-      # then (the nightly; Playwright retries once on its own in CI).
+      # Kept for nightly-e2e.yml, which still passes it: since 16 Oct. every run
+      # re-plays a failed Maestro flow once (`E2E_RETRY_FAILED` in the lot), the
+      # input changes nothing (Playwright retries once on its own in CI).
       retry_failed_journeys:
         type: boolean
         required: false
@@ -98,19 +95,56 @@ concurrency:
   # never cancelled here: the queue itself drops the groups it rebuilds.
   # `PR checks passed` turns a cancelled run red.
   #
-  # One group per profile on a pull request (`-light` for a draft, `-full` for a
-  # ready PR): a draft's run never cancels a ready PR's full run — of the same
-  # head or an older one (6 Oct.: a run started as a draft cancelled the real one
-  # of the same head, #142…) — and marking ready does not cancel the light run
-  # either: each profile only cancels its own older run.
+  # A draft's run (every job skipped) has a group of its own (`-draft`): it never
+  # cancels a ready PR's run — of the same head or an older one (6 Oct.: a run
+  # started as a draft cancelled the real one of the same head, #142…).
   group: >-
     ci-${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'pull_request'
-    && (github.event.pull_request.draft && '-light' || '-full') || '' }}
+    && (github.event.pull_request.draft && '-draft' || '-ready') || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # « Inutile de lancer la CI sur une PR en retard » (owner, 16 Oct.): a push on a
+  # ready PR (`synchronize`, a repair) whose head is behind main runs nothing —
+  # main moved, so what it would test is not what merges. Cyrus's train rebases
+  # it when it is next to merge, and that push runs the CI. Only `synchronize`:
+  # `ready_for_review` (the train rebases first) and `opened` always run. An API
+  # that does not answer means « up to date »: doubt runs the CI. A stale head
+  # gets no required check but skipped ones — `PR checks passed` and the two e2e
+  # aggregators skip too, so GitHub keeps them « Expected », never mergeable.
+  fresh:
+    name: Up to date with main
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    outputs:
+      behind: ${{ steps.compare.outputs.behind }}
+    steps:
+      - name: Compare the head with main
+        id: compare
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          by="$(gh api "repos/$GH_REPO/compare/$BASE...$HEAD_SHA" --jq .behind_by)" || by=""
+          if [ -n "$by" ] && [ "$by" -gt 0 ]; then
+            echo "::notice::$by commit(s) behind $BASE: no CI on this head; Cyrus's train rebases it when it is next to merge"
+            echo "behind=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "up to date with $BASE (behind by ${by:-unknown}): the CI runs"
+          fi
+
   changes:
     name: Detect changes
+    # No CI on a draft (16 Oct.), nor on a ready head behind main (`fresh`):
+    # every other job needs this one or carries the same condition.
+    needs: fresh
+    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.fresh.outputs.behind != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,9 +152,6 @@ jobs:
       pull-requests: read
       actions: read
     outputs:
-      # `light` on a draft pull request, `full` everywhere else (the header). The
-      # e2e outputs below are false in `light`: no e2e job starts.
-      profile: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'light' || 'full' }}
       # `suite` (a `workflow_call` input, empty on a pull request): `e2e` runs the
       # e2e jobs alone (nightly-e2e.yml), `no-e2e` everything but them (nightly.yml).
       # A pull request, a merge group and a push on main apply the path filters;
@@ -137,10 +168,9 @@ jobs:
       #
       # On main (`e2e: smoke`, MAG-484) the web stack still starts when the
       # selection plays, but in one lot that plays the smoke journey only
-      # (`web_journeys` false), and the mobile journeys do not play. A draft
-      # (`profile` light) plays neither.
-      e2e: ${{ inputs.suite != 'no-e2e' && !(github.event_name == 'pull_request' && github.event.pull_request.draft) && steps.select.outputs.e2e == 'true' }}
-      mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && !(github.event_name == 'pull_request' && github.event.pull_request.draft) && steps.select.outputs.mobile == 'true' }}
+      # (`web_journeys` false), and the mobile journeys do not play.
+      e2e: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.e2e == 'true' }}
+      mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && steps.select.outputs.mobile == 'true' }}
       web_journeys: ${{ inputs.e2e != 'smoke' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
       web_lots: ${{ inputs.e2e == 'smoke' && '[1]' || steps.select.outputs.web_lots }}
@@ -306,7 +336,7 @@ jobs:
   api-lint:
     name: API Lint (PHPStan)
     needs: changes
-    if: needs.changes.outputs.api == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -355,7 +385,7 @@ jobs:
   agent-lint:
     name: Agent Lint (Ruff)
     needs: changes
-    if: needs.changes.outputs.agent == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -374,7 +404,7 @@ jobs:
   ciqual-lint:
     name: Ciqual Lint (Ruff)
     needs: changes
-    if: needs.changes.outputs.ciqual == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -393,7 +423,7 @@ jobs:
   admin-lint:
     name: Admin Lint (ESLint + TypeScript)
     needs: changes
-    if: needs.changes.outputs.admin == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -418,7 +448,7 @@ jobs:
   api-test:
     name: API Tests (PHPUnit)
     needs: changes
-    if: needs.changes.outputs.api == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -480,7 +510,7 @@ jobs:
   agent-test:
     name: Agent Tests (pytest)
     needs: changes
-    if: needs.changes.outputs.agent == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -503,7 +533,7 @@ jobs:
   ciqual-test:
     name: Ciqual Tests (pytest)
     needs: changes
-    if: needs.changes.outputs.ciqual == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -526,7 +556,7 @@ jobs:
   admin-test:
     name: Admin Tests (Vitest)
     needs: changes
-    if: needs.changes.outputs.admin == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -556,11 +586,12 @@ jobs:
   # baseline (MAG-105), updated on each push. The ratchet itself is enforced in
   # the test jobs above, so this job never fails the run: a comment that cannot
   # be posted (a fork's read-only token) is a warning. A component that did not
-  # run on this change has no measure and is left out of the comment.
+  # run on this change has no measure and is left out of the comment; when no
+  # test job ran (a docs or tooling PR, a draft) the job does not start at all.
   coverage-report:
     name: Coverage report
     needs: [api-test, agent-test, ciqual-test, admin-test, mobile-unit]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && contains(needs.*.result, 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -604,7 +635,7 @@ jobs:
   e2e-shard:
     name: ${{ needs.changes.outputs.web_journeys == 'false' && 'E2E smoke' || format('E2E shard {0}/{1}', matrix.shard, needs.changes.outputs.web_lot_count) }}
     needs: changes
-    if: needs.changes.outputs.e2e == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.e2e == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       # A red shard must not hide what the others found.
@@ -857,14 +888,13 @@ jobs:
   # job skipped because nothing a stack runs has changed. `if: always()` so it
   # runs — and fails — when a shard is red, instead of being skipped with them,
   # which a branch protection would read as a pass.
-  # In the light profile (a draft) it is named « … · draft »: no journey played,
-  # and the required check `E2E Stack (smoke journey)` must not read green on a
-  # head no journey ran on. It stays absent from a draft's head (« Expected »),
-  # so GitHub sees nothing mergeable until the ready PR's full run reports it.
+  # On a draft it is skipped and named « … · draft »: the required check `E2E
+  # Stack (smoke journey)` stays absent from a draft's head (« Expected »), so
+  # GitHub sees nothing mergeable until the ready PR's run reports it.
   e2e-stack:
-    name: ${{ github.event.pull_request.draft && 'E2E Stack (smoke journey) · draft' || 'E2E Stack (smoke journey)' }}
-    needs: [changes, e2e-shard]
-    if: always()
+    name: ${{ github.event.pull_request.draft && 'E2E Stack (smoke journey) · draft' || needs.fresh.outputs.behind == 'true' && 'E2E Stack (smoke journey) · en retard' || 'E2E Stack (smoke journey)' }}
+    needs: [fresh, changes, e2e-shard]
+    if: ${{ always() && !github.event.pull_request.draft && needs.fresh.outputs.behind != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Every shard passed, or none was needed
@@ -872,10 +902,8 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           SHARDS: ${{ needs.e2e-shard.result }}
           WANTED: ${{ needs.changes.outputs.e2e }}
-          PROFILE: ${{ needs.changes.outputs.profile }}
         run: |
-          echo "changes=$CHANGES shards=$SHARDS e2e wanted=$WANTED profile=$PROFILE"
-          [ "$PROFILE" != light ] || echo "::notice::draft (light CI): no e2e journey played; marking the PR ready plays them"
+          echo "changes=$CHANGES shards=$SHARDS e2e wanted=$WANTED"
           [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
           if [ "$WANTED" = true ]; then
             [ "$SHARDS" = success ] || { echo "::error::an e2e shard did not succeed ($SHARDS)"; exit 1; }
@@ -938,7 +966,7 @@ jobs:
   e2e-mobile-build:
     name: E2E Mobile APK
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mobile == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -1015,7 +1043,7 @@ jobs:
   e2e-mobile-unit:
     name: E2E Mobile unit tests (e2e flavor)
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mobile == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -1071,16 +1099,16 @@ jobs:
   e2e-mobile-device:
     name: E2E Mobile journeys (${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }})
     needs: [changes, e2e-mobile-build]
-    if: needs.changes.outputs.mobile == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.e2e-mobile-build.result == 'success' && needs.changes.outputs.mobile == 'true' }}
     runs-on: ubuntu-latest
     # A shard takes 4 to 8 minutes. One flow hung for 17 minutes once (02-voice-overlay,
     # green in the end): a stuck emulator is cut here instead of holding the run for an hour.
     # 35 and not 25: the flows in quarantine play in a second run, which
     # mobile-journeys.sh stops after 10 minutes — a hang there must end as a
     # warning, not as this job's timeout.
-    # The nightly re-plays the failed flows once (`retry_failed_journeys`): up to
-    # two more runs, hence 50 there.
-    timeout-minutes: ${{ inputs.retry_failed_journeys && 50 || 35 }}
+    # Every run re-plays the failed flows once (16 Oct.: a pull request too), and
+    # an emulator that dies before any verdict boots once more: 50.
+    timeout-minutes: 50
     strategy:
       # The three formats are independent: a failure on the foldable says
       # nothing about the phone, and cancelling it would hide whether the
@@ -1263,6 +1291,9 @@ jobs:
           script: echo "AVD snapshot generated for the cache."
 
       - name: Journeys (Maestro)
+        id: journeys
+        # Judged by « Lot verdict » below, after a second boot if need be.
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         env:
           E2E_MOBILE_APK: ${{ github.workspace }}/e2e/mobile/apk/maggie-e2e.apk
@@ -1270,8 +1301,11 @@ jobs:
           E2E_MOBILE_FLOWS: ${{ matrix.lot.flows }}
           E2E_VERDICT_LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }}
           E2E_VERDICT_DIR: ${{ github.workspace }}/e2e/verdicts
-          # The nightly re-plays a failed flow once, and calls it flaky if it passes.
-          E2E_RETRY_FAILED: ${{ inputs.retry_failed_journeys && '1' || '' }}
+          # A failed flow (or one that never ran: « Unable to connect to adb
+          # daemon ») plays once more in the same run, and is called flaky if it
+          # passes then — on a pull request too since 16 Oct.: an emulator
+          # outage must not send a ready PR to repair.
+          E2E_RETRY_FAILED: '1'
         with:
           api-level: 34
           target: google_apis
@@ -1295,6 +1329,59 @@ jobs:
           # The blocking flows, then the ones in quarantine, each judged by
           # scripts/e2e/verdict.sh: only the first run's verdict fails the job.
           script: scripts/e2e/mobile-journeys.sh
+
+      # The emulator died before any flow was judged (no verdict file: boot
+      # failure, adb gone for good): the whole lot plays once more, on a fresh
+      # boot. A lot that played and failed is not re-played here: its failed
+      # flows already had their second run above.
+      - name: Journeys (Maestro), second boot
+        id: journeys-again
+        if: steps.journeys.outcome == 'failure' && hashFiles('e2e/verdicts/*.json') == ''
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          E2E_MOBILE_APK: ${{ github.workspace }}/e2e/mobile/apk/maggie-e2e.apk
+          # This lot's flows, the ones in quarantine last (scripts/e2e/impacted.sh).
+          E2E_MOBILE_FLOWS: ${{ matrix.lot.flows }}
+          E2E_VERDICT_LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }}
+          E2E_VERDICT_DIR: ${{ github.workspace }}/e2e/verdicts
+          # A failed flow (or one that never ran: « Unable to connect to adb
+          # daemon ») plays once more in the same run, and is called flaky if it
+          # passes then — on a pull request too since 16 Oct.: an emulator
+          # outage must not send a ready PR to repair.
+          E2E_RETRY_FAILED: '1'
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.device.profile }}
+          force-avd-creation: false
+          # -timezone: the seed anchors on midnight in Paris and a runner boots
+          # on UTC, so between 22:00 and midnight UTC the device's "today" is
+          # the seed's yesterday and the dashboard assertion fails for an hour a
+          # day. -noaudio stays: there is no sound card, so recording fails and
+          # the voice overlay lands in its ERROR state — 02-voice-overlay.yaml is
+          # written around that and never asserts listening succeeded.
+          # -no-snapshot-save: the snapshot in the cache is the clean one, not
+          # the state this run leaves behind.
+          #
+          # disable-animations also zeroes the animation scale, which is why that
+          # flow cannot use waitForAnimationToEnd as a timer; see its header and
+          # MAG-205.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris -no-snapshot-save
+          disable-animations: true
+          # The blocking flows, then the ones in quarantine, each judged by
+          # scripts/e2e/verdict.sh: only the first run's verdict fails the job.
+          script: scripts/e2e/mobile-journeys.sh
+
+      - name: Lot verdict
+        env:
+          FIRST: ${{ steps.journeys.outcome }}
+          SECOND: ${{ steps.journeys-again.outcome }}
+        run: |
+          echo "first run: $FIRST, second boot: ${SECOND:-not needed}"
+          [ "$FIRST" = success ] || [ "$SECOND" = success ] || { echo "::error::the lot's journeys did not pass"; exit 1; }
+          [ "$FIRST" = success ] || echo "::warning::the emulator failed before any verdict; the lot passed on a second boot"
 
       # What this lot's flows executed, in the app and in the stack, which is
       # still up (`coverage` input, the nightly, phone only). Never part of the
@@ -1358,11 +1445,11 @@ jobs:
   # request runs; on the nightly run it aggregates the three. `if: always()` so a
   # red job fails it instead of skipping it, which branch protection would read as
   # a pass. A shard skipped because the APK failed is not `success` either.
-  # « … · draft » in the light profile, as `e2e-stack`.
+  # Skipped and « … · draft » on a draft, as `e2e-stack`.
   e2e-mobile:
-    name: ${{ github.event.pull_request.draft && 'E2E Mobile (phone) · draft' || 'E2E Mobile (phone)' }}
-    needs: [changes, e2e-mobile-build, e2e-mobile-unit, e2e-mobile-device]
-    if: always()
+    name: ${{ github.event.pull_request.draft && 'E2E Mobile (phone) · draft' || needs.fresh.outputs.behind == 'true' && 'E2E Mobile (phone) · en retard' || 'E2E Mobile (phone)' }}
+    needs: [fresh, changes, e2e-mobile-build, e2e-mobile-unit, e2e-mobile-device]
+    if: ${{ always() && !github.event.pull_request.draft && needs.fresh.outputs.behind != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed, or none was needed
@@ -1372,9 +1459,8 @@ jobs:
           UNIT: ${{ needs.e2e-mobile-unit.result }}
           DEVICES: ${{ needs.e2e-mobile-device.result }}
           WANTED: ${{ needs.changes.outputs.mobile }}
-          PROFILE: ${{ needs.changes.outputs.profile }}
         run: |
-          echo "changes=$CHANGES build=$BUILD unit=$UNIT devices=$DEVICES mobile wanted=$WANTED profile=$PROFILE"
+          echo "changes=$CHANGES build=$BUILD unit=$UNIT devices=$DEVICES mobile wanted=$WANTED"
           [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
           if [ "$WANTED" = true ]; then
             [ "$BUILD" = success ] || { echo "::error::the e2e APK did not build ($BUILD)"; exit 1; }
@@ -1388,7 +1474,7 @@ jobs:
   mobile-unit:
     name: Mobile Unit Tests (release)
     needs: changes
-    if: needs.changes.outputs.mobile_unit == 'true'
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mobile_unit == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -1423,19 +1509,18 @@ jobs:
   # required check as green, so a run that tested nothing, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
   # auto-merge merged pull requests no test had run on. `if: always()` makes this
-  # job run on every pull request — drafts included (9 Oct.), named « PR checks
-  # passed · draft » in the light profile (15 Oct.): the light verdict, never the
-  # required check, which only a ready PR's full run reports — and on every merge
-  # group, and infra/scripts/pr-checks-gate.sh
+  # job run on every ready pull request — skipped on a draft (16 Oct.: no CI on a
+  # draft), under the name « PR checks passed · draft » that is not the required
+  # check — and on every merge group, and infra/scripts/pr-checks-gate.sh
   # turns every skip that `Detect changes` did not decide into red. A push on main
   # or the nightly run has no branch protection to satisfy.
   #
   # The list below is the script's (infra/scripts/pr-checks-gate.sh): keep the two
   # in step. The old required checks stay required beside this one.
   pr-checks:
-    name: ${{ github.event.pull_request.draft && 'PR checks passed · draft' || 'PR checks passed' }}
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
-    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    name: ${{ github.event.pull_request.draft && 'PR checks passed · draft' || needs.fresh.outputs.behind == 'true' && 'PR checks passed · en retard' || 'PR checks passed' }}
+    needs: [fresh, changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, infra-scripts]
+    if: ${{ always() && !github.event.pull_request.draft && needs.fresh.outputs.behind != 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -1452,7 +1537,8 @@ jobs:
   # 14 Oct.): its use in CI and deploys checks it.
   infra-scripts:
     name: Infra scripts and workflows
-    if: inputs.suite != 'e2e'
+    needs: fresh
+    if: ${{ !cancelled() && inputs.suite != 'e2e' && !github.event.pull_request.draft && needs.fresh.outputs.behind != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
