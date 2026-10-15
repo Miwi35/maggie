@@ -241,7 +241,7 @@ class BudgetViewModelTest {
     @Test
     fun `setAlertThreshold saves it and reloads the status (MAG-49)`() = runTest {
         coEvery { budgetRepository.setAlertThreshold("env-1", 90) } returns
-            Result.success(Envelope(id = "env-1", amountCents = 40000, year = 2026, month = 7, alertThresholdPercent = 90))
+            Result.success(Envelope(id = "env-1", amountCents = 40000, year = 2026, month = 7))
         viewModel = buildViewModel()
         advanceUntilIdle()
 

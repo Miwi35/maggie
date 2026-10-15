@@ -15,8 +15,6 @@ data class Envelope(
     val category: String? = null,
     // What a one-off envelope is for (« Hellfest 2026 »); the API omits it on the others.
     val name: String? = null,
-    /** Null: the default, 80 %. */
-    val alertThresholdPercent: Int? = null,
 ) {
     val isOneOff: Boolean get() = mode == ONE_OFF_MODE
 }

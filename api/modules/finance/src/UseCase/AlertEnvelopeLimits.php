@@ -140,7 +140,7 @@ class AlertEnvelopeLimits
             if ($spend->getBookedAt() < $envelope->getPeriodStart() || $spend->getBookedAt() >= $envelope->getPeriodEnd()) {
                 continue;
             }
-            if ($this->isWithin($spend->getCategory(), $envelope->getCategory())) {
+            if ($this->isWithin($spend->getCategory(), $envelope->requireCategory())) {
                 $cents += abs($spend->getAmountCents());
             }
         }
@@ -168,7 +168,7 @@ class AlertEnvelopeLimits
             type: NotificationType::Finance->value,
             title: sprintf(
                 '%s : %d %% du budget (%s / %s)',
-                $envelope->getCategory()->getName(),
+                $envelope->requireCategory()->getName(),
                 $percent,
                 $this->amount($consumedCents),
                 $this->amount($amountCents, $envelope->getCurrency()),

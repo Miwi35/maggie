@@ -29,7 +29,8 @@
             "remainingCents": -95599,
             "availableCents": -95599,
             "isOverspent": true,
-            "isOvercommitted": true
+            "isOvercommitted": true,
+            "alertThresholdPercent": 80
         }
     ],
     "outsideMonthlyBudget": {
@@ -54,7 +55,8 @@
                 "remainingCents": -278297,
                 "availableCents": -278297,
                 "isOverspent": true,
-                "isOvercommitted": true
+                "isOvercommitted": true,
+                "alertThresholdPercent": 80
             }
         ],
         "oneOff": [

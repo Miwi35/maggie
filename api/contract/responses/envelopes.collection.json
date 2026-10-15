@@ -15,6 +15,7 @@
             "year": 2026,
             "month": 3,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "effectiveAlertThresholdPercent": 80,
             "periodStart": "2026-03-01T00:00:00+00:00",
             "periodEnd": "2026-04-01T00:00:00+00:00"
         },
@@ -28,6 +29,7 @@
             "currency": "EUR",
             "year": 2026,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "effectiveAlertThresholdPercent": 80,
             "periodStart": "2026-01-01T00:00:00+00:00",
             "periodEnd": "2027-01-01T00:00:00+00:00"
         },
@@ -39,7 +41,8 @@
             "mode": "one_off",
             "amountCents": 40000,
             "currency": "EUR",
-            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "effectiveAlertThresholdPercent": 80
         }
     ],
     "search": {
