@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Store
 
@@ -16,6 +17,17 @@ internal fun filterStores(query: String, stores: List<Store>): List<Store> {
 internal fun shouldShowCreateStore(query: String, stores: List<Store>): Boolean {
     val trimmed = query.trim()
     return trimmed.isNotEmpty() && stores.none { it.name.equals(trimmed, ignoreCase = true) }
+}
+
+internal fun filterAisles(query: String, aisles: List<Aisle>): List<Aisle> {
+    if (query.isBlank()) return aisles
+    return aisles.filter { it.name.contains(query.trim(), ignoreCase = true) }
+}
+
+/** An aisle's name is unique in its store whatever the case, as the API enforces. */
+internal fun shouldShowCreateAisle(query: String, aisles: List<Aisle>): Boolean {
+    val trimmed = query.trim()
+    return trimmed.isNotEmpty() && aisles.none { it.name.equals(trimmed, ignoreCase = true) }
 }
 
 internal fun resolvePreferredStore(product: Product, stores: List<Store>): Store? {

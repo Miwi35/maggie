@@ -364,4 +364,43 @@ class GroceryScreenTest {
         compose.onNodeWithText("1 paquet").assertIsDisplayed()
         assertEquals(1f, quantityOfRice(fake))
     }
+
+    /** MAG-493: a shop's lines under their aisles, in the order of the way through it, « Sans rayon » last. */
+    @Test
+    fun `a shop's lines are read aisle by aisle, Sans rayon last`() {
+        fun aisle(id: String, name: String, position: Int) = com.maggie.app.data.model.AisleSummary(id, name, position)
+        val epicerie = Seed.epicerie
+        val list = GroceryList(
+            id = "list-aisles",
+            items = listOf(
+                GroceryItem(id = "lait", label = "Lait", store = epicerie, position = 0, aisle = aisle("a2", "Crèmerie", 2)),
+                GroceryItem(id = "pain", label = "Pain", store = epicerie, position = 1, aisle = aisle("a3", "Boulangerie", 3)),
+                GroceryItem(id = "timbres", label = "Timbres", store = epicerie, position = 2),
+                GroceryItem(id = "pommes", label = "Pommes", store = epicerie, position = 3, aisle = aisle("a1", "Fruits et légumes", 1)),
+            ),
+        )
+        val fake = FakeGrocery(list = list)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
+
+        assertTopToBottom(
+            "Épicerie du coin" to compose.onNodeWithText("Épicerie du coin"),
+            "Fruits et légumes" to compose.onNodeWithText("Fruits et légumes"),
+            "Pommes" to compose.onNodeWithText("Pommes"),
+            "Crèmerie" to compose.onNodeWithText("Crèmerie"),
+            "Lait" to compose.onNodeWithText("Lait"),
+            "Boulangerie" to compose.onNodeWithText("Boulangerie"),
+            "Pain" to compose.onNodeWithText("Pain"),
+            "Sans rayon" to compose.onNodeWithText("Sans rayon"),
+            "Timbres" to compose.onNodeWithText("Timbres"),
+        )
+    }
+
+    @Test
+    fun `a shop with no aisle shows no aisle header`() {
+        val fake = FakeGrocery()
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
+
+        compose.onNodeWithText("Timbres du voisin", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Sans rayon").assertCountEquals(0)
+    }
 }

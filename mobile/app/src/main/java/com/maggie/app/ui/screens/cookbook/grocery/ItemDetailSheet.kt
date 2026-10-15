@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryItemSource
 import com.maggie.app.data.model.Product
@@ -51,6 +53,9 @@ fun ItemDetailSheet(
     onDismiss: () -> Unit,
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
+    aislesByStore: Map<String, List<Aisle>> = emptyMap(),
+    onLoadAisles: (storeId: String) -> Unit = {},
+    onSaveAisle: ((storeId: String, aisle: String?) -> Unit)? = null,
 ) {
     ItemDetailContent(
         item = item,
@@ -61,6 +66,9 @@ fun ItemDetailSheet(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         recurring = recurring,
         onRecurringChange = onRecurringChange,
+        aislesByStore = aislesByStore,
+        onLoadAisles = onLoadAisles,
+        onSaveAisle = onSaveAisle,
     ) { body ->
         ModalBottomSheet(
             modifier = Modifier.uiTagRoot(),
@@ -86,6 +94,11 @@ fun ItemDetailContent(
     // The « Récurrent » setting needs a product, since a recurring item is a product's (MAG-369).
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
+    // The « Rayon » choice needs a product and a known store: the aisle is the product's in that store (MAG-493).
+    aislesByStore: Map<String, List<Aisle>> = emptyMap(),
+    onLoadAisles: (storeId: String) -> Unit = {},
+    // Called on « Enregistrer » when the aisle was changed: an aisle id, a new aisle's name, or null for « Sans rayon ».
+    onSaveAisle: ((storeId: String, aisle: String?) -> Unit)? = null,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     var label by remember { mutableStateOf(item.label) }
@@ -96,6 +109,19 @@ fun ItemDetailContent(
     var categoryExpanded by remember { mutableStateOf(false) }
     var showProductPicker by remember { mutableStateOf(false) }
     var showStorePicker by remember { mutableStateOf(false) }
+    // What « Enregistrer » sends for the aisle: an id or a new name, null for « Sans rayon ».
+    var aisleChoice by remember { mutableStateOf(item.aisle?.id) }
+    var aisleText by remember { mutableStateOf(item.aisle?.name ?: "") }
+    var aisleChanged by remember { mutableStateOf(false) }
+    var showAislePicker by remember { mutableStateOf(false) }
+    val aisleStoreId = selectedStoreId?.takeIf { item.product != null && onSaveAisle != null && label == item.label }
+    LaunchedEffect(aisleStoreId) { aisleStoreId?.let(onLoadAisles) }
+    // Another store is another aisle: the one shown was the item's in its former store.
+    fun resetAisle() {
+        aisleChoice = null
+        aisleText = ""
+        aisleChanged = false
+    }
 
     val readOnlyColors = OutlinedTextFieldDefaults.colors(
         disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -209,6 +235,28 @@ fun ItemDetailContent(
                 )
             }
 
+            if (aisleStoreId != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAislePicker = true },
+                ) {
+                    OutlinedTextField(
+                        value = aisleText,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("Rayon") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = "Choisir un rayon")
+                        },
+                        colors = readOnlyColors,
+                    )
+                }
+            }
+
             if (item.product != null && onRecurringChange != null) {
                 RecurringSetting(recurring = recurring, onChange = onRecurringChange)
             }
@@ -241,6 +289,7 @@ fun ItemDetailContent(
                         val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
                         val catStr = selectedCategory?.name?.lowercase()
                         onSave(label.trim(), qty, selectedStoreId, sName, catStr)
+                        if (aisleChanged && aisleStoreId != null) onSaveAisle?.invoke(aisleStoreId, aisleChoice)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -249,6 +298,31 @@ fun ItemDetailContent(
                 Text("Enregistrer")
             }
         }
+    }
+
+    if (showAislePicker && aisleStoreId != null) {
+        AislePickerDialog(
+            aisles = aislesByStore[aisleStoreId].orEmpty(),
+            onSelectAisle = { aisle ->
+                aisleChoice = aisle.id
+                aisleText = aisle.name
+                aisleChanged = true
+                showAislePicker = false
+            },
+            onCreateAisle = { name ->
+                aisleChoice = name
+                aisleText = name
+                aisleChanged = true
+                showAislePicker = false
+            },
+            onSelectNone = {
+                aisleChoice = null
+                aisleText = "Sans rayon"
+                aisleChanged = true
+                showAislePicker = false
+            },
+            onDismiss = { showAislePicker = false },
+        )
     }
 
     // Product picker dialog
@@ -279,16 +353,19 @@ fun ItemDetailContent(
             stores = stores,
             initialQuery = storeText,
             onSelectStore = { store ->
+                if (store.id != selectedStoreId) resetAisle()
                 selectedStoreId = store.id
                 storeText = store.name
                 showStorePicker = false
             },
             onSelectNewStore = { name ->
+                resetAisle()
                 selectedStoreId = null
                 storeText = name
                 showStorePicker = false
             },
             onSelectNone = {
+                resetAisle()
                 selectedStoreId = null
                 storeText = ""
                 showStorePicker = false

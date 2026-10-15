@@ -11,11 +11,17 @@
 // the database rather than on the screen.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  add | check | remove | expect
+//   ACTION  add | check | remove | expect | aisles | assign | drop-aisles
 //   LABEL   the line, as written on the list
 //   EMAIL   the account, default the shopper (e2e-other@maggie.local)
-//   STORE   add: the shop's name, an existing one — left out, no shop
+//   STORE   add: the shop's name, an existing one — left out, no shop;
+//           aisles, assign, drop-aisles: the shop the aisles belong to
 //   STATE   expect: present | absent | checked | unchecked
+//   AISLES  aisles, drop-aisles: names separated by `|`, in the order of the way
+//           through the shop — `aisles` creates those missing, last in the shop
+//           (MAG-493); `drop-aisles` deletes those present
+//   AISLE   assign: the aisle the line's product takes in STORE, by name; the
+//           script waits until the list carries it, as the app will read it
 //   WAIT_MS pause before acting, in ms — gives the app time to open its
 //           Mercure subscription, which a write made at once would beat
 //
@@ -28,7 +34,8 @@ const base = E2E_BASE_URL
 const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e-other@maggie.local'
 
 function fail(message) {
-  throw new Error('[grocery-api] ' + ACTION + ' "' + LABEL + '": ' + message)
+  const label = typeof LABEL !== 'undefined' ? LABEL : ''
+  throw new Error('[grocery-api] ' + ACTION + ' "' + label + '": ' + message)
 }
 
 function pause(ms) {
@@ -71,6 +78,62 @@ function lines() {
     fail('the account has no grocery list — did the seed run?')
   }
   return list.items
+}
+
+function idOf(reference) {
+  if (!reference) {
+    return null
+  }
+  const value = typeof reference === 'string' ? reference : reference.id || reference['@id']
+  return String(value).split('/').pop()
+}
+
+function storeId() {
+  const response = http.get(base + '/api/stores?pagination=false', {
+    headers: authorized({ Accept: 'application/ld+json' }),
+  })
+  if (!response.ok) {
+    fail('GET /api/stores answered ' + response.status + ': ' + response.body)
+  }
+  const store = JSON.parse(response.body).member.filter(function (candidate) {
+    return candidate.name === STORE
+  })[0]
+  if (!store) {
+    fail('no shop named "' + STORE + '" — did the seed run?')
+  }
+  return store.id
+}
+
+function aislesOf(store) {
+  const response = http.get(base + '/api/aisles?store=' + encodeURIComponent('/api/stores/' + store), {
+    headers: authorized({ Accept: 'application/ld+json' }),
+  })
+  if (!response.ok) {
+    fail('GET /api/aisles answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body).member
+}
+
+function aisleNames() {
+  return String(AISLES).split('|').map(function (name) { return name.trim() }).filter(Boolean)
+}
+
+// The list as the app reads it: the item endpoint, which carries each line's aisle.
+function linesWithAisles() {
+  const collection = http.get(base + '/api/grocery_lists', {
+    headers: authorized({ Accept: 'application/ld+json' }),
+  })
+  if (!collection.ok) {
+    fail('GET /api/grocery_lists answered ' + collection.status + ': ' + collection.body)
+  }
+  const list = JSON.parse(collection.body).member[0]
+  const response = http.get(base + '/api/grocery_lists/' + list.id, {
+    headers: authorized({ Accept: 'application/ld+json' }),
+  })
+  if (!response.ok) {
+    fail('GET /api/grocery_lists/' + list.id + ' answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body).items
 }
 
 function find() {
@@ -143,6 +206,84 @@ if (ACTION === 'add') {
     fail('unknown STATE "' + STATE + '"')
   }
   waitFor(states[STATE], 'the line is not ' + STATE + ' in the database')
+} else if (ACTION === 'aisles') {
+  const store = storeId()
+  const existing = aislesOf(store).map(function (aisle) { return aisle.name })
+  aisleNames().forEach(function (name) {
+    // A run that failed before its clean-up left them: taken as they are.
+    if (existing.indexOf(name) !== -1) {
+      return
+    }
+    const response = http.post(base + '/api/aisles', {
+      headers: authorized({ 'Content-Type': 'application/json', Accept: 'application/ld+json' }),
+      body: JSON.stringify({ store: '/api/stores/' + store, name: name }),
+    })
+    if (!response.ok) {
+      fail('POST /api/aisles "' + name + '" answered ' + response.status + ': ' + response.body)
+    }
+  })
+} else if (ACTION === 'assign') {
+  const store = storeId()
+  const aisle = aislesOf(store).filter(function (candidate) { return candidate.name === AISLE })[0]
+  if (!aisle) {
+    fail('no aisle "' + AISLE + '" in "' + STORE + '" — run the `aisles` action first')
+  }
+  const line = waitFor(function (item) { return item !== undefined }, 'the line never became findable')
+  const productId = idOf(line.product)
+  if (!productId) {
+    fail('the line has no product, so no aisle')
+  }
+  // Polled like the list: a product the add just created may not be indexed yet.
+  let product
+  for (;;) {
+    product = http.get(base + '/api/products/' + productId, {
+      headers: authorized({ Accept: 'application/ld+json' }),
+    })
+    if (product.ok) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('GET /api/products/' + productId + ' answered ' + product.status + ': ' + product.body)
+    }
+    pause(300)
+  }
+  // The list is replaced whole: the product's aisles in the other shops are sent back.
+  const aisles = (JSON.parse(product.body).aisles || []).filter(function (entry) {
+    return entry.store !== store
+  })
+  aisles.push({ store: store, aisle: aisle.id })
+  const response = http.request(base + '/api/products/' + productId, {
+    method: 'PATCH',
+    headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
+    body: JSON.stringify({ aisles: aisles }),
+  })
+  if (!response.ok) {
+    fail('PATCH /api/products/' + productId + ' answered ' + response.status + ': ' + response.body)
+  }
+  for (;;) {
+    const assigned = linesWithAisles().filter(function (item) {
+      return item.label === LABEL && item.aisle && item.aisle.name === AISLE
+    })[0]
+    if (assigned) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the list never carried the aisle "' + AISLE + '" within 30 s')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'drop-aisles') {
+  const store = storeId()
+  const names = aisleNames()
+  aislesOf(store).filter(function (aisle) { return names.indexOf(aisle.name) !== -1 }).forEach(function (aisle) {
+    const response = http.request(base + '/api/aisles/' + aisle.id, {
+      method: 'DELETE',
+      headers: authorized(),
+    })
+    if (!response.ok) {
+      fail('DELETE /api/aisles/' + aisle.id + ' answered ' + response.status + ': ' + response.body)
+    }
+  })
 } else {
   fail('unknown ACTION')
 }

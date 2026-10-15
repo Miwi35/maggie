@@ -120,6 +120,8 @@ import com.maggie.app.ui.screens.finance.TransactionListScreen
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.grocery.ProductListScreen
 import com.maggie.app.ui.screens.grocery.ProductViewModel
+import com.maggie.app.ui.screens.grocery.StoreAislesScreen
+import com.maggie.app.ui.screens.grocery.StoreAislesViewModel
 import com.maggie.app.ui.screens.grocery.StoreListScreen
 import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.data.model.Meal
@@ -203,6 +205,7 @@ sealed class Screen(val route: String, val label: String) {
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
     data object PastErrands : Screen("past_errands", "Courses passées")
+    data object StoreAisles : Screen("stores/aisles", "Rayons")
     data object AccountList : Screen("accounts", "Comptes")
     data object CategoryList : Screen("categories", "Catégories")
     data object BudgetList : Screen("budgets", "Budgets")
@@ -499,6 +502,9 @@ fun NavGraph() {
     var mealCreateState by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     var openedMeal by remember { mutableStateOf<Meal?>(null) }
     var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
+    // The store whose aisles are open (MAG-493): its id, and its name for the title.
+    var aislesStoreId by rememberSaveable { mutableStateOf<String?>(null) }
+    var aislesStoreName by rememberSaveable { mutableStateOf("") }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas
@@ -1181,6 +1187,9 @@ fun NavGraph() {
                                         onRecurringChange = item.product?.id?.let { productId ->
                                             { frequency -> recurringGroceryViewModel.setFrequency(productId, frequency) }
                                         },
+                                        aislesByStore = groceryState.aislesByStore,
+                                        onLoadAisles = { groceryViewModel.loadAisles(it) },
+                                        onSaveAisle = { storeId, aisle -> groceryViewModel.setItemAisle(item, storeId, aisle) },
                                     )
                                 }
                             }
@@ -1201,6 +1210,11 @@ fun NavGraph() {
                     StoreListScreen(
                         viewModel = storeViewModel,
                         onBack = { navController.popBackStack() },
+                        onOpenAisles = { store ->
+                            aislesStoreId = store.id
+                            aislesStoreName = store.name
+                            navController.navigate(Screen.StoreAisles.route) { launchSingleTop = true }
+                        },
                     )
                 }
                 composable(Screen.PastErrands.route) {
@@ -1209,6 +1223,17 @@ fun NavGraph() {
                         viewModel = pastErrandsViewModel,
                         onBack = { navController.popBackStack() },
                     )
+                }
+                composable(Screen.StoreAisles.route) { entry ->
+                    val id = aislesStoreId
+                    PopWhenMissing(navController, entry, id != null)
+                    if (id != null) {
+                        StoreAislesScreen(
+                            storeName = aislesStoreName,
+                            viewModel = koinViewModel<StoreAislesViewModel>(key = "aisles-$id") { parametersOf(id) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
                 composable(Screen.AccountList.route, deepLinks = DeepLinks.forRoute(Screen.AccountList.route)) {
                     val accountViewModel: AccountViewModel = koinViewModel()

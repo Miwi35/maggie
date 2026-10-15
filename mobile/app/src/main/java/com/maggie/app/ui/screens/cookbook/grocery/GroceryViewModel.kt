@@ -7,9 +7,12 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.ReorderEntry
+import com.maggie.app.data.model.Aisle
+import com.maggie.app.data.model.AisleSummary
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -36,7 +39,43 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-data class StoreGroup(val store: Store?, val items: List<GroceryItem>)
+/** The items of one aisle of a store; [aisle] null is « Sans rayon ». */
+data class AisleSection(val aisle: AisleSummary?, val items: List<GroceryItem>)
+
+/**
+ * A store's items, aisle by aisle in the order of the way through it, then by their own
+ * position; « Sans rayon » last (MAG-493). [sections] is empty when none of them has an
+ * aisle: the store is then shown without aisle headers, as before.
+ */
+data class StoreGroup(
+    val store: Store?,
+    val items: List<GroceryItem>,
+    val sections: List<AisleSection> = emptyList(),
+)
+
+/** Aisle position first (no aisle last), then the item's own position. */
+internal val AISLE_ORDER: Comparator<GroceryItem> = compareBy<GroceryItem>(
+    { it.aisle == null },
+    { it.aisle?.position ?: Int.MAX_VALUE },
+    { it.aisle?.id ?: "" },
+    { it.position },
+)
+
+/** One store's items, sorted aisle by aisle, with their sections when at least one item has an aisle. */
+internal fun storeGroupOf(store: Store?, items: List<GroceryItem>): StoreGroup {
+    val sorted = items.sortedWith(AISLE_ORDER)
+    if (sorted.none { it.aisle != null }) return StoreGroup(store, sorted)
+    val sections = mutableListOf<AisleSection>()
+    for (item in sorted) {
+        val last = sections.lastOrNull()
+        if (last != null && last.aisle?.id == item.aisle?.id) {
+            sections[sections.lastIndex] = last.copy(items = last.items + item)
+        } else {
+            sections += AisleSection(item.aisle, listOf(item))
+        }
+    }
+    return StoreGroup(store, sorted, sections)
+}
 
 data class GroceryUiState(
     val groceryList: GroceryList? = null,
@@ -58,6 +97,10 @@ data class GroceryUiState(
     val restockedToast: String? = null,
     /** Why a quantity was refused or put back (MAG-291); shown once, then dismissed. */
     val quantityMessage: String? = null,
+    /** Each store's aisles, by store id, read when an item's aisle is about to be chosen (MAG-493). */
+    val aislesByStore: Map<String, List<Aisle>> = emptyMap(),
+    /** Why an item's aisle was not changed; shown once, then dismissed. */
+    val aisleMessage: String? = null,
 ) {
     // Deferred items count in neither figure: they are not on today's list.
     val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
@@ -358,6 +401,44 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(quantityMessage = message)
     }
 
+    /** Reads the store's aisles, for the « Rayon » choice of an item. */
+    fun loadAisles(storeId: String) {
+        viewModelScope.launch {
+            try {
+                val aisles = storeRepository.getAisles(storeId).getOrThrow()
+                _uiState.value = _uiState.value.copy(aislesByStore = _uiState.value.aislesByStore + (storeId to aisles))
+            } catch (_: Exception) {
+                // The choice then offers « Sans rayon » and a new aisle only.
+            }
+        }
+    }
+
+    /**
+     * Files the item's product under [aisle] in [storeId] — an aisle id, the name of a new
+     * aisle, or null for « Sans rayon ». The product's aisles are one list replaced whole, so
+     * it is read first and only this store's entry changes (MAG-493).
+     */
+    fun setItemAisle(item: GroceryItem, storeId: String, aisle: String?) {
+        val productId = item.product?.id ?: return
+        viewModelScope.launch {
+            try {
+                val product = productRepository.getProduct(productId).getOrThrow()
+                val aisles = product.aisles.filter { it.store != storeId } +
+                    listOfNotNull(aisle?.let { ProductAisle(store = storeId, aisle = it) })
+                productRepository.updateAisles(productId, aisles).getOrThrow()
+                val known = _uiState.value.aislesByStore[storeId].orEmpty()
+                if (aisle != null && known.none { it.id == aisle }) loadAisles(storeId)
+                refresh()
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(aisleMessage = "Erreur : le rayon de « ${item.label} » n'a pas été modifié")
+            }
+        }
+    }
+
+    fun dismissAisleMessage() {
+        _uiState.value = _uiState.value.copy(aisleMessage = null)
+    }
+
     fun toggleItemChecked(item: GroceryItem) {
         viewModelScope.launch {
             try {
@@ -592,7 +673,7 @@ class GroceryViewModel(
 
         for ((key, items) in grouped) {
             val store = items.firstOrNull()?.store
-            storeMap[key] = StoreGroup(store = store, items = items.sortedBy { it.position })
+            storeMap[key] = storeGroupOf(store, items)
         }
 
         return storeMap.values.sortedBy { it.store?.visitOrder ?: Int.MAX_VALUE }

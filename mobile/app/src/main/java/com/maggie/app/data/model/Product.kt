@@ -23,4 +23,6 @@ data class Product(
     val stockState: ProductStockState = ProductStockState.IN_STOCK,
     val restockQuantity: Int? = null,
     val autoRestock: Boolean = false,
+    // Its aisle in each store (MAG-493); a store left out means no aisle there.
+    val aisles: List<ProductAisle> = emptyList(),
 )
