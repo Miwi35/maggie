@@ -469,6 +469,7 @@ private fun AlertThresholdDialog(
                 Text("Annuler")
             }
         },
+        modifier = Modifier.uiTagRoot(),
     )
 }
 
