@@ -18,6 +18,8 @@ interface Props {
   /** The envelopes directly below the mother, for the same period. */
   daughters: BudgetLine[]
   onSaved: () => void
+  /** Inside a form that has its own save button, say what this one saves. */
+  saveLabel?: string
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * Shift for ten euros at a time — moves a boundary; nothing is written until
  * "Enregistrer".
  */
-export const EnvelopeSplitSlider = ({ mother, daughters, onSaved }: Props) => {
+export const EnvelopeSplitSlider = ({ mother, daughters, onSaved, saveLabel = 'Enregistrer' }: Props) => {
   const initial = useMemo(
     () => sharesOf(daughters.map((daughter) => daughter.amountCents), mother.amountCents),
     [daughters, mother.amountCents],
@@ -190,7 +192,7 @@ export const EnvelopeSplitSlider = ({ mother, daughters, onSaved }: Props) => {
 
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
         <Button size="small" variant="contained" onClick={onSave} disabled={!dirty || saving}>
-          Enregistrer
+          {saveLabel}
         </Button>
         <Button size="small" onClick={() => setShares(initial)} disabled={!dirty || saving}>
           Annuler

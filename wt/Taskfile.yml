@@ -290,7 +290,7 @@ tasks:
           -v "$MODULES":/app/node_modules:ro \
           -v "$NPM_CACHE":/tmp/npm-cache \
           -w /app {{.NODE_IMAGE}} \
-          sh -c 'npm run lint && npm run typecheck'
+          sh -c 'npm run lint && NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck'
 
   fix:admin:
     desc: ESLint --fix on this worktree's admin code

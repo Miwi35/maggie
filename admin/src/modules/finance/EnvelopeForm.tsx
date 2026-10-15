@@ -16,6 +16,7 @@ import {
 } from 'react-admin'
 import { BUDGET_MODE_CHOICES, MONTH_CHOICES, MONTH_LABELS, ONE_OFF, overlappingMonth } from './budgetModes'
 import type { Season } from './budgetModes'
+import { EnvelopeSplitSection } from './EnvelopeSplitSection'
 import { EnvelopeSummary } from './EnvelopeSummary'
 import { FormSection } from '../../components/form/FormSection'
 import { CategoryInput } from './CategoryInput'
@@ -233,6 +234,8 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
         )
       }
     </FormDataConsumer>
+
+    <EnvelopeSplitSection />
 
     <FormSection
       title="Alerte"
