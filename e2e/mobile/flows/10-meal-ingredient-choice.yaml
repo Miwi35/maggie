@@ -18,9 +18,9 @@ tags:
 # unticked must never appear. The real-time side of the list
 # is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
 #
-# MAG-483 adds the guests: the owner steps « Convives » to 3, the meal holds 3 and the
-# choice says « Quantités pour 3 convives ». Setting the default and the recipe
-# simulation are the JVM's (`MealSettingsScreenTest`, `RecipeGuestsSimulationTest`)
+# MAG-483 adds the guests: the owner steps « Convives » to 4 (the recipe is for 2), the
+# meal holds 4, the choice says « Quantités pour 4 convives » and the list holds 2 jars.
+# Setting the default and the recipe simulation are the JVM's (`MealSettingsScreenTest`, `RecipeGuestsSimulationTest`)
 # and the web journey's (`meals-guests.spec.ts`).
 #
 # The Menu is chosen in a full-screen search, « Créer » is tapped twice in a row and
@@ -79,17 +79,19 @@ tags:
       id: "meal_menu_recipe"
     timeout: 10000
 # The « Convives » field starts on the default, marked « par défaut »; a tap on « + »
-# makes it 3 and the mark goes (MAG-483).
+# twice makes it 4 and the mark goes (MAG-483).
 - extendedWaitUntil:
     visible:
       id: "meal_guests_default"
     timeout: 10000
 - tapOn:
     id: "meal_guests_plus"
+- tapOn:
+    id: "meal_guests_plus"
 - extendedWaitUntil:
     visible:
       id: "meal_guests_value"
-      text: "3"
+      text: "4"
     timeout: 10000
 - assertNotVisible:
     id: "meal_guests_default"
@@ -105,11 +107,11 @@ tags:
     file: ../scripts/meal-api.js
     env:
       ACTION: expect-single
-      EXPECT_GUESTS: "3"
-# The choice says what the quantities are scaled to: the 3 guests of the meal.
+      EXPECT_GUESTS: "4"
+# The choice says what the quantities are scaled to: the 4 guests of the meal.
 - assertVisible:
     id: "meal_choice_guests"
-    text: ".*3 convives.*"
+    text: ".*4 convives.*"
 - extendedWaitUntil:
     visible: "Riz MAG-297.*"
     timeout: 20000
@@ -131,7 +133,7 @@ tags:
 - tapOn: "Ajouter aux courses"
 
 # The phone sent the choice: the meal says so in the database. Then the list holds
-# the vegetables by the jar and nothing for the rice.
+# the vegetables by the jar (1 jar for 2 servings, 4 guests: 2) and nothing for the rice.
 - runScript:
     file: ../scripts/meal-api.js
     env:
@@ -147,7 +149,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*Légumes pour couscous MAG-297.*"
     timeout: 30000
-- assertVisible: ".*1(\\.0)? (jar|bocal).*"
+- assertVisible: ".*2(\\.0)? (jar|bocal).*"
 # Waited for: the list follows the choice by a refresh.
 - extendedWaitUntil:
     notVisible: ".*Riz MAG-297.*"
