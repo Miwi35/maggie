@@ -24,6 +24,7 @@ export const ROUTES = {
   grocery: '/grocery',
   pastErrands: '/errands',
   products: '/products',
+  stores: '/stores',
   recipes: '/recipes',
   meals: '/meals',
   ingredients: '/ingredients',

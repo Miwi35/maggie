@@ -13,6 +13,7 @@ import { FormSection } from '../../components/form/FormSection'
 import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productChoices'
 import { PackagingInputs } from './PackagingInputs'
 import { ProductRecurrence } from './ProductRecurrence'
+import { ProductAisleInputs } from './ProductAisleInputs'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -37,11 +38,10 @@ export const ProductForm = () => (
     <Box sx={rowSx}>
       <SelectInput
         source="category"
-        label="Rayon"
+        label="Catégorie"
         choices={CATEGORY_CHOICES}
         validate={required()}
         sx={halfSx}
-        helperText="Sert à regrouper la liste par rayon pendant les courses."
       />
       <SelectInput
         source="defaultUnit"
@@ -84,6 +84,8 @@ export const ProductForm = () => (
       sx={halfSx}
       helperText="Facultatif — sert à proposer le réachat au bon moment."
     />
+
+    <ProductAisleInputs />
 
     <FormSection
       title="Ce qu'il m'en reste"
