@@ -106,9 +106,9 @@ Retour : `monthlyCents`, `source` (`declared` | `expected` | `measured` | `unkno
 
 ## Tâche 6 — Salaire de référence : affichage admin et mobile — MAG-275
 
-Admin : ligne « Salaire de référence » sur `FinanceDashboardPage` et dans le panneau de revue mensuelle (montant, « déclaré » ou « mesuré sur 12 mois »), part du repère consommée, case « Salaire » dans `CategoryEdit`/`CategoryCreate`. Mobile : même ligne sur `FinanceDashboardScreen` et `MonthlyReviewScreen`, case dans l'écran de catégorie.
+Admin : ligne « Salaire de référence » sur `FinanceDashboardPage` et dans le panneau de revue mensuelle (montant, « déclaré » ou « mesuré sur 12 mois »), part du repère consommée. Pas de case « Salaire » sur la catégorie (MAG-273 : le salaire est l'opération récurrente de clé standard `salary`, `standardKey` en lecture seule) : repère inconnu → « non renseigné » et lien vers les opérations récurrentes. Mobile : même ligne sur `FinanceDashboardScreen` et `MonthlyReviewScreen` ; repère inconnu → lien vers le matelas.
 
-Tests : Vitest (rendu déclaré / mesuré / inconnu, interaction sur la case, erreur API) ; MockK sur `FinanceDashboardViewModel`, `MonthlyReviewViewModel`, `CategoryViewModel` (une transition par état).
+Tests : Vitest (rendu déclaré / mesuré / inconnu, lien si inconnu, erreur API) ; MockK sur `FinanceDashboardViewModel`, `MonthlyReviewViewModel` (une transition par état) et test Compose de la ligne du dashboard.
 
 ## Tâche 7 — Avances d'épargne : réglages de trésorerie, détection et solde par source (API + MCP) — MAG-276
 

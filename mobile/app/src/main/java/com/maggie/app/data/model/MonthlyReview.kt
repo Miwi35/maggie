@@ -36,6 +36,8 @@ data class MonthlyReview(
     val isComplete: Boolean = false,
     val pending: List<PendingSpend> = emptyList(),
     val comparison: ReviewComparison = ReviewComparison(),
+    val referenceSalary: ReferenceSalary = ReferenceSalary(),
+    val consumedVsReference: ConsumedVsReference = ConsumedVsReference(),
 )
 
 /** Human-readable French label for a review verdict. */

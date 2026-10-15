@@ -128,6 +128,7 @@ fun FinanceDashboardScreen(
                 item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
                 if (dashboard != null) {
                     item { BalanceCard(dashboard) }
+                    item { ReferenceSalaryCard(dashboard.score.referenceSalary, onOpen) }
                     item { CapacityCard(dashboard) }
                     item { IndependenceCard(dashboard) }
                     item { TopPostsCard(dashboard) }

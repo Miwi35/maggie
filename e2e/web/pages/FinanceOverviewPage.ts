@@ -58,6 +58,15 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.locator(`[data-testid="rente"][data-category="${categoryName}"]`)
   }
 
+  /**
+   * The « Salaire de référence » card (MAG-275): the mark the month is judged
+   * on, and where the figure comes from. Reached by its test id, since the
+   * subtitle is also a word the score banner can carry.
+   */
+  referenceSalary(): Locator {
+    return this.content.getByTestId('reference-salary-card')
+  }
+
   async selectPeriod(year: number, month: number): Promise<void> {
     await this.content.getByLabel('Année').fill(String(year))
     await this.content.getByLabel('Mois').click()

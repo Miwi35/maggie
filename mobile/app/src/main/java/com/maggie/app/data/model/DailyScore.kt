@@ -41,6 +41,7 @@ data class DailyScore(
     val budget: ScoreBudget = ScoreBudget(),
     val cushion: ScoreCushion = ScoreCushion(),
     val comparison: ScoreComparison = ScoreComparison(),
+    val referenceSalary: ReferenceSalary = ReferenceSalary(),
 )
 
 /** Human-readable French label for a score code. */

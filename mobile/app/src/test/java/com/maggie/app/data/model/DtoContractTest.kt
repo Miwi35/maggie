@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -209,6 +210,21 @@ class DtoContractTest {
                 assertDeclaredFieldsExist("AlertRule", serializer<AlertRule>(), rule.jsonObject.keys, "task_settings.me")
             }
         }
+    }
+
+    @Test
+    fun `the monthly review carries its reference salary under the names the API sends`() {
+        val review = json.decodeFromJsonElement(serializer<MonthlyReview>(), readRecording("finance_monthly_review.read"))
+
+        assertEquals(ReferenceSalary(monthlyCents = 495000, source = "expected"), review.referenceSalary)
+        assertTrue("consumedVsReference fell back to its default", review.consumedVsReference != ConsumedVsReference())
+    }
+
+    @Test
+    fun `the finance dashboard score carries its reference salary under the names the API sends`() {
+        val dashboard = json.decodeFromJsonElement(serializer<FinanceDashboard>(), readRecording("finance_dashboard.read"))
+
+        assertEquals(ReferenceSalary(monthlyCents = 495000, source = "expected"), dashboard.score.referenceSalary)
     }
 
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {

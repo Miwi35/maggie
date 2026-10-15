@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography'
 import { Title, useNotify } from 'react-admin'
 import { formatCents } from './accountTypes'
 import { PeriodPicker } from './PeriodPicker'
+import { ReferenceShareLine } from './ReferenceShareLine'
 import { useMonthlyReview } from './useMonthlyReview'
 import type { MonthlyReview, PendingSpend, Verdict } from './useMonthlyReview'
 
@@ -116,6 +117,7 @@ export const MonthlyReviewPage = () => {
           {review && (
             <>
               <ComparisonLine review={review} />
+              <ReferenceShareLine review={review} />
 
               <Typography variant="body2" sx={{ mt: 1 }}>
                 {review.optimisationScore === null

@@ -2,8 +2,10 @@ package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.model.DashboardBalance
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.MonthlyFlow
 import com.maggie.app.data.model.BalanceBeforeSalary
+import com.maggie.app.data.model.ReferenceSalary
 import com.maggie.app.data.model.SavingCapacity
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
@@ -153,5 +155,58 @@ class FinanceDashboardViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.treasuryBanner)
+    }
+
+    private fun dashboardWith(reference: ReferenceSalary) =
+        dashboard.copy(score = DailyScore(referenceSalary = reference))
+
+    @Test
+    fun `a declared reference salary reaches the state with its source`() = runTest {
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
+            Result.success(dashboardWith(ReferenceSalary(monthlyCents = 300000, source = "declared")))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
+        assertEquals(300000, reference?.monthlyCents)
+        assertEquals("declared", reference?.source)
+    }
+
+    @Test
+    fun `a measured reference salary reaches the state with its source`() = runTest {
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
+            Result.success(dashboardWith(ReferenceSalary(monthlyCents = 495000, source = "measured")))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
+        assertEquals(495000, reference?.monthlyCents)
+        assertEquals("measured", reference?.source)
+    }
+
+    @Test
+    fun `an unknown reference salary stays null, never 0`() = runTest {
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
+            Result.success(dashboardWith(ReferenceSalary(monthlyCents = null, source = "unknown")))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
+        assertNull(reference?.monthlyCents)
+        assertEquals("unknown", reference?.source)
+    }
+
+    @Test
+    fun `a failed load leaves no reference salary to show`() = runTest {
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
+            Result.failure(RuntimeException("boom"))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.dashboard?.score?.referenceSalary)
     }
 }
