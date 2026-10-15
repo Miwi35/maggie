@@ -11,9 +11,13 @@ final readonly class UpdateProductCommand
     use ClearsFieldsTrait;
 
     /**
+     * `aisles` is the product's aisle in every store it has one in (MAG-493):
+     * a store left out, or given a null aisle, is « Sans rayon »; an aisle is
+     * an id or a name, a name the store lacks is created last; null leaves
+     * them as they are.
+     *
      * @param list<'defaultUnit'|'preferredStore'|'fallbackStore'|'shelfLifeDays'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'|'restockQuantity'> $clearFields
-     * @param list<array{store: string, aisle: ?string}>|null                                                                                            $aisles      its aisle in every store it has one in (MAG-493): a store left out, or with a null
-     *                                                                                                                                                                aisle, is « Sans rayon »; an aisle is an id or a name, a new name is created last; null leaves them as they are
+     * @param list<array{store: string, aisle: ?string}>|null                                                                                            $aisles
      */
     public function __construct(
         public string $productId,
