@@ -72,8 +72,8 @@ import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.apiValue
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
-import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -846,7 +846,7 @@ class MaggieApiService(
         }.body()
     }
 
-    // Task settings (MAG-407): the order weights and the alert schedule. Plain JSON, not
+    // Task settings (MAG-407): the order levels and the alert schedule. Plain JSON, not
     // API Platform; a refused write (400) carries its reason in `error`.
     suspend fun getTaskSettings(): TaskSettings {
         return client.get("$baseUrl/api/task-settings/me") {
@@ -854,12 +854,23 @@ class MaggieApiService(
         }.orRefusal().body()
     }
 
-    suspend fun updateTaskSettings(values: TaskSettingsValues): TaskSettings {
+    /**
+     * A partial write: only the keys of [changes] (e.g. `{"alertSchedule":{"high":{"overdueEveryDays":null}}}`)
+     * change; the answer is the whole settings. A JSON object, so a `null` is sent, not dropped.
+     */
+    suspend fun updateTaskSettings(changes: JsonObject): TaskSettings {
         return client.put("$baseUrl/api/task-settings/me") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
-            setBody(values)
+            setBody(changes)
         }.orRefusal().body()
+    }
+
+    /** Five real open tasks in the order the user's levels give them, for « Ce qui passe en premier ». */
+    suspend fun getTaskOrderPreview(): List<TaskOrderPreviewItem> {
+        return client.get("$baseUrl/api/task-settings/me/preview") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body<ApiCollection<TaskOrderPreviewItem>>().member
     }
 
     // Chat — agent-owned endpoints

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TaskSettings } from './TaskSettings'
 
@@ -18,21 +18,7 @@ vi.mock('../../hooks/useMercure', () => ({
   },
 }))
 
-const WEIGHTS = {
-  timePressure: {
-    overdue: 65,
-    overduePerDay: 2,
-    overdueMax: 85,
-    today: 55,
-    tomorrow: 45,
-    in2To3Days: 30,
-    in4To7Days: 15,
-    in8To30Days: 5,
-    later: 0,
-  },
-  criticality: { critical: 30, high: 20, medium: 10, low: 0 },
-  priority: { high: 6, medium: 3, low: 0 },
-}
+const LEVELS = { timePressure: 2, criticality: 2, priority: 2 }
 
 const SCHEDULE = {
   critical: { daysBefore: [3, 1], dueDay: true, overdueEveryDays: 1 },
@@ -40,27 +26,47 @@ const SCHEDULE = {
   normal: { daysBefore: [], dueDay: true, overdueEveryDays: 2 },
 }
 
-const DEFAULTS = { orderWeights: WEIGHTS, alertSchedule: SCHEDULE, morningTime: '08:00' }
+const DEFAULTS = { orderWeights: {}, orderLevels: LEVELS, alertSchedule: SCHEDULE, morningTime: '08:00' }
 
-/** A user who already changed a few things. */
+/** A user who already changed a few things — J-5 on Haute came through the API. */
 const SAVED = {
   id: '01TS',
-  orderWeights: { ...WEIGHTS, criticality: { ...WEIGHTS.criticality, high: 25 } },
-  alertSchedule: { ...SCHEDULE, normal: { daysBefore: [2], dueDay: false, overdueEveryDays: null } },
+  orderWeights: {},
+  orderLevels: LEVELS,
+  alertSchedule: {
+    ...SCHEDULE,
+    high: { daysBefore: [5, 1], dueDay: true, overdueEveryDays: 3 },
+    normal: { daysBefore: [2], dueDay: false, overdueEveryDays: null },
+  },
   morningTime: '07:00',
   defaults: DEFAULTS,
 }
 
+type Saved = typeof SAVED
 type Handler = (init?: RequestInit) => Response | Promise<Response>
 
+/** The API's PUT: a partial body merged into what is stored. */
+function merge(stored: Saved, body: Record<string, unknown>): Saved {
+  const schedule = { ...stored.alertSchedule } as Record<string, object>
+  for (const [urgency, patch] of Object.entries((body.alertSchedule ?? {}) as Record<string, object>)) {
+    schedule[urgency] = { ...schedule[urgency], ...patch }
+  }
+  return {
+    ...stored,
+    ...(body.morningTime ? { morningTime: body.morningTime as string } : {}),
+    alertSchedule: schedule as Saved['alertSchedule'],
+  }
+}
+
 function stubApi({ get, put }: { get?: Handler; put?: Handler } = {}) {
+  let stored = SAVED
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
     if (init?.method === 'PUT') {
       if (put) return put(init)
-      const body = JSON.parse(String(init.body))
-      return new Response(JSON.stringify({ ...SAVED, ...body }))
+      stored = merge(stored, JSON.parse(String(init.body)))
+      return new Response(JSON.stringify(stored))
     }
-    return get ? get(init) : new Response(JSON.stringify(SAVED))
+    return get ? get(init) : new Response(JSON.stringify(stored))
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
@@ -69,7 +75,7 @@ function stubApi({ get, put }: { get?: Handler; put?: Handler } = {}) {
 const puts = (fetchMock: ReturnType<typeof stubApi>) =>
   fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT').map(([, init]) => JSON.parse(String(init?.body)))
 
-const field = (name: string) => screen.getByLabelText(name)
+const chip = (name: string) => screen.getByRole('button', { name })
 
 beforeEach(() => {
   notify.mockClear()
@@ -80,109 +86,191 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('TaskSettings', () => {
-  test('shows the saved settings', async () => {
+describe('TaskSettings — alerts', () => {
+  test('shows the saved settings as chips, a select and a time, without help text', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
 
     expect(await screen.findByLabelText('Heure du matin')).toHaveValue('07:00')
-    expect(field("Critique — jours avant l'échéance")).toHaveValue('3, 1')
-    expect(field('Critique — le jour J')).toBeChecked()
-    expect(field('Critique — en retard, tous les … jours')).toHaveValue(1)
-    expect(field("Normale — jours avant l'échéance")).toHaveValue('2')
-    expect(field('Normale — le jour J')).not.toBeChecked()
-    expect(field('Normale — en retard, tous les … jours')).toHaveValue(null)
-    expect(field('Pression du temps — En retard')).toHaveValue(65)
-    expect(field('Criticité — Haute')).toHaveValue(25)
-    expect(field('Priorité — Haute')).toHaveValue(6)
-    expect(screen.getByText("Basse : jamais d'alerte, seulement l'affichage.")).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tâches' })).toBeInTheDocument()
+
+    expect(chip('Critique — J-7')).toHaveAttribute('aria-pressed', 'false')
+    expect(chip('Critique — J-3')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Critique — J-2')).toHaveAttribute('aria-pressed', 'false')
+    expect(chip('Critique — J-1')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Critique — Jour J')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Normale — Jour J')).toHaveAttribute('aria-pressed', 'false')
+
+    expect(screen.getByLabelText('Critique — en retard')).toHaveValue('1')
+    expect(screen.getByLabelText('Normale — en retard')).toHaveValue('')
+    // A value only the API can set gets its own option.
+    expect(screen.getByLabelText('Haute — en retard')).toHaveValue('3')
+    expect(within(screen.getByLabelText('Haute — en retard')).getByRole('option', { name: 'Tous les 3 jours' })).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Critique — en retard')).queryByRole('option', { name: 'Tous les 3 jours' })).toBeNull()
+
+    expect(screen.queryByRole('button', { name: 'Enregistrer' })).toBeNull()
+    expect(screen.queryByText(/Basse/)).toBeNull()
+    expect(screen.queryByText(/Vide/)).toBeNull()
+    expect(screen.queryByText('Enregistré')).toBeNull()
 
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/task-settings/me')
     expect(init?.method).toBeUndefined()
   })
 
-  test('saves the whole form and says so', async () => {
+  test('untoggling a chip saves the day list at once and says « Enregistré »', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
 
-    fireEvent.change(await screen.findByLabelText('Heure du matin'), { target: { value: '07:30' } })
-    await userEvent.clear(field("Critique — jours avant l'échéance"))
-    await userEvent.type(field("Critique — jours avant l'échéance"), '1')
-    await userEvent.click(field('Haute — le jour J'))
-    await userEvent.clear(field('Haute — en retard, tous les … jours'))
-    await userEvent.clear(field('Priorité — Moyenne'))
-    await userEvent.type(field('Priorité — Moyenne'), '4')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Critique — J-3' }))
 
-    await waitFor(() => expect(puts(fetchMock)).toHaveLength(1))
-    expect(puts(fetchMock)[0]).toEqual({
-      morningTime: '07:30',
-      alertSchedule: {
-        critical: { daysBefore: [1], dueDay: true, overdueEveryDays: 1 },
-        high: { daysBefore: [1], dueDay: false, overdueEveryDays: null },
-        normal: { daysBefore: [2], dueDay: false, overdueEveryDays: null },
-      },
-      orderWeights: { ...SAVED.orderWeights, priority: { high: 6, medium: 4, low: 0 } },
-    })
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: { critical: { daysBefore: [1] } } }]))
     const [, init] = fetchMock.mock.calls.find(([, i]) => i?.method === 'PUT')!
     expect(init?.headers).toMatchObject({ 'Content-Type': 'application/json' })
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Réglages des tâches enregistrés', { type: 'success' }))
-    expect(field("Critique — jours avant l'échéance")).toHaveValue('1')
+    expect(await screen.findByText('Enregistré')).toBeInTheDocument()
+    expect(chip('Critique — J-3')).toHaveAttribute('aria-pressed', 'false')
   })
 
-  test('« Valeurs par défaut » fills the form with the defaults without saving', async () => {
+  test('quick toggles are not lost while earlier saves are on their way', async () => {
+    const gates: (() => void)[] = []
+    let stored = SAVED
+    const fetchMock = stubApi({
+      put: async (init) => {
+        await new Promise<void>((resolve) => gates.push(resolve))
+        stored = merge(stored, JSON.parse(String(init?.body)))
+        return new Response(JSON.stringify(stored))
+      },
+    })
+    render(<TaskSettings />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Critique — J-7' }))
+    await userEvent.click(chip('Critique — J-2'))
+    // A Mercure re-read meanwhile does not undo the clicks.
+    await act(async () => mercure.onMessage?.())
+    expect(chip('Critique — J-2')).toHaveAttribute('aria-pressed', 'true')
+
+    // The first answer ([7, 3, 1]) comes back while J-2 is still queued: J-2 stays on.
+    await act(async () => gates[0]())
+    await waitFor(() => expect(gates).toHaveLength(2))
+    expect(chip('Critique — J-2')).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(chip('Critique — J-1'))
+
+    await act(async () => gates[1]())
+    await waitFor(() => expect(gates).toHaveLength(3))
+    await act(async () => gates[2]())
+
+    await waitFor(() =>
+      expect(puts(fetchMock)).toEqual([
+        { alertSchedule: { critical: { daysBefore: [7, 3, 1] } } },
+        { alertSchedule: { critical: { daysBefore: [7, 3, 2, 1] } } },
+        { alertSchedule: { critical: { daysBefore: [7, 3, 2] } } },
+      ]),
+    )
+    expect(await screen.findByText('Enregistré')).toBeInTheDocument()
+    expect(chip('Critique — J-2')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Critique — J-1')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('toggling a chip keeps the days only the API knows', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
 
-    await screen.findByLabelText('Heure du matin')
+    await userEvent.click(await screen.findByRole('button', { name: 'Haute — J-7' }))
+
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: { high: { daysBefore: [7, 5, 1] } } }]))
+  })
+
+  test('« Jour J » saves dueDay', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Normale — Jour J' }))
+
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: { normal: { dueDay: true } } }]))
+  })
+
+  test('the overdue select saves its value, « Jamais » as null', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    await userEvent.selectOptions(await screen.findByLabelText('Critique — en retard'), 'Chaque semaine')
+    await waitFor(() => expect(puts(fetchMock)).toHaveLength(1))
+    await userEvent.selectOptions(screen.getByLabelText('Haute — en retard'), 'Jamais')
+
+    await waitFor(() =>
+      expect(puts(fetchMock)).toEqual([
+        { alertSchedule: { critical: { overdueEveryDays: 7 } } },
+        { alertSchedule: { high: { overdueEveryDays: null } } },
+      ]),
+    )
+    expect(screen.getByLabelText('Critique — en retard')).toHaveValue('7')
+  })
+
+  test('the morning time is saved when left, only once complete', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    const time = await screen.findByLabelText('Heure du matin')
+    fireEvent.change(time, { target: { value: '07:30' } })
+    expect(puts(fetchMock)).toEqual([])
+    fireEvent.blur(time)
+
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ morningTime: '07:30' }]))
+    await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('07:30'))
+  })
+
+  test('a half-typed time is not sent and goes back to the saved one', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    const time = await screen.findByLabelText('Heure du matin')
+    fireEvent.change(time, { target: { value: '' } })
+    fireEvent.blur(time)
+
+    expect(puts(fetchMock)).toEqual([])
+    expect(time).toHaveValue('07:00')
+  })
+
+  test('« Valeurs par défaut » asks first, then saves the default alerts', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Valeurs par défaut' }))
+    expect(screen.getByText('Revenir aux valeurs par défaut ?')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+    await waitFor(() => expect(screen.queryByText('Revenir aux valeurs par défaut ?')).toBeNull())
+    expect(puts(fetchMock)).toEqual([])
+
     await userEvent.click(screen.getByRole('button', { name: 'Valeurs par défaut' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
-    expect(field('Heure du matin')).toHaveValue('08:00')
-    expect(field("Normale — jours avant l'échéance")).toHaveValue('')
-    expect(field('Normale — le jour J')).toBeChecked()
-    expect(field('Normale — en retard, tous les … jours')).toHaveValue(2)
-    expect(field('Criticité — Haute')).toHaveValue(20)
-    expect(puts(fetchMock)).toEqual([])
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00' }]))
+    await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('08:00'))
+    await waitFor(() => expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'false'))
   })
 
-  test('an invalid day list is not sent and the field says why', async () => {
-    const fetchMock = stubApi()
+  test('a refusal shows the API message and goes back to the saved values', async () => {
+    stubApi({ put: () => new Response(JSON.stringify({ error: 'daysBefore must be 1..30' }), { status: 400 }) })
     render(<TaskSettings />)
 
-    const days = await screen.findByLabelText("Critique — jours avant l'échéance")
-    await userEvent.clear(days)
-    await userEvent.type(days, '3, x')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Critique — J-3' }))
 
-    expect(await screen.findByText('Des nombres de 1 à 30 séparés par des virgules')).toBeInTheDocument()
-    expect(days).toHaveAttribute('aria-invalid', 'true')
-    expect(puts(fetchMock)).toEqual([])
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('daysBefore must be 1..30', { type: 'error' }))
+    expect(chip('Critique — J-3')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('Enregistré')).toBeNull()
   })
 
-  test('a refusal shows the API message and keeps the form', async () => {
-    stubApi({ put: () => new Response(JSON.stringify({ error: 'morningTime must be HH:MM' }), { status: 400 }) })
-    render(<TaskSettings />)
-
-    const days = await screen.findByLabelText("Critique — jours avant l'échéance")
-    await userEvent.clear(days)
-    await userEvent.type(days, '5')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('morningTime must be HH:MM', { type: 'error' }))
-    expect(days).toHaveValue('5')
-  })
-
-  test('a network failure on save gives a generic error', async () => {
+  test('a network failure on save gives a generic error and reverts', async () => {
     stubApi({ put: () => Promise.reject(new TypeError('offline')) })
     render(<TaskSettings />)
 
-    await screen.findByLabelText('Heure du matin')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await userEvent.selectOptions(await screen.findByLabelText('Critique — en retard'), 'Jamais')
 
     await waitFor(() =>
       expect(notify).toHaveBeenCalledWith("Impossible d'enregistrer les réglages des tâches", { type: 'error' }),
     )
+    expect(screen.getByLabelText('Critique — en retard')).toHaveValue('1')
   })
 
   test('says so when the settings cannot be loaded', async () => {
@@ -210,7 +298,7 @@ describe('TaskSettings', () => {
     morningTime = '06:45'
     await act(async () => mercure.onMessage?.())
 
-    await waitFor(() => expect(field('Heure du matin')).toHaveValue('06:45'))
+    await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('06:45'))
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method !== 'PUT')).toHaveLength(2)
   })
 })

@@ -98,7 +98,9 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame([3, 1], $data['alertSchedule']['critical']['daysBefore']);
         self::assertSame(2, $data['alertSchedule']['normal']['overdueEveryDays']);
         self::assertSame('08:00', $data['morningTime']);
-        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00'], $data['defaults']);
+        $levels = ['timePressure' => 2, 'criticality' => 2, 'priority' => 2];
+        self::assertSame($levels, $data['orderLevels'], 'the spec\'s weights read at the middle level, ×1');
+        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'orderLevels' => $levels, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00'], $data['defaults']);
         $this->assertMercurePublishedOnce('/api/task_settings/'.$created->getId());
     }
 
@@ -160,7 +162,7 @@ class TaskSettingsApiTest extends WebTestCase
         $data = $this->put(json_encode($defaults, JSON_THROW_ON_ERROR));
 
         self::assertResponseIsSuccessful();
-        self::assertSame($defaults, ['orderWeights' => $data['orderWeights'], 'alertSchedule' => $data['alertSchedule'], 'morningTime' => $data['morningTime']]);
+        self::assertSame($defaults, ['orderWeights' => $data['orderWeights'], 'orderLevels' => $data['orderLevels'], 'alertSchedule' => $data['alertSchedule'], 'morningTime' => $data['morningTime']]);
         self::assertSame('08:00', $this->settingsOf('test_user')?->getMorningTime());
     }
 
@@ -186,6 +188,11 @@ class TaskSettingsApiTest extends WebTestCase
         yield 'an unknown field' => ['{"orderWeights": {}, "colour": "red"}', 'colour'];
         yield 'no field' => ['{}', 'orderWeights'];
         yield 'not JSON' => ['weights', 'orderWeights'];
+        yield 'a level above the last' => ['{"orderLevels": {"priority": 5}}', 'orderLevels.priority'];
+        yield 'a negative level' => ['{"orderLevels": {"criticality": -1}}', 'orderLevels.criticality'];
+        yield 'a level that is not an integer' => ['{"orderLevels": {"timePressure": "2"}}', 'orderLevels.timePressure'];
+        yield 'an unknown level group' => ['{"orderLevels": {"urgency": 2}}', 'urgency'];
+        yield 'levels that are not an object' => ['{"orderLevels": [2, 2, 2]}', 'orderLevels'];
     }
 
     #[DataProvider('badBodies')]
@@ -266,5 +273,81 @@ class TaskSettingsApiTest extends WebTestCase
         $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('normal', $data['urgency']);
         self::assertSame(55, $data['orderScore']);
+    }
+
+    public function testALevelScalesTheSpecWeightsOfItsGroupAndPublishes(): void
+    {
+        $data = $this->put('{"orderLevels": {"timePressure": 0, "criticality": 4}}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['timePressure' => 0, 'criticality' => 4, 'priority' => 2], $data['orderLevels']);
+        // ×0.25 and ×2.4 of the spec, rounded; the priority not sent keeps its weights.
+        self::assertSame(['overdue' => 16, 'overduePerDay' => 1, 'overdueMax' => 21, 'today' => 14, 'tomorrow' => 11, 'in2To3Days' => 8, 'in4To7Days' => 4, 'in8To30Days' => 1, 'later' => 0], $data['orderWeights']['timePressure']);
+        self::assertSame(['critical' => 72, 'high' => 48, 'medium' => 24, 'low' => 0], $data['orderWeights']['criticality']);
+        self::assertSame(TaskOrderWeights::DEFAULTS['priority'], $data['orderWeights']['priority']);
+
+        $stored = $this->settingsOf('test_user');
+        self::assertNotNull($stored);
+        self::assertSame(72, $stored->getOrderWeights()['criticality']['critical']);
+        $this->assertMercureUpdatePublished('/api/task_settings/'.$stored->getId());
+        $this->assertNoElasticsearchIndexDispatched(TaskSettings::class);
+    }
+
+    public function testWeightsChangedOneByOneReadAtTheNearestLevel(): void
+    {
+        $data = $this->put('{"orderWeights": {"priority": {"high": 14, "medium": 7}, "criticality": {"high": 21}}}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['timePressure' => 2, 'criticality' => 2, 'priority' => 4], $data['orderLevels']);
+        self::assertSame(21, $data['orderWeights']['criticality']['high'], 'a level read is not written back');
+    }
+
+    public function testTheDefaultLevelsPutBackTheSpecWeights(): void
+    {
+        $this->put('{"orderLevels": {"timePressure": 4, "criticality": 0, "priority": 1}}');
+
+        $data = $this->put('{"orderLevels": {"timePressure": 2, "criticality": 2, "priority": 2}}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(TaskOrderWeights::DEFAULTS, $this->settingsOf('test_user')?->getOrderWeights());
+        self::assertSame(TaskOrderWeights::DEFAULTS, $data['orderWeights']);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function preview(): array
+    {
+        $this->client->request('GET', self::ENDPOINT.'/preview', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['member'];
+    }
+
+    public function testThePreviewRequiresAUser(): void
+    {
+        $this->client->request('GET', self::ENDPOINT.'/preview');
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testThePreviewShowsFiveOpenTasksInTheOrderOfTheWeights(): void
+    {
+        $members = $this->preview();
+
+        self::assertSame(['Payer la cantine', 'Rendre le livre', 'Arroser', 'Déclarer les impôts', 'Appeler le dentiste'], array_column($members, 'title'));
+        self::assertSame([78, 67, 55, 51, 43], array_column($members, 'orderScore'));
+        self::assertSame(['id', 'title', 'dueDate', 'urgency', 'orderScore'], array_keys($members[0]));
+        self::assertSame('2026-10-13', $members[0]['dueDate']);
+        self::assertSame('high', $members[0]['urgency']);
+        self::assertNull($this->settingsOf('test_user'), 'a preview writes nothing');
+    }
+
+    public function testMovingASliderReordersTheSameFiveTasks(): void
+    {
+        $this->put('{"orderLevels": {"timePressure": 0, "criticality": 4}}');
+
+        $members = $this->preview();
+
+        self::assertSame(['Déclarer les impôts', 'Payer la cantine', 'Appeler le dentiste', 'Rendre le livre', 'Arroser'], array_column($members, 'title'));
+        self::assertSame([82, 65, 35, 17, 14], array_column($members, 'orderScore'));
     }
 }

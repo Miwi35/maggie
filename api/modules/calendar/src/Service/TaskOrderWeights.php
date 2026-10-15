@@ -31,6 +31,87 @@ final class TaskOrderWeights
     ];
 
     /**
+     * The five levels of « Ce qui passe en premier » (MAG-407), from « très
+     * peu » to « énormément »: each multiplies the spec's weights of its group.
+     */
+    public const LEVEL_FACTORS = [0.25, 0.5, 1.0, 1.6, 2.4];
+
+    /** The level of the spec's own weights: ×1. */
+    public const DEFAULT_LEVEL = 2;
+
+    /**
+     * The spec's weights of $group at $level, rounded to whole numbers.
+     *
+     * @return array<string, int>
+     */
+    public static function scaled(string $group, int $level): array
+    {
+        return array_map(
+            static fn (int $weight): int => (int) round($weight * self::LEVEL_FACTORS[$level]),
+            self::DEFAULTS[$group],
+        );
+    }
+
+    /**
+     * The level each group reads at: the one whose scaled weights are closest
+     * to $weights — exact when they were set by level, the nearest when the
+     * matrix was changed weight by weight (by Maggie, or through the API).
+     *
+     * @param array<string, mixed> $weights
+     *
+     * @return array<string, int>
+     */
+    public static function levels(array $weights): array
+    {
+        $weights = self::complete($weights);
+        $levels = [];
+        foreach (array_keys(self::DEFAULTS) as $group) {
+            $best = self::DEFAULT_LEVEL;
+            $bestDistance = \PHP_INT_MAX;
+            foreach (array_keys(self::LEVEL_FACTORS) as $level) {
+                $distance = 0;
+                foreach (self::scaled($group, $level) as $key => $weight) {
+                    $distance += abs($weights[$group][$key] - $weight);
+                }
+                if ($distance < $bestDistance) {
+                    [$best, $bestDistance] = [$level, $distance];
+                }
+            }
+            $levels[$group] = $best;
+        }
+
+        return $levels;
+    }
+
+    /**
+     * The weights of the groups $given sets a level for, scaled from the
+     * spec's — an `orderWeights` patch for {@see merge()}.
+     *
+     * @return array<string, array<string, int>>
+     *
+     * @throws \InvalidArgumentException on an unknown group or a level that is not an integer from 0 to 4
+     */
+    public static function fromLevels(mixed $given): array
+    {
+        if (!\is_array($given) || [] === $given || array_is_list($given)) {
+            throw new \InvalidArgumentException('orderLevels must be an object of groups: '.implode(', ', array_keys(self::DEFAULTS)).'.');
+        }
+
+        $weights = [];
+        foreach ($given as $group => $level) {
+            if (!\array_key_exists($group, self::DEFAULTS)) {
+                throw new \InvalidArgumentException(\sprintf('Unknown orderLevels group "%s". Known groups: %s.', $group, implode(', ', array_keys(self::DEFAULTS))));
+            }
+            if (!\is_int($level) || !\array_key_exists($level, self::LEVEL_FACTORS)) {
+                throw new \InvalidArgumentException(\sprintf('orderLevels.%s must be an integer from 0 to %d.', $group, \count(self::LEVEL_FACTORS) - 1));
+            }
+            $weights[$group] = self::scaled($group, $level);
+        }
+
+        return $weights;
+    }
+
+    /**
      * The weights stored, completed with the defaults for any key they lack —
      * a weight added later reads its default, not zero.
      *

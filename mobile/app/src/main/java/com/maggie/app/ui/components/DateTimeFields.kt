@@ -66,7 +66,7 @@ internal fun pickerMillisToDate(millis: Long): LocalDate =
  * content: a dialog is a window of its own and re-provides the phone's context to it.
  */
 @Composable
-private fun InFrench(content: @Composable () -> Unit) {
+internal fun InFrench(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val french = remember(context) {
         val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.FRANCE) }

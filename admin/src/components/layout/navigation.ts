@@ -82,6 +82,7 @@ export const NAVIGATION: NavModule[] = [
     parts: [
       { label: 'Préférences', path: '/settings/preferences' },
       { label: 'Tâches', path: '/settings/tasks' },
+      { label: 'Ce qui passe en premier', path: '/settings/tasks/order' },
       { label: DEFAULT_AGENT_NAME, path: AGENT_SETTINGS_PATH },
       { label: 'Google', path: '/settings/google' },
     ],

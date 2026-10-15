@@ -59,6 +59,9 @@ class GetTasksOrderToolTest extends KernelTestCase
 
         $tasks = $this->call('pending')['tasks'];
 
-        self::assertSame(['Payer la cantine', 'Rendre le livre', 'Arroser'], array_column($tasks, 'title'));
+        self::assertSame(
+            ['Payer la cantine', 'Rendre le livre', 'Arroser', 'Déclarer les impôts', 'Appeler le dentiste', 'Repeindre le volet'],
+            array_column($tasks, 'title'),
+        );
     }
 }

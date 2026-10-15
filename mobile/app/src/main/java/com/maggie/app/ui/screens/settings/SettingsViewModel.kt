@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.fcm.PushTokenRegistrar
@@ -9,25 +10,41 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.AlertRule
+import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import java.util.Locale
+
+/** An alert rule as the API reads it, `overdueEveryDays: null` included. */
+internal fun AlertRule.toJson(): JsonObject = buildJsonObject {
+    put("daysBefore", JsonArray(daysBefore.map { JsonPrimitive(it) }))
+    put("dueDay", dueDay)
+    put("overdueEveryDays", overdueEveryDays?.let { JsonPrimitive(it) } ?: JsonNull)
+}
 
 const val DEFAULT_AGENT_NAME = "Maggie"
 
 private const val TASK_SETTINGS_UNREADABLE = "Impossible de lire les réglages des tâches."
-private const val TASK_SETTINGS_UNSAVED = "Les réglages des tâches n'ont pas été enregistrés."
+private const val TASK_SETTINGS_UNSAVED = "Impossible d'enregistrer les réglages des tâches"
 
 data class SettingsUiState(
     val user: User? = null,
@@ -89,80 +106,166 @@ class SettingsViewModel(
         }
     }
 
+    /** What the server last answered; the screen goes back to it when a save fails. */
+    private var confirmedTaskSettings: TaskSettings? = null
+
+    /** Saves sent and not answered yet: until the last one, the screen keeps showing the user's changes. */
+    private var pendingTaskSaves = 0
+
+    /** One save at a time, in the order the user made the changes. */
+    private val taskSaveLock = Mutex()
+
     fun loadTaskSettings() {
         viewModelScope.launch {
             updateTasks { it.copy(isLoading = true, error = null) }
-            try {
-                val settings = apiService.getTaskSettings()
-                updateTasks {
-                    it.copy(settings = settings, form = TaskSettingsForm.from(settings.values), isLoading = false)
-                }
+            val settings = try {
+                apiService.getTaskSettings()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 updateTasks { it.copy(isLoading = false, error = e.message ?: TASK_SETTINGS_UNREADABLE) }
+                return@launch
             }
+            confirmedTaskSettings = settings
+            updateTasks { it.copy(settings = settings, isLoading = false) }
+            refreshTaskOrderPreview()
+        }
+    }
+
+    /** « Heure du matin », as the time picker gives it. */
+    fun setMorningTime(hour: Int, minute: Int) {
+        val time = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.morningTime == time) return
+        saveTaskSettings(current.copy(morningTime = time), buildJsonObject { put("morningTime", time) })
+    }
+
+    /** A « J-n » chip of [urgency]: the day on or off. */
+    fun toggleAlertDay(urgency: String, days: Int) = changeAlertRule(urgency) { rule ->
+        val next = TaskSettingsChoices.toggleDay(rule, days)
+        rule.copy(daysBefore = next) to buildJsonObject { put("daysBefore", JsonArray(next.map { JsonPrimitive(it) })) }
+    }
+
+    /** The « Jour J » chip of [urgency]. */
+    fun toggleDueDay(urgency: String) = changeAlertRule(urgency) { rule ->
+        rule.copy(dueDay = !rule.dueDay) to buildJsonObject { put("dueDay", !rule.dueDay) }
+    }
+
+    /** « En retard » of [urgency]: every [every] days, or never (null — sent as `null`, not left out). */
+    fun setOverdueEvery(urgency: String, every: Int?) = changeAlertRule(urgency) { rule ->
+        rule.copy(overdueEveryDays = every) to buildJsonObject { put("overdueEveryDays", every?.let { JsonPrimitive(it) } ?: JsonNull) }
+    }
+
+    /** A slider of « Ce qui passe en premier »: saved, then the preview read again in the new order. */
+    fun setOrderLevel(group: String, level: Int) {
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.orderLevels[group] == level) return
+        saveTaskSettings(
+            current.copy(orderLevels = current.orderLevels + (group to level)),
+            buildJsonObject { putJsonObject("orderLevels") { put(group, level) } },
+            refreshesPreview = true,
+        )
+    }
+
+    /** « Valeurs par défaut » of Réglages › Tâches: the alerts and the morning, not the order. */
+    fun resetAlertsToDefaults() {
+        val current = _uiState.value.tasks.settings ?: return
+        val defaults = current.defaults
+        saveTaskSettings(
+            current.copy(alertSchedule = defaults.alertSchedule, morningTime = defaults.morningTime),
+            buildJsonObject {
+                put("alertSchedule", JsonObject(defaults.alertSchedule.mapValues { (_, rule) -> rule.toJson() }))
+                put("morningTime", defaults.morningTime)
+            },
+        )
+    }
+
+    /** « Valeurs par défaut » of « Ce qui passe en premier »: the levels only. */
+    fun resetOrderToDefaults() {
+        val current = _uiState.value.tasks.settings ?: return
+        val levels = current.defaults.orderLevels
+        saveTaskSettings(
+            current.copy(orderLevels = levels),
+            buildJsonObject { put("orderLevels", JsonObject(levels.mapValues { JsonPrimitive(it.value) })) },
+            refreshesPreview = true,
+        )
+    }
+
+    private inline fun changeAlertRule(urgency: String, change: (AlertRule) -> Pair<AlertRule, JsonObject>) {
+        val current = _uiState.value.tasks.settings ?: return
+        val rule = current.alertSchedule[urgency] ?: return
+        val (next, body) = change(rule)
+        saveTaskSettings(
+            current.copy(alertSchedule = current.alertSchedule + (urgency to next)),
+            buildJsonObject { putJsonObject("alertSchedule") { put(urgency, body) } },
+        )
+    }
+
+    /**
+     * Shows [shown] at once and sends [changes]. The server's answer replaces it once no other
+     * save is on its way; a failure says why and goes back to what the server holds.
+     */
+    private fun saveTaskSettings(shown: TaskSettings, changes: JsonObject, refreshesPreview: Boolean = false) {
+        updateTasks { it.copy(settings = shown, saved = false, error = null) }
+        pendingTaskSaves++
+        viewModelScope.launch {
+            val settings = try {
+                taskSaveLock.withLock { apiService.updateTaskSettings(changes) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                pendingTaskSaves--
+                val reason = if (e is ApiRefusalException && e.status == 400) e.message else null
+                updateTasks {
+                    it.copy(settings = confirmedTaskSettings ?: it.settings, saved = false, error = reason ?: TASK_SETTINGS_UNSAVED)
+                }
+                return@launch
+            }
+            pendingTaskSaves--
+            confirmedTaskSettings = settings
+            if (pendingTaskSaves == 0) updateTasks { it.copy(settings = settings, saved = it.error == null) }
+            if (refreshesPreview) refreshTaskOrderPreview()
         }
     }
 
     /**
-     * The form as the user edits it, [change] applied to the form as it is now (not as the
-     * screen last drew it, so no keystroke is lost); nothing is sent before [saveTaskSettings].
+     * The five tasks read again; the arrows say how each moved against the preview shown before.
+     * A preview in the order already shown leaves the arrows as they are: the save's own refresh
+     * and the Mercure echo of that save read the same order, whichever lands first.
      */
-    fun editTaskSettings(change: (TaskSettingsForm) -> TaskSettingsForm) {
-        updateTasks { tasks ->
-            val form = tasks.form ?: return@updateTasks tasks
-            tasks.copy(form = change(form), saved = false, error = null)
-        }
-    }
-
-    /** « Valeurs par défaut »: the form takes the server's defaults, unsaved. */
-    fun resetTaskSettingsToDefaults() {
-        val defaults = _uiState.value.tasks.settings?.defaults ?: return
-        editTaskSettings { TaskSettingsForm.from(defaults) }
-    }
-
-    /** « Enregistrer »: the whole form, replaced by what the server kept (it sorts the days, for one). */
-    fun saveTaskSettings() {
-        val tasks = _uiState.value.tasks
-        val form = tasks.form ?: return
-        if (tasks.isSaving) return
-        val values = form.toValues().getOrElse { invalid ->
-            updateTasks { it.copy(error = invalid.message, saved = false) }
+    private suspend fun refreshTaskOrderPreview() {
+        val next = try {
+            apiService.getTaskOrderPreview()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
             return
         }
-        viewModelScope.launch {
-            updateTasks { it.copy(isSaving = true, error = null, saved = false) }
-            try {
-                val settings = apiService.updateTaskSettings(values)
-                updateTasks {
-                    it.copy(
-                        settings = settings,
-                        form = TaskSettingsForm.from(settings.values),
-                        isSaving = false,
-                        saved = true,
-                    )
-                }
-            } catch (e: Exception) {
-                updateTasks { it.copy(isSaving = false, error = e.message ?: TASK_SETTINGS_UNSAVED) }
-            }
+        updateTasks { tasks ->
+            val sameOrder = next.map { it.id } == tasks.preview.map { it.id }
+            val moves = if (sameOrder) tasks.moves else TaskSettingsChoices.moves(tasks.preview, next)
+            tasks.copy(preview = next, moves = moves)
         }
     }
 
     /**
-     * A change published by the server (the admin, Maggie, this very save): read again. The
-     * form follows only when it holds no edit of its own — a change elsewhere must not wipe
-     * what the user is typing.
+     * A change published by the server (the admin, Maggie, this very save): read again and
+     * shown, unless a save of this screen is still on its way — its answer comes next.
      */
     private suspend fun rereadTaskSettings() {
-        val settings = try { apiService.getTaskSettings() } catch (_: Exception) { return }
-        updateTasks { current ->
-            val untouched = current.form == null ||
-                current.settings?.let { current.form == TaskSettingsForm.from(it.values) } == true
-            current.copy(
-                settings = settings,
-                form = if (untouched) TaskSettingsForm.from(settings.values) else current.form,
-                isLoading = false,
-            )
+        val settings = try {
+            apiService.getTaskSettings()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return
         }
+        // While a save is on its way, its answer is newer than this read: it alone becomes what a failure goes back to.
+        if (pendingTaskSaves == 0) {
+            confirmedTaskSettings = settings
+            updateTasks { it.copy(settings = settings, isLoading = false, error = if (it.settings == null) null else it.error) }
+        }
+        refreshTaskOrderPreview()
     }
 
     private inline fun updateTasks(change: (TaskSettingsUiState) -> TaskSettingsUiState) {

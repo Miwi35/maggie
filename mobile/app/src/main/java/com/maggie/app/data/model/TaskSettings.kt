@@ -3,31 +3,32 @@ package com.maggie.app.data.model
 import kotlinx.serialization.Serializable
 
 /**
- * The user's task settings (MAG-407), `GET /api/task-settings/me`: the weights of the task
+ * The user's task settings (MAG-407), `GET /api/task-settings/me`: the levels of the task
  * order (MAG-406) and the alert schedule per urgency, with the morning the alerts go out.
  *
- * - `orderWeights`: group (`timePressure`, `criticality`, `priority`) → key → points;
+ * - `orderLevels`: group (`timePressure`, `criticality`, `priority`) → level 0..4, what the
+ *   sliders of « Ce qui passe en premier » set (the API turns them into weights);
  * - `alertSchedule`: urgency (`critical`, `high`, `normal` — `low` never alerts) → its rule.
  *
- * No defaults on purpose: the API always sends every key, and a request built from these
- * classes must send `overdueEveryDays: null` (« never ») rather than drop it — the API keeps
- * the stored value of a key it is not sent.
+ * No defaults on purpose: the API always sends every key. The app writes with partial
+ * `PUT` bodies built as JSON (see `MaggieApiService.updateTaskSettings`), so it can send
+ * `overdueEveryDays: null` (« never ») explicitly — the API keeps a key it is not sent.
  */
 @Serializable
 data class TaskSettings(
     val id: String,
-    val orderWeights: Map<String, Map<String, Int>>,
+    val orderLevels: Map<String, Int>,
     val alertSchedule: Map<String, AlertRule>,
     val morningTime: String,
     val defaults: TaskSettingsValues,
 ) {
-    val values: TaskSettingsValues get() = TaskSettingsValues(orderWeights, alertSchedule, morningTime)
+    val values: TaskSettingsValues get() = TaskSettingsValues(orderLevels, alertSchedule, morningTime)
 }
 
-/** The editable part of [TaskSettings]: what `defaults` holds and what `PUT` takes. */
+/** The editable part of [TaskSettings], as `defaults` holds it. */
 @Serializable
 data class TaskSettingsValues(
-    val orderWeights: Map<String, Map<String, Int>>,
+    val orderLevels: Map<String, Int>,
     val alertSchedule: Map<String, AlertRule>,
     val morningTime: String,
 )
@@ -38,4 +39,17 @@ data class AlertRule(
     val daysBefore: List<Int>,
     val dueDay: Boolean,
     val overdueEveryDays: Int?,
+)
+
+/**
+ * One of the five real tasks `GET /api/task-settings/me/preview` returns, in the order the
+ * user's levels give them — the preview under the sliders.
+ */
+@Serializable
+data class TaskOrderPreviewItem(
+    val id: String,
+    val title: String,
+    val dueDate: String? = null,
+    val urgency: String? = null,
+    val orderScore: Int? = null,
 )

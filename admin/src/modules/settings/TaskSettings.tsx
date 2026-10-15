@@ -1,31 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNotify } from 'react-admin'
-import Alert from '@mui/material/Alert'
+import { useState } from 'react'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Checkbox from '@mui/material/Checkbox'
-import CircularProgress from '@mui/material/CircularProgress'
-import FormControlLabel from '@mui/material/FormControlLabel'
+import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useMercure } from '../../hooks/useMercure'
+import { urgencyColor } from '../../design/tokens'
+import { URGENCIES, useTaskSettings } from './taskSettingsApi'
+import type { TaskSettingsResponse, Urgency, UrgencySchedule } from './taskSettingsApi'
+import { DefaultsButton, TaskSettingsFrame } from './TaskSettingsParts'
 
 /**
- * Réglages › Tâches (MAG-407): when Maggie alerts about a task, by urgency,
- * and the weights the task order is computed from (MAG-406).
- *
- * The phone reads the same settings: `GET /api/task-settings/me`.
+ * Réglages › Tâches (MAG-407): when Maggie alerts about a task, by urgency.
+ * Every change is saved at once; the task order lives on its own page
+ * (`TaskOrderSettings`).
  */
-
-const API_PATH = '/api/task-settings/me'
-const MERCURE_TOPICS = ['/api/task_settings/{id}']
-
-const URGENCIES = ['critical', 'high', 'normal'] as const
-type Urgency = (typeof URGENCIES)[number]
 
 const URGENCY_LABELS: Record<Urgency, string> = {
   critical: 'Critique',
@@ -33,363 +23,207 @@ const URGENCY_LABELS: Record<Urgency, string> = {
   normal: 'Normale',
 }
 
-const TIME_PRESSURE_FIELDS = [
-  ['overdue', 'En retard'],
-  ['overduePerDay', 'Par jour de retard'],
-  ['overdueMax', 'Plafond du retard'],
-  ['today', "Aujourd'hui"],
-  ['tomorrow', 'Demain'],
-  ['in2To3Days', 'Dans 2 à 3 jours'],
-  ['in4To7Days', 'Dans 4 à 7 jours'],
-  ['in8To30Days', 'Dans 8 à 30 jours'],
-  ['later', 'Plus tard ou sans date'],
-] as const
+/** The days the chips offer; any other `daysBefore` value (set through the API) is kept as is. */
+const DAY_CHIPS = [7, 3, 2, 1] as const
 
-const CRITICALITY_FIELDS = [
-  ['critical', 'Critique'],
-  ['high', 'Haute'],
-  ['medium', 'Moyenne'],
-  ['low', 'Basse'],
-] as const
-
-const PRIORITY_FIELDS = [
-  ['high', 'Haute'],
-  ['medium', 'Moyenne'],
-  ['low', 'Basse'],
-] as const
-
-type WeightGroup = 'timePressure' | 'criticality' | 'priority'
-
-const WEIGHT_GROUPS: { group: WeightGroup; title: string; fields: readonly (readonly [string, string])[] }[] = [
-  { group: 'timePressure', title: 'Pression du temps', fields: TIME_PRESSURE_FIELDS },
-  { group: 'criticality', title: 'Criticité', fields: CRITICALITY_FIELDS },
-  { group: 'priority', title: 'Priorité', fields: PRIORITY_FIELDS },
+const OVERDUE_CHOICES: [number | null, string][] = [
+  [null, 'Jamais'],
+  [1, 'Chaque matin'],
+  [2, 'Tous les 2 jours'],
+  [7, 'Chaque semaine'],
 ]
 
-interface UrgencySchedule {
-  daysBefore: number[]
-  dueDay: boolean
-  overdueEveryDays: number | null
-}
-
-interface SettingsValues {
-  orderWeights: Record<WeightGroup, Record<string, number>>
-  alertSchedule: Record<Urgency, UrgencySchedule>
-  morningTime: string
-}
-
-interface TaskSettingsResponse extends SettingsValues {
-  id: string
-  defaults: SettingsValues
-}
-
-/** The form holds what the user typed, as typed: it is parsed on save. */
-interface UrgencyForm {
-  daysBefore: string
-  dueDay: boolean
-  overdueEveryDays: string
-}
-
-interface FormState {
-  morningTime: string
-  schedule: Record<Urgency, UrgencyForm>
-  weights: Record<WeightGroup, Record<string, string>>
-}
-
-type Errors = Record<string, string>
-
-function apiFetch(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('token')
-  return fetch(path, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-}
-
-function toForm(values: SettingsValues): FormState {
-  const weights = {} as FormState['weights']
-  for (const { group, fields } of WEIGHT_GROUPS) {
-    weights[group] = Object.fromEntries(fields.map(([key]) => [key, String(values.orderWeights[group]?.[key] ?? 0)]))
-  }
-  const schedule = {} as FormState['schedule']
-  for (const urgency of URGENCIES) {
-    const s = values.alertSchedule[urgency]
-    schedule[urgency] = {
-      daysBefore: (s?.daysBefore ?? []).join(', '),
-      dueDay: s?.dueDay ?? false,
-      overdueEveryDays: s?.overdueEveryDays == null ? '' : String(s.overdueEveryDays),
-    }
-  }
-  return { morningTime: values.morningTime, schedule, weights }
-}
-
-const INTEGER = /^\d+$/
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
-/** The field keys errors are filed under. */
-const daysKey = (u: Urgency) => `${u}.daysBefore`
-const overdueKey = (u: Urgency) => `${u}.overdueEveryDays`
-const weightKey = (group: WeightGroup, key: string) => `${group}.${key}`
+const withSchedule =
+  (urgency: Urgency, patch: Partial<UrgencySchedule>) =>
+  (s: TaskSettingsResponse): TaskSettingsResponse => ({
+    ...s,
+    alertSchedule: { ...s.alertSchedule, [urgency]: { ...s.alertSchedule[urgency], ...patch } },
+  })
 
-function parseForm(form: FormState): { values: SettingsValues | null; errors: Errors } {
-  const errors: Errors = {}
-
-  if (!TIME.test(form.morningTime)) {
-    errors.morningTime = 'Heure au format HH:MM'
-  }
-
-  const alertSchedule = {} as SettingsValues['alertSchedule']
-  for (const urgency of URGENCIES) {
-    const entry = form.schedule[urgency]
-    const parts = entry.daysBefore
-      .split(',')
-      .map((p) => p.trim())
-      .filter((p) => p !== '')
-    const days = parts.map(Number)
-    if (parts.some((p) => !INTEGER.test(p)) || days.some((d) => d < 1 || d > 30)) {
-      errors[daysKey(urgency)] = 'Des nombres de 1 à 30 séparés par des virgules'
+const DayChip = ({
+  label,
+  name,
+  selected,
+  color,
+  onToggle,
+}: {
+  label: string
+  name: string
+  selected: boolean
+  color: string
+  onToggle: () => void
+}) => (
+  <Chip
+    label={label}
+    aria-label={name}
+    aria-pressed={selected}
+    clickable
+    onClick={onToggle}
+    variant={selected ? 'filled' : 'outlined'}
+    sx={(theme) =>
+      selected
+        ? {
+            bgcolor: color,
+            color: theme.palette.getContrastText(color),
+            '&:hover': { bgcolor: color },
+          }
+        : {}
     }
+  />
+)
 
-    const overdue = entry.overdueEveryDays.trim()
-    let overdueEveryDays: number | null = null
-    if (overdue !== '') {
-      overdueEveryDays = Number(overdue)
-      if (!INTEGER.test(overdue) || overdueEveryDays < 1 || overdueEveryDays > 30) {
-        errors[overdueKey(urgency)] = 'Un nombre de 1 à 30, ou vide pour jamais'
-      }
-    }
+/**
+ * The time, saved when the field is left (or on Enter) and only as a whole
+ * `HH:MM`: a browser's time field is valid after each keystroke (07:00 on the
+ * way to 07:30), so saving on change would send every step. A value that is
+ * not a time goes back to the saved one.
+ */
+const MorningTime = ({ saved, onSave }: { saved: string; onSave: (time: string) => void }) => {
+  const [value, setValue] = useState(saved)
 
-    alertSchedule[urgency] = { daysBefore: days, dueDay: entry.dueDay, overdueEveryDays }
-  }
-
-  const orderWeights = {} as SettingsValues['orderWeights']
-  for (const { group, fields } of WEIGHT_GROUPS) {
-    orderWeights[group] = {}
-    for (const [key] of fields) {
-      const raw = form.weights[group][key].trim()
-      if (!INTEGER.test(raw)) {
-        errors[weightKey(group, key)] = 'Un entier positif ou nul'
-      }
-      orderWeights[group][key] = Number(raw)
-    }
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { values: null, errors }
-  }
-  return { values: { orderWeights, alertSchedule, morningTime: form.morningTime }, errors }
-}
-
-export const TaskSettings = () => {
-  const notify = useNotify()
-  const [settings, setSettings] = useState<TaskSettingsResponse | null>(null)
-  const [form, setForm] = useState<FormState | null>(null)
-  const [errors, setErrors] = useState<Errors>({})
-  const [loadFailed, setLoadFailed] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const apply = useCallback((data: TaskSettingsResponse) => {
-    setSettings(data)
-    setForm(toForm(data))
-    setErrors({})
-  }, [])
-
-  const load = useCallback(async () => {
-    try {
-      const res = await apiFetch(API_PATH)
-      if (!res.ok) throw new Error(String(res.status))
-      apply(await res.json())
-      setLoadFailed(false)
-    } catch {
-      setLoadFailed(true)
-    }
-  }, [apply])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  // A change made elsewhere (the phone, Maggie) shows up here.
-  const handleMercure = useCallback(() => {
-    load()
-  }, [load])
-
-  useMercure(MERCURE_TOPICS, handleMercure)
-
-  if (loadFailed && !form) {
-    return (
-      <Box maxWidth={700} mx="auto" mt={2}>
-        <Alert severity="error">Impossible de charger les réglages des tâches</Alert>
-      </Box>
-    )
-  }
-
-  if (!form || !settings) {
-    return (
-      <Box display="flex" justifyContent="center" mt={4}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  const setSchedule = (urgency: Urgency, patch: Partial<UrgencyForm>) =>
-    setForm({ ...form, schedule: { ...form.schedule, [urgency]: { ...form.schedule[urgency], ...patch } } })
-
-  const setWeight = (group: WeightGroup, key: string, value: string) =>
-    setForm({ ...form, weights: { ...form.weights, [group]: { ...form.weights[group], [key]: value } } })
-
-  const handleDefaults = () => {
-    setForm(toForm(settings.defaults))
-    setErrors({})
-  }
-
-  const handleSave = async () => {
-    const { values, errors: found } = parseForm(form)
-    setErrors(found)
-    if (!values) return
-
-    setSaving(true)
-    try {
-      const res = await apiFetch(API_PATH, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      if (res.ok) {
-        apply(await res.json())
-        notify('Réglages des tâches enregistrés', { type: 'success' })
-      } else {
-        const body = await res.json().catch(() => null)
-        const message =
-          res.status === 400 && typeof body?.error === 'string'
-            ? body.error
-            : "Impossible d'enregistrer les réglages des tâches"
-        notify(message, { type: 'error' })
-      }
-    } catch {
-      notify("Impossible d'enregistrer les réglages des tâches", { type: 'error' })
-    } finally {
-      setSaving(false)
-    }
+  const commit = () => {
+    if (!TIME.test(value)) setValue(saved)
+    else if (value !== saved) onSave(value)
   }
 
   return (
-    <Box maxWidth={700} mx="auto" mt={2}>
-      <Typography variant="h5" mb={3}>
-        Tâches
+    <Stack direction="row" alignItems="center" spacing={2}>
+      <Typography component="label" htmlFor="task-settings-morning-time" variant="subtitle1">
+        Heure du matin
       </Typography>
+      <TextField
+        id="task-settings-morning-time"
+        type="time"
+        size="small"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+      />
+    </Stack>
+  )
+}
 
-      <Card sx={{ mb: 3 }}>
-        <CardHeader title="Alertes" />
-        <CardContent>
-          <Stack spacing={3}>
-            <TextField
-              type="time"
-              label="Heure du matin"
-              helperText={errors.morningTime ?? 'Les alertes du jour partent à cette heure.'}
-              error={Boolean(errors.morningTime)}
-              value={form.morningTime}
-              onChange={(e) => setForm({ ...form, morningTime: e.target.value })}
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ maxWidth: 200 }}
-            />
+const UrgencyBlock = ({
+  urgency,
+  schedule,
+  onChange,
+}: {
+  urgency: Urgency
+  schedule: UrgencySchedule
+  onChange: (patch: Partial<UrgencySchedule>) => void
+}) => {
+  const label = URGENCY_LABELS[urgency]
+  const color = urgencyColor(urgency)
 
-            {URGENCIES.map((urgency) => {
-              const label = URGENCY_LABELS[urgency]
-              const entry = form.schedule[urgency]
-              return (
-                <Box key={urgency}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {label}
-                  </Typography>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
-                    <TextField
-                      label="Jours avant l'échéance"
-                      helperText={errors[daysKey(urgency)] ?? 'ex. 3, 1 — J-3 et J-1'}
-                      error={Boolean(errors[daysKey(urgency)])}
-                      value={entry.daysBefore}
-                      onChange={(e) => setSchedule(urgency, { daysBefore: e.target.value })}
-                      size="small"
-                      slotProps={{ htmlInput: { 'aria-label': `${label} — jours avant l'échéance` } }}
-                    />
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={entry.dueDay}
-                          onChange={(e) => setSchedule(urgency, { dueDay: e.target.checked })}
-                          slotProps={{ input: { 'aria-label': `${label} — le jour J` } }}
-                        />
-                      }
-                      label="Le jour J"
-                    />
-                    <TextField
-                      type="number"
-                      label="En retard, tous les … jours"
-                      helperText={errors[overdueKey(urgency)] ?? 'Vide : jamais'}
-                      error={Boolean(errors[overdueKey(urgency)])}
-                      value={entry.overdueEveryDays}
-                      onChange={(e) => setSchedule(urgency, { overdueEveryDays: e.target.value })}
-                      size="small"
-                      slotProps={{ htmlInput: { min: 1, max: 30, 'aria-label': `${label} — en retard, tous les … jours` } }}
-                    />
-                  </Stack>
-                </Box>
-              )
-            })}
+  const toggleDay = (day: number) => {
+    const days = schedule.daysBefore.includes(day)
+      ? schedule.daysBefore.filter((d) => d !== day)
+      : [...schedule.daysBefore, day]
+    onChange({ daysBefore: [...days].sort((a, b) => b - a) })
+  }
 
-            <Typography variant="body2" color="text.secondary">
-              Basse : jamais d'alerte, seulement l'affichage.
+  const overdue = schedule.overdueEveryDays
+  const choices =
+    overdue === null || OVERDUE_CHOICES.some(([v]) => v === overdue)
+      ? OVERDUE_CHOICES
+      : [...OVERDUE_CHOICES, [overdue, `Tous les ${overdue} jours`] as [number, string]]
+
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
+          <Typography variant="subtitle1" component="h2" fontWeight={600}>
+            {label}
+          </Typography>
+        </Stack>
+
+        <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }}>
+            <Typography variant="body2" sx={{ minWidth: 170 }}>
+              Jours avant l'échéance
             </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {DAY_CHIPS.map((day) => (
+                <DayChip
+                  key={day}
+                  label={`J-${day}`}
+                  name={`${label} — J-${day}`}
+                  selected={schedule.daysBefore.includes(day)}
+                  color={color}
+                  onToggle={() => toggleDay(day)}
+                />
+              ))}
+              <DayChip
+                label="Jour J"
+                name={`${label} — Jour J`}
+                selected={schedule.dueDay}
+                color={color}
+                onToggle={() => onChange({ dueDay: !schedule.dueDay })}
+              />
+            </Stack>
           </Stack>
-        </CardContent>
-      </Card>
 
-      <Card sx={{ mb: 3 }}>
-        <CardHeader title="Ordre des tâches" />
-        <CardContent>
-          <Stack spacing={3}>
-            {WEIGHT_GROUPS.map(({ group, title, fields }) => (
-              <Box key={group}>
-                <Typography variant="subtitle2" gutterBottom>
-                  {title}
-                </Typography>
-                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr 1fr' }} gap={2}>
-                  {fields.map(([key, fieldLabel]) => {
-                    const errorKey = weightKey(group, key)
-                    return (
-                      <TextField
-                        key={key}
-                        type="number"
-                        label={fieldLabel}
-                        error={Boolean(errors[errorKey])}
-                        helperText={errors[errorKey]}
-                        value={form.weights[group][key]}
-                        onChange={(e) => setWeight(group, key, e.target.value)}
-                        size="small"
-                        slotProps={{ htmlInput: { min: 0, 'aria-label': `${title} — ${fieldLabel}` } }}
-                      />
-                    )
-                  })}
-                </Box>
-              </Box>
-            ))}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }}>
+            <Typography variant="body2" sx={{ minWidth: 170 }}>
+              En retard
+            </Typography>
+            <TextField
+              select
+              size="small"
+              value={overdue === null ? '' : String(overdue)}
+              onChange={(e) => onChange({ overdueEveryDays: e.target.value === '' ? null : Number(e.target.value) })}
+              slotProps={{ select: { native: true }, htmlInput: { 'aria-label': `${label} — en retard` } }}
+              sx={{ minWidth: 200 }}
+            >
+              {choices.map(([value, text]) => (
+                <option key={text} value={value === null ? '' : String(value)}>
+                  {text}
+                </option>
+              ))}
+            </TextField>
           </Stack>
-        </CardContent>
-      </Card>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
 
-      <Stack direction="row" spacing={2} justifyContent="flex-end" mb={4}>
-        <Button variant="outlined" onClick={handleDefaults} disabled={saving}>
-          Valeurs par défaut
-        </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          Enregistrer
-        </Button>
-      </Stack>
-    </Box>
+export const TaskSettings = () => {
+  const { settings, loadFailed, saved, save } = useTaskSettings()
+
+  return (
+    <TaskSettingsFrame title="Tâches" loadFailed={loadFailed} ready={settings !== null} saved={saved}>
+      {settings && (
+        <Stack spacing={3}>
+          <MorningTime
+            key={settings.morningTime}
+            saved={settings.morningTime}
+            onSave={(morningTime) => save({ morningTime }, (s) => ({ ...s, morningTime }))}
+          />
+
+          {URGENCIES.map((urgency) => (
+            <UrgencyBlock
+              key={urgency}
+              urgency={urgency}
+              schedule={settings.alertSchedule[urgency]}
+              onChange={(patch) => save({ alertSchedule: { [urgency]: patch } }, withSchedule(urgency, patch))}
+            />
+          ))}
+
+          <DefaultsButton
+            onConfirm={() => {
+              const { alertSchedule, morningTime } = settings.defaults
+              save({ alertSchedule, morningTime }, (s) => ({ ...s, alertSchedule, morningTime }))
+            }}
+          />
+        </Stack>
+      )}
+    </TaskSettingsFrame>
   )
 }

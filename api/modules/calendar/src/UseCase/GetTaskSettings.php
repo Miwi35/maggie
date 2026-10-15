@@ -50,10 +50,12 @@ class GetTaskSettings
         return [
             'id' => (string) $settings->getId(),
             'orderWeights' => $settings->getOrderWeights(),
+            'orderLevels' => TaskOrderWeights::levels($settings->getOrderWeights()),
             'alertSchedule' => $settings->getAlertSchedule(),
             'morningTime' => $settings->getMorningTime(),
             'defaults' => [
                 'orderWeights' => TaskOrderWeights::DEFAULTS,
+                'orderLevels' => array_map(static fn (): int => TaskOrderWeights::DEFAULT_LEVEL, TaskOrderWeights::DEFAULTS),
                 'alertSchedule' => TaskAlertSchedule::DEFAULTS,
                 'morningTime' => TaskSettings::DEFAULT_MORNING_TIME,
             ],

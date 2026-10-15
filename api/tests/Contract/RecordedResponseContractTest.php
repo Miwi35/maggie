@@ -75,6 +75,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'users.me' => '/api/users/me',
         'user_preferences.me' => '/api/user_preferences/me',
         'task_settings.me' => '/api/task-settings/me',
+        'task_settings.preview' => '/api/task-settings/me/preview',
         'meal_settings.me' => '/api/meal-settings/me',
         'finance_monthly_review.read' => '/api/finance/monthly-review?year=2026&month=3',
         'finance_daily_score.read' => '/api/finance/daily-score?year=2026&month=3',

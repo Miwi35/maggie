@@ -213,6 +213,25 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the task order preview deserialises from the recorded response`() {
+        val body = readRecording("task_settings.preview")
+        val members = body["member"]!!.jsonArray
+        assertTrue("The recording \"task_settings.preview\" is empty, so it proves nothing.", members.isNotEmpty())
+
+        val preview = json.decodeFromJsonElement(ApiCollection.serializer(serializer<TaskOrderPreviewItem>()), body).member
+
+        assertDeclaredFieldsExist(
+            "TaskOrderPreviewItem",
+            serializer<TaskOrderPreviewItem>(),
+            members.flatMap { it.jsonObject.keys }.toSet(),
+            "task_settings.preview",
+        )
+        assertEquals("critical", preview.first().urgency)
+        assertEquals("2026-03-20", preview.first().dueDate)
+        assertEquals(111, preview.first().orderScore)
+    }
+
+    @Test
     fun `the monthly review carries its reference salary under the names the API sends`() {
         val review = json.decodeFromJsonElement(serializer<MonthlyReview>(), readRecording("finance_monthly_review.read"))
 

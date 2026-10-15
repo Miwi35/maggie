@@ -1,12 +1,14 @@
-// The user's task settings, read over HTTP (MAG-407).
+// The user's task settings, over HTTP (MAG-407).
 //
+// `reset` puts the critical tasks' days before the due day back to the seed's [3, 1], so the
+// flow starts from the same chips whatever ran before it.
 // `expect` reads `GET /api/task-settings/me` — what the app, the admin and the alerts read —
-// which is how the flow proves the phone's « Enregistrer » reached the server.
+// which is how the flow proves the phone's change reached the server.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION         expect
-//   MORNING        the expected `morningTime`, e.g. 07:30
-//   CRITICAL_DAYS  the expected `alertSchedule.critical.daysBefore`, comma-separated, e.g. 1
+//   ACTION         reset | expect
+//   CRITICAL_DAYS  expect: the expected `alertSchedule.critical.daysBefore`, comma-separated, e.g. 1
+//   MORNING        expect, optional: the expected `morningTime`, e.g. 07:30
 //   EMAIL          the account, default the one the app signs in as (e2e@maggie.local)
 
 (function () {
@@ -26,7 +28,16 @@ if (!login.ok) {
 }
 const token = JSON.parse(login.body).token
 
-if (ACTION === 'expect') {
+if (ACTION === 'reset') {
+  const write = http.request(base + '/api/task-settings/me', {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alertSchedule: { critical: { daysBefore: [3, 1] } } }),
+  })
+  if (!write.ok) {
+    fail('PUT /api/task-settings/me answered ' + write.status + ': ' + write.body)
+  }
+} else if (ACTION === 'expect') {
   const read = http.get(base + '/api/task-settings/me', {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
   })
@@ -34,7 +45,7 @@ if (ACTION === 'expect') {
     fail('GET /api/task-settings/me answered ' + read.status + ': ' + read.body)
   }
   const settings = JSON.parse(read.body)
-  if (settings.morningTime !== MORNING) {
+  if (typeof MORNING !== 'undefined' && MORNING && settings.morningTime !== MORNING) {
     fail('morningTime is "' + settings.morningTime + '", expected "' + MORNING + '"')
   }
   const days = settings.alertSchedule.critical.daysBefore.join(',')

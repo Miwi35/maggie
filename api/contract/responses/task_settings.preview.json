@@ -1,0 +1,18 @@
+{
+    "member": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded open task",
+            "dueDate": "2026-03-20",
+            "urgency": "critical",
+            "orderScore": 111
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded subtask",
+            "dueDate": null,
+            "urgency": "low",
+            "orderScore": 3
+        }
+    ]
+}

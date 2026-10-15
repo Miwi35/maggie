@@ -4,19 +4,24 @@ tags:
   - settings
   - calendar
 ---
-# Réglages › Tâches (MAG-407): when Maggie alerts on a task, per urgency, and the weights
-# of the task order.
+# Réglages › Tâches (MAG-407): when Maggie alerts on a task, per urgency. Every change is
+# saved as it is made.
 #
-# The user opens Réglages › Tâches, sets « Heure du matin » to 07:30 and the critical
-# tasks' « Jours avant l'échéance » to 1, saves; the server holds them
-# (`scripts/task-settings-api.js`), and the app, started again, reads them back.
+# The critical tasks alert at J-3 and J-1 (`scripts/task-settings-api.js` reset). The user
+# opens Réglages › Tâches and switches J-3 off on « Critique »; « Enregistré » shows, the
+# server holds [1], and the app, started again, reads it back: J-3 is no longer checked.
 #
-# The values are the web journey's (`task-settings.spec.ts`, which runs as the
-# neighbour and puts the defaults back). Nothing else reads the alert schedule or the
-# morning time yet, so they are left as saved. Only those two fields are touched — the weights, which order
-# « Aujourd'hui » in `15-task-subtasks`, stay what the seed made them. Edits, defaults,
-# a refused save and the re-read on a Mercure message are the JVM's business
-# (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
+# Only that chip is touched — the order levels, which order « Aujourd'hui » in
+# `15-task-subtasks`, stay what the seed made them. The time picker, « En retard », the
+# sliders and their preview, the defaults, a refused save and the re-read on a Mercure
+# message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
+#
+# A chip is a `FilterChip` (role Checkbox): Android reports it `checked`, never `selected`.
+
+- runScript:
+    file: ../scripts/task-settings-api.js
+    env:
+      ACTION: reset
 
 - launchApp:
     clearState: true
@@ -40,26 +45,11 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_morning"
+      id: "settings_tasks_chip_critical_d3"
+      checked: true
     timeout: 30000
 - tapOn:
-    id: "settings_tasks_morning"
-- eraseText
-- inputText: "07:30"
-- hideKeyboard
-
-- tapOn:
-    id: "settings_tasks_days_critical"
-- eraseText
-- inputText: "1"
-- hideKeyboard
-
-- scrollUntilVisible:
-    element:
-      id: "settings_tasks_save"
-    timeout: 30000
-- tapOn:
-    id: "settings_tasks_save"
+    id: "settings_tasks_chip_critical_d3"
 - extendedWaitUntil:
     visible:
       id: "settings_tasks_saved"
@@ -69,10 +59,9 @@ tags:
     file: ../scripts/task-settings-api.js
     env:
       ACTION: expect
-      MORNING: "07:30"
       CRITICAL_DAYS: "1"
 
-# Read back from the server, not from the screen that typed them: the app starts again,
+# Read back from the server, not from the screen that changed it: the app starts again,
 # still signed in, and opens the section fresh.
 - stopApp
 - launchApp:
@@ -94,15 +83,9 @@ tags:
     id: "settings_tasks"
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_morning"
-      text: ".*07:30.*"
+      id: "settings_tasks_chip_critical_d1"
+      checked: true
     timeout: 30000
-- extendedWaitUntil:
-    visible:
-      id: "settings_tasks_days_critical"
-      text: ".*1.*"
-    timeout: 20000
-# « 3, 1 » holds a 1 as well: the seed's value must be gone.
-- assertNotVisible:
-    id: "settings_tasks_days_critical"
-    text: ".*3, 1.*"
+- assertVisible:
+    id: "settings_tasks_chip_critical_d3"
+    checked: false
