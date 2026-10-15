@@ -68,6 +68,24 @@ class DtoContractTest {
         assertCollectionContract("tasks", serializer<Task>(), "Task")
 
     @Test
+    fun `a paged task view deserialises from the recorded response`() {
+        val body = readRecording("tasks.view_done")
+        json.decodeFromJsonElement(serializer<TaskViewResponse>(), body)
+
+        assertDeclaredFieldsExist("TaskViewResponse", serializer<TaskViewResponse>(), body.keys, "tasks.view_done")
+        assertDeclaredFieldsExist("TaskViewCounts", serializer<TaskViewCounts>(), body["counts"]!!.jsonObject.keys, "tasks.view_done")
+    }
+
+    @Test
+    fun `an unpaged task view deserialises from the recorded response, tasks and counts`() {
+        val body = readRecording("tasks.view_today")
+        val view = json.decodeFromJsonElement(serializer<TaskViewResponse>(), body)
+
+        assertTrue("The recording tasks.view_today is empty, so it proves nothing.", view.member.isNotEmpty())
+        assertDeclaredFieldsExist("TaskViewCounts", serializer<TaskViewCounts>(), body["counts"]!!.jsonObject.keys, "tasks.view_today")
+    }
+
+    @Test
     fun `proactions deserialise from the recorded response`() =
         assertCollectionContract("proactions", serializer<Proaction>(), "Proaction")
 

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -38,6 +39,7 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("dashboard", "Tableau de bord", Icons.Default.Dashboard),
     DrawerDestination("chat", "Chat", Icons.Default.Chat),
     DrawerDestination("calendar", "Calendrier", Icons.Default.DateRange),
+    DrawerDestination("tasks", "Tâches", Icons.Default.TaskAlt),
     DrawerDestination("cookbook", "Cuisine", Icons.Default.Restaurant),
     DrawerDestination("grocery", "Courses", Icons.Default.ShoppingCart),
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights),

@@ -64,6 +64,8 @@ fun FullCalendarScreen(
     onCreateEvent: () -> Unit = {},
     onCreateTask: () -> Unit = {},
     onEventClick: (ExpandedEvent) -> Unit = {},
+    // The tasks screen (MAG-408), reached from the options menu of the agenda.
+    onOpenTasks: (() -> Unit)? = null,
     // A module's own view (MAG-354): its title replaces the agenda drawer, and nothing is created here.
     moduleTitle: String? = null,
 ) {
@@ -320,6 +322,16 @@ fun FullCalendarScreen(
                                         scope.launch { drawerState.open() }
                                     },
                                 )
+                                if (onOpenTasks != null) {
+                                    DropdownMenuItem(
+                                        modifier = Modifier.testTag(UiTags.CALENDAR_OPEN_TASKS),
+                                        text = { Text("Tâches") },
+                                        onClick = {
+                                            moreMenuExpanded = false
+                                            onOpenTasks()
+                                        },
+                                    )
+                                }
                                 DropdownMenuItem(
                                     modifier = Modifier.testTag(UiTags.CALENDAR_IMPORT_GOOGLE),
                                     text = { Text("Importer Google Calendar") },

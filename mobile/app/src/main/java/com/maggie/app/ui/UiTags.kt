@@ -282,6 +282,9 @@ object UiTags {
     const val CALENDAR_MODULE_TITLE = "calendar_module_title"
     const val CALENDAR_IMPORT_GOOGLE = "calendar_import_google"
 
+    /** Calendar › options menu — the « Tâches » entry that opens the tasks screen (MAG-408). */
+    const val CALENDAR_OPEN_TASKS = "calendar_open_tasks"
+
     /** Google import dialog — the « Importer » button of one calendar, suffixed by its Google id. */
     const val GOOGLE_IMPORT_PREFIX = "google_import_"
 
@@ -328,6 +331,22 @@ object UiTags {
     const val DASHBOARD_TASK_CHECK_PREFIX = "dashboard_task_check_"
 
     fun dashboardTaskCheck(id: String) = DASHBOARD_TASK_CHECK_PREFIX + id
+
+    /**
+     * Tasks screen (MAG-408) — the root, one tab per view suffixed by the view's key (`today`,
+     * `upcoming`, `someday`, `done`), the quick-add field and its button, the empty line, and the
+     * box that ticks a task, suffixed by the task's id.
+     */
+    const val TASKS = "tasks"
+    const val TASKS_TAB_PREFIX = "tasks_tab_"
+    const val TASKS_ADD_INPUT = "tasks_add_input"
+    const val TASKS_ADD_SUBMIT = "tasks_add_submit"
+    const val TASKS_EMPTY = "tasks_empty"
+    const val TASKS_CHECK_PREFIX = "tasks_check_"
+
+    fun tasksTab(key: String) = TASKS_TAB_PREFIX + key
+
+    fun tasksCheck(id: String) = TASKS_CHECK_PREFIX + id
 
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
