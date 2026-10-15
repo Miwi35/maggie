@@ -4,7 +4,9 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.formatQuantity as formatSize
 import com.maggie.app.data.model.frenchLabel
+import com.maggie.app.data.model.PurchasedItem
 import com.maggie.app.data.model.neededLabel
+import com.maggie.app.data.model.packagingLabel
 import kotlin.math.roundToInt
 
 // A packaged product's line is a whole number of packagings (MAG-299): − and +
@@ -73,6 +75,20 @@ fun GroceryItem.quantityHint(): String? {
     val quantity = quantity ?: return null
     val unitText = unitLabel(unit, quantity)
     return formatQuantity(quantity) + if (unitText.isNotEmpty()) " $unitText" else ""
+}
+
+/**
+ * « 2 paquets · paquet de 500 g », « 3 pièces », « 800 g »: what a past errand's line bought
+ * (MAG-488). A packaged line is counted in its packaging, as it was on the list; null with no quantity.
+ */
+fun PurchasedItem.quantityLabel(): String? {
+    val quantity = quantity ?: return packagingLabel(packagingUnit, packagingSize, packagingSizeUnit)
+    val counted = packagingUnit ?: unit
+    val unitText = unitLabel(counted, quantity)
+    val amount = formatQuantity(quantity) + if (unitText.isNotEmpty()) " $unitText" else ""
+    // « 2 paquets · paquet » says nothing more: the packaging is only worth adding with its size.
+    if (packagingUnit == null || packagingSize == null || packagingSizeUnit == null) return amount
+    return "$amount · ${packagingLabel(packagingUnit, packagingSize, packagingSizeUnit)}"
 }
 
 /** « 800 g pour les repas »: the reminder under a packaged line, never edited (MAG-380). */

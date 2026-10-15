@@ -226,6 +226,28 @@ Maggie\Grocery\Entity\GroceryList:
   recorded_grocery_list:
     user: '@recorded_user'
 
+Maggie\Grocery\Entity\PurchasedItem:
+  recorded_purchased_product:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Recorded Product', 2, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@recorded_product']
+  recorded_purchased_free_text:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Recorded free-text line', null, null]
+
+# A past errand (MAG-488): one at a store, one whose lines had none.
+Maggie\Grocery\Entity\Errand:
+  recorded_errand:
+    user: '@recorded_user'
+    store: '@recorded_store'
+    endedAt: '<(new \DateTimeImmutable("2026-04-20 18:00:00+02:00"))>'
+    __calls:
+      - addItem: ['@recorded_purchased_product']
+  recorded_errand_without_store:
+    user: '@recorded_user'
+    endedAt: '<(new \DateTimeImmutable("2026-04-12 10:30:00+02:00"))>'
+    __calls:
+      - addItem: ['@recorded_purchased_free_text']
+
 Maggie\Grocery\Entity\RecurringGroceryItem:
   recorded_recurring_grocery_item:
     product: '@recorded_product'

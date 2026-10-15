@@ -142,6 +142,22 @@ class DtoContractTest {
         assertCollectionContract("grocery_lists", serializer<GroceryList>(), "GroceryList")
 
     @Test
+    fun `past errands deserialise from the recorded response`() =
+        assertCollectionContract("errands", serializer<Errand>(), "Errand")
+
+    @Test
+    fun `the lines of a past errand deserialise from the recorded response`() {
+        val members = readRecording("errands.collection")["member"]!!.jsonArray
+        val itemKeys = members
+            .flatMap { it.jsonObject["items"]?.jsonArray.orEmpty() }
+            .flatMap { it.jsonObject.keys }
+            .toSet()
+        assertTrue("No recorded errand carries a line: the recording proves nothing about it.", itemKeys.isNotEmpty())
+
+        assertDeclaredFieldsExist("PurchasedItem", serializer<PurchasedItem>(), itemKeys, "errands.collection")
+    }
+
+    @Test
     fun `recurring grocery items deserialise from the recorded response`() =
         assertCollectionContract("recurring_grocery_items", serializer<RecurringGroceryItem>(), "RecurringGroceryItem")
 

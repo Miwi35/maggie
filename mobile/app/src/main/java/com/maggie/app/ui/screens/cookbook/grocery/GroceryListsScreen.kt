@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
@@ -62,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
@@ -70,6 +72,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.RecurringFrequency
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +82,8 @@ fun GroceryScreen(
     recurringViewModel: RecurringGroceryViewModel,
     onNavigateToProducts: () -> Unit = {},
     onNavigateToStores: () -> Unit = {},
+    // « Courses passées », one tap from the list (MAG-488).
+    onNavigateToPastErrands: () -> Unit = {},
     openItemId: String? = null,
     onOpenItemHandled: () -> Unit = {},
     // Set when the item opens in the detail pane beside the list instead of a sheet (MAG-263).
@@ -165,6 +170,12 @@ fun GroceryScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    IconButton(
+                        onClick = onNavigateToPastErrands,
+                        modifier = Modifier.testTag(UiTags.PAST_ERRANDS_OPEN),
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = "Courses passées")
+                    }
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Menu")

@@ -1,0 +1,93 @@
+{
+    "@context": "/api/contexts/Errand",
+    "@id": "/api/errands",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/errands/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Errand",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "store": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "storeName": "Recorded Store",
+            "endedAt": "2026-04-20T16:00:00+00:00",
+            "itemCount": 1,
+            "items": [
+                {
+                    "@type": "PurchasedItem",
+                    "@id": "/api/.well-known/genid/blank",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded Product",
+                    "quantity": 2,
+                    "unit": "pack",
+                    "packagingUnit": "pack",
+                    "packagingSize": 500,
+                    "packagingSizeUnit": "g",
+                    "position": 0,
+                    "product": "/api/products/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            ]
+        },
+        {
+            "@id": "/api/errands/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Errand",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "endedAt": "2026-04-12T08:30:00+00:00",
+            "itemCount": 1,
+            "items": [
+                {
+                    "@type": "PurchasedItem",
+                    "@id": "/api/.well-known/genid/blank",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded free-text line",
+                    "position": 0
+                }
+            ]
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/errands{?order[endedAt],endedAt[before],endedAt[strictly_before],endedAt[after],endedAt[strictly_after],store}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[endedAt]",
+                "property": "endedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endedAt[before]",
+                "property": "endedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endedAt[strictly_before]",
+                "property": "endedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endedAt[after]",
+                "property": "endedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endedAt[strictly_after]",
+                "property": "endedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "store",
+                "property": "store",
+                "required": false
+            }
+        ]
+    }
+}

@@ -231,8 +231,8 @@ areas:
     - api/fixtures/e2e/30-grocery.yaml
     - admin/src/modules/grocery/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/**
-    - mobile/app/src/main/java/com/maggie/app/data/repository/{GroceryList,Product,Store}Repository.kt
-    - mobile/app/src/main/java/com/maggie/app/data/model/{GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Errand,GroceryList,Product,Store}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Errand,GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
     - e2e/web/pages/GroceryListPage.ts
     - e2e/web/pages/PastErrandsPage.ts
     - e2e/mobile/scripts/grocery-api.js

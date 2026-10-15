@@ -45,10 +45,11 @@ fun CookbookUnit.frenchLabel(count: Float): String = if (count > 1f) frenchPlura
  * What the product is bought in, as the owner says it: « paquet de 500 g »,
  * « bocal ». Null when the product has no packaging.
  */
-fun Product.packagingLabel(): String? {
-    val unit = packagingUnit ?: return null
-    val size = packagingSize
-    val sizeUnit = packagingSizeUnit
+fun Product.packagingLabel(): String? = packagingLabel(packagingUnit, packagingSize, packagingSizeUnit)
+
+/** The same, from the three fields a past errand's line copied off its product (MAG-488). */
+fun packagingLabel(unit: CookbookUnit?, size: Float?, sizeUnit: CookbookUnit?): String? {
+    unit ?: return null
     if (size == null || sizeUnit == null) return unit.frenchName
     return "${unit.frenchName} de ${formatQuantity(size)} ${sizeUnit.frenchLabel(size)}"
 }

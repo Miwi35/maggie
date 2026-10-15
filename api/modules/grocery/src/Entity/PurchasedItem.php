@@ -7,6 +7,8 @@ namespace Maggie\Grocery\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\AggregateRoot;
 use Maggie\Grocery\Enum\Unit;
+use Symfony\Component\Serializer\Attribute\Ignore;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Uid\Ulid;
 
 /**
@@ -25,10 +27,13 @@ class PurchasedItem
 
     #[ORM\ManyToOne(targetEntity: Errand::class, inversedBy: 'items')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[Ignore]
     private Errand $errand;
 
     #[ORM\ManyToOne(targetEntity: Product::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    // Served as its IRI (getProductIri): the line keeps its own label and packaging.
+    #[Ignore]
     private ?Product $product = null;
 
     #[ORM\Column(length: 255)]
@@ -60,12 +65,17 @@ class PurchasedItem
     /** The line as it was bought: label, quantity, unit and the product's packaging. */
     public static function fromGroceryItem(GroceryItem $item): self
     {
-        $purchased = new self();
-        $purchased->label = $item->getLabel();
-        $purchased->quantity = $item->getQuantity();
-        $purchased->unit = $item->getUnit();
+        return self::of($item->getLabel(), $item->getQuantity(), $item->getUnit(), $item->getProduct());
+    }
 
-        $product = $item->getProduct();
+    /** A bought line; the packaging is the product's at this moment, when it has one. */
+    public static function of(string $label, ?float $quantity, ?Unit $unit, ?Product $product = null): self
+    {
+        $purchased = new self();
+        $purchased->label = $label;
+        $purchased->quantity = $quantity;
+        $purchased->unit = $unit;
+
         if (null !== $product) {
             $purchased->product = $product;
             $purchased->packagingUnit = $product->getPackagingUnit();
@@ -96,6 +106,13 @@ class PurchasedItem
     public function getProduct(): ?Product
     {
         return $this->product;
+    }
+
+    /** The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line. */
+    #[SerializedName('product')]
+    public function getProductIri(): ?string
+    {
+        return null !== $this->product ? '/api/products/'.$this->product->getId() : null;
     }
 
     public function getLabel(): string
@@ -150,7 +167,7 @@ class PurchasedItem
     {
         return [
             'id' => (string) $this->id,
-            'product' => null !== $this->product ? '/api/products/'.$this->product->getId() : null,
+            'product' => $this->getProductIri(),
             'label' => $this->label,
             'quantity' => $this->quantity,
             'unit' => $this->unit?->value,

@@ -10,6 +10,7 @@ import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Context
 import com.maggie.app.data.model.CiqualFood
+import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.GoogleCalendar
@@ -1266,6 +1267,24 @@ class MaggieApiService(
 
     suspend fun deleteGroceryItem(itemId: String) {
         client.delete("$baseUrl/api/grocery_items/$itemId")
+    }
+
+    // Past errands (MAG-488)
+    /**
+     * One page of the past errands, the most recent first (the API's default order). Paged and
+     * not read whole: the history only grows, and the screen asks for the next page on demand.
+     */
+    suspend fun getErrands(page: Int = 1): ApiCollection<Errand> {
+        return client.get("$baseUrl/api/errands") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("page", page.toString())
+        }.body()
+    }
+
+    suspend fun getErrand(id: String): Errand {
+        return client.get("$baseUrl/api/errands/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
     }
 
     // Recurring Grocery Items

@@ -475,6 +475,11 @@ object UiTags {
 
     fun recurringOption(value: String) = RECURRING_OPTION_PREFIX + value
 
+    /** The grocery screen's history icon, the « Courses passées » screen and one errand's sheet (MAG-488). */
+    const val PAST_ERRANDS_OPEN = "past_errands_open"
+    const val PAST_ERRANDS = "past_errands"
+    const val PAST_ERRAND_SHEET = "past_errand_sheet"
+
     /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
     const val TRANSFER_BADGE = "transfer_badge"
 

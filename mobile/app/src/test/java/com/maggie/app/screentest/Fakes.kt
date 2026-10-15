@@ -21,6 +21,7 @@ import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.GroceryItem
@@ -53,6 +54,8 @@ import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.data.repository.ErrandPage
+import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.TreasuryRepository
@@ -68,6 +71,7 @@ import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
@@ -258,6 +262,29 @@ class FakeRecurring(
             Result.success(Unit)
         }
         RecurringGroceryViewModel(repository, mercure, auth)
+    }
+}
+
+/**
+ * The past errands the server keeps (MAG-488): one page of [errands] as they are, or [loadFailure].
+ * The list carries every line, as the API's collection does, so opening one asks for nothing more.
+ */
+class FakePastErrands(
+    private val errands: List<Errand> = emptyList(),
+    private val loadFailure: Throwable? = null,
+) {
+    val viewModel: PastErrandsViewModel by lazy {
+        val (auth, mercure) = signedIn()
+        val repository = mockk<ErrandRepository>()
+        coEvery { repository.getErrands(any()) } answers {
+            loadFailure?.let { return@answers Result.failure(it) }
+            Result.success(ErrandPage(if (firstArg<Int>() == 1) errands else emptyList(), errands.size))
+        }
+        coEvery { repository.getErrand(any()) } answers {
+            errands.firstOrNull { it.id == firstArg<String>() }?.let { Result.success(it) }
+                ?: Result.failure(NoSuchElementException(firstArg<String>()))
+        }
+        PastErrandsViewModel(repository, mercure, auth)
     }
 }
 

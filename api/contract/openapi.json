@@ -16516,20 +16516,6 @@
                         "type": "string",
                         "format": "ulid"
                     },
-                    "errand": {
-                        "type": "string",
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
-                    "product": {
-                        "readOnly": true,
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
                     "label": {
                         "readOnly": true,
                         "type": "string"
@@ -16617,6 +16603,14 @@
                     "position": {
                         "default": 0,
                         "type": "integer"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "description": "The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -16628,20 +16622,6 @@
                         "type": "string",
                         "format": "ulid"
                     },
-                    "errand": {
-                        "type": "string",
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
-                    "product": {
-                        "readOnly": true,
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
                     "label": {
                         "readOnly": true,
                         "type": "string"
@@ -16729,6 +16709,14 @@
                     "position": {
                         "default": 0,
                         "type": "integer"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "description": "The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -16740,20 +16728,6 @@
                         "type": "string",
                         "format": "ulid"
                     },
-                    "errand": {
-                        "type": "string",
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
-                    "product": {
-                        "readOnly": true,
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
                     "label": {
                         "readOnly": true,
                         "type": "string"
@@ -16841,6 +16815,14 @@
                     "position": {
                         "default": 0,
                         "type": "integer"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "description": "The product's IRI, as REST, Mercure and the MCP tool all spell it; null for a free-text line.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
