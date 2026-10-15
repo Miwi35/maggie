@@ -12,6 +12,7 @@
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  create (Obsydian 40 €) | spend-bars (Bars 25 €)
 //           | hellfest (a one-off « Hellfest 2026 » of 400 € and an 89 € ticket in Loisirs, MAG-414)
+//           | cinema (Cinéma 20 € this month, 45 € in a season from next month on, MAG-415)
 //           | remove
 //   TODAY   the seed's anchor day, YYYY-MM-DD: the month the screen opens on
 //
@@ -97,7 +98,7 @@ function spend(accountId, categoryId, label, amountCents) {
 }
 
 function removeLeftovers() {
-  const envelopeIds = ['Loisirs', 'Bars', 'Obsydian'].flatMap(function (name) {
+  const envelopeIds = ['Loisirs', 'Bars', 'Obsydian', 'Cinéma'].flatMap(function (name) {
     return named('/api/categories?itemsPerPage=200', name).flatMap(function (category) {
       return collection('/api/envelopes?itemsPerPage=200')
         .filter(function (envelope) { return envelope.category === '/api/categories/' + category.id })
@@ -115,7 +116,7 @@ function removeLeftovers() {
     http.request(base + account['@id'], { method: 'DELETE', headers: authorized() })
   })
   // Deepest first: a category with children cannot be deleted.
-  ;['Obsydian', 'Bars', 'Loisirs'].forEach(function (name) {
+  ;['Obsydian', 'Bars', 'Loisirs', 'Cinéma'].forEach(function (name) {
     named('/api/categories?itemsPerPage=200', name).forEach(function (category) {
       http.request(base + category['@id'], { method: 'DELETE', headers: authorized() })
     })
@@ -161,6 +162,19 @@ if (ACTION === 'create') {
   spend(account.id, loisirs.id, 'BILLET HELLFEST MAG-414', 8900)
   // The sheet offers the one-off envelopes it reads from the list.
   awaitOne('/api/envelopes?itemsPerPage=200', hellfestName)
+} else if (ACTION === 'cinema') {
+  const next = month % 12 + 1
+  const cinema = post('/api/categories', { name: 'Cinéma', obligation: 'optional' })
+  post('/api/envelopes', {
+    category: '/api/categories/' + cinema.id,
+    mode: 'monthly',
+    amountCents: 2000,
+    currency: 'EUR',
+    year: year,
+    month: month,
+    seasonalAmounts: [{ fromMonth: next, toMonth: next % 12 + 1, amountCents: 4500 }],
+  })
+  awaitOne('/api/categories?itemsPerPage=200', 'Cinéma')
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

@@ -49,7 +49,7 @@ const NEXT = 12 === ANCHOR_MONTH
  * As the **neighbour**, with categories of its own: the owner's figures
  * (gauges, score) must not move because a sub-category appears on a shard.
  */
-const TREE_NAMES = ['Obsydian', 'Bars', 'Loisirs'] as const
+const TREE_NAMES = ['Obsydian', 'Bars', 'Loisirs', 'Cinéma'] as const
 const HELLFEST = 'Hellfest 2026'
 const OBSYDIAN_PATH = 'Loisirs › Bars › Obsydian'
 const treeAccountIds: string[] = []
@@ -407,5 +407,51 @@ test.describe('categories on three levels', () => {
     await expect(budget.totalLine, 'the event counts in none of the month\'s totals').toContainText(
       `${euros(0)} consommés sur ${euros(30000)}`,
     )
+  })
+
+  test('a monthly envelope rolled into its season is budgeted at the season\'s amount (MAG-415)', async ({
+    otherUser,
+  }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Cinéma at 20 € this month, with a season at 45 € from next month on, for two months
+    // (the anchor moves with the seed: « novembre–février » is whatever month comes next).
+    const season = { fromMonth: NEXT.month, toMonth: (NEXT.month % 12) + 1, amountCents: 4500 }
+    const cinemaId = await createdId(api, '/api/categories', { name: 'Cinéma', obligation: 'optional' })
+    treeEnvelopeIds.push(
+      await createdId(api, '/api/envelopes', {
+        category: `/api/categories/${cinemaId}`,
+        mode: 'monthly',
+        amountCents: 2000,
+        currency: 'EUR',
+        year: ANCHOR_YEAR,
+        month: ANCHOR_MONTH,
+        seasonalAmounts: [season],
+      }),
+    )
+
+    // When I roll this month over into the next one.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    await expect(budget.gauge('Cinéma')).toContainText(overBudget(0, 2000))
+    await budget.selectPeriod(NEXT.year, NEXT.month)
+    await budget.rollOver()
+
+    // Then next month's envelope is worth 45 €, and says which season sets it.
+    await expect(budget.gauge('Cinéma')).toContainText(overBudget(0, 4500))
+    await expect(budget.gauge('Cinéma')).toContainText(
+      `${periodLabel('monthly', NEXT.year, NEXT.month)} · saison`,
+    )
+    const carried = await waitForIndexed<StoredEnvelope & { seasonalAmounts?: unknown[] }>(
+      api,
+      '/api/envelopes',
+      (envelope) =>
+        envelope.category === `/api/categories/${cinemaId}` && envelope.year === NEXT.year && envelope.month === NEXT.month,
+      { what: `Cinéma carried into ${MONTH_LABELS[NEXT.month]} ${NEXT.year}` },
+    )
+    if (carried.id) treeEnvelopeIds.push(carried.id)
+    expect(carried.amountCents, 'the 20 € outside the season is kept').toBe(2000)
+    expect(carried.seasonalAmounts).toEqual([season])
   })
 })
