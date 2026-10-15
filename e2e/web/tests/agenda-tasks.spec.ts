@@ -3,6 +3,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { TasksPage } from '../pages/TasksPage.js'
 
 /**
  * Tasks, from the agenda and from the dashboard (MAG-100).
@@ -207,6 +208,87 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
 })
 
 /**
+ * The « Tâches » page sorts every task into one of four tabs — MAG-408.
+ *
+ * Four tasks of this attempt: a late one, one due in five days, one without a
+ * date and a done one. Each lands in its own tab, and ticking the « À venir » one
+ * moves it to « Faites ». The seed and the other journeys add tasks of their own,
+ * so the counters are checked to be there and non-zero, and to follow the view's
+ * own total, not to equal one.
+ */
+test('« Tâches » puts a late, an upcoming, an undated and a done task in their own tabs, and ticking moves it to « Faites »', async ({ page, api }) => {
+  const late = perAttempt('Relancer le notaire')
+  const upcoming = perAttempt('Réserver le train')
+  const someday = perAttempt('Apprendre le piano')
+  const finished = perAttempt('Envoyer les voeux')
+
+  await createTask(api, { title: late, dueDate: seedDate(-3) })
+  await createTask(api, { title: upcoming, dueDate: seedDate(5) })
+  await createTask(api, { title: someday })
+  const doneId = await createTask(api, { title: finished })
+  await completeTask(api, doneId)
+
+  // Each in the view the API sorts it into, before the page is asked to show it.
+  for (const [view, title] of [
+    ['today', late],
+    ['upcoming', upcoming],
+    ['someday', someday],
+    ['done', finished],
+  ] as const) {
+    await expect
+      .poll(async () => (await viewTitles(api, view)).includes(title), {
+        timeout: 30_000,
+        message: `"${title}" should be in the ${view} view`,
+      })
+      .toBe(true)
+  }
+
+  const board = new TasksPage(page)
+  await board.open()
+
+  // Given a late task: « Aujourd'hui », late first, with its lateness in words.
+  await expect(board.row(late)).toHaveCount(1)
+  await expect(board.row(late)).toContainText(/En retard de \d+ j/)
+  await expect(board.row(upcoming)).toHaveCount(0)
+
+  await board.select('À venir')
+  await expect(board.row(upcoming)).toHaveCount(1)
+  await expect(board.row(late)).toHaveCount(0)
+
+  await board.select('À faire un jour')
+  await expect(board.row(someday)).toHaveCount(1)
+  await expect(board.row(upcoming)).toHaveCount(0)
+
+  await board.select('Faites')
+  await expect(board.row(finished)).toHaveCount(1)
+  await expect(board.row(someday)).toHaveCount(0)
+
+  for (const tab of ["Aujourd'hui", 'À venir', 'À faire un jour', 'Faites'] as const) {
+    expect(await board.count(tab), `the « ${tab} » counter`).toBeGreaterThanOrEqual(1)
+  }
+
+  // When I tick the « À venir » task, it leaves its tab and shows in « Faites ».
+  await board.select('À venir')
+  const before = await board.count('Faites')
+  await board.checkbox(upcoming).click()
+
+  await expect(board.row(upcoming)).toHaveCount(0)
+  await expect
+    .poll(() => board.count('Faites'), { message: 'the « Faites » counter should follow the tick' })
+    .toBeGreaterThan(before)
+  await board.select('Faites')
+  await expect(board.row(upcoming)).toHaveCount(1)
+  await expect(board.checkbox(upcoming)).toBeChecked()
+
+  await expect
+    .poll(async () => (await tasks(api)).find((task) => task.title === upcoming)?.completedAt != null, {
+      timeout: 30_000,
+      message: 'the ticked task should be stored as completed',
+    })
+    .toBe(true)
+})
+
+/**
  * A finished task can be reopened — `MAG-112`, and the reason the seed ships one.
  *
  * From the calendar rather than from the dashboard, and that is not a detour: the
@@ -349,4 +431,23 @@ async function completeTask(api: APIRequestContext, taskId: string): Promise<voi
       message: 'the task should be findable as completed before the grid is read',
     })
     .toBe(true)
+}
+
+/** Creates a task through the API and returns its id. */
+async function createTask(api: APIRequestContext, data: { title: string; dueDate?: string }): Promise<string> {
+  const response = await api.post('/api/tasks', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data,
+  })
+  expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
+
+  return String(((await response.json()) as { id: string }).id)
+}
+
+/** The titles of a view of the « Tâches » page, as the API sorts them. */
+async function viewTitles(api: APIRequestContext, view: string): Promise<string[]> {
+  const response = await api.get(`/api/tasks/view/${view}`, { headers: { Accept: 'application/ld+json' } })
+  expect(response.ok(), `GET /api/tasks/view/${view} answered ${response.status()}`).toBe(true)
+
+  return ((await response.json()) as { member: { title: string }[] }).member.map((task) => task.title)
 }

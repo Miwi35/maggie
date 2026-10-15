@@ -85,6 +85,8 @@ test('a valid session introspects the API schema and can list a resource', async
   await shell.goto(ROUTES.tasks)
   await shell.expectLoaded()
 
+  // The page opens on « Aujourd'hui »; the seeded garage call is due in three days.
+  await shell.content.getByRole('tab', { name: /^À venir/ }).click()
   await expect(shell.content.getByText('Appeler le garage')).toBeVisible()
   expect(unauthorised, 'the admin made an unauthenticated API call').toEqual([])
 })
@@ -145,6 +147,8 @@ test('a request the server refuses for an expired token is replayed with a renew
   await shell.goto(ROUTES.tasks)
   await shell.expectLoaded()
 
+  // The page opens on « Aujourd'hui »; the seeded garage call is due in three days.
+  await shell.content.getByRole('tab', { name: /^À venir/ }).click()
   await expect(shell.content.getByText('Appeler le garage')).toBeVisible()
   await expect(login.prompt).toHaveCount(0)
   await expect.poll(async () => (await login.storedCredentials()).token).not.toBe(refused)

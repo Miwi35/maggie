@@ -162,6 +162,8 @@ import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
+import com.maggie.app.ui.screens.tasks.TasksScreen
+import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
@@ -184,6 +186,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Login : Screen("login", "Connexion")
     data object Dashboard : Screen("dashboard", "Tableau de bord")
     data object Calendar : Screen("calendar", "Calendrier")
+    data object Tasks : Screen("tasks", "Tâches")
     data object EventCreate : Screen("event/create", "Nouvel événement")
     data object TaskCreate : Screen("task/create", "Nouvelle tâche")
     data object EventEdit : Screen("event/edit", "Modifier l'événement")
@@ -224,6 +227,7 @@ private const val DEFAULT_ACCOUNT_NAME = "Compte"
 private val MAIN_SCREENS = setOf(
     Screen.Dashboard.route,
     Screen.Calendar.route,
+    Screen.Tasks.route,
     Screen.Chat.route,
     Screen.Cookbook.route,
     Screen.Grocery.route,
@@ -250,6 +254,7 @@ internal data class Chrome(
 // The screens whose list has a detail beside it. The dashboard lists events too, but it has no pane: its events stay sheets.
 private val DETAIL_PANE_ROUTES = setOf(
     Screen.Calendar.route,
+    Screen.Tasks.route,
     Screen.Cookbook.route,
     Screen.Grocery.route,
     Screen.AccountList.route,
@@ -405,6 +410,7 @@ fun NavGraph() {
     val contextViewModel: ContextViewModel = koinViewModel()
     val dashboardViewModel: DashboardViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
+    val tasksViewModel: TasksViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
@@ -540,6 +546,7 @@ fun NavGraph() {
     val title = when (currentRoute) {
         Screen.Dashboard.route -> Screen.Dashboard.label
         Screen.Calendar.route -> Screen.Calendar.label
+        Screen.Tasks.route -> Screen.Tasks.label
         Screen.Chat.route -> Screen.Chat.label
         Screen.Cookbook.route -> Screen.Cookbook.label
         Screen.Grocery.route -> Screen.Grocery.label
@@ -549,6 +556,8 @@ fun NavGraph() {
     fun refreshAll() {
         dashboardViewModel.refresh()
         calendarViewModel.refresh()
+        // The tasks screen reads a view that a tick, an edit or a deletion moves tasks out of.
+        if (currentRoute == Screen.Tasks.route) tasksViewModel.refresh()
     }
 
     fun navigateTo(route: String) {
@@ -883,6 +892,7 @@ fun NavGraph() {
                                 viewModel = calendarViewModel,
                                 onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
                                 onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
+                                onOpenTasks = { navigateTo(Screen.Tasks.route) },
                                 onEventClick = {
                                     // A meal is edited in the Cuisine module, not as an event.
                                     if (it.agendaIri == PROACTIONS_FILTER_ID) {
@@ -931,6 +941,36 @@ fun NavGraph() {
                             else -> null
                         },
                         placeholder = "Touchez un événement pour le voir ici.",
+                    )
+                }
+                composable(Screen.Tasks.route) {
+                    val task = selectedTask
+                    ListDetailPane(
+                        showsDetailPane = paneShown,
+                        list = {
+                            TasksScreen(
+                                viewModel = tasksViewModel,
+                                onTaskClick = {
+                                    selectedEvent = null
+                                    selectedProactionId = null
+                                    selectedTask = it
+                                },
+                            )
+                        },
+                        detail = task?.let { open ->
+                            {
+                                TaskDetailContent(
+                                    task = open,
+                                    subtasks = subtasksState,
+                                    subtaskActions = subtaskActions,
+                                    onEdit = { editTask(open) },
+                                    onDelete = { deleteTask(open) },
+                                    onToggleDone = { done -> toggleTaskDone(open, done) },
+                                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                                )
+                            }
+                        },
+                        placeholder = "Touchez une tâche pour la voir ici.",
                     )
                 }
                 composable(Screen.EventCreate.route) {

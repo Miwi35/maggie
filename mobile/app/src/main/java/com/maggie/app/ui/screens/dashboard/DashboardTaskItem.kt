@@ -40,6 +40,8 @@ fun DashboardTaskItem(
     onToggleDone: (Boolean) -> Unit,
     onClick: () -> Unit = {},
     nested: Boolean = false,
+    /** The tag of the box, for a journey to tick this row: the dashboard's by default. */
+    checkTag: String = UiTags.dashboardTaskCheck(task.id),
 ) {
     val isDone = task.isDone
     val daysLate = task.daysLate
@@ -55,7 +57,7 @@ fun DashboardTaskItem(
         Checkbox(
             checked = isDone,
             onCheckedChange = { onToggleDone(!isDone) },
-            modifier = Modifier.testTag(UiTags.dashboardTaskCheck(task.id)),
+            modifier = Modifier.testTag(checkTag),
         )
 
         CriticalityChip(task.criticality)

@@ -6,6 +6,8 @@ import com.maggie.app.data.local.dao.TaskDao
 import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.local.entity.TaskEntity
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskView
+import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -81,6 +83,11 @@ class TaskRepository(
     suspend fun getTodayTasks(): List<Task> {
         return apiService.getTodayTasks()
     }
+
+    /** One read of a view (MAG-408): its tasks, the counts of the four views, and for « done » the page asked. */
+    suspend fun getTaskView(view: TaskView, page: Int? = null): Result<TaskViewResponse> = runCatching {
+        apiService.getTaskView(view.key, page)
+    }.rethrowCancellation()
 
     suspend fun toggleDone(taskId: String, done: Boolean): Result<Task> = runCatching {
         val data = buildJsonObject {

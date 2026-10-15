@@ -1,0 +1,104 @@
+appId: com.maggie.app.e2e
+name: 17-tasks-views
+tags:
+  - calendar
+---
+# The Tâches screen, in four tabs (MAG-408): « Aujourd'hui » (late first), « À venir »,
+# « À faire un jour », « Faites ». Reached from the drawer / the rail.
+#
+# The witnesses are the seeded tasks of `api/fixtures/e2e/20-calendar.yaml`, each in
+# the one view the API puts it in: « Renvoyer le formulaire de la mutuelle » (due two
+# days ago, never done: late), « Appeler le garage » (in three days), « Trier les
+# photos de vacances » (no day), « Sortir les poubelles » (done yesterday). The tab
+# labels carry counts, which the seed and the other journeys move: they are not
+# asserted (the tabs are tapped by id). The ordering and the counts are the API's
+# (`TaskViewsTest`) and the ViewModel's (`TasksViewModelTest`).
+#
+# Then the gestures: a task added in « À venir » gets tomorrow, ticking it takes it out
+# of the tab and into « Faites », and its detail (a sheet on a phone, the pane on a
+# tablet) deletes it, so the shared server is left as it was.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17-tasks-views.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+# « Aujourd'hui » opens first, the late task in it with its lateness in words.
+- extendedWaitUntil:
+    visible: "Renvoyer le formulaire de la mutuelle"
+    timeout: 30000
+- assertVisible: "En retard de 2 j"
+
+- tapOn:
+    id: "tasks_tab_upcoming"
+- extendedWaitUntil:
+    visible: "Appeler le garage"
+    timeout: 20000
+
+- tapOn:
+    id: "tasks_tab_someday"
+- extendedWaitUntil:
+    visible: "Trier les photos de vacances"
+    timeout: 20000
+
+- tapOn:
+    id: "tasks_tab_done"
+- extendedWaitUntil:
+    visible: "Sortir les poubelles"
+    timeout: 20000
+
+# Quick add in « À venir »: the field names tomorrow, the task lands in the tab.
+- tapOn:
+    id: "tasks_tab_upcoming"
+- extendedWaitUntil:
+    visible: "Appeler le garage"
+    timeout: 20000
+- tapOn:
+    id: "tasks_add_input"
+- inputText: "Tâche MAG-408"
+- tapOn:
+    id: "tasks_add_submit"
+- extendedWaitUntil:
+    visible: "Tâche MAG-408"
+    timeout: 20000
+
+# Ticking takes it out of « À venir » and into « Faites ». « Appeler le garage » is
+# the only other task of the tab and is dated later, so the new one is the box above it.
+- tapOn:
+    id: "tasks_check_.*"
+    above: "Appeler le garage"
+- extendedWaitUntil:
+    notVisible: "Tâche MAG-408"
+    timeout: 20000
+- assertVisible: "Appeler le garage"
+
+- tapOn:
+    id: "tasks_tab_done"
+- extendedWaitUntil:
+    visible: "Tâche MAG-408"
+    timeout: 20000
+- assertVisible: "Sortir les poubelles"
+
+# Its detail deletes it, which leaves the seeded server as it was.
+- tapOn: "Tâche MAG-408"
+- extendedWaitUntil:
+    visible:
+      text: "Supprimer"
+    timeout: 20000
+- tapOn: "Supprimer"
+- extendedWaitUntil:
+    notVisible: "Tâche MAG-408"
+    timeout: 20000

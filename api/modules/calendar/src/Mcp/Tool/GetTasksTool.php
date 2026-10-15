@@ -5,19 +5,21 @@ namespace Maggie\Calendar\Mcp\Tool;
 use Maggie\Calendar\Mcp\TaskJson;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\TaskUrgency;
-use Maggie\Calendar\Service\TodayTasks;
+use Maggie\Calendar\Service\TaskViews;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. View "today" (instead of status) is the Today list: tasks not done that are due today or late, by orderScore, each followed by its subtasks. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD.')]
+#[McpTool(name: 'get_tasks', description: 'Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. A view (given, status is ignored) is one tab of the task screen, each task in exactly one: "today" = not done, due today or late, by orderScore, each followed by its subtasks; "upcoming" = not done, due after today, by due day then orderScore; "someday" = not done, no due day, by priority then position; "done" = the 50 most recently done (total gives how many). counts gives the size of the four views. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD.')]
 class GetTasksTool
 {
+    private const DONE_LIMIT = 50;
+
     public function __construct(
         private readonly TaskRepository $taskRepository,
         private readonly McpUserContext $userContext,
         private readonly TaskUrgency $urgency,
-        private readonly TodayTasks $todayTasks,
+        private readonly TaskViews $views,
     ) {
     }
 
@@ -30,13 +32,14 @@ class GetTasksTool
         }
 
         if (null !== $view) {
-            if ('today' !== $view) {
-                return json_encode(['error' => "Unknown view: {$view}. Known views: today."], JSON_THROW_ON_ERROR);
+            if (!in_array($view, TaskViews::ALL, true)) {
+                return json_encode(['error' => "Unknown view: {$view}. Known views: ".implode(', ', TaskViews::ALL).'.'], JSON_THROW_ON_ERROR);
             }
 
-            $result = array_map(TaskJson::of(...), $this->todayTasks->for($user));
+            $read = $this->views->read($user, $view, 1, self::DONE_LIMIT);
+            $result = array_map(TaskJson::of(...), $read['tasks']);
 
-            return json_encode(['view' => $view, 'tasks' => $result, 'count' => count($result)], JSON_THROW_ON_ERROR);
+            return json_encode(['view' => $view, 'tasks' => $result, 'count' => count($result), 'total' => $read['total'], 'counts' => $read['counts']], JSON_THROW_ON_ERROR);
         }
 
         $tasks = match ($status) {

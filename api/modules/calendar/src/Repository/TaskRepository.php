@@ -123,6 +123,75 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
+     * The tasks not done due after $day, the closest first (MAG-408).
+     *
+     * @return Task[]
+     */
+    public function findOpenDueAfter(User $user, \DateTimeImmutable $day): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.dueDate IS NOT NULL')
+            ->andWhere('t.dueDate > :day')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('day', $day, Types::DATE_IMMUTABLE)
+            ->orderBy('t.dueDate', 'ASC')
+            ->addOrderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The tasks not done with no due day, in their manual order (MAG-408).
+     *
+     * @return Task[]
+     */
+    public function findOpenUndated(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.dueDate IS NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * One page of the done tasks, the most recently done first (MAG-408).
+     *
+     * @return Task[]
+     */
+    public function findDonePage(User $user, int $page, int $itemsPerPage): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NOT NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('t.completedAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setFirstResult(($page - 1) * $itemsPerPage)
+            ->setMaxResults($itemsPerPage)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countDone(User $user): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NOT NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * The subtasks not done of $parents, in their manual order.
      *
      * @param Task[] $parents

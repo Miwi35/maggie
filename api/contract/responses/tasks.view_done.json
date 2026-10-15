@@ -1,0 +1,41 @@
+{
+    "@context": "/api/contexts/Task",
+    "@id": "/api/tasks/view/done",
+    "@type": "Collection",
+    "totalItems": 1,
+    "counts": {
+        "today": 2,
+        "upcoming": 0,
+        "someday": 0,
+        "done": 1
+    },
+    "member": [
+        {
+            "@context": "/api/contexts/Task",
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded completed task",
+            "description": null,
+            "priority": "low",
+            "criticality": "low",
+            "dueDate": null,
+            "completedAt": "2026-03-19T10:00:00+00:00",
+            "parent": null,
+            "position": null,
+            "links": [],
+            "overdueDays": null,
+            "urgency": "low",
+            "orderScore": 0,
+            "googleTaskId": null,
+            "googleTaskListId": null,
+            "googleTaskEtag": null,
+            "googleTaskUpdatedAt": null,
+            "done": true,
+            "googleSynced": false
+        }
+    ],
+    "page": 1,
+    "itemsPerPage": 30
+}

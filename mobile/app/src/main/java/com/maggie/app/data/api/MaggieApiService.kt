@@ -74,6 +74,7 @@ import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
+import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -739,6 +740,14 @@ class MaggieApiService(
         return client.get("$baseUrl/api/tasks/view/today") {
             accept(ContentType("application", "ld+json"))
         }.body<ApiCollection<Task>>().member
+    }
+
+    /** One read of a task view (MAG-408); only « done » is paged, from [page] 1. */
+    suspend fun getTaskView(view: String, page: Int? = null): TaskViewResponse {
+        return client.get("$baseUrl/api/tasks/view/$view") {
+            accept(ContentType("application", "ld+json"))
+            page?.let { url.parameters.append("page", it.toString()) }
+        }.body()
     }
 
     suspend fun createTask(request: TaskCreateRequest): Task {
