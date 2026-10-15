@@ -102,7 +102,9 @@ test('the night corrects a fiche that a later conversation contradicts, keeps th
       return heads.every((head) => head.includes('resume:'))
     }
     await expect.poll(twoCartes, { timeout: 60_000 }).toBe(true)
-    expect(await inBucket(OLD_FICHE)).not.toContain('Lyon')
+    const ficheBefore = await inBucket(OLD_FICHE)
+    expect(ficheBefore).toContain(`- ${RENNES}`)
+    expect(ficheBefore).not.toContain(LYON)
 
     // When the night passes,
     const account = await nightNow()
@@ -118,7 +120,9 @@ test('the night corrects a fiche that a later conversation contradicts, keeps th
     expect(files).toContain(NEW_FICHE)
     expect(files).not.toContain(OLD_FICHE)
     const fiche = await inBucket(NEW_FICHE)
-    const [known, replaced] = fiche.split("Ce qui n'est plus vrai")
+    // The frontmatter keeps the old name as an alias on purpose: only the body says what is true.
+    const body = fiche.slice(fiche.indexOf("## Ce qu'on sait"))
+    const [known, replaced] = body.split("Ce qui n'est plus vrai")
     expect(known).toMatch(new RegExp(`- ${LYON} — dit · Conversations/\\S.* · \\d{4}-\\d{2}-\\d{2} \\d{2}h\\d{2}`))
     expect(known).not.toContain(`- ${RENNES}`)
     expect(replaced).toMatch(new RegExp(`- ~~${RENNES}~~ — dit · .* — remplacé le \\d{4}-\\d{2}-\\d{2} : `))
