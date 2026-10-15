@@ -131,6 +131,21 @@ class SeasonalEnvelopeApiTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
+    public function testPatchWithOverlappingSeasonsIsRefusedWith400(): void
+    {
+        $this->login();
+        $id = (string) $this->getFixture('cinema_october')->getId();
+
+        $this->send('PATCH', $this->iri('envelopes', 'cinema_october'), ['seasonalAmounts' => [
+            self::WINTER,
+            ['fromMonth' => 12, 'toMonth' => 12, 'amountCents' => 3000],
+        ]]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame([self::WINTER], $this->reload($id)->getSeasonalAmounts());
+        $this->assertMercureUpdateCount(0);
+    }
+
     public function testAnAnnualEnvelopeHasNoSeasons(): void
     {
         $this->login();

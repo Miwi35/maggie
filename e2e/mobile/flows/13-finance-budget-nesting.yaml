@@ -127,9 +127,13 @@ tags:
 - tapOn: "Mois suivant"
 - tapOn: "Reconduire le mois précédent"
 - extendedWaitUntil:
+    visible: "Cinéma"
+    timeout: 30000
+- scrollUntilVisible:
+    element: ".*45[.,]00 EUR · saison.*"
+- extendedWaitUntil:
     visible: ".*45[.,]00 EUR · saison.*"
     timeout: 30000
-- assertVisible: "Cinéma"
 
 # Left as found.
 - runScript:

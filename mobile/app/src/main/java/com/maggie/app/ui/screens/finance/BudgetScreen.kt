@@ -72,6 +72,7 @@ import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
+import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
@@ -525,9 +526,11 @@ private fun EnvelopeCreateDialog(
     var seasons by remember { mutableStateOf(listOf<SeasonDraft>()) }
 
     val parsedSeasons = seasons.map { it.toSeason() }
+    // Two seasons sharing a month keep the dialog open rather than losing what was typed.
+    val seasonsOverlap = isMonthly && overlappingMonth(parsedSeasons.filterNotNull()) != null
     val canSubmit = selectedCategoryId != null && amountText.toDoubleOrNull() != null &&
         threshold is AlertThresholdInput.Valid &&
-        (!isMonthly || parsedSeasons.all { it != null })
+        (!isMonthly || parsedSeasons.all { it != null }) && !seasonsOverlap
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -572,6 +575,13 @@ private fun EnvelopeCreateDialog(
                 }
                 if (editsSeasons && isMonthly) {
                     SeasonsEditor(seasons = seasons, onChange = { seasons = it })
+                    if (seasonsOverlap) {
+                        Text(
+                            "Deux saisons couvrent le même mois.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         },
