@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import anthropic
 
@@ -71,14 +72,19 @@ class LLMGateway:
         exclude_message_id: str | None = None,
         current_context_id: str | None = None,
         moment: str | None = None,
+        about: str = "",
+        source: str = "chat",
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the full skills of `moment`
-        (MAG-345), then memory, directives, date, preamble."""
+        (MAG-345), the memory (profile, then what `about` calls back: MAG-16), then directives, date, preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
         skill_context = skill_index.get_skills_index()
-        memory_context = await self.agent_memory.get_memory_context(user_id)
+        tz = await resolve_user_timezone(user_id)
+        memory = await self.agent_memory.blocks(
+            user_id, about, source=source, context_id=current_context_id, today=datetime.now(tz).date()
+        )
         # A proaction is a message the user reads in the chat, so it owes the same
         # preferences as a reply does — and in the volatile block, not the cached
         # prefix, so « tutoie-moi » applies to the very next message (MAG-22).
@@ -91,12 +97,14 @@ class LLMGateway:
         context_section = await active_contexts_section(user_id, current_context_id)
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
-        now = current_datetime_line(tz=await resolve_user_timezone(user_id))
-        volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
+        now = current_datetime_line(tz=tz)
+        volatile = f"{memory.notice}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         moment_skills = skill_index.skills_for_moment(moment) if moment else ""
-        return build_system(base + skill_context, volatile, moment_skills)
+        return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
 
-    async def proaction(self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False) -> dict:
+    async def proaction(
+        self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False, about: str | None = None
+    ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
         The proaction tools are the API's, offered like every MCP tool (MAG-327).
@@ -111,6 +119,8 @@ class LLMGateway:
                     If False, execution mode — output is a chat message for the user.
             dry_run: If True, nothing is written (MAG-249): tools that write are simulated and
                      listed under `simulated_tools`, and no thread is opened for the message.
+            about: What the memory is asked to recall for (MAG-16). The prompt itself by default; the daily
+                   planning gives the day's events, which its prompt only says how to read.
         """
         if self.client is None:
             return {
@@ -123,7 +133,12 @@ class LLMGateway:
         preamble = PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
         system_prompt = await self._build_system_prompt(
-            user_id, tools=tools, preamble=preamble, moment=MOMENT_PLANNING if silent else MOMENT_PROACTION
+            user_id,
+            tools=tools,
+            preamble=preamble,
+            moment=MOMENT_PLANNING if silent else MOMENT_PROACTION,
+            about=about if about is not None else prompt,
+            source="planning" if silent else "proaction",
         )
 
         content = prompt if silent else f"[Proaction due maintenant] {prompt}"
@@ -253,6 +268,7 @@ class LLMGateway:
                 exclude_message_id=exclude_message_id,
                 current_context_id=context_id,
                 moment=MOMENT_CHAT,
+                about=message,
             )
             result = await run_tool_loop(
                 system_prompt,

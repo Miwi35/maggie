@@ -12,6 +12,7 @@ from app.config import settings
 from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.streaming import StreamingGateway, tool_result_status
+from app.memory.agent_memory import MemoryBlocks
 
 
 class TestStreamingGateway:
@@ -204,6 +205,7 @@ async def _system_blocks(contexts: list, current_context_id: str | None = None) 
         gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gw.agent_memory = MagicMock()
         gw.agent_memory.get_memory_context = AsyncMock(return_value="")
+        gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
         return await gw._build_system_prompt("user-1", current_context_id=current_context_id)
 
 
@@ -271,6 +273,7 @@ class TestSummaryTrigger:
         gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gw.agent_memory = MagicMock()
         gw.agent_memory.get_memory_context = AsyncMock(return_value="")
+        gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
         gw.tool_router = MagicMock()
         gw.tool_router.get_tool_definitions = AsyncMock(return_value=[])
         gw._resolve_context = AsyncMock(

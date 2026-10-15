@@ -30,6 +30,7 @@ from app.config import settings
 from app.db.memory_index_model import OP_APPEND, OP_DELETE, OP_PUT
 from app.db.memory_index_repository import (
     KEEP,
+    CardView,
     IndexedFile,
     Keep,
     OutboxEntry,
@@ -194,6 +195,16 @@ class MemoryService:
         """Every fiche of this user, by path: what the prompt lists so that Maggie can open them."""
         paths.check_user_id(user_id)
         return await memory_index_repo.list_files(user_id, kind="fiche")
+
+    async def cards(self, user_id: str) -> list[CardView]:
+        """Every readable carte of this user, with its terms and no text: what the recall reads."""
+        paths.check_user_id(user_id)
+        return await memory_index_repo.cards(user_id)
+
+    async def usage(self, user_id: str) -> dict[str, int]:
+        """card id -> how many times it was opened: what ranks the permanent profile."""
+        paths.check_user_id(user_id)
+        return await memory_usage_repo.all(user_id)
 
     async def write(
         self,

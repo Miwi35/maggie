@@ -18,6 +18,7 @@ from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
 from app.llm.gateway import LLMGateway
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.streaming import StreamingGateway
+from app.memory.agent_memory import MemoryBlocks
 
 COPIED = "[fil « Où noter l'information »] Ah, d'accord monsieur, je le note dans vos directives."
 CLEAN = "Ah, d'accord monsieur, je le note dans vos directives."
@@ -86,6 +87,7 @@ def _streaming_gateway(answer: str) -> StreamingGateway:
     gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gw.agent_memory = MagicMock()
     gw.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     gw.tool_router = MagicMock()
     gw.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     gw._resolve_context = AsyncMock(
@@ -148,6 +150,7 @@ class TestThePlainChatCarriesNoLabel:
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gateway.agent_memory = MagicMock()
         gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
         gateway.tool_router = MagicMock()
         gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
 

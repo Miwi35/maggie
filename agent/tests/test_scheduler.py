@@ -17,7 +17,7 @@ from app import user_timezone
 from app.proactions import api as proactions_api_module
 from app.proactions.api import Proaction, ProactionApiUnreachable
 from app.queue import scheduler
-from app.queue.scheduler import next_planning_time, plan_user, planning_schedule
+from app.queue.scheduler import next_planning_time, plan_user, planning_agenda, planning_schedule
 from app.user_timezone import resolve_user_timezone
 from tests.fake_proaction_api import FakeProactionApi
 
@@ -27,6 +27,11 @@ def paris_at_five(monkeypatch):
     user_timezone.known_timezones.clear()
     monkeypatch.setattr(settings, "planning_timezone", "Europe/Paris")
     monkeypatch.setattr(settings, "daily_planning_hour", 5)
+
+
+@pytest.fixture(autouse=True)
+def no_agenda_for_the_recall(monkeypatch):
+    monkeypatch.setattr(scheduler, "planning_agenda", AsyncMock(return_value=""))
 
 
 def utc(*args: int) -> datetime:
@@ -190,7 +195,7 @@ class TestWhoIsPlanned:
 
         gateway.proaction.assert_awaited_once()
         assert gateway.proaction.await_args.args[1] == "user-42"
-        assert gateway.proaction.await_args.kwargs == {"silent": True}
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "about": ""}
 
     async def test_one_failing_user_does_not_stop_the_others(self, agent_db, monkeypatch):
         await instruction_repo.store("user-a", "Rule 1")
@@ -612,4 +617,59 @@ class TestDailyPlanningPrompt:
 
         prompt = gateway.proaction.await_args.args[0]
         assert "2026-10-14" in prompt
-        assert gateway.proaction.await_args.kwargs == {"silent": True, "dry_run": True}
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "dry_run": True, "about": ""}
+
+
+class TestPlanningRecall:
+    """The 5h planning recalls on the events of the coming day (MAG-16)."""
+
+    async def test_the_events_of_the_day_are_what_the_recall_reads(self, monkeypatch):
+        calls = AsyncMock(
+            return_value=json.dumps(
+                {
+                    "date": "2026-10-14",
+                    "events": [
+                        {"summary": "Fête des mères", "location": "Chez Françoise", "description": None},
+                        {"summary": "Dentiste", "location": None, "description": "Cabinet rue Haute"},
+                    ],
+                    "count": 2,
+                }
+            )
+        )
+        monkeypatch.setattr(scheduler.mcp_client, "call_tool", calls)
+
+        text = await planning_agenda("user-1", date(2026, 10, 14))
+
+        assert text == "Fête des mères Chez Françoise\nDentiste Cabinet rue Haute"
+        assert calls.await_args.args[:2] == ("get_events_by_date", {"date": "2026-10-14"})
+        assert calls.await_args.kwargs == {"user_id": "user-1"}
+
+    async def test_an_api_that_does_not_answer_costs_the_recall_and_nothing_else(self, monkeypatch):
+        monkeypatch.setattr(scheduler.mcp_client, "call_tool", AsyncMock(side_effect=RuntimeError("down")))
+
+        assert await planning_agenda("user-1", date(2026, 10, 14)) == ""
+
+    async def test_an_answer_that_is_not_json_is_ignored(self, monkeypatch):
+        monkeypatch.setattr(scheduler.mcp_client, "call_tool", AsyncMock(return_value="Error: nope"))
+
+        assert await planning_agenda("user-1", date(2026, 10, 14)) == ""
+
+    async def test_a_slow_api_is_given_up_on(self, monkeypatch):
+        async def slow(*args, **kwargs):
+            await asyncio.sleep(5)
+
+        monkeypatch.setattr(scheduler.mcp_client, "call_tool", slow)
+        monkeypatch.setattr(scheduler, "PLANNING_AGENDA_TIMEOUT", 0.05)
+
+        assert await planning_agenda("user-1", date(2026, 10, 14)) == ""
+
+    async def test_the_planning_hands_the_events_to_the_gateway_as_what_it_is_about(self, monkeypatch):
+        monkeypatch.setattr(scheduler, "resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris")))
+        monkeypatch.setattr(scheduler, "planning_agenda", AsyncMock(return_value="Fête des mères"))
+        gateway = AsyncMock()
+        gateway.proaction.return_value = {"response": "ok"}
+
+        await scheduler.generate_proactions(gateway, "user-1", now=utc(2026, 10, 14, 3, 0))
+
+        assert gateway.proaction.await_args.kwargs == {"silent": True, "about": "Fête des mères"}
+        scheduler.planning_agenda.assert_awaited_once_with("user-1", date(2026, 10, 14))

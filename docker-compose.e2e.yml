@@ -560,6 +560,8 @@ services:
       # Four instead of the default ten, so two exchanges are enough to summarize a
       # thread and a journey can assert on the summary without sending five (MAG-11).
       CONTEXT_SUMMARY_EVERY_MESSAGES: "4"
+      # A cold stack must not make the recall of a journey time out (the delay itself is unit tested).
+      MEMORY_RECALL_TIMEOUT_SECONDS: "5"
       # Twenty seconds of silence instead of five minutes, looked at every five seconds (MAG-15).
       # With the e2e clock pinned (CI) that never elapses, so the journey runs the pass itself
       # through POST /e2e/memory/{user}/encode. Only a thread matching 13-memory-encoding.yaml is

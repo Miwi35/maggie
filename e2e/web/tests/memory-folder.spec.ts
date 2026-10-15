@@ -116,3 +116,42 @@ test('a file changed in the bucket is taken back, Maggie answers during an outag
     await call(api, 'delete', user)
   })
 })
+
+test('a fiche that evokes mothers day comes back on its own in the context sent to the model', async ({ otherUser }) => {
+  await withLock(MEMORY_LOCK, async () => {
+    const { page, api, session } = otherUser
+    const user = session.user.id
+    const roses = 'Famille/Françoise et les roses.md'
+
+    await call(api, 'delete', user)
+    await call(api, 'put', 'outage', { down: false })
+
+    // Given a fiche that evokes « fête des mères », synchronised from the bucket.
+    await call(api, 'put', `bucket/${user}/${roses}`, {
+      text: `---\nresume: Françoise n'aime pas les roses\nevoque: [fête des mères, offrir des fleurs]\n---\n\nFrançoise n'aime pas les roses.\n`,
+    })
+    expect((await call<Sync>(api, 'post', `${user}/sync`)).ok).toBe(true)
+
+    // When the owner speaks of a bouquet for mothers day, Then the fiche is in the context sent to the model:
+    // the fake only answers when the recalled carte is in its system prompt.
+    await new DashboardPage(page).open()
+    const answer = await withChatLock(async () => {
+      const body = await page.evaluate(
+        async ({ message, token }) => {
+          const response = await fetch('/agent/chat/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ message }),
+          })
+          return response.text()
+        },
+        { message: 'Un bouquet pour la fête des mères', token: session.token },
+      )
+      return assistantText(parseAgUiStream(body))
+    })
+    expect(answer).toContain('Évite les roses')
+    expect(answer).not.toContain('aucun scénario')
+
+    await call(api, 'delete', user)
+  })
+})

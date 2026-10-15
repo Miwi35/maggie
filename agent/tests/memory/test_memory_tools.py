@@ -141,6 +141,24 @@ class TestSearch:
 
         assert source in [h["chemin"] for h in found["resultats"]]
 
+    async def test_associated_terms_are_searched_too_and_merged_without_duplicates(self, env):
+        source = await conversation(env)
+        await save(env, source)
+
+        found = json.loads(
+            await tools.handle_search({"requete": "fleuriste", "termes": ["roses", "concerts", "roses", " ", 3]}, USER_A)
+        )
+
+        paths = [h["chemin"] for h in found["resultats"]]
+        assert f"Famille/{TITLE}.md" in paths
+        assert source in paths
+        assert len(paths) == len(set(paths))
+
+    async def test_the_terms_are_optional_and_bounded(self, env):
+        assert tools._terms(None) == [] and tools._terms("roses") == []
+        assert len(tools._terms([f"t{n}" for n in range(20)])) == tools.MAX_TERMS
+        assert "termes" in tools.MEMORY_TOOLS[0]["input_schema"]["properties"]
+
     async def test_the_search_stays_in_the_folder_of_the_owner(self, env):
         await conversation(env, USER_B)
 

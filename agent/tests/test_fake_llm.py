@@ -45,6 +45,7 @@ from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.time_tool import run_date_time
 from app.llm.tool_blocks import record
+from app.memory.agent_memory import MemoryBlocks
 
 
 def write_scenario(directory: Path, filename: str, scenario: dict) -> Path:
@@ -836,6 +837,7 @@ class TestTheRealStreamingGateway:
             gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
             gateway.agent_memory = MagicMock()
             gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+            gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
             gateway.tool_router = MagicMock()
             gateway.tool_router.get_tool_definitions = AsyncMock(
                 return_value=[

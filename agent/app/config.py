@@ -152,6 +152,13 @@ class Settings(BaseSettings):
     # A turn syncs first only if the last pass is older than this, and waits for it at most `timeout`.
     memory_turn_sync_max_age_seconds: int = 30
     memory_turn_sync_timeout_seconds: float = 2.0
+    # Recall (MAG-16). Level 2 runs on the path of every answer, voice included: past the delay the turn
+    # goes on without it. A carte must score at least the threshold to come back, at most `max` of them.
+    memory_recall_timeout_seconds: float = 0.8
+    memory_recall_max: int = 3
+    memory_recall_threshold: float = 2.5
+    # Level 1: the facts of the permanent profile, ranked by use, always in the prompt.
+    memory_profile_max: int = 80
 
     @field_validator("llm_provider")
     @classmethod

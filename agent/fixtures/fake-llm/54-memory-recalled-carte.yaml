@@ -1,0 +1,14 @@
+# The recall of a turn (MAG-16): a fiche whose `evoque` names « fête des mères » comes back as a carte
+# in the context sent to the model, and she answers from it without searching. Without the recall block
+# in the prompt nothing matches, and the journey fails on « aucun scénario ».
+name: memory-recalled-carte
+description: Answer a bouquet request from the carte the recall put in the prompt.
+
+match:
+  user_contains: "bouquet pour la fête des mères"
+  system_contains:
+    - "Souvenirs revenus"
+    - "Famille/Françoise et les roses.md"
+
+turns:
+  - text: "Évite les roses : Françoise ne les aime pas. Des pivoines pour la fête des mères ?"

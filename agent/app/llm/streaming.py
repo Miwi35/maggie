@@ -103,13 +103,18 @@ class StreamingGateway:
         *,
         exclude_message_id: str | None = None,
         current_context_id: str | None = None,
+        about: str = "",
     ) -> list[dict]:
-        """Build the system blocks: cached prefix (personality + skills), then memory, directives, contexts, date."""
+        """Build the system blocks: cached prefix (personality + skills), the memory (the profile, then what
+        `about` calls back: MAG-16), then directives, contexts, date."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
         skill_context = skill_index.get_skills_index()
-        memory_context = await self.agent_memory.get_memory_context(user_id)
+        tz = await resolve_user_timezone(user_id)
+        memory = await self.agent_memory.blocks(
+            user_id, about, context_id=current_context_id, today=datetime.now(tz).date()
+        )
 
         # How the user asked to be spoken to. In the volatile block rather than the
         # cached prefix: a preference stated in this very conversation has to hold on
@@ -124,10 +129,12 @@ class StreamingGateway:
         # The silence before this message, so she can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
 
-        date_line = current_datetime_line(tz=await resolve_user_timezone(user_id))
-        volatile = f"{memory_context}{directives}{context_section}\n\n{date_line}{last_exchange}"
+        date_line = current_datetime_line(tz=tz)
+        volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}{last_exchange}"
         # The skills learnt for the chat, in full (MAG-345).
-        return build_system(base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT))
+        return build_system(
+            base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT), memory.profile, memory.recalled
+        )
 
     async def chat_stream(
         self,
@@ -198,7 +205,7 @@ class StreamingGateway:
         tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
         system_prompt = await self._build_system_prompt(
-            user_id, tools=tools, exclude_message_id=user_msg_id, current_context_id=current_context_id
+            user_id, tools=tools, exclude_message_id=user_msg_id, current_context_id=current_context_id, about=message
         )
         cached_tools = cache_tools(tools)
 

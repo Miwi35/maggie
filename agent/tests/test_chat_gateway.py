@@ -15,6 +15,7 @@ import httpx
 
 from app.db.context_model import ContextStatus
 from app.llm.gateway import API_ERROR_MESSAGE, UNREACHABLE_MESSAGE, LLMGateway
+from app.memory.agent_memory import MemoryBlocks
 
 ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
 
@@ -26,6 +27,7 @@ def _gateway() -> LLMGateway:
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
     gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway

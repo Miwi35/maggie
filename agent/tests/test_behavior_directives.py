@@ -14,6 +14,7 @@ from app.db.instruction_repository import instruction_repo
 from app.llm.directives import behavior_directives_section
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway
+from app.memory.agent_memory import MemoryBlocks
 
 TUTOIE = "Tutoie-moi"
 EMOJIS = "Moins d'emojis"
@@ -56,6 +57,7 @@ def _streaming_gateway() -> StreamingGateway:
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
     gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     return gateway
 
 
@@ -65,6 +67,7 @@ def _llm_gateway() -> LLMGateway:
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
     gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
     return gateway
 
 

@@ -109,6 +109,36 @@ MEMORY_OUTBOX_PENDING = Gauge(
     "Writes to the memory folder waiting for the bucket",
 )
 
+# ---------------------------------------------------------------------------
+# Recall (MAG-16): what the memory costs the answer, so one that slows Maggie down shows
+# ---------------------------------------------------------------------------
+MEMORY_RECALL_SECONDS = Histogram(
+    "maggie_memory_recall_seconds",
+    "Time of the automatic recall (level 2) on the path of a turn or of the daily planning",
+    ["source"],  # chat | proaction | planning
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.8, 1.5),
+)
+
+MEMORY_RECALL_OUTCOMES = Counter(
+    "maggie_memory_recall_total",
+    "Automatic recalls by outcome: recalled (something came back), empty (nothing passed the threshold), "
+    "timeout (the turn went on without it), error",
+    ["source", "outcome"],
+)
+
+MEMORY_RECALLED_CARTES = Histogram(
+    "maggie_memory_recalled_cartes",
+    "Cartes brought back by one automatic recall",
+    buckets=(0, 1, 2, 3),
+)
+
+MEMORY_BLOCK_TOKENS = Histogram(
+    "maggie_memory_block_tokens",
+    "Estimated size (4 characters a token) of what memory adds to the prompt, by block",
+    ["block"],  # profile | recalled
+    buckets=(0, 50, 100, 250, 500, 1000, 2000, 3000, 5000),
+)
+
 
 def usage_kwargs(usage) -> dict[str, int]:
     """Token counts of an Anthropic response usage, as record_llm_usage keyword arguments."""

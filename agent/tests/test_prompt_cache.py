@@ -6,6 +6,7 @@ import pytest
 
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL, build_system, cache_tools
+from app.memory.agent_memory import MemoryBlocks
 from app.metrics import LLM_COST_USD, usage_kwargs
 from app.personality.engine import PersonalityEngine
 from app.skills.index import SkillIndex
@@ -22,6 +23,20 @@ class TestBuildSystem:
 
     def test_empty_volatile_is_omitted(self):
         assert build_system("STABLE", "  \n") == [{"type": "text", "text": "STABLE", "cache_control": EPHEMERAL}]
+
+    def test_memory_has_its_own_blocks_between_the_stable_prefix_and_the_volatile_text(self):
+        blocks = build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE", "RECALLED")
+
+        assert [b["text"] for b in blocks] == ["STABLE", "MOMENT", "PROFILE", "RECALLED", "VOLATILE"]
+        # The profile is cached, what came back for this message is not: four breakpoints with the tools.
+        assert [("cache_control" in b) for b in blocks] == [True, True, True, False, False]
+
+    def test_a_change_of_memory_leaves_the_stable_prefix_untouched(self):
+        before = build_system("STABLE", "V", "MOMENT", "PROFILE A", "RECALLED A")
+        after = build_system("STABLE", "V", "MOMENT", "PROFILE B", "")
+
+        assert before[:2] == after[:2]
+        assert before[2] != after[2]
 
 
 class TestCacheTools:
@@ -40,11 +55,13 @@ class TestCacheTools:
 
 class TestGatewayPrefix:
     @staticmethod
-    def _gateway(memory: str = "") -> LLMGateway:
+    def _gateway(memory: str = "", profile: str = "", recalled: str = "") -> LLMGateway:
         index = SkillIndex()
         gateway = LLMGateway.__new__(LLMGateway)
         gateway.personality = PersonalityEngine()
-        gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=memory))
+        gateway.agent_memory = MagicMock(
+            blocks=AsyncMock(return_value=MemoryBlocks(notice=memory, profile=profile, recalled=recalled))
+        )
         gateway._index = index
         return gateway
 
@@ -80,6 +97,37 @@ class TestGatewayPrefix:
         assert "Allergie : noix" in blocks[1]["text"]
         assert "Nous sommes lundi, il est 9h." in blocks[1]["text"]
         assert "Mode proaction." in blocks[1]["text"]
+
+
+    async def test_profile_and_recalled_cartes_are_blocks_of_their_own(self):
+        blocks = await self._build(
+            self._gateway(profile="PROFIL : Allergie noix", recalled="RAPPEL : roses"),
+            "Nous sommes lundi, il est 9h.",
+        )
+
+        texts = [b["text"] for b in blocks]
+        assert texts[1] == "PROFIL : Allergie noix"
+        assert texts[2] == "RAPPEL : roses"
+        assert "Nous sommes lundi" in texts[3]
+        assert "cache_control" in blocks[1]
+        assert "cache_control" not in blocks[2]
+
+    async def test_a_memory_write_does_not_rewrite_the_personality_block(self):
+        before = await self._build(self._gateway(profile="PROFIL A", recalled="RAPPEL A"), "Lundi 9h.")
+        after = await self._build(self._gateway(profile="PROFIL A\n- Famille/Francoise.md", recalled=""), "Lundi 9h.")
+
+        assert before[0] == after[0]
+        assert before[0]["cache_control"] == EPHEMERAL
+        assert "PROFIL" not in before[0]["text"]
+
+    async def test_the_gateway_asks_the_memory_about_what_was_said(self):
+        gateway = self._gateway()
+
+        await self._build(gateway, "Lundi 9h.", about="Un bouquet pour la fete des meres", source="chat")
+
+        args, kwargs = gateway.agent_memory.blocks.await_args
+        assert args == ("user-1", "Un bouquet pour la fete des meres")
+        assert kwargs["source"] == "chat"
 
 
 class TestUsageAndCost:
@@ -205,7 +253,9 @@ class TestStreamingSystemPrompt:
             context_repo.find_active = AsyncMock(return_value=[context])
             gateway = StreamingGateway.__new__(StreamingGateway)
             gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
-            gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value="\n\nAllergie : noix"))
+            gateway.agent_memory = MagicMock(
+                blocks=AsyncMock(return_value=MemoryBlocks(notice="\n\nAllergie : noix"))
+            )
 
             blocks = await gateway._build_system_prompt("user-1")
 

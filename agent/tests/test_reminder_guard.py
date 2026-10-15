@@ -25,6 +25,7 @@ from app.llm.claim_guard import (
 from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.tools import ToolRouter
+from app.memory.agent_memory import MemoryBlocks
 
 WATER = "Rappelle-moi de boire de l'eau dans 1 minute"
 PLANTS = "Rappelle-moi d'arroser les plantes dans 1 minute"
@@ -374,6 +375,7 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gateway.agent_memory = MagicMock()
         gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
         gateway.tool_router = MagicMock()
         gateway.tool_router.get_tool_definitions = AsyncMock(return_value=offered)
         gateway.tool_router.call_tool = AsyncMock(side_effect=router.call_tool)

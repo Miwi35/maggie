@@ -7,6 +7,7 @@ import pytest
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
 from app.skills.index import SkillEntry, SkillIndex
+from app.memory.agent_memory import MemoryBlocks
 
 
 def _index() -> SkillIndex:
@@ -221,7 +222,7 @@ class TestSystemPromptSkills:
 
         gateway = LLMGateway.__new__(LLMGateway)
         gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
-        gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+        gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
 
         with patch("app.llm.gateway.skill_index", index):
             prompt = await gateway._build_system_prompt("user-1")
