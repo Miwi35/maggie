@@ -16,10 +16,8 @@ const LiveOverlay = ({ live, children }: { live: LiveConfig; children: React.Rea
   const query = JSON.stringify([list.resource, list.sort, list.filterValues, list.page, list.perPage])
 
   const [tracked, setTracked] = useState<Tracked>({ query, overlay: {} })
-  const trackedRef = useRef(tracked)
   const queryRef = useRef(query)
   useEffect(() => {
-    trackedRef.current = tracked
     queryRef.current = query
   })
 
@@ -31,12 +29,16 @@ const LiveOverlay = ({ live, children }: { live: LiveConfig; children: React.Rea
       return
     }
 
-    const current = trackedRef.current.query === queryRef.current ? trackedRef.current.overlay : {}
-    const overlay = applyEvent(current, payload, live)
-    if (overlay === current) return
+    // An updater, not a mirror of the state in a ref: events leave the hub a few
+    // milliseconds apart, and a ref re-synced by an effect after each render
+    // handed the next event the overlay of the render before — the middle one of
+    // three was lost (MAG-473).
+    setTracked((previous) => {
+      const current = previous.query === queryRef.current ? previous.overlay : {}
+      const overlay = applyEvent(current, payload, live)
 
-    trackedRef.current = { query: queryRef.current, overlay }
-    setTracked(trackedRef.current)
+      return overlay === current ? previous : { query: queryRef.current, overlay }
+    })
   })
 
   const overlay = tracked.query === query ? tracked.overlay : null
