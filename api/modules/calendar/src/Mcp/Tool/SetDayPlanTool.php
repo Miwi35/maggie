@@ -42,7 +42,11 @@ final class SetDayPlanTool
         } catch (MissingMcpUserException|\InvalidArgumentException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
+            // A refused list is Maggie's to read; anything else is ours.
             $cause = $e->getPrevious() ?? $e;
+            if (!$cause instanceof \DomainException) {
+                throw $e;
+            }
 
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }

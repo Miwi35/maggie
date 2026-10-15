@@ -30,15 +30,17 @@ class DayPlanRepository extends ServiceEntityRepository
     }
 
     /**
-     * The days before $day, the oldest first: what was planned and is past.
+     * The settled days before $day, the oldest first: what was planned and is
+     * past. A proposal the owner never took is not a plan.
      *
      * @return list<DayPlan>
      */
-    public function findBefore(User $user, \DateTimeImmutable $day): array
+    public function findSettledBefore(User $user, \DateTimeImmutable $day): array
     {
         return $this->createQueryBuilder('p')
             ->where('p.user = :user')
             ->andWhere('p.date < :day')
+            ->andWhere('p.confirmedAt IS NOT NULL')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('day', $day, Types::DATE_IMMUTABLE)
             ->orderBy('p.date', 'ASC')

@@ -337,6 +337,16 @@ class DayPlanApiTest extends WebTestCase
         self::assertArrayNotHasKey('Trier le courrier', $byTitle, 'done yesterday, gone');
     }
 
+    /** A day Maggie only proposed (part 2) and the owner never took puts nothing off. */
+    public function testAnUnsettledProposalPutsNothingOff(): void
+    {
+        $this->put(['slots' => [['type' => 'task', 'taskId' => $this->id('t6')]], 'confirm' => false], '/api/day-plans/2026-10-13');
+
+        $byTitle = array_column($this->get()['reserve'], null, 'title');
+
+        self::assertNull($byTitle['Ranger le garage']['postponedSince']);
+    }
+
     public function testAFutureDayCanBeWrittenAndAProposalLeavesItUnsettled(): void
     {
         $day = $this->put(['slots' => [['type' => 'task', 'taskId' => $this->id('t3')]], 'confirm' => false], '/api/day-plans/2026-10-15');

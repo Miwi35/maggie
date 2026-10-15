@@ -11,9 +11,10 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * « Reportée » (MAG-497): a task not done is put off since its due day once
- * that day is past, or since the first past day it held a slot of — a day is
- * never carried over in silence, what it left undone goes back to the reserve
- * marked so. The earliest of the two. It replaces the red of lateness for an
+ * that day is past, or since the first past settled day it held a slot of (a
+ * proposal never taken does not count) — a day is never carried over in
+ * silence, what it left undone goes back to the reserve marked so. The
+ * earliest of the two. It replaces the red of lateness for an
  * ordinary task; never a reproach.
  */
 final class TaskPostponement implements ResetInterface
@@ -56,7 +57,7 @@ final class TaskPostponement implements ResetInterface
         $key = $user->getId().'@'.$today->format('Y-m-d');
         if (!isset($this->planned[$key])) {
             $first = [];
-            foreach ($this->dayPlans->findBefore($user, $today) as $plan) {
+            foreach ($this->dayPlans->findSettledBefore($user, $today) as $plan) {
                 foreach ($plan->getTaskIds() as $taskId) {
                     $first[$taskId] ??= $plan->getDate()->format('Y-m-d');
                 }
