@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -52,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,13 +78,14 @@ import com.maggie.app.ui.components.NotificationsBlockedNotice
 import com.maggie.app.ui.components.rememberNotificationsAllowed
 import com.maggie.app.data.interruption.InterruptionPreferences
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.GuestsStepper
 import kotlinx.coroutines.launch
 import com.maggie.app.voice.AssistantRoleHelper
 import com.maggie.app.voice.AssistantRoleState
 import org.koin.androidx.compose.koinViewModel
 
 private enum class SettingsSection {
-    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, TASKS, TASK_ORDER, VOICE, AGENT, ABOUT
+    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, TASKS, TASK_ORDER, MEALS, VOICE, AGENT, ABOUT
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,6 +128,10 @@ fun SettingsScreen(
             onBack = { currentSection = SettingsSection.LIST },
         )
         SettingsSection.TASK_ORDER -> TaskOrderSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.MEALS -> MealsSection(
             viewModel = viewModel,
             onBack = { currentSection = SettingsSection.LIST },
         )
@@ -235,6 +242,15 @@ private fun SettingsList(
                 title = "Ce qui passe en premier",
                 onClick = { onSectionClick(SettingsSection.TASK_ORDER) },
                 modifier = Modifier.testTag(UiTags.SETTINGS_TASK_ORDER),
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.Restaurant,
+                title = "Repas",
+                subtitle = "Nombre de convives par défaut",
+                onClick = { onSectionClick(SettingsSection.MEALS) },
+                modifier = Modifier.testTag(UiTags.SETTINGS_MEALS),
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -680,6 +696,98 @@ private fun InterruptionSoundSwitch() {
             modifier = Modifier.testTag(UiTags.SETTINGS_INTERRUPTION_SOUND),
         )
     }
+}
+
+/** Réglages › Repas (MAG-483): how many people a meal is cooked for unless it says otherwise. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MealsSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val meals = uiState.meals
+
+    LaunchedEffect(Unit) { viewModel.loadMealSettings() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Repas") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val guests = meals.guests
+            if (guests == null) {
+                if (meals.isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    meals.error?.let { MealSettingsError(it) }
+                    OutlinedButton(onClick = { viewModel.loadMealSettings() }) { Text("Réessayer") }
+                }
+                return@Column
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Nombre de convives par défaut", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Un repas qui ne précise pas ses convives suit ce nombre.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                GuestsStepper(
+                    value = guests,
+                    onStep = viewModel::stepDefaultGuests,
+                    tag = UiTags.SETTINGS_MEALS_GUESTS,
+                    enabled = !meals.isSaving,
+                )
+            }
+
+            meals.error?.let { MealSettingsError(it) }
+            if (meals.saved) {
+                Text(
+                    "Réglages enregistrés",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag(UiTags.SETTINGS_MEALS_SAVED),
+                )
+            }
+
+            Button(
+                onClick = { viewModel.saveMealSettings() },
+                enabled = !meals.isSaving,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.SETTINGS_MEALS_SAVE),
+            ) {
+                Text("Enregistrer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealSettingsError(message: String) {
+    Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

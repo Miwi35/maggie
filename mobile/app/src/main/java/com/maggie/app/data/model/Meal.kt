@@ -20,4 +20,7 @@ data class Meal(
     val recipes: List<String> = emptyList(),
     val agenda: String? = null,
     val customTitle: String? = null,
+    // The number that counts (the meal's own, or the user's default); [guestsIsDefault] says which (MAG-482).
+    val guests: Int = 1,
+    val guestsIsDefault: Boolean = true,
 )

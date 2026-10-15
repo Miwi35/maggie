@@ -32,12 +32,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.MealGroceryIngredient
 import com.maggie.app.data.model.alreadyPlannedLabel
 import com.maggie.app.data.model.packagesTotalLabel
 import com.maggie.app.data.model.toBuyLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.grocery.StockStateChip
 
 internal fun articlesToAddLabel(count: Int): String =
@@ -155,6 +157,14 @@ internal fun MealIngredientChoiceContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         TextButton(onClick = onSelectAll) { Text("Tout cocher") }
+                    }
+                    uiState.guests?.let { guests ->
+                        Text(
+                            text = "Quantités pour ${guestsLabel(guests)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp).testTag(UiTags.MEAL_CHOICE_GUESTS),
+                        )
                     }
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(

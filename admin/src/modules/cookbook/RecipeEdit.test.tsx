@@ -108,6 +108,33 @@ describe('RecipeEdit', { timeout: 30_000 }, () => {
     expect(line).toMatchObject({ ciqualAlimCode: '9810', quantity: 300, unit: 'g' })
   })
 
+  test('simulating the recipe for more people leaves the sheet untouched (MAG-483)', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn().mockResolvedValue({ data: recipe })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              String(url).includes('guests=') ? { ingredients: [{ id: '01L1', ingredientName: 'Pâtes', quantity: 400, unit: 'g' }] } : PASTA,
+            ),
+        } as Response),
+      ),
+    )
+    renderEdit(update)
+
+    await screen.findByLabelText(/Quantité/)
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole('button', { name: /Un convive de plus/ }))
+    expect(await screen.findByText('400 g Pâtes')).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: /Quantité/ })).toHaveValue(200)
+
+    expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    expect(screen.getByRole('spinbutton', { name: 'Portions' })).toHaveValue(4)
+    expect(update).not.toHaveBeenCalled()
+  })
+
   test('shows the food of an existing line', async () => {
     renderEdit(vi.fn())
 

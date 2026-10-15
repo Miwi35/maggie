@@ -38,10 +38,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.PlannedMealRef
 import com.maggie.app.data.api.RecipeDeletionImpact
 import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.GuestsStepper
+import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -85,6 +89,48 @@ fun recipeDeletionBody(impact: RecipeDeletionImpact?): String {
 
     return "Vous aviez prévu de cuisiner cette recette :\n" + lines.joinToString("\n") +
         "\n\nCes repas seront supprimés avec elle, de l’agenda comme de la liste de courses. Cette action est définitive."
+}
+
+/**
+ * « Pour N personnes » (MAG-483): a simulation of the quantities for another number of people. The
+ * API does the scaling; nothing is saved, and « Parts de la recette » shows the original again.
+ */
+@Composable
+internal fun GuestsSimulation(
+    servings: Int,
+    simulation: RecipeSimulation?,
+    onStep: (Int) -> Unit,
+    onReset: () -> Unit,
+) {
+    val guests = simulation?.guests ?: servings
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Pour", style = MaterialTheme.typography.bodyLarge)
+            GuestsStepper(value = guests, onStep = onStep, tag = UiTags.RECIPE_GUESTS)
+            Text(if (guests > 1) "personnes" else "personne", style = MaterialTheme.typography.bodyLarge)
+        }
+        if (simulation != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Simulation : rien n'est enregistré.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f).testTag(UiTags.RECIPE_GUESTS_SIMULATION),
+                )
+                TextButton(onClick = onReset, modifier = Modifier.testTag(UiTags.RECIPE_GUESTS_RESET)) {
+                    Text("Parts de la recette")
+                }
+            }
+            simulation.error?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag(UiTags.RECIPE_GUESTS_ERROR),
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -145,6 +191,7 @@ fun RecipeDetailScreen(
     ) { paddingValues ->
         if (confirmingDelete) {
             AlertDialog(
+                modifier = Modifier.uiTagRoot(),
                 onDismissRequest = { confirmingDelete = false },
                 title = { Text(recipeDeletionTitle(recipe?.name.orEmpty(), impact?.mealCount)) },
                 text = {
@@ -196,6 +243,13 @@ fun RecipeDetailScreen(
                 ) {
                     Text("${r.servings} portions", style = MaterialTheme.typography.titleMedium)
 
+                    GuestsSimulation(
+                        servings = r.servings,
+                        simulation = state.simulation,
+                        onStep = viewModel::stepGuests,
+                        onReset = viewModel::resetSimulation,
+                    )
+
                     if (r.tags.isNotEmpty()) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             r.tags.forEach { tag ->
@@ -211,13 +265,16 @@ fun RecipeDetailScreen(
                     if (r.ingredients.isNotEmpty()) {
                         HorizontalDivider()
                         Text("Ingrédients", style = MaterialTheme.typography.titleSmall)
-                        r.ingredients.forEach { ing ->
+                        state.ingredients.forEach { ing ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Text(text = ing.ingredientName.orEmpty(), modifier = Modifier.weight(1f))
-                                Text(text = "${ing.quantity} ${ing.unit.name.lowercase()}")
+                                Text(
+                                    text = "${ing.quantity} ${ing.unit.name.lowercase()}",
+                                    modifier = Modifier.testTag(UiTags.RECIPE_INGREDIENT_QUANTITY),
+                                )
                             }
                         }
                     }

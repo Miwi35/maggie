@@ -47,6 +47,7 @@ object MercureTopics {
     const val EVENTS = "events"
     const val GROCERY_LISTS = "grocery_lists"
     const val MEALS = "meals"
+    const val MEAL_SETTINGS = "meal_settings"
     const val NOTIFICATIONS = "notifications"
     const val PROACTIONS = "proactions"
     const val RECIPES = "recipes"
@@ -68,6 +69,7 @@ object MercureTopics {
         EVENTS,
         GROCERY_LISTS,
         MEALS,
+        MEAL_SETTINGS,
         NOTIFICATIONS,
         PROACTIONS,
         RECIPES,

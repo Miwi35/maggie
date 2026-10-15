@@ -20,6 +20,8 @@ data class MealIngredientChoiceUiState(
     val isSending: Boolean = false,
     val isDone: Boolean = false,
     val error: String? = null,
+    /** The people the quantities are scaled to (MAG-483); null when the preview did not say. */
+    val guests: Int? = null,
 ) {
     val selectedCount: Int get() = selected.size
     val canSubmit: Boolean get() = selected.isNotEmpty() && !isSending && !isDone
@@ -53,6 +55,7 @@ class MealIngredientChoiceViewModel(
                         it.copy(
                             isLoading = false,
                             ingredients = preview.ingredients,
+                            guests = preview.guests,
                             selected = preview.ingredients.filter { line -> line.suggested }
                                 .map { line -> line.ingredientId }
                                 .toSet(),

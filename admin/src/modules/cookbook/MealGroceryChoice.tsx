@@ -37,6 +37,9 @@ interface OtherMeal {
 }
 
 interface Preview {
+  /** What the quantities are scaled to (MAG-482), and whether that is the user's default. */
+  guests?: number
+  guestsIsDefault?: boolean
   ingredients: PreviewLine[]
 }
 
@@ -115,6 +118,8 @@ function packagesTotalLabel(row: Row): string | null {
   return `${quantityLabel(total, row.lines.find((line) => line.packaging)?.packaging?.unit ?? 'pack')} au total${toAdd ? ` (+${toAdd})` : ''}`
 }
 
+const guestsLabel = (count: number): string => `${count} convive${count > 1 ? 's' : ''}`
+
 const recipeLabel = (row: Row): string => row.lines.map(({ quantity, unit }) => quantityLabel(quantity, unit)).join(' + ')
 
 function authHeaders(): Record<string, string> {
@@ -161,6 +166,7 @@ async function refusalOf(response: Response): Promise<string> {
 export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone: () => void }) => {
   const notify = useNotify()
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [guests, setGuests] = useState<{ count: number; isDefault: boolean } | null>(null)
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [loadFailed, setLoadFailed] = useState(false)
   const [sending, setSending] = useState(false)
@@ -183,9 +189,12 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
     loading.current = controller
     setLoadFailed(false)
     try {
-      const loaded = rowsOf((await fetchPreview(mealIri, controller.signal)).ingredients)
+      const preview = await fetchPreview(mealIri, controller.signal)
+      const loaded = rowsOf(preview.ingredients)
       // Aborted — unmounted, or replaced by a newer load — is not a failure: say nothing.
       if (controller.signal.aborted) return
+
+      setGuests(typeof preview.guests === 'number' ? { count: preview.guests, isDefault: preview.guestsIsDefault === true } : null)
 
       if (loaded.length === 0) {
         onDone()
@@ -268,6 +277,12 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Quels ingrédients ajouter à la liste de courses ?
         </Typography>
+        {guests && (
+          <Typography variant="body2" sx={{ mb: 1 }} data-testid="meal-guests">
+            Quantités pour {guestsLabel(guests.count)}
+            {guests.isDefault ? ' (par défaut)' : ''}
+          </Typography>
+        )}
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
           <Button size="small" onClick={() => setTicked(new Set(rows.map((row) => row.ingredientId)))}>
             Tout cocher
@@ -287,7 +302,7 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
               <Box sx={{ textAlign: 'right' }}>
                 <Typography variant="body2">{toBuyLabel(row)}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Recette : {recipeLabel(row)}
+                  Recette{guests ? ` pour ${guestsLabel(guests.count)}` : ''} : {recipeLabel(row)}
                 </Typography>
                 {alreadyPlannedLabel(row) && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} data-testid="already-planned">

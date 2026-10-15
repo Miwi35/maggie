@@ -18,6 +18,11 @@ tags:
 # unticked must never appear. The real-time side of the list
 # is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
 #
+# MAG-483 adds the guests: the owner steps « Convives » to 3, the meal holds 3 and the
+# choice says « Quantités pour 3 convives ». Setting the default and the recipe
+# simulation are the JVM's (`MealSettingsScreenTest`, `RecipeGuestsSimulationTest`)
+# and the web journey's (`meals-guests.spec.ts`).
+#
 # The Menu is chosen in a full-screen search, « Créer » is tapped twice in a row and
 # makes one meal, named by the API after its recipe (MAG-378); at the end a tap on the
 # meal opens its sheet, not a second creation: the owner gives it a title of his own,
@@ -73,6 +78,21 @@ tags:
     visible:
       id: "meal_menu_recipe"
     timeout: 10000
+# The « Convives » field starts on the default, marked « par défaut »; a tap on « + »
+# makes it 3 and the mark goes (MAG-483).
+- extendedWaitUntil:
+    visible:
+      id: "meal_guests_default"
+    timeout: 10000
+- tapOn:
+    id: "meal_guests_plus"
+- extendedWaitUntil:
+    visible:
+      id: "meal_guests_value"
+      text: "3"
+    timeout: 10000
+- assertNotVisible:
+    id: "meal_guests_default"
 - doubleTapOn:
     id: "meal_create_submit"
 
@@ -85,6 +105,11 @@ tags:
     file: ../scripts/meal-api.js
     env:
       ACTION: expect-single
+      EXPECT_GUESTS: "3"
+# The choice says what the quantities are scaled to: the 3 guests of the meal.
+- assertVisible:
+    id: "meal_choice_guests"
+    text: ".*3 convives.*"
 - extendedWaitUntil:
     visible: "Riz MAG-297.*"
     timeout: 20000

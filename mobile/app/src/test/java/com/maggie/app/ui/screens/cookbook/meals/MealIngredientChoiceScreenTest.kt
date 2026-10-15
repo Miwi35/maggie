@@ -5,12 +5,15 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.FakeMealIngredientChoice
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -156,5 +159,46 @@ class MealIngredientChoiceScreenTest {
 
         compose.onNodeWithText("Plus tard").assertIsNotEnabled()
         compose.onNodeWithText("Ajouter aux courses").assertIsNotEnabled()
+    }
+
+    private fun showContent(state: MealIngredientChoiceUiState) {
+        compose.setContent {
+            MealIngredientChoiceContent(
+                uiState = state,
+                onToggle = {},
+                onSelectAll = {},
+                onSubmit = {},
+                onRetry = {},
+                onLater = {},
+            )
+        }
+    }
+
+    private val rice = com.maggie.app.data.model.MealGroceryIngredient(
+        ingredientId = "rice",
+        name = "Riz",
+        quantity = 300f,
+        unit = com.maggie.app.data.model.CookbookUnit.G,
+        toBuy = com.maggie.app.data.model.MealGroceryToBuy(300f, com.maggie.app.data.model.CookbookUnit.G),
+    )
+
+    @Test
+    fun `the quantities say how many guests they are for`() {
+        showContent(MealIngredientChoiceUiState(isLoading = false, ingredients = listOf(rice), guests = 4))
+
+        compose.onNodeWithTag(UiTags.MEAL_CHOICE_GUESTS).assertTextEquals("Quantités pour 4 convives")
+    }
+
+    @Test
+    fun `one guest is in the singular`() {
+        showContent(MealIngredientChoiceUiState(isLoading = false, ingredients = listOf(rice), guests = 1))
+        compose.onNodeWithTag(UiTags.MEAL_CHOICE_GUESTS).assertTextEquals("Quantités pour 1 convive")
+    }
+
+    @Test
+    fun `without a number there is no line about guests`() {
+        showContent(MealIngredientChoiceUiState(isLoading = false, ingredients = listOf(rice)))
+
+        compose.onNodeWithTag(UiTags.MEAL_CHOICE_GUESTS).assertDoesNotExist()
     }
 }

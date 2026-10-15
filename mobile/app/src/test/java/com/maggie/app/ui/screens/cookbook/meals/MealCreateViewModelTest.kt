@@ -50,6 +50,7 @@ class MealCreateViewModelTest {
     private val posts = java.util.Collections.synchronizedList(mutableListOf<HttpRequestData>())
     private var gate: CompletableDeferred<Unit>? = null
     private var status = HttpStatusCode.Created
+    private var settingsStatus: HttpStatusCode = HttpStatusCode.OK
 
     @Before
     fun setUp() {
@@ -65,6 +66,17 @@ class MealCreateViewModelTest {
         val engine = MockEngine { request ->
             if (request.method == HttpMethod.Post) posts += request
             gate?.await()
+            if (request.url.encodedPath.endsWith("/api/meal-settings/me")) {
+                return@MockEngine if (settingsStatus.value >= 400) {
+                    respondError(settingsStatus)
+                } else {
+                    respond(
+                        content = ByteReadChannel("""{"id":"ms-1","defaultGuests":3,"defaults":{"defaultGuests":2}}"""),
+                        status = settingsStatus,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            }
             if (status.value >= 400) {
                 respondError(status)
             } else {
@@ -206,5 +218,80 @@ class MealCreateViewModelTest {
 
         assertEquals(MealCreateUiState(), viewModel.uiState.value)
         assertNull(viewModel.uiState.value.error)
+    }
+
+    private fun postedBody(): String = (posts.single().body as TextContent).text
+
+    @Test
+    fun `the stepper starts at the default read from the meal settings, marked par defaut`() = runTest(testDispatcher) {
+        val viewModel = newViewModel()
+
+        viewModel.loadDefaultGuests()
+        settle { viewModel.uiState.value.defaultGuests != null }
+
+        assertEquals(3, viewModel.uiState.value.guests)
+        assertTrue(viewModel.uiState.value.guestsIsDefault)
+    }
+
+    @Test
+    fun `an untouched stepper creates the meal without a number, so it follows the default`() = runTest(testDispatcher) {
+        val viewModel = newViewModel()
+        viewModel.loadDefaultGuests()
+        settle { viewModel.uiState.value.defaultGuests != null }
+        var created = false
+
+        viewModel.submit("2026-10-12", "lunch") { _, _ -> created = true }
+        settle { created }
+
+        assertFalse(postedBody(), postedBody().contains("guests"))
+    }
+
+    @Test
+    fun `touching the stepper sends the number and drops the par defaut mark`() = runTest(testDispatcher) {
+        val viewModel = newViewModel()
+        viewModel.loadDefaultGuests()
+        settle { viewModel.uiState.value.defaultGuests != null }
+        var created = false
+
+        viewModel.stepGuests(1)
+        viewModel.stepGuests(1)
+        assertEquals(5, viewModel.uiState.value.guests)
+        assertFalse(viewModel.uiState.value.guestsIsDefault)
+
+        viewModel.stepGuests(-1)
+        assertEquals(4, viewModel.uiState.value.guests)
+        viewModel.submit("2026-10-12", "lunch") { _, _ -> created = true }
+        settle { created }
+
+        assertTrue(postedBody(), postedBody().contains("\"guests\":4"))
+    }
+
+    @Test
+    fun `the number never goes under one`() = runTest(testDispatcher) {
+        val viewModel = newViewModel()
+        viewModel.loadDefaultGuests()
+        settle { viewModel.uiState.value.defaultGuests != null }
+
+        repeat(6) { viewModel.stepGuests(-1) }
+
+        assertEquals(1, viewModel.uiState.value.guests)
+    }
+
+    @Test
+    fun `without a readable default the stepper starts at one and still sends no number if untouched`() = runTest(testDispatcher) {
+        settingsStatus = HttpStatusCode.InternalServerError
+        val viewModel = newViewModel()
+        var created = false
+
+        viewModel.loadDefaultGuests()
+        withContext(Dispatchers.Default) { delay(150) }
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.guests)
+        assertNull(viewModel.uiState.value.defaultGuests)
+
+        viewModel.submit("2026-10-12", "lunch") { _, _ -> created = true }
+        settle { created }
+
+        assertFalse(postedBody(), postedBody().contains("guests"))
     }
 }

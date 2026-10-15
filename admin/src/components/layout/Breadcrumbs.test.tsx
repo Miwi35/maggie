@@ -90,6 +90,12 @@ describe('Breadcrumbs', () => {
     expect(labels()).toEqual(['Paramètres', 'Ce qui passe en premier'])
   })
 
+  test('the meal settings sit under Paramètres', () => {
+    renderAt('/settings/meals')
+
+    expect(labels()).toEqual(['Paramètres', 'Repas'])
+  })
+
   test('a settings page sits under its module', () => {
     renderAt('/settings/agent')
 

@@ -39,6 +39,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import PeopleIcon from '@mui/icons-material/People'
+import { GuestsStepper } from './GuestsStepper'
 import { MealGroceryChoice } from './MealGroceryChoice'
 import { mealCellId, mealCollision, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
 import type { KeyboardDrag } from './mealDragAndDrop'
@@ -48,6 +50,9 @@ import type { KeyboardDrag } from './mealDragAndDrop'
 // a moment after the PATCH — and a Mercure message makes us read it right then.
 const MOVE_GRACE_MS = 5000
 const MEAL_TOPICS = ['/api/meals/{id}']
+const MEAL_SETTINGS_PATH = '/api/meal-settings/me'
+// What the API gives a meal when the user never set a default (MealSettings::DEFAULT_GUESTS).
+const FALLBACK_GUESTS = 2
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const SLOTS = [
   { value: 'lunch', label: 'Déjeuner' },
@@ -86,6 +91,9 @@ interface Meal {
   summary: string
   /** Objects when the API embeds them, IRIs (strings) when it does not. */
   recipes: (Recipe | string)[] | null
+  /** How many people the meal is cooked for, and whether that is the user's default (MAG-482). */
+  guests?: number
+  guestsIsDefault?: boolean
 }
 
 type PendingMoves = Map<string, { date: string; slot: string; until: number }>
@@ -150,12 +158,14 @@ function MealItem({
   disabled,
   onDelete,
   onReviewIngredients,
+  onEditGuests,
   sx,
 }: {
   meal: Meal
   disabled: boolean
   onDelete: (meal: Meal) => void
   onReviewIngredients: (meal: Meal) => void
+  onEditGuests: (meal: Meal) => void
   sx: ReturnType<typeof transitionSx>
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
@@ -207,12 +217,29 @@ function MealItem({
           </Typography>
         )}
       </Box>
+      {meal.guests != null && (
+        <Button
+          size="small"
+          color="inherit"
+          startIcon={<PeopleIcon sx={{ fontSize: 14 }} />}
+          aria-label={`Convives du repas ${meal.summary} : ${meal.guests}${meal.guestsIsDefault ? ' (par défaut)' : ''}`}
+          title={meal.guestsIsDefault ? `${meal.guests} convives (par défaut)` : `${meal.guests} convives`}
+          disabled={disabled}
+          sx={{ ml: 'auto', minWidth: 0, px: 0.5, py: 0, fontSize: 12 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onEditGuests(meal)
+          }}
+        >
+          {meal.guests}
+        </Button>
+      )}
       {/* A meal puts nothing on the list by itself (MAG-300): this reopens the choice. */}
       <IconButton
         size="small"
         aria-label={`Revoir les ingrédients à acheter pour ${meal.summary}`}
         title="Revoir les ingrédients à acheter"
-        sx={{ ml: 'auto' }}
+        sx={{ ml: meal.guests != null ? 0 : 'auto' }}
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation()
@@ -247,6 +274,13 @@ export const MealsWeekView = () => {
   const [dialogSlot, setDialogSlot] = useState('lunch')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [selectedRecipes, setSelectedRecipes] = useState<Recipe[]>([])
+  // The guests of the meal being created: null while the user has not touched the field, so the meal keeps following the default.
+  const [dialogGuests, setDialogGuests] = useState<number | null>(null)
+  const [defaultGuests, setDefaultGuests] = useState(FALLBACK_GUESTS)
+  // The planned meal whose guests are being changed, and the number being typed (null: untouched).
+  const [guestsMeal, setGuestsMeal] = useState<Meal | null>(null)
+  const [guestsDraft, setGuestsDraft] = useState<number | null>(null)
+  const [guestsSaving, setGuestsSaving] = useState(false)
   // The meal just created, while the owner chooses what of it goes on the list.
   const [choiceMealIri, setChoiceMealIri] = useState<string | null>(null)
   const pendingMoves = useRef<PendingMoves>(new Map())
@@ -298,11 +332,27 @@ export const MealsWeekView = () => {
     }
   }
 
+  const fetchDefaultGuests = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(MEAL_SETTINGS_PATH, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      })
+      if (!response.ok) return
+      const settings = await response.json()
+      if (Number.isInteger(settings?.defaultGuests) && settings.defaultGuests >= 1) setDefaultGuests(settings.defaultGuests)
+    } catch {
+      // Without the default, the field starts from what the API would use.
+    }
+  }
+
   const openCreateDialog = (dayIndex: number, slot: string) => {
     const date = addDays(weekStart, dayIndex)
     setDialogDate(formatDate(date))
     setDialogSlot(slot)
     setSelectedRecipes([])
+    setDialogGuests(null)
+    fetchDefaultGuests()
     setChoiceMealIri(null)
     fetchRecipes()
     setDialogOpen(true)
@@ -325,6 +375,8 @@ export const MealsWeekView = () => {
           date: dialogDate,
           slot: dialogSlot,
           recipes: recipeIris,
+          // Absent while the field is untouched: the meal follows the user's default.
+          ...(dialogGuests !== null && { guests: dialogGuests }),
         },
       })
       fetchMeals()
@@ -349,6 +401,42 @@ export const MealsWeekView = () => {
     setDialogOpen(false)
     setChoiceMealIri(null)
   }, [])
+
+  const openGuestsDialog = (meal: Meal) => {
+    setGuestsMeal(meal)
+    setGuestsDraft(null)
+  }
+
+  // `guests: null` gives the meal back to the default.
+  const saveGuests = async (meal: Meal, guests: number | null) => {
+    setGuestsSaving(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(meal['@id'] || `/api/meals/${meal.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/merge-patch+json',
+          Accept: 'application/ld+json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ guests }),
+      })
+      if (!response.ok) throw new Error(`PATCH answered ${response.status}`)
+      const saved = await response.json().catch(() => null)
+      setMeals((current) =>
+        current.map((m) =>
+          m.id === meal.id
+            ? { ...m, guests: saved?.guests ?? guests ?? defaultGuests, guestsIsDefault: saved?.guestsIsDefault ?? guests === null }
+            : m,
+        ),
+      )
+      setGuestsMeal(null)
+    } catch {
+      notify('Le nombre de convives n’a pas pu être enregistré', { type: 'error' })
+    } finally {
+      setGuestsSaving(false)
+    }
+  }
 
   const handleDelete = async (meal: Meal) => {
     try {
@@ -443,6 +531,7 @@ export const MealsWeekView = () => {
             disabled={removingIds.has(meal.id)}
             onDelete={handleDelete}
             onReviewIngredients={openReviewDialog}
+            onEditGuests={openGuestsDialog}
             sx={transitionSx(meal.id, addedIds, removingIds)}
           />
         ))}
@@ -603,6 +692,12 @@ export const MealsWeekView = () => {
                     ))}
                   </Select>
                 </FormControl>
+                <GuestsStepper
+                  label="Convives"
+                  value={dialogGuests ?? defaultGuests}
+                  isDefault={dialogGuests === null}
+                  onChange={setDialogGuests}
+                />
                 <Autocomplete
                   multiple
                   options={recipes}
@@ -618,6 +713,41 @@ export const MealsWeekView = () => {
               <Button onClick={closeDialog}>Annuler</Button>
               <Button onClick={handleCreate} variant="contained">
                 Créer
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      <Dialog open={guestsMeal !== null} onClose={() => setGuestsMeal(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Convives du repas</DialogTitle>
+        {guestsMeal && (
+          <>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {guestsMeal.summary}
+              </Typography>
+              <GuestsStepper
+                label="Convives"
+                value={guestsDraft ?? guestsMeal.guests ?? defaultGuests}
+                isDefault={guestsDraft === null && !!guestsMeal.guestsIsDefault}
+                onChange={setGuestsDraft}
+                disabled={guestsSaving}
+              />
+            </DialogContent>
+            <DialogActions>
+              {guestsMeal.guestsIsDefault === false && (
+                <Button onClick={() => saveGuests(guestsMeal, null)} disabled={guestsSaving} sx={{ mr: 'auto' }}>
+                  Revenir au défaut
+                </Button>
+              )}
+              <Button onClick={() => setGuestsMeal(null)}>Annuler</Button>
+              <Button
+                variant="contained"
+                disabled={guestsSaving || guestsDraft === null}
+                onClick={() => saveGuests(guestsMeal, guestsDraft)}
+              >
+                Enregistrer
               </Button>
             </DialogActions>
           </>

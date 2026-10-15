@@ -238,6 +238,34 @@ describe('MealGroceryChoice', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(JSON.parse(posts()[0][1].body).ingredients).toEqual([{ ingredientId: '01RICE' }])
   })
+  describe('the guests the quantities are scaled to (MAG-483)', () => {
+    const previewFor = (guests: Record<string, unknown>, ...ingredients: unknown[]) =>
+      json({ mealId: '01MEAL', groceryChoiceMadeAt: null, ingredients, ...guests })
+
+    test('says the quantities are for the meal\'s guests, as the API scaled them', async () => {
+      fetchMock.mockImplementation(() => previewFor({ guests: 6, guestsIsDefault: false }, pasta))
+      render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+
+      expect(await screen.findByTestId('meal-guests')).toHaveTextContent('Quantités pour 6 convives')
+      expect(screen.getByTestId('meal-guests')).not.toHaveTextContent('par défaut')
+      expect(screen.getByText('Recette pour 6 convives : 200 g')).toBeInTheDocument()
+    })
+
+    test('marks the guests as the default while the meal does not set its own', async () => {
+      fetchMock.mockImplementation(() => previewFor({ guests: 1, guestsIsDefault: true }, pasta))
+      render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+
+      expect(await screen.findByTestId('meal-guests')).toHaveTextContent('Quantités pour 1 convive (par défaut)')
+    })
+
+    test('says nothing about guests when the preview does not carry them', async () => {
+      await renderStep(pasta)
+
+      expect(screen.queryByTestId('meal-guests')).not.toBeInTheDocument()
+      expect(screen.getByText('Recette : 200 g')).toBeInTheDocument()
+    })
+  })
+
   describe('loading the preview (MAG-373)', () => {
     const networkError = () => Promise.reject(new TypeError('NetworkError when attempting to fetch resource.'))
     const abortError = () => new DOMException('The operation was aborted.', 'AbortError')

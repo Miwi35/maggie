@@ -220,4 +220,22 @@ class MealIngredientChoiceViewModelTest {
 
         coVerify { mealRepository.addToGroceries("meal-1", listOf("rice")) }
     }
+
+    @Test
+    fun `the people the quantities are scaled to come with the preview`() = runTest(testDispatcher) {
+        coEvery { mealRepository.groceryPreview("meal-1") } returns
+            Result.success(preview(rice).copy(guests = 6, guestsIsDefault = false))
+        val viewModel = MealIngredientChoiceViewModel("meal-1", mealRepository)
+        advanceUntilIdle()
+
+        assertEquals(6, viewModel.uiState.value.guests)
+    }
+
+    @Test
+    fun `a preview that does not say how many guests leaves the line out`() = runTest(testDispatcher) {
+        val viewModel = MealIngredientChoiceViewModel("meal-1", mealRepository)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.guests)
+    }
 }
