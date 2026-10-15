@@ -9,6 +9,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AlertRule
+import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.model.User
@@ -33,6 +34,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.JsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -56,11 +58,7 @@ class SettingsViewModelTest {
     private val concerts = Agenda(id = "a2", name = "Concerts")
 
     private val defaultValues = TaskSettingsValues(
-        orderWeights = mapOf(
-            "timePressure" to mapOf("overdue" to 65, "today" to 55, "later" to 0),
-            "criticality" to mapOf("critical" to 30, "low" to 0),
-            "priority" to mapOf("high" to 6, "low" to 0),
-        ),
+        orderLevels = linkedMapOf("timePressure" to 2, "criticality" to 2, "priority" to 2),
         alertSchedule = mapOf(
             "critical" to AlertRule(daysBefore = listOf(3, 1), dueDay = true, overdueEveryDays = 1),
             "high" to AlertRule(daysBefore = listOf(1), dueDay = true, overdueEveryDays = 1),
@@ -71,7 +69,7 @@ class SettingsViewModelTest {
 
     private fun taskSettings(values: TaskSettingsValues = defaultValues) = TaskSettings(
         id = "ts1",
-        orderWeights = values.orderWeights,
+        orderLevels = values.orderLevels,
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
         defaults = defaultValues,
@@ -104,7 +102,10 @@ class SettingsViewModelTest {
         coEvery { agendaRepository.getAgendas() } returns listOf(perso, concerts)
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues)
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t1"), preview("t2"), preview("t3"))
     }
+
+    private fun preview(id: String) = TaskOrderPreviewItem(id = id, title = "Tâche $id", urgency = "high")
 
     @After
     fun tearDown() {
@@ -228,27 +229,36 @@ class SettingsViewModelTest {
         }
     }
 
-    // --- Réglages › Tâches (MAG-407) ---
+    // --- Réglages › Tâches and « Ce qui passe en premier » (MAG-407) ---
+
+    private val bodies = mutableListOf<JsonObject>()
+
+    private fun answersWith(values: TaskSettingsValues) {
+        coEvery { apiService.updateTaskSettings(capture(bodies)) } returns taskSettings(values)
+    }
+
+    private fun alertsOf(urgency: String, rule: AlertRule) = ownValues.copy(alertSchedule = ownValues.alertSchedule + (urgency to rule))
 
     @Test
-    fun `the task settings load into the state and fill the form`() = runTest {
+    fun `the task settings and the preview load into the state`() = runTest {
         val gate = CompletableDeferred<TaskSettings>()
         coEvery { apiService.getTaskSettings() } coAnswers { gate.await() }
         val viewModel = viewModel()
         runCurrent()
 
         assertTrue(viewModel.uiState.value.tasks.isLoading)
-        assertNull(viewModel.uiState.value.tasks.form)
+        assertNull(viewModel.uiState.value.tasks.settings)
 
         gate.complete(taskSettings(ownValues))
         advanceUntilIdle()
 
         val tasks = viewModel.uiState.value.tasks
         assertFalse(tasks.isLoading)
-        assertEquals("07:30", tasks.form?.morningTime)
-        assertEquals(AlertRuleForm(daysBefore = "1", dueDay = false, overdueEveryDays = ""), tasks.form?.alertSchedule?.get("critical"))
-        assertEquals("3, 1", TaskSettingsForm.from(tasks.settings!!.defaults).alertSchedule["critical"]?.daysBefore)
-        assertEquals("65", tasks.form?.orderWeights?.get("timePressure")?.get("overdue"))
+        assertEquals("07:30", tasks.settings?.morningTime)
+        assertEquals(AlertRule(daysBefore = listOf(1), dueDay = false, overdueEveryDays = null), tasks.settings?.alertSchedule?.get("critical"))
+        assertEquals(listOf("t1", "t2", "t3"), tasks.preview.map { it.id })
+        assertTrue(tasks.moves.isEmpty())
+        assertFalse(tasks.saved)
     }
 
     @Test
@@ -260,118 +270,256 @@ class SettingsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("offline", state.tasks.error)
         assertFalse(state.tasks.isLoading)
-        assertNull(state.tasks.form)
+        assertNull(state.tasks.settings)
         assertNull(state.error)
     }
 
     @Test
-    fun `an edit changes the form and sends nothing`() = runTest {
-        val viewModel = viewModel()
-        advanceUntilIdle()
-
-        viewModel.editTaskSettings { it.copy(morningTime = "06:45") }
-        viewModel.editTaskSettings { form -> form.withAlert("high") { it.copy(daysBefore = "2, 1") } }
-        viewModel.editTaskSettings { it.withWeight("priority", "high", "9") }
-
-        val tasks = viewModel.uiState.value.tasks
-        assertEquals("06:45", tasks.form?.morningTime)
-        assertEquals("2, 1", tasks.form?.alertSchedule?.get("high")?.daysBefore)
-        assertEquals("9", tasks.form?.orderWeights?.get("priority")?.get("high"))
-        assertEquals("07:30", tasks.settings?.morningTime)
-        coVerify(exactly = 0) { apiService.updateTaskSettings(any()) }
-    }
-
-    @Test
-    fun `saving sends the whole form and takes the server's answer`() = runTest {
-        // The server sorts the days from the furthest and drops the repeats.
-        val kept = ownValues.copy(
-            morningTime = "06:45",
-            alertSchedule = ownValues.alertSchedule +
-                ("high" to AlertRule(daysBefore = listOf(3, 1), dueDay = true, overdueEveryDays = null)),
-        )
+    fun `a day chip switched on is shown at once, saved alone, then Enregistré`() = runTest {
         val answer = CompletableDeferred<TaskSettings>()
-        coEvery { apiService.updateTaskSettings(any()) } coAnswers { answer.await() }
+        coEvery { apiService.updateTaskSettings(capture(bodies)) } coAnswers { answer.await() }
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.editTaskSettings { it.copy(morningTime = "06:45") }
-        viewModel.editTaskSettings { form -> form.withAlert("high") { it.copy(daysBefore = "1, 3, 1", overdueEveryDays = " ") } }
-        viewModel.saveTaskSettings()
+        viewModel.toggleAlertDay("critical", 3)
         runCurrent()
-        assertTrue(viewModel.uiState.value.tasks.isSaving)
-        answer.complete(taskSettings(kept))
+
+        assertEquals(listOf(3, 1), viewModel.uiState.value.tasks.settings?.alertSchedule?.get("critical")?.daysBefore)
+        assertFalse(viewModel.uiState.value.tasks.saved)
+        assertEquals("""{"alertSchedule":{"critical":{"daysBefore":[3,1]}}}""", bodies.single().toString())
+
+        answer.complete(taskSettings(alertsOf("critical", AlertRule(listOf(3, 1), dueDay = false, overdueEveryDays = null))))
         advanceUntilIdle()
 
-        coVerify(exactly = 1) {
-            apiService.updateTaskSettings(
-                ownValues.copy(
-                    morningTime = "06:45",
-                    alertSchedule = ownValues.alertSchedule +
-                        ("high" to AlertRule(daysBefore = listOf(1, 3, 1), dueDay = true, overdueEveryDays = null)),
-                ),
-            )
-        }
         val tasks = viewModel.uiState.value.tasks
-        assertFalse(tasks.isSaving)
         assertTrue(tasks.saved)
         assertNull(tasks.error)
-        assertEquals("3, 1", tasks.form?.alertSchedule?.get("high")?.daysBefore)
-        assertEquals("06:45", tasks.settings?.morningTime)
+        assertEquals(listOf(3, 1), tasks.settings?.alertSchedule?.get("critical")?.daysBefore)
     }
 
     @Test
-    fun `a refused save shows the server's reason and keeps the edit`() = runTest {
+    fun `a day chip switched off keeps the days no chip shows`() = runTest {
+        coEvery { apiService.getTaskSettings() } returns
+            taskSettings(alertsOf("high", AlertRule(listOf(5, 3, 1), dueDay = true, overdueEveryDays = 1)))
+        answersWith(alertsOf("high", AlertRule(listOf(5, 1), dueDay = true, overdueEveryDays = 1)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleAlertDay("high", 3)
+        advanceUntilIdle()
+
+        assertEquals("""{"alertSchedule":{"high":{"daysBefore":[5,1]}}}""", bodies.single().toString())
+        assertEquals(listOf(5, 1), viewModel.uiState.value.tasks.settings?.alertSchedule?.get("high")?.daysBefore)
+    }
+
+    @Test
+    fun `the Jour J chip sends the due day alone`() = runTest {
+        answersWith(alertsOf("critical", AlertRule(listOf(1), dueDay = true, overdueEveryDays = null)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleDueDay("critical")
+        advanceUntilIdle()
+
+        assertEquals("""{"alertSchedule":{"critical":{"dueDay":true}}}""", bodies.single().toString())
+        assertEquals(true, viewModel.uiState.value.tasks.settings?.alertSchedule?.get("critical")?.dueDay)
+        assertTrue(viewModel.uiState.value.tasks.saved)
+    }
+
+    @Test
+    fun `En retard set to Jamais sends an explicit null`() = runTest {
+        answersWith(alertsOf("high", AlertRule(listOf(1), dueDay = true, overdueEveryDays = null)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setOverdueEvery("high", null)
+        advanceUntilIdle()
+
+        assertEquals("""{"alertSchedule":{"high":{"overdueEveryDays":null}}}""", bodies.single().toString())
+        assertNull(viewModel.uiState.value.tasks.settings?.alertSchedule?.get("high")?.overdueEveryDays)
+        assertTrue(viewModel.uiState.value.tasks.saved)
+    }
+
+    @Test
+    fun `En retard set to every week sends the days`() = runTest {
+        answersWith(alertsOf("normal", AlertRule(emptyList(), dueDay = true, overdueEveryDays = 7)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setOverdueEvery("normal", 7)
+        advanceUntilIdle()
+
+        assertEquals("""{"alertSchedule":{"normal":{"overdueEveryDays":7}}}""", bodies.single().toString())
+        assertEquals(7, viewModel.uiState.value.tasks.settings?.alertSchedule?.get("normal")?.overdueEveryDays)
+    }
+
+    @Test
+    fun `the time picked becomes the morning, as HH MM`() = runTest {
+        answersWith(ownValues.copy(morningTime = "06:05"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setMorningTime(6, 5)
+        advanceUntilIdle()
+
+        assertEquals("""{"morningTime":"06:05"}""", bodies.single().toString())
+        assertEquals("06:05", viewModel.uiState.value.tasks.settings?.morningTime)
+        assertTrue(viewModel.uiState.value.tasks.saved)
+    }
+
+    @Test
+    fun `a refused save shows the server's reason and goes back to the server's values`() = runTest {
         coEvery { apiService.updateTaskSettings(any()) } throws
             ApiRefusalException(400, "alertSchedule.critical.daysBefore must be a list of whole numbers from 1 to 30.")
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.editTaskSettings { form -> form.withAlert("critical") { it.copy(daysBefore = "30") } }
-        viewModel.saveTaskSettings()
+        viewModel.toggleAlertDay("critical", 7)
         advanceUntilIdle()
 
         val tasks = viewModel.uiState.value.tasks
         assertEquals("alertSchedule.critical.daysBefore must be a list of whole numbers from 1 to 30.", tasks.error)
-        assertFalse(tasks.isSaving)
         assertFalse(tasks.saved)
-        assertEquals("30", tasks.form?.alertSchedule?.get("critical")?.daysBefore)
         assertEquals(listOf(1), tasks.settings?.alertSchedule?.get("critical")?.daysBefore)
     }
 
     @Test
-    fun `a form that does not read is not sent and says which field`() = runTest {
+    fun `a save that fails otherwise says it could not save, and goes back`() = runTest {
+        coEvery { apiService.updateTaskSettings(any()) } throws IllegalStateException("timeout")
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.editTaskSettings { it.copy(morningTime = "7h30") }
-        viewModel.saveTaskSettings()
+        viewModel.setMorningTime(9, 0)
         advanceUntilIdle()
-        assertEquals("Heure du matin : au format HH:MM, par exemple 08:00.", viewModel.uiState.value.tasks.error)
-
-        viewModel.editTaskSettings { form -> form.copy(morningTime = "07:30").withAlert("critical") { it.copy(daysBefore = "3, demain") } }
-        viewModel.saveTaskSettings()
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.tasks.error!!.startsWith("Critique, jours avant l'échéance"))
-        assertEquals("3, demain", viewModel.uiState.value.tasks.form?.alertSchedule?.get("critical")?.daysBefore)
-
-        coVerify(exactly = 0) { apiService.updateTaskSettings(any()) }
-    }
-
-    @Test
-    fun `the defaults fill the form without saving`() = runTest {
-        val viewModel = viewModel()
-        advanceUntilIdle()
-
-        viewModel.resetTaskSettingsToDefaults()
 
         val tasks = viewModel.uiState.value.tasks
-        assertEquals(TaskSettingsForm.from(defaultValues), tasks.form)
+        assertEquals("Impossible d'enregistrer les réglages des tâches", tasks.error)
         assertEquals("07:30", tasks.settings?.morningTime)
-        coVerify(exactly = 0) { apiService.updateTaskSettings(any()) }
+        assertFalse(tasks.saved)
     }
 
     @Test
-    fun `a change published on the task settings topic reads them again`() = runTest {
+    fun `the alerts' defaults save the schedule and the morning, not the order`() = runTest {
+        answersWith(ownValues.copy(alertSchedule = defaultValues.alertSchedule, morningTime = defaultValues.morningTime))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.resetAlertsToDefaults()
+        advanceUntilIdle()
+
+        assertEquals(
+            """{"alertSchedule":{"critical":{"daysBefore":[3,1],"dueDay":true,"overdueEveryDays":1},""" +
+                """"high":{"daysBefore":[1],"dueDay":true,"overdueEveryDays":1},""" +
+                """"normal":{"daysBefore":[],"dueDay":true,"overdueEveryDays":2}},"morningTime":"08:00"}""",
+            bodies.single().toString(),
+        )
+        val tasks = viewModel.uiState.value.tasks
+        assertEquals(defaultValues.alertSchedule, tasks.settings?.alertSchedule)
+        assertEquals("08:00", tasks.settings?.morningTime)
+        assertTrue(tasks.saved)
+    }
+
+    @Test
+    fun `a slider saves its level, reads the preview again and marks what moved`() = runTest {
+        answersWith(ownValues.copy(orderLevels = ownValues.orderLevels + ("priority" to 4)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t3"), preview("t1"), preview("t2"))
+
+        viewModel.setOrderLevel("priority", 4)
+        advanceUntilIdle()
+
+        assertEquals("""{"orderLevels":{"priority":4}}""", bodies.single().toString())
+        val tasks = viewModel.uiState.value.tasks
+        assertEquals(4, tasks.settings?.orderLevels?.get("priority"))
+        assertTrue(tasks.saved)
+        assertEquals(listOf("t3", "t1", "t2"), tasks.preview.map { it.id })
+        assertEquals(mapOf("t3" to TaskOrderMove.UP, "t1" to TaskOrderMove.DOWN, "t2" to TaskOrderMove.DOWN), tasks.moves)
+    }
+
+    @Test
+    fun `a slider that changes nothing in the order keeps the arrows shown`() = runTest {
+        answersWith(ownValues.copy(orderLevels = ownValues.orderLevels + ("priority" to 4)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t3"), preview("t1"), preview("t2"))
+        viewModel.setOrderLevel("priority", 4)
+        advanceUntilIdle()
+
+        answersWith(ownValues.copy(orderLevels = ownValues.orderLevels + mapOf("priority" to 4, "criticality" to 1)))
+        viewModel.setOrderLevel("criticality", 1)
+        advanceUntilIdle()
+
+        assertEquals(TaskOrderMove.UP, viewModel.uiState.value.tasks.moves["t3"])
+        coVerify(exactly = 3) { apiService.getTaskOrderPreview() }
+    }
+
+    @Test
+    fun `the Mercure echo landing before the save's own refresh keeps the arrows`() = runTest {
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASK_SETTINGS)) } returns updates
+        val answer = CompletableDeferred<TaskSettings>()
+        coEvery { apiService.updateTaskSettings(any()) } coAnswers { answer.await() }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        runCurrent()
+        val raised = ownValues.copy(orderLevels = ownValues.orderLevels + ("priority" to 4))
+        coEvery { apiService.getTaskSettings() } returns taskSettings(raised)
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t3"), preview("t1"), preview("t2"))
+
+        viewModel.setOrderLevel("priority", 4)
+        updates.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+        assertEquals(TaskOrderMove.UP, viewModel.uiState.value.tasks.moves["t3"])
+
+        answer.complete(taskSettings(raised))
+        advanceUntilIdle()
+
+        val tasks = viewModel.uiState.value.tasks
+        assertEquals(listOf("t3", "t1", "t2"), tasks.preview.map { it.id })
+        assertEquals(mapOf("t3" to TaskOrderMove.UP, "t1" to TaskOrderMove.DOWN, "t2" to TaskOrderMove.DOWN), tasks.moves)
+        assertTrue(tasks.saved)
+    }
+
+    @Test
+    fun `a re-read during a save does not become what a failed save goes back to`() = runTest {
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASK_SETTINGS)) } returns updates
+        val answer = CompletableDeferred<TaskSettings>()
+        coEvery { apiService.updateTaskSettings(any()) } coAnswers { answer.await() }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        runCurrent()
+
+        viewModel.setMorningTime(9, 0)
+        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(morningTime = "05:00"))
+        updates.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+        assertEquals("09:00", viewModel.uiState.value.tasks.settings?.morningTime)
+
+        answer.completeExceptionally(IllegalStateException("timeout"))
+        advanceUntilIdle()
+
+        assertEquals("07:30", viewModel.uiState.value.tasks.settings?.morningTime)
+    }
+
+    @Test
+    fun `the order's defaults save the levels only and read the preview again`() = runTest {
+        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(orderLevels = mapOf("timePressure" to 0, "criticality" to 4, "priority" to 1)))
+        answersWith(ownValues)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.resetOrderToDefaults()
+        advanceUntilIdle()
+
+        assertEquals("""{"orderLevels":{"timePressure":2,"criticality":2,"priority":2}}""", bodies.single().toString())
+        assertEquals(defaultValues.orderLevels, viewModel.uiState.value.tasks.settings?.orderLevels)
+        coVerify(exactly = 2) { apiService.getTaskOrderPreview() }
+    }
+
+    @Test
+    fun `a change published on the task settings topic is read and shown with a fresh preview`() = runTest {
         val updates = MutableSharedFlow<MercureEvent>()
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASK_SETTINGS)) } returns updates
         val viewModel = viewModel()
@@ -379,30 +527,34 @@ class SettingsViewModelTest {
         runCurrent()
 
         coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(morningTime = "09:15"))
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t2"), preview("t1"), preview("t3"))
         updates.emit(MercureEvent(data = "{}"))
         advanceUntilIdle()
 
         val tasks = viewModel.uiState.value.tasks
         assertEquals("09:15", tasks.settings?.morningTime)
-        assertEquals("09:15", tasks.form?.morningTime)
+        assertEquals(listOf("t2", "t1", "t3"), tasks.preview.map { it.id })
+        assertEquals(mapOf("t2" to TaskOrderMove.UP, "t1" to TaskOrderMove.DOWN), tasks.moves)
         coVerify(exactly = 2) { apiService.getTaskSettings() }
     }
 
     @Test
-    fun `a change published while the user edits keeps the edit`() = runTest {
+    fun `the echo of a slider's own save keeps its arrows`() = runTest {
         val updates = MutableSharedFlow<MercureEvent>()
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASK_SETTINGS)) } returns updates
+        answersWith(ownValues.copy(orderLevels = ownValues.orderLevels + ("priority" to 4)))
         val viewModel = viewModel()
         advanceUntilIdle()
         runCurrent()
+        coEvery { apiService.getTaskOrderPreview() } returns listOf(preview("t3"), preview("t1"), preview("t2"))
+        viewModel.setOrderLevel("priority", 4)
+        advanceUntilIdle()
 
-        viewModel.editTaskSettings { it.copy(morningTime = "06:00") }
-        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(morningTime = "09:15"))
+        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(orderLevels = ownValues.orderLevels + ("priority" to 4)))
         updates.emit(MercureEvent(data = "{}"))
         advanceUntilIdle()
 
-        val tasks = viewModel.uiState.value.tasks
-        assertEquals("09:15", tasks.settings?.morningTime)
-        assertEquals("06:00", tasks.form?.morningTime)
+        assertEquals(TaskOrderMove.UP, viewModel.uiState.value.tasks.moves["t3"])
+        assertEquals(4, viewModel.uiState.value.tasks.settings?.orderLevels?.get("priority"))
     }
 }

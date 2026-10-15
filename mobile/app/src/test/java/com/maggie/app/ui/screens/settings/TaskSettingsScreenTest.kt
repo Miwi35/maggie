@@ -1,29 +1,34 @@
 package com.maggie.app.ui.screens.settings
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.AlertRule
+import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Réglages › Tâches (MAG-407): the form reads the settings, edits go to the ViewModel, its errors show. */
+/**
+ * Réglages › Tâches and « Ce qui passe en premier » (MAG-407): what the screens show from the
+ * state, and which ViewModel call each control makes. The saving itself is `SettingsViewModelTest`'s.
+ */
 @RunWith(AndroidJUnit4::class)
 class TaskSettingsScreenTest {
 
@@ -31,14 +36,10 @@ class TaskSettingsScreenTest {
     val compose = ScreenRule()
 
     private val values = TaskSettingsValues(
-        orderWeights = mapOf(
-            "timePressure" to mapOf("overdue" to 65, "today" to 55),
-            "criticality" to mapOf("critical" to 30),
-            "priority" to mapOf("high" to 6),
-        ),
+        orderLevels = mapOf("timePressure" to 2, "criticality" to 3, "priority" to 0),
         alertSchedule = mapOf(
             "critical" to AlertRule(daysBefore = listOf(3, 1), dueDay = true, overdueEveryDays = 1),
-            "high" to AlertRule(daysBefore = listOf(1), dueDay = true, overdueEveryDays = 1),
+            "high" to AlertRule(daysBefore = listOf(1), dueDay = false, overdueEveryDays = 5),
             "normal" to AlertRule(daysBefore = emptyList(), dueDay = true, overdueEveryDays = null),
         ),
         morningTime = "08:00",
@@ -46,91 +47,166 @@ class TaskSettingsScreenTest {
 
     private val settings = TaskSettings(
         id = "ts1",
-        orderWeights = values.orderWeights,
+        orderLevels = values.orderLevels,
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
         defaults = values,
     )
 
-    private fun stateWith(tasks: TaskSettingsUiState) = MutableStateFlow(SettingsUiState(tasks = tasks))
+    private val loaded = TaskSettingsUiState(settings = settings)
 
-    private fun viewModelOver(state: MutableStateFlow<SettingsUiState>) =
+    private fun viewModelOver(tasks: TaskSettingsUiState) =
         mockk<SettingsViewModel>(relaxed = true).also { viewModel ->
-            every { viewModel.uiState } returns state
-            // The edits are applied as the ViewModel does, so the screen redraws what was typed.
-            val change = slot<(TaskSettingsForm) -> TaskSettingsForm>()
-            every { viewModel.editTaskSettings(capture(change)) } answers {
-                val tasks = state.value.tasks
-                state.value = state.value.copy(tasks = tasks.copy(form = change.captured(tasks.form!!)))
-            }
+            every { viewModel.uiState } returns MutableStateFlow(SettingsUiState(tasks = tasks))
         }
 
-    private fun openTasks() {
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS).performClick()
-    }
-
-    @Test
-    fun `the section shows the settings read from the server`() {
-        val state = stateWith(TaskSettingsUiState(settings = settings, form = TaskSettingsForm.from(values)))
-        compose.setContent { SettingsScreen(viewModel = viewModelOver(state), onBack = {}) }
-
-        openTasks()
-
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).assertTextContains("08:00")
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_CRITICAL_DAYS).assertTextContains("3, 1")
-        compose.onNodeWithText("Basse : jamais d'alerte, seulement l'affichage.").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Pression du temps").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun `typing edits the form and Enregistrer saves it`() {
-        val state = stateWith(TaskSettingsUiState(settings = settings, form = TaskSettingsForm.from(values)))
-        val viewModel = viewModelOver(state)
+    private fun open(tasks: TaskSettingsUiState, section: String = UiTags.SETTINGS_TASKS): SettingsViewModel {
+        val viewModel = viewModelOver(tasks)
         compose.setContent { SettingsScreen(viewModel = viewModel, onBack = {}) }
-        openTasks()
-
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).performTextReplacement("07:30")
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_CRITICAL_DAYS).performTextReplacement("1")
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_SAVE).performScrollTo().performClick()
-
-        assertEquals("07:30", state.value.tasks.form?.morningTime)
-        assertEquals("1", state.value.tasks.form?.alertSchedule?.get("critical")?.daysBefore)
-        verify(exactly = 1) { viewModel.saveTaskSettings() }
+        compose.onNodeWithTag(section).performClick()
+        return viewModel
     }
 
     @Test
-    fun `Valeurs par défaut asks the ViewModel for the defaults`() {
-        val state = stateWith(TaskSettingsUiState(settings = settings, form = TaskSettingsForm.from(values)))
-        val viewModel = viewModelOver(state)
-        compose.setContent { SettingsScreen(viewModel = viewModel, onBack = {}) }
-        openTasks()
+    fun `the alerts show the morning, each urgency's chips and when it alerts late, and no help text`() {
+        open(loaded)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).assertTextContains("Heure du matin").assertTextContains("08:00")
+        compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 3)).assertIsSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksChip("critical", null)).assertIsSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksChip("high", null)).performScrollTo().assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksOverdue("critical")).assertTextContains("Chaque matin")
+        // A value no option offers is shown as it is.
+        compose.onNodeWithTag(UiTags.settingsTasksOverdue("high")).performScrollTo().assertTextContains("Tous les 5 jours")
+        compose.onNodeWithTag(UiTags.settingsTasksOverdue("normal")).performScrollTo().assertTextContains("Jamais")
+
+        listOf("Vide : jamais", "Enregistrer", "Enregistré").forEach {
+            compose.onNodeWithText(it).assertDoesNotExist()
+        }
+        compose.onNodeWithText("Basse", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a chip switches its day through the ViewModel`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).performClick()
+        compose.onNodeWithTag(UiTags.settingsTasksChip("normal", null)).performScrollTo().performClick()
+
+        verify(exactly = 1) { viewModel.toggleAlertDay("critical", 7) }
+        verify(exactly = 1) { viewModel.toggleDueDay("normal") }
+    }
+
+    @Test
+    fun `En retard offers its choices and sends the one picked`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.settingsTasksOverdue("high")).performScrollTo().performClick()
+        compose.onNodeWithText("Chaque semaine").performClick()
+
+        verify(exactly = 1) { viewModel.setOverdueEvery("high", 7) }
+    }
+
+    @Test
+    fun `the morning opens the time picker and OK sends the time`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+
+        verify(exactly = 1) { viewModel.setMorningTime(8, 0) }
+    }
+
+    @Test
+    fun `a save that went through shows Enregistré`() {
+        open(loaded.copy(saved = true))
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_SAVED).assertTextContains("Enregistré")
+    }
+
+    @Test
+    fun `a failed save shows its reason`() {
+        open(loaded.copy(error = "Impossible d'enregistrer les réglages des tâches"))
+        compose.onNodeWithText("Impossible d'enregistrer les réglages des tâches").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_SAVED).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Valeurs par défaut asks first, and only Confirmer resets the alerts`() {
+        val viewModel = open(loaded)
 
         compose.onNodeWithTag(UiTags.SETTINGS_TASKS_DEFAULTS).performScrollTo().performClick()
+        compose.onNodeWithText("Revenir aux valeurs par défaut ?").assertIsDisplayed()
+        compose.onNodeWithText("Annuler").performClick()
+        verify(exactly = 0) { viewModel.resetAlertsToDefaults() }
 
-        verify(exactly = 1) { viewModel.resetTaskSettingsToDefaults() }
-    }
-
-    @Test
-    fun `a refused save shows the reason`() {
-        val state = stateWith(
-            TaskSettingsUiState(settings = settings, form = TaskSettingsForm.from(values), error = "morningTime must be HH:MM."),
-        )
-        compose.setContent { SettingsScreen(viewModel = viewModelOver(state), onBack = {}) }
-        openTasks()
-
-        compose.onNodeWithText("morningTime must be HH:MM.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_DEFAULTS).performScrollTo().performClick()
+        compose.onNodeWithText("Confirmer").performClick()
+        verify(exactly = 1) { viewModel.resetAlertsToDefaults() }
+        verify(exactly = 0) { viewModel.resetOrderToDefaults() }
     }
 
     @Test
     fun `settings that could not be read offer to try again`() {
-        val state = stateWith(TaskSettingsUiState(error = "offline"))
-        val viewModel = viewModelOver(state)
-        compose.setContent { SettingsScreen(viewModel = viewModel, onBack = {}) }
-        openTasks()
+        val viewModel = open(TaskSettingsUiState(error = "offline"))
 
         compose.onNodeWithText("offline").assertIsDisplayed()
         compose.onNodeWithText("Réessayer").performClick()
 
         verify(exactly = 1) { viewModel.loadTaskSettings() }
+    }
+
+    // --- « Ce qui passe en premier » ---
+
+    private val preview = listOf(
+        TaskOrderPreviewItem(id = "t1", title = "Payer le loyer", urgency = "critical"),
+        TaskOrderPreviewItem(id = "t2", title = "Rappeler le garage", urgency = "high"),
+        TaskOrderPreviewItem(id = "t3", title = "Trier les photos", urgency = "low"),
+    )
+
+    @Test
+    fun `the order shows each group's level by its word, and the preview with what moved`() {
+        open(
+            loaded.copy(preview = preview, moves = mapOf("t1" to TaskOrderMove.UP, "t2" to TaskOrderMove.DOWN)),
+            section = UiTags.SETTINGS_TASK_ORDER,
+        )
+
+        compose.onNodeWithText("L'échéance").assertIsDisplayed()
+        compose.onNodeWithText("Normal").assertIsDisplayed()
+        compose.onNodeWithText("La gravité").assertIsDisplayed()
+        compose.onNodeWithText("Beaucoup").assertIsDisplayed()
+        compose.onNodeWithText("Ma priorité").assertIsDisplayed()
+        compose.onNodeWithText("Très peu").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASK_ORDER_PREVIEW).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Payer le loyer").assertIsDisplayed()
+        compose.onNodeWithText("↑").assertIsDisplayed()
+        compose.onNodeWithText("↓").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty preview shows nothing`() {
+        open(loaded, section = UiTags.SETTINGS_TASK_ORDER)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASK_ORDER_PREVIEW).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a slider sends its level when it is let go`() {
+        val viewModel = open(loaded, section = UiTags.SETTINGS_TASK_ORDER)
+
+        compose.onNodeWithTag(UiTags.settingsTaskOrder("timePressure")).performSemanticsAction(SemanticsActions.SetProgress) { it(4f) }
+
+        verify(exactly = 1) { viewModel.setOrderLevel("timePressure", 4) }
+    }
+
+    @Test
+    fun `the order's Valeurs par défaut resets the levels after Confirmer`() {
+        val viewModel = open(loaded, section = UiTags.SETTINGS_TASK_ORDER)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASK_ORDER_DEFAULTS).performScrollTo().performClick()
+        compose.onNodeWithText("Confirmer").performClick()
+
+        verify(exactly = 1) { viewModel.resetOrderToDefaults() }
+        verify(exactly = 0) { viewModel.resetAlertsToDefaults() }
     }
 }

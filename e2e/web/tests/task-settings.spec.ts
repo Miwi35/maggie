@@ -1,11 +1,13 @@
 import { test, expect } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
-import { TaskSettingsPage } from '../pages/TaskSettingsPage.js'
+import { TaskOrderSettingsPage, TaskSettingsPage } from '../pages/TaskSettingsPage.js'
 
 /**
- * « Réglages › Tâches » sets when Maggie alerts about a task (MAG-407, extends MAG-103).
+ * « Réglages › Tâches » sets when Maggie alerts about a task, and « Ce qui
+ * passe en premier » how tasks are ordered (MAG-407, extends MAG-103). Both
+ * save on every change.
  *
- * The phone reads the same settings, so the journey ends on the API: what the
+ * The phone reads the same settings, so each journey ends on the API: what the
  * admin saved is what `GET /api/task-settings/me` hands the app.
  *
  * Signed in as the neighbour: the settings are the user's own, and the
@@ -17,6 +19,7 @@ test.describe.configure({ mode: 'serial' })
 
 interface TaskSettings {
   morningTime: string
+  orderLevels: Record<string, number>
   alertSchedule: Record<string, { daysBefore: number[]; dueDay: boolean; overdueEveryDays: number | null }>
   defaults: Record<string, unknown>
 }
@@ -47,19 +50,38 @@ test('the morning time and the critical reminders hold after a reload and reach 
   const settings = new TaskSettingsPage(page)
   await settings.open()
   await expect(settings.morningTime).toHaveValue('08:00')
-  await expect(settings.daysBefore('critical')).toHaveValue('3, 1')
+  await expect(settings.day('critical', 'J-3')).toHaveAttribute('aria-pressed', 'true')
+  await expect(settings.day('critical', 'J-1')).toHaveAttribute('aria-pressed', 'true')
 
-  await settings.morningTime.fill('07:30')
-  await settings.daysBefore('critical').fill('1')
-  await settings.save()
+  await settings.setMorningTime('07:30')
+  await settings.toggleDay('critical', 'J-3')
+  await expect(settings.content.getByText('Enregistré', { exact: true })).toBeVisible()
 
   await page.reload()
   await settings.expectReady()
   await expect(settings.morningTime).toHaveValue('07:30')
-  await expect(settings.daysBefore('critical')).toHaveValue('1')
-  await expect(settings.dueDay('critical')).toBeChecked()
+  await expect(settings.day('critical', 'J-3')).toHaveAttribute('aria-pressed', 'false')
+  await expect(settings.day('critical', 'J-1')).toHaveAttribute('aria-pressed', 'true')
+  await expect(settings.day('critical', 'Jour J')).toHaveAttribute('aria-pressed', 'true')
 
   const saved = await readSettings(api)
   expect(saved.morningTime).toBe('07:30')
   expect(saved.alertSchedule.critical.daysBefore).toEqual([1])
+})
+
+test('« La gravité » pushed to « Énormément » holds after a reload and reaches the API', async ({ otherUser }) => {
+  const { page, api } = otherUser
+  const order = new TaskOrderSettingsPage(page)
+  await order.open()
+  await expect(order.level('criticality')).toHaveAttribute('aria-valuetext', 'Normal')
+
+  await order.setToMax('criticality')
+  await expect(order.level('criticality')).toHaveAttribute('aria-valuetext', 'Énormément')
+
+  await page.reload()
+  await order.expectReady()
+  await expect(order.level('criticality')).toHaveAttribute('aria-valuetext', 'Énormément')
+
+  const saved = await readSettings(api)
+  expect(saved.orderLevels.criticality).toBe(4)
 })

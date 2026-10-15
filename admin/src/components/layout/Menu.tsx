@@ -27,6 +27,7 @@ import CategoryIcon from '@mui/icons-material/Category'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import TuneIcon from '@mui/icons-material/Tune'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
+import LowPriorityIcon from '@mui/icons-material/LowPriority'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
@@ -333,6 +334,12 @@ export const CustomMenu = () => {
                 to="/settings/tasks"
                 primaryText="Tâches"
                 leftIcon={<TaskAltIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/settings/tasks/order"
+                primaryText="Ce qui passe en premier"
+                leftIcon={<LowPriorityIcon />}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

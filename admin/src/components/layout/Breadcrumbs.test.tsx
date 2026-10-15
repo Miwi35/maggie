@@ -84,6 +84,12 @@ describe('Breadcrumbs', () => {
     expect(labels()).toEqual(['Paramètres', 'Tâches'])
   })
 
+  test('the task order settings sit under Paramètres', () => {
+    renderAt('/settings/tasks/order')
+
+    expect(labels()).toEqual(['Paramètres', 'Ce qui passe en premier'])
+  })
+
   test('a settings page sits under its module', () => {
     renderAt('/settings/agent')
 

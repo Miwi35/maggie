@@ -98,4 +98,14 @@ describe('CustomMenu — the task settings entry', () => {
     expect(entries).toContain('/settings/tasks')
     expect(entries.indexOf('/settings/tasks')).toBe(entries.indexOf('/settings/preferences') + 1)
   })
+
+  test('is followed by « Ce qui passe en premier », which opens /settings/tasks/order', async () => {
+    stubPersonality('Maggie')
+    await renderMenu()
+
+    const order = await screen.findByRole('menuitem', { name: 'Ce qui passe en premier' })
+    expect(order).toHaveAttribute('href', '/settings/tasks/order')
+    const entries = screen.getAllByRole('menuitem').map((item) => item.getAttribute('href'))
+    expect(entries.indexOf('/settings/tasks/order')).toBe(entries.indexOf('/settings/tasks') + 1)
+  })
 })

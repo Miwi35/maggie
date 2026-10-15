@@ -466,17 +466,32 @@ object UiTags {
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 
     /**
-     * Settings > Tâches (MAG-407): the row of the list, « Heure du matin », the days before the
-     * due day of an urgency (the prefix takes `critical`, `high` or `normal`), « Valeurs par
-     * défaut », « Enregistrer », and the line that says it went through.
+     * Settings > Tâches (MAG-407): the row of the list, « Heure du matin », the chips of the
+     * days before the due day ([settingsTasksChip]), « En retard » ([settingsTasksOverdue]),
+     * « Valeurs par défaut » and the « Enregistré » that follows every save — on both screens.
      */
     const val SETTINGS_TASKS = "settings_tasks"
     const val SETTINGS_TASKS_MORNING = "settings_tasks_morning"
-    const val SETTINGS_TASKS_DAYS_PREFIX = "settings_tasks_days_"
-    const val SETTINGS_TASKS_CRITICAL_DAYS = "settings_tasks_days_critical"
+    const val SETTINGS_TASKS_CHIP_PREFIX = "settings_tasks_chip_"
+    const val SETTINGS_TASKS_OVERDUE_PREFIX = "settings_tasks_overdue_"
     const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"
-    const val SETTINGS_TASKS_SAVE = "settings_tasks_save"
     const val SETTINGS_TASKS_SAVED = "settings_tasks_saved"
+
+    /** A chip of [urgency]: `d7`, `d3`, `d2`, `d1` for J-n ([days]), `due` for « Jour J » ([days] null). */
+    fun settingsTasksChip(urgency: String, days: Int?): String =
+        SETTINGS_TASKS_CHIP_PREFIX + urgency + "_" + (days?.let { "d$it" } ?: "due")
+
+    fun settingsTasksOverdue(urgency: String): String = SETTINGS_TASKS_OVERDUE_PREFIX + urgency
+
+    /**
+     * Settings > « Ce qui passe en premier » (MAG-407): the row of the list, a slider per group
+     * (`timePressure`, `criticality`, `priority`), the preview of five tasks and « Valeurs par défaut ».
+     */
+    const val SETTINGS_TASK_ORDER = "settings_task_order"
+    const val SETTINGS_TASK_ORDER_PREVIEW = "settings_task_order_preview"
+    const val SETTINGS_TASK_ORDER_DEFAULTS = "settings_task_order_defaults"
+
+    fun settingsTaskOrder(group: String): String = SETTINGS_TASK_ORDER + "_" + group
 
     /**
      * The meal being planned (MAG-378): the « Menu » field that opens the recipe search, the

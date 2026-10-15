@@ -71,4 +71,13 @@ class UiTagsTest {
     fun `a budget tree node is suffixed by its category's name`() {
         assertEquals("budget_node_Obsydian", UiTags.budgetNode("Obsydian"))
     }
+
+    /** `e2e/mobile/flows/17-task-settings.yaml` spells the chips and the controls of Réglages › Tâches (MAG-407) by hand. */
+    @Test
+    fun `the task settings controls are suffixed by urgency, day and group`() {
+        assertEquals("settings_tasks_chip_critical_d3", UiTags.settingsTasksChip("critical", 3))
+        assertEquals("settings_tasks_chip_normal_due", UiTags.settingsTasksChip("normal", null))
+        assertEquals("settings_tasks_overdue_high", UiTags.settingsTasksOverdue("high"))
+        assertEquals("settings_task_order_timePressure", UiTags.settingsTaskOrder("timePressure"))
+    }
 }
