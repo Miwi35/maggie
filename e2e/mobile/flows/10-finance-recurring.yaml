@@ -46,6 +46,12 @@ tags:
     file: ../scripts/recurring-api.js
     env:
       ACTION: create
+# MAG-475: the form reads the accounts and categories once, when the list opens, so the
+# salary fixtures must exist before that.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: create-salary
 
 - openLink: "maggie-e2e://finance/recurring-operations"
 
@@ -124,10 +130,6 @@ tags:
 
 # MAG-475: a series known by its amount alone.
 - tapOn: "Retour"
-- runScript:
-    file: ../scripts/recurring-api.js
-    env:
-      ACTION: create-salary
 - extendedWaitUntil:
     visible:
       id: "recurring_new"
