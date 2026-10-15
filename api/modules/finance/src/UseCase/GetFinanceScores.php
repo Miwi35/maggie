@@ -195,9 +195,9 @@ class GetFinanceScores
     /**
      * The rhythm over a run of days, which may straddle two months.
      *
-     * @param list<string>         $days   Y-m-d, in order
+     * @param list<string>                        $days   Y-m-d, in order
      * @param array<string, array<string, mixed>> $plans  per Y-m
-     * @param int|null             $budget the period's budget, or null to take what its pace sums to
+     * @param int|null                            $budget the period's budget, or null to take what its pace sums to
      *
      * @return array<string, mixed>
      */
@@ -296,7 +296,7 @@ class GetFinanceScores
      * and the debits falling in it — and on its pace.
      *
      * @param array<string, array<string, mixed>> $plans
-     * @param array<string, mixed> $rhythm
+     * @param array<string, mixed>                $rhythm
      *
      * @return array{status: DailyScore, reasons: list<array<string, mixed>>, rhythm: array<string, mixed>}
      */
