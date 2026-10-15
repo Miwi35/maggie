@@ -1,0 +1,21 @@
+# The morning cron's task alert reaches the open app (MAG-410, extends MAG-314).
+#
+# The journey `14-interruption.yaml` sends this message over HTTP; the scripted model
+# creates a `task_due` notification through the real `manage_notifications` tool — the
+# type and the title the cron files — and the API publishes it on Mercure, where the open
+# app turns it into an interruption. The cron itself is run by the smoke journey.
+name: interruption-task
+description: Create a task-due notification, to be said as an interruption.
+
+match:
+  user_contains: "MAG-410 interruption"
+
+turns:
+  - tools:
+      - name: manage_notifications
+        input:
+          action: create
+          type: task_due
+          title: "Dans 3 j : Appeler le garage"
+          relatedEntityIri: /api/tasks/e2e-task-due
+  - text: "C'est envoyé : je te préviens dans l'application."

@@ -32,7 +32,7 @@ final class TaskOverdue implements ResetInterface
     /** Today in the user's timezone, as a day (midnight UTC, a date carries no zone). */
     public function today(User $user): \DateTimeImmutable
     {
-        $local = $this->clock->now()->setTimezone($this->zoneOf($user));
+        $local = $this->clock->now()->setTimezone($this->zone($user));
 
         return self::day($local->format('Y-m-d'));
     }
@@ -64,7 +64,8 @@ final class TaskOverdue implements ResetInterface
         $this->zones = [];
     }
 
-    private function zoneOf(User $user): \DateTimeZone
+    /** The user's timezone, Paris when none is stored or the stored one is unknown. */
+    public function zone(User $user): \DateTimeZone
     {
         $key = (string) $user->getId();
         if (!isset($this->zones[$key])) {

@@ -68,6 +68,27 @@ tags:
 - assertNotVisible:
     id: "dashboard"
 
+# The morning task alert (MAG-410): the cron files a `task_due` notification titled « Dans 3 j : … »;
+# the open app says it with « Fait » (which completes the task) and « Plus tard »; opening the task
+# from the notification, and the cron run itself, are the JVM tests' and the smoke journey's (the
+# seeded task's id is not known to a scripted scenario).
+- runScript:
+    file: ../scripts/interruption-api.js
+    env:
+      MESSAGE: "MAG-410 interruption : une tâche arrive à échéance"
+- extendedWaitUntil:
+    visible:
+      id: "interruption"
+    timeout: 40000
+- assertVisible: "Dans 3 j : Appeler le garage"
+- assertVisible: "Fait"
+- tapOn:
+    id: "interruption_later"
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 20000
+
 # The envelope alert (MAG-49, extends MAG-102): a bank sync — Enable Banking simulated by
 # WireMock — brings a 40 € cinema ticket to a « Loisirs » at 70 % of its 300 €. Maggie
 # interrupts with where it stands, « C'est noté » and « Voir les enveloppes », which opens
