@@ -158,6 +158,18 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
         self::assertSame(['Aujourd\'hui : Payer la cantine'], $this->titles());
     }
 
+    public function testTheGracePeriodEndsTenMinutesAfterTheMorning(): void
+    {
+        $user = $this->user('alice@example.com');
+        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
+        $this->flushAndReset();
+
+        $this->at('2026-10-13 06:10:00 UTC');
+        $this->runCron();
+
+        self::assertSame([], $this->titles());
+    }
+
     public function testAUserWhoChoseHalfPastSevenIsAlertedAtHalfPastSevenInTheirOwnZone(): void
     {
         $early = $this->user('early@example.com');
