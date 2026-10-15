@@ -90,6 +90,8 @@ fun BudgetScreen(
     onBack: () -> Unit,
     // The ruler of a mother is read on the phone and edited where the window has room for it.
     canEditSplit: Boolean = false,
+    // The tablet configures the envelopes of the period: the tree beside the editor (MAG-419).
+    showsDetailPane: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -116,6 +118,11 @@ fun BudgetScreen(
         onDismiss = viewModel::clearError,
         onRetry = viewModel::refresh,
     )
+
+    if (showsDetailPane) {
+        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack)
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -256,7 +263,7 @@ fun BudgetScreen(
  * reads as a verdict.
  */
 @Composable
-private fun DailyScoreCard(score: DailyScore) {
+internal fun DailyScoreCard(score: DailyScore) {
     val container = when (score.score) {
         "green" -> MaterialTheme.colorScheme.primaryContainer
         "orange" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -282,7 +289,7 @@ private fun DailyScoreCard(score: DailyScore) {
 }
 
 @Composable
-private fun PeriodSelector(
+internal fun PeriodSelector(
     year: Int,
     month: Int,
     onPrevious: () -> Unit,
@@ -435,7 +442,7 @@ private fun BudgetCard(
 
 /** The mother's ruler: always readable, editable once the screen allows it and "Répartir" is tapped. */
 @Composable
-private fun EnvelopeSplit(
+internal fun EnvelopeSplit(
     mother: EnvelopeConsumption,
     daughters: List<BudgetLine>,
     editor: SplitEditor?,
@@ -488,7 +495,7 @@ private fun AlertThreshold(percent: Int, onEdit: (() -> Unit)?) {
 
 /** The threshold field, blank for the default: the same rule in the dialog of a new envelope and of an existing one. */
 @Composable
-private fun AlertThresholdField(value: String, onValueChange: (String) -> Unit) {
+internal fun AlertThresholdField(value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -545,7 +552,7 @@ private fun AlertThresholdDialog(
 
 /** Overspent or overcommitted: the colour never speaks alone, an icon and a word go with it. */
 @Composable
-private fun BudgetState(line: EnvelopeConsumption) {
+internal fun BudgetState(line: EnvelopeConsumption) {
     val (icon, color) = when {
         line.isOverspent -> Icons.Default.ErrorOutline to MaterialTheme.colorScheme.error
         line.isOvercommitted -> Icons.Default.WarningAmber to MaterialTheme.colorScheme.tertiary
@@ -681,7 +688,7 @@ private fun EnvelopeCreateDialog(
 }
 
 /** A season being typed: months 1-12 and an amount in euros, checked on [toSeason]. */
-private data class SeasonDraft(val from: String = "", val to: String = "", val euros: String = "") {
+internal data class SeasonDraft(val from: String = "", val to: String = "", val euros: String = "") {
     fun toSeason(): Season? {
         val fromMonth = from.toIntOrNull()?.takeIf { it in 1..12 } ?: return null
         val toMonth = to.toIntOrNull()?.takeIf { it in 1..12 } ?: return null
@@ -695,7 +702,7 @@ private data class SeasonDraft(val from: String = "", val to: String = "", val e
  * to February (2); the months no season covers keep the envelope's amount.
  */
 @Composable
-private fun SeasonsEditor(seasons: List<SeasonDraft>, onChange: (List<SeasonDraft>) -> Unit) {
+internal fun SeasonsEditor(seasons: List<SeasonDraft>, onChange: (List<SeasonDraft>) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag(UiTags.BUDGET_SEASONS)) {
         Text("Saisons", style = MaterialTheme.typography.bodySmall)
         Text(

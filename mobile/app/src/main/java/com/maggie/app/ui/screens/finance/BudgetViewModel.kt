@@ -6,13 +6,19 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.api.EnvelopeSplitChild
 import com.maggie.app.data.api.EnvelopeSplitRequest
+import com.maggie.app.data.api.EnvelopeUpdateRequest
+import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.SplitShares
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.CategoryRow
+import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.NestedBudgetLine
+import com.maggie.app.data.model.ONE_OFF_MODE
 import com.maggie.app.data.model.daughtersOf
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.moveBoundary
@@ -33,6 +39,33 @@ data class SplitEditor(
     val isSaving: Boolean = false,
 )
 
+/** What the tablet's right pane is editing (MAG-419). */
+sealed interface EditorTarget {
+    /** A category with no envelope in the period shown: the editor creates one. */
+    data class NewForCategory(val categoryId: String) : EditorTarget
+
+    /** An envelope that exists: the monthly one of a category, an annual one, a one-off one. */
+    data class Existing(val envelopeId: String) : EditorTarget
+
+    /** A one-off envelope (Hellfest 2026) not yet created. */
+    data object NewOneOff : EditorTarget
+}
+
+/**
+ * The editor open on the tablet. [stored] is the envelope as the API keeps it — its base amount,
+ * its seasons, its threshold — because a budget-status line carries the amount of the *season* of
+ * the month, which must not be written back as the base one.
+ */
+data class EnvelopeEditor(
+    val target: EditorTarget,
+    val stored: Envelope? = null,
+    val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
+)
+
+/** A category of the tree and its envelope of the period shown, if it has one. */
+data class BudgetTreeRow(val row: CategoryRow, val line: BudgetLine?)
+
 data class BudgetUiState(
     val status: BudgetStatus? = null,
     val score: DailyScore? = null,
@@ -43,8 +76,33 @@ data class BudgetUiState(
     val isRollingOver: Boolean = false,
     val rollOverMessage: String? = null,
     val splitEditor: SplitEditor? = null,
+    val editor: EnvelopeEditor? = null,
     val error: String? = null,
 ) {
+    /**
+     * Every category, each with its monthly envelope of the month shown: the tablet's tree, three
+     * levels deep, every node open. A category with no envelope is a row all the same.
+     */
+    val treeRows: List<BudgetTreeRow>
+        get() {
+            val lines = status?.budgets.orEmpty().associateBy { it.categoryId }
+            return CategoryTree(categories).rows(categories.map { it.id }.toSet())
+                .map { BudgetTreeRow(it, lines[it.category.id]) }
+        }
+
+    /** The category the editor is about, to highlight its row in the tree. */
+    val selectedCategoryId: String?
+        get() = when (val target = editor?.target) {
+            is EditorTarget.NewForCategory -> target.categoryId
+            is EditorTarget.Existing -> editor?.stored?.category?.substringAfterLast('/')
+                ?: status?.budgets?.firstOrNull { it.id == target.envelopeId }?.categoryId
+            else -> null
+        }
+
+    /** The envelope the editor is about, to highlight its row in the « Hors budget mensuel » group. */
+    val selectedEnvelopeId: String?
+        get() = (editor?.target as? EditorTarget.Existing)?.envelopeId
+
     /** The envelopes directly below a mother: what her ruler shares. */
     fun daughtersOf(mother: BudgetLine): List<BudgetLine> =
         daughtersOf(mother, status?.budgets.orEmpty())
@@ -90,6 +148,7 @@ class BudgetViewModel(
             try {
                 val status = budgetRepository.getBudgetStatus(state.year, state.month).getOrThrow()
                 _uiState.value = _uiState.value.copy(status = status, isLoading = false)
+                reconcileEditor()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
@@ -101,12 +160,72 @@ class BudgetViewModel(
         }
     }
 
-    /** Move the shown period by a number of months, then reload it. */
+    /**
+     * Move the shown period by a number of months, then reload it. The editor closes: it edits the
+     * envelope of the period shown, and what was typed for one month must not land on another.
+     */
     fun shiftPeriod(months: Long) {
         val state = _uiState.value
         val shifted = LocalDate.of(state.year, state.month, 1).plusMonths(months)
-        _uiState.value = state.copy(year = shifted.year, month = shifted.monthValue)
+        _uiState.value = state.copy(year = shifted.year, month = shifted.monthValue, editor = null, splitEditor = null)
         refresh()
+    }
+
+    /**
+     * Touching a category of the tree: its envelope of the period if it has one (loaded as the API
+     * stores it), else the editor that creates one.
+     */
+    fun selectCategory(categoryId: String) {
+        val line = _uiState.value.status?.budgets?.firstOrNull { it.categoryId == categoryId }
+        if (line != null) {
+            selectEnvelope(line.id)
+        } else {
+            _uiState.value = _uiState.value.copy(
+                editor = EnvelopeEditor(EditorTarget.NewForCategory(categoryId)),
+                splitEditor = null,
+            )
+        }
+    }
+
+    /** Touching an annual or a one-off envelope: the editor opens on the envelope as the API stores it. */
+    fun selectEnvelope(id: String) {
+        val target = EditorTarget.Existing(id)
+        _uiState.value = _uiState.value.copy(
+            editor = EnvelopeEditor(target, isLoading = true),
+            splitEditor = null,
+        )
+        viewModelScope.launch {
+            budgetRepository.getEnvelope(id)
+                .onSuccess { stored ->
+                    val editor = _uiState.value.editor
+                    if (editor?.target == target) {
+                        _uiState.value = _uiState.value.copy(editor = editor.copy(stored = stored, isLoading = false))
+                    }
+                }
+                .onFailure { e ->
+                    if (_uiState.value.editor?.target == target) {
+                        _uiState.value = _uiState.value.copy(editor = null, error = e.message)
+                    }
+                }
+        }
+    }
+
+    fun startNewOneOff() {
+        _uiState.value = _uiState.value.copy(editor = EnvelopeEditor(EditorTarget.NewOneOff), splitEditor = null)
+    }
+
+    fun closeEditor() {
+        _uiState.value = _uiState.value.copy(editor = null, splitEditor = null)
+    }
+
+    /**
+     * A creation editor left open while the envelope appeared (a roll-over, another device) would
+     * create a duplicate the API refuses: it becomes the editor of that envelope.
+     */
+    private fun reconcileEditor() {
+        val state = _uiState.value
+        val target = state.editor?.target as? EditorTarget.NewForCategory ?: return
+        if (state.status?.budgets?.any { it.categoryId == target.categoryId } == true) selectCategory(target.categoryId)
     }
 
     /** Copies the previous month's envelopes onto the period being shown. */
@@ -201,20 +320,54 @@ class BudgetViewModel(
     fun createEnvelope(request: EnvelopeCreateRequest) {
         // The API refuses two seasons sharing a month: say which before sending (MAG-415).
         overlappingMonth(request.seasonalAmounts)?.let { month ->
-            _uiState.value = _uiState.value.copy(
-                error = "Deux saisons couvrent ${monthLabel(month).lowercase()} : une saison ne peut pas en chevaucher une autre.",
-            )
+            _uiState.value = _uiState.value.copy(error = overlapMessage(month))
             return
         }
+        save { budgetRepository.createEnvelope(request) }
+    }
+
+    /** A one-off envelope: a name and an amount. */
+    fun createOneOffEnvelope(name: String, amountCents: Int) {
+        save { budgetRepository.createOneOffEnvelope(OneOffEnvelopeCreateRequest(name.trim(), amountCents, ONE_OFF_MODE)) }
+    }
+
+    /** Writes the editor's fields onto the envelope [id]; a refusal leaves the editor open on what was typed. */
+    fun updateEnvelope(id: String, request: EnvelopeUpdateRequest) {
+        overlappingMonth(request.seasonalAmounts)?.let { month ->
+            _uiState.value = _uiState.value.copy(error = overlapMessage(month))
+            return
+        }
+        save { budgetRepository.updateEnvelope(id, request) }
+    }
+
+    /**
+     * Runs a write, then reloads the period. With the editor open, a success leaves it on the
+     * envelope the API answered with (a creation becomes an edition); a failure keeps it as it was.
+     */
+    private fun save(write: suspend () -> Result<Envelope>) {
         viewModelScope.launch {
+            val target = _uiState.value.editor?.target
+            _uiState.value.editor?.let { _uiState.value = _uiState.value.copy(editor = it.copy(isSaving = true)) }
             try {
-                budgetRepository.createEnvelope(request).getOrThrow()
+                val saved = write().getOrThrow()
+                if (target != null && _uiState.value.editor?.target == target) {
+                    _uiState.value = _uiState.value.copy(
+                        editor = EnvelopeEditor(EditorTarget.Existing(saved.id), stored = saved),
+                        splitEditor = null,
+                    )
+                }
                 refresh()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                _uiState.value = _uiState.value.copy(
+                    editor = _uiState.value.editor?.copy(isSaving = false),
+                    error = e.message,
+                )
             }
         }
     }
+
+    private fun overlapMessage(month: Int) =
+        "Deux saisons couvrent ${monthLabel(month).lowercase()} : une saison ne peut pas en chevaucher une autre."
 
     /** Sets the threshold past which a sync makes Maggie interrupt; null is back to 80 %. */
     fun setAlertThreshold(id: String, percent: Int?) {
@@ -232,6 +385,10 @@ class BudgetViewModel(
         viewModelScope.launch {
             try {
                 budgetRepository.deleteEnvelope(id).getOrThrow()
+                val editor = _uiState.value.editor
+                if ((editor?.target as? EditorTarget.Existing)?.envelopeId == id) {
+                    _uiState.value = _uiState.value.copy(editor = null, splitEditor = null)
+                }
                 refresh()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)

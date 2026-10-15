@@ -150,6 +150,16 @@ object UiTags {
     /** Budgets — the seasons of a new monthly envelope, on the tablet (MAG-415). */
     const val BUDGET_SEASONS = "budget_seasons"
 
+    /**
+     * Budgets, on the tablet (MAG-419) — the tree of categories, one row per category suffixed by its
+     * name (`budget_node_Obsydian`), and the editor of the one touched, in the right pane.
+     */
+    const val BUDGET_TREE = "budget_tree"
+    const val BUDGET_NODE_PREFIX = "budget_node_"
+    const val BUDGET_EDITOR = "budget_editor"
+
+    fun budgetNode(name: String) = BUDGET_NODE_PREFIX + name
+
     /** A transaction's one-off envelope on its detail screen, and the full-screen choice it opens (MAG-414). */
     const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
     const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"

@@ -10,13 +10,9 @@ const rollOver = vi.fn()
 const refresh = vi.fn()
 let status: BudgetStatus | null = null
 
-vi.mock('../../hooks/useMercure', () => ({ useMercure: vi.fn() }))
 vi.mock('./DailyScoreBanner', () => ({ DailyScoreBanner: () => null }))
 vi.mock('./useRollOverEnvelopes', () => ({
   useRollOverEnvelopes: () => ({ rollOver, running: false }),
-}))
-vi.mock('./useBudgetStatus', () => ({
-  useBudgetStatus: () => ({ status, loading: false, refresh }),
 }))
 vi.mock('react-admin', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-admin')>()),
@@ -61,10 +57,21 @@ const statusOf = (budgets: BudgetLine[]): BudgetStatus => ({
   budgets,
 })
 
+const onYearChange = vi.fn()
+const onMonthChange = vi.fn()
+
 const renderPanel = () =>
   render(
     <AdminContext dataProvider={testDataProvider()}>
-      <BudgetStatusPanel />
+      <BudgetStatusPanel
+        year={2026}
+        month={10}
+        onYearChange={onYearChange}
+        onMonthChange={onMonthChange}
+        status={status}
+        loading={false}
+        refresh={refresh}
+      />
     </AdminContext>,
   )
 
@@ -139,6 +146,17 @@ describe('BudgetStatusPanel', () => {
     expect(committed).toHaveAttribute('data-state', 'overcommitted')
     expect(committed).toHaveTextContent(/Surengagement de 30,00\s€/)
     expect(committed.parentElement?.querySelector('svg')).not.toBeNull()
+  })
+
+  test('asks the screen to move the period, which it no longer owns', async () => {
+    status = statusOf([line({ id: 'a' })])
+
+    renderPanel()
+    expect(screen.getByRole('heading', { name: 'Budgets' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Année')).toHaveValue(2026)
+    await userEvent.type(screen.getByLabelText('Année'), '7')
+
+    expect(onYearChange).toHaveBeenLastCalledWith(20267)
   })
 
   test('rolls the previous month over and refreshes', async () => {

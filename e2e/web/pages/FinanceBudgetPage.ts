@@ -9,7 +9,7 @@ import { ROUTES } from './routes.js'
  *
  * Three things stacked on one route, and the journeys read all three: the
  * day's score banner, the consumption gauges for the chosen period with the
- * roll-over button, and the envelope list itself.
+ * roll-over button, and the tree of envelopes with its editor.
  *
  * Every number on this screen is computed by the API from the seeded
  * transactions — which is what MAG-102 asks to be checked — so the gauges are
@@ -79,18 +79,84 @@ export class FinanceBudgetPage extends AdminShell {
       .evaluateAll((gauges) => gauges.map((gauge) => gauge.getAttribute('data-category') ?? ''))
   }
 
+  /** The tree of categories, left of the editor (MAG-419). */
+  tree(): Locator {
+    return this.content.getByTestId('envelope-tree')
+  }
+
   /**
-   * The envelope list's row for a category *and* a period, below the gauges.
+   * A category's node in the tree, with or without an envelope.
    *
-   * Both, not just the category: the list is not filtered by the picker, so
-   * one category holds as many rows as it has periods — and the roll-over
-   * journey adds one while the others are reading.
+   * By `data-category`, like the gauges: the point is that *this* category
+   * reads *that* amount, not that some node does.
    */
-  listRow(categoryName: string, period: string): Locator {
-    return this.content
-      .getByRole('row')
-      .filter({ hasText: categoryName })
-      .filter({ hasText: period })
+  node(categoryName: string): Locator {
+    return this.tree().locator(`[data-testid="envelope-node"][data-category="${categoryName}"]`)
+  }
+
+  /** An entry of « Hors budget mensuel » in the tree: an annual envelope's category, or a one-off event's name. */
+  outsideNode(name: string): Locator {
+    return this.content.locator(`[data-testid="envelope-outside-node"][data-category="${name}"]`)
+  }
+
+  /** The editor of the selected node, right of the tree. */
+  editor(): Locator {
+    return this.content.getByTestId('envelope-editor')
+  }
+
+  /** Selects a node and waits for the editor to be about it. */
+  async selectNode(categoryName: string): Promise<void> {
+    const node = this.node(categoryName)
+    await node.click()
+    await expect(node).toHaveAttribute('aria-selected', 'true')
+    await expect(this.editor()).toContainText(categoryName)
+  }
+
+  /**
+   * Fills the editor of a node that has no envelope, saves, and waits for the
+   * POST itself: the tree redraws from the budget status, so an assertion made
+   * before the response would read the node as it was.
+   */
+  async createEnvelope(options: {
+    type?: 'Mensuelle' | 'Annuelle'
+    amountEuros: number
+    thresholdPercent?: number
+    seasons?: { fromMonth: number; toMonth: number; amountEuros: number }[]
+  }): Promise<void> {
+    const editor = this.editor()
+    if (options.type && 'Mensuelle' !== options.type) {
+      await editor.getByLabel("Type d'enveloppe").click()
+      await this.page.getByRole('option', { name: options.type }).click()
+    }
+    await editor.getByLabel("Montant de l'enveloppe (€)").fill(String(options.amountEuros))
+    if (undefined !== options.thresholdPercent) {
+      await editor.getByLabel("Seuil d'alerte (%)").fill(String(options.thresholdPercent))
+    }
+    for (const [index, season] of (options.seasons ?? []).entries()) {
+      await editor.getByRole('button', { name: 'Ajouter une saison' }).click()
+      await editor.getByLabel('De', { exact: true }).nth(index).click()
+      await this.page.getByRole('option', { name: MONTH_LABELS[season.fromMonth] }).click()
+      await editor.getByLabel('À', { exact: true }).nth(index).click()
+      await this.page.getByRole('option', { name: MONTH_LABELS[season.toMonth] }).click()
+      await editor.getByLabel('Montant (€)').nth(index).fill(String(season.amountEuros))
+    }
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) => response.url().includes('/api/envelopes') && 'POST' === response.request().method(),
+      ),
+      editor.getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
+  }
+
+  /** Saves the editor of a node that has an envelope, and waits for the PATCH/PUT. */
+  async saveEnvelope(): Promise<void> {
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/envelopes/') && ['PATCH', 'PUT'].includes(response.request().method()),
+      ),
+      this.editor().getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
   }
 
   /**

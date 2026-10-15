@@ -93,17 +93,15 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
     `Reste ${euros(LEISURE_BUDGET_CENTS - LEISURE_SPENT_CENTS)}`,
   )
 
-  // The list below the gauges says what each envelope budgets, not what it
-  // has consumed — the two are different screens' jobs. Addressed by category
-  // *and* period: the list is not filtered by the picker, so a category holds
-  // one row per period it budgets.
-  const courses = budget.listRow('Courses', periodLabel('monthly', ANCHOR_YEAR, ANCHOR_MONTH))
-  await expect(courses).toContainText('Mensuel')
-  await expect(courses).toContainText(euros(COURSES_BUDGET_CENTS))
+  // The tree below the gauges says what each envelope budgets: the monthly one on its
+  // category's node, the annual one apart (it is not the month's budget).
+  await expect(budget.node('Courses')).toHaveAttribute('data-has-envelope', 'true')
+  await expect(budget.node('Courses')).toContainText(`/ ${euros(COURSES_BUDGET_CENTS)}`)
 
-  const leisureRow = budget.listRow('Loisirs', periodLabel('annual', ANCHOR_YEAR))
-  await expect(leisureRow).toContainText('Annuel')
-  await expect(leisureRow).toContainText(euros(LEISURE_BUDGET_CENTS))
+  const leisureEntry = budget.outsideNode('Loisirs')
+  await expect(leisureEntry).toHaveAttribute('data-kind', 'annual')
+  await expect(leisureEntry).toContainText(periodLabel('annual', ANCHOR_YEAR))
+  await expect(leisureEntry).toContainText(`/ ${euros(LEISURE_BUDGET_CENTS)}`)
 })
 
 /**
@@ -507,5 +505,96 @@ test.describe('categories on three levels', () => {
     await expect(budget.gauge('Loisirs'), 'the mother itself did not move').toContainText(
       overBudget(0, 30000),
     )
+  })
+
+  // MAG-419: the tree of envelopes. A category without an envelope gets one from its node, and
+  // a setting changed there is the API's, still there after a reload.
+  test('a category with no envelope gets one from its node in the tree', async ({ otherUser }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs › Bars › Obsydian, with an envelope on Loisirs only.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    const barsId = await createdId(api, '/api/categories', {
+      name: 'Bars',
+      obligation: 'optional',
+      parent: `/api/categories/${loisirsId}`,
+    })
+    await createdId(api, '/api/categories', {
+      name: 'Obsydian',
+      obligation: 'optional',
+      parent: `/api/categories/${barsId}`,
+    })
+    treeEnvelopeIds.push(
+      await createdId(api, '/api/envelopes', {
+        category: `/api/categories/${loisirsId}`,
+        mode: 'monthly',
+        amountCents: 30000,
+        currency: 'EUR',
+        year: ANCHOR_YEAR,
+        month: ANCHOR_MONTH,
+      }),
+    )
+    await waitForIndexed<{ path?: string }>(api, '/api/categories', (c) => c.path === OBSYDIAN_PATH, {
+      what: `The category ${OBSYDIAN_PATH}`,
+    })
+
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    await expect(budget.node('Obsydian')).toHaveAttribute('data-depth', '3')
+    await expect(budget.node('Obsydian')).toHaveAttribute('data-has-envelope', 'false')
+    await expect(budget.node('Loisirs')).toContainText(`${euros(0)} / ${euros(30000)}`)
+
+    // When I select Obsydian and create a monthly envelope of 100 €.
+    await budget.selectNode('Obsydian')
+    await budget.createEnvelope({ type: 'Mensuelle', amountEuros: 100 })
+
+    // Then the tree shows Obsydian at 0 / 100 €, and Loisirs still shows its consumption.
+    await expect(budget.node('Obsydian')).toHaveAttribute('data-has-envelope', 'true')
+    await expect(budget.node('Obsydian')).toContainText(`${euros(0)} / ${euros(10000)}`)
+    await expect(budget.node('Loisirs')).toContainText(`${euros(0)} / ${euros(30000)}`)
+
+    const stored = await waitForIndexed<StoredEnvelope>(
+      api,
+      '/api/envelopes',
+      (envelope) => envelope.amountCents === 10000 && 'monthly' === envelope.mode,
+      { what: 'The envelope created on Obsydian' },
+    )
+    if (stored.id) treeEnvelopeIds.push(stored.id)
+    expect(stored.year).toBe(ANCHOR_YEAR)
+    expect(stored.month).toBe(ANCHOR_MONTH)
+  })
+
+  test('the alert threshold set on a node is still there after a reload', async ({ otherUser }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs at 300 € this month.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    treeEnvelopeIds.push(
+      await createdId(api, '/api/envelopes', {
+        category: `/api/categories/${loisirsId}`,
+        mode: 'monthly',
+        amountCents: 30000,
+        currency: 'EUR',
+        year: ANCHOR_YEAR,
+        month: ANCHOR_MONTH,
+      }),
+    )
+
+    // When I set its threshold to 90 %.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    await budget.selectNode('Loisirs')
+    const threshold = budget.editor().getByLabel("Seuil d'alerte (%)")
+    await expect(threshold).toBeVisible()
+    await threshold.fill('90')
+    await budget.saveEnvelope()
+
+    // Then, after a reload, it still reads 90.
+    await page.reload()
+    await budget.open()
+    await budget.selectNode('Loisirs')
+    await expect(budget.editor().getByLabel("Seuil d'alerte (%)")).toHaveValue('90')
   })
 })

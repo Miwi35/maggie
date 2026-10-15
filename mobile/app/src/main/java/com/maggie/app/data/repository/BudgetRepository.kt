@@ -2,6 +2,8 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.api.EnvelopeSplitRequest
+import com.maggie.app.data.api.EnvelopeUpdateRequest
+import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
@@ -14,6 +16,18 @@ class BudgetRepository(
 ) {
     suspend fun getEnvelopes(): Result<List<Envelope>> = runCatching {
         apiService.getEnvelopes()
+    }
+
+    suspend fun getEnvelope(id: String): Result<Envelope> = runCatching {
+        apiService.getEnvelope(id)
+    }
+
+    suspend fun createOneOffEnvelope(request: OneOffEnvelopeCreateRequest): Result<Envelope> = runCatching {
+        apiService.createOneOffEnvelope(request)
+    }
+
+    suspend fun updateEnvelope(id: String, request: EnvelopeUpdateRequest): Result<Envelope> = runCatching {
+        apiService.updateEnvelope(id, request)
     }
 
     suspend fun createEnvelope(request: EnvelopeCreateRequest): Result<Envelope> = runCatching {

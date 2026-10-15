@@ -17,6 +17,8 @@ data class Envelope(
     val name: String? = null,
     // A monthly envelope's amounts for stretches of the year; amountCents is the rest (MAG-415).
     val seasonalAmounts: List<Season> = emptyList(),
+    // The threshold the envelope is held to: 80 unless one was set (MAG-49); the API names it so.
+    val effectiveAlertThresholdPercent: Int = DEFAULT_ALERT_THRESHOLD_PERCENT,
 ) {
     val isOneOff: Boolean get() = mode == ONE_OFF_MODE
 }
