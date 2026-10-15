@@ -293,3 +293,44 @@ describe('RecipeEdit', { timeout: 30_000 }, () => {
     })
   })
 })
+
+describe('RecipeEdit season badges (MAG-494)', { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(PASTA) } as Response)),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const tomato = {
+    id: '01L2',
+    ingredient: { '@id': '/api/ingredients/01I2', id: '01I2', name: 'Tomate', ciqualAlimCode: '20385' },
+    ingredientName: 'Tomate',
+    ciqualAlimCode: '20385',
+    quantity: 3,
+    unit: 'piece',
+  }
+
+  test('each ingredient line carries its badge, none for an ingredient without a season', async () => {
+    const seasonal = {
+      ...recipe,
+      ingredients: [{ ...recipe.ingredients[0], inSeason: null }, { ...tomato, inSeason: false }],
+    }
+    renderEdit(vi.fn().mockResolvedValue({ data: seasonal }), seasonal)
+
+    const badges = await screen.findAllByTestId('season-badge')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toHaveTextContent('hors saison')
+  })
+
+  test('an ingredient in season reads « de saison »', async () => {
+    const seasonal = { ...recipe, ingredients: [{ ...tomato, inSeason: true }] }
+    renderEdit(vi.fn().mockResolvedValue({ data: seasonal }), seasonal)
+
+    expect(await screen.findByTestId('season-badge')).toHaveTextContent('de saison')
+  })
+})

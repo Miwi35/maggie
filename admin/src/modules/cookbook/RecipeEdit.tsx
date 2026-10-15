@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import { useFormContext, useFormState } from 'react-hook-form'
+import { useFormContext, useFormState, useWatch } from 'react-hook-form'
 import {
   Edit,
   SimpleForm,
@@ -14,6 +14,7 @@ import {
   SaveButton,
   Toolbar,
   useRecordContext,
+  useSimpleFormIteratorItem,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { CiqualFoodAutocomplete } from './CiqualFoodAutocomplete'
@@ -23,6 +24,7 @@ import { RecipeStepsInput, StepsErrorContext, useStepsErrors } from './RecipeSte
 import { RecipeUtensilsInput } from './RecipeUtensilsInput'
 import { recipeTransform } from './recipeSteps'
 import { TagsInput } from './TagsInput'
+import { SeasonBadge } from '../grocery/SeasonBadge'
 
 const unitChoices = [
   { id: 'g', name: 'g' },
@@ -143,6 +145,14 @@ const RecipeLiveSync = () => {
   )
 }
 
+/** « de saison » / « hors saison » of the ingredient on its line (MAG-494), as the API last served it. */
+const IngredientSeasonBadge = () => {
+  const { index } = useSimpleFormIteratorItem()
+  const inSeason = useWatch({ name: `ingredients.${index}.inSeason` }) as boolean | null | undefined
+
+  return <SeasonBadge inSeason={inSeason} />
+}
+
 const RecipeEditToolbar = () => (
   <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
     <SaveButton />
@@ -176,6 +186,7 @@ export const RecipeEdit = () => {
                 validate={required()}
                 sx={{ minWidth: 120 }}
               />
+              <IngredientSeasonBadge />
             </SimpleFormIterator>
           </ArrayInput>
           <RecipeUtensilsInput />
