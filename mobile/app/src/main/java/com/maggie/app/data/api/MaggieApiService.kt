@@ -1531,6 +1531,17 @@ class MaggieApiService(
         }.body<ApiCollection<Transaction>>().member
     }
 
+    /** One page (100 lines at most) of a category's own lines, newest first: sub-categories are not included. */
+    suspend fun getTransactionsOfCategoryPage(categoryId: String, page: Int): List<Transaction> {
+        return client.get("$baseUrl/api/transactions") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("category", "/api/categories/$categoryId")
+            url.parameters.append("order[bookedAt]", "desc")
+            url.parameters.append("itemsPerPage", "100")
+            url.parameters.append("page", page.toString())
+        }.body<ApiCollection<Transaction>>().member
+    }
+
     /**
      * Every line a series recognised, newest first. The API caps a page at 100, so the pages are
      * read until the collection's total is reached: a long series shows all of its lines (MAG-438).

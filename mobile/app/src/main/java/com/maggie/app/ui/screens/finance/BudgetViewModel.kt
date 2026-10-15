@@ -9,6 +9,10 @@ import com.maggie.app.data.api.EnvelopeSplitRequest
 import com.maggie.app.data.api.EnvelopeUpdateRequest
 import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
 import com.maggie.app.data.api.RollOverRequest
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.SplitShares
@@ -16,6 +20,8 @@ import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryRow
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.visibleBudgetLines
 import com.maggie.app.data.model.NestedBudgetLine
 import com.maggie.app.data.model.ONE_OFF_MODE
 import com.maggie.app.data.model.daughtersOf
@@ -26,8 +32,10 @@ import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -65,6 +73,21 @@ data class EnvelopeEditor(
 /** A category of the tree and its envelope of the period shown, if it has one. */
 data class BudgetTreeRow(val row: CategoryRow, val line: BudgetLine?)
 
+/**
+ * The lines an envelope weighs on, open on the phone: its category and the sub-categories
+ * it takes along, over its month (the year, for an annual envelope).
+ */
+data class EnvelopeDetail(
+    val envelopeId: String,
+    val title: String,
+    val categoryIds: List<String>,
+    val year: Int,
+    val month: Int?,
+    val transactions: List<Transaction> = emptyList(),
+    val isLoading: Boolean = true,
+    val error: String? = null,
+)
+
 data class BudgetUiState(
     val status: BudgetStatus? = null,
     val categories: List<Category> = emptyList(),
@@ -75,6 +98,9 @@ data class BudgetUiState(
     val rollOverMessage: String? = null,
     val splitEditor: SplitEditor? = null,
     val editor: EnvelopeEditor? = null,
+    // Which envelopes are unfolded, by NestedBudgetLine.expansionKey: all are folded at first.
+    val expanded: Set<String> = emptySet(),
+    val detail: EnvelopeDetail? = null,
     val error: String? = null,
 ) {
     /**
@@ -112,11 +138,21 @@ data class BudgetUiState(
     /** The annual envelopes, apart from the month's budget, nested the same way. */
     val nestedAnnualBudgets: List<NestedBudgetLine>
         get() = nestBudgetLines(status?.outsideMonthlyBudget?.annual.orEmpty())
+
+    /** The month's envelopes as drawn: the ones nested in a folded envelope are left out. */
+    val visibleBudgets: List<NestedBudgetLine>
+        get() = visibleBudgetLines(nestedBudgets, expanded)
+
+    val visibleAnnualBudgets: List<NestedBudgetLine>
+        get() = visibleBudgetLines(nestedAnnualBudgets, expanded)
 }
 
 class BudgetViewModel(
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
+    private val transactionRepository: TransactionRepository,
+    private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
     today: LocalDate = LocalDate.now(),
 ) : ViewModel() {
 
@@ -128,6 +164,70 @@ class BudgetViewModel(
     init {
         refresh()
         loadCategories()
+        subscribeToMercure()
+    }
+
+    // An envelope or a spend changing anywhere moves the sums: reload them, and the open envelope's lines.
+    private fun subscribeToMercure() {
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            listOf(MercureTopics.ENVELOPES, MercureTopics.TRANSACTIONS).forEach { collection ->
+                launch {
+                    mercureService.subscribe(MercureTopics.userScoped(userId, collection))
+                        .catch { /* SSE reconnects automatically */ }
+                        .coalesced()
+                        .collect {
+                            refresh()
+                            _uiState.value.detail?.let { loadDetail(it) }
+                        }
+                }
+            }
+        }
+    }
+
+    /** Unfolds or folds the envelopes nested in [line]'s category. */
+    fun toggleExpanded(key: String) {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            expanded = if (key in state.expanded) state.expanded - key else state.expanded + key,
+        )
+    }
+
+    /** Opens the lines [line] weighs on this period, sub-categories included. */
+    fun openDetail(line: BudgetLine, title: String) {
+        val state = _uiState.value
+        val categoryIds = listOf(line.categoryId) + CategoryTree(state.categories).descendants(line.categoryId)
+        val detail = EnvelopeDetail(
+            envelopeId = line.id,
+            title = title,
+            categoryIds = categoryIds,
+            year = line.year,
+            month = if (line.mode == "annual") null else line.month,
+        )
+        _uiState.value = state.copy(detail = detail)
+        loadDetail(detail)
+    }
+
+    fun closeDetail() {
+        _uiState.value = _uiState.value.copy(detail = null)
+    }
+
+    private fun loadDetail(detail: EnvelopeDetail) {
+        viewModelScope.launch {
+            transactionRepository.getEnvelopeSpends(detail.categoryIds, detail.year, detail.month)
+                .onSuccess { lines ->
+                    updateDetail(detail.envelopeId) { it.copy(transactions = lines, isLoading = false, error = null) }
+                }
+                .onFailure { e ->
+                    updateDetail(detail.envelopeId) { it.copy(isLoading = false, error = e.message ?: DETAIL_FAILED) }
+                }
+        }
+    }
+
+    // The envelope may have been closed, or another opened, while the lines were being read.
+    private fun updateDetail(envelopeId: String, change: (EnvelopeDetail) -> EnvelopeDetail) {
+        val current = _uiState.value.detail?.takeIf { it.envelopeId == envelopeId } ?: return
+        _uiState.value = _uiState.value.copy(detail = change(current))
     }
 
     private fun loadCategories() {
@@ -394,4 +494,5 @@ class BudgetViewModel(
     }
 }
 
+private const val DETAIL_FAILED = "Impossible de lire les transactions de cette enveloppe."
 private const val SPLIT_REFUSED = "La répartition dépasse le montant de l'enveloppe : rien n'a été modifié."
