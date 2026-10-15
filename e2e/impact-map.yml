@@ -550,6 +550,9 @@ mobile:
   e2e/mobile/flows/finance-treasury.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/treasury-api.js]
+  e2e/mobile/flows/finance-scores.yaml:
+    areas: [finance]
+    paths: [api/fixtures/e2e/57-finance-scores.yaml]
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
     paths:

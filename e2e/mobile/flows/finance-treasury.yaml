@@ -82,16 +82,14 @@ tags:
 
 # The savings advances screen, one tap from the dashboard's accesses.
 - openLink: "maggie-e2e://finance"
-- extendedWaitUntil:
-    visible: ".*Solde de tous les comptes.*"
-    timeout: 20000
 
 # MAG-417: the week and month rings, then the rhythm curve. Data-agnostic: the seed has no
 # monthly envelope, no rent on the 5th and no variable spending, so the amounts are not asserted.
+# The rings open the screen: the balance card sits below them, off screen until scrolled to.
 - extendedWaitUntil:
     visible:
       id: "finance_score_ring_week"
-    timeout: 20000
+    timeout: 30000
 - assertVisible:
     id: "finance_score_ring_month"
 # The status is a word, never a colour alone.
@@ -108,6 +106,9 @@ tags:
 - scrollUntilVisible:
     element:
       id: "finance_rhythm_curve"
+    timeout: 30000
+- scrollUntilVisible:
+    element: ".*Solde de tous les comptes.*"
     timeout: 30000
 # Fully on screen, centred: the last access sits under the gesture bar, where a tap lands on nothing.
 - scrollUntilVisible:
