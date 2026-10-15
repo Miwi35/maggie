@@ -30,14 +30,6 @@ export function periodLabel(mode: 'monthly' | 'annual', year: number, month?: nu
     : `${MONTH_LABELS[month]} ${year}`
 }
 
-/** `useDailyScore.ts` — the title of the score banner. */
-export const SCORE_LABELS = {
-  green: 'Dans le vert',
-  neutral: 'Dans les clous',
-  orange: 'Attention',
-  red: 'Dépassement',
-} as const
-
 /** `useCushionStatus.ts` — the chip beside "Matelas de sécurité". */
 export const CUSHION_STATE_LABELS = {
   building: 'Constitution en cours',

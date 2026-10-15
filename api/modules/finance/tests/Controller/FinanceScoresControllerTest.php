@@ -75,6 +75,16 @@ class FinanceScoresControllerTest extends WebTestCase
         self::assertCount(7, $data['week']['rhythm']['curve']);
     }
 
+    public function testTheDailyScoreEndpointIsGone(): void
+    {
+        $this->loadFixtures($this->financeScoresFixture());
+        $this->authenticateAsUser($this->getFixture('scores_user'));
+
+        $this->client->request('GET', '/api/finance/daily-score', [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testDefaultsToToday(): void
     {
         $this->loadFixtures($this->financeScoresFixture());

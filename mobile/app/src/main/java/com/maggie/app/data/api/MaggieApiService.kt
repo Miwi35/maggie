@@ -62,7 +62,6 @@ import com.maggie.app.data.model.SavingsAdvances
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasurySettings
 import com.maggie.app.data.model.TreasurySettingsResult
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
 import com.maggie.app.data.model.DayProposal
@@ -70,6 +69,7 @@ import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.FinanceScores
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
@@ -1660,13 +1660,6 @@ class MaggieApiService(
         }.body()
     }
 
-    suspend fun getDailyScore(year: Int, month: Int): DailyScore {
-        return client.get("$baseUrl/api/finance/daily-score") {
-            url.parameters.append("year", year.toString())
-            url.parameters.append("month", month.toString())
-        }.body()
-    }
-
     // Finance — Loans
     suspend fun getLoans(): List<Loan> {
         return client.get("$baseUrl/api/loans") {
@@ -1698,6 +1691,12 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/dashboard") {
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
+        }.body()
+    }
+
+    suspend fun getFinanceScores(date: String? = null): FinanceScores {
+        return client.get("$baseUrl/api/finance/scores") {
+            if (date != null) url.parameters.append("date", date)
         }.body()
     }
 

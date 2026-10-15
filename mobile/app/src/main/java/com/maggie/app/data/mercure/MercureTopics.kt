@@ -46,6 +46,7 @@ object MercureTopics {
     const val AISLES = "aisles"
     const val CATEGORIES = "categories"
     const val DAY_PLANS = "day_plans"
+    const val ENVELOPES = "envelopes"
     const val ERRANDS = "errands"
     const val EVENTS = "events"
     const val GROCERY_LISTS = "grocery_lists"
@@ -71,6 +72,7 @@ object MercureTopics {
         AISLES,
         CATEGORIES,
         DAY_PLANS,
+        ENVELOPES,
         ERRANDS,
         EVENTS,
         GROCERY_LISTS,

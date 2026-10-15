@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ReferenceSalary } from './referenceSalary'
 import type { BudgetLine } from './useBudgetStatus'
-import type { DailyScore } from './useDailyScore'
 
 export interface MonthlyFlow {
   month: string
@@ -49,7 +49,7 @@ export interface IndependenceCounter {
 export interface FinanceDashboard {
   year: number
   month: number
-  score: DailyScore
+  score: { referenceSalary: ReferenceSalary }
   balance: {
     totalCents: number
     cushionCents: number

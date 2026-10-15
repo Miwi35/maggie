@@ -7,7 +7,6 @@ import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.ONE_OFF_MODE
 import com.maggie.app.data.model.OneOffBudgetLine
@@ -98,8 +97,6 @@ class BudgetConfigurationViewModelTest {
         budgetRepository = mockk()
         categoryRepository = mockk()
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(status)
-        coEvery { budgetRepository.getDailyScore(any(), any()) } returns
-            Result.success(DailyScore(score = "green", year = 2026, month = 7))
         coEvery { categoryRepository.getCategories() } returns Result.success(categories)
         coEvery { budgetRepository.getEnvelope("env-cinema") } returns Result.success(storedCinema)
     }

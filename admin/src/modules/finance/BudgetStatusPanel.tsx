@@ -11,8 +11,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useNotify, useRefresh } from 'react-admin'
-import { DailyScoreBanner } from './DailyScoreBanner'
+import { useMercure } from '../../hooks/useMercure'
 import { EnvelopeSplitSlider } from './EnvelopeSplitSlider'
+import { FinanceScoresSection } from './FinanceScoresSection'
 import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
 import { consumedPercent, formatPeriod, formatSeason } from './budgetModes'
@@ -235,6 +236,13 @@ export const BudgetStatusPanel = ({
   const notify = useNotify()
   const refreshList = useRefresh()
 
+  const [scoresToken, setScoresToken] = useState(0)
+
+  useMercure(BUDGET_TOPICS, () => {
+    refresh()
+    setScoresToken((token) => token + 1)
+  })
+
   const previous = new Date(year, month - 2, 1)
 
   const onSplitSaved = () => {
@@ -267,7 +275,7 @@ export const BudgetStatusPanel = ({
 
   return (
     <>
-      <DailyScoreBanner year={year} month={month} />
+      <FinanceScoresSection year={year} month={month} refreshToken={scoresToken} />
       <Card sx={{ mb: 2 }}>
       <CardContent>
         <Stack

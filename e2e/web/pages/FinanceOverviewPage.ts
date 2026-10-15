@@ -67,10 +67,31 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.getByTestId('reference-salary-card')
   }
 
+  /** The week's or the month's ring: the remainder, the status word, the tick. */
+  scoreRing(period: 'week' | 'month'): Locator {
+    return this.content.locator(`[data-testid="score-ring"][data-period="${period}"]`)
+  }
+
+  /** What a touch on a ring shows: the reasons of its status. */
+  async scoreReasons(period: 'week' | 'month'): Promise<Locator> {
+    const ring = this.scoreRing(period)
+    await ring.getByRole('button').click()
+    return ring.getByTestId('score-reasons')
+  }
+
+  /** The rhythm curve of the period picked, and the direct debits marked on it. */
+  get rhythmCurve(): Locator {
+    return this.content.getByTestId('rhythm-curve')
+  }
+
+  debitMarker(label: string): Locator {
+    return this.rhythmCurve.locator(`[data-testid="debit-marker"][data-label="${label}"]`)
+  }
+
   async selectPeriod(year: number, month: number): Promise<void> {
-    await this.content.getByLabel('Année').fill(String(year))
-    await this.content.getByLabel('Mois').click()
+    await this.content.getByLabel('Année', { exact: true }).fill(String(year))
+    await this.content.getByLabel('Mois', { exact: true }).click()
     await this.page.getByRole('option', { name: MONTH_LABELS[month] }).click()
-    await expect(this.content.getByLabel('Mois')).toHaveText(MONTH_LABELS[month])
+    await expect(this.content.getByLabel('Mois', { exact: true })).toHaveText(MONTH_LABELS[month])
   }
 }

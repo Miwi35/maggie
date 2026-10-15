@@ -9,7 +9,7 @@ import { CATEGORIES, STATUS, line } from './envelopeTreeFixtures'
 import type { BudgetStatus } from './useBudgetStatus'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
-vi.mock('./DailyScoreBanner', () => ({ DailyScoreBanner: () => null }))
+vi.mock('./FinanceScoresSection', () => ({ FinanceScoresSection: () => null }))
 
 let served: BudgetStatus = STATUS
 const getList = vi.fn(() => Promise.resolve({ data: CATEGORIES, total: CATEGORIES.length }))

@@ -12,7 +12,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
@@ -55,7 +54,6 @@ class BudgetAlertThresholdScreenTest {
                 ),
             ),
         )
-        coEvery { budgetRepository.getDailyScore(any(), any()) } returns Result.success(DailyScore(score = "green"))
         coEvery { budgetRepository.setAlertThreshold(any(), any()) } returns Result.success(Envelope(id = "env-1"))
         val categoryRepository = mockk<CategoryRepository>()
         coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())

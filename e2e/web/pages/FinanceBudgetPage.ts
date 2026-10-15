@@ -16,7 +16,6 @@ import { ROUTES } from './routes.js'
  * addressed by their category name and read whole, label and amounts together.
  */
 export class FinanceBudgetPage extends AdminShell {
-  readonly scoreBanner: Locator
   readonly budgetCard: Locator
   readonly rollOverButton: Locator
   readonly totalLine: Locator
@@ -25,9 +24,6 @@ export class FinanceBudgetPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    // The banner is an Alert whose title is the score's own wording; the card
-    // below it is the one holding the "Budgets" heading.
-    this.scoreBanner = this.content.getByRole('alert').first()
     this.budgetCard = this.content
       .locator('.MuiCard-root')
       .filter({ has: page.getByRole('heading', { name: 'Budgets' }) })
@@ -186,10 +182,10 @@ export class FinanceBudgetPage extends AdminShell {
    */
   async selectPeriod(year: number, month: number): Promise<void> {
     const picker = this.budgetCard
-    await picker.getByLabel('Année').fill(String(year))
-    await picker.getByLabel('Mois').click()
+    await picker.getByLabel('Année', { exact: true }).fill(String(year))
+    await picker.getByLabel('Mois', { exact: true }).click()
     await this.page.getByRole('option', { name: MONTH_LABELS[month] }).click()
-    await expect(picker.getByLabel('Mois')).toHaveText(MONTH_LABELS[month])
+    await expect(picker.getByLabel('Mois', { exact: true })).toHaveText(MONTH_LABELS[month])
   }
 
   /**
@@ -237,5 +233,17 @@ export class FinanceBudgetPage extends AdminShell {
       ),
       ruler.getByRole('button', { name: 'Enregistrer' }).click(),
     ])
+  }
+
+  /** The week's or the month's ring (MAG-417); its status is `data-status`, its word is its text. */
+  scoreRing(period: 'week' | 'month'): Locator {
+    return this.content.locator(`[data-testid="score-ring"][data-period="${period}"]`)
+  }
+
+  /** Touches a ring and returns the reasons it opens — a score on its own reads as a verdict. */
+  async scoreReasons(period: 'week' | 'month'): Promise<Locator> {
+    const ring = this.scoreRing(period)
+    await ring.getByRole('button').click()
+    return ring.getByTestId('score-reasons')
   }
 }

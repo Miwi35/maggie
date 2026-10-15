@@ -207,6 +207,18 @@ object UiTags {
     const val REFERENCE_SHARE = "reference_share"
 
     /**
+     * Finance dashboard — the two score rings (suffixed `week` / `month`), the reasons they open,
+     * the retry of a failed load, the rhythm curve, its Semaine/Mois choice and a debit marked on it
+     * (suffixed by its ISO date) (MAG-417).
+     */
+    const val FINANCE_SCORE_RING_PREFIX = "finance_score_ring_"
+    const val FINANCE_SCORE_REASONS = "finance_score_reasons"
+    const val FINANCE_SCORES_RETRY = "finance_scores_retry"
+    const val FINANCE_RHYTHM_CURVE = "finance_rhythm_curve"
+    const val FINANCE_RHYTHM_PERIOD_PREFIX = "finance_rhythm_period_"
+    const val FINANCE_RHYTHM_DEBIT_PREFIX = "finance_rhythm_debit_"
+
+    /**
      * Banques — the fetch. Tagged rather than tapped by its label because the
      * label changes while the fetch runs (« Récupération… »), and a journey that
      * taps the text would hit a button that is no longer there.
@@ -485,6 +497,12 @@ object UiTags {
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
     fun financeAccess(route: String) = FINANCE_ACCESS_PREFIX + route
+
+    fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
+
+    fun financeRhythmPeriod(period: String) = FINANCE_RHYTHM_PERIOD_PREFIX + period
+
+    fun financeRhythmDebit(date: String) = FINANCE_RHYTHM_DEBIT_PREFIX + date
 
     fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
 

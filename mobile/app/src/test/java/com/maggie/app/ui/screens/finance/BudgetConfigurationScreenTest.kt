@@ -15,7 +15,6 @@ import com.maggie.app.data.api.EnvelopeUpdateRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Season
 import com.maggie.app.data.repository.BudgetRepository
@@ -62,7 +61,6 @@ class BudgetConfigurationScreenTest {
                 ),
             ),
         )
-        coEvery { budgetRepository.getDailyScore(any(), any()) } returns Result.success(DailyScore(score = "green"))
         coEvery { budgetRepository.getEnvelope("env-cinema") } returns Result.success(
             Envelope(
                 id = "env-cinema", amountCents = 2000, year = 2026, month = 11,

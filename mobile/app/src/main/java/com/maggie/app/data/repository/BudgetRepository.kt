@@ -7,7 +7,6 @@ import com.maggie.app.data.api.OneOffEnvelopeCreateRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RollOverResult
 
@@ -52,9 +51,5 @@ class BudgetRepository(
 
     suspend fun rollOverEnvelopes(request: RollOverRequest): Result<RollOverResult> = runCatching {
         apiService.rollOverEnvelopes(request)
-    }
-
-    suspend fun getDailyScore(year: Int, month: Int): Result<DailyScore> = runCatching {
-        apiService.getDailyScore(year, month)
     }
 }

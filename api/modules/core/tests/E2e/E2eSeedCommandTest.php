@@ -96,9 +96,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // journey (MAG-300). The tenth and eleventh are the envelope alert
         // journeys', web and mobile (MAG-49): the alert goes out once per
         // period, so neither can share it. The twelfth is the seasonality
-        // journey's: it writes to a grocery list and to the chat (MAG-494). A
-        // thirteenth would mean somebody added an account without saying why.
-        self::assertSame(12, $this->rowsOf(User::class));
+        // journey's: it writes to a grocery list and to the chat (MAG-494). The
+        // thirteenth is the scores journeys' (MAG-417): a rent series and a
+        // month of spending no other journey may move. A fourteenth would mean
+        // somebody added an account without saying why.
+        self::assertSame(13, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -111,6 +113,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert-mobile@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-season@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-scores@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -137,15 +140,18 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Three since MAG-495: the owner's coffee, bought every 14 days.
         self::assertSame(3, $this->rowsOf(Errand::class));
         // Two more since MAG-49: each envelope alert account syncs a bank account of its own.
-        self::assertSame(4, $this->rowsOf(Account::class));
+        // Five since MAG-417: the scores account's current account.
+        self::assertSame(5, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
         // MAG-45: three unfiled cheese-shop debits are the one rule suggestion.
         // Eighteen since MAG-49: the 70 % each envelope alert account has spent.
-        self::assertSame(18, $this->rowsOf(Transaction::class));
-        // Four since MAG-49: each envelope alert account's « Loisirs ».
-        self::assertSame(4, $this->rowsOf(Envelope::class));
+        // Twenty since MAG-417: the scores account's rent and groceries.
+        self::assertSame(20, $this->rowsOf(Transaction::class));
+        // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
+        // MAG-417: the scores account's « Logement » and « Alimentation ».
+        self::assertSame(6, $this->rowsOf(Envelope::class));
         self::assertSame(2, $this->rowsOf(Notification::class));
     }
 

@@ -11,7 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ConsumedVsReference
-import com.maggie.app.data.model.DailyScore
+import com.maggie.app.data.model.DashboardScore
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.ReferenceSalary
@@ -45,7 +45,7 @@ class ReferenceSalaryScreenTest {
         val dashboard = FinanceDashboard(
             year = 2026,
             month = 10,
-            score = DailyScore(referenceSalary = reference),
+            score = DashboardScore(referenceSalary = reference),
         )
         compose.setContent {
             FinanceDashboardScreen(

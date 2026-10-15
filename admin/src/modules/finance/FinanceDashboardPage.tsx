@@ -9,7 +9,7 @@ import { Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
 import { consumedPercent } from './budgetModes'
-import { DailyScoreBanner } from './DailyScoreBanner'
+import { FinanceScoresSection } from './FinanceScoresSection'
 import { IndependenceCard } from './IndependenceCard'
 import { MonthlyFlowsChart } from './MonthlyFlowsChart'
 import { nestBudgetLines } from './budgetTree'
@@ -169,7 +169,12 @@ export const FinanceDashboardPage = () => {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const { dashboard, loading, refresh } = useFinanceDashboard(year, month)
 
-  useMercure(DASHBOARD_TOPICS, () => { refresh() })
+  const [scoresToken, setScoresToken] = useState(0)
+
+  useMercure(DASHBOARD_TOPICS, () => {
+    refresh()
+    setScoresToken((token) => token + 1)
+  })
 
   return (
     <>
@@ -196,7 +201,7 @@ export const FinanceDashboardPage = () => {
 
       {dashboard && (
         <>
-          <DailyScoreBanner year={year} month={month} />
+          <FinanceScoresSection year={year} month={month} refreshToken={scoresToken} />
 
           <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2, mb: 2 }}>
             <BalanceCard dashboard={dashboard} />

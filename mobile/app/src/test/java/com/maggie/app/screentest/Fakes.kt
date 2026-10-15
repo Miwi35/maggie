@@ -24,6 +24,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.FinanceScores
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryList
@@ -368,9 +369,12 @@ class FakeFinanceDashboard(private val error: String = "Service indisponible") {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns
             Result.failure(IllegalStateException(error))
+        // Another message: « Service indisponible » must stay one node on screen.
+        coEvery { repository.getScores(any()) } returns Result.failure(IllegalStateException("Scores en panne"))
         val treasury = mockk<TreasuryRepository>()
         coEvery { treasury.getOutlook() } returns Result.failure(IllegalStateException(error))
-        FinanceDashboardViewModel(repository, treasury)
+        val (auth, mercure) = signedIn()
+        FinanceDashboardViewModel(repository, treasury, mercure, auth)
     }
 }
 
@@ -642,13 +646,18 @@ class FakeChat(
 class FakeLoadedFinanceDashboard(
     private val dashboard: FinanceDashboard,
     private val outlook: TreasuryOutlook = TreasuryOutlook(),
+    // Null: the scores fail to load, which the dashboard has to bear.
+    private val scores: FinanceScores? = null,
 ) {
     val viewModel: FinanceDashboardViewModel by lazy {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns Result.success(dashboard)
+        coEvery { repository.getScores(any()) } returns
+            (scores?.let { Result.success(it) } ?: Result.failure(IllegalStateException("Scores en panne")))
         val treasury = mockk<TreasuryRepository>()
         coEvery { treasury.getOutlook() } returns Result.success(outlook)
-        FinanceDashboardViewModel(repository, treasury)
+        val (auth, mercure) = signedIn()
+        FinanceDashboardViewModel(repository, treasury, mercure, auth)
     }
 }
 

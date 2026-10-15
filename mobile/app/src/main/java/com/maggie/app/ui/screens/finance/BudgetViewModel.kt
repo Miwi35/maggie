@@ -12,7 +12,6 @@ import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.SplitShares
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryRow
 import com.maggie.app.data.model.CategoryTree
@@ -68,7 +67,6 @@ data class BudgetTreeRow(val row: CategoryRow, val line: BudgetLine?)
 
 data class BudgetUiState(
     val status: BudgetStatus? = null,
-    val score: DailyScore? = null,
     val categories: List<Category> = emptyList(),
     val year: Int = LocalDate.now().year,
     val month: Int = LocalDate.now().monthValue,
@@ -152,11 +150,6 @@ class BudgetViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
-
-            // The signal is a bonus on top of the budget: its failure must not
-            // cost the user their budget view.
-            budgetRepository.getDailyScore(state.year, state.month)
-                .onSuccess { score -> _uiState.value = _uiState.value.copy(score = score) }
         }
     }
 
