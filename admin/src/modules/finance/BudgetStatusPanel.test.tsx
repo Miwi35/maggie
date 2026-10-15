@@ -10,7 +10,6 @@ const rollOver = vi.fn()
 const refresh = vi.fn()
 let status: BudgetStatus | null = null
 
-vi.mock('../../hooks/useMercure', () => ({ useMercure: vi.fn() }))
 vi.mock('./FinanceScoresSection', () => ({ FinanceScoresSection: () => null }))
 vi.mock('./useRollOverEnvelopes', () => ({
   useRollOverEnvelopes: () => ({ rollOver, running: false }),
