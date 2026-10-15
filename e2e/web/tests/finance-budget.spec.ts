@@ -222,8 +222,6 @@ test.describe('categories on three levels', () => {
       'the form opens with the parent already chosen',
     ).toHaveValue('Loisirs › Bars')
     await categories.content.getByLabel('Nom').fill('Obsydian')
-    await categories.content.getByLabel('Obligation').click()
-    await page.getByRole('option', { name: 'Non-obligatoire' }).click()
     await categories.content.getByRole('button', { name: 'Enregistrer' }).click()
     await page.waitForURL((url) => !url.hash.includes('/create'))
 

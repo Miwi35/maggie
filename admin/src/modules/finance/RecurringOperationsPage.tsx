@@ -48,6 +48,7 @@ import {
 import { useRecurringLink, useRecurringOverview, useRecurringSuggestions } from './useRecurringOperations'
 import type { RaRecord } from 'react-admin'
 import type { RecurringFormValues } from './RecurringOperationDialog'
+import type { QualificationValue } from './qualificationKinds'
 import type {
   ProposalClaim,
   RecurringProposal,
@@ -84,6 +85,7 @@ const dialogValuesOf = (series: RecurringSeries, stored: RecurringStored): Parti
   amountTolerancePercent: stored.amountTolerancePercent,
   dateToleranceDays: stored.dateToleranceDays,
   endsOn: series.endsOn?.slice(0, 10) ?? '',
+  ...(stored.qualification ? { qualification: stored.qualification as QualificationValue } : {}),
 })
 
 const suggestionValuesOf = (s: RecurringSuggestion): Partial<RecurringFormValues> => ({

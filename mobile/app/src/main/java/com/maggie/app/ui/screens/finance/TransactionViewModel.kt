@@ -11,6 +11,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.amountBoundsAround
 import com.maggie.app.data.model.RulePreviewRequest
@@ -43,6 +44,8 @@ data class TransactionUiState(
     val detail: TransferDetailState? = null,
     // Names of the series the lines are attached to, by series id; empty while unread.
     val seriesNames: Map<String, String> = emptyMap(),
+    // Patterns of the rules, by rule id; read when a line set by a rule is opened.
+    val ruleNames: Map<String, String> = emptyMap(),
     // The « Créer un filtre » screen, opened from the sheet of the open line.
     val ruleDraft: RuleDraftState? = null,
     // The events a spend can be attributed to (MAG-414), read when the sheet needs them.
@@ -59,6 +62,7 @@ data class RuleDraftState(
     val labelPattern: String,
     val direction: String,
     val categoryId: String?,
+    val qualification: Qualification = Qualification.NONE,
     /** « 4 750 » in euros, without sign: with [tolerance] it bounds the amounts the rule catches. */
     val amount: String = "",
     val tolerance: String = DEFAULT_RULE_TOLERANCE,
@@ -196,6 +200,7 @@ class TransactionViewModel(
         status: String = "spent",
         categoryId: String? = null,
         bookedAt: String? = null,
+        qualification: Qualification = Qualification.NONE,
     ) {
         viewModelScope.launch {
             try {
@@ -205,6 +210,7 @@ class TransactionViewModel(
                         amountCents = amountCents,
                         label = label,
                         category = categoryId?.let { "/api/categories/$it" },
+                        qualification = qualification.takeIf { it != Qualification.NONE },
                         status = status,
                         bookedAt = bookedAt,
                     ),
@@ -236,6 +242,18 @@ class TransactionViewModel(
         // The sheet names the event an attributed line belongs to.
         if (transaction.oneOffEnvelope != null && _uiState.value.oneOffEnvelopes.isEmpty()) {
             loadOneOffEnvelopes()
+        }
+        if (transaction.qualifiedByRule != null && _uiState.value.ruleNames.isEmpty()) {
+            loadRuleNames()
+        }
+    }
+
+    // The rule's name only completes « Posée par la règle … »: a failure leaves the sentence without it.
+    private fun loadRuleNames() {
+        viewModelScope.launch {
+            ruleRepository.getRules().onSuccess { rules ->
+                _uiState.value = _uiState.value.copy(ruleNames = rules.mapNotNull { rule -> rule.labelPattern?.let { rule.id to it } }.toMap())
+            }
         }
     }
 
@@ -336,16 +354,28 @@ class TransactionViewModel(
         }
     }
 
-    /** Files the open line under [categoryId], or takes its category away with null. */
-    fun setCategory(categoryId: String?) {
+    /**
+     * Qualifies the open line by hand: under [categoryId] (null takes the category away) with
+     * [qualification], always together. The line becomes « À la main »: no series or rule touches it again.
+     */
+    fun setQualification(categoryId: String?, qualification: Qualification) {
         val open = _uiState.value.detail ?: return
         val id = open.transaction.id
         viewModelScope.launch {
             updateDetail(id) { it.copy(isSaving = true, error = null) }
-            transactionRepository.setCategory(id, categoryId)
+            transactionRepository.setQualification(id, categoryId, qualification)
                 .onSuccess { updated ->
                     updateDetail(id) {
-                        it.copy(isSaving = false, transaction = it.transaction.copy(category = updated.category))
+                        it.copy(
+                            isSaving = false,
+                            transaction = it.transaction.copy(
+                                category = updated.category,
+                                qualification = updated.qualification,
+                                qualifiedBy = updated.qualifiedBy,
+                                qualifiedBySeries = updated.qualifiedBySeries,
+                                qualifiedByRule = updated.qualifiedByRule,
+                            ),
+                        )
                     }
                     refresh()
                 }
@@ -396,6 +426,7 @@ class TransactionViewModel(
             labelPattern = line.label.trim(),
             direction = ruleDirectionFor(line.amountCents),
             categoryId = line.categoryId,
+            qualification = line.qualification,
         )
         _uiState.value = _uiState.value.copy(ruleDraft = draft)
         previewRule(draft, delayMs = 0)
@@ -427,6 +458,10 @@ class TransactionViewModel(
         val changed = draft.copy(categoryId = categoryId, error = null)
         _uiState.value = _uiState.value.copy(ruleDraft = changed)
         previewRule(changed, delayMs = 0)
+    }
+
+    fun changeRuleQualification(qualification: Qualification) {
+        updateDraft { it.copy(qualification = qualification, error = null) }
     }
 
     // A newer request cancels the older one: a slow answer for « CARRE » never overwrites « CARREFOUR ».
@@ -466,6 +501,7 @@ class TransactionViewModel(
                 CategorizationRuleCreateRequest(
                     labelPattern = draft.labelPattern.trim().ifEmpty { null },
                     category = categoryIri(categoryId),
+                    qualification = draft.qualification,
                     direction = draft.direction,
                     minAmountCents = draft.amountBounds?.first,
                     maxAmountCents = draft.amountBounds?.second,

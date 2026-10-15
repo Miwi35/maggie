@@ -65,37 +65,35 @@ const renderEdit = (record: Record<string, unknown> = RENTE) => {
   )
 }
 
-const chooseObligation = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
-  await user.click(await screen.findByLabelText(/Obligation/))
-  await user.click(screen.getByRole('option', { name: label }))
-}
-
 describe('CategoryForm', () => {
-  /**
-   * A rente is money coming in; the API refuses the flag anywhere else, so a
-   * box offered on a dépense would be a trap.
-   */
-  test('offers the rente box only once the category is a recette', async () => {
-    const user = userEvent.setup()
+  /** MAG-479: a category has no nature any more — the qualification is chosen on the operation. */
+  test('offers no nature or obligation field, but the rente box', async () => {
     renderCreate()
 
-    expect(await screen.findByLabelText(/Obligation/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Rente')).not.toBeInTheDocument()
-
-    await chooseObligation(user, 'Recette')
-
-    expect(await screen.findByLabelText('Rente')).toBeInTheDocument()
-    expect(
-      screen.getByText(/compteur d'indépendance compare à votre train de vie/),
-    ).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Nom/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Obligation/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Nature de la dépense')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Rente')).toBeInTheDocument()
+    expect(screen.getByText(/compteur d'indépendance compare à votre train de vie/)).toBeInTheDocument()
   })
 
-  test('a rente declared on a recette is what the API is sent', async () => {
+  test('a category without a rente is sent with no obligation', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({ name: 'Courses' })
+    expect(create.mock.calls[0][1].data).not.toHaveProperty('obligation')
+  })
+
+  test('a rente is what the API is sent, tied to the recette flag it still needs', async () => {
     const user = userEvent.setup()
     const create = renderCreate()
 
     await user.type(await screen.findByLabelText(/Nom/), 'Loyers perçus')
-    await chooseObligation(user, 'Recette')
     await user.click(await screen.findByLabelText('Rente'))
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
@@ -104,32 +102,6 @@ describe('CategoryForm', () => {
       name: 'Loyers perçus',
       obligation: 'income',
       passiveIncome: true,
-    })
-  })
-
-  /**
-   * The flag must not survive the input that set it: react-hook-form keeps the
-   * value of an unmounted input, and a rente sent with a spending obligation
-   * is a 422 on a field no longer on screen — nothing the user can correct.
-   */
-  test('reclassifying the category takes the rente flag away with the box', async () => {
-    const user = userEvent.setup()
-    const create = renderCreate()
-
-    await user.type(await screen.findByLabelText(/Nom/), 'Loisirs')
-    await chooseObligation(user, 'Recette')
-    await user.click(await screen.findByLabelText('Rente'))
-
-    await chooseObligation(user, 'Non-obligatoire')
-
-    expect(screen.queryByLabelText('Rente')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    await waitFor(() => expect(create).toHaveBeenCalled())
-    expect(create.mock.calls[0][1].data).toMatchObject({
-      obligation: 'optional',
-      passiveIncome: false,
     })
   })
 
@@ -181,20 +153,13 @@ describe('CategoryForm', () => {
     expect(await screen.findByRole('button', { name: 'Couleur #123456' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  /**
-   * The edit screen is where the reset runs against a record that is already a
-   * rente: it must not wipe the flag on the way in.
-   */
+  /** The edit screen opens on a record that is already a rente: the flag stays. */
   test('an existing rente keeps its flag through an edit', async () => {
     const user = userEvent.setup()
     renderEdit()
 
     expect(await screen.findByLabelText('Rente')).toBeChecked()
 
-    // And it stays: the reset watches the obligation, which this change does
-    // not touch. What the save then sends is `renderCreate`'s business — the
-    // edit screen's mutation is undoable, so the data provider is only called
-    // after the undo window, which no assertion should wait on.
     await user.type(screen.getByLabelText(/Nom/), ' et garages')
 
     expect(screen.getByLabelText('Rente')).toBeChecked()
@@ -383,7 +348,6 @@ describe('CategoryForm, three levels', () => {
     await user.type(await screen.findByLabelText(/Nom/), 'Obsydian')
     await parentOptions(user)
     await user.click(screen.getByRole('option', { name: 'Loisirs › Bars' }))
-    await chooseObligation(user, 'Non-obligatoire')
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     await waitFor(() => expect(create).toHaveBeenCalled())
@@ -422,7 +386,6 @@ describe('CategoryForm, three levels', () => {
     )
 
     await user.type(await screen.findByLabelText(/Nom/), 'Obsydian')
-    await chooseObligation(user, 'Non-obligatoire')
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(await screen.findByText('Une catégorie ne peut pas dépasser trois niveaux.')).toBeInTheDocument()

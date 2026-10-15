@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +19,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.categoryIri
-import com.maggie.app.data.model.obligationLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.CategorySearchNone
 import com.maggie.app.ui.components.CategorySearchScreen
@@ -62,18 +58,14 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt", "income")
-
 /**
- * The six fields of a category, for a new one ([initial] null) or an existing one.
+ * The fields of a category, for a new one ([initial] null) or an existing one.
  *
  * The same six, in the same order, as the admin's `CategoryForm`: what is edited here is
  * what the admin shows.
  */
 internal class CategoryFormState(private val initial: Category? = null, presetParent: String? = null) {
     var name by mutableStateOf(initial?.name.orEmpty())
-    var obligation by mutableStateOf(initial?.obligation ?: "optional")
-        private set
     var passiveIncome by mutableStateOf(initial?.passiveIncome ?: false)
     var parent by mutableStateOf(initial?.parent ?: presetParent)
     var color by mutableStateOf(initial?.color.orEmpty())
@@ -89,15 +81,10 @@ internal class CategoryFormState(private val initial: Category? = null, presetPa
 
     val canSave: Boolean get() = name.isNotBlank()
 
-    fun select(value: String) {
-        obligation = value
-        // The API refuses the flag on anything but an income (422).
-        if (value != "income") passiveIncome = false
-    }
-
     fun toRequest() = CategoryCreateRequest(
         name = name.trim(),
-        obligation = obligation,
+        // The category has no nature any more; the API only accepts a rente on an income one.
+        obligation = if (passiveIncome) "income" else null,
         passiveIncome = passiveIncome,
         parent = parent,
         color = color.trim().ifEmpty { null },
@@ -113,8 +100,10 @@ internal class CategoryFormState(private val initial: Category? = null, presetPa
         val fields = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
         if (name.trim() != before.name) fields["name"] = JsonPrimitive(name.trim())
         if (parent != before.parent) fields["parent"] = parent?.let(::JsonPrimitive) ?: JsonNull
-        if (obligation != before.obligation) fields["obligation"] = JsonPrimitive(obligation)
-        if (passiveIncome != before.passiveIncome) fields["passiveIncome"] = JsonPrimitive(passiveIncome)
+        if (passiveIncome != before.passiveIncome) {
+            fields["passiveIncome"] = JsonPrimitive(passiveIncome)
+            if (passiveIncome && before.obligation != "income") fields["obligation"] = JsonPrimitive("income")
+        }
         if (color.trim() != before.color.orEmpty()) fields["color"] = color.trim().ifEmpty { null }?.let(::JsonPrimitive) ?: JsonNull
         if (icon.trim() != before.icon.orEmpty()) fields["icon"] = icon.trim().ifEmpty { null }?.let(::JsonPrimitive) ?: JsonNull
         return JsonObject(fields)
@@ -320,7 +309,6 @@ private fun SectionTitle(title: String, description: String? = null) {
 }
 
 /** The fields in the order the admin asks them, a helper line under each. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CategoryFormFields(
     form: CategoryFormState,
@@ -373,50 +361,25 @@ internal fun CategoryFormFields(
             Helper("Laissez vide pour une catégorie principale. Trois niveaux au maximum : Loisirs › Bars › Obsydian.")
         }
 
-        SectionTitle(
-            "Nature de la dépense",
-            "C'est ce qui distingue un dépassement sur l'essentiel d'un dépassement sur le reste, dans le score comme dans la revue mensuelle.",
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OBLIGATIONS.forEach { o ->
-                    FilterChip(
-                        selected = form.obligation == o,
-                        onClick = { form.select(o) },
-                        label = { Text(obligationLabel(o)) },
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
+                .toggleable(
+                    value = form.passiveIncome,
+                    role = Role.Switch,
+                    onValueChange = { form.passiveIncome = it },
+                ),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Rente")
+                Helper(
+                    "Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie.",
+                )
             }
-            Helper(
-                "Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses. Recette : ce qui rentre.",
-            )
-        }
-
-        if (form.obligation == "income") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
-                    .toggleable(
-                        value = form.passiveIncome,
-                        role = Role.Switch,
-                        onValueChange = { form.passiveIncome = it },
-                    ),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Rente")
-                    Helper(
-                        "Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie.",
-                    )
-                }
-                Switch(checked = form.passiveIncome, onCheckedChange = null)
-            }
+            Switch(checked = form.passiveIncome, onCheckedChange = null)
         }
 
         SectionTitle("Repères visuels", "Facultatif, pour repérer la catégorie d'un coup d'œil.")

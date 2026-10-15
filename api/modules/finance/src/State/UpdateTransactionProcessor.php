@@ -50,10 +50,12 @@ class UpdateTransactionProcessor implements ProcessorInterface
         $categoryChanged = null === $previous
             || (string) $category?->getId() !== (string) $previous->getCategory()?->getId();
 
-        // The qualification likewise: only a change is the owner's own.
+        // The qualification likewise: only a change is the owner's own. A new
+        // category carries it along: the parameters on screen are the owner's,
+        // not the ones the category's deprecated flag would mean.
         $qualification = $data->getQualification();
         $qualificationChanged = null !== $previous
-            && $qualification->toArray() !== $previous->getQualification()->toArray();
+            && ($categoryChanged || $qualification->toArray() !== $previous->getQualification()->toArray());
 
         $clearFields = $categoryChanged && null === $category ? ['categoryId'] : [];
         if ($recurringChanged && null === $series) {

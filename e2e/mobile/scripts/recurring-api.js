@@ -6,7 +6,8 @@
 // Same login and polling as `meal-api.js`.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create | expect-attached | expect-detached | remove
+//   ACTION  create | expect-attached | expect-requalified | qualify-line | expect-manual-kept
+//           | expect-detached | remove
 //           create-salary | expect-salary-attached | remove-salary   (MAG-475)
 //
 // Everything lives on an account of its own, so `remove` is one delete: the series and
@@ -83,6 +84,22 @@ function firstDue() {
   return y + '-' + (m < 10 ? '0' : '') + m + '-05'
 }
 
+function series() {
+  return collection('/api/recurring_operations?itemsPerPage=200').filter(function (row) { return row.label === 'Loyer MAG-309' })
+}
+
+function waitUntil(done, message) {
+  for (;;) {
+    if (done()) {
+      return
+    }
+    if (Date.now() >= deadline) {
+      fail(message)
+    }
+    pause(300)
+  }
+}
+
 function transactions() {
   return collection('/api/transactions?itemsPerPage=200').filter(function (row) { return row.label === transactionLabel })
 }
@@ -91,7 +108,8 @@ if (ACTION === 'create') {
   removeLeftovers() // a retried run starts from nothing
   const anchorOn = firstDue()
   const account = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
-  const category = post('/api/categories', { name: categoryName, obligation: 'mandatory' })
+  // Optional: the series starts without « Obligatoire », which the journey then switches on.
+  const category = post('/api/categories', { name: categoryName, obligation: 'optional' })
   post('/api/recurring_operations', {
     label: 'Loyer MAG-309',
     counterpartyName: transactionLabel, // the line's payee is its whole label: the key must be the same
@@ -126,6 +144,38 @@ if (ACTION === 'create') {
       fail('the line "' + transactionLabel + '" was never attached within 30 s (found ' + lines.length + ' line(s))')
     }
     pause(300)
+  }
+} else if (ACTION === 'expect-requalified') {
+  // MAG-479: the series saved from the phone holds the qualification, and the line it set carries it.
+  waitUntil(function () {
+    const rows = series()
+    const lines = transactions()
+    return rows.length === 1 && rows[0].qualification.mandatory === true && rows[0].qualification.kind === 'repayment' &&
+      lines.length === 1 && lines[0].qualification.mandatory === true && lines[0].qualification.kind === 'repayment' &&
+      lines[0].qualifiedBy === 'series'
+  }, 'the series and its line never both read mandatory / repayment within 30 s')
+} else if (ACTION === 'qualify-line') {
+  const line = transactions()[0]
+  const response = http.request(base + line['@id'], {
+    method: 'PATCH',
+    headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
+    body: JSON.stringify({ category: line.category, qualification: { mandatory: false, kind: 'saving' } }),
+  })
+  if (!response.ok) {
+    fail('PATCH ' + line['@id'] + ' answered ' + response.status + ': ' + response.body)
+  }
+  if (JSON.parse(response.body).qualifiedBy !== 'manual') {
+    fail('the line qualified by hand is not manual')
+  }
+} else if (ACTION === 'expect-manual-kept') {
+  // The series moved to « loan »; the line set by hand stays as the owner left it.
+  waitUntil(function () {
+    const rows = series()
+    return rows.length === 1 && rows[0].qualification.kind === 'loan'
+  }, 'the series never read kind loan within 30 s')
+  const line = transactions()[0]
+  if (line.qualifiedBy !== 'manual' || line.qualification.kind !== 'saving' || line.qualification.mandatory !== false) {
+    fail('the line set by hand was touched: ' + JSON.stringify(line.qualification) + ' by ' + line.qualifiedBy)
   }
 } else if (ACTION === 'expect-detached') {
   for (;;) {

@@ -32,6 +32,13 @@ data class Transaction(
     // IRI of the one-off envelope (Hellfest 2026) the spend is attributed to by hand; it then
     // keeps its category but leaves the monthly and annual envelopes (MAG-414).
     val oneOffEnvelope: String? = null,
+    // Whether the line is mandatory and what kind of movement it is, next to its category.
+    val qualification: Qualification = Qualification.NONE,
+    // Who set the qualification: "manual", "series", "rule", or null while nobody did; the two
+    // IRIs name the series or the rule when it was one of them.
+    val qualifiedBy: String? = null,
+    val qualifiedBySeries: String? = null,
+    val qualifiedByRule: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
 
@@ -148,7 +155,3 @@ fun transactionStatusLabel(status: String, nature: TransactionNature): String = 
 /** Same label, nature read from the sign of the amount. */
 fun transactionStatusLabel(status: String, amountCents: Int): String =
     transactionStatusLabel(status, transactionNature(amountCents))
-
-/** Whether a category can be used on a transaction of this nature (income categories only on an income). */
-fun categoryMatchesNature(category: Category, nature: TransactionNature): Boolean =
-    (category.obligation == "income") == (nature == TransactionNature.Income)

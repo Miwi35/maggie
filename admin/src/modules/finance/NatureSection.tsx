@@ -13,7 +13,7 @@ import RadioGroup from '@mui/material/RadioGroup'
 import Typography from '@mui/material/Typography'
 import { useNotify } from 'react-admin'
 import { CounterpartLeg, CounterpartSentence, TransferBadge } from './TransferBadge'
-import { NatureInput, useTransactionCategories } from './TransactionForm'
+import { NatureInput } from './TransactionForm'
 import { isBetweenAccounts } from './useTransactionTransfer'
 import type { MarkKind, TransactionTransfer, TransferLeg } from './useTransactionTransfer'
 
@@ -118,7 +118,6 @@ export const NatureSection = ({
   amountCents: number
 }) => {
   const notify = useNotify()
-  const categories = useTransactionCategories()
   const { transfer, candidates, error, saving, loadCandidates, mark, release } = transferApi
   const [choosing, setChoosing] = useState<MarkKind | null>(null)
 
@@ -153,7 +152,7 @@ export const NatureSection = ({
           {error}
         </Alert>
       )}
-      {!marked && <NatureInput categories={categories} />}
+      {!marked && <NatureInput />}
       {transfer && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
           {marked ? (

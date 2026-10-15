@@ -54,9 +54,7 @@ import com.maggie.app.data.model.RecurringProposal
 import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.RecurringSuggestion
 import com.maggie.app.data.model.Transaction
-import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.claimsOf
-import com.maggie.app.data.model.transactionNature
 import com.maggie.app.data.model.describePriceChange
 import com.maggie.app.data.model.describeReason
 import com.maggie.app.data.model.describeSchedule
@@ -139,11 +137,7 @@ fun RecurringOperationListScreen(
     choosingFor?.let { key ->
         BackHandler { choosingFor = null }
         RecurringCategorySearchScreen(
-            // A heading of the other nature than the payment would be refused or misleading.
-            categories = uiState.categories.filter { category ->
-                val amount = uiState.visibleSuggestions.firstOrNull { suggestionKey(it) == key }?.referenceAmountCents
-                amount == null || categoryMatchesNature(category, transactionNature(amount))
-            },
+            categories = uiState.categories,
             selected = uiState.suggestionCategories[key],
             onPick = {
                 viewModel.chooseSuggestionCategory(key, it.id)

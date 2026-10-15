@@ -74,15 +74,4 @@ class TransactionTest {
         assertEquals("spent", statusForNature("spent", TransactionNature.Income))
         assertEquals("committed", statusForNature("committed", TransactionNature.Expense))
     }
-
-    @Test
-    fun `only income categories are offered on an income and none on an expense`() {
-        val salary = Category(id = "c1", name = "Salaire", obligation = "income")
-        val leisure = Category(id = "c2", name = "Loisirs", obligation = "optional")
-
-        assertTrue(categoryMatchesNature(salary, TransactionNature.Income))
-        assertFalse(categoryMatchesNature(leisure, TransactionNature.Income))
-        assertTrue(categoryMatchesNature(leisure, TransactionNature.Expense))
-        assertFalse(categoryMatchesNature(salary, TransactionNature.Expense))
-    }
 }

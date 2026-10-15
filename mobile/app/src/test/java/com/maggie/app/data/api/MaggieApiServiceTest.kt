@@ -18,6 +18,8 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.nextDueLabel
 import kotlinx.coroutines.runBlocking
@@ -820,24 +822,61 @@ class MaggieApiServiceTest {
     }
 
     @Test
-    fun `updateTransactionCategory patches the category by IRI, or null to take it away`() = runBlocking {
+    fun `updateTransactionQualification patches the category and the whole qualification together`() = runBlocking {
         val bodies = mutableListOf<String>()
         var url: String? = null
         val service = MaggieApiService(
             categoryClient { request ->
                 url = request.url.toString()
                 bodies += String(request.body.toByteArray())
-                """{"id":"tx-1","label":"Bar","amountCents":-500,"category":"/api/categories/cat-9"}"""
+                """{"id":"tx-1","label":"Bar","amountCents":-500,"category":"/api/categories/cat-9",
+                    "qualification":{"mandatory":true,"kind":"repayment"},"qualifiedBy":"manual"}"""
             },
         )
 
-        val updated = service.updateTransactionCategory("tx-1", "/api/categories/cat-9")
-        service.updateTransactionCategory("tx-1", null)
+        val updated = service.updateTransactionQualification(
+            "tx-1", "/api/categories/cat-9", Qualification(mandatory = true, kind = QualificationKind.Repayment),
+        )
+        service.updateTransactionQualification("tx-1", null, Qualification.NONE)
 
         assertEquals("cat-9", updated.categoryId)
+        assertEquals(Qualification(true, QualificationKind.Repayment), updated.qualification)
+        assertEquals("manual", updated.qualifiedBy)
         assertTrue(url!!.endsWith("/api/transactions/tx-1"))
-        assertEquals("""{"category":"/api/categories/cat-9"}""", bodies[0])
-        assertEquals("""{"category":null}""", bodies[1])
+        assertEquals(
+            """{"category":"/api/categories/cat-9","qualification":{"mandatory":true,"kind":"repayment"}}""",
+            bodies[0],
+        )
+        assertEquals("""{"category":null,"qualification":{"mandatory":false,"kind":"none"}}""", bodies[1])
+    }
+
+    @Test
+    fun `a transaction without qualification reads as none`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient { """{"id":"tx-1","label":"Bar","amountCents":-500}""" },
+        )
+
+        val line = service.updateTransactionQualification("tx-1", null, Qualification.NONE)
+
+        assertEquals(Qualification.NONE, line.qualification)
+        assertNull(line.qualifiedBy)
+    }
+
+    @Test
+    fun `countTransactionsQualifiedBy asks for one item and reads the total`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                """{"member":[{"id":"tx-1","label":"Bar","amountCents":-500}],"totalItems":12}"""
+            },
+        )
+
+        val count = service.countTransactionsQualifiedBy("qualifiedBySeries", "/api/recurring_operations/s1")
+
+        assertEquals(12, count)
+        assertTrue(url!!.contains("qualifiedBySeries="))
+        assertTrue(url!!.contains("itemsPerPage=1"))
     }
 
     private val rentRequest = RecurringOperationWriteRequest(
@@ -846,6 +885,7 @@ class MaggieApiServiceTest {
         labelPattern = null,
         account = "/api/accounts/acc-1",
         category = "/api/categories/cat-1",
+        qualification = Qualification(mandatory = true, kind = QualificationKind.Loan),
         period = "monthly",
         dayRule = "fixed_day",
         anchorOn = "2026-04-05",
@@ -978,6 +1018,7 @@ class MaggieApiServiceTest {
         assertTrue(url!!.endsWith("/api/recurring_operations"))
         assertTrue(body!!.contains(""""account":"/api/accounts/acc-1""""))
         assertTrue(body!!.contains(""""category":"/api/categories/cat-1""""))
+        assertTrue(body!!.contains(""""qualification":{"mandatory":true,"kind":"loan"}"""))
         assertTrue(body!!.contains(""""referenceAmountCents":-90000"""))
         assertTrue(body!!.contains(""""referenceSource":"declared""""))
         assertTrue(body!!.contains(""""amountTolerancePercent":20"""))
@@ -1246,6 +1287,7 @@ class MaggieApiServiceTest {
         val rule = service.createCategorizationRule(
             CategorizationRuleCreateRequest(
                 category = "/api/categories/c1",
+                qualification = Qualification.NONE,
                 direction = "credit",
                 minAmountCents = 427500,
                 maxAmountCents = 522500,
@@ -1254,7 +1296,7 @@ class MaggieApiServiceTest {
 
         assertNull(rule.labelPattern)
         assertEquals(
-            """{"category":"/api/categories/c1","direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""",
+            """{"category":"/api/categories/c1","qualification":{"mandatory":false,"kind":"none"},"direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""",
             body,
         )
     }

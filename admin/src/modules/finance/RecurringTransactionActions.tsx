@@ -8,6 +8,7 @@ import { describeHistory, idOf, labelPatternFrom } from './recurringOperations'
 import { useAttachRecurringOperations } from './useRecurringOperations'
 import type { RaRecord } from 'react-admin'
 import type { RecurringFormValues } from './RecurringOperationDialog'
+import type { QualificationValue } from './qualificationKinds'
 import type { AttachReport } from './recurringOperations'
 
 /** The last day of its month: the series then counts from the month's end, not from this day. */
@@ -51,6 +52,7 @@ export const MakeRecurringButton = ({ record, onChanged }: { record: RaRecord; o
     referenceAmountCents: record.amountCents as number,
     account: record.account as string,
     category: (record.category as string | null | undefined) ?? '',
+    ...(record.qualification ? { qualification: record.qualification as QualificationValue } : {}),
     anchorOn: bookedAt,
     dayRule: isLastDayOfMonth(bookedAt) ? 'last_day_of_month' : 'fixed_day',
   }

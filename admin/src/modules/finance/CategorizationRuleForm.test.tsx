@@ -5,6 +5,7 @@ import {
   AdminContext,
   Create,
   Edit,
+  Notification,
   ResourceContextProvider,
   testDataProvider,
 } from 'react-admin'
@@ -27,6 +28,7 @@ const RULE = {
   maxAmountCents: null,
   priority: 0,
   isActive: true,
+  qualification: { mandatory: false, kind: 'none' },
 }
 
 const MATCHES = [
@@ -43,6 +45,7 @@ const MATCHES = [
 const fetchMock = vi.fn()
 const create = vi.fn()
 const update = vi.fn()
+let updateError: Error | null = null
 
 const respond = (ok: boolean, body: unknown) =>
   Promise.resolve({ ok, json: async () => body } as Response)
@@ -51,8 +54,10 @@ const previewBodies = () =>
   fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string))
 
 const dataProvider = testDataProvider({
-  getList: (() =>
-    Promise.resolve({ data: CATEGORIES, total: CATEGORIES.length })) as unknown as DataProvider['getList'],
+  getList: ((resource: string) =>
+    resource === 'transactions'
+      ? Promise.resolve({ data: [], total: 4 })
+      : Promise.resolve({ data: CATEGORIES, total: CATEGORIES.length })) as unknown as DataProvider['getList'],
   getOne: ((resource: string) =>
     Promise.resolve({
       data: resource === 'categorization_rules' ? RULE : CATEGORIES[0],
@@ -66,7 +71,7 @@ const dataProvider = testDataProvider({
   update: ((...args: unknown[]) => {
     update(...args)
 
-    return Promise.resolve({ data: RULE })
+    return updateError ? Promise.reject(updateError) : Promise.resolve({ data: RULE })
   }) as unknown as DataProvider['update'],
 })
 
@@ -99,6 +104,7 @@ const renderEdit = () =>
       >
         <CategorizationRuleForm />
       </Edit>
+      <Notification />
     </AdminContext>,
   )
 
@@ -118,6 +124,7 @@ describe('CategorizationRuleForm', () => {
     fetchMock.mockReset()
     create.mockReset()
     update.mockReset()
+    updateError = null
   })
 
   test('walks through what the rule recognizes, where it files, and how it arbitrates', async () => {
@@ -361,6 +368,75 @@ describe('CategorizationRuleForm', () => {
         labelPattern: 'CARREFOUR2',
         applyToExisting: false,
       })
+    })
+  })
+
+  describe('qualification', () => {
+    test('the category, the Obligatoire switch and the Type come from the one Qualification component', async () => {
+      renderForm()
+
+      expect(await screen.findByRole('combobox', { name: /Catégorie/ })).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: 'Obligatoire' })).not.toBeChecked()
+      expect(screen.getByRole('combobox', { name: 'Type' })).toHaveTextContent('Aucun')
+    })
+
+    test('a new rule is sent with the qualification chosen with its category', async () => {
+      const user = userEvent.setup()
+      renderCreate()
+
+      await user.type(await screen.findByLabelText(/…ce texte/i), 'CARREFOUR')
+      await user.click(screen.getByRole('combobox', { name: /Catégorie/ }))
+      await user.click(await screen.findByRole('option', { name: 'Alimentation' }))
+      await user.click(screen.getByRole('switch', { name: 'Obligatoire' }))
+      await user.click(screen.getByRole('combobox', { name: 'Type' }))
+      await user.click(await screen.findByRole('option', { name: 'Épargne' }))
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+      expect(create.mock.calls[0][1].data).toMatchObject({
+        category: '/api/categories/1',
+        qualification: { mandatory: true, kind: 'saving' },
+      })
+    })
+
+    test('a rule saved with no choice is sent with the empty qualification (the API then reads the category flag)', async () => {
+      const user = userEvent.setup()
+      renderCreate()
+
+      await user.type(await screen.findByLabelText(/…ce texte/i), 'CARREFOUR')
+      await user.click(screen.getByRole('combobox', { name: /Catégorie/ }))
+      await user.click(await screen.findByRole('option', { name: 'Alimentation' }))
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+      expect(create.mock.calls[0][1].data.qualification).toEqual({ mandatory: false, kind: 'none' })
+    })
+
+    test('editing says how many transactions the change will requalify, only once it changes', async () => {
+      const user = userEvent.setup()
+      renderEdit()
+
+      await screen.findByRole('switch', { name: 'Obligatoire' })
+      expect(screen.queryByText(/seront requalifiées/)).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('switch', { name: 'Obligatoire' }))
+
+      expect(await screen.findByText(/4 transactions rattachées seront requalifiées/)).toBeInTheDocument()
+      expect(screen.getByText(/qualifiées à la main ne bougent pas/)).toBeInTheDocument()
+    })
+
+    test('a refused qualification shows the API message and keeps the form open', async () => {
+      const user = userEvent.setup()
+      updateError = new Error('qualification: Type de mouvement inconnu.')
+      renderEdit()
+
+      await user.click(await screen.findByRole('switch', { name: 'Obligatoire' }))
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+      expect(update.mock.calls[0][1].data).toMatchObject({ qualification: { mandatory: true, kind: 'none' } })
+      expect(await screen.findByText(/Type de mouvement inconnu/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/…ce texte/i)).toBeInTheDocument()
     })
   })
 })

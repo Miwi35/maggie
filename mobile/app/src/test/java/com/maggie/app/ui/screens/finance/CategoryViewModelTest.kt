@@ -43,9 +43,9 @@ class CategoryViewModelTest {
     private val mercureEvents = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 8)
 
     private val sampleCategories = listOf(
-        Category(id = "cat-1", name = "Alimentation", obligation = "mandatory"),
-        Category(id = "cat-2", name = "Loisirs", obligation = "optional"),
-        Category(id = "cat-3", name = "Restaurants", obligation = "optional", parent = "/api/categories/cat-1"),
+        Category(id = "cat-1", name = "Alimentation"),
+        Category(id = "cat-2", name = "Loisirs"),
+        Category(id = "cat-3", name = "Restaurants", parent = "/api/categories/cat-1"),
     )
 
     @Before
@@ -127,13 +127,13 @@ class CategoryViewModelTest {
     @Test
     fun `createCategory dispatches request, closes the form and refreshes`() = runTest {
         coEvery { categoryRepository.createCategory(any()) } returns Result.success(
-            Category(id = "cat-4", name = "Transport", obligation = "mandatory"),
+            Category(id = "cat-4", name = "Transport"),
         )
         viewModel()
         advanceUntilIdle()
         viewModel.startCreating()
 
-        viewModel.createCategory(CategoryCreateRequest(name = "Transport", obligation = "mandatory"))
+        viewModel.createCategory(CategoryCreateRequest(name = "Transport"))
         advanceUntilIdle()
 
         coVerify { categoryRepository.createCategory(any()) }
@@ -146,7 +146,7 @@ class CategoryViewModelTest {
     fun `updateCategory sends the changes alone, closes the form and refreshes`() = runTest {
         val changes = JsonObject(mapOf("name" to JsonPrimitive("Courses")))
         coEvery { categoryRepository.updateCategory("cat-1", changes) } returns Result.success(
-            Category(id = "cat-1", name = "Courses", obligation = "mandatory"),
+            Category(id = "cat-1", name = "Courses"),
         )
         viewModel()
         advanceUntilIdle()

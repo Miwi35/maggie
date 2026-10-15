@@ -87,28 +87,12 @@ export class FinanceCategoriesPage extends AdminShell {
     )
   }
 
-  /**
-   * Fills the category form and saves.
-   *
-   * The rente box is not on the form until the obligation is a recette — the
-   * API refuses it anywhere else — so it is ticked after the obligation is
-   * chosen, never before.
-   */
-  async createCategoryNamed(
-    name: string,
-    options: { obligation?: string; rente?: boolean } = {},
-  ): Promise<void> {
+  /** Fills the category form (a name, and the rente box) and saves. A category has no nature (MAG-479). */
+  async createCategoryNamed(name: string, options: { rente?: boolean } = {}): Promise<void> {
     await this.createCategory.click()
     await expect(this.content.getByLabel('Nom')).toBeVisible()
 
     await this.content.getByLabel('Nom').fill(name)
-
-    if (options.obligation !== undefined) {
-      // A react-admin SelectInput is a MUI select: its options only exist
-      // once it is open.
-      await this.content.getByLabel('Obligation').click()
-      await this.page.getByRole('option', { name: options.obligation }).click()
-    }
 
     if (options.rente) {
       await this.content.getByLabel('Rente').check()

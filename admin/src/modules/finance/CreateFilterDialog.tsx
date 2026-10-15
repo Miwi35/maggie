@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Alert from '@mui/material/Alert'
-import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import Dialog from '@mui/material/Dialog'
@@ -11,16 +10,15 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import { useCreate, useGetList, useNotify } from 'react-admin'
+import { useCreate, useNotify } from 'react-admin'
 import type { RaRecord } from 'react-admin'
 import { DIRECTION_CHOICES, MATCH_TYPE_CHOICES, RULE_NEEDS_IDENTITY, idOf, ruleIdentifies } from './categorizationRules'
-import { categoryLabel, orderedCategories } from './categoryTree'
-import type { CategoryNode } from './categoryTree'
+import { Qualification } from './Qualification'
+import { NO_QUALIFICATION } from './qualificationKinds'
+import type { QualificationValue } from './qualificationKinds'
 import { labelPatternFrom } from './recurringOperations'
 import { RuleMatchesPanel } from './RuleMatchesPanel'
 import type { RulePreviewCriteria } from './useCategorizationRulePreview'
-
-type CategoryOption = CategoryNode & RaRecord
 
 /** The sign of the amount tells which side of the account the rule looks at. */
 const directionOf = (amountCents: number) => (amountCents < 0 ? 'debit' : amountCents > 0 ? 'credit' : 'any')
@@ -46,15 +44,11 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
   const [minAmount, setMinAmount] = useState('')
   const [maxAmount, setMaxAmount] = useState('')
   const [category, setCategory] = useState<string | null>((record.category as string | null | undefined) || null)
+  const [qualification, setQualification] = useState<QualificationValue>(
+    () => (record.qualification as QualificationValue | null | undefined) ?? NO_QUALIFICATION,
+  )
   const [applyToExisting, setApplyToExisting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const { data: categories = [] } = useGetList<CategoryOption>('categories', {
-    pagination: { page: 1, perPage: 200 },
-    sort: { field: 'name', order: 'ASC' },
-  })
-  const options = orderedCategories(categories)
-  const selected = options.find((c) => c.id === category) ?? null
 
   const minAmountCents = centsOf(minAmount)
   const maxAmountCents = centsOf(maxAmount)
@@ -83,6 +77,7 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
           matchType,
           direction,
           category,
+          qualification,
           minAmountCents,
           maxAmountCents,
           priority: 0,
@@ -169,20 +164,15 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
           </Stack>
           {!identified && <Alert severity="info" variant="outlined">{RULE_NEEDS_IDENTITY}</Alert>}
 
-          <Autocomplete
-            options={options}
-            value={selected}
-            onChange={(_, next) => setCategory(next ? String(next.id) : null)}
-            getOptionLabel={categoryLabel}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                size="small"
-                label="Catégorie"
-                helperText="Une catégorie posée à la main ne sera jamais écrasée par ce filtre."
-              />
-            )}
+          <Qualification
+            category={category}
+            qualification={qualification}
+            onChange={(next) => {
+              setCategory(next.category)
+              setQualification(next.qualification)
+            }}
+            sense={direction === 'debit' ? 'out' : direction === 'credit' ? 'in' : 'unknown'}
+            categoryHelperText="Une catégorie posée à la main ne sera jamais écrasée par ce filtre."
           />
 
           <FormControlLabel

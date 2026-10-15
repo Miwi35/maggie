@@ -12,7 +12,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.screentest.FakeTransactionTransfers
 import com.maggie.app.screentest.ScreenRule
@@ -197,5 +200,44 @@ class TransactionSheetScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.sheetSection("classement")).assertExists()
+    }
+
+    @Test
+    fun `the classement shows no provenance for a line nobody qualified`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        open("Café du coin")
+
+        compose.onNodeWithTag(UiTags.QUALIFICATION_MANDATORY).performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.QUALIFICATION_PROVENANCE).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a line set by a series says which one, and a hand qualification says À la main`() {
+        val server = FakeTransactionTransfers(
+            transactions = listOf(coffee.copy(qualifiedBy = "series", qualifiedBySeries = "/api/recurring_operations/s1")),
+        )
+        show(server)
+        open("Café du coin")
+
+        compose.onNodeWithTag(UiTags.QUALIFICATION_PROVENANCE).performScrollTo().assertTextEquals("Posée par une série")
+
+        compose.onNodeWithTag(UiTags.QUALIFICATION_MANDATORY).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<Pair<String?, Qualification>>(null to Qualification(true, QualificationKind.None)), server.qualified)
+        compose.onNodeWithTag(UiTags.QUALIFICATION_PROVENANCE).performScrollTo().assertTextEquals("À la main")
+    }
+
+    @Test
+    fun `choosing a type sends it with the whole qualification`() {
+        val server = FakeTransactionTransfers(transactions = listOf(coffee))
+        show(server)
+        open("Café du coin")
+
+        compose.onNodeWithTag(UiTags.qualificationKind("Repayment")).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<Pair<String?, Qualification>>(null to Qualification(false, QualificationKind.Repayment)), server.qualified)
     }
 }

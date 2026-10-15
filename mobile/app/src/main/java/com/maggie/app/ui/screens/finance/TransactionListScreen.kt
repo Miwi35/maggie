@@ -53,17 +53,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
-import com.maggie.app.data.model.transactionNature
-import com.maggie.app.ui.components.CategorySearchDialog
-import com.maggie.app.ui.components.CategorySearchNone
-import com.maggie.app.ui.components.CategorySearchScreen
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.TransactionPrefill
-import com.maggie.app.data.model.categoryMatchesNature
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.qualificationProvenance
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.idOfIri
 import com.maggie.app.data.model.transactionPills
@@ -104,7 +98,6 @@ fun TransactionListScreen(
         }
     }
     var searchingCounterpart by remember { mutableStateOf(false) }
-    var searchingCategory by remember { mutableStateOf(false) }
     var choosingOneOffEnvelope by remember { mutableStateOf(false) }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -119,6 +112,7 @@ fun TransactionListScreen(
                 onPatternChange = viewModel::changeRulePattern,
                 onAmountChange = viewModel::changeRuleAmount,
                 onCategoryChange = viewModel::changeRuleCategory,
+                onQualificationChange = viewModel::changeRuleQualification,
                 onSave = viewModel::saveRule,
                 onBack = viewModel::closeRuleDraft,
             )
@@ -145,26 +139,6 @@ fun TransactionListScreen(
                 },
                 onBack = { choosingOneOffEnvelope = false },
             )
-        } else if (searchingCategory) {
-            val nature = transactionNature(detail.transaction.amountCents)
-            CategorySearchScreen(
-                title = "Choisir la catégorie",
-                candidates = uiState.categories.filter { categoryMatchesNature(it, nature) },
-                pathOf = tree::path,
-                selectedId = detail.transaction.categoryId,
-                onPick = {
-                    viewModel.setCategory(it.id)
-                    searchingCategory = false
-                },
-                onBack = { searchingCategory = false },
-                searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
-                none = CategorySearchNone("Aucune catégorie", "Retirer la catégorie de cette transaction")
-                    .takeIf { detail.transaction.category != null },
-                onPickNone = {
-                    viewModel.setCategory(null)
-                    searchingCategory = false
-                },
-            )
         } else {
             TransactionDetailScreen(
                 state = detail,
@@ -172,14 +146,19 @@ fun TransactionListScreen(
                     onBack = viewModel::closeDetail,
                     onSearchCounterpart = { searchingCounterpart = true },
                     onRelease = viewModel::releaseTransfer,
-                    onPickCategory = { searchingCategory = true },
+                    onQualify = viewModel::setQualification,
                     onCreateRule = viewModel::openRuleDraft,
                     onMakeRecurring = onMakeRecurring?.let { open -> { open(detail.transaction) } },
                     onDetach = viewModel::detachFromSeries,
                     onSaveNote = viewModel::setNote,
                     onPickOneOffEnvelope = { choosingOneOffEnvelope = true },
                 ),
-                categoryPath = tree.pathOf(detail.transaction.categoryId),
+                categories = uiState.categories,
+                provenance = qualificationProvenance(
+                    detail.transaction.qualifiedBy,
+                    seriesName = detail.transaction.qualifiedBySeries?.let { uiState.seriesNames[idOfIri(it)] },
+                    ruleName = detail.transaction.qualifiedByRule?.let { uiState.ruleNames[idOfIri(it)] },
+                ),
                 seriesName = seriesNameOf(detail.transaction, uiState.seriesNames),
                 oneOffEnvelopeName = uiState.oneOffEnvelopeNameOf(detail.transaction),
             )
@@ -330,8 +309,8 @@ fun TransactionListScreen(
         TransactionCreateDialog(
             categories = uiState.categories,
             prefill = dialogPrefill,
-            onConfirm = { amountCents, label, status, categoryId, bookedAt ->
-                viewModel.createTransaction(amountCents, label, status, categoryId, bookedAt)
+            onConfirm = { amountCents, label, status, categoryId, bookedAt, qualification ->
+                viewModel.createTransaction(amountCents, label, status, categoryId, bookedAt, qualification)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
@@ -348,7 +327,7 @@ private fun seriesNameOf(transaction: Transaction, names: Map<String, String>): 
 private fun TransactionCreateDialog(
     categories: List<Category>,
     prefill: TransactionPrefill?,
-    onConfirm: (amountCents: Int, label: String, status: String, categoryId: String?, bookedAt: String) -> Unit,
+    onConfirm: (amountCents: Int, label: String, status: String, categoryId: String?, bookedAt: String, qualification: Qualification) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val initial = remember(prefill) { prefill?.toFormValues(LocalDate.now()) }
@@ -359,8 +338,7 @@ private fun TransactionCreateDialog(
     }
     var status by remember { mutableStateOf(initial?.status ?: "spent") }
     var categoryId by remember { mutableStateOf<String?>(null) }
-    var searchingCategory by remember { mutableStateOf(false) }
-    val tree = remember(categories) { CategoryTree(categories) }
+    var qualification by remember { mutableStateOf(Qualification.NONE) }
     var date by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
 
     val canSubmit = label.isNotBlank() &&
@@ -384,10 +362,6 @@ private fun TransactionCreateDialog(
                             onClick = {
                                 nature = option
                                 status = statusForNature(status, option)
-                                // A salary is not a dépense, a subscription is not a recette.
-                                if (categories.any { it.id == categoryId && !categoryMatchesNature(it, option) }) {
-                                    categoryId = null
-                                }
                             },
                             label = { Text(name) },
                         )
@@ -430,48 +404,16 @@ private fun TransactionCreateDialog(
                         )
                     }
                 }
-                val offered = categories.filter { categoryMatchesNature(it, nature) }
-                if (offered.isNotEmpty()) {
-                    // A tap opens the full-screen search, never a dropdown or a wall of chips.
-                    Box {
-                        OutlinedTextField(
-                            value = tree.pathOf(categoryId).orEmpty(),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Catégorie") },
-                            placeholder = { Text("Aucune catégorie") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .testTag(UiTags.TRANSACTION_CATEGORY)
-                                .semantics { contentDescription = "Catégorie, ${tree.pathOf(categoryId) ?: "aucune"}" }
-                                .clickable(role = Role.Button) { searchingCategory = true },
-                        )
-                    }
-                    if (searchingCategory) {
-                        CategorySearchDialog(
-                            title = "Choisir la catégorie",
-                            candidates = offered,
-                            pathOf = tree::path,
-                            selectedId = categoryId,
-                            onPick = {
-                                categoryId = it.id
-                                searchingCategory = false
-                            },
-                            onDismiss = { searchingCategory = false },
-                            searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
-                            none = CategorySearchNone("Aucune catégorie", "Laisser la transaction sans catégorie")
-                                .takeIf { categoryId != null },
-                            onPickNone = {
-                                categoryId = null
-                                searchingCategory = false
-                            },
-                        )
-                    }
-                }
+                QualificationSection(
+                    categories = categories,
+                    categoryId = categoryId,
+                    qualification = qualification,
+                    onCategoryChange = { categoryId = it },
+                    onQualificationChange = { qualification = it },
+                    categoryTag = UiTags.TRANSACTION_CATEGORY,
+                    searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+                    canClearCategory = true,
+                )
             }
         },
         confirmButton = {
@@ -479,7 +421,7 @@ private fun TransactionCreateDialog(
                 onClick = {
                     val euros = amountText.toDoubleOrNull() ?: return@TextButton
                     val cents = signedAmountCents((euros * 100).roundToInt(), nature)
-                    onConfirm(cents, label.trim(), status, categoryId, date.toString())
+                    onConfirm(cents, label.trim(), status, categoryId, date.toString(), qualification)
                 },
                 enabled = canSubmit,
             ) {

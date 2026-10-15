@@ -1,7 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,25 +25,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.model.CategoryTree
-import com.maggie.app.data.model.TransactionNature
-import com.maggie.app.data.model.categoryMatchesNature
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.directionLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.CategorySearchScreen
 
 /**
  * « Créer un filtre » (MAG-464): a categorisation rule drafted from a line, with the lines it
@@ -57,30 +47,10 @@ fun TransactionRuleDraftScreen(
     onPatternChange: (String) -> Unit,
     onAmountChange: (amount: String, tolerance: String) -> Unit,
     onCategoryChange: (String?) -> Unit,
+    onQualificationChange: (Qualification) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
 ) {
-    var pickingCategory by remember { mutableStateOf(false) }
-    val tree = remember(categories) { CategoryTree(categories) }
-    val path = tree.pathOf(draft.categoryId)
-
-    if (pickingCategory) {
-        val nature = if (draft.direction == "debit") TransactionNature.Expense else TransactionNature.Income
-        CategorySearchScreen(
-            title = "Choisir la catégorie",
-            candidates = categories.filter { categoryMatchesNature(it, nature) },
-            pathOf = tree::path,
-            selectedId = draft.categoryId,
-            onPick = {
-                onCategoryChange(it.id)
-                pickingCategory = false
-            },
-            onBack = { pickingCategory = false },
-            searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
-        )
-        return
-    }
-
     BackHandler(onBack = onBack)
     Scaffold(
         topBar = {
@@ -94,95 +64,84 @@ fun TransactionRuleDraftScreen(
             )
         },
     ) { paddingValues ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = draft.labelPattern,
-                    onValueChange = onPatternChange,
-                    label = { Text("Le libellé contient (facultatif)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_PATTERN),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // One list for the form and the matches: the form is taller with its qualification than a phone's half screen.
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
-                        value = draft.amount,
-                        onValueChange = { onAmountChange(it, draft.tolerance) },
-                        label = { Text("Montant (€)") },
+                        value = draft.labelPattern,
+                        onValueChange = onPatternChange,
+                        label = { Text("Le libellé contient (facultatif)") },
                         singleLine = true,
-                        modifier = Modifier.weight(2f).testTag(UiTags.RULE_DRAFT_AMOUNT),
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_PATTERN),
                     )
-                    OutlinedTextField(
-                        value = draft.tolerance,
-                        onValueChange = { onAmountChange(draft.amount, it) },
-                        label = { Text("± %") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f).testTag(UiTags.RULE_DRAFT_TOLERANCE),
-                    )
-                }
-                draft.amountBounds?.let { (low, high) ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = draft.amount,
+                            onValueChange = { onAmountChange(it, draft.tolerance) },
+                            label = { Text("Montant (€)") },
+                            singleLine = true,
+                            modifier = Modifier.weight(2f).testTag(UiTags.RULE_DRAFT_AMOUNT),
+                        )
+                        OutlinedTextField(
+                            value = draft.tolerance,
+                            onValueChange = { onAmountChange(draft.amount, it) },
+                            label = { Text("± %") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag(UiTags.RULE_DRAFT_TOLERANCE),
+                        )
+                    }
+                    draft.amountBounds?.let { (low, high) ->
+                        Text(
+                            text = "Montant entre ${formatCents(low)} et ${formatCents(high)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
-                        text = "Montant entre ${formatCents(low)} et ${formatCents(high)}",
+                        text = "Sens : ${directionLabel(draft.direction)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                Text(
-                    text = "Sens : ${directionLabel(draft.direction)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box {
-                    OutlinedTextField(
-                        value = path.orEmpty(),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Catégorie") },
-                        placeholder = { Text("Choisir une catégorie") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                    QualificationSection(
+                        categories = categories,
+                        categoryId = draft.categoryId,
+                        qualification = draft.qualification,
+                        onCategoryChange = onCategoryChange,
+                        onQualificationChange = onQualificationChange,
+                        categoryTag = UiTags.RULE_DRAFT_CATEGORY,
+                        searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
+                        enabled = !draft.isSaving,
                     )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .testTag(UiTags.RULE_DRAFT_CATEGORY)
-                            .semantics { contentDescription = "Catégorie, ${path ?: "aucune"}" }
-                            .clickable(enabled = !draft.isSaving, role = Role.Button) { pickingCategory = true },
-                    )
+                    draft.problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    draft.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                    Button(
+                        onClick = onSave,
+                        enabled = draft.problem == null && draft.categoryId != null && !draft.isSaving,
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_SAVE),
+                    ) { Text("Enregistrer le filtre") }
                 }
-                draft.problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                draft.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-                Button(
-                    onClick = onSave,
-                    enabled = draft.problem == null && draft.categoryId != null && !draft.isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.RULE_DRAFT_SAVE),
-                ) { Text("Enregistrer le filtre") }
             }
-            HorizontalDivider()
-            MatchList(draft)
+            item { HorizontalDivider() }
+            matchList(draft)
         }
     }
 }
 
-@Composable
-private fun MatchList(draft: RuleDraftState) {
+private fun LazyListScope.matchList(draft: RuleDraftState) {
     val preview = draft.preview
-    MatchCount(draft.isPreviewing, preview?.total)
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(preview?.matches.orEmpty(), key = { it.transactionId }) { match ->
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(UiTags.RULE_DRAFT_MATCH)) {
-                Text(match.label, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = listOfNotNull(match.bookedAt.take(10).ifBlank { null }, formatCents(match.amountCents))
-                        .joinToString(" · ") + if (match.wouldChange) " · serait classée" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            HorizontalDivider()
+    item { MatchCount(draft.isPreviewing, preview?.total) }
+    items(preview?.matches.orEmpty(), key = { it.transactionId }) { match ->
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(UiTags.RULE_DRAFT_MATCH)) {
+            Text(match.label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = listOfNotNull(match.bookedAt.take(10).ifBlank { null }, formatCents(match.amountCents))
+                    .joinToString(" · ") + if (match.wouldChange) " · serait classée" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+        HorizontalDivider()
     }
 }
 

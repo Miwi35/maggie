@@ -23,7 +23,6 @@ import { ListEmpty } from '../../components/list/ListEmpty'
 import { CategoryGlyph } from './CategoryGlyph'
 import { StandardCategoriesButton } from './StandardCategoriesButton'
 import { RuleSuggestions } from './RuleSuggestions'
-import { OBLIGATION_LABELS } from './obligationFlags'
 import { CATEGORY_MAX_DEPTH, categoryTree } from './categoryTree'
 import type { CategoryNode } from './categoryTree'
 import type { RaRecord } from 'react-admin'
@@ -32,7 +31,7 @@ const CATEGORY_TOPICS = ['/api/categories/{id}']
 
 const CATEGORY_LIVE: LiveConfig = {
   topics: CATEGORY_TOPICS,
-  required: ['name', 'obligation'],
+  required: ['name'],
   references: {
     parentId: { field: 'parent', collection: '/api/categories' },
   },
@@ -102,16 +101,9 @@ const CategoryDatagrid = () => {
           }}
         />
         <FunctionField
-          label="Obligation"
+          label="Rente"
           sortable={false}
-          render={(record: RaRecord) =>
-            // A rente is said on the obligation column rather than on one of its
-            // own: it only ever qualifies a recette, and a column of blanks for
-            // every expense would say nothing.
-            record.passiveIncome
-              ? 'Recette · rente'
-              : (OBLIGATION_LABELS[record.obligation as string] ?? record.obligation)
-          }
+          render={(record: RaRecord) => (record.passiveIncome ? 'Rente' : '')}
         />
         <FunctionField
           label=""

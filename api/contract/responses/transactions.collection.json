@@ -244,7 +244,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/transactions{?order[bookedAt],account,category,recurringOperation,transferKind,transferKind[]}",
+        "template": "/api/transactions{?order[bookedAt],account,category,recurringOperation,qualifiedBySeries,qualifiedByRule,transferKind,transferKind[]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -269,6 +269,18 @@
                 "@type": "IriTemplateMapping",
                 "variable": "recurringOperation",
                 "property": "recurringOperation",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "qualifiedBySeries",
+                "property": "qualifiedBySeries",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "qualifiedByRule",
+                "property": "qualifiedByRule",
                 "required": false
             },
             {

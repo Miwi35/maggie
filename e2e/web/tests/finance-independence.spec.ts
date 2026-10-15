@@ -105,7 +105,7 @@ test('a rente is declared from the category form, and the counter picks it up', 
   const name = `Dividendes MAG-46, essai ${test.info().retry}`
 
   await categories.open()
-  await categories.createCategoryNamed(name, { obligation: 'Recette', rente: true })
+  await categories.createCategoryNamed(name, { rente: true })
 
   // The list reads Elasticsearch, so the row that has just been written is not
   // findable for another moment — and the flag travelling to the API is the
@@ -122,7 +122,7 @@ test('a rente is declared from the category form, and the counter picks it up', 
   await expect(
     categories.row(name),
     'the list says which categories feed the counter',
-  ).toContainText('Recette · rente')
+  ).toContainText('Rente')
 
   const overview = new FinanceOverviewPage(otherUser.page)
   await overview.open()

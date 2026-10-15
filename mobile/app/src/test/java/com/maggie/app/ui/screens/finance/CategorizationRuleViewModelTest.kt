@@ -4,6 +4,7 @@ import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
@@ -37,8 +38,8 @@ class CategorizationRuleViewModelTest {
     )
 
     private val sampleCategories = listOf(
-        Category(id = "cat-2", name = "Loisirs", obligation = "optional"),
-        Category(id = "cat-1", name = "Alimentation", obligation = "mandatory"),
+        Category(id = "cat-2", name = "Loisirs"),
+        Category(id = "cat-1", name = "Alimentation"),
     )
 
     @Before
@@ -77,7 +78,7 @@ class CategorizationRuleViewModelTest {
         advanceUntilIdle()
 
         viewModel.createRule(
-            CategorizationRuleCreateRequest(labelPattern = "SNCF", category = "/api/categories/cat-1"),
+            CategorizationRuleCreateRequest(labelPattern = "SNCF", category = "/api/categories/cat-1", qualification = Qualification.NONE),
         )
         advanceUntilIdle()
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -24,8 +24,10 @@ import type { RaRecord } from 'react-admin'
 import type { RecurringPreviewCriteria } from './useRecurringOperationPreview'
 import type { TransactionNature } from './transactionStatuses'
 import type { DayRule, RecurrencePeriod } from './recurringOperations'
-import { categoryLabel, orderedCategories } from './categoryTree'
 import { RecurringMatchesPanel } from './RecurringMatchesPanel'
+import { Qualification, RequalifiedNotice } from './Qualification'
+import { NO_QUALIFICATION, senseOfAmount } from './qualificationKinds'
+import type { QualificationValue } from './qualificationKinds'
 
 /** What the form opens with: a series being edited, or a transaction being generalised. */
 export interface RecurringFormValues {
@@ -36,6 +38,8 @@ export interface RecurringFormValues {
   referenceAmountCents: number | null
   account: string
   category: string
+  /** Whether the lines are mandatory and what kind of movement they are; copied onto each of them. */
+  qualification: QualificationValue
   period: RecurrencePeriod
   dayRule: DayRule
   anchorOn: string
@@ -51,6 +55,7 @@ export const emptyRecurringValues = (): RecurringFormValues => ({
   referenceAmountCents: null,
   account: '',
   category: '',
+  qualification: NO_QUALIFICATION,
   period: 'monthly',
   dayRule: 'fixed_day',
   anchorOn: '',
@@ -67,16 +72,6 @@ interface RecurringOperationDialogProps {
   onSaved: (saved: RaRecord) => void
 }
 
-interface CategoryOption extends RaRecord {
-  name: string
-  path?: string
-  parent?: string | null
-  obligation?: string
-}
-
-const matchesNature = (category: { obligation?: string }, nature: TransactionNature) =>
-  nature === 'income' ? category.obligation === 'income' : category.obligation !== 'income'
-
 const toEuros = (cents: number | null) => (cents === null ? '' : String(Math.abs(cents) / 100))
 
 export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }: RecurringOperationDialogProps) => {
@@ -91,24 +86,21 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
     pagination: { page: 1, perPage: 200 },
     sort: { field: 'name', order: 'ASC' },
   })
-  const { data: categories = [] } = useGetList<CategoryOption>('categories', {
-    pagination: { page: 1, perPage: 200 },
-    sort: { field: 'name', order: 'ASC' },
-  })
+  // Attached lines that saving will requalify: those a series set, never those qualified by hand.
+  const { total: attachedCount } = useGetList(
+    'transactions',
+    { pagination: { page: 1, perPage: 1 }, filter: { qualifiedBySeries: recordId } },
+    { enabled: editing },
+  )
   const [create, { isPending: creating }] = useCreate()
   const [update, { isPending: updating }] = useUpdate()
   const saving = creating || updating
 
-  // Same rule as a transaction: a recette sits in a recette category. The one
-  // the series already carries stays offered so an old series opens filled.
-  const choices = orderedCategories(categories).filter((c) => matchesNature(c, nature) || c.id === values.category)
-
-  useEffect(() => {
-    const current = categories.find((c) => c.id === values.category)
-    if (current && !matchesNature(current, nature)) {
-      setValues((v) => ({ ...v, category: '' }))
-    }
-  }, [nature, categories, values.category])
+  const qualificationChanged =
+    values.category !== (initial?.category ?? '') ||
+    values.qualification.mandatory !== (initial?.qualification ?? NO_QUALIFICATION).mandatory ||
+    values.qualification.kind !== (initial?.qualification ?? NO_QUALIFICATION).kind
+  const requalified = editing && qualificationChanged ? (attachedCount ?? null) : null
 
   const set = <K extends keyof RecurringFormValues>(key: K, value: RecurringFormValues[K]) =>
     setValues((v) => ({ ...v, [key]: value }))
@@ -142,6 +134,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
       labelPattern: values.labelPattern.trim() === '' ? null : values.labelPattern.trim(),
       account: values.account,
       category: values.category,
+      qualification: values.qualification,
       period: values.period,
       dayRule: values.period === 'weekly' ? 'fixed_day' : values.dayRule,
       anchorOn: values.anchorOn,
@@ -242,23 +235,18 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              select
-              label="Catégorie"
-              value={values.category}
-              onChange={(e) => set('category', e.target.value)}
-              error={Boolean(shown('category'))}
-              helperText={shown('category') ?? (nature === 'income' ? 'Catégories de recette.' : undefined)}
-              required
-              fullWidth
-            >
-              {choices.map((c) => (
-                <MenuItem key={c.id} value={String(c.id)}>
-                  {categoryLabel(c)}
-                </MenuItem>
-              ))}
-            </TextField>
           </Stack>
+
+          <Qualification
+            required
+            category={values.category === '' ? null : values.category}
+            qualification={values.qualification}
+            sense={senseOfAmount(signedAmountCents(cents, nature))}
+            error={shown('category')}
+            onChange={(next) => setValues((v) => ({ ...v, category: next.category ?? '', qualification: next.qualification }))}
+            categoryHelperText="Toutes les catégories sont proposées : le sens vient du montant."
+          />
+          <RequalifiedNotice count={requalified} />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField

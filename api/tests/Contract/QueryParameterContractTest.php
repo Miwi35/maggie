@@ -107,6 +107,8 @@ final class QueryParameterContractTest extends WebTestCase
             'account' => 'mobile getTransactions, narrowing to one account',
             'category' => 'mobile countTransactionsOfCategory, the weight of a deletion',
             'recurringOperation' => 'admin RecurringOperationsPage and mobile getTransactionsOfRecurringOperation, the transactions a series recognised',
+            'qualifiedBySeries' => 'admin RecurringOperationDialog and mobile, how many transactions a series requalifies (MAG-479)',
+            'qualifiedByRule' => 'admin CategorizationRuleForm and mobile, how many transactions a rule requalifies (MAG-479)',
             'order[bookedAt]' => 'admin RecurringOperationsPage, mobile getTransactions',
         ],
         '/api/grocery_lists' => [
@@ -316,7 +318,7 @@ final class QueryParameterContractTest extends WebTestCase
      * row the filter must keep and a row it must drop, and asserts on which
      * rows came back rather than on how many.
      *
-     * Eleven of the twenty-four parameters in the contract get a case of
+     * Eleven of the twenty-six parameters in the contract get a case of
      * their own: one per filter *kind* per resource — an exists, a date
      * operator, a relation, a sort — rather than one per parameter. The
      * remainder are the same kind on another field (`startAt[before]` beside

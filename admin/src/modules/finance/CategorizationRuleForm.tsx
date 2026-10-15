@@ -15,7 +15,11 @@ import { RuleSummary } from './RuleSummary'
 import { RulePreviewPanel } from './RulePreviewPanel'
 import { CategorizationRuleToolbar } from './CategorizationRuleToolbar'
 import { RulePreviewContext } from './rulePreviewContext'
-import { CategoryInput } from './CategoryInput'
+import { QualificationInput, RequalifiedNoticeInput } from './Qualification'
+import type { Sense } from './qualificationKinds'
+
+const senseOfDirection = (direction: string | undefined): Sense =>
+  direction === 'debit' ? 'out' : direction === 'credit' ? 'in' : 'unknown'
 
 const formSx = { maxWidth: 680 }
 
@@ -67,13 +71,16 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
           description="La catégorie posée sur les transactions reconnues."
         />
 
-        <CategoryInput
-          source="category"
-          label="Catégorie"
-          validate={required()}
-          fullWidth
-          helperText="Une catégorie posée à la main ne sera jamais écrasée par cette règle."
-        />
+        <FormDataConsumer>
+          {({ formData }) => (
+            <QualificationInput
+              required
+              sense={senseOfDirection(formData.direction as string | undefined)}
+              categoryHelperText="Une qualification posée à la main ne sera jamais écrasée par cette règle."
+            />
+          )}
+        </FormDataConsumer>
+        <RequalifiedNoticeInput filterKey="qualifiedByRule" />
 
         <FormSection
           title="Restreindre (facultatif)"
