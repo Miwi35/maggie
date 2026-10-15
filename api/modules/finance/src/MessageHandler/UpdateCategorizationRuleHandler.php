@@ -26,7 +26,6 @@ class UpdateCategorizationRuleHandler
     public function __construct(
         private readonly UpdateCategorizationRule $updateCategorizationRule,
         private readonly CategorizationRuleRepository $ruleRepository,
-        private readonly EntityManagerInterface $em,
         private readonly OwnedReferenceResolver $references,
         private readonly EntityManagerInterface $em,
         #[Autowire(service: 'event.bus')]
