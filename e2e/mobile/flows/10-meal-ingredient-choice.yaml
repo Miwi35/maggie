@@ -149,7 +149,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*Légumes pour couscous MAG-297.*"
     timeout: 30000
-- assertVisible: ".*2(\\.0)? (jar|bocal).*"
+- assertVisible: ".*2(\\.0)? (jars?|bocal|bocaux).*"
 # Waited for: the list follows the choice by a refresh.
 - extendedWaitUntil:
     notVisible: ".*Riz MAG-297.*"
