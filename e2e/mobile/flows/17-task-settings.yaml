@@ -11,9 +11,9 @@ tags:
 # tasks' « Jours avant l'échéance » to 1, saves; the server holds them
 # (`scripts/task-settings-api.js`), and the app, started again, reads them back.
 #
-# The values are the web journey's on purpose: the browser suite writes to the same
-# user (README, « Assert on seeded data »), so whichever of the two saves last, the
-# settings end the same. Only those two fields are touched — the weights, which order
+# The values are the web journey's (`task-settings.spec.ts`, which runs as the
+# neighbour and puts the defaults back). Nothing else reads the alert schedule or the
+# morning time yet, so they are left as saved. Only those two fields are touched — the weights, which order
 # « Aujourd'hui » in `15-task-subtasks`, stay what the seed made them. Edits, defaults,
 # a refused save and the re-read on a Mercure message are the JVM's business
 # (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
