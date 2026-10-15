@@ -643,6 +643,22 @@
         },
         "description": "Read the savings advances: what the user took from a savings or investment account to his checking account while his salary was late, and what is left to give back to each source (\"combien je dois remettre sur mon livret ?\"). No arguments. advances[] lists each one, oldest first: id, sourceAccountId, sourceAccountName, amountCents (avancé), openedOn, repaidCents (rendu), outstandingCents (reste à rendre), isClosed. bySource[] adds up what is left per source (sourceAccountId, sourceAccountName, outstandingCents, openCount), largest first; totalOutstandingCents is the total left to give back. A settled advance stays in advances[], closed, and leaves the totals. salaryDelay is the salary delay as manage_treasury_settings reports it. Amounts are positive integer cents, divide by 100 to speak them. Nothing here moves money: say what to transfer, never that it was transferred."
     },
+    "get_seasonal_produce": {
+        "name": "get_seasonal_produce",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "List the fruits and vegetables in season in metropolitan France for a month (1 = January … 12 = December; default: the current month in the user's timezone), from the seasonality calendar, and the user's own products in season that month. Use it to suggest seasonal meals or to say what is in season. To change the season of one of the user's products, use manage_products (seasonMonths)."
+    },
     "get_tasks": {
         "name": "get_tasks",
         "inputSchema": {
@@ -1733,6 +1749,13 @@
                     ],
                     "default": null
                 },
+                "seasonMonths": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
                 "clear": {
                     "type": [
                         "array",
@@ -1745,7 +1768,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity)."
+        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. Season: seasonMonths lists the months (1 = January … 12 = December) a fruit or vegetable is in season in metropolitan France; it is pre-filled from the seasonality calendar on create when the name is known, and inSeason says whether the product is in season this month (null: no season). To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths)."
     },
     "manage_recurring_groceries": {
         "name": "manage_recurring_groceries",

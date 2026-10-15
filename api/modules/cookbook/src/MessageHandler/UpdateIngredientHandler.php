@@ -91,6 +91,7 @@ class UpdateIngredientHandler
             $ingredient->setAutoRestock($command->autoRestock);
         }
         $ingredient->assertRestockQuantityIsValid();
+        $ingredient->assertSeasonMonthsAreValid();
 
         $this->updateProduct->execute($ingredient);
 

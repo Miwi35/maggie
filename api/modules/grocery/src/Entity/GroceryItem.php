@@ -13,7 +13,7 @@ use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity]
 #[AggregateRoot('groceryList')]
-class GroceryItem
+class GroceryItem implements SeasonalLine
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -106,6 +106,17 @@ class GroceryItem
         $this->customLabel = $customLabel;
 
         return $this;
+    }
+
+    /** The product's: null for a free-text line or a product without a season (MAG-494). */
+    public function getInSeason(): ?bool
+    {
+        return $this->product?->getInSeason();
+    }
+
+    public function seasonalProduct(): ?Product
+    {
+        return $this->product;
     }
 
     public function getLabel(): string

@@ -20,6 +20,8 @@ final readonly class CreateProductCommand
         public ?string $stockState = null,
         public ?int $restockQuantity = null,
         public bool $autoRestock = false,
+        /** @var list<int>|null null: pre-filled from the seasonality calendar */
+        public ?array $seasonMonths = null,
     ) {
     }
 }

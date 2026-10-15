@@ -53,6 +53,7 @@ class CreateIngredientHandler
         $ingredient->setRestockQuantity($command->restockQuantity);
         $ingredient->setAutoRestock($command->autoRestock);
         $ingredient->assertRestockQuantityIsValid();
+        $ingredient->assertSeasonMonthsAreValid();
 
         $this->createProduct->execute($ingredient);
 

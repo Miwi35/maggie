@@ -46,6 +46,7 @@ class UpdateProductProcessor implements ProcessorInterface
                 'packagingSize' => 'getPackagingSize',
                 'packagingSizeUnit' => 'getPackagingSizeUnit',
                 'restockQuantity' => 'getRestockQuantity',
+                'seasonMonths' => 'getSeasonMonths',
             ] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
@@ -67,6 +68,7 @@ class UpdateProductProcessor implements ProcessorInterface
             stockState: $data->getStockState()->value,
             restockQuantity: $data->getRestockQuantity(),
             autoRestock: $data->isAutoRestock(),
+            seasonMonths: $data->getSeasonMonths(),
             clearFields: $clearFields,
             aisles: $data->getAislesInput(),
         ));

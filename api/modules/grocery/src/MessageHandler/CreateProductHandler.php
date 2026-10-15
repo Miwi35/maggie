@@ -55,6 +55,8 @@ class CreateProductHandler
         $product->setRestockQuantity($command->restockQuantity);
         $product->setAutoRestock($command->autoRestock);
         $product->assertRestockQuantityIsValid();
+        $product->setSeasonMonths($command->seasonMonths);
+        $product->assertSeasonMonthsAreValid();
 
         return $this->createProduct->execute($product);
     }
