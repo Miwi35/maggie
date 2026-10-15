@@ -159,6 +159,17 @@ class Settings(BaseSettings):
     memory_recall_threshold: float = 2.5
     # Level 1: the facts of the permanent profile, ranked by use, always in the prompt.
     memory_profile_max: int = 80
+    # The night (MAG-159): once a day, at this hour of each owner's own clock, Maggie goes through the
+    # day. Bounded: a pass makes at most `max_calls` model calls (the rest waits for the next night), and
+    # one scheduler tick spends at most `tick_calls` of them, so a pass cut off resumes where it stopped.
+    memory_night_hour: int = 3
+    memory_night_interval_seconds: int = 600
+    memory_night_max_calls: int = 200
+    memory_night_tick_calls: int = 40
+    # A regularity needs at least this many different conversations to prove it.
+    memory_night_min_proofs: int = 2
+    # A fiche whose last claim is older than this is looked at for forgetting (age, use and links shown).
+    memory_night_forget_after_days: int = 21
 
     @field_validator("llm_provider")
     @classmethod

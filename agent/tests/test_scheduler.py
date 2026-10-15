@@ -445,11 +445,12 @@ class TestContextLifecycle:
         monkeypatch.setattr(scheduler, "_daily_planning_loop", lambda: asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_style_synthesis_loop", lambda: started.append("style") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_memory_encoding_loop", lambda: started.append("encoding") or asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_memory_night_loop", lambda: started.append("night") or asyncio.sleep(0))
 
         await scheduler.start_scheduler()
 
-        assert started == ["lifecycle", "style", "encoding"]
-        assert len(scheduler._tasks) == 5
+        assert started == ["lifecycle", "style", "encoding", "night"]
+        assert len(scheduler._tasks) == 6
 
 
 class TestExecutionLoop:
@@ -675,3 +676,44 @@ class TestPlanningRecall:
 
         assert gateway.proaction.await_args.kwargs == {"silent": True, "about": "Fête des mères"}
         scheduler.planning_agenda.assert_awaited_once_with("user-1", date(2026, 10, 14))
+
+
+class TestMemoryNight:
+    """The night's upkeep (MAG-159) is looked for every few minutes and never takes the scheduler down."""
+
+    async def test_a_tick_counts_the_passes_that_ended(self, monkeypatch):
+        passes = [SimpleNamespace(status="done"), SimpleNamespace(status="running")]
+        monkeypatch.setattr(scheduler.memory_night, "run_all", AsyncMock(return_value=passes))
+
+        assert await scheduler.run_memory_night(NOW) == 1
+
+    async def test_one_owner_can_be_run_on_demand_whatever_the_hour(self, monkeypatch):
+        run = AsyncMock(return_value=SimpleNamespace(status="done"))
+        monkeypatch.setattr(scheduler.memory_night, "run", run)
+
+        assert await scheduler.run_memory_night(NOW, "01J9Z3K5Q8W2X4Y6A7B8C9D0E1", force=True) == 1
+
+        run.assert_awaited_once_with("01J9Z3K5Q8W2X4Y6A7B8C9D0E1", NOW, force=True)
+
+    async def test_an_owner_with_nothing_to_run_ends_no_pass(self, monkeypatch):
+        monkeypatch.setattr(scheduler.memory_night, "run", AsyncMock(return_value=None))
+
+        assert await scheduler.run_memory_night(NOW, "01J9Z3K5Q8W2X4Y6A7B8C9D0E1") == 0
+
+    async def test_the_loop_survives_a_failed_tick(self, monkeypatch):
+        ticks = AsyncMock(side_effect=[RuntimeError("db down"), 0])
+        monkeypatch.setattr(scheduler, "run_memory_night", ticks)
+        sleeps = []
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 2:
+                raise asyncio.CancelledError
+
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._memory_night_loop()
+
+        assert ticks.await_count == 2
+        assert sleeps == [settings.memory_night_interval_seconds] * 2

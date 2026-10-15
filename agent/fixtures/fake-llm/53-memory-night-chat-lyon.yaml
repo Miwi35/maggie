@@ -1,0 +1,8 @@
+name: memory-night-chat-lyon
+description: Answer « finalement Lyon » in passing, with no tool call.
+
+match:
+  user_contains: "Finalement, je m'installe à Lyon"
+
+turns:
+  - text: "D'accord, c'est donc Lyon."

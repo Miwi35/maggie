@@ -523,7 +523,7 @@ def rank(
         return []
     found: list[Recalled] = []
     for card in cards:
-        if card.path in exclude:
+        if card.path in exclude or card.archived:
             continue
         points, because = score(card, query)
         if points >= threshold:

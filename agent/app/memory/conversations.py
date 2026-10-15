@@ -172,6 +172,27 @@ async def update_carte(
         return rel
 
 
+def key_of(service: MemoryService, user_id: str, rel: str) -> str | None:
+    """The thread a conversation file belongs to, read from its head."""
+    text = service.folder(user_id).read(rel)
+    match = _KEY.search(text[:_HEAD]) if text else None
+    return match.group(1) if match else None
+
+
+async def update_carte_of_file(
+    user_id: str, rel: str, change: Callable[[Carte], Carte], *, reason: str, service: MemoryService | None = None
+) -> bool:
+    """`update_carte` for a conversation known by its file. False when the file is gone or has no thread key."""
+    service = service or memory_service
+    key = key_of(service, user_id, rel)
+    if key is None:
+        return False
+    found = find_file(service, user_id, key)
+    if found != rel:
+        _files.setdefault(user_id, {})[key] = rel
+    return await update_carte(user_id, key, change, reason=reason, service=service) is not None
+
+
 async def record(msg: Any) -> None:
     """Called when a message is stored: an answer brings its thread's missing messages into the file."""
     if msg.role != "assistant":
