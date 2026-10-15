@@ -20,6 +20,10 @@ class ProductRepository(
         apiService.createProduct(request)
     }
 
+    suspend fun updateSeasonMonths(id: String, months: List<Int>): Result<Product> = runCatching {
+        apiService.updateProductSeasonMonths(id, months)
+    }
+
     suspend fun deleteProduct(id: String): Result<Unit> = runCatching {
         apiService.deleteProduct(id)
     }

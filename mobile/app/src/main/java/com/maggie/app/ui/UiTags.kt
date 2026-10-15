@@ -626,6 +626,11 @@ object UiTags {
     const val RECIPE_GUESTS_ERROR = "recipe_guests_error"
     const val RECIPE_INGREDIENT_QUANTITY = "recipe_ingredient_quantity"
 
+    /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), the product's season chips, and its button. */
+    const val SEASON_BADGE = "season_badge"
+    const val SEASON_MONTHS = "season_months"
+    const val PRODUCT_SEASON_EDIT = "product_season_edit"
+
     /** The recipe search a menu is chosen in — a window of its own: its field, one result, and « Terminer ». */
     const val MEAL_RECIPE_SEARCH_FIELD = "meal_recipe_search_field"
     const val MEAL_RECIPE_RESULT = "meal_recipe_result"

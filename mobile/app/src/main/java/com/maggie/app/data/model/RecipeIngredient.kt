@@ -11,4 +11,6 @@ data class RecipeIngredient(
     val ciqualAlimCode: String? = null,
     val quantity: Float,
     val unit: CookbookUnit,
+    // Whether the ingredient is in season this month (MAG-494); null: no season, no badge.
+    val inSeason: Boolean? = null,
 )

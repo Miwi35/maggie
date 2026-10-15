@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.ProductCreateRequest
@@ -49,6 +50,7 @@ import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.packagingLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 
@@ -109,6 +111,7 @@ fun ProductListScreen(
                             onDelete = { viewModel.deleteProduct(product.id) },
                             recurring = recurringState.forProduct(product.id)?.frequency,
                             onRecurringChange = { recurringViewModel.setFrequency(product.id, it) },
+                            onSeasonMonthsChange = { viewModel.updateSeasonMonths(product.id, it) },
                         )
                     }
                 }
@@ -169,7 +172,10 @@ internal fun ProductCard(
     onDelete: () -> Unit,
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
+    onSeasonMonthsChange: ((List<Int>) -> Unit)? = null,
 ) {
+    var editingSeason by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -197,13 +203,24 @@ internal fun ProductCard(
                         )
                     }
                 }
-                StockStateChip(product.stockState)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    StockStateChip(product.stockState)
+                    SeasonBadge(product.inSeason)
+                }
                 product.packagingLabel()?.let {
                     Text(
                         text = "S'achète en : $it",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                onSeasonMonthsChange?.let {
+                    TextButton(
+                        onClick = { editingSeason = true },
+                        modifier = Modifier.testTag(UiTags.PRODUCT_SEASON_EDIT),
+                    ) {
+                        Text(seasonSummary(product.seasonMonths))
+                    }
                 }
                 onRecurringChange?.let {
                     RecurringSetting(
@@ -222,7 +239,27 @@ internal fun ProductCard(
             }
         }
     }
+
+    if (editingSeason && onSeasonMonthsChange != null) {
+        SeasonMonthsDialog(
+            productName = product.name,
+            months = product.seasonMonths,
+            onConfirm = {
+                onSeasonMonthsChange(it)
+                editingSeason = false
+            },
+            onDismiss = { editingSeason = false },
+        )
+    }
 }
+
+/** The months ticked, spelled out: « Mois de saison : janv., sept., oct. ». */
+internal fun seasonSummary(months: List<Int>?): String =
+    if (months.isNullOrEmpty()) {
+        "Mois de saison : aucun"
+    } else {
+        "Mois de saison : " + months.mapNotNull { SEASON_MONTH_LABELS.getOrNull(it - 1)?.lowercase() }.joinToString(", ")
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -25,4 +25,8 @@ data class Product(
     val autoRestock: Boolean = false,
     // Its aisle in each store (MAG-493); a store left out means no aisle there.
     val aisles: List<ProductAisle> = emptyList(),
+    // The months (1–12) it is in season in metropolitan France, null for no season (MAG-494);
+    // inSeason is the API's answer for this month, null: no season, no badge.
+    val seasonMonths: List<Int>? = null,
+    val inSeason: Boolean? = null,
 )

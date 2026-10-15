@@ -58,6 +58,20 @@ class ProductViewModel(
         }
     }
 
+    /** The months the owner ticked (MAG-494); the product comes back with the API's `inSeason`. */
+    fun updateSeasonMonths(id: String, months: List<Int>) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(error = null)
+            productRepository.updateSeasonMonths(id, months)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        products = _uiState.value.products.map { if (it.id == id) updated else it },
+                    )
+                }
+                .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
+        }
+    }
+
     fun deleteProduct(id: String) {
         viewModelScope.launch {
             try {

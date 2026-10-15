@@ -19,4 +19,6 @@ data class GroceryItem(
     val needed: List<Need>? = null,
     // Its product's aisle in its store, null for « Sans rayon » (MAG-493).
     val aisle: AisleSummary? = null,
+    // Whether its product is in season this month (MAG-494); null: no season, no badge.
+    val inSeason: Boolean? = null,
 )
