@@ -91,6 +91,57 @@ class MealGrocerySync
     }
 
     /**
+     * Scales what the meal holds to its new number of guests (MAG-482): each
+     * line by the ratio its `productId:unit` key is given — the recipes' need
+     * at the new number over the old. A line with no ratio keeps what the
+     * owner chose. Moves every line in place, by the difference, exactly as a
+     * new choice would. Flushes, like `sync()`: it runs alone, once per change.
+     *
+     * A meal whose day has gone holds nothing worth scaling: its shopping is
+     * released already, or about to be.
+     *
+     * @param array<string, float> $ratios
+     */
+    public function rescale(Meal $meal, array $ratios): ?GroceryList
+    {
+        if ($this->isPast($meal) || [] === $ratios) {
+            return null;
+        }
+
+        $mealDate = $meal->getDate() ?? throw new \LogicException('A stored meal always has a day.');
+        $list = null;
+
+        foreach ($this->contributionRepository->findByMeal($meal) as $contribution) {
+            $item = $contribution->getGroceryItem();
+            $product = $item->getProduct();
+            // Keyed in the base unit: a contribution older than MAG-380 may
+            // still read in its recipe unit, and a ratio is the same in both.
+            [, $unit] = Needs::toBase($contribution->getQuantity(), $contribution->getUnit());
+            $ratio = null === $product ? null : ($ratios[$this->key((string) $product->getId(), $unit)] ?? null);
+
+            if (null === $ratio || abs($ratio - 1.0) < Needs::EPSILON) {
+                continue;
+            }
+
+            $this->adjust(
+                $contribution,
+                $contribution->getQuantity() * $ratio,
+                $this->buyAfter($mealDate, $product->getShelfLifeDays()),
+            );
+            $list = $item->getGroceryList();
+        }
+
+        if (null === $list) {
+            return null;
+        }
+
+        $list->setUpdatedAt(new \DateTimeImmutable());
+        $this->em->flush();
+
+        return $list;
+    }
+
+    /**
      * Makes the list hold exactly the lines the owner chose for this meal.
      *
      * Each line is a product, a unit and a quantity — the need, or a count of

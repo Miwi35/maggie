@@ -11,6 +11,7 @@ use Doctrine\ORM\Event\PreFlushEventArgs;
 use Doctrine\ORM\Events;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
+use Maggie\Cookbook\Event\MealGuestsChanged;
 use Maggie\Cookbook\Event\MealRemoved;
 use Maggie\Cookbook\Event\MealRescheduled;
 use Maggie\Cookbook\Specification\IsMealRemoved;
@@ -20,8 +21,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * Raises the events of a meal leaving the agenda or moving in it, and nothing else:
- * the effects live in their handlers.
+ * Raises the events of a meal leaving the agenda, moving in it or changing its
+ * guests, and nothing else: the effects live in their handlers.
  *
  * A meal's contributions to the grocery list are erased with it by the database
  * cascade, so what they were is read in onFlush, while they still exist, and
@@ -32,7 +33,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 #[AsDoctrineListener(event: Events::postFlush)]
 final class MealScheduleListener
 {
-    /** @var list<MealRemoved|MealRescheduled> */
+    /** @var list<MealRemoved|MealRescheduled|MealGuestsChanged> */
     private array $pending = [];
 
     public function __construct(
@@ -68,8 +69,20 @@ final class MealScheduleListener
         }
 
         foreach ($uow->getScheduledEntityUpdates() as $entity) {
-            if ($entity instanceof Meal && (new IsMealRescheduled($uow->getEntityChangeSet($entity)))->isSatisfiedBy($entity)) {
+            if (!$entity instanceof Meal) {
+                continue;
+            }
+
+            $changeSet = $uow->getEntityChangeSet($entity);
+
+            if ((new IsMealRescheduled($changeSet))->isSatisfiedBy($entity)) {
                 $this->pending[] = new MealRescheduled((string) $entity->getId());
+            }
+
+            // Its own number of guests, not the effective one: the default
+            // changing is the meal settings' business (MAG-482).
+            if (isset($changeSet['guests']) && $changeSet['guests'][0] !== $changeSet['guests'][1]) {
+                $this->pending[] = new MealGuestsChanged((string) $entity->getId(), $changeSet['guests'][0]);
             }
         }
     }

@@ -146,6 +146,73 @@ class RecipeApiTest extends WebTestCase
         self::assertSame(['9810', '20047'], array_column($lines, 'ciqualAlimCode'));
     }
 
+    public function testTheSimulationScalesTheQuantitiesToTheGuestsAndStoresNothing(): void
+    {
+        // Pasta serves 4: for 8, every quantity doubles (MAG-482).
+        $pasta = $this->loadPasta();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->client->request('GET', '/api/recipes/'.$pasta->getId().'?guests=8', [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $byName = array_column($data['ingredients'], 'quantity', 'ingredientName');
+        self::assertEquals(['Pâtes' => 400, 'Tomate' => 6], $byName);
+        self::assertSame(8, $data['scaledFor']);
+        self::assertEquals(2, $data['scaleFactor']);
+        self::assertSame(4, $data['servings']);
+
+        // A reading: the recipe in the database is the same, and nobody is told anything.
+        self::assertSame(['Pâtes' => [200.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Recipe::class);
+    }
+
+    public function testTheRecipeReadWithoutGuestsIsAsWritten(): void
+    {
+        $pasta = $this->loadPasta();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        $data = $this->fetchRecipe($pasta);
+
+        self::assertEquals(['Pâtes' => 200, 'Tomate' => 3], array_column($data['ingredients'], 'quantity', 'ingredientName'));
+        self::assertArrayNotHasKey('scaledFor', $data);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function guestsThatAreNotGuests(): iterable
+    {
+        yield 'nobody' => ['0'];
+        yield 'negative' => ['-2'];
+        yield 'not a number' => ['many'];
+        yield 'a fraction' => ['2.5'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('guestsThatAreNotGuests')]
+    public function testTheSimulationRefusesGuestsThatAreNotAWholeNumberOfAtLeastOne(string $guests): void
+    {
+        $pasta = $this->loadPasta();
+
+        $this->client->request('GET', '/api/recipes/'.$pasta->getId().'?guests='.$guests, [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testTheSimulationRequiresAuthentication(): void
+    {
+        $pasta = $this->loadPasta();
+
+        $this->client->request('GET', '/api/recipes/'.$pasta->getId().'?guests=8', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
     public function testPatchSendingBackTheLinesAsReadChangesTheQuantity(): void
     {
         $pasta = $this->loadPasta();

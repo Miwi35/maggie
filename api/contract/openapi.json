@@ -13440,10 +13440,13 @@
                         ],
                         "format": "date-time"
                     },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
+                    "guests": {
+                        "minimum": 1,
+                        "exclusiveMinimum": 0,
+                        "description": "How many people the meal is cooked for: the recipes' quantities scale to it. Null on write gives the meal back to the user's default (meal settings); the read always carries the number that counts, guestsIsDefault telling which.",
+                        "type": "integer",
+                        "nullable": true,
+                        "example": 4
                     },
                     "startAt": {
                         "type": [
@@ -13475,6 +13478,15 @@
                     },
                     "allDay": {
                         "type": "boolean"
+                    },
+                    "guestsIsDefault": {
+                        "readOnly": true,
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13605,10 +13617,13 @@
                         ],
                         "format": "date-time"
                     },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
+                    "guests": {
+                        "minimum": 1,
+                        "exclusiveMinimum": 0,
+                        "description": "How many people the meal is cooked for: the recipes' quantities scale to it. Null on write gives the meal back to the user's default (meal settings); the read always carries the number that counts, guestsIsDefault telling which.",
+                        "type": "integer",
+                        "nullable": true,
+                        "example": 4
                     },
                     "startAt": {
                         "type": [
@@ -13640,6 +13655,15 @@
                     },
                     "allDay": {
                         "type": "boolean"
+                    },
+                    "guestsIsDefault": {
+                        "readOnly": true,
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13766,10 +13790,13 @@
                         ],
                         "format": "date-time"
                     },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
+                    "guests": {
+                        "minimum": 1,
+                        "exclusiveMinimum": 0,
+                        "description": "How many people the meal is cooked for: the recipes' quantities scale to it. Null on write gives the meal back to the user's default (meal settings); the read always carries the number that counts, guestsIsDefault telling which.",
+                        "type": "integer",
+                        "nullable": true,
+                        "example": 4
                     },
                     "startAt": {
                         "type": [
@@ -13801,6 +13828,15 @@
                     },
                     "allDay": {
                         "type": "boolean"
+                    },
+                    "guestsIsDefault": {
+                        "readOnly": true,
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13936,10 +13972,13 @@
                                 ],
                                 "format": "date-time"
                             },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
+                            "guests": {
+                                "minimum": 1,
+                                "exclusiveMinimum": 0,
+                                "description": "How many people the meal is cooked for: the recipes' quantities scale to it. Null on write gives the meal back to the user's default (meal settings); the read always carries the number that counts, guestsIsDefault telling which.",
+                                "type": "integer",
+                                "nullable": true,
+                                "example": 4
                             },
                             "startAt": {
                                 "type": [
@@ -13971,6 +14010,15 @@
                             },
                             "allDay": {
                                 "type": "boolean"
+                            },
+                            "guestsIsDefault": {
+                                "readOnly": true,
+                                "type": "boolean"
+                            },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"
@@ -14334,11 +14382,6 @@
                         ],
                         "format": "date-time"
                     },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
-                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14352,6 +14395,11 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14507,11 +14555,6 @@
                         ],
                         "format": "date-time"
                     },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
-                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14525,6 +14568,11 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14685,11 +14733,6 @@
                                 ],
                                 "format": "date-time"
                             },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
-                            },
                             "startAt": {
                                 "type": [
                                     "string",
@@ -14703,6 +14746,11 @@
                                     "null"
                                 ],
                                 "format": "date-time"
+                            },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"

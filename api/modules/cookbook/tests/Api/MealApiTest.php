@@ -432,6 +432,121 @@ class MealApiTest extends WebTestCase
         self::assertSame('2026-10-09', $stored->getDate()->format('Y-m-d'));
     }
 
+    public function testAMealWithoutGuestsIsServedWithTheDefault(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $data = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner']);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(2, $data['guests']);
+        self::assertTrue($data['guestsIsDefault']);
+        self::assertNull($this->storedMeal($data['id'])->getOwnGuests());
+    }
+
+    public function testAMealIsPlannedForItsOwnGuests(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $data = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner', 'guests' => 6]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(6, $data['guests']);
+        self::assertFalse($data['guestsIsDefault']);
+        self::assertSame(6, $this->storedMeal($data['id'])->getOwnGuests());
+    }
+
+    public function testPatchingTheGuestsStoresPublishesAndIndexesThem(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner']);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = $this->patchMeal($created['id'], ['guests' => 6]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(6, $data['guests']);
+        self::assertFalse($data['guestsIsDefault']);
+        self::assertSame('2026-10-07', $data['date'], 'the rest of the meal is left as it was');
+        self::assertSame(6, $this->storedMeal($created['id'])->getOwnGuests());
+        $payloads = $this->mercurePayloadsOn('/api/meals/'.$created['id']);
+        self::assertNotEmpty($payloads);
+        self::assertSame(6, end($payloads)['guests']);
+        self::assertFalse(end($payloads)['guestsIsDefault']);
+        $this->assertElasticsearchIndexDispatchedFor(Meal::class, $created['id']);
+    }
+
+    public function testPatchingTheGuestsToNullGivesTheMealBackToTheDefault(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner', 'guests' => 6]);
+
+        $data = $this->patchMeal($created['id'], ['guests' => null]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $data['guests']);
+        self::assertTrue($data['guestsIsDefault']);
+        self::assertNull($this->storedMeal($created['id'])->getOwnGuests());
+    }
+
+    public function testAPatchThatLeavesTheGuestsOutKeepsThem(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner', 'guests' => 6]);
+
+        $data = $this->patchMeal($created['id'], ['slot' => 'lunch']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(6, $data['guests']);
+        self::assertSame(6, $this->storedMeal($created['id'])->getOwnGuests());
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function guestsThatAreNotGuests(): iterable
+    {
+        yield 'nobody' => [0];
+        yield 'negative' => [-1];
+        yield 'a fraction' => [2.5];
+        yield 'a word' => ['six'];
+    }
+
+    #[DataProvider('guestsThatAreNotGuests')]
+    public function testGuestsBelowOneAreRefusedAndTheMealStays(mixed $guests): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner', 'guests' => 4]);
+
+        $this->patchMeal($created['id'], ['guests' => $guests]);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(4, $this->storedMeal($created['id'])->getOwnGuests());
+
+        $this->postMeal(['date' => '2026-10-08', 'slot' => 'dinner', 'guests' => $guests]);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testAnonymousCannotChangeTheGuests(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner']);
+
+        $this->client->request('PATCH', '/api/meals/'.$created['id'], [], [], [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+        ], json_encode(['guests' => 6], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    private function storedMeal(string $id): Meal
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $meal = $em->getRepository(Meal::class)->find($id);
+        self::assertInstanceOf(Meal::class, $meal);
+
+        return $meal;
+    }
+
     /** @param array<string, mixed> $body */
     private function postMeal(array $body): array
     {

@@ -29,6 +29,10 @@ class UpdateMealProcessor implements ProcessorInterface
             date: $date->format('Y-m-d'),
             slot: $data->getSlot()->value,
             recipeIds: $recipeIds,
+            // PATCH has already written the body into the meal: null is the
+            // client asking for the default back, or a body that left it out.
+            guests: $data->getOwnGuests(),
+            useDefaultGuests: null === $data->getOwnGuests(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

@@ -21,7 +21,8 @@ use Maggie\Grocery\Service\Packaging;
  * (MAG-295).
  *
  * The preview reads the meal's recipes, one line per product and recipe unit
- * — the quantities of two recipes added up — and
+ * — the quantities of two recipes added up, each scaled to the meal's guests
+ * by {@see RecipeScaler} (MAG-482) — and
  * says how many packagings that is, and whether the product's stock makes it
  * worth buying: `suggested` is what a client ticks by default. It also says
  * what the list already holds of the product (`onList`), which other meals
@@ -37,11 +38,12 @@ class MealGroceryChoice
         private readonly EntityManagerInterface $em,
         private readonly MealGroceryContributionRepository $contributionRepository,
         private readonly GroceryLineNeeds $lineNeeds,
+        private readonly MealGuests $mealGuests,
     ) {
     }
 
     /**
-     * @return array{mealId: string, groceryChoiceMadeAt: ?string, ingredients: list<array<string, mixed>>}
+     * @return array{mealId: string, groceryChoiceMadeAt: ?string, guests: int, guestsIsDefault: bool, ingredients: list<array<string, mixed>>}
      */
     public function preview(Meal $meal): array
     {
@@ -75,6 +77,9 @@ class MealGroceryChoice
         return [
             'mealId' => (string) $meal->getId(),
             'groceryChoiceMadeAt' => $meal->getGroceryChoiceMadeAt()?->format('c'),
+            // What the quantities below are scaled to (MAG-482).
+            'guests' => $this->mealGuests->of($meal),
+            'guestsIsDefault' => $meal->getGuestsIsDefault(),
             'ingredients' => $ingredients,
         ];
     }
@@ -266,26 +271,51 @@ class MealGroceryChoice
     }
 
     /**
+     * What the meal's recipes need of each product at that many guests, in
+     * base units, keyed `productId:unit` as {@see MealGrocerySync} keys the
+     * meal's contributions.
+     *
+     * @return array<string, float>
+     */
+    public function needsByProductAndUnit(Meal $meal, int $guests): array
+    {
+        $needs = [];
+
+        foreach ($this->recipeLines($meal, $guests) as $line) {
+            [$quantity, $unit] = Needs::toBase($line['quantity'], $line['unit']);
+            $key = $line['ingredient']->getId().':'.($unit->value ?? '');
+            $needs[$key] = ($needs[$key] ?? 0.0) + $quantity;
+        }
+
+        return $needs;
+    }
+
+    /**
      * The meal's recipe ingredients, one line per product and unit, in the
-     * order the recipes list them.
+     * order the recipes list them, each recipe scaled to the meal's guests
+     * (MAG-482) — or to `$guests` when given.
      *
      * @return list<array{ingredient: Ingredient, unit: Unit, quantity: float}>
      */
-    private function recipeLines(Meal $meal): array
+    private function recipeLines(Meal $meal, ?int $guests = null): array
     {
+        $guests ??= $this->mealGuests->of($meal);
         $lines = [];
 
         foreach ($meal->getRecipes() as $recipe) {
+            $factor = RecipeScaler::factor($recipe, $guests);
+
             foreach ($recipe->getIngredients() as $ri) {
                 $key = $ri->getIngredient()->getId().':'.$ri->getUnit()->value;
+                $quantity = RecipeScaler::scale($ri->getQuantity(), $ri->getUnit(), $factor);
 
                 if (isset($lines[$key])) {
-                    $lines[$key]['quantity'] += $ri->getQuantity();
+                    $lines[$key]['quantity'] += $quantity;
 
                     continue;
                 }
 
-                $lines[$key] = ['ingredient' => $ri->getIngredient(), 'unit' => $ri->getUnit(), 'quantity' => $ri->getQuantity()];
+                $lines[$key] = ['ingredient' => $ri->getIngredient(), 'unit' => $ri->getUnit(), 'quantity' => $quantity];
             }
         }
 

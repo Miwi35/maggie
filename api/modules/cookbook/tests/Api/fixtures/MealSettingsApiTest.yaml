@@ -1,0 +1,16 @@
+# The meal settings (MAG-482): the default guests, and the meals that follow it.
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-settings@example.com
+    googleId: google-meal-settings
+    name: Meal Settings User
+  other_user:
+    email: meal-settings-other@example.com
+    googleId: google-meal-settings-other
+    name: Other User
+
+Maggie\Cookbook\Entity\MealSettings:
+  # Another user's default never reaches test_user's meals.
+  other_settings:
+    user: '@other_user'
+    defaultGuests: 7

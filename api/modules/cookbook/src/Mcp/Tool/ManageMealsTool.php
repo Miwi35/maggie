@@ -10,6 +10,7 @@ use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Service\MealGroceryChoice;
+use Maggie\Cookbook\Service\MealGuests;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
@@ -17,7 +18,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate. create answers groceryPreview: the meal\'s ingredients with their stock, to choose from with manage_meal_groceries add.')]
+#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate. create answers groceryPreview: the meal\'s ingredients with their stock, to choose from with manage_meal_groceries add. guests is how many people the meal is cooked for (1 or more): the recipes\' quantities scale to it, and changing it on update rescales what the meal put on the grocery list. Without guests a meal follows the user\'s default (manage_meal_settings); useDefaultGuests true on update gives it back to the default. Every meal answered carries guests and guestsIsDefault.')]
 class ManageMealsTool
 {
     public function __construct(
@@ -25,6 +26,7 @@ class ManageMealsTool
         private readonly MealRepository $mealRepository,
         private readonly McpUserContext $userContext,
         private readonly MealGroceryChoice $choice,
+        private readonly MealGuests $mealGuests,
     ) {
     }
 
@@ -36,12 +38,14 @@ class ManageMealsTool
         ?string $date = null,
         ?string $slot = null,
         ?string $recipeIds = null,
+        ?int $guests = null,
+        ?bool $useDefaultGuests = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list($fromDate, $toDate),
-                'create' => $this->create($date, $slot, $recipeIds),
-                'update' => $this->update($mealId, $date, $slot, $recipeIds),
+                'create' => $this->create($date, $slot, $recipeIds, Meal::guestsFrom($guests)),
+                'update' => $this->update($mealId, $date, $slot, $recipeIds, Meal::guestsFrom($guests), $useDefaultGuests ?? false),
                 'delete' => $this->delete($mealId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
@@ -80,7 +84,7 @@ class ManageMealsTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function create(?string $date, ?string $slot, ?string $recipeIds): string
+    private function create(?string $date, ?string $slot, ?string $recipeIds, ?int $guests): string
     {
         if (null === $date || null === $slot) {
             return json_encode(['error' => 'date and slot are required for create.'], JSON_THROW_ON_ERROR);
@@ -91,6 +95,7 @@ class ManageMealsTool
             slot: $slot,
             recipeIds: $this->parseRecipeIds($recipeIds) ?? [],
             userId: (string) $this->userContext->requireUser()->getId(),
+            guests: $guests,
         ));
 
         /** @var Meal $meal */
@@ -105,7 +110,7 @@ class ManageMealsTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $mealId, ?string $date, ?string $slot, ?string $recipeIds): string
+    private function update(?string $mealId, ?string $date, ?string $slot, ?string $recipeIds, ?int $guests, bool $useDefaultGuests): string
     {
         if (null === $mealId) {
             return json_encode(['error' => 'mealId is required for update.'], JSON_THROW_ON_ERROR);
@@ -116,6 +121,8 @@ class ManageMealsTool
             date: $date,
             slot: $slot,
             recipeIds: $this->parseRecipeIds($recipeIds),
+            guests: $guests,
+            useDefaultGuests: $useDefaultGuests,
         ));
 
         /** @var Meal $meal */
@@ -153,6 +160,8 @@ class ManageMealsTool
             'date' => $meal->getDate()?->format('Y-m-d'),
             'slot' => $meal->getSlot()->value,
             'summary' => $meal->getSummary(),
+            'guests' => $this->mealGuests->of($meal),
+            'guestsIsDefault' => $meal->getGuestsIsDefault(),
             'recipes' => $meal->getRecipes()->map(fn ($r) => [
                 'id' => (string) $r->getId(),
                 'name' => $r->getName(),

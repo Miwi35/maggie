@@ -36,6 +36,13 @@ class UpdateMealHandler
             $meal->setDate(Meal::dayFromString($command->date));
         }
 
+        if ($command->useDefaultGuests) {
+            $meal->setGuests(null);
+        } elseif (null !== $command->guests) {
+            // A new number scales the meal's shopping: the `MealGuestsChanged` event's business.
+            $meal->setGuests(Meal::guestsFrom($command->guests));
+        }
+
         if (null !== $command->recipeIds) {
             // Clear and re-add recipes
             foreach ($meal->getRecipes()->toArray() as $recipe) {

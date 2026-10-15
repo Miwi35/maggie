@@ -301,4 +301,76 @@ class MealToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
     }
+
+    public function testAMealPlannedWithoutGuestsAnswersTheDefault(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(2, $data['meal']['guests']);
+        self::assertTrue($data['meal']['guestsIsDefault']);
+        self::assertSame(2, $data['groceryPreview']['guests']);
+    }
+
+    public function testCreateAndUpdateCarryTheGuestsToTheDatabaseMercureAndTheIndex(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch', guests: 6), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(6, $created['meal']['guests']);
+        self::assertFalse($created['meal']['guestsIsDefault']);
+        self::assertSame(6, $this->storedMeal($created['meal']['id'])->getOwnGuests());
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $updated = json_decode(($this->tool())('update', mealId: $created['meal']['id'], guests: 3), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($updated['success']);
+        self::assertSame(3, $updated['meal']['guests']);
+        self::assertSame(3, $this->storedMeal($created['meal']['id'])->getOwnGuests());
+        $payloads = $this->mercurePayloadsOn('/api/meals/'.$created['meal']['id']);
+        self::assertSame(3, end($payloads)['guests']);
+        $this->assertElasticsearchIndexDispatchedFor(Meal::class, $created['meal']['id']);
+
+        $back = json_decode(($this->tool())('update', mealId: $created['meal']['id'], useDefaultGuests: true), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(2, $back['meal']['guests']);
+        self::assertTrue($back['meal']['guestsIsDefault']);
+        self::assertNull($this->storedMeal($created['meal']['id'])->getOwnGuests());
+    }
+
+    public function testGuestsBelowOneAreRefused(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch', guests: 0), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('at least one guest', $data['error']);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Meal::class)->findAll());
+    }
+
+    public function testTheListCarriesTheGuestsOfEachMeal(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+        ($this->tool())('create', date: '2026-03-20', slot: 'lunch', guests: 5);
+
+        $data = json_decode(($this->tool())('list', fromDate: '2026-03-20', toDate: '2026-03-20'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(5, $data['meals'][0]['guests']);
+    }
+
+    private function storedMeal(string $id): Meal
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $meal = $em->find(Meal::class, $id);
+        self::assertInstanceOf(Meal::class, $meal);
+
+        return $meal;
+    }
 }
