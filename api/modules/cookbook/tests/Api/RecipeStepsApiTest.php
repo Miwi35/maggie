@@ -110,7 +110,7 @@ class RecipeStepsApiTest extends WebTestCase
     {
         return [
             ['text' => "Mettre l'eau à bouillir", 'durationMinutes' => 10, 'background' => true, 'utensils' => ['Casserole']],
-            ['text' => 'Couper les légumes', 'ingredientIds' => [$this->id('zucchini_food'), '/api/ingredients/'.$this->id('pepper_food')]],
+            ['text' => 'Couper les légumes', 'ingredientIds' => [strtolower($this->id('zucchini_food')), '/api/ingredients/'.$this->id('pepper_food')]],
             ['text' => 'Cuire les pâtes', 'durationMinutes' => 12, 'background' => true, 'ingredientIds' => [$this->id('pasta_food')], 'utensils' => ['Casserole'], 'waitsFor' => [1]],
             ['text' => 'Faire revenir les légumes', 'durationMinutes' => 8, 'ingredientIds' => [$this->id('zucchini_food'), $this->id('pepper_food')], 'utensils' => [$this->id('pan')]],
             ['text' => 'Égoutter, mélanger', 'waitsFor' => [3, 4]],
@@ -209,6 +209,7 @@ class RecipeStepsApiTest extends WebTestCase
         yield 'a duration of zero' => ['durationMinutes', 0];
         yield 'a negative duration' => ['durationMinutes', -5];
         yield 'a duration that is not whole minutes' => ['durationMinutes', 2.5];
+        yield 'a duration over a week' => ['durationMinutes', 2 ** 31];
         yield 'an empty text' => ['text', '  '];
         yield 'ingredients that are not a list' => ['ingredientIds', 'Courgette'];
     }

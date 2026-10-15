@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\State;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Uid\Ulid;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Reads the `steps` of a recipe request body (MAG-490), the whole list, in
@@ -27,6 +28,9 @@ use Symfony\Component\Uid\Ulid;
  */
 final class RecipeStepsPayload
 {
+    /** A week: the longest rest or ferment a step waits through. */
+    public const MAX_DURATION_MINUTES = 7 * 24 * 60;
+
     /**
      * @param array<string, mixed> $context
      *
@@ -81,8 +85,8 @@ final class RecipeStepsPayload
         }
 
         $duration = $item['durationMinutes'] ?? null;
-        if (null !== $duration && (!\is_int($duration) || $duration <= 0)) {
-            throw new BadRequestHttpException("Step {$position}: durationMinutes must be a whole number of minutes greater than 0.");
+        if (null !== $duration && (!\is_int($duration) || $duration <= 0 || $duration > self::MAX_DURATION_MINUTES)) {
+            throw new BadRequestHttpException("Step {$position}: durationMinutes must be a whole number of minutes, from 1 to ".self::MAX_DURATION_MINUTES.'.');
         }
 
         $background = $item['background'] ?? false;
@@ -120,9 +124,11 @@ final class RecipeStepsPayload
                 throw new BadRequestHttpException("Step {$position}: each ingredient must be an id or the name of one of the recipe's ingredients.");
             }
 
-            $refs[] = str_starts_with($item, '/api/') || Ulid::isValid($item)
-                ? ['id' => self::idOf($item)]
-                : ['name' => trim($item)];
+            $id = str_starts_with($item, '/api/') ? self::idOf($item) : $item;
+            // The id as stored, whichever form of the ULID was sent (lowercase, UUID).
+            $refs[] = Ulid::isValid($id) || Uuid::isValid($id)
+                ? ['id' => Ulid::fromString($id)->toBase32()]
+                : (str_starts_with($item, '/api/') ? ['id' => $id] : ['name' => trim($item)]);
         }
 
         return $refs;
