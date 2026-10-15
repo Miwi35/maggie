@@ -15,6 +15,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -428,5 +429,24 @@ class TasksViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("t2"), viewModel.uiState.value.tasks.map { it.id })
+    }
+
+    @Test
+    fun `the push stream is opened with the screen and released with it`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        verify(exactly = 0) { mercureService.subscribe(any()) }
+
+        viewModel.onOpened()
+        advanceUntilIdle()
+        assertEquals(1, pushes.subscriptionCount.value)
+
+        viewModel.onOpened()
+        advanceUntilIdle()
+        assertEquals(1, pushes.subscriptionCount.value)
+
+        viewModel.onClosed()
+        advanceUntilIdle()
+        assertEquals(0, pushes.subscriptionCount.value)
     }
 }

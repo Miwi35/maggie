@@ -68,10 +68,29 @@ class TasksViewModel(
 
     private var loadJob: Job? = null
     private var moreJob: Job? = null
+    private var listenJob: Job? = null
 
-    init {
-        // A task changed elsewhere (Maggie, Google, the admin) moves between views: read again.
-        viewModelScope.launch {
+    /**
+     * The screen came on: the list is read again, without blanking what is already there, and a
+     * task changed elsewhere (Maggie, Google, the admin) moves between views, so the push is listened
+     * to. Only while the screen is on: the view model is made with the navigation graph, and a stream
+     * kept for good counts against the 32 the app may hold open to the hub — the 33rd, a recipe
+     * sheet's, never connected.
+     */
+    fun onOpened() {
+        listen()
+        reload()
+    }
+
+    /** The screen left: the stream is released. */
+    fun onClosed() {
+        listenJob?.cancel()
+        listenJob = null
+    }
+
+    private fun listen() {
+        if (listenJob?.isActive == true) return
+        listenJob = viewModelScope.launch {
             authRepository.token
                 .map { it != null }
                 .distinctUntilChanged()
@@ -85,9 +104,6 @@ class TasksViewModel(
                 }
         }
     }
-
-    /** The screen came on: the list is read again, without blanking what is already there. */
-    fun onOpened() = reload()
 
     /** Pull-to-refresh. */
     fun refresh() = reload()

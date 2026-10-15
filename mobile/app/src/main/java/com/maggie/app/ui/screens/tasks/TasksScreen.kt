@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -76,7 +77,10 @@ fun TasksScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(viewModel) { viewModel.onOpened() }
+    DisposableEffect(viewModel) {
+        viewModel.onOpened()
+        onDispose { viewModel.onClosed() }
+    }
 
     Column(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
         ScrollableTabRow(selectedTabIndex = TaskView.entries.indexOf(state.view), edgePadding = 0.dp) {
