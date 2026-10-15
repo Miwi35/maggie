@@ -6,7 +6,9 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Mcp\Tool\GetSeasonalProduceTool;
 use Maggie\Grocery\Mcp\Tool\ManageProductsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -97,6 +99,22 @@ class SeasonalityToolsTest extends KernelTestCase
         self::assertContains('Courgette', $mine, 'Corrected to all year long by hand');
         self::assertNotContains('Tomates', $mine);
         self::assertNotContains('Lessive', $mine);
+    }
+
+    public function testSeasonalProduceListsOnlyTheUsersOwnProducts(): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $other = (new User())->setEmail('season-other@example.com')->setGoogleId('google-season-other')->setName('Other');
+        $theirs = (new Product())->setUser($other)->setName('Potiron du voisin')->setCategory(ProductCategory::Produce)->setSeasonMonths([10]);
+        $em->persist($other);
+        $em->persist($theirs);
+        $em->flush();
+        $this->loginFixtureUser();
+
+        $mine = array_column($this->seasonal()['userProducts'], 'name');
+
+        self::assertContains('Potiron', $mine);
+        self::assertNotContains('Potiron du voisin', $mine);
     }
 
     public function testSeasonalProduceForAGivenMonth(): void

@@ -6,6 +6,7 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Core\Entity\UserPreference;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -114,6 +115,35 @@ class SeasonalityApiTest extends WebTestCase
         $record = $this->get('/api/products/'.$this->getFixture('tomates')->getId());
 
         self::assertSame([6, 7, 8, 9], $record['seasonMonths']);
+        self::assertFalse($record['inSeason']);
+    }
+
+    public function testTheMonthIsTheUsersOneNotUtcs(): void
+    {
+        // 22:30 UTC on 31 August is already 1 September in Paris, the user's
+        // timezone: the potiron's season (September to January) has begun.
+        Clock::set(new MockClock('2026-08-31 22:30:00 UTC'));
+        $this->login();
+
+        $record = $this->get('/api/products/'.$this->getFixture('potiron')->getId());
+
+        self::assertTrue($record['inSeason']);
+    }
+
+    public function testAUserFurtherWestIsStillInTheirOwnMonth(): void
+    {
+        // The same instant is still 31 August in New York: out of season there.
+        Clock::set(new MockClock('2026-08-31 22:30:00 UTC'));
+        $this->loadFixtures('SeasonalityApiTest.yaml');
+        $user = $this->getFixture('test_user');
+        $preference = (new UserPreference())->setUser($user)->setTimezone('America/New_York');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist($preference);
+        $em->flush();
+        $this->authenticateAsUser($user);
+
+        $record = $this->get('/api/products/'.$this->getFixture('potiron')->getId());
+
         self::assertFalse($record['inSeason']);
     }
 

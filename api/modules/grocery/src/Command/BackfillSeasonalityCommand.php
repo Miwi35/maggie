@@ -16,9 +16,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Gives the products created before the seasonality (MAG-494) their season
- * months from the calendar. Only a product without months is touched: a value
- * the user typed or corrected stays as it is. Safe to run twice.
+ * Gives the products without season months (MAG-494) their months from the
+ * calendar. A value the user typed or corrected stays as it is; a season the
+ * user emptied reads as no months at all, so a run fills it again — which is
+ * why the deploy never runs this: the migration backfilled once, and this is
+ * for a run by hand, `--dry-run` first.
  */
 #[AsCommand(
     name: 'app:grocery:seasonality:backfill',
