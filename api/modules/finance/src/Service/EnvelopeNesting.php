@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Service;
 
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Enum\BudgetMode;
 
 /**
  * How the envelopes of a period nest, following their categories: the mother
@@ -63,6 +64,10 @@ final class EnvelopeNesting
      */
     public function daughtersOf(Envelope $mother, array $envelopes): array
     {
+        $envelopes = array_values(array_filter(
+            $envelopes,
+            fn (Envelope $envelope) => BudgetMode::OneOff !== $envelope->getMode(),
+        ));
         $byCategory = $this->byCategory($envelopes);
 
         return array_values(array_filter(
