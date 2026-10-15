@@ -90,6 +90,7 @@ The merge queue moves `main` to the very commit its merge group CI passed; a PR 
 - The reason is in the log and the summary of `tested`. A skipped `ci` counts as a pass for the `gate` (`needs.ci.result == 'skipped'` **and** `skip == 'true'`); a red or cancelled CI still stops the run. Path detection, builds, deployment and smoke tests are unchanged, and the base of the change detection (the last successful run of `main.yml`) is too.
 - A `tested` job that dies does not skip the CI: `ci` runs on `always()`.
 - `nightly.yml` and `nightly-e2e.yml` call `ci.yml` directly and, between them, keep the whole suite.
+- **Main does not replay the e2e journeys (MAG-484):** `main.yml` calls `ci.yml` with `e2e: smoke` — lint, unit tests and `E2E Stack (smoke journey)` with one stack playing the smoke journey only (`E2E smoke`); no Playwright journey, no e2e APK, no e2e-flavor unit tests, no Maestro (`E2E Mobile (phone)` passes, nothing wanted). The PR played its journeys, the night plays them all.
 
 ### Gate (MAG-189)
 

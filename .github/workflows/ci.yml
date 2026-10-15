@@ -6,7 +6,8 @@ name: Pull request
 # not change when a job moves here.
 #
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
-# runs every job, a merge applies the path filters, and neither runs the job that
+# runs every job, a merge applies the path filters and plays the smoke journey
+# alone, no e2e journey (`e2e: smoke`, MAG-484), and neither runs the job that
 # only means something on a pull request (PR checks passed).
 #
 # The merge queue (owner's decision, 9 Oct.) runs it a second time on
@@ -57,6 +58,17 @@ on:
         type: boolean
         required: false
         default: false
+      # What a stack plays (MAG-484). `journeys` (default, the nightly): the
+      # selected journeys, web and mobile. `smoke`: `main.yml`, a merge — the
+      # pull request already played its journeys and the night plays them all,
+      # so main only starts the stack and plays the smoke journey, in one lot:
+      # no Playwright journeys, no e2e APK, no e2e-flavor unit tests, no Maestro.
+      # A string, not a boolean: on a pull request `inputs.*` is null, and null
+      # equals false in an expression.
+      e2e:
+        type: string
+        required: false
+        default: journeys
 
 concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly and
@@ -92,11 +104,16 @@ jobs:
       # platform that plays at all — every journey on the nightly run. `e2e` and
       # `mobile` say whether a platform plays at all; the lots are the matrices of
       # `e2e-shard` and `e2e-mobile-device`.
+      #
+      # On main (`e2e: smoke`, MAG-484) the web stack still starts when the
+      # selection plays, but in one lot that plays the smoke journey only
+      # (`web_journeys` false), and the mobile journeys do not play.
       e2e: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.e2e == 'true' }}
-      mobile: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.mobile == 'true' }}
+      mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && steps.select.outputs.mobile == 'true' }}
+      web_journeys: ${{ inputs.e2e != 'smoke' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
-      web_lots: ${{ steps.select.outputs.web_lots }}
-      web_lot_count: ${{ steps.select.outputs.web_lot_count }}
+      web_lots: ${{ inputs.e2e == 'smoke' && '[1]' || steps.select.outputs.web_lots }}
+      web_lot_count: ${{ inputs.e2e == 'smoke' && '1' || steps.select.outputs.web_lot_count }}
       mobile_lots: ${{ steps.select.outputs.mobile_lots }}
       mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
       mobile_unit: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.mobile_unit == 'true') }}
@@ -551,8 +568,10 @@ jobs:
   #
   # Not a required check, on purpose: the shards are named after their index.
   # `e2e-stack` below carries the required name and waits for all of them.
+  #
+  # On main (`e2e: smoke`, MAG-484): one lot, the smoke journey alone.
   e2e-shard:
-    name: E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
+    name: ${{ needs.changes.outputs.web_journeys == 'false' && 'E2E smoke' || format('E2E shard {0}/{1}', matrix.shard, needs.changes.outputs.web_lot_count) }}
     needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
@@ -722,6 +741,8 @@ jobs:
 
       - name: Web journeys (Playwright)
         id: web
+        # Not on main (`e2e: smoke`): played on the pull request, all at night.
+        if: needs.changes.outputs.web_journeys != 'false'
         # Reseeds on its own — the smoke journey above writes, and these
         # assert on the seeded world. This shard's share of the selected spec
         # files only. Playwright's exit status is not the verdict: verdict.sh
@@ -827,10 +848,11 @@ jobs:
   # point: `npx playwright show-trace` replays the failing journey step by
   # step, which beats reading a stack trace out of a log for a browser failure
   # nobody can reproduce locally.
+  # No Playwright report to merge when only the smoke journey played (main).
   e2e-report:
     name: E2E merged report
-    needs: e2e-shard
-    if: always() && needs.e2e-shard.result == 'failure'
+    needs: [changes, e2e-shard]
+    if: always() && needs.e2e-shard.result == 'failure' && needs.changes.outputs.web_journeys != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
