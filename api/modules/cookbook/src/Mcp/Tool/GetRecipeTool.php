@@ -11,7 +11,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_recipe', description: 'Get a recipe by ID with its ingredients and the utensils it is made with. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor.')]
+#[McpTool(name: 'get_recipe', description: 'Get a recipe by ID with its ingredients, the utensils it is made with and its steps (in order: text, durationMinutes, background, ingredients, utensils, waitsFor — the positions of the steps it waits for). guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor.')]
 class GetRecipeTool
 {
     public function __construct(
@@ -57,6 +57,7 @@ class GetRecipeTool
             'notes' => $recipe->getNotes(),
             'ingredients' => $ingredients,
             'utensils' => UtensilsArgument::describe($recipe),
+            'steps' => $recipe->stepsPayload(),
         ];
 
         if (null !== $guests) {

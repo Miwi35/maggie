@@ -20,9 +20,12 @@ class DeleteUtensil
     {
         // The foreign key would drop the links by itself, but then no recipe is
         // republished nor reindexed (the projection reads Doctrine's change set):
-        // the recipes stay, without the utensil.
+        // the recipes stay, without the utensil — nor do their steps keep it (MAG-490).
         foreach ($this->recipeRepository->findByUtensil($utensil) as $recipe) {
             $recipe->removeUtensil($utensil);
+            foreach ($recipe->getSteps() as $step) {
+                $step->removeUtensil($utensil);
+            }
         }
 
         $this->em->remove($utensil);

@@ -10,6 +10,7 @@ use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
+use Maggie\Cookbook\Service\RecipeSteps;
 use Maggie\Cookbook\Service\RecipeUtensils;
 use Maggie\Cookbook\UseCase\CreateRecipe;
 use Maggie\Core\Entity\User;
@@ -26,6 +27,7 @@ class CreateRecipeHandler
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
         private readonly RecipeUtensils $recipeUtensils,
+        private readonly RecipeSteps $recipeSteps,
     ) {
     }
 
@@ -59,6 +61,12 @@ class CreateRecipeHandler
         if (null !== $command->utensils) {
             $recipe->replaceUtensils($this->recipeUtensils->resolve($command->utensils, $user));
         }
+
+        // After the ingredients and the utensils: a step reads what the recipe has.
+        if (null !== $command->steps) {
+            $this->recipeSteps->replace($recipe, $command->steps);
+        }
+        $this->recipeSteps->assertConsistent($recipe);
 
         return $this->createRecipe->execute($recipe);
     }

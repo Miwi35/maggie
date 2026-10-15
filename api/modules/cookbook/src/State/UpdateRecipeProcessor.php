@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Exception\InvalidRecipeStepsException;
 use Maggie\Cookbook\Exception\UnknownUtensilException;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -26,6 +27,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
     {
         $ingredients = RecipeIngredientsPayload::fromContext($context);
         $utensils = RecipeUtensilsPayload::fromContext($context);
+        $steps = RecipeStepsPayload::fromContext($context);
 
         try {
             $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
@@ -36,11 +38,13 @@ class UpdateRecipeProcessor implements ProcessorInterface
                 notes: $data->getNotes(),
                 ingredients: $ingredients,
                 utensils: $utensils,
+                steps: $steps,
                 clearFields: null === $data->getNotes() ? ['notes'] : [],
             ));
         } catch (HandlerFailedException $e) {
-            // A utensil named by an id that is not one of the owner's: the request is wrong, not the server.
-            if ($e->getPrevious() instanceof UnknownUtensilException) {
+            // A utensil named by an id that is not one of the owner's, steps that do not hold
+            // together with the recipe: the request is wrong, not the server.
+            if ($e->getPrevious() instanceof UnknownUtensilException || $e->getPrevious() instanceof InvalidRecipeStepsException) {
                 throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
             }
 

@@ -98,6 +98,16 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
     #[ApiProperty(writable: false, readableLink: true)]
     private Collection $utensils;
 
+    /**
+     * How the recipe is made, step by step (MAG-490). Read by position; written
+     * by the processors from the raw body, the whole list at once.
+     *
+     * @var Collection<int, RecipeStep>
+     */
+    #[ORM\OneToMany(targetEntity: RecipeStep::class, mappedBy: 'recipe', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ApiProperty(writable: false)]
+    private Collection $steps;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -109,6 +119,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         $this->id = new Ulid();
         $this->ingredients = new ArrayCollection();
         $this->utensils = new ArrayCollection();
+        $this->steps = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
@@ -264,6 +275,31 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this;
     }
 
+    /** @return list<RecipeStep> by position, the first one first */
+    public function getSteps(): array
+    {
+        $steps = $this->steps->getValues();
+        usort($steps, static fn (RecipeStep $a, RecipeStep $b) => $a->getPosition() <=> $b->getPosition());
+
+        return $steps;
+    }
+
+    public function addStep(RecipeStep $step): static
+    {
+        if (!$this->steps->contains($step)) {
+            $this->steps->add($step);
+        }
+
+        return $this;
+    }
+
+    public function removeStep(RecipeStep $step): static
+    {
+        $this->steps->removeElement($step);
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -297,6 +333,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
                 'quantity' => $ri->getQuantity(),
                 'unit' => $ri->getUnit()->value,
             ])->toArray(),
+            'steps' => $this->stepsPayload(),
         ];
     }
 
@@ -315,7 +352,14 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'notes' => $this->notes,
             'ingredients' => $this->ingredientsPayload(),
             'utensils' => array_map(static fn (Utensil $utensil) => $utensil->toRecipePayload(), $this->getUtensils()),
+            'steps' => $this->stepsPayload(),
         ], $changedProperties);
+    }
+
+    /** @return list<array<string, mixed>> the steps as the API serves them */
+    public function stepsPayload(): array
+    {
+        return array_map(static fn (RecipeStep $step) => $step->toPayload(), $this->getSteps());
     }
 
     /** @return list<array<string, mixed>> */

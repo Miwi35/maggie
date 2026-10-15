@@ -31,9 +31,10 @@ class RenameUtensil
         $utensil->setName($name);
         $this->em->flush();
 
-        // The recipes made with it show its name: their open sheets must hear of the new one.
+        // The recipes made with it show its name, in their utensils and their steps:
+        // their open sheets must hear of the new one.
         foreach ($this->recipeRepository->findByUtensil($utensil) as $recipe) {
-            $this->projection->touched($recipe, ['utensils']);
+            $this->projection->touched($recipe, ['utensils', 'steps']);
         }
 
         return $utensil;

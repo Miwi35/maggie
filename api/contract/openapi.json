@@ -16219,6 +16219,13 @@
                         },
                         "readOnly": true
                     },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RecipeStep"
+                        },
+                        "readOnly": true
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -16277,6 +16284,13 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Utensil.html"
+                        },
+                        "readOnly": true
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RecipeStep.html"
                         },
                         "readOnly": true
                     },
@@ -16344,6 +16358,13 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RecipeStep"
+                        },
+                        "readOnly": true
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -16404,6 +16425,13 @@
                                 "type": "array",
                                 "items": {
                                     "$ref": "#/components/schemas/Utensil.jsonld"
+                                },
+                                "readOnly": true
+                            },
+                            "steps": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/RecipeStep.jsonld"
                                 },
                                 "readOnly": true
                             },
@@ -16593,6 +16621,162 @@
                     "ingredient",
                     "unit"
                 ]
+            },
+            "RecipeStep": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "position": {
+                        "description": "1 for the first step.",
+                        "type": "integer"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "durationMinutes": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "background": {
+                        "description": "The timer runs while the cook moves on to the next step.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "ingredients": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "utensils": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "waitsFor": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "RecipeStep.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "position": {
+                        "description": "1 for the first step.",
+                        "type": "integer"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "durationMinutes": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "background": {
+                        "description": "The timer runs while the cook moves on to the next step.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "ingredients": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "utensils": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "waitsFor": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "RecipeStep.jsonld": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "position": {
+                        "description": "1 for the first step.",
+                        "type": "integer"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "durationMinutes": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "background": {
+                        "description": "The timer runs while the cook moves on to the next step.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "ingredients": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "utensils": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "waitsFor": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
             },
             "RecurringGroceryItem": {
                 "type": "object",
