@@ -7,6 +7,9 @@ namespace Maggie\Cookbook\Mcp\Tool;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Mcp\UtensilsArgument;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Maggie\Cookbook\Repository\RecipeRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -18,6 +21,8 @@ class UpdateRecipeTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly RecipeRepository $recipeRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -33,6 +38,12 @@ class UpdateRecipeTool
         ?string $utensils = null,
     ): string {
         try {
+            // Only the user's own recipe: its utensils are resolved in its owner's catalogue.
+            $recipe = $this->recipeRepository->findOneForUser($recipeId, $this->userContext->requireUser());
+            if (null === $recipe) {
+                return json_encode(['error' => "Recipe not found: {$recipeId}"], JSON_THROW_ON_ERROR);
+            }
+
             $tagList = null !== $tags ? ('' === $tags ? [] : array_map('trim', explode(',', $tags))) : null;
             $ingredientList = null !== $ingredients
                 ? json_decode($ingredients, true, 512, JSON_THROW_ON_ERROR)
@@ -40,7 +51,7 @@ class UpdateRecipeTool
             $utensilList = UtensilsArgument::parse($utensils);
 
             $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
-                recipeId: $recipeId,
+                recipeId: (string) $recipe->getId(),
                 name: $name,
                 servings: $servings,
                 tags: $tagList,
@@ -50,20 +61,20 @@ class UpdateRecipeTool
                 clearFields: array_values(array_intersect($clear ?? [], ['notes'])),
             ));
 
-            /** @var Recipe $recipe */
-            $recipe = $envelope->last(HandledStamp::class)->getResult();
+            /** @var Recipe $updated */
+            $updated = $envelope->last(HandledStamp::class)->getResult();
 
             return json_encode([
                 'success' => true,
                 'recipe' => [
-                    'id' => (string) $recipe->getId(),
-                    'name' => $recipe->getName(),
-                    'servings' => $recipe->getServings(),
-                    'tags' => $recipe->getTags(),
-                    'utensils' => UtensilsArgument::describe($recipe),
+                    'id' => (string) $updated->getId(),
+                    'name' => $updated->getName(),
+                    'servings' => $updated->getServings(),
+                    'tags' => $updated->getTags(),
+                    'utensils' => UtensilsArgument::describe($updated),
                 ],
             ], JSON_THROW_ON_ERROR);
-        } catch (BadRequestHttpException $e) {
+        } catch (MissingMcpUserException|BadRequestHttpException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;

@@ -87,9 +87,9 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
 
     /**
      * What the recipe is made with, from its owner's catalogue (MAG-489). Read
-     * as `[{@id , id, name}]`; written by the processors from the raw body — by
-     * id or by name — never by the deserializer, which would read a name as an
-     * IRI.
+     * as the embedded utensils (`@id`, `id`, `name`…); written by the
+     * processors from the raw body — by id or by name — never by the
+     * deserializer, which would read a name as an IRI.
      *
      * @var Collection<int, Utensil>
      */

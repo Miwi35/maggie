@@ -62,6 +62,9 @@ class ManageUtensilsTool
         if (null === $name || '' === trim($name)) {
             return $this->error('name is required for create.');
         }
+        if (mb_strlen(trim($name)) > 255) {
+            return $this->error('A utensil name is 255 characters at most.');
+        }
 
         $user = $this->userContext->requireUser();
 
@@ -83,6 +86,9 @@ class ManageUtensilsTool
         }
         if (null === $name || '' === trim($name)) {
             return $this->error('name is required for rename.');
+        }
+        if (mb_strlen(trim($name)) > 255) {
+            return $this->error('A utensil name is 255 characters at most.');
         }
 
         $utensil = $this->findOwn($utensilId);

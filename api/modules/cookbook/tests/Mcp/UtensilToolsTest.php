@@ -233,6 +233,39 @@ class UtensilToolsTest extends KernelTestCase
         self::assertSame(['Poêle', 'Thermomix'], $this->utensilsOf($crepes));
     }
 
+    public function testUpdateRecipeCannotTouchAnotherUsersRecipe(): void
+    {
+        $this->load();
+        $theirs = (string) $this->getFixture('other_recipe')->getId();
+
+        $data = $this->call(UpdateRecipeTool::class, $theirs, name: 'Volée', utensils: '["Pied-de-biche"]');
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame(['Four'], $this->utensilsOf($theirs));
+        self::assertSame(['Four'], $this->catalogueOf('other_user'));
+        self::assertSame("Tarte de l'autre", $this->em()->find(Recipe::class, $theirs)?->getName());
+    }
+
+    public function testUpdateRecipeRequiresAUser(): void
+    {
+        $this->loadFixtures('utensil.yaml');
+        $crepes = (string) $this->getFixture('crepes')->getId();
+
+        $data = $this->call(UpdateRecipeTool::class, $crepes, utensils: '["Louche"]');
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame(['Poêle', 'Thermomix'], $this->utensilsOf($crepes));
+    }
+
+    public function testAUtensilNameOver255CharactersIsRefused(): void
+    {
+        $this->load();
+
+        self::assertArrayHasKey('error', $this->utensils('create', name: str_repeat('a', 256)));
+        self::assertArrayHasKey('error', $this->utensils('rename', utensilId: (string) $this->getFixture('pan')->getId(), name: str_repeat('a', 256)));
+        self::assertSame(['Poêle', 'Thermomix'], $this->catalogueOf('test_user'));
+    }
+
     public function testGetRecipeAnswersItsUtensils(): void
     {
         $this->load();
