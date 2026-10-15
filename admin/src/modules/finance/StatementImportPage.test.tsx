@@ -15,7 +15,7 @@ const dataProvider = testDataProvider({
   getList: (() =>
     Promise.resolve({
       data: [
-        { id: '/api/accounts/01JACC0000000000000000001', name: 'Compte courant', currency: 'EUR' },
+        { id: '/api/accounts/01JACC0000000000000000001', name: 'Compte courant', bank: 'Boursorama', currency: 'EUR' },
         { id: '/api/accounts/01JACC0000000000000000002', name: 'Livret A', currency: 'EUR' },
       ],
       total: 2,
@@ -87,7 +87,7 @@ const file = () =>
 /** Picks the account and drops the file — everything before "Simuler". */
 const fillIn = async () => {
   await userEvent.click(await screen.findByRole('combobox', { name: /Compte/ }))
-  await userEvent.click(screen.getByRole('option', { name: 'Compte courant' }))
+  await userEvent.click(screen.getByRole('option', { name: 'Boursorama · EUR · Compte courant' }))
   await userEvent.upload(screen.getByLabelText(/Fichier/), file())
 }
 

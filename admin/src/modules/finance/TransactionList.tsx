@@ -1,6 +1,5 @@
 import {
   Datagrid,
-  TextField,
   DateField,
   BooleanField,
   ReferenceField,
@@ -14,6 +13,8 @@ import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
 import { TransactionPills } from './TransactionPills'
+import { accountLabel } from './accountLabel'
+import type { LabelledAccount } from './accountLabel'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -52,7 +53,7 @@ const TransactionDatagrid = () => {
         )}
       />
       <ReferenceField source="account" reference="accounts" label="Compte" link={false}>
-        <TextField source="name" />
+        <FunctionField render={(account: RaRecord) => accountLabel(account as LabelledAccount)} />
       </ReferenceField>
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
         <CategoryPathField />

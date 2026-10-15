@@ -115,6 +115,21 @@ describe('FinanceDashboardPage — reference salary', () => {
     )
   })
 
+  test('lists each account of the balance as bank · currency · name', async () => {
+    const payload = dashboard({ monthlyCents: 300000, source: 'declared' })
+    payload.balance.accounts = [
+      { id: 'a1', name: 'Compte courant', bank: 'Boursorama', type: 'checking', balanceCents: 1000, currency: 'EUR', isCushion: false },
+      { id: 'a2', name: 'Compte courant', bank: 'Crédit Agricole', type: 'checking', balanceCents: 2000, currency: 'EUR', isCushion: false },
+      { id: 'a3', name: 'Livret', bank: null, type: 'savings', balanceCents: 3000, currency: 'EUR', isCushion: true },
+    ] as never
+    stubApi(payload)
+    renderPage()
+
+    expect(await screen.findByText('Boursorama · EUR · Compte courant')).toBeInTheDocument()
+    expect(screen.getByText('Crédit Agricole · EUR · Compte courant')).toBeInTheDocument()
+    expect(screen.getByText('EUR · Livret · matelas')).toBeInTheDocument()
+  })
+
   test('shows no salary at all, and no 0 €, when the API fails', async () => {
     stubApi({ error: 'boom' }, false)
     renderPage()

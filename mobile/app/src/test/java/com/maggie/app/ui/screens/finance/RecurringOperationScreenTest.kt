@@ -148,19 +148,19 @@ class RecurringOperationScreenTest {
     }
 
     @Test
-    fun `a series shows its account and its bank`() {
+    fun `a series shows its account as bank, currency and name`() {
         val series = calm.copy(accountName = "Courant", accountBank = "Crédit Agricole", categoryName = "Sport")
         compose.setContent { SeriesCard(series = series, record = null) }
 
-        compose.onNodeWithText("Courant · Crédit Agricole · Sport").assertIsDisplayed()
+        compose.onNodeWithText("Crédit Agricole · EUR · Courant · Sport").assertIsDisplayed()
     }
 
     @Test
-    fun `an account without a bank shows only its name`() {
+    fun `an account without a bank shows its currency and name`() {
         val series = calm.copy(accountName = "Espèces", accountBank = null, categoryName = "Sport")
         compose.setContent { SeriesCard(series = series, record = null) }
 
-        compose.onNodeWithText("Espèces · Sport").assertIsDisplayed()
+        compose.onNodeWithText("EUR · Espèces · Sport").assertIsDisplayed()
     }
 
     @Test
@@ -168,7 +168,7 @@ class RecurringOperationScreenTest {
         val accounts = listOf(Account(id = "a1", name = "Courant", bank = null))
         val series = listOf(calm.copy(accountId = "a1", accountName = "Courant", accountBank = "Revolut"))
 
-        assertEquals("Courant · Revolut", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
+        assertEquals("Revolut · EUR · Courant", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
     }
 
     @Test
@@ -176,13 +176,39 @@ class RecurringOperationScreenTest {
         val accounts = listOf(Account(id = "a1", name = "Courant", bank = "Crédit Agricole"))
         val series = listOf(calm.copy(accountId = "a1", accountBank = "Revolut"))
 
-        assertEquals("Courant · Crédit Agricole", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
+        assertEquals("Crédit Agricole · EUR · Courant", recurringAccountLabel(accounts, series, recurringAccountIri("a1")))
     }
 
     @Test
     fun `the form shows only the name of an account without a bank anywhere`() {
         val accounts = listOf(Account(id = "a1", name = "Espèces"))
 
-        assertEquals("Espèces", recurringAccountLabel(accounts, emptyList(), recurringAccountIri("a1")))
+        assertEquals("EUR · Espèces", recurringAccountLabel(accounts, emptyList(), recurringAccountIri("a1")))
+    }
+
+    @Test
+    fun `the account picker tells two accounts of the same name apart by their bank`() {
+        val accounts = listOf(
+            Account(id = "a1", name = "Compte courant", bank = "Boursorama"),
+            Account(id = "a2", name = "Compte courant", bank = "Crédit Agricole"),
+            Account(id = "a3", name = "Livret", bank = null),
+        )
+        compose.setContent {
+            AccountSearchScreen(accounts = accounts, bankByAccount = emptyMap(), selected = null, onPick = {}, onBack = {})
+        }
+
+        compose.onNodeWithText("Boursorama · EUR · Compte courant").assertIsDisplayed()
+        compose.onNodeWithText("Crédit Agricole · EUR · Compte courant").assertIsDisplayed()
+        compose.onNodeWithText("EUR · Livret").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the account picker reads the bank of the overview when the account has none of its own`() {
+        val accounts = listOf(Account(id = "a1", name = "Compte courant", bank = null))
+        compose.setContent {
+            AccountSearchScreen(accounts = accounts, bankByAccount = mapOf("a1" to "Revolut"), selected = null, onPick = {}, onBack = {})
+        }
+
+        compose.onNodeWithText("Revolut · EUR · Compte courant").assertIsDisplayed()
     }
 }

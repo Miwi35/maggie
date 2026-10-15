@@ -19,6 +19,7 @@
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "name": "Recorded Account",
+            "bank": "Recorded Bank",
             "balanceCents": 123456,
             "currency": "EUR"
         }

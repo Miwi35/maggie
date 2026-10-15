@@ -17,7 +17,7 @@ const CATEGORIES = [
   { id: '/api/categories/loyer', name: 'Loyer', obligation: 'mandatory' },
 ]
 
-const ACCOUNTS = [{ id: '/api/accounts/1', name: 'Compte courant' }]
+const ACCOUNTS = [{ id: '/api/accounts/1', name: 'Compte courant', bank: 'Boursorama', currency: 'EUR' }]
 
 const getList = ((resource: string) =>
   Promise.resolve({
@@ -91,7 +91,7 @@ const fill = async (user: ReturnType<typeof userEvent.setup>, label: string, amo
 
 const chooseAccount = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(await screen.findByLabelText(/Compte/))
-  await user.click(await screen.findByRole('option', { name: 'Compte courant' }))
+  await user.click(await screen.findByRole('option', { name: 'Boursorama · EUR · Compte courant' }))
 }
 
 describe('TransactionForm', () => {

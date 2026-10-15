@@ -30,6 +30,7 @@ import type { RaRecord } from 'react-admin'
 import type { TransactionNature } from './transactionStatuses'
 import { categoryLabel, orderedCategories } from './categoryTree'
 import type { CategoryNode } from './categoryTree'
+import { accountLabel } from './accountLabel'
 
 const formSx = { maxWidth: 680 }
 export const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -110,7 +111,7 @@ export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency
     <ReferenceInput source="account" reference="accounts">
       <AutocompleteInput
         label="Compte"
-        optionText="name"
+        optionText={accountLabel}
         validate={required()}
         fullWidth
         helperText="Le compte sur lequel la transaction est passée."

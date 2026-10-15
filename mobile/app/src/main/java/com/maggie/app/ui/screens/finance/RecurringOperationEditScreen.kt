@@ -64,6 +64,7 @@ import com.maggie.app.data.model.describeHistory
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.idOfIri
+import com.maggie.app.data.model.label
 import com.maggie.app.data.model.signedAmountCents
 import com.maggie.app.data.model.transactionNature
 import com.maggie.app.ui.UiTags
@@ -273,6 +274,7 @@ internal fun RecurringOperationEditScreen(
         "account" -> {
             AccountSearchScreen(
                 accounts = state.accounts,
+                bankByAccount = state.overview?.operations.orEmpty().associate { it.accountId to it.accountBank },
                 selected = form.account,
                 onPick = {
                     form.account = recurringAccountIri(it.id)
@@ -525,10 +527,10 @@ private fun PickerRow(
     }
 }
 
-/** « Compte · Banque » for the form's account; the overview's bank covers an account whose own `bank` is empty but whose live link names one. */
+/** « Banque · devise · nom » for the form's account; the overview's bank covers an account whose own `bank` is empty but whose live link names one. */
 internal fun recurringAccountLabel(accounts: List<Account>, series: List<RecurringSeries>, accountIri: String?): String? =
     accounts.firstOrNull { accountIri == recurringAccountIri(it.id) }?.let { account ->
-        accountLabel(account.name, account.bank?.takeIf { it.isNotBlank() } ?: series.firstOrNull { it.accountId == account.id }?.accountBank)
+        account.label(series.firstOrNull { it.accountId == account.id }?.accountBank)
     }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -752,6 +754,7 @@ internal fun RecurringHistoryPreviewScreen(
 @Composable
 internal fun AccountSearchScreen(
     accounts: List<Account>,
+    bankByAccount: Map<String, String?>,
     selected: String?,
     onPick: (Account) -> Unit,
     onBack: () -> Unit,
@@ -760,7 +763,7 @@ internal fun AccountSearchScreen(
         title = "Choisir un compte",
         label = "Rechercher un compte",
         empty = "Aucun compte ne correspond.",
-        options = accounts.map { PickerOption(it.id, it.name, it.bank) },
+        options = accounts.map { PickerOption(it.id, it.label(bankByAccount[it.id]), null) },
         selectedId = selected?.let(::idOfIri),
         onPick = { id -> accounts.firstOrNull { it.id == id }?.let(onPick) },
         onBack = onBack,

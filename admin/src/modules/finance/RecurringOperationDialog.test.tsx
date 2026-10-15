@@ -6,7 +6,16 @@ import type { DataProvider } from 'react-admin'
 import { RecurringOperationDialog } from './RecurringOperationDialog'
 
 const getList = vi.fn(async (resource: string, params?: { filter?: Record<string, unknown> }) => {
-  if (resource === 'accounts') return { data: [{ id: '/api/accounts/01ACC', name: 'Courant' }], total: 1 }
+  if (resource === 'accounts') {
+    return {
+      data: [
+        { id: '/api/accounts/01ACC', name: 'Courant', bank: 'Crédit Agricole', currency: 'EUR' },
+        { id: '/api/accounts/01BOU', name: 'Courant', bank: 'Boursorama', currency: 'EUR' },
+        { id: '/api/accounts/01LIV', name: 'Livret', bank: null, currency: 'EUR' },
+      ],
+      total: 3,
+    }
+  }
   if (resource === 'transactions') return { data: [], total: params?.filter?.qualifiedBySeries ? 3 : 0 }
 
   return {
@@ -88,13 +97,22 @@ describe('RecurringOperationDialog', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  test('offers each account as bank · currency · name, so two accounts of the same name differ', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('combobox', { name: /Compte/ }))
+
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent)
+    expect(options).toEqual(['Crédit Agricole · EUR · Courant', 'Boursorama · EUR · Courant', 'EUR · Livret'])
+  })
+
   test('creates the series with a signed reference amount, and tells the page', async () => {
     const { onSaved } = renderDialog()
 
     await userEvent.type(screen.getByLabelText(/Libellé/), 'Abonnement Flixo')
     await userEvent.type(screen.getByLabelText('Contrepartie attendue'), 'Flixo')
     await userEvent.type(screen.getByLabelText(/Montant de référence/), '13.49')
-    await pick(/Compte/, 'Courant')
+    await pick(/Compte/, 'Crédit Agricole · EUR · Courant')
     await pick(/Catégorie/, 'Abonnements')
     await userEvent.type(screen.getByLabelText(/Date d’une échéance/), '2026-10-12')
     await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))

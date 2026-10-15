@@ -6,9 +6,12 @@ import kotlinx.serialization.Serializable
 data class CushionAccount(
     val id: String,
     val name: String,
+    val bank: String? = null,
     val balanceCents: Int = 0,
     val currency: String = "EUR",
 )
+
+fun CushionAccount.label(): String = accountLabel(name, bank, currency)
 
 @Serializable
 data class CushionStatus(

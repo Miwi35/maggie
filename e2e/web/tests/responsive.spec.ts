@@ -363,7 +363,7 @@ test.describe('Responsive @responsive', () => {
       await new AdminShell(page).goto(accountTransactionsRoute(accountId))
 
       const title = page.locator('#react-admin-title')
-      await expect(title).toContainText('Transactions — Compte courant avec un nom')
+      await expect(title).toContainText('Transactions — EUR · Compte courant avec un nom')
 
       const box = await title.evaluate((node) => {
         const bar = node.getBoundingClientRect()

@@ -196,9 +196,9 @@ tags:
 - openLink: "maggie-e2e://finance/accounts"
 
 - extendedWaitUntil:
-    visible: "Compte courant"
+    visible: "Crédit Mutuel · EUR · Compte courant"
     timeout: 20000
-- tapOn: "Compte courant"
+- tapOn: "Crédit Mutuel · EUR · Compte courant"
 
 - extendedWaitUntil:
     visible: "CINEMA GAUMONT"

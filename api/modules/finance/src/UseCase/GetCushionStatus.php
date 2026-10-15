@@ -92,6 +92,7 @@ class GetCushionStatus
             'accounts' => array_map(static fn (Account $account) => [
                 'id' => (string) $account->getId(),
                 'name' => $account->getName(),
+                'bank' => $account->effectiveBank(),
                 'balanceCents' => $account->getBalanceCents(),
                 'currency' => $account->getCurrency(),
             ], $accounts),

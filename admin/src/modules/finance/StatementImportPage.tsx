@@ -21,10 +21,12 @@ import { Amount } from './AmountField'
 import { formatCents } from './accountTypes'
 import { useStatementImport } from './useStatementImport'
 import type { StatementImportReport } from './useStatementImport'
+import { accountLabel } from './accountLabel'
 
 interface AccountChoice {
   id: string
   name: string
+  bank?: string | null
   currency: string
 }
 
@@ -131,7 +133,7 @@ export const StatementImportPage = () => {
             >
               {(accounts ?? []).map((account) => (
                 <MenuItem key={account.id} value={account.id}>
-                  {account.name}
+                  {accountLabel(account)}
                 </MenuItem>
               ))}
             </TextField>

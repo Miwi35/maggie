@@ -73,6 +73,7 @@ class GetFinanceDashboard
             $byAccount[] = [
                 'id' => (string) $account->getId(),
                 'name' => $account->getName(),
+                'bank' => $account->effectiveBank(),
                 'type' => $account->getType()->value,
                 'balanceCents' => $account->getBalanceCents(),
                 'currency' => $account->getCurrency(),

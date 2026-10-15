@@ -44,6 +44,7 @@ import com.maggie.app.data.api.CushionConfigRequest
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.label
 import com.maggie.app.data.model.rechargePlanLabel
 import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
@@ -123,7 +124,7 @@ fun CushionScreen(
 }
 
 @Composable
-private fun CushionSummaryCard(status: CushionStatus) {
+internal fun CushionSummaryCard(status: CushionStatus) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
@@ -187,7 +188,7 @@ private fun CushionSummaryCard(status: CushionStatus) {
                 )
                 status.accounts.forEach { account ->
                     Text(
-                        text = "${account.name} — ${formatCents(account.balanceCents, account.currency)}",
+                        text = "${account.label()} — ${formatCents(account.balanceCents, account.currency)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

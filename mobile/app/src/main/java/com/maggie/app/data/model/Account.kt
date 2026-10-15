@@ -17,6 +17,13 @@ data class Account(
     @SerialName("cushion") val isCushion: Boolean = false,
 )
 
+/** « Boursorama · EUR · Compte courant »: two banks often both have a « Compte courant ». */
+fun accountLabel(name: String, bank: String?, currency: String?): String =
+    listOf(bank, currency, name).mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }.joinToString(" · ")
+
+/** [fallbackBank] names the bank of an account that has none typed in but a live link. */
+fun Account.label(fallbackBank: String? = null): String = accountLabel(name, bank?.takeIf { it.isNotBlank() } ?: fallbackBank, currency)
+
 /** Human-readable French label for an account type code. */
 fun accountTypeLabel(type: String): String = when (type) {
     "checking" -> "Compte courant"
