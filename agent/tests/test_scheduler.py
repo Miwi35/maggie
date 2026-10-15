@@ -438,7 +438,9 @@ class TestContextLifecycle:
     async def test_the_scheduler_starts_the_lifecycle_loop(self, monkeypatch):
         monkeypatch.setattr(scheduler, "_tasks", [])
         started = []
-        monkeypatch.setattr(scheduler, "_context_lifecycle_loop", lambda: started.append("lifecycle") or asyncio.sleep(0))
+        monkeypatch.setattr(
+            scheduler, "_context_lifecycle_loop", lambda: started.append("lifecycle") or asyncio.sleep(0)
+        )
         monkeypatch.setattr(scheduler, "_execution_loop", lambda: asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_daily_planning_loop", lambda: asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_style_synthesis_loop", lambda: started.append("style") or asyncio.sleep(0))
@@ -504,7 +506,10 @@ class TestExecutionLoop:
         repos.publish.assert_not_awaited()
 
     async def test_an_unreachable_api_does_not_stop_the_loop_and_is_asked_again_next_minute(self, repos, monkeypatch):
-        repos.claim_due.side_effect = [ProactionApiUnreachable("claim_due_proactions: no response"), [self._claimed("p-1")]]
+        repos.claim_due.side_effect = [
+            ProactionApiUnreachable("claim_due_proactions: no response"),
+            [self._claimed("p-1")],
+        ]
         ticks = iter([None, asyncio.CancelledError()])
 
         async def sleep(_seconds):
