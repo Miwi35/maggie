@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The title the owner types on a meal's sheet (MAG-378). Null for every meal
  * already there: they keep being titled after their recipes.
  */
-final class Version20261015130000 extends AbstractMigration
+final class Version20261015160000 extends AbstractMigration
 {
     public function getDescription(): string
     {

@@ -337,7 +337,9 @@ class Meal extends Event implements MercurePublishable
     /** @return Collection<int, Recipe> */
     public function getRecipes(): Collection
     {
-        return $this->recipes;
+        // Removing then adding leaves gaps in the keys, and a serialized collection with
+        // gaps is a JSON object, not the list the clients decode.
+        return new ArrayCollection($this->recipes->getValues());
     }
 
     public function addRecipe(Recipe $recipe): static

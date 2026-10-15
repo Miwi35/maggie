@@ -209,6 +209,23 @@ class MealApiTest extends WebTestCase
         self::assertSame('Repas des cousins', $stored->getCustomTitle());
     }
 
+    public function testSwappingTheRecipesAnswersWithAListNotAnObject(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $salad = $this->getFixture('salad');
+        $created = $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'recipes' => ['/api/recipes/'.$pasta->getId(), '/api/recipes/'.$salad->getId()],
+        ]);
+
+        $kept = $this->patchMeal($created['id'], ['recipes' => ['/api/recipes/'.$salad->getId()]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['/api/recipes/'.$salad->getId()], $kept['recipes']);
+    }
+
     public function testClearingTheTitleGoesBackToTheNamesOfTheRecipes(): void
     {
         $this->authenticateFixtureUser();
