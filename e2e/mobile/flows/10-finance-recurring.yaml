@@ -96,9 +96,10 @@ tags:
     visible:
       id: "recurring_line"
     timeout: 20000
-- extendedWaitUntil:
-    visible: ".*échéance du.*"
-    timeout: 10000
+- scrollUntilVisible:
+    element: ".*échéance du.*"
+    centerElement: true
+    timeout: 20000
 - scrollUntilVisible:
     element:
       id: "recurring_line_detach"
