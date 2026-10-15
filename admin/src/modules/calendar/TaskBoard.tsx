@@ -70,6 +70,12 @@ export const TaskBoard = () => {
     fetchTaskView(view, page)
       .then((result) => {
         if (current !== request.current) return
+        const lastPage = Math.max(1, Math.ceil(result.totalItems / PAGE_SIZE))
+        // The last page was emptied (a task unticked): go back to the last one that holds tasks.
+        if (page > lastPage) {
+          setPage(lastPage)
+          return
+        }
         setTasks(result.member)
         setTotal(result.totalItems)
         setCounts(result.counts)
@@ -85,11 +91,16 @@ export const TaskBoard = () => {
       })
   }, [view, page])
 
+  // Callbacks that outlive a render (a tick answered after a tab switch) must reload the tab shown now.
+  const loadRef = useRef(load)
   useEffect(() => {
+    loadRef.current = load
     load()
   }, [load])
 
-  useMercure(TASK_TOPICS, load)
+  const reload = useCallback(() => loadRef.current(), [])
+
+  useMercure(TASK_TOPICS, reload)
 
   const selectView = (_: unknown, next: TaskView) => {
     if (next === view) return
@@ -105,7 +116,7 @@ export const TaskBoard = () => {
     setTaskDone(task['@id'] ?? task.id, done)
       .then(() => {
         notify(done ? 'Tâche terminée' : 'Tâche rouverte', { type: 'success' })
-        load()
+        reload()
       })
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
@@ -117,7 +128,7 @@ export const TaskBoard = () => {
     createTask(value, defaultDueDate(view))
       .then(() => {
         setTitle('')
-        load()
+        reload()
       })
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
       .finally(() => setCreating(false))
@@ -242,7 +253,7 @@ export const TaskBoard = () => {
         // The data provider wants the IRI as id.
         task={editing ? { ...editing, id: editing['@id'] ?? editing.id } : null}
         onClose={() => setEditing(null)}
-        onUpdated={load}
+        onUpdated={reload}
       />
     </Box>
   )

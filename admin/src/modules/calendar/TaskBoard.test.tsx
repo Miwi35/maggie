@@ -307,4 +307,51 @@ describe('TaskBoard — the four views (MAG-408)', () => {
 
     await waitFor(() => expect(calls()).toContain('http://localhost/api/tasks/view/done?page=2&itemsPerPage=30'))
   })
+
+  test('« Faites » goes back a page when the last one is emptied', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let doneTotal = 31
+    mockFetch.mockImplementation((url, init) => {
+      const match = /view\/(\w+)(\?page=(\d+))?/.exec(String(url))
+      if (!match) return Promise.resolve(new Response('{}', { status: init?.method === 'PATCH' ? 200 : 201 }))
+      if (match[1] !== 'done') return Promise.resolve(viewResponse(match[1]))
+      const onPage2 = match[3] === '2'
+      const member = onPage2 ? (doneTotal > 30 ? [task('01LAST', 'Dernière faite', { completedAt: '2026-10-01T10:00:00+00:00' })] : []) : VIEWS.done
+      return Promise.resolve(new Response(JSON.stringify({ totalItems: doneTotal, counts: COUNTS, member }), { status: 200 }))
+    })
+    render(<TaskBoard />)
+    await screen.findByText('Renvoyer le formulaire')
+    await user.click(screen.getByRole('tab', { name: 'Faites (1)' }))
+    await screen.findByText('Sortir les poubelles')
+    await user.click(screen.getByRole('button', { name: /page 2/i }))
+    await screen.findByText('Dernière faite')
+
+    doneTotal = 30
+    await user.click(within(screen.getByText('Dernière faite').closest('li') as HTMLElement).getByRole('checkbox'))
+
+    await screen.findByText('Sortir les poubelles')
+    expect(screen.queryByText('Aucune tâche terminée')).toBeNull()
+  })
+
+  test('a tick answered after a tab switch reloads the tab shown, not the one ticked on', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let release: (response: Response) => void = () => {}
+    mockFetch.mockImplementation((url, init) => {
+      const match = /\/tasks\/view\/(\w+)/.exec(String(url))
+      if (match) return Promise.resolve(viewResponse(match[1]))
+      if (init?.method === 'PATCH') return new Promise<Response>((resolve) => (release = resolve))
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+    render(<TaskBoard />)
+    await screen.findByText('Renvoyer le formulaire')
+    await user.click(within(screen.getByText('Renvoyer le formulaire').closest('li') as HTMLElement).getByRole('checkbox'))
+    await user.click(screen.getByRole('tab', { name: /À venir/ }))
+    await screen.findByText('Appeler le garage')
+
+    release(new Response('{}', { status: 200 }))
+
+    await waitFor(() => expect(calls().filter((url) => url.includes('/view/upcoming')).length).toBeGreaterThan(1))
+    expect(screen.getByText('Appeler le garage')).toBeTruthy()
+    expect(screen.queryByText('Renvoyer le formulaire')).toBeNull()
+  })
 })
