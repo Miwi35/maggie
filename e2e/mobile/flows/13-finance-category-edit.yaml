@@ -135,10 +135,13 @@ tags:
 - inputText: "voiture"
 - hideKeyboard
 - extendedWaitUntil:
-    visible: "Voiture"
+    visible:
+      id: "category_icon_tile_directions-car"
     timeout: 10000
-- assertNotVisible: "Maison"
-- tapOn: "Voiture"
+- assertNotVisible:
+    id: "category_icon_tile_home"
+- tapOn:
+    id: "category_icon_tile_directions-car"
 - extendedWaitUntil:
     visible: "Icône, Voiture"
     timeout: 10000

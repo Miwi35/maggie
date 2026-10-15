@@ -104,7 +104,7 @@ internal object CategoryIconCatalog {
      */
     fun tiles(query: String, current: String?): List<CategoryIconTile> {
         val found = filter(query).map { CategoryIconTile(it.name, it.label, it.icon) }
-        val name = current?.trim()?.lowercase().orEmpty()
+        val name = current?.trim().orEmpty()
         val unknownShown = name.isNotEmpty() && find(name) == null &&
             (query.isBlank() || normalize(name).contains(normalize(query)))
         return if (unknownShown) listOf(CategoryIconTile(name, name, null)) + found else found

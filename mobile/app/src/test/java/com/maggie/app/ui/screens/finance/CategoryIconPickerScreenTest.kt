@@ -112,6 +112,14 @@ class CategoryIconPickerScreenTest {
     }
 
     @Test
+    fun `a stored name that looks like a fixed row does not break the grid`() {
+        picker(current = "none")
+
+        compose.onNodeWithText("none").assertIsDisplayed()
+        compose.onNodeWithText("Courses").assertIsDisplayed()
+    }
+
+    @Test
     fun `the category form shows the icon by its label and opens the grid from it`() {
         val state = CategoryFormState(Category(id = "cat-1", name = "Courses", icon = "shopping-cart"))
         var opened = 0

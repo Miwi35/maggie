@@ -1,11 +1,12 @@
 package com.maggie.app.ui.screens.finance
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -54,7 +56,6 @@ internal fun CategoryIconPickerScreen(
     onPick: (String?) -> Unit,
     onBack: () -> Unit,
 ) {
-    BackHandler(onBack = onBack)
     var query by rememberSaveable { mutableStateOf("") }
     val tiles = remember(query, current) { CategoryIconCatalog.tiles(query, current) }
     val selectedName = current?.trim()?.lowercase()?.ifEmpty { null }
@@ -83,29 +84,30 @@ internal fun CategoryIconPickerScreen(
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 96.dp),
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
+                item(key = "__none", span = { GridItemSpan(maxLineSpan) }) {
                     IconTile(
                         label = "Aucune icône",
                         selected = selectedName == null,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.CATEGORY_ICON_TILE_PREFIX + "none"),
                         onClick = { onPick(null) },
                     ) {
                         CategoryGlyph(color = color, icon = null)
                     }
                 }
                 if (tiles.isEmpty()) {
-                    item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                    item(key = "__empty", span = { GridItemSpan(maxLineSpan) }) {
                         Text("Aucune icône ne correspond.", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                items(tiles, key = { it.name }) { tile ->
+                items(tiles, key = { "icon:${it.name}" }) { tile ->
                     IconTile(
                         label = tile.label,
-                        selected = tile.name == selectedName,
+                        selected = tile.name.equals(selectedName, ignoreCase = true),
+                        modifier = Modifier.testTag(UiTags.CATEGORY_ICON_TILE_PREFIX + tile.name),
                         onClick = { onPick(tile.name) },
                     ) {
                         CategoryGlyph(color = color, icon = tile.name)
@@ -140,7 +142,7 @@ private fun IconTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            glyph()
+            Box(modifier = Modifier.clearAndSetSemantics {}) { glyph() }
             Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
         }
     }

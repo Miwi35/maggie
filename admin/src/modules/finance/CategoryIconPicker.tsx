@@ -54,8 +54,9 @@ export const CategoryIconPicker = ({ source, label, helperText }: CategoryIconPi
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const current = typeof field.value === 'string' && field.value.trim() !== '' ? field.value.trim().toLowerCase() : null
+  const current = typeof field.value === 'string' && field.value.trim() !== '' ? field.value.trim() : null
   const known = findCategoryIcon(current)
+  const isCurrent = (name: string) => current !== null && name.toLowerCase() === current.toLowerCase()
   const currentLabel = current === null ? 'Aucune' : (known?.label ?? current)
 
   const tiles = useMemo<Tile[]>(() => {
@@ -123,9 +124,9 @@ export const CategoryIconPicker = ({ source, label, helperText }: CategoryIconPi
                 <ButtonBase
                   key={tile.name}
                   aria-label={tile.label}
-                  aria-pressed={tile.name === current}
+                  aria-pressed={isCurrent(tile.name)}
                   onClick={() => choose(tile.name)}
-                  sx={tileSx(tile.name === current)}
+                  sx={tileSx(isCurrent(tile.name))}
                 >
                   <Icon />
                   <Typography variant="caption" align="center" sx={{ overflowWrap: 'anywhere' }}>

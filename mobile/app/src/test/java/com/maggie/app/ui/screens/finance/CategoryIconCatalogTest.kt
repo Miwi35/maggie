@@ -88,6 +88,11 @@ class CategoryIconCatalogTest {
     }
 
     @Test
+    fun `a name outside the catalogue keeps its case`() {
+        assertEquals("Rocket", CategoryIconCatalog.tiles("", "Rocket").first().name)
+    }
+
+    @Test
     fun `a catalogue name is not listed twice`() {
         assertEquals(referenceNames, CategoryIconCatalog.tiles("", "bolt").map { it.name })
         assertEquals(referenceNames, CategoryIconCatalog.tiles("", null).map { it.name })
