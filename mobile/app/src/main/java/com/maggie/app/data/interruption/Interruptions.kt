@@ -46,7 +46,7 @@ object Interruptions {
         "grocery_items" to ("grocery" to "Voir la liste de courses"),
         "recipes" to ("recipe" to "Voir la recette"),
     )
-    private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "loans", "review")
+    private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "savings-advances", "loans", "review")
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
 

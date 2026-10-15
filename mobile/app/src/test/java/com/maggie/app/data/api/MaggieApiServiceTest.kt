@@ -1238,4 +1238,68 @@ class MaggieApiServiceTest {
         assertTrue(contentType!!.startsWith("application/merge-patch+json"))
         assertEquals("""{"frequency":"biweekly"}""", body)
     }
+
+    @Test
+    fun `getSavingsAdvances reads the advances from the finance endpoint`() = runBlocking {
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url.toString()
+                """{"advances":[],"totalOutstandingCents":150000,"proposals":[]}"""
+            },
+        )
+
+        val advances = service.getSavingsAdvances()
+
+        assertTrue(url!!.endsWith("/api/finance/savings-advances"))
+        assertEquals(150000, advances.totalOutstandingCents)
+    }
+
+    @Test
+    fun `a failed savings advances read is an error, not an empty screen`() = runBlocking {
+        val service = MaggieApiService(refusingClient(HttpStatusCode.InternalServerError, """{"error":"Down"}"""))
+
+        val failure = runCatching { service.getSavingsAdvances() }.exceptionOrNull()
+
+        assertTrue(failure is ApiRefusalException)
+    }
+
+    @Test
+    fun `setSalaryExpectedDay patches the settings with the day, or an explicit null to forget it`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        var method: HttpMethod? = null
+        var url: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                bodies += String(request.body.toByteArray())
+                """{"success":true,"id":"x","salaryExpectedDay":28,"salaryDelay":{"salaryExpectedDay":28}}"""
+            },
+        )
+
+        val result = service.setSalaryExpectedDay(28)
+        service.setSalaryExpectedDay(null)
+
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(url!!.endsWith("/api/finance/treasury-settings"))
+        assertEquals("""{"salaryExpectedDay":28}""", bodies[0])
+        assertEquals("""{"salaryExpectedDay":null}""", bodies[1])
+        assertEquals(28, result.salaryDelay.salaryExpectedDay)
+    }
+
+    @Test
+    fun `a day refused with 400 raises the server's error sentence`() = runBlocking {
+        val sentence = "salaryExpectedDay must be an integer from 1 to 31, or null"
+        val service = MaggieApiService(refusingClient(HttpStatusCode.BadRequest, """{"error":"$sentence"}"""))
+
+        val failure = runCatching { service.setSalaryExpectedDay(40) }.exceptionOrNull()
+
+        assertEquals(sentence, failure?.message)
+    }
+
+    @Test
+    fun `a refusal reads the error key of the treasury endpoints`() {
+        assertEquals("Nope.", refusalMessage(400, """{"error":"Nope."}"""))
+    }
 }

@@ -45,8 +45,11 @@ import com.maggie.app.data.model.recurringOperationIri
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.SalaryExpectedDayRequest
+import com.maggie.app.data.model.SavingsAdvances
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasurySettings
+import com.maggie.app.data.model.TreasurySettingsResult
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
@@ -1261,7 +1264,7 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
             setBody(request)
-        }.body()
+        }.orRefusal().body()
     }
 
     suspend fun deleteTransaction(id: String) {
@@ -1567,6 +1570,18 @@ class MaggieApiService(
         return client.patch("$baseUrl/api/finance/treasury-settings") {
             contentType(ContentType.Application.Json)
             setBody(request)
+        }.orRefusal().body()
+    }
+
+    // Finance — Savings advances
+    suspend fun getSavingsAdvances(): SavingsAdvances {
+        return client.get("$baseUrl/api/finance/savings-advances").orRefusal().body()
+    }
+
+    suspend fun setSalaryExpectedDay(day: Int?): TreasurySettingsResult {
+        return client.patch("$baseUrl/api/finance/treasury-settings") {
+            contentType(ContentType.Application.Json)
+            setBody(SalaryExpectedDayRequest(day))
         }.orRefusal().body()
     }
 

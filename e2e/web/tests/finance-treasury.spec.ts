@@ -6,6 +6,7 @@ import { euros } from '../helpers/money.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
+import { ROUTES, adminUrl } from '../pages/routes.js'
 
 /**
  * Les avances d'épargne (MAG-276, MAG-277, extends MAG-102).
@@ -24,6 +25,11 @@ import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
  *   Quand je saisis ensuite un approvisionnement de 200,00 € du Courant vers le Livret
  *   Alors les deux lignes restent un virement interne neutre
  *     et l'avance soldée n'a rien reçu de plus
+ *
+ * Second journey (MAG-278): Given the same advance, when I open the admin screen
+ * « Avances d'épargne », then 1 500,00 € are left to give back and the exact
+ * counter-transfer is proposed; when I click « Je l'ai fait », then the advance
+ * is settled and nothing is proposed any more.
  *
  * The expected day is today's, so the current month is not due yet and the
  * previous one is the whole delay, whatever the day the suite runs. The two
@@ -130,17 +136,8 @@ async function savingsAdvances(api: APIRequestContext): Promise<SavingsAdvances>
   return (await response.json()) as SavingsAdvances
 }
 
-test.afterEach(async ({ treasuryUser }) => {
-  for (const id of createdAccountIds.splice(0)) {
-    await treasuryUser.api.delete(`/api/accounts/${id}`)
-  }
-  await treasuryUser.api.patch('/api/finance/treasury-settings', { data: { salaryExpectedDay: null, overdraftLimitCents: 0 } })
-})
-
-test('« combien je dois remettre sur mon livret ? » reads the advance taken during the delay', async ({ treasuryUser }) => {
-  const { api, page } = treasuryUser
-  const today = parisDay()
-
+/** A salary expected today (4 950 € a month), none since last month's day, and 1 500 € moved from the Livret to the Courant two days ago. */
+async function givenAdvanceTaken(api: APIRequestContext, today: string): Promise<{ checkingId: string; livretId: string }> {
   // Given a salary expected today, 4 950 € a month by its « Salaire » series.
   const installed = await api.post('/api/finance/categories/standard')
   expect(installed.status(), await installed.text()).toBe(200)
@@ -172,6 +169,23 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   const movedOn = shiftDay(today, -2)
   await line(api, livretId, -150000, movedOn, 'VIR VERS COURANT MAG-276')
   await line(api, checkingId, 150000, movedOn, 'VIR DEPUIS LIVRET MAG-276')
+
+  return { checkingId, livretId }
+}
+
+test.afterEach(async ({ treasuryUser }) => {
+  for (const id of createdAccountIds.splice(0)) {
+    await treasuryUser.api.delete(`/api/accounts/${id}`)
+  }
+  await treasuryUser.api.patch('/api/finance/treasury-settings', { data: { salaryExpectedDay: null, overdraftLimitCents: 0 } })
+})
+
+test('« combien je dois remettre sur mon livret ? » reads the advance taken during the delay', async ({ treasuryUser }) => {
+  const { api, page } = treasuryUser
+  const today = parisDay()
+
+  // Given a salary expected today, no salary since last month's day, and 1 500 € moved from the Livret to the Courant two days ago.
+  const { checkingId, livretId } = await givenAdvanceTaken(api, today)
 
   // When I ask Maggie how much to put back on my Livret.
   await new DashboardPage(page).open()
@@ -400,4 +414,34 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
   await expect(treasury.overdraft).toHaveCount(0)
   await expect(treasury.advice).toHaveCount(0)
   await expect(treasury.content).toContainText("Aucun découvert prévu jusqu'au prochain salaire.")
+})
+
+test("the admin screen shows the advance and « Je l'ai fait » settles it", async ({ treasuryUser }) => {
+  const { api, page } = treasuryUser
+  const today = parisDay()
+
+  // Given an advance of 1 500 € taken on the Livret during the salary delay.
+  await givenAdvanceTaken(api, today)
+
+  // When I open the savings advances screen.
+  await page.goto(adminUrl(ROUTES.financeSavingsAdvances))
+
+  // Then 1 500,00 € are left to give back, on the Livret, and the exact counter-transfer is proposed.
+  await expect(page.getByTestId('savings-total-outstanding')).toContainText('1 500,00')
+  await expect(page.getByTestId('savings-source')).toContainText('Livret MAG-276')
+  const proposal = page.getByTestId('savings-proposal')
+  await expect(proposal).toContainText('1 500,00')
+  await expect(proposal).toContainText('Livret MAG-276')
+
+  // When I say I made it, the screen records the two legs of the transaction.
+  await proposal.getByRole('button', { name: /Je l'ai fait/ }).click()
+
+  // Then the advance is settled: 0,00 € left, nothing proposed any more.
+  await expect(page.getByTestId('savings-total-outstanding')).toHaveText(/^0,00/)
+  await expect(page.getByTestId('savings-proposal')).toHaveCount(0)
+  const settled = await savingsAdvances(api)
+  expect(settled.advances).toEqual([
+    expect.objectContaining({ sourceAccountName: 'Livret MAG-276', repaidCents: 150000, outstandingCents: 0, isClosed: true }),
+  ])
+  expect(settled.proposals).toEqual([])
 })

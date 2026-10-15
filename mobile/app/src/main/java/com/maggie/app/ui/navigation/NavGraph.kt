@@ -98,6 +98,8 @@ import com.maggie.app.ui.screens.finance.RuleSuggestionListScreen
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
 import com.maggie.app.ui.screens.finance.CushionScreen
+import com.maggie.app.ui.screens.finance.SavingsAdvancesScreen
+import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanListScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
@@ -201,6 +203,7 @@ sealed class Screen(val route: String, val label: String) {
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
     data object Treasury : Screen("treasury", "Trésorerie")
+    data object SavingsAdvances : Screen("savings_advances", "Avances d'épargne")
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
@@ -1248,6 +1251,13 @@ fun NavGraph() {
                             transactionPrefill = prefill
                             navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                         },
+                    )
+                }
+                composable(Screen.SavingsAdvances.route, deepLinks = DeepLinks.forRoute(Screen.SavingsAdvances.route)) {
+                    val savingsAdvancesViewModel: SavingsAdvancesViewModel = koinViewModel()
+                    SavingsAdvancesScreen(
+                        viewModel = savingsAdvancesViewModel,
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {

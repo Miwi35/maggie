@@ -60,4 +60,9 @@ class UiTagsTest {
         assertEquals("recurring_option_biweekly", UiTags.recurringOption(RecurringFrequency.BIWEEKLY.apiValue()))
         assertEquals("recurring_option_none", UiTags.recurringOption("none"))
     }
+
+    @Test
+    fun `a savings advance's button is suffixed by the advance`() {
+        assertEquals("savings_advance_done_adv-1", UiTags.savingsAdvanceDone("adv-1"))
+    }
 }

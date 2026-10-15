@@ -29,6 +29,7 @@ class FinanceNavigationTest {
         assertTrue(Screen.BankConnectionList.route in routes)
         assertTrue(Screen.RecurringOperations.route in routes)
         assertTrue(Screen.Treasury.route in routes)
+        assertTrue(Screen.SavingsAdvances.route in routes)
         assertEquals(routes.size, routes.toSet().size)
     }
 
@@ -54,6 +55,7 @@ class FinanceNavigationTest {
                 Screen.RecurringOperations.route,
                 Screen.MonthlyReview.route,
                 Screen.Cushion.route,
+                Screen.SavingsAdvances.route,
             ),
             financeAccessesBy(FinanceFrequency.MONTHLY).map { it.route },
         )

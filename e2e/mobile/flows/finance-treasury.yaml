@@ -19,10 +19,15 @@ tags:
 # delay is last month's whole length whatever the day the suite runs. The amounts are not
 # asserted — they are drawn with the phone's locale; `TreasuryScreenTest` reads them.
 #
-# What is not here: the savings advances screen (MAG-278), the overdraft limit field and
-# « Préparer l'avance » opening the new transaction pre-filled (`TreasuryViewModelTest`,
-# `TreasuryScreenTest`, `TransactionPrefillScreenTest`), and the admin's side of the same
-# API (`finance-treasury.spec.ts`).
+# Then, on the same account, the savings advances screen opens from the dashboard's
+# « Chaque mois » (MAG-278): the total « Reste à rendre » and the salary day field are drawn
+# whatever the account holds. What the screen does with advances, proposals and a late salary
+# is `SavingsAdvancesScreenTest` and `SavingsAdvancesViewModelTest`; the numbers are the API's.
+#
+# What is not here: tapping « Je l'ai fait » (it needs the two legs paired by the server),
+# the overdraft limit field and « Préparer l'avance » opening the new transaction pre-filled
+# (`TreasuryViewModelTest`, `TreasuryScreenTest`, `TransactionPrefillScreenTest`), and the
+# admin's side of the same API (`finance-treasury.spec.ts`).
 
 - launchApp:
     clearState: true
@@ -74,6 +79,30 @@ tags:
     element:
       id: "treasury_prepare_advance"
     timeout: 30000
+
+# The savings advances screen, one tap from the dashboard's accesses.
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible: ".*Solde de tous les comptes.*"
+    timeout: 20000
+# Fully on screen, centred: the last access sits under the gesture bar, where a tap lands on nothing.
+- scrollUntilVisible:
+    element:
+      id: "finance_access_savings_advances"
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "finance_access_savings_advances"
+
+# The total only exists once the answer came: a failed load draws « Réessayer » instead.
+- extendedWaitUntil:
+    visible:
+      id: "savings_advances_total"
+    timeout: 20000
+- assertVisible: "Reste à rendre"
+- assertVisible:
+    id: "savings_advances_salary_day"
 
 # Left as found.
 - runScript:

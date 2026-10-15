@@ -42,6 +42,7 @@ class DeepLinksTest {
             Screen.BankConnectionList,
             Screen.Cushion,
             Screen.Treasury,
+            Screen.SavingsAdvances,
             Screen.LoanList,
             Screen.MonthlyReview,
             Screen.RecurringOperations,
@@ -51,6 +52,11 @@ class DeepLinksTest {
             assertTrue("$route has no deep link", DeepLinks.patternsFor(route).isNotEmpty())
         }
         assertTrue(DeepLinks.patternsFor(DeepLinks.ACCOUNT_ROUTE).single().startsWith("$scheme://finance/accounts/"))
+    }
+
+    @Test
+    fun `savings advances opens from maggie finance savings-advances`() {
+        assertEquals(listOf("$scheme://finance/savings-advances"), DeepLinks.patternsFor(Screen.SavingsAdvances.route))
     }
 
     @Test

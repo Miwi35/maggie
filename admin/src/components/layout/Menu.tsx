@@ -39,6 +39,7 @@ import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import EventRepeatIcon from '@mui/icons-material/EventRepeat'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { ModuleIcon } from './ModuleIcon'
 import type { ModuleName } from '../../theme'
 import { useAgentName } from '../../hooks/useAgentName'
@@ -196,6 +197,12 @@ export const CustomMenu = () => {
                 to="/finance/cushion"
                 primaryText="Matelas"
                 leftIcon={tinted('comptes', <ShieldIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/savings-advances"
+                primaryText="Avances d'épargne"
+                leftIcon={tinted('comptes', <SwapHorizIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

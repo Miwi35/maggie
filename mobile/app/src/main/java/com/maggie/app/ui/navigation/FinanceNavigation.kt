@@ -18,6 +18,7 @@ val FINANCE_ACCESSES = listOf(
     FinanceAccess(Screen.RecurringOperations, "Opérations récurrentes", FinanceFrequency.MONTHLY),
     FinanceAccess(Screen.MonthlyReview, "Revue mensuelle", FinanceFrequency.MONTHLY),
     FinanceAccess(Screen.Cushion, "Matelas", FinanceFrequency.MONTHLY),
+    FinanceAccess(Screen.SavingsAdvances, "Avances d'épargne", FinanceFrequency.MONTHLY),
     FinanceAccess(Screen.LoanList, "Prêts", FinanceFrequency.RARE),
     FinanceAccess(Screen.CategoryList, "Catégories", FinanceFrequency.RARE),
     FinanceAccess(Screen.CategorizationRuleList, "Règles de catégorisation", FinanceFrequency.RARE),
