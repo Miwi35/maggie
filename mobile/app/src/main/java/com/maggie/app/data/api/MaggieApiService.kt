@@ -387,6 +387,17 @@ data class EnvelopeCreateRequest(
 )
 
 @Serializable
+data class EnvelopeSplitChild(
+    val envelopeId: String,
+    val amountCents: Int,
+)
+
+@Serializable
+data class EnvelopeSplitRequest(
+    val children: List<EnvelopeSplitChild>,
+)
+
+@Serializable
 data class RetrospectRequest(
     val retrospect: String,
 )
@@ -1319,6 +1330,14 @@ class MaggieApiService(
 
     suspend fun deleteEnvelope(id: String) {
         client.delete("$baseUrl/api/envelopes/$id")
+    }
+
+    /** Shares a mother's amount between her daughters in one go; a 400 means nothing was changed. */
+    suspend fun splitEnvelope(id: String, request: EnvelopeSplitRequest) {
+        client.put("$baseUrl/api/finance/envelopes/$id/split") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal()
     }
 
     suspend fun getBudgetStatus(year: Int, month: Int): BudgetStatus {

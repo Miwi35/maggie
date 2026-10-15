@@ -151,6 +151,27 @@ class BudgetStatusControllerTest extends WebTestCase
         self::assertSame(22500, $data['totalAvailableCents']);
     }
 
+    public function testAMotherReportsWhatHerDaughtersHoldAndWhatIsFree(): void
+    {
+        $this->loadFixtures('envelope_split.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/budget-status?year=2026&month=10', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $byCategory = array_column($data['budgets'], null, 'categoryName');
+
+        // Loisirs 300 €: Bars 100 € and Cinéma 50 € leave 150 € free.
+        self::assertSame(15000, $byCategory['Loisirs']['allocatedToChildrenCents']);
+        self::assertSame(15000, $byCategory['Loisirs']['freeCents']);
+
+        // A daughter, or an envelope with none, is not a mother.
+        self::assertNull($byCategory['Bars']['allocatedToChildrenCents']);
+        self::assertNull($byCategory['Bars']['freeCents']);
+        self::assertNull($byCategory['Alimentation']['freeCents']);
+    }
+
     public function testAnEnvelopeWithNoEnvelopeAboveItIsARoot(): void
     {
         $this->loadFixtures('budget_status_nested.yaml');

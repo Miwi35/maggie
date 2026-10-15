@@ -125,4 +125,42 @@ export class FinanceBudgetPage extends AdminShell {
     await this.page.getByRole('option', { name: MONTH_LABELS[month] }).click()
     await expect(picker.getByLabel('Mois')).toHaveText(MONTH_LABELS[month])
   }
+
+  /**
+   * Opens the ruler of a mother envelope, below its gauge.
+   *
+   * It stays closed until asked for: the gauge alone is the read screen, the
+   * ruler is where the owner shares her amount between the daughters.
+   */
+  async openRuler(motherName: string): Promise<Locator> {
+    await this.gauge(motherName).getByRole('button', { name: 'Répartir' }).click()
+    const ruler = this.gauge(motherName).getByTestId('envelope-split')
+    await expect(ruler).toBeVisible()
+
+    return ruler
+  }
+
+  /** What the ruler says a segment holds: a daughter, or « libre ». */
+  rulerAmount(ruler: Locator, segment: string): Locator {
+    return ruler.locator(`[data-testid="split-amount"][data-category="${segment}"]`)
+  }
+
+  /**
+   * Moves the boundary after `daughter` by keyboard — one euro a press — and
+   * saves. Waits for the write itself: the gauges redraw from the API's answer,
+   * so an assertion made before the response would read the old split.
+   */
+  async moveBoundary(ruler: Locator, daughter: string, next: string, euros: number): Promise<void> {
+    const handle = ruler.getByRole('slider', { name: `Frontière entre ${daughter} et ${next}` })
+    await handle.focus()
+    for (let i = 0; i < Math.abs(euros); i += 1) {
+      await this.page.keyboard.press(euros > 0 ? 'ArrowRight' : 'ArrowLeft')
+    }
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) => response.url().includes('/split') && 'PUT' === response.request().method(),
+      ),
+      ruler.getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
+  }
 }

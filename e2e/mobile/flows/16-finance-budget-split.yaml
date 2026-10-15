@@ -1,0 +1,67 @@
+appId: com.maggie.app.e2e
+name: 16-finance-budget-split
+tags:
+  - finance
+---
+# The ruler of a mother envelope, read on the phone (MAG-413, extends MAG-102).
+#
+# Given Loisirs at 300 € with Bars at 100 € and Cinéma at 50 €, the budget screen reads
+# the bar Bars 100 / Cinéma 50 / Libre 150. When the boundary Bars|Cinéma is moved by
+# 20 € (the admin does it: `finance-budget.spec.ts`; here the script plays its single
+# write), then the phone, still open, shows Bars 120 / Cinéma 30 / Libre 150.
+#
+# The phone only consults: no "Répartir" button here. The tablet's editing is checked by
+# `BudgetViewModelTest`, which moves the boundary and saves.
+#
+# It signs in as the seed's second user and the script removes what it made. Amounts are
+# matched with either decimal separator.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/16-finance-budget-split.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: create-split
+      TODAY: ${TODAY}
+
+- openLink: "maggie-e2e://finance/budgets"
+
+- extendedWaitUntil:
+    visible: "Bars 100[.,]00 EUR"
+    timeout: 30000
+- assertVisible: "Cinéma 50[.,]00 EUR"
+- assertVisible: "Libre 150[.,]00 EUR"
+- assertNotVisible: "Répartir"
+
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: split
+      TODAY: ${TODAY}
+# One reload at a time: the previous month is empty, then the shown one is read again.
+- tapOn: "Mois précédent"
+- extendedWaitUntil:
+    visible: "Aucune enveloppe pour cette période.*"
+    timeout: 30000
+- tapOn: "Mois suivant"
+
+- extendedWaitUntil:
+    visible: "Bars 120[.,]00 EUR"
+    timeout: 30000
+- assertVisible: "Cinéma 30[.,]00 EUR"
+- assertVisible: "Libre 150[.,]00 EUR"
+
+# Left as found.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: remove
+      TODAY: ${TODAY}

@@ -1196,6 +1196,7 @@ fun NavGraph() {
                     BudgetScreen(
                         viewModel = budgetViewModel,
                         onBack = { navController.backInFinance() },
+                        canEditSplit = paneShown,
                     )
                 }
                 composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {

@@ -100,6 +100,10 @@ data class BudgetLine(
     override val committedCents: Int = 0,
     override val plannedCents: Int = 0,
     override val toArbitrateCents: Int = 0,
+    // What the daughter envelopes hold; null when this envelope has no daughter.
+    val allocatedToChildrenCents: Int? = null,
+    // What a mother keeps free once her daughters are served; null for a non-mother.
+    val freeCents: Int? = null,
     override val consumedCents: Int = 0,
     override val remainingCents: Int = 0,
     override val availableCents: Int = 0,

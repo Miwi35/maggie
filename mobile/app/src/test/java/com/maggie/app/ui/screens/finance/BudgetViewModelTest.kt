@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.api.EnvelopeCreateRequest
+import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.EnvelopeSplitChild
+import com.maggie.app.data.api.EnvelopeSplitRequest
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
@@ -11,6 +14,7 @@ import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.Season
+import com.maggie.app.data.model.SplitShares
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
@@ -454,5 +458,129 @@ class BudgetViewModelTest {
         assertEquals("boom", state.error)
         assertNull(state.status)
         assertTrue(state.categories.isNotEmpty())
+    }
+
+    private val loisirsStatus = BudgetStatus(
+        year = 2026,
+        month = 7,
+        budgets = listOf(
+            BudgetLine(
+                id = "env-loisirs",
+                categoryId = "cat-loisirs",
+                categoryName = "Loisirs",
+                categoryPath = "Loisirs",
+                amountCents = 30000,
+                allocatedToChildrenCents = 15000,
+                freeCents = 15000,
+            ),
+            BudgetLine(
+                id = "env-bars",
+                categoryId = "cat-bars",
+                categoryName = "Bars",
+                categoryPath = "Loisirs › Bars",
+                parentEnvelopeId = "env-loisirs",
+                amountCents = 10000,
+            ),
+            BudgetLine(
+                id = "env-cinema",
+                categoryId = "cat-cinema",
+                categoryName = "Cinéma",
+                categoryPath = "Loisirs › Cinéma",
+                parentEnvelopeId = "env-loisirs",
+                amountCents = 5000,
+            ),
+        ),
+    )
+
+    private fun loadLoisirs() {
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } returns Result.success(loisirsStatus)
+    }
+
+    @Test
+    fun `the phone reads a mother's ruler without opening an editor`() = runTest {
+        loadLoisirs()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        val mother = state.status!!.budgets.first { it.id == "env-loisirs" }
+        assertEquals(listOf("env-bars", "env-cinema"), state.daughtersOf(mother).map { it.id })
+        assertEquals(15000, mother.freeCents)
+        assertEquals(15000, mother.allocatedToChildrenCents)
+        assertNull(state.splitEditor)
+        assertTrue(state.daughtersOf(state.status!!.budgets.first { it.id == "env-bars" }).isEmpty())
+    }
+
+    @Test
+    fun `the tablet moves the Bars-Cinema boundary by 20 euros and saves every daughter at once`() = runTest {
+        loadLoisirs()
+        coEvery { budgetRepository.splitEnvelope(any(), any()) } returns Result.success(Unit)
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSplit("env-loisirs")
+        assertEquals(SplitShares(listOf(10000, 5000), 15000), viewModel.uiState.value.splitEditor?.shares)
+
+        viewModel.moveSplitBoundary(0, 2000)
+        assertEquals(SplitShares(listOf(12000, 3000), 15000), viewModel.uiState.value.splitEditor?.shares)
+        // Nothing is written until it is saved.
+        coVerify(exactly = 0) { budgetRepository.splitEnvelope(any(), any()) }
+
+        viewModel.saveSplit()
+        advanceUntilIdle()
+
+        coVerify {
+            budgetRepository.splitEnvelope(
+                "env-loisirs",
+                EnvelopeSplitRequest(
+                    listOf(EnvelopeSplitChild("env-bars", 12000), EnvelopeSplitChild("env-cinema", 3000)),
+                ),
+            )
+        }
+        assertNull(viewModel.uiState.value.splitEditor)
+        coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `cancelling the ruler drops the edit and writes nothing`() = runTest {
+        loadLoisirs()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSplit("env-loisirs")
+        viewModel.moveSplitBoundary(1, 2000)
+        viewModel.cancelSplit()
+
+        assertNull(viewModel.uiState.value.splitEditor)
+        coVerify(exactly = 0) { budgetRepository.splitEnvelope(any(), any()) }
+    }
+
+    @Test
+    fun `a refused split says nothing was changed and closes the editor`() = runTest {
+        loadLoisirs()
+        coEvery { budgetRepository.splitEnvelope(any(), any()) } returns
+            Result.failure(ApiRefusalException(400, "too much"))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSplit("env-loisirs")
+        viewModel.moveSplitBoundary(1, 2000)
+        viewModel.saveSplit()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.splitEditor)
+        assertEquals("La répartition dépasse le montant de l'enveloppe : rien n'a été modifié.", state.error)
+        assertEquals(5000, state.status!!.budgets.first { it.id == "env-cinema" }.amountCents)
+    }
+
+    @Test
+    fun `a ruler cannot be opened on an envelope with no daughter`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSplit("env-1")
+
+        assertNull(viewModel.uiState.value.splitEditor)
     }
 }
