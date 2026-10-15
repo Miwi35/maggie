@@ -620,4 +620,55 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         }
         self::assertSame([], array_filter($suggestions, static fn (array $s) => 'Meven Cadare' === $s['counterpartyName']));
     }
+
+    private function salary(): RecurringOperation
+    {
+        $salary = (new RecurringOperation())
+            ->setUser($this->em->getReference(User::class, $this->user()->getId()))
+            ->setAccount($this->em->getReference(Account::class, $this->getFixture('checking')->getId()))
+            ->setCategory($this->em->getReference(Category::class, $this->getFixture('pay')->getId()))
+            ->setLabel('Salaire')
+            ->setPeriod(RecurrencePeriod::Monthly)
+            ->setAnchorOn(new \DateTimeImmutable('2027-01-28'))
+            ->setReferenceAmountCents(475000)
+            ->setReferenceSource(ReferenceAmountSource::Declared)
+            ->setAmountTolerancePercent(10);
+        $this->em->persist($salary);
+        $this->store();
+
+        return $salary;
+    }
+
+    public function testASeriesWithNoCounterpartyNorLabelRecognisesTheSalaryOnItsAmountAlone(): void
+    {
+        $salary = $this->salary();
+        $match = $this->line(460000, '2027-05-28', 'checking', 'Employeur XYZ');
+        $tooLow = $this->line(300000, '2027-06-28', 'checking', 'Employeur XYZ');
+        $expense = $this->line(-475000, '2027-07-28', 'checking', 'Loyer');
+        $transfer = $this->line(475000, '2027-08-28', 'checking', 'Virement interne')->setTransferKind(TransferKind::Internal);
+        $this->store();
+
+        $report = $this->attach->execute($this->user());
+
+        $stored = $this->reload($match);
+        self::assertSame((string) $salary->getId(), (string) $stored->getRecurringOperation()?->getId());
+        foreach ([$tooLow, $expense, $transfer] as $other) {
+            self::assertNull($this->reload($other)->getRecurringOperation(), $other->getLabel());
+            self::assertNull($this->proposalFor($report, $other), $other->getLabel());
+        }
+    }
+
+    public function testTwoAmountOnlySeriesClaimingTheSameLineAreAmbiguous(): void
+    {
+        $this->salary();
+        $this->salary();
+        $line = $this->line(470000, '2027-05-28', 'checking', 'Employeur XYZ');
+
+        $report = $this->attach->execute($this->user());
+
+        $proposal = $this->proposalFor($report, $line);
+        self::assertNotNull($proposal);
+        self::assertSame('ambiguous', $proposal['reason']);
+        self::assertNull($this->reload($line)->getRecurringOperation());
+    }
 }

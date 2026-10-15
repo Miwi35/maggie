@@ -462,7 +462,7 @@ class FakeTransactionTransfers(
         val ruleRepository = mockk<CategorizationRuleRepository>()
         coEvery { ruleRepository.previewRule(any()) } answers {
             val pattern = firstArg<RulePreviewRequest>().labelPattern
-            val caught = lines.filter { it.label.contains(pattern, ignoreCase = true) }
+            val caught = lines.filter { it.label.contains(pattern.orEmpty(), ignoreCase = true) }
             Result.success(
                 RulePreview(
                     total = caught.size,

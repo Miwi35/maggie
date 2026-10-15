@@ -60,10 +60,11 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     #[ApiProperty(writable: false)]
     private Ulid $id;
 
-    #[ORM\Column(length: 255)]
-    #[Assert\NotBlank]
+    /** Optional when a direction and an amount bound recognise the transaction alone. */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     #[IndexedField(type: 'text', boost: 2.0, keyword: true)]
-    private string $labelPattern;
+    private ?string $labelPattern = null;
 
     #[ORM\Column(length: 20, enumType: MatchType::class)]
     #[Assert\NotNull]
@@ -128,9 +129,17 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
         $this->qualification = Qualification::none();
     }
 
+    public const string UNRECOGNISABLE = 'A rule needs a label pattern, or a direction (debit or credit) with an amount bound (minAmountCents and/or maxAmountCents).';
+
     #[Assert\Callback]
     public function validateAmountRange(ExecutionContextInterface $context): void
     {
+        if (!$this->matchCriteria()->isRecognisable()) {
+            $context->buildViolation(self::UNRECOGNISABLE)
+                ->atPath('labelPattern')
+                ->addViolation();
+        }
+
         if (null !== $this->minAmountCents
             && null !== $this->maxAmountCents
             && $this->minAmountCents > $this->maxAmountCents
@@ -146,14 +155,15 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
         return $this->id;
     }
 
-    public function getLabelPattern(): string
+    public function getLabelPattern(): ?string
     {
         return $this->labelPattern;
     }
 
-    public function setLabelPattern(string $labelPattern): static
+    public function setLabelPattern(?string $labelPattern): static
     {
-        $this->labelPattern = $labelPattern;
+        $labelPattern = null === $labelPattern ? null : trim($labelPattern);
+        $this->labelPattern = '' === $labelPattern ? null : $labelPattern;
 
         return $this;
     }

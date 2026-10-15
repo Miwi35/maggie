@@ -88,7 +88,7 @@ export const RuleMatchesPanel = ({ criteria, onChangeCount }: RuleMatchesPanelPr
 
       {status === 'idle' && (
         <Alert severity="info" variant="outlined">
-          Saisissez le texte à reconnaître pour voir les transactions concernées.
+          Saisissez le texte à reconnaître (ou un sens et un montant) pour voir les transactions concernées.
         </Alert>
       )}
 

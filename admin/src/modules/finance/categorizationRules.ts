@@ -52,6 +52,24 @@ export function describeRuleScope(
   return parts.join(' · ')
 }
 
+export const RULE_NEEDS_IDENTITY =
+  'Indiquez un texte à reconnaître, ou un sens (dépense ou revenu) avec un montant minimum ou maximum.'
+
+/**
+ * A rule recognises a transaction by its label, or by a direction narrowed by
+ * an amount bound — the API refuses anything else.
+ */
+export function ruleIdentifies(
+  labelPattern: unknown,
+  direction: unknown,
+  minAmountCents: unknown,
+  maxAmountCents: unknown,
+): boolean {
+  if (typeof labelPattern === 'string' && labelPattern.trim() !== '') return true
+
+  return (direction === 'debit' || direction === 'credit') && (typeof minAmountCents === 'number' || typeof maxAmountCents === 'number')
+}
+
 /** €-facing number input bound to an integer-cents field. */
 export const centsInput = {
   format: (v?: number) => (v == null ? null : v / 100),

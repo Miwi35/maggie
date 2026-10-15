@@ -246,6 +246,10 @@ object UiTags {
     const val RECURRING_LINE = "recurring_line"
     const val RECURRING_LINE_DETACH = "recurring_line_detach"
     const val RECURRING_LINES_EMPTY = "recurring_lines_empty"
+    /** The lines the form would recognise, before saving: the total and a row each. */
+    const val RECURRING_TOLERANCE = "recurring_tolerance"
+    const val RECURRING_PREVIEW_COUNT = "recurring_preview_count"
+    const val RECURRING_PREVIEW_MATCH = "recurring_preview_match"
 
     /** Calendar — the « + » button and its « Événement » entry. */
     const val CALENDAR_CREATE = "calendar_create"
@@ -455,6 +459,8 @@ object UiTags {
     /** « Créer un filtre » (MAG-464): the sheet's action, then the screen's pattern, category, lines caught and save. */
     const val RULE_DRAFT_OPEN = "rule_draft_open"
     const val RULE_DRAFT_PATTERN = "rule_draft_pattern"
+    const val RULE_DRAFT_AMOUNT = "rule_draft_amount"
+    const val RULE_DRAFT_TOLERANCE = "rule_draft_tolerance"
     const val RULE_DRAFT_CATEGORY = "rule_draft_category"
     const val RULE_DRAFT_MATCH = "rule_draft_match"
     const val RULE_DRAFT_SAVE = "rule_draft_save"

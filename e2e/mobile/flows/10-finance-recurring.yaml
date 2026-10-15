@@ -19,6 +19,12 @@ tags:
 # Alors la ligne quitte la liste sans recharger, « Aucune transaction reconnue pour l’instant »
 #   s'affiche et la ligne n'est plus rattachée en base
 #
+# MAG-475 — Étant donné un crédit de 4 650,00 € libellé « VIR SEPA XYZ », sans contrepartie connue
+# Quand je crée une série « Salaire », recette de 4 750,00 € à ± 10 %, sans contrepartie ni libellé
+# Alors l'aperçu montre cette transaction avant d'enregistrer
+# Quand je crée la série et rattache l'historique
+# Alors la série n'a ni contrepartie ni motif et la ligne lui est rattachée en base
+#
 # The data is set by `scripts/recurring-api.js` on an account of its own, relative to
 # TODAY (the series starts two months back, so there is always a due date that never came).
 # Amounts are drawn the way the app draws them: « 900.00 EUR ».
@@ -40,6 +46,12 @@ tags:
     file: ../scripts/recurring-api.js
     env:
       ACTION: create
+# MAG-475: the form reads the accounts and categories once, when the list opens, so the
+# salary fixtures must exist before that.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: create-salary
 
 - openLink: "maggie-e2e://finance/recurring-operations"
 
@@ -116,7 +128,84 @@ tags:
     env:
       ACTION: expect-detached
 
+# MAG-475: a series known by its amount alone.
+- tapOn: "Retour"
+- extendedWaitUntil:
+    visible:
+      id: "recurring_new"
+    timeout: 20000
+- tapOn:
+    id: "recurring_new"
+- extendedWaitUntil:
+    visible: "Nouvelle opération récurrente"
+    timeout: 10000
+
+- tapOn:
+    id: "recurring_label"
+- inputText: "Salaire"
+- hideKeyboard
+- tapOn:
+    id: "recurring_account"
+- tapOn:
+    id: "recurring_pick_search"
+- inputText: "MAG-475"
+- hideKeyboard
+- tapOn: "Courant MAG-475"
+- scrollUntilVisible:
+    element: "Recette"
+    timeout: 20000
+- tapOn: "Recette"
+- tapOn:
+    id: "recurring_category"
+- tapOn:
+    id: "recurring_pick_search"
+- inputText: "MAG-475"
+- hideKeyboard
+- tapOn: "Revenu MAG-475"
+- tapOn:
+    id: "recurring_amount"
+- inputText: "4750"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recurring_tolerance"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "recurring_tolerance"
+- eraseText
+- inputText: "10"
+- hideKeyboard
+
+# No payee and no label pattern were typed, and none is asked for: the preview already
+# lists the credit, before anything is saved.
+- scrollUntilVisible:
+    element:
+      id: "recurring_preview_match"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*VIR SEPA XYZ.*"
+    timeout: 20000
+
+- tapOn:
+    id: "recurring_save"
+- extendedWaitUntil:
+    visible:
+      id: "recurring_attach_confirm"
+    timeout: 30000
+- tapOn:
+    id: "recurring_attach_confirm"
+
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: expect-salary-attached
+
 # Left as found.
+- runScript:
+    file: ../scripts/recurring-api.js
+    env:
+      ACTION: remove-salary
 - runScript:
     file: ../scripts/recurring-api.js
     env:

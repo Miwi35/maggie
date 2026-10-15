@@ -4,6 +4,8 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RecurringOperationWriteRequest
 import com.maggie.app.data.model.AcceptRecurringSuggestionsResult
 import com.maggie.app.data.model.RecurringAttachReport
+import com.maggie.app.data.model.RecurringOperationPreview
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringSuggestion
@@ -29,6 +31,10 @@ class RecurringOperationRepository(
 
     suspend fun attachHistory(dryRun: Boolean): Result<RecurringAttachReport> = runCatching {
         apiService.attachRecurringOperations(dryRun)
+    }.rethrowCancellation()
+
+    suspend fun previewSeries(request: RecurringOperationPreviewRequest): Result<RecurringOperationPreview> = runCatching {
+        apiService.previewRecurringOperation(request)
     }.rethrowCancellation()
 
     suspend fun getRecords(): Result<List<RecurringOperationRecord>> = runCatching {

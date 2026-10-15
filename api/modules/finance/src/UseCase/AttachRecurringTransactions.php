@@ -266,7 +266,7 @@ class AttachRecurringTransactions
         foreach ($series as $operation) {
             if (!$operation->getAccount()->getId()->equals($transaction->getAccount()->getId())
                 || $transaction->getCurrency() !== $operation->getAccount()->getCurrency()
-                || !$this->matcher->matches($operation->matchCriteria(), $transaction)) {
+                || !$this->matcher->matches($operation->matchCriteria($reference[(string) $operation->getId()] ?? null), $transaction)) {
                 continue;
             }
 

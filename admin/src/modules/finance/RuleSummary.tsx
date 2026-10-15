@@ -1,6 +1,6 @@
 import Alert from '@mui/material/Alert'
 import { useGetOne } from 'react-admin'
-import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
+import { MATCH_TYPE_LABELS, describeRuleScope, ruleIdentifies } from './categorizationRules'
 import { categoryLabel } from './categoryTree'
 
 interface RuleSummaryProps {
@@ -27,10 +27,12 @@ export const RuleSummary = ({
     { enabled: Boolean(category) },
   )
 
-  if (!labelPattern || !category) {
+  const identified = ruleIdentifies(labelPattern, direction, minAmountCents, maxAmountCents)
+
+  if (!identified || !category) {
     return (
       <Alert severity="info" variant="outlined" sx={{ width: '100%' }}>
-        Renseignez un texte à reconnaître et une catégorie pour voir le récapitulatif.
+        Renseignez un texte à reconnaître (ou un sens et un montant) et une catégorie pour voir le récapitulatif.
       </Alert>
     )
   }
@@ -41,8 +43,15 @@ export const RuleSummary = ({
 
   return (
     <Alert severity="success" variant="outlined" sx={{ width: '100%' }}>
-      Une transaction dont le libellé {comparison} « <strong>{labelPattern}</strong> »
-      {scope && <> ({scope})</>} sera classée dans <strong>{categoryName}</strong>.
+      {labelPattern?.trim() ? (
+        <>
+          Une transaction dont le libellé {comparison} « <strong>{labelPattern}</strong> »
+          {scope && <> ({scope})</>}
+        </>
+      ) : (
+        <>Toute transaction ({scope})</>
+      )}{' '}
+      sera classée dans <strong>{categoryName}</strong>.
     </Alert>
   )
 }

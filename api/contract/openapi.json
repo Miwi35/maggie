@@ -9907,7 +9907,12 @@
                         "format": "ulid"
                     },
                     "labelPattern": {
-                        "type": "string"
+                        "maxLength": 255,
+                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "matchType": {
                         "default": "contains",
@@ -9972,7 +9977,6 @@
                     }
                 },
                 "required": [
-                    "labelPattern",
                     "matchType",
                     "category",
                     "direction"
@@ -9988,7 +9992,12 @@
                         "format": "ulid"
                     },
                     "labelPattern": {
-                        "type": "string"
+                        "maxLength": 255,
+                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "matchType": {
                         "default": "contains",
@@ -10053,7 +10062,6 @@
                     }
                 },
                 "required": [
-                    "labelPattern",
                     "matchType",
                     "category",
                     "direction"
@@ -10069,7 +10077,12 @@
                         "format": "ulid"
                     },
                     "labelPattern": {
-                        "type": "string"
+                        "maxLength": 255,
+                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "matchType": {
                         "default": "contains",
@@ -10148,7 +10161,12 @@
                                 "format": "ulid"
                             },
                             "labelPattern": {
-                                "type": "string"
+                                "maxLength": 255,
+                                "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "matchType": {
                                 "default": "contains",
@@ -10213,7 +10231,6 @@
                             }
                         },
                         "required": [
-                            "labelPattern",
                             "matchType",
                             "category",
                             "direction"
@@ -16440,7 +16457,7 @@
                     },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
                         "type": [
                             "string",
                             "null"
@@ -16574,7 +16591,7 @@
                     },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
                         "type": [
                             "string",
                             "null"
@@ -16708,7 +16725,7 @@
                     },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
                         "type": [
                             "string",
                             "null"
@@ -16837,7 +16854,7 @@
                             },
                             "labelPattern": {
                                 "maxLength": 255,
-                                "description": "Read in the label when there is no counterparty to compare.",
+                                "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
                                 "type": [
                                     "string",
                                     "null"

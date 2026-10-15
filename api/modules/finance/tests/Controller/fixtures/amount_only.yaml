@@ -1,0 +1,97 @@
+# The salary of MAG-475: it arrives under a label and a payer that change
+# every month, only its amount holds. Shared by the REST, MCP and preview
+# tests of the « amount only » rules and series.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-amount-only-test@example.com
+    googleId: google-finance-amount-only-test
+    name: Amount Only Test User
+  other_user:
+    email: finance-amount-only-other@example.com
+    googleId: google-finance-amount-only-other
+    name: Amount Only Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 5000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  pay_october:
+    account: '@checking'
+    amountCents: 465000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-28"))>'
+    label: VIR SEPA XYZ
+    counterpartyName: Employeur XYZ
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  pay_september:
+    account: '@checking'
+    amountCents: 475000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-28"))>'
+    label: SALAIRE SEPTEMBRE ABC
+    counterpartyName: Autre Employeur
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  small_credit:
+    account: '@checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: VIR SEPA PETIT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  same_size_debit:
+    account: '@checking'
+    amountCents: -475000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: PRLV SEPA GROS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  same_size_transfer:
+    account: '@checking'
+    amountCents: 475000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: VIR INTERNE LIVRET
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  other_users_pay:
+    account: '@other_checking'
+    amountCents: 470000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-28"))>'
+    label: VIR SEPA AUTRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

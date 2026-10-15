@@ -131,6 +131,7 @@ fun RecurringOperationListScreen(
             onClearError = viewModel::clearError,
             onDetachLine = viewModel::detachSeriesLine,
             onRetryLines = viewModel::reloadSeriesLines,
+            onPreview = viewModel::previewRecognition,
         )
         return
     }

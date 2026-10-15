@@ -63,7 +63,7 @@ final class PreviewCategorizationRuleController
         try {
             $preview = $this->previewCategorizationRule->execute(
                 user: $user,
-                labelPattern: $body['labelPattern'] ?? '',
+                labelPattern: $body['labelPattern'] ?? null,
                 matchType: $body['matchType'] ?? 'contains',
                 direction: $body['direction'] ?? 'any',
                 minAmountCents: $body['minAmountCents'] ?? null,

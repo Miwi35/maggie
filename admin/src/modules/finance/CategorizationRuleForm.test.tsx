@@ -146,7 +146,7 @@ describe('CategorizationRuleForm', () => {
     renderForm()
 
     expect(
-      await screen.findByText(/Renseignez un texte à reconnaître et une catégorie/i),
+      await screen.findByText(/Renseignez un texte à reconnaître \(ou un sens et un montant\) et une catégorie/i),
     ).toBeInTheDocument()
   })
 
@@ -272,6 +272,56 @@ describe('CategorizationRuleForm', () => {
 
       await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
       expect(create.mock.calls[0][1].data.applyToExisting).toBe(true)
+    })
+
+    describe('a rule without a label', () => {
+      const pickCategory = async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(await screen.findByRole('combobox', { name: /Catégorie/ }))
+        await user.click(await screen.findByRole('option', { name: 'Alimentation' }))
+      }
+      const pickDirection = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+        await user.click(await screen.findByRole('combobox', { name: /Sens du mouvement/ }))
+        await user.click(await screen.findByRole('option', { name }))
+      }
+
+      test('is saved with a direction and an amount bound, the label sent as absent', async () => {
+        const user = userEvent.setup()
+        renderCreate()
+        await pickDirection(user, 'Revenu')
+        await user.type(screen.getByLabelText(/Montant minimum/), '4275')
+        await user.type(screen.getByLabelText(/Montant maximum/), '5225')
+        await pickCategory(user)
+
+        expect(await screen.findByText(/Toute transaction \(Revenu · entre 4275,00 € et 5225,00 €\)/)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+        const data = create.mock.calls[0][1].data
+        expect(data).toMatchObject({ direction: 'credit', minAmountCents: 427500, maxAmountCents: 522500 })
+        expect(data.labelPattern ?? null).toBeNull()
+      })
+
+      test('previews its matches before saving', async () => {
+        const user = userEvent.setup()
+        renderCreate()
+        await pickDirection(user, 'Revenu')
+        await user.type(screen.getByLabelText(/Montant minimum/), '4275')
+
+        expect(await screen.findByText('CARREFOUR MARKET 123')).toBeInTheDocument()
+        expect(previewBodies()[0]).toMatchObject({ labelPattern: '', direction: 'credit', minAmountCents: 427500 })
+      })
+
+      test('is refused without a direction, naming what is missing', async () => {
+        const user = userEvent.setup()
+        renderCreate()
+        await user.type(await screen.findByLabelText(/Montant minimum/), '4275')
+        await pickCategory(user)
+
+        await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+        expect(await screen.findByText(/Indiquez un texte à reconnaître, ou un sens/)).toBeInTheDocument()
+        expect(create).not.toHaveBeenCalled()
+      })
     })
 
     test('edits with the same checkbox beside save and delete, and sends the rule id to the preview', async () => {

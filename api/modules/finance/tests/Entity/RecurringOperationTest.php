@@ -92,4 +92,39 @@ class RecurringOperationTest extends TestCase
 
         self::assertSame(AmountDirection::Credit, $this->series(250000)->matchCriteria()->direction);
     }
+
+    public function testWithoutIdentityTheAmountToleranceBoundsTheCriteria(): void
+    {
+        $salary = $this->series(475000)->setAmountTolerancePercent(10)->matchCriteria();
+
+        self::assertFalse($salary->hasIdentity());
+        self::assertTrue($salary->isRecognisable());
+        self::assertSame(AmountDirection::Credit, $salary->direction);
+        self::assertSame(427500, $salary->minAmountCents);
+        self::assertSame(522500, $salary->maxAmountCents);
+
+        $expense = $this->series(-1349)->setAmountTolerancePercent(20)->matchCriteria();
+        self::assertSame(AmountDirection::Debit, $expense->direction);
+        self::assertSame(1080, $expense->minAmountCents, '1349 × 0.8 = 1079.2, rounded up like acceptsAmount()');
+        self::assertSame(1618, $expense->maxAmountCents, '1349 × 1.2 = 1618.8, rounded down');
+    }
+
+    public function testTheCriteriaBoundsAgreeWithAcceptsAmountToTheCent(): void
+    {
+        $series = $this->series(-1349)->setAmountTolerancePercent(20);
+        $criteria = $series->matchCriteria();
+
+        for ($cents = 1000; $cents <= 1700; ++$cents) {
+            $inBounds = $cents >= $criteria->minAmountCents && $cents <= $criteria->maxAmountCents;
+            self::assertSame($series->acceptsAmount(-$cents), $inBounds, (string) $cents);
+        }
+    }
+
+    public function testARecalibratedReferenceMovesTheBounds(): void
+    {
+        $criteria = $this->series(475000)->setAmountTolerancePercent(10)->matchCriteria(500000);
+
+        self::assertSame(450000, $criteria->minAmountCents);
+        self::assertSame(550000, $criteria->maxAmountCents);
+    }
 }

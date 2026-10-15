@@ -25,6 +25,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 import com.maggie.app.data.model.RecurringSuggestion
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RulePreviewRequest
 
 class MaggieApiServiceTest {
@@ -646,12 +647,15 @@ class MaggieApiServiceTest {
         assertNotNull(preview.groceryChoiceMadeAt)
     }
 
-    private fun categoryClient(onRequest: suspend (io.ktor.client.request.HttpRequestData) -> String): HttpClient =
+    private fun categoryClient(
+        status: HttpStatusCode = HttpStatusCode.OK,
+        onRequest: suspend (io.ktor.client.request.HttpRequestData) -> String,
+    ): HttpClient =
         HttpClient(
             MockEngine { request ->
                 respond(
                     content = ByteReadChannel(onRequest(request)),
-                    status = HttpStatusCode.OK,
+                    status = status,
                     headers = headersOf(HttpHeaders.ContentType, "application/ld+json"),
                 )
             },
@@ -937,6 +941,19 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `attachRecurringOperations reads an attachment, which carries no reason`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"dryRun":true,"scanned":1,"attached":1,"proposed":0,"attachments":[{"transactionId":"t1","label":"VIR SEPA XYZ","bookedAt":"2030-11-13","amountCents":465000,"reason":null,"recurringOperationId":"s1","recurringOperationLabel":"Salaire","occurrenceOn":"2030-11-13","dateGapDays":0,"referenceAmountCents":475000,"amountChangePercent":-2}],"proposals":[]}"""
+            },
+        )
+
+        val report = service.attachRecurringOperations(dryRun = true)
+
+        assertEquals("s1", report.attachments.single().recurringOperationId)
+    }
+
+    @Test
     fun `createRecurringOperation posts the whole series, nulls included`() = runBlocking {
         var method: HttpMethod? = null
         var url: String? = null
@@ -1193,6 +1210,90 @@ class MaggieApiServiceTest {
         assertEquals(1, preview.changeCount)
         assertEquals("CARREFOUR", preview.matches.single().label)
         assertTrue(preview.matches.single().wouldChange)
+    }
+
+    @Test
+    fun `previewCategorizationRule sends no label for a rule recognised by direction and amount`() = runBlocking {
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                body = String(request.body.toByteArray())
+                """{"total":0,"changeCount":0,"matches":[]}"""
+            },
+        )
+
+        service.previewCategorizationRule(
+            RulePreviewRequest(direction = "credit", minAmountCents = 427500, maxAmountCents = 522500),
+        )
+
+        assertEquals("""{"direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""", body)
+    }
+
+    @Test
+    fun `createCategorizationRule can create a rule without a label`() = runBlocking {
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                body = String(request.body.toByteArray())
+                """{"id":"r1","direction":"credit","minAmountCents":427500,"maxAmountCents":522500}"""
+            },
+        )
+
+        val rule = service.createCategorizationRule(
+            CategorizationRuleCreateRequest(
+                category = "/api/categories/c1",
+                direction = "credit",
+                minAmountCents = 427500,
+                maxAmountCents = 522500,
+            ),
+        )
+
+        assertNull(rule.labelPattern)
+        assertEquals(
+            """{"category":"/api/categories/c1","direction":"credit","minAmountCents":427500,"maxAmountCents":522500}""",
+            body,
+        )
+    }
+
+    @Test
+    fun `previewRecurringOperation posts the signed amount alone and reads the lines recognised`() = runBlocking {
+        var method: HttpMethod? = null
+        var url: String? = null
+        var body: String? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                method = request.method
+                url = request.url.toString()
+                body = String(request.body.toByteArray())
+                """{"total":2,"matches":[{"transactionId":"t1","label":"VIR SEPA XYZ","amountCents":465000,""" +
+                    """"bookedAt":"2026-10-01T00:00:00+00:00","accountId":"a1"}]}"""
+            },
+        )
+
+        val preview = service.previewRecurringOperation(
+            RecurringOperationPreviewRequest(referenceAmountCents = 475000, amountTolerancePercent = 10),
+        )
+
+        assertEquals(HttpMethod.Post, method)
+        assertTrue(url!!.endsWith("/api/finance/recurring-operations/preview"))
+        assertEquals("""{"referenceAmountCents":475000,"amountTolerancePercent":10}""", body)
+        assertEquals(2, preview.total)
+        assertEquals("VIR SEPA XYZ", preview.matches.single().label)
+        assertEquals(465000, preview.matches.single().amountCents)
+    }
+
+    @Test
+    fun `previewRecurringOperation turns a 400 into the reason the API gives`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient(status = HttpStatusCode.BadRequest) { """{"error":"referenceAmountCents must not be zero."}""" },
+        )
+
+        val failure = runCatching {
+            service.previewRecurringOperation(RecurringOperationPreviewRequest(referenceAmountCents = 0))
+        }.exceptionOrNull()
+
+        assertTrue(failure is ApiRefusalException)
+        assertEquals("referenceAmountCents must not be zero.", failure!!.message)
     }
 
     @Test

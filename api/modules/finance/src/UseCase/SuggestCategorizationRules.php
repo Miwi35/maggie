@@ -63,7 +63,7 @@ class SuggestCategorizationRules
 
         $covered = [];
         foreach ($this->ruleRepository->findActiveForUser($user) as $rule) {
-            $covered[MerchantExtractor::key($rule->getLabelPattern())] = true;
+            $covered[MerchantExtractor::key($rule->getLabelPattern() ?? '')] = true;
         }
 
         $groups = [];
@@ -216,7 +216,7 @@ class SuggestCategorizationRules
         return [
             'created' => \count($created),
             'patterns' => array_map(
-                static fn (CategorizationRule $rule) => $rule->getLabelPattern(),
+                static fn (CategorizationRule $rule) => (string) $rule->getLabelPattern(),
                 $created,
             ),
             'categorized' => $uncategorizedBefore - $this->transactionRepository->countUncategorizedForUser($user),

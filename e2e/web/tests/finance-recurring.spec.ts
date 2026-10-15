@@ -60,6 +60,16 @@ import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
  *   Alors les trois lignes portent le badge « Série · Netflix »
  *   Quand je détache l'une d'elles
  *   Alors elle perd son badge
+
+ *
+ * Fifth step, MAG-475: a series needs no identity, its amount and its sign are enough:
+ *
+ *   Étant donné un crédit « VIR SEPA XYZ » de 4 650 €, et d'autres lignes qui n'en sont pas (un crédit de 3 000 €, un débit de 4 750 €)
+ *   Quand je crée la série « Salaire », recette de 4 750 € ± 10 %, sans contrepartie ni libellé
+ *   Alors l'aperçu montre le crédit de 4 650 € et lui seul, avant que j'enregistre
+ *     et la série est enregistrée sans contrepartie ni motif
+ *   Quand je rattache l'historique
+ *   Alors le crédit de 4 650 € est rattaché à la série
  */
 
 interface StoredSeries {
@@ -498,11 +508,6 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   await expect(recurring.form).toContainText(/reconnaît les transactions dont le libellé contient/i)
   await recurring.choose(/Catégorie/, categoryName)
 
-  // And emptying both says why, in French, and saves nothing
-  await recurring.form.getByLabel('Motif du libellé').fill('')
-  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
-  await expect(recurring.form).toContainText('Indique une contrepartie ou un motif de libellé pour reconnaître les transactions')
-
   // When I write the pattern myself (this label has no merchant to keep) and save
   await recurring.form.getByLabel('Motif du libellé').fill(patternValue)
   await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
@@ -579,4 +584,78 @@ test('an unrolled series lists the transactions it recognised, newest first, and
   expect((await detaching).status()).toBe(200)
   await expect(lines).toHaveCount(2)
   await expect(recurring.seriesTransactions()).not.toContainText(secondLabel)
+})
+
+test('a series without counterparty nor label recognises a credit by its amount alone, previewed before it is saved (MAG-475)', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  const accountName = `Courant MAG-475, essai ${attempt}`
+  const accountId = await created(api, '/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
+  createdAccountIds.push(accountId)
+  const categoryName = `Salaire MAG-475, essai ${attempt}`
+  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'income' })
+  createdCategoryIds.push(categoryId)
+
+  // Given a credit of 4 650 € whose label says nothing of an employer, and lines that are not the salary.
+  const thisMonth = parisDay().slice(0, 7)
+  const day = `${monthBefore(thisMonth, 1)}-02`
+  const label = `VIR SEPA XYZ MAG-475 ESSAI ${attempt}`
+  const salary = await debit(api, accountId, label, 465000, day)
+  await debit(api, accountId, `VIR SEPA AUTRE MAG-475 ESSAI ${attempt}`, 300000, day)
+  await debit(api, accountId, `PRLV GROS LOYER MAG-475 ESSAI ${attempt}`, -475000, day)
+  await waitForIndexed<StoredTransaction>(api, '/api/transactions?itemsPerPage=100', (t) => t.label === label, {
+    what: 'The credit of 4 650 €',
+  })
+
+  // When I create the series « Salaire »: a recette of 4 750 € ± 10 %, neither counterparty nor label.
+  const recurring = new FinanceRecurringPage(page)
+  await recurring.open()
+  await page.getByRole('button', { name: 'Nouvelle opération récurrente' }).click()
+  const seriesName = `Salaire MAG-475 ${attempt}`
+  await recurring.form.getByLabel(/Libellé/).fill(seriesName)
+  await recurring.form.getByRole('button', { name: 'Recette' }).click()
+  await recurring.form.getByLabel(/Montant de référence/).fill('4750')
+  await recurring.form.getByLabel('Tolérance sur le montant (%)').fill('10')
+  await recurring.choose(/Compte/, accountName)
+  await recurring.choose(/Catégorie/, categoryName)
+  await recurring.form.getByLabel(/Date d’une échéance/).fill(day)
+
+  // Then the preview lists the credit and only it, before anything is saved.
+  const matches = recurring.form.getByRole('region', { name: 'Transactions reconnues' })
+  await expect(matches).toContainText('1 transaction(s) reconnue(s)')
+  await expect(matches).toContainText(label)
+  await expect(matches).not.toContainText('VIR SEPA AUTRE')
+  await expect(matches).not.toContainText('PRLV GROS LOYER')
+  expect(
+    (await getCollection<StoredSeries>(api, '/api/recurring_operations')).filter((s) => s.label === seriesName),
+    'the preview writes nothing',
+  ).toHaveLength(0)
+
+  // When I save, the series is stored without counterparty nor label pattern.
+  await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
+  const series = await waitForIndexed<{ label?: string; labelPattern?: string | null; counterpartyName?: string | null }>(
+    api,
+    '/api/recurring_operations',
+    (s) => s.label === seriesName,
+    { what: 'The series recognised by its amount' },
+  )
+  expect(series.counterpartyName ?? null).toBeNull()
+  expect(series.labelPattern ?? null).toBeNull()
+
+  // When I attach the history, the credit is rattaché to the series.
+  await recurring.open()
+  await recurring.catchUp.click()
+  await expect(recurring.preview).toContainText(label)
+  await recurring.preview.getByRole('button', { name: /^Rattacher ces \d+ transaction/ }).click()
+  await expect(recurring.preview).toHaveCount(0)
+  await expect
+    .poll(async () => {
+      const lines = await getCollection<StoredTransaction>(api, '/api/transactions?itemsPerPage=100')
+
+      return lines.find((t) => t.id === salary.id)?.recurringOperation ?? null
+    })
+    .not.toBeNull()
 })

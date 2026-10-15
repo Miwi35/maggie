@@ -117,6 +117,7 @@ fun TransactionListScreen(
                 draft = ruleDraft,
                 categories = uiState.categories,
                 onPatternChange = viewModel::changeRulePattern,
+                onAmountChange = viewModel::changeRuleAmount,
                 onCategoryChange = viewModel::changeRuleCategory,
                 onSave = viewModel::saveRule,
                 onBack = viewModel::closeRuleDraft,

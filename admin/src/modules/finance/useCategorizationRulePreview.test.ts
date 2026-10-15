@@ -57,6 +57,30 @@ describe('useCategorizationRulePreview', () => {
     expect(hook.current.status).toBe('idle')
   })
 
+  test('asks nothing without a label when the direction is open or no amount bound is set', async () => {
+    renderHook(() => useCategorizationRulePreview({ ...CRITERIA, labelPattern: '', direction: 'any', minAmountCents: 100 }))
+    renderHook(() => useCategorizationRulePreview({ ...CRITERIA, labelPattern: '', direction: 'credit' }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('asks without a label when a direction is narrowed by an amount bound', async () => {
+    fetchMock.mockResolvedValue(answer(true, result(1)))
+
+    const criteria = { ...CRITERIA, labelPattern: '', direction: 'credit', minAmountCents: 427500, maxAmountCents: 522500 }
+    const { result: hook } = renderHook(() => useCategorizationRulePreview(criteria))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+
+    expect(sentBodies()[0]).toEqual(criteria)
+    expect(hook.current.status).toBe('ready')
+  })
+
   test('posts the criteria with the token once typing pauses for 300 ms', async () => {
     fetchMock.mockResolvedValue(answer(true, result(2)))
 

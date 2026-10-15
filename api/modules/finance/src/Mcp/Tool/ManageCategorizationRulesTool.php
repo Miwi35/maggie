@@ -7,6 +7,7 @@ namespace Maggie\Finance\Mcp\Tool;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Exception\InvalidQualificationException;
 use Maggie\Finance\Mcp\QualificationArguments;
 use Maggie\Finance\Message\CreateCategorizationRuleCommand;
@@ -15,6 +16,7 @@ use Maggie\Finance\Message\UpdateCategorizationRuleCommand;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\UseCase\ApplyCategorizationRules;
 use Maggie\Finance\UseCase\PreviewCategorizationRule;
 use Mcp\Capability\Attribute\McpTool;
@@ -22,7 +24,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins and gives the line its whole qualification (categoryId, mandatory, kind); a line qualified by hand is never overwritten. Updating the categoryId, mandatory or kind of a rule reaches every line it qualified, except those qualified by hand since. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it.'.QualificationArguments::DESCRIPTION)]
+#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount; the label is optional when direction is debit or credit AND an amount bound is given — then the rule recognises a transaction on its sign and amount alone, whatever its label or counterparty (« an income of 4 750 € ± 10 % is the salary »: direction credit, minAmountCents 427500, maxAmountCents 522500; compute the bounds yourself). A rule with no label and no directed amount bound is refused with the current state, nothing is deduced. Amounts: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins and gives the line its whole qualification (categoryId, mandatory, kind); a line qualified by hand is never overwritten. Updating the categoryId, mandatory or kind of a rule reaches every line it qualified, except those qualified by hand since. On update, only provided fields change; to remove the label or an amount bound, list labelPattern, minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern if any, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it.'.QualificationArguments::DESCRIPTION)]
 class ManageCategorizationRulesTool
 {
     public function __construct(
@@ -92,11 +94,29 @@ class ManageCategorizationRulesTool
     /** @param array<string, mixed> $qualification */
     private function create(?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, bool $applyToExisting, array $qualification): string
     {
-        if (null === $labelPattern || null === $categoryId) {
-            return json_encode(['error' => 'labelPattern and categoryId are required for create.'], JSON_THROW_ON_ERROR);
+        if (null === $categoryId) {
+            return json_encode(['error' => 'categoryId is required for create.'], JSON_THROW_ON_ERROR);
         }
 
         $user = $this->userContext->requireUser();
+
+        $criteria = new MatchCriteria(
+            labelPattern: $labelPattern,
+            direction: AmountDirection::tryFrom($direction ?? 'any') ?? AmountDirection::Any,
+            minAmountCents: $minAmountCents,
+            maxAmountCents: $maxAmountCents,
+        );
+        if (!$criteria->isRecognisable()) {
+            return json_encode([
+                'error' => CategorizationRule::UNRECOGNISABLE,
+                'current' => [
+                    'labelPattern' => $labelPattern,
+                    'direction' => $direction ?? 'any',
+                    'minAmountCents' => $minAmountCents,
+                    'maxAmountCents' => $maxAmountCents,
+                ],
+            ], JSON_THROW_ON_ERROR);
+        }
 
         $stamped = $this->bus->dispatch(new CreateCategorizationRuleCommand(
             userId: (string) $user->getId(),
@@ -132,23 +152,32 @@ class ManageCategorizationRulesTool
         }
 
         $user = $this->userContext->requireUser();
-        $current = $this->ruleRepository->findOneBy(['id' => $categorizationRuleId, 'user' => $user]);
+        $before = $this->ruleRepository->findOneBy(['id' => $categorizationRuleId, 'user' => $user]);
+        $current = null === $before ? null : $this->serialize($before);
 
-        $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
-            userId: (string) $user->getId(),
-            categorizationRuleId: $categorizationRuleId,
-            labelPattern: $labelPattern,
-            categoryId: $categoryId,
-            matchType: $matchType,
-            direction: $direction,
-            minAmountCents: $minAmountCents,
-            maxAmountCents: $maxAmountCents,
-            priority: $priority,
-            isActive: $isActive,
-            clearFields: array_values(array_intersect($clear ?? [], ['minAmountCents', 'maxAmountCents'])),
-            applyToExisting: $applyToExisting,
-            qualification: QualificationArguments::whole($qualification, $current?->getQualification()),
-        ));
+        try {
+            $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
+                userId: (string) $user->getId(),
+                categorizationRuleId: $categorizationRuleId,
+                labelPattern: $labelPattern,
+                categoryId: $categoryId,
+                matchType: $matchType,
+                direction: $direction,
+                minAmountCents: $minAmountCents,
+                maxAmountCents: $maxAmountCents,
+                priority: $priority,
+                isActive: $isActive,
+                clearFields: array_values(array_intersect($clear ?? [], ['labelPattern', 'minAmountCents', 'maxAmountCents'])),
+                applyToExisting: $applyToExisting,
+                qualification: QualificationArguments::whole($qualification, $before?->getQualification()),
+            ));
+        } catch (HandlerFailedException $e) {
+            if (null !== $current && CategorizationRule::UNRECOGNISABLE === $e->getPrevious()?->getMessage()) {
+                return json_encode(['error' => CategorizationRule::UNRECOGNISABLE, 'current' => $current], JSON_THROW_ON_ERROR);
+            }
+
+            throw $e;
+        }
 
         /** @var CategorizationRule $rule */
         $rule = $stamped->last(HandledStamp::class)->getResult();
@@ -175,10 +204,6 @@ class ManageCategorizationRulesTool
 
     private function preview(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive): string
     {
-        if (null === $labelPattern) {
-            return json_encode(['error' => 'labelPattern is required for preview.'], JSON_THROW_ON_ERROR);
-        }
-
         try {
             $preview = $this->previewCategorizationRule->execute(
                 user: $this->userContext->requireUser(),

@@ -54,18 +54,70 @@ class RecurringFormStateTest {
     }
 
     @Test
-    fun `a payee or a label pattern is required, either one`() {
+    fun `a series with neither payee nor pattern is accepted, the signed amount recognises it`() {
         val form = RecurringFormState(RecurringEditing(record = rent))
         form.counterpartyName = ""
+        form.labelPattern = ""
         form.showErrors = true
 
+        val request = form.toRequest()!!
+
+        assertNull(request.counterpartyName)
+        assertNull(request.labelPattern)
+        assertEquals(-90000, request.referenceAmountCents)
+    }
+
+    @Test
+    fun `without an identity a zero or missing amount is still refused`() {
+        val form = RecurringFormState(RecurringEditing(record = rent))
+        form.counterpartyName = ""
+        form.labelPattern = ""
+        form.showErrors = true
+
+        form.amount = "0"
         assertNull(form.toRequest())
-        assertNotNull(form.payeeError)
+        assertEquals("Indiquez un montant différent de zéro.", form.amountError)
+        assertNull(form.recognitionRequest())
 
-        form.labelPattern = "LOYER"
+        form.amount = ""
+        assertNull(form.toRequest())
+    }
 
-        assertNotNull(form.toRequest())
-        assertNull(form.payeeError)
+    @Test
+    fun `a credit of 4750 euros within 10 percent is asked as such, with no identity`() {
+        val form = RecurringFormState(RecurringEditing())
+        form.selectNature(TransactionNature.Income)
+        form.amount = "4 750"
+        form.amountTolerance = "10"
+
+        val asked = form.recognitionRequest()!!
+
+        assertEquals(475000, asked.referenceAmountCents)
+        assertEquals(10, asked.amountTolerancePercent)
+        assertNull(asked.counterpartyName)
+        assertNull(asked.labelPattern)
+        assertNull(asked.accountId)
+    }
+
+    @Test
+    fun `the recognition request carries the identity and the account when they are there`() {
+        val form = RecurringFormState(RecurringEditing(record = rent))
+
+        val asked = form.recognitionRequest()!!
+
+        assertEquals("SCI VERDA", asked.counterpartyName)
+        assertEquals("acc-1", asked.accountId)
+        assertEquals(-90000, asked.referenceAmountCents)
+    }
+
+    @Test
+    fun `no recognition is asked while the tolerance cannot be read`() {
+        val form = RecurringFormState(RecurringEditing(record = rent))
+
+        form.amountTolerance = "101"
+        assertNull(form.recognitionRequest())
+        form.amountTolerance = "abc"
+        assertNull(form.recognitionRequest())
     }
 
     @Test
@@ -184,13 +236,15 @@ class RecurringFormStateTest {
     }
 
     @Test
-    fun `with neither a payee nor a pattern the French message is shown and nothing is sent`() {
+    fun `a transaction without a payee may drop its pattern too and keep only the amount`() {
         val form = RecurringFormState(RecurringEditing(transaction = late.copy(counterpartyName = null)))
         form.labelPattern = ""
         form.showErrors = true
 
-        assertNull(form.toRequest())
-        assertEquals("Indique une contrepartie ou un motif de libellé pour reconnaître les transactions", form.payeeError)
+        val request = form.toRequest()!!
+
+        assertNull(request.counterpartyName)
+        assertNull(request.labelPattern)
     }
 
     @Test

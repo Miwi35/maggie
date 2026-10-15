@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -817,7 +818,7 @@ class TransactionViewModelTest {
     fun `changing the pattern asks for a new preview once typing pauses, and only the last one counts`() = runTest {
         val requests = mutableListOf<String>()
         coEvery { ruleRepository.previewRule(any()) } answers {
-            requests += firstArg<RulePreviewRequest>().labelPattern
+            requests += firstArg<RulePreviewRequest>().labelPattern.orEmpty()
             Result.success(drawn.copy(total = requests.size))
         }
         openSheet()
@@ -928,6 +929,81 @@ class TransactionViewModelTest {
 
         coVerify(exactly = 0) { ruleRepository.createRule(any()) }
         assertEquals("Supermarché", viewModel.uiState.value.ruleDraft!!.labelPattern)
+    }
+
+    @Test
+    fun `without a label and without an amount the filter is refused and previews nothing`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        viewModel.changeRulePattern("")
+        advanceUntilIdle()
+        viewModel.saveRule()
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertNotNull(draft.problem)
+        assertNull(draft.preview)
+        coVerify(exactly = 0) { ruleRepository.createRule(any()) }
+    }
+
+    @Test
+    fun `a direction and an amount range are enough, the label is sent as null`() = runTest {
+        val previews = mutableListOf<RulePreviewRequest>()
+        val created = slot<CategorizationRuleCreateRequest>()
+        coEvery { ruleRepository.previewRule(capture(previews)) } returns Result.success(drawn)
+        coEvery { ruleRepository.createRule(capture(created)) } returns Result.success(CategorizationRule(id = "r1"))
+        val salary = sampleTransactions[1].copy(amountCents = 465000)
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(sampleTransactions[0], salary))
+        openSheet("tx-2")
+        viewModel.openRuleDraft()
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        viewModel.changeRulePattern("  ")
+        viewModel.changeRuleAmount("4 750", "10")
+        advanceUntilIdle()
+
+        val draft = viewModel.uiState.value.ruleDraft!!
+        assertNull(draft.problem)
+        assertEquals(427500 to 522500, draft.amountBounds)
+        assertNull(previews.last().labelPattern)
+        assertEquals("credit", previews.last().direction)
+        assertEquals(427500, previews.last().minAmountCents)
+        assertEquals(522500, previews.last().maxAmountCents)
+
+        viewModel.saveRule()
+        advanceUntilIdle()
+
+        assertNull(created.captured.labelPattern)
+        assertEquals("credit", created.captured.direction)
+        assertEquals(427500, created.captured.minAmountCents)
+        assertEquals(522500, created.captured.maxAmountCents)
+        assertNull(viewModel.uiState.value.ruleDraft)
+    }
+
+    @Test
+    fun `an unreadable amount or tolerance blocks the filter even with a label`() = runTest {
+        coEvery { ruleRepository.previewRule(any()) } returns Result.success(drawn)
+        openSheet()
+        viewModel.openRuleDraft()
+        viewModel.changeRuleCategory("cat-1")
+        advanceUntilIdle()
+
+        viewModel.changeRuleAmount("abc", "10")
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.ruleDraft!!.problem)
+
+        viewModel.changeRuleAmount("100", "150")
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.ruleDraft!!.problem)
+
+        viewModel.changeRuleAmount("", "10")
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.ruleDraft!!.problem)
     }
 
     @Test

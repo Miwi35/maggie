@@ -11,8 +11,8 @@ final readonly class UpdateCategorizationRuleCommand
     use ClearsFieldsTrait;
 
     /**
-     * @param list<'minAmountCents'|'maxAmountCents'> $clearFields
-     * @param array<string, mixed>|null               $qualification the whole qualification (`Qualification::toArray()`); omitted, the category's deprecated flag sets it on creation or on a change of category
+     * @param list<'labelPattern'|'minAmountCents'|'maxAmountCents'> $clearFields
+     * @param array<string, mixed>|null                              $qualification the whole qualification (`Qualification::toArray()`); omitted, the category's deprecated flag sets it on creation or on a change of category
      */
     public function __construct(
         public string $userId,

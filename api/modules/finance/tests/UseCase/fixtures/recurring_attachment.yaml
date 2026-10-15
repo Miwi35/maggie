@@ -47,6 +47,10 @@ Maggie\Finance\Entity\Category:
     name: Courses
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
     user: '@test_user'
+  pay:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
   other_secret:
     name: Cadeaux secrets
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'

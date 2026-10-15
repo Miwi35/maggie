@@ -117,6 +117,41 @@ describe('CreateFilterDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  test('without a label, a direction and an amount bound are enough, and the label is sent as absent', async () => {
+    const user = userEvent.setup()
+    renderDialog({ ...TRANSACTION, label: 'VIR SEPA XYZ', amountCents: 465000 })
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByLabelText('Catégorie')).toHaveValue('Alimentation'))
+
+    await user.clear(within(dialog).getByLabelText('…ce texte'))
+    expect(within(dialog).getByText(/Indiquez un texte à reconnaître, ou un sens/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeDisabled()
+
+    await user.type(within(dialog).getByLabelText('Montant minimum (€)'), '4275')
+    await user.type(within(dialog).getByLabelText('Montant maximum (€)'), '5225')
+    await user.click(within(dialog).getByRole('button', { name: 'Créer le filtre' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create.mock.calls[0][1].data).toMatchObject({
+      labelPattern: null,
+      direction: 'credit',
+      minAmountCents: 427500,
+      maxAmountCents: 522500,
+    })
+  })
+
+  test('a bound alone is not enough when the direction is open', async () => {
+    const user = userEvent.setup()
+    renderDialog({ ...TRANSACTION, amountCents: 0 })
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByLabelText('Catégorie')).toHaveValue('Alimentation'))
+
+    await user.clear(within(dialog).getByLabelText('…ce texte'))
+    await user.type(within(dialog).getByLabelText('Montant minimum (€)'), '4275')
+
+    expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeDisabled()
+  })
+
   test('an API refusal is shown and the dialog stays open', async () => {
     create.mockRejectedValue(new Error('Cette règle existe déjà.'))
     const user = userEvent.setup()

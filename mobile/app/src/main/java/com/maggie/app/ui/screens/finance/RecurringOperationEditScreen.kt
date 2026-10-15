@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import com.maggie.app.data.model.DEFAULT_AMOUNT_TOLERANCE_PERCENT
 import com.maggie.app.data.model.DEFAULT_DATE_TOLERANCE_DAYS
 import com.maggie.app.data.model.PERIOD_CHOICES
 import com.maggie.app.data.model.RecurringSeries
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.categoryMatchesNature
@@ -110,8 +112,6 @@ internal fun labelPatternFrom(label: String): String {
 
     return longest.ifEmpty { whole }
 }
-
-internal const val PAYEE_REQUIRED = "Indique une contrepartie ou un motif de libellé pour reconnaître les transactions"
 
 /**
  * The fields of a recurring operation, new, drawn from a transaction, or stored. The same
@@ -176,9 +176,6 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
     private fun problem(show: Boolean = showErrors): Map<String, String> = buildMap {
         if (!show) return@buildMap
         if (label.isBlank()) put("label", "Donnez un nom à l'opération récurrente.")
-        if (counterpartyName.isBlank() && labelPattern.isBlank()) {
-            put("payee", PAYEE_REQUIRED)
-        }
         if (account == null) put("account", "Choisissez un compte.")
         if (category == null) put("category", "Choisissez une catégorie.")
         if (cents == null) put("amount", "Indiquez un montant différent de zéro.")
@@ -193,12 +190,28 @@ internal class RecurringFormState(private val editing: RecurringEditing) {
     }
 
     val labelError: String? get() = problem()["label"]
-    val payeeError: String? get() = problem()["payee"]
     val accountError: String? get() = problem()["account"]
     val categoryError: String? get() = problem()["category"]
     val amountError: String? get() = problem()["amount"]
     val endsError: String? get() = problem()["ends"]
     val toleranceError: String? get() = problem()["tolerance"]
+
+    /**
+     * What the API is asked to recognise while the form is filled: null until the amount and the
+     * tolerance can be read. The payee and the label are optional, the signed amount is enough.
+     */
+    fun recognitionRequest(): RecurringOperationPreviewRequest? {
+        val signed = cents ?: return null
+        val percent = amountTolerance.trim().toIntOrNull()?.takeIf { it in 0..100 } ?: return null
+
+        return RecurringOperationPreviewRequest(
+            referenceAmountCents = signed,
+            amountTolerancePercent = percent,
+            counterpartyName = counterpartyName.trim().ifEmpty { null },
+            labelPattern = labelPattern.trim().ifEmpty { null },
+            accountId = account?.let(::idOfIri),
+        )
+    }
 
     fun toRequest(): RecurringOperationWriteRequest? {
         if (problem(show = true).isNotEmpty() || anchorOn == null) return null
@@ -242,6 +255,7 @@ internal fun RecurringOperationEditScreen(
     onClearError: () -> Unit,
     onDetachLine: (String) -> Unit,
     onRetryLines: () -> Unit,
+    onPreview: (RecurringOperationPreviewRequest?) -> Unit,
 ) {
     val form = remember(editing) { RecurringFormState(editing) }
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
@@ -276,6 +290,10 @@ internal fun RecurringOperationEditScreen(
             return
         }
     }
+
+    // The lines the series would recognise follow the form; incomplete input clears them.
+    val recognition = form.recognitionRequest()
+    LaunchedEffect(recognition) { onPreview(recognition) }
 
     ErrorSnackbar(
         error = state.error,
@@ -349,6 +367,8 @@ internal fun RecurringOperationEditScreen(
                 onPickCategory = { picking = "category" },
             )
 
+            RecognitionPreviewSection(state.recognition, hasRequest = recognition != null)
+
             if (editing.record != null) {
                 HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
                 SeriesLinesSection(
@@ -370,6 +390,48 @@ internal fun RecurringOperationEditScreen(
         }
     }
 }
+
+/** The lines the series would recognise as it is written: the total, then the first lines. */
+@Composable
+internal fun RecognitionPreviewSection(recognition: SeriesRecognitionState, hasRequest: Boolean) {
+    Column(modifier = Modifier.uiTagRoot(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Transactions reconnues", style = MaterialTheme.typography.titleMedium)
+        val result = recognition.result
+
+        when {
+            !hasRequest -> Helper("Indiquez un montant pour voir les transactions concernées.")
+            recognition.error != null -> Text(recognition.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            recognition.isLoading || result == null -> CircularProgressIndicator()
+            result.total == 0 -> Text(
+                "Aucune transaction ne correspond.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(UiTags.RECURRING_PREVIEW_COUNT),
+            )
+            else -> {
+                Text(
+                    if (result.total == 1) "1 transaction correspond" else "${result.total} transactions correspondent",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.testTag(UiTags.RECURRING_PREVIEW_COUNT),
+                )
+                result.matches.take(PREVIEW_ROWS).forEach { match ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_PREVIEW_MATCH),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            listOfNotNull(match.bookedAt.take(10).ifBlank { null }?.let(::formatDay), match.label).joinToString(" · "),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(formatCents(match.amountCents))
+                    }
+                }
+                if (result.total > PREVIEW_ROWS) Helper("… et ${result.total - PREVIEW_ROWS} autre(s).")
+            }
+        }
+    }
+}
+
+private const val PREVIEW_ROWS = 5
 
 /** The lines the series recognised, newest first, each with the due date it covers and a way to take it out. */
 @Composable
@@ -495,20 +557,18 @@ internal fun RecurringFormFields(
             OutlinedTextField(
                 value = form.counterpartyName,
                 onValueChange = { form.counterpartyName = it },
-                label = { Text("Contrepartie attendue") },
-                isError = form.payeeError != null,
+                label = { Text("Contrepartie attendue (facultatif)") },
                 modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_COUNTERPARTY),
                 singleLine = true,
             )
-            Helper(form.payeeError ?: "Le nom qui apparaît sur le relevé : c'est ainsi que les transactions sont reconnues.", isError = form.payeeError != null)
+            Helper("Le nom qui apparaît sur le relevé. Sans contrepartie ni motif, le montant et son signe suffisent à reconnaître la série.")
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedTextField(
                 value = form.labelPattern,
                 onValueChange = { form.labelPattern = it },
-                label = { Text("Motif du libellé") },
-                isError = form.payeeError != null,
+                label = { Text("Motif du libellé (facultatif)") },
                 modifier = Modifier.fillMaxWidth().testTag(UiTags.RECURRING_LABEL_PATTERN),
                 singleLine = true,
             )
@@ -596,7 +656,7 @@ internal fun RecurringFormFields(
                 value = form.amountTolerance,
                 onValueChange = { form.amountTolerance = it },
                 label = { Text("Montant (%)") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(UiTags.RECURRING_TOLERANCE),
                 singleLine = true,
                 isError = form.toleranceError != null,
             )

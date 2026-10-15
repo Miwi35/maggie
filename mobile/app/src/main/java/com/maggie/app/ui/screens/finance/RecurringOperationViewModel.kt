@@ -8,6 +8,8 @@ import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ProposalClaim
 import com.maggie.app.data.model.RecurringAttachReport
+import com.maggie.app.data.model.RecurringOperationPreview
+import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RecurringOperationRecord
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringProposal
@@ -21,6 +23,8 @@ import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -45,6 +49,14 @@ data class RecurringPreview(
     val lines: List<RecurringProposal> get() = report.attachments.filter { it.recurringOperationId == seriesId }
 }
 
+/** What the form being filled would recognise, read before saving. */
+data class SeriesRecognitionState(
+    val isLoading: Boolean = false,
+    /** Null until a request answers, and again whenever the input is too incomplete to ask. */
+    val result: RecurringOperationPreview? = null,
+    val error: String? = null,
+)
+
 data class RecurringOperationUiState(
     /** Null until the first load answers: the screen shows a spinner, not an empty state. */
     val overview: RecurringOperationsOverview? = null,
@@ -64,6 +76,7 @@ data class RecurringOperationUiState(
     val actingOn: String? = null,
     val editing: RecurringEditing? = null,
     val preview: RecurringPreview? = null,
+    val recognition: SeriesRecognitionState = SeriesRecognitionState(),
     /** The lines the stored series on the editor recognised, newest first; null until they are read. */
     val seriesLines: List<Transaction>? = null,
     val seriesLinesError: String? = null,
@@ -225,11 +238,41 @@ class RecurringOperationViewModel(
     }
 
     fun startCreate() {
-        _uiState.value = _uiState.value.copy(editing = RecurringEditing(), error = null)
+        _uiState.value = _uiState.value.copy(editing = RecurringEditing(), recognition = SeriesRecognitionState(), error = null)
     }
 
     fun startFromTransaction(transaction: Transaction) {
-        _uiState.value = _uiState.value.copy(editing = RecurringEditing(transaction = transaction), error = null)
+        _uiState.value = _uiState.value.copy(
+            editing = RecurringEditing(transaction = transaction),
+            recognition = SeriesRecognitionState(),
+            error = null,
+        )
+    }
+
+    private var recognitionJob: Job? = null
+
+    /**
+     * The form changed: [request] is what it would recognise, or null while the input is too
+     * incomplete to ask. A newer request cancels the older one, so a slow answer never overwrites a fresh one.
+     */
+    fun previewRecognition(request: RecurringOperationPreviewRequest?) {
+        recognitionJob?.cancel()
+        if (request == null) {
+            _uiState.value = _uiState.value.copy(recognition = SeriesRecognitionState())
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(recognition = _uiState.value.recognition.copy(isLoading = true, error = null))
+        recognitionJob = viewModelScope.launch {
+            delay(RECOGNITION_DELAY_MS)
+            repository.previewSeries(request)
+                .onSuccess { result -> _uiState.value = _uiState.value.copy(recognition = SeriesRecognitionState(result = result)) }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(
+                        recognition = SeriesRecognitionState(error = failure.message ?: "L'aperçu est indisponible pour le moment."),
+                    )
+                }
+        }
     }
 
     fun startEdit(seriesId: String) {
@@ -240,6 +283,7 @@ class RecurringOperationViewModel(
         }
         _uiState.value = _uiState.value.copy(
             editing = RecurringEditing(record = record),
+            recognition = SeriesRecognitionState(),
             seriesLines = null,
             seriesLinesError = null,
             detachingId = null,
@@ -293,8 +337,10 @@ class RecurringOperationViewModel(
 
     fun closeEditor() {
         val editing = _uiState.value.editing
+        recognitionJob?.cancel()
         _uiState.value = _uiState.value.copy(
             editing = null,
+            recognition = SeriesRecognitionState(),
             returnToTransaction = editing?.transaction != null,
             error = null,
         )
@@ -400,5 +446,9 @@ class RecurringOperationViewModel(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private companion object {
+        const val RECOGNITION_DELAY_MS = 300L
     }
 }

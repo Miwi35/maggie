@@ -24,6 +24,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
         // A nullable field that is null after the merge-patch is an explicit clear
         $clearFields = [];
         foreach ([
+            'labelPattern' => $data->getLabelPattern(),
             'minAmountCents' => $data->getMinAmountCents(),
             'maxAmountCents' => $data->getMaxAmountCents(),
         ] as $field => $value) {
