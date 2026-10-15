@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useInput } from 'react-admin'
 import { useWatch } from 'react-hook-form'
 import Box from '@mui/material/Box'
@@ -69,7 +69,7 @@ const IconGrid = ({ tiles, current, onChoose }: IconGridProps) => {
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [scrollTop, setScrollTop] = useState(0)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (viewport === null) {
       return undefined
     }
