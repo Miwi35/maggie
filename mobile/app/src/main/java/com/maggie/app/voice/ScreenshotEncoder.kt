@@ -31,7 +31,14 @@ object ScreenshotEncoder {
 
     fun encode(bitmap: Bitmap): ByteArray {
         // A hardware bitmap cannot be drawn into a software one nor always compressed.
-        val source = if (bitmap.config == Bitmap.Config.HARDWARE) bitmap.copy(Bitmap.Config.ARGB_8888, false) else bitmap
+        // The copy itself can fail — `null` for a buffer format it cannot convert, such as
+        // a 10-bit screen's — and then the hardware one is used as is: scaling and
+        // compressing read it back themselves, slower but not lost (MAG-214).
+        val source = if (bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
+        } else {
+            bitmap
+        }
         val (width, height) = targetSize(source.width, source.height)
         val scaled = if (width == source.width && height == source.height) {
             source
@@ -39,9 +46,11 @@ object ScreenshotEncoder {
             Bitmap.createScaledBitmap(source, width, height, true)
         }
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, QUALITY, out)
+        val compressed = scaled.compress(Bitmap.CompressFormat.JPEG, QUALITY, out)
         if (scaled !== bitmap) scaled.recycle()
         if (source !== bitmap && source !== scaled) source.recycle()
+        // An empty file would pass for a screenshot: no thumbnail, nothing sent, nothing said.
+        check(compressed && out.size() > 0) { "JPEG encoding failed" }
         return out.toByteArray()
     }
 

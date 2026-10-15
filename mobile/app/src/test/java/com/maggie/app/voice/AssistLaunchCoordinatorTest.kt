@@ -95,7 +95,7 @@ class AssistLaunchCoordinatorTest {
      */
     @Test
     fun `a screenshot delivered after the text and after the deadline is still taken`() {
-        val late = mutableListOf<Boolean>()
+        val late = mutableListOf<ScreenshotMiss?>()
         val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
         coordinator.onShow(withAssist = true, withScreenshot = true)
         coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
@@ -107,21 +107,21 @@ class AssistLaunchCoordinatorTest {
 
         assertTrue("kept for the overlay, not deleted", coordinator.onScreenshot(kept = true))
 
-        assertEquals(listOf(true), late)
+        assertEquals("no miss: it came", listOf<ScreenshotMiss?>(null), late)
         assertFalse(coordinator.waitingForScreenshot)
         assertEquals(1, launches.size)
     }
 
     @Test
     fun `a late screenshot Android refused still ends the wait`() {
-        val late = mutableListOf<Boolean>()
+        val late = mutableListOf<ScreenshotMiss?>()
         val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
         coordinator.onShow(withAssist = false, withScreenshot = true)
         coordinator.onTimeout()
 
-        coordinator.onScreenshot(kept = false)
+        coordinator.onScreenshot(kept = false, miss = ScreenshotMiss.REFUSED)
 
-        assertEquals(listOf(false), late)
+        assertEquals("the overlay is told why", listOf<ScreenshotMiss?>(ScreenshotMiss.REFUSED), late)
         assertFalse(coordinator.waitingForScreenshot)
     }
 
@@ -246,5 +246,103 @@ class AssistLaunchCoordinatorTest {
         coordinator.onShow(withAssist = false, withScreenshot = false)
 
         assertTrue(coordinator.hasLaunched)
+    }
+
+    /**
+     * The owner's second refusal (15 Oct.): no thumbnail, and nothing on the phone said
+     * why. Every way a screenshot can go missing now reaches the overlay with its reason.
+     */
+    @Test
+    fun `a screenshot Android refused tells the overlay why`() {
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
+
+        coordinator.onScreenshot(kept = false, miss = ScreenshotMiss.REFUSED)
+
+        assertFalse(launches.single().hasScreenshot)
+        assertEquals(ScreenshotMiss.REFUSED, launches.single().screenshotMiss)
+    }
+
+    @Test
+    fun `a screenshot that could not be written is unreadable by default`() {
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+
+        coordinator.onScreenshot(kept = false)
+
+        assertEquals(ScreenshotMiss.UNREADABLE, launches.single().screenshotMiss)
+    }
+
+    @Test
+    fun `a session Android showed without the screenshot flag says it was not offered`() {
+        coordinator.onShow(withAssist = true, withScreenshot = false)
+        coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
+
+        assertEquals(ScreenshotMiss.NOT_OFFERED, launches.single().screenshotMiss)
+    }
+
+    @Test
+    fun `a screenshot that came has no miss`() {
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())
+        coordinator.onScreenshot(kept = true)
+
+        assertNull(launches.single().screenshotMiss)
+    }
+
+    @Test
+    fun `a plain show with no assist flag names no miss`() {
+        coordinator.onShow(withAssist = false, withScreenshot = false)
+
+        assertNull(launches.single().screenshotMiss)
+    }
+
+    @Test
+    fun `a wait given up for a reason tells the overlay`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshotAbandoned(ScreenshotMiss.HIDDEN)
+
+        assertEquals(listOf<ScreenshotMiss?>(ScreenshotMiss.HIDDEN), late)
+        assertFalse(coordinator.waitingForScreenshot)
+        assertFalse("it comes too late to be kept", coordinator.onScreenshot(kept = true))
+    }
+
+    @Test
+    fun `a wait given up because Maggie was summoned again says nothing`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshotAbandoned()
+
+        assertTrue(late.isEmpty())
+    }
+
+    @Test
+    fun `giving up when nothing is awaited tells nobody`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onScreenshot(kept = true)
+
+        coordinator.onScreenshotAbandoned(ScreenshotMiss.HIDDEN)
+
+        assertTrue(late.isEmpty())
+    }
+
+    @Test
+    fun `a late screenshot that could not be written is unreadable`() {
+        val late = mutableListOf<ScreenshotMiss?>()
+        val coordinator = AssistLaunchCoordinator(onLaunch = { launches += it }, onLateScreenshot = { late += it })
+        coordinator.onShow(withAssist = false, withScreenshot = true)
+        coordinator.onTimeout()
+
+        coordinator.onScreenshot(kept = false)
+
+        assertEquals(listOf<ScreenshotMiss?>(ScreenshotMiss.UNREADABLE), late)
     }
 }

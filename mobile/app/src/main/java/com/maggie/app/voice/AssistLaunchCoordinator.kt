@@ -20,14 +20,16 @@ package com.maggie.app.voice
  * [ScreenContext.screenshotPending], and the one that follows is still taken and
  * handed to [onLateScreenshot] instead of being deleted. The session stays alive
  * for it while [waitingForScreenshot]: a finished session gets nothing more from
- * Android.
+ * Android. A screenshot that does not come leaves its [ScreenshotMiss] in the
+ * context instead, so the overlay says why there is no thumbnail.
  *
  * Kept free of Android types so every one of those paths is a unit test; the
  * session owns the clock.
  */
 class AssistLaunchCoordinator(
     private val onLaunch: (ScreenContext) -> Unit,
-    private val onLateScreenshot: (kept: Boolean) -> Unit = {},
+    /** Null when it was kept, otherwise why it was not. */
+    private val onLateScreenshot: (miss: ScreenshotMiss?) -> Unit = {},
 ) {
 
     private var shown = false
@@ -53,6 +55,8 @@ class AssistLaunchCoordinator(
         shown = true
         awaitingAssist = withAssist
         awaitingScreenshot = withScreenshot
+        // Asked for the screen but not for its image: the overlay says so.
+        if (withAssist && !withScreenshot) context = context.copy(screenshotMiss = ScreenshotMiss.NOT_OFFERED)
         return !launchIfReady()
     }
 
@@ -72,20 +76,24 @@ class AssistLaunchCoordinator(
 
     /**
      * [kept] is whether the screenshot was written to [ScreenshotEncoder.file] —
-     * false when Android refused it, which still ends the wait. After the launch it
-     * goes to [onLateScreenshot]. Returns false when the file was not taken (not
+     * false when Android refused it ([miss] says how), which still ends the wait.
+     * After the launch it goes to [onLateScreenshot]. Returns false when the file was not taken (not
      * awaited, given up on, or for a dismissed invocation): nothing will send it, so
      * the caller deletes it.
      */
-    fun onScreenshot(kept: Boolean): Boolean {
+    fun onScreenshot(kept: Boolean, miss: ScreenshotMiss = ScreenshotMiss.UNREADABLE): Boolean {
         if (waitingForScreenshot) {
             screenshotReceived = true
-            onLateScreenshot(kept)
+            onLateScreenshot(if (kept) null else miss)
             return true
         }
         if (hasLaunched || !shown) return false
         screenshotReceived = true
-        context = context.copy(hasScreenshot = context.hasScreenshot || kept)
+        context = if (kept || context.hasScreenshot) {
+            context.copy(hasScreenshot = true, screenshotMiss = null)
+        } else {
+            context.copy(screenshotMiss = miss)
+        }
         launchIfReady()
         return true
     }
@@ -95,9 +103,15 @@ class AssistLaunchCoordinator(
         launch()
     }
 
-    /** The session stops waiting: a screenshot that still comes is refused. */
-    fun onScreenshotAbandoned() {
-        if (waitingForScreenshot) screenshotReceived = true
+    /**
+     * The session stops waiting: a screenshot that still comes is refused. With a [miss],
+     * the overlay is told why ([onLateScreenshot]) instead of saying « en cours… » for
+     * good; without one — the user summoned Maggie again — the next invocation speaks.
+     */
+    fun onScreenshotAbandoned(miss: ScreenshotMiss? = null) {
+        if (!waitingForScreenshot) return
+        screenshotReceived = true
+        if (miss != null) onLateScreenshot(miss)
     }
 
     /**

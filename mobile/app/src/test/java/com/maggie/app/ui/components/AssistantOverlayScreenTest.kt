@@ -2,6 +2,7 @@ package com.maggie.app.ui.components
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -11,6 +12,8 @@ import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.screentest.FakeChat
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.voice.ScreenContext
+import com.maggie.app.voice.ScreenshotMiss
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 import io.mockk.coVerify
@@ -55,11 +58,17 @@ class AssistantOverlayScreenTest {
         }
     }
 
-    private fun show(chat: FakeChat, voice: Voice, onListen: () -> Unit = {}) = compose.setContent {
+    private fun show(
+        chat: FakeChat,
+        voice: Voice,
+        pendingContext: ScreenContext? = null,
+        onListen: () -> Unit = {},
+    ) = compose.setContent {
         AssistantOverlay(
             viewModel = chat.viewModel,
             voiceManager = voice.manager,
             onDismiss = {},
+            pendingContext = pendingContext,
             onVoiceResult = {},
             onListen = onListen,
         )
@@ -164,5 +173,51 @@ class AssistantOverlayScreenTest {
 
         compose.onNodeWithText("Maggie demande ton accord").assertDoesNotExist()
         verify(exactly = 0) { voice.manager.speak(any()) }
+    }
+
+    /** The owner's second refusal (15 Oct.): no thumbnail, and nothing said why. */
+    @Test
+    fun `a screenshot that will not come is named in its place`() {
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(appLabel = "Chrome", screenshotMiss = ScreenshotMiss.REFUSED),
+        )
+        compose.waitForIdle()
+
+        // The sheet merges its texts into one node: the line is read from the unmerged tree.
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
+            .assertTextEquals("Capture d'écran indisponible : ${ScreenshotMiss.REFUSED.reason}")
+    }
+
+    @Test
+    fun `a screenshot still on its way says so`() {
+        show(FakeChat(history = emptyList()), Voice(), pendingContext = ScreenContext(screenshotPending = true))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
+            .assertTextEquals("Capture d'écran en cours…")
+    }
+
+    @Test
+    fun `no screenshot asked, nothing said about one`() {
+        show(FakeChat(history = emptyList()), Voice(), pendingContext = ScreenContext(appLabel = "Chrome"))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a screenshot announced but not readable says so`() {
+        // No file in the cache: what the overlay finds when the session wrote nothing usable.
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(appLabel = "Chrome", hasScreenshot = true),
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
+            .assertTextEquals("Capture d'écran indisponible : elle n'a pas pu être lue")
     }
 }

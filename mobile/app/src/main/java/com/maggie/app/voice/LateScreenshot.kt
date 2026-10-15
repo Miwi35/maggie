@@ -17,17 +17,26 @@ object LateScreenshot {
     private val arrived = MutableStateFlow(false)
     val hasArrived: StateFlow<Boolean> = arrived.asStateFlow()
 
+    /** Why it will not come, when it will not: the overlay shows it instead of waiting forever. */
+    private val missed = MutableStateFlow<ScreenshotMiss?>(null)
+    val hasMissed: StateFlow<ScreenshotMiss?> = missed.asStateFlow()
+
     /** A new overlay is about to open with a screenshot on its way: no earlier one counts. */
     fun expect() {
-        arrived.value = false
+        consume()
     }
 
     fun arrive() {
         arrived.value = true
     }
 
-    /** The overlay took it into its context, or threw it away. */
+    fun miss(reason: ScreenshotMiss) {
+        missed.value = reason
+    }
+
+    /** The overlay took it into its context, threw it away, or took note it is not coming. */
     fun consume() {
         arrived.value = false
+        missed.value = null
     }
 }
