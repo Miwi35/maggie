@@ -613,7 +613,8 @@ test('asking for the weather runs get_weather against the simulated Open-Meteo',
  */
 const FINANCE_SCORES = {
   question: "Où j'en suis ce mois-ci ?",
-  answer: 'Ce mois-ci, vous êtes au-dessus du rythme',
+  answer:
+    'Ce mois-ci, vous êtes au-dessus du rythme : vous avez dépensé plus que ce que votre budget prévoit à cette date, loyer compris.',
 }
 
 test('« où j\'en suis ce mois-ci ? » reads the week and month scores through get_finance_scores', async ({ page, api }) => {
