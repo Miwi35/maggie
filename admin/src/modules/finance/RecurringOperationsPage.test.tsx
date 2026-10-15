@@ -21,6 +21,7 @@ const series = (overrides: Partial<RecurringSeries>): RecurringSeries => ({
   categoryName: 'Abonnements',
   accountId: '01ACC',
   accountName: 'Courant',
+  accountBank: 'Crédit Agricole',
   period: 'monthly',
   dayRule: 'fixed_day',
   referenceAmountCents: -1349,
@@ -241,6 +242,7 @@ describe('RecurringOperationsPage — the list', () => {
     await waitFor(() => expect(within(flixo).getByText('Flixo')).toBeInTheDocument())
     expect(within(flixo).getByText('Abonnements')).toBeInTheDocument()
     expect(within(flixo).getByText('Courant')).toBeInTheDocument()
+    expect(within(flixo).getByText('Crédit Agricole')).toBeInTheDocument()
     expect(within(flixo).getByText('Le 12 de chaque mois')).toBeInTheDocument()
     expect(within(flixo).getByText('déclaré')).toBeInTheDocument()
     expect(nbsp(within(flixo).getByText(/ \/ mois$/).textContent)).toBe('-13,49 € / mois')
@@ -250,6 +252,38 @@ describe('RecurringOperationsPage — the list', () => {
     const loyer = rowOf('Loyer')
     expect(within(loyer).getByText('Le dernier jour du mois')).toBeInTheDocument()
     expect(within(loyer).getByText('mesuré')).toBeInTheDocument()
+  })
+
+  test('shows the bank under the account, and nothing when the account has none', async () => {
+    overviews = [overviewOf([FLIXO, series({ id: '01SAL', label: 'Salaire', accountBank: null })])]
+    renderPage()
+
+    const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
+    expect(within(flixo).getByText('Crédit Agricole')).toBeInTheDocument()
+    expect(within(rowOf('Salaire')).queryByText('Crédit Agricole')).not.toBeInTheDocument()
+  })
+
+  test('filters the list by account', async () => {
+    const user = userEvent.setup()
+    overviews = [
+      overviewOf([
+        FLIXO,
+        series({ id: '01SAL', label: 'Salaire', accountId: '01REV', accountName: 'Revolut', accountBank: 'Revolut' }),
+      ]),
+    ]
+    renderPage()
+    await waitFor(() => rowOf('Abonnement Flixo'))
+    expect(rowOf('Salaire')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Compte' }))
+    await user.click(await screen.findByRole('option', { name: 'Revolut' }))
+
+    expect(screen.queryByText('Abonnement Flixo')).not.toBeInTheDocument()
+    expect(rowOf('Salaire')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Compte' }))
+    await user.click(await screen.findByRole('option', { name: 'Tous les comptes' }))
+    expect(rowOf('Abonnement Flixo')).toBeInTheDocument()
   })
 
   describe('when the search index trails the overview', () => {

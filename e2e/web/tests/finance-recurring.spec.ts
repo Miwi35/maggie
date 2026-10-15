@@ -321,6 +321,7 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
 
   const accountId = await created(api, '/api/accounts', {
     name: `Courant MAG-306, essai ${attempt}`,
+    bank: 'Crédit Agricole',
     type: 'checking',
     currency: 'EUR',
     balanceCents: 0,
@@ -367,6 +368,7 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('13,49 € / mois')
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('161,88 € / an')
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('Le 12 de chaque mois')
+  await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText('Crédit Agricole')
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).toContainText(dueDay)
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).not.toContainText('Échéance manquée')
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).not.toContainText('Hausse de prix')

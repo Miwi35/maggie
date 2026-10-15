@@ -23,6 +23,7 @@ export interface RecurringSeries {
   categoryName: string
   accountId: string
   accountName: string
+  accountBank: string | null
   period: RecurrencePeriod
   dayRule: DayRule
   referenceAmountCents: number

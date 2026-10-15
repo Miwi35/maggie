@@ -12,12 +12,14 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -146,6 +148,7 @@ export const RecurringOperationsPage = () => {
 
   const toggle = (id: string) =>
     setExpanded((open) => (open.includes(id) ? open.filter((other) => other !== id) : [...open, id]))
+  const [accountFilter, setAccountFilter] = useState('')
 
   const detailRetries = useRef(0)
   const [retryTick, setRetryTick] = useState(0)
@@ -164,6 +167,9 @@ export const RecurringOperationsPage = () => {
     storedList.map((record) => [idOf(String(record.id)), record as unknown as RecurringStored]),
   )
   const operations = overview?.operations ?? []
+  const accounts = [...new Map(operations.map((o) => [o.accountId, o.accountName])).entries()]
+  const activeFilter = accounts.some(([id]) => id === accountFilter) ? accountFilter : ''
+  const shown = activeFilter ? operations.filter((o) => o.accountId === activeFilter) : operations
   const detailMissing = operations.some((operation) => !stored.has(operation.id))
 
   useEffect(() => {
@@ -313,6 +319,25 @@ export const RecurringOperationsPage = () => {
         />
       )}
 
+      {accounts.length > 1 && (
+        <TextField
+          select
+          size="small"
+          label="Compte"
+          value={activeFilter}
+          onChange={(event) => setAccountFilter(event.target.value)}
+          sx={{ mb: 2, minWidth: 240 }}
+          slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+        >
+          <MenuItem value="">Tous les comptes</MenuItem>
+          {accounts.map(([id, name]) => (
+            <MenuItem key={id} value={id}>
+              {name}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+
       {operations.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small" aria-label="Opérations récurrentes">
@@ -331,7 +356,7 @@ export const RecurringOperationsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {operations.map((series) => {
+              {shown.map((series) => {
                 const detail = stored.get(series.id)
                 const open = expanded.includes(series.id)
 
@@ -356,7 +381,14 @@ export const RecurringOperationsPage = () => {
                     </TableCell>
                     <TableCell>{detail?.counterpartyName ?? detail?.labelPattern ?? '—'}</TableCell>
                     <TableCell>{series.categoryName}</TableCell>
-                    <TableCell>{series.accountName}</TableCell>
+                    <TableCell>
+                      {series.accountName}
+                      {series.accountBank && (
+                        <Typography variant="caption" color="text.secondary" component="div">
+                          {series.accountBank}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {capitalise(describeSchedule(series.period, series.dayRule, detail?.anchorOn))}
                     </TableCell>

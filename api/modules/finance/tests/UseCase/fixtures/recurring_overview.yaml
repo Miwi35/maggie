@@ -18,6 +18,7 @@ Maggie\Core\Entity\User:
 Maggie\Finance\Entity\Account:
   checking:
     name: Courant
+    bank: Crédit Agricole
     type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
     currency: EUR
     balanceCents: 125000

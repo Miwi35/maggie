@@ -321,6 +321,10 @@ fun SeriesBadges(series: RecurringSeries, onClick: () -> Unit = {}) {
     }
 }
 
+/** « Courant · Crédit Agricole »: the account, then its bank when it has one. */
+internal fun accountLabel(name: String, bank: String?): String =
+    listOfNotNull(name.takeIf { it.isNotBlank() }, bank?.takeIf { it.isNotBlank() }).joinToString(" · ")
+
 @Composable
 fun SeriesCard(series: RecurringSeries, record: RecurringOperationRecord?, onClick: () -> Unit = {}) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
@@ -358,7 +362,7 @@ fun SeriesCard(series: RecurringSeries, record: RecurringOperationRecord?, onCli
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            listOf(series.accountName, series.categoryName).filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let {
+            listOf(accountLabel(series.accountName, series.accountBank), series.categoryName).filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let {
                 Text(
                     it.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
