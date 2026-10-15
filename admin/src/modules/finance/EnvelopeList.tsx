@@ -12,7 +12,8 @@ import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
-import { BUDGET_MODE_LABELS, ONE_OFF, formatPeriod } from './budgetModes'
+import { BUDGET_MODE_LABELS, ONE_OFF, formatPeriod, formatSeason, seasonFor } from './budgetModes'
+import type { Season } from './budgetModes'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
@@ -60,9 +61,20 @@ const EnvelopeDatagrid = () => {
       <FunctionField
         label="Budget"
         textAlign="right"
-        render={(record: RaRecord) => (
-          <Amount cents={record.amountCents as number} currency={record.currency as string} />
-        )}
+        render={(record: RaRecord) => {
+          // A month a season covers is budgeted at the season's amount (MAG-415).
+          const season = seasonFor(record.seasonalAmounts as Season[] | undefined, record.month as number | null)
+          return (
+            <>
+              <Amount cents={season?.amountCents ?? (record.amountCents as number)} currency={record.currency as string} />
+              {season && (
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {formatSeason(season)}
+                </Typography>
+              )}
+            </>
+          )
+        }}
       />
       <EditButton />
       <DeleteButton />

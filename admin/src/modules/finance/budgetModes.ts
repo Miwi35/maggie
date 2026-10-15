@@ -30,6 +30,51 @@ export const MONTH_LABELS: Record<number, string> = Object.fromEntries(
   MONTH_CHOICES.map((c) => [c.id, c.name]),
 )
 
+/** A stretch of the year a monthly envelope is budgeted differently (MAG-415); may cross the new year. */
+export interface Season {
+  fromMonth: number
+  toMonth: number
+  amountCents: number
+}
+
+const MONTH_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+
+/** The months a season covers, in order: 11 → 2 is 11, 12, 1, 2. */
+export function seasonMonths({ fromMonth, toMonth }: Pick<Season, 'fromMonth' | 'toMonth'>): number[] {
+  const months = [fromMonth]
+  for (let m = fromMonth; m !== toMonth; ) {
+    m = (m % 12) + 1
+    months.push(m)
+  }
+  return months
+}
+
+/** « saison nov.–févr. », or « saison juil. » for a single month. */
+export function formatSeason({ fromMonth, toMonth }: Pick<Season, 'fromMonth' | 'toMonth'>): string {
+  const from = MONTH_SHORT[fromMonth - 1] ?? String(fromMonth)
+  const to = MONTH_SHORT[toMonth - 1] ?? String(toMonth)
+  return fromMonth === toMonth ? `saison ${from}` : `saison ${from}–${to}`
+}
+
+/** The season covering `month`, if any: that month is budgeted at its amount. */
+export function seasonFor(seasons: Season[] | null | undefined, month: number | null | undefined): Season | null {
+  if (month == null) return null
+  return (seasons ?? []).find((season) => seasonMonths(season).includes(month)) ?? null
+}
+
+/** The first month two seasons share, or null: the API refuses overlapping seasons. */
+export function overlappingMonth(seasons: Array<Partial<Season> | null | undefined>): number | null {
+  const taken = new Set<number>()
+  for (const season of seasons) {
+    if (season?.fromMonth == null || season.toMonth == null) continue
+    for (const month of seasonMonths({ fromMonth: season.fromMonth, toMonth: season.toMonth })) {
+      if (taken.has(month)) return month
+      taken.add(month)
+    }
+  }
+  return null
+}
+
 /** Label of the period an envelope budgets: "Juillet 2026", "Année 2026", or "Ponctuelle" for an event. */
 export function formatPeriod(mode: string, year?: number | null, month?: number | null): string {
   if (mode === ONE_OFF || year == null) {
@@ -51,14 +96,15 @@ export function consumedPercent(spentCents: number, amountCents: number): number
 
 /**
  * What the API accepts for each mode: an annual envelope carries no month, a
- * one-off one neither category nor period, and only a one-off one a name.
+ * one-off one neither category nor period, only a one-off one a name, and
+ * only a monthly one seasons.
  */
 export function toEnvelopePayload<T extends { mode?: unknown }>(data: T): T {
   if (data.mode === ONE_OFF) {
-    return { ...data, category: null, year: null, month: null }
+    return { ...data, category: null, year: null, month: null, seasonalAmounts: [] }
   }
   const rest: Record<string, unknown> = { ...data }
   delete rest.name
 
-  return (data.mode === 'annual' ? { ...rest, month: null } : rest) as T
+  return (data.mode === 'annual' ? { ...rest, month: null, seasonalAmounts: [] } : rest) as T
 }

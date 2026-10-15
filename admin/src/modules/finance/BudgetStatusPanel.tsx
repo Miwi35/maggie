@@ -15,12 +15,12 @@ import { useMercure } from '../../hooks/useMercure'
 import { DailyScoreBanner } from './DailyScoreBanner'
 import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
-import { consumedPercent, formatPeriod } from './budgetModes'
+import { consumedPercent, formatPeriod, formatSeason } from './budgetModes'
 import { nestBudgetLines } from './budgetTree'
 import type { NestedBudgetLine } from './budgetTree'
 import { useBudgetStatus } from './useBudgetStatus'
 import { useRollOverEnvelopes } from './useRollOverEnvelopes'
-import type { BudgetStatus, EnvelopeConsumption } from './useBudgetStatus'
+import type { BudgetLine, BudgetStatus, EnvelopeConsumption } from './useBudgetStatus'
 
 const BUDGET_TOPICS = ['/api/envelopes/{id}', '/api/transactions/{id}']
 
@@ -130,11 +130,15 @@ const BudgetGauge = ({ line, label, caption, name, depth = 1 }: BudgetGaugeProps
   )
 }
 
+/** « Novembre 2026 · saison nov.–févr. » when a season budgets the month (MAG-415). */
+const withSeason = (period: string, line: BudgetLine) =>
+  line.season ? `${period} · ${formatSeason(line.season)}` : period
+
 const NestedGauge = ({ nested }: { nested: NestedBudgetLine }) => (
   <BudgetGauge
     line={nested.line}
     label={nested.label}
-    caption={formatPeriod(nested.line.mode, nested.line.year, nested.line.month)}
+    caption={withSeason(formatPeriod(nested.line.mode, nested.line.year, nested.line.month), nested.line)}
     name={nested.line.categoryName}
     depth={nested.depth}
   />

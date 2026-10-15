@@ -6,6 +6,10 @@ import {
   formatPeriod,
   consumedPercent,
   toEnvelopePayload,
+  formatSeason,
+  seasonMonths,
+  overlappingMonth,
+  seasonFor,
 } from './budgetModes'
 
 describe('budgetModes', () => {
@@ -65,6 +69,7 @@ describe('toEnvelopePayload', () => {
       mode: 'annual',
       month: null,
       amountCents: 100,
+      seasonalAmounts: [],
     })
   })
 
@@ -76,10 +81,47 @@ describe('toEnvelopePayload', () => {
   test('sends a one-off envelope without category nor period', () => {
     expect(
       toEnvelopePayload({ mode: 'one_off', name: 'Hellfest 2026', category: '/api/categories/1', year: 2026, month: 10, amountCents: 40000 }),
-    ).toEqual({ mode: 'one_off', name: 'Hellfest 2026', category: null, year: null, month: null, amountCents: 40000 })
+    ).toEqual({ mode: 'one_off', name: 'Hellfest 2026', category: null, year: null, month: null, amountCents: 40000, seasonalAmounts: [] })
   })
 
   test('drops a name typed before switching to a monthly envelope', () => {
     expect(toEnvelopePayload({ mode: 'monthly', name: 'Hellfest', month: 7 })).toEqual({ mode: 'monthly', month: 7 })
+  })
+})
+
+describe('seasons', () => {
+  test('a season may cross the new year', () => {
+    expect(seasonMonths({ fromMonth: 11, toMonth: 2 })).toEqual([11, 12, 1, 2])
+  })
+
+  test('finds the season budgeting a month', () => {
+    const winter = { fromMonth: 11, toMonth: 2, amountCents: 4500 }
+    expect(seasonFor([winter], 1)).toEqual(winter)
+    expect(seasonFor([winter], 3)).toBeNull()
+    expect(seasonFor([winter], null)).toBeNull()
+  })
+
+  test('names a season by its months', () => {
+    expect(formatSeason({ fromMonth: 11, toMonth: 2 })).toBe('saison nov.–févr.')
+    expect(formatSeason({ fromMonth: 7, toMonth: 7 })).toBe('saison juil.')
+  })
+
+  test('finds the month two seasons share', () => {
+    expect(
+      overlappingMonth([
+        { fromMonth: 11, toMonth: 2, amountCents: 4500 },
+        { fromMonth: 2, toMonth: 3, amountCents: 3000 },
+      ]),
+    ).toBe(2)
+    expect(
+      overlappingMonth([
+        { fromMonth: 11, toMonth: 2, amountCents: 4500 },
+        { fromMonth: 7, toMonth: 8, amountCents: 1000 },
+      ]),
+    ).toBeNull()
+  })
+
+  test('ignores a season still being filled in', () => {
+    expect(overlappingMonth([{ fromMonth: 11, toMonth: 2 }, { fromMonth: 12 }, null])).toBeNull()
   })
 })
