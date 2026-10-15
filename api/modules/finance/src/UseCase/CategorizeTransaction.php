@@ -24,9 +24,7 @@ class CategorizeTransaction
     }
 
     /**
-     * The rule that claims this transaction, if any. A rule whose category
-     * contradicts the sign of the amount — a "Loisirs" rule meeting a refund —
-     * claims nothing: the line would be refused on write.
+     * The rule that claims this transaction, if any.
      */
     public function match(Transaction $transaction): ?CategorizationRule
     {

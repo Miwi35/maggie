@@ -104,6 +104,7 @@ Maggie\Finance\Entity\Transaction:
   e2e_transaction_groceries_1:
     account: '@e2e_account_checking'
     category: '@e2e_category_groceries'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
     amountCents: -4500
     currency: EUR
     bookedAt: '<e2eDate("first day of this month +2 days")>'
@@ -116,6 +117,7 @@ Maggie\Finance\Entity\Transaction:
   e2e_transaction_groceries_2:
     account: '@e2e_account_checking'
     category: '@e2e_category_groceries'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
     amountCents: -3200
     currency: EUR
     bookedAt: '<e2eDate("first day of this month +9 days")>'
@@ -128,6 +130,7 @@ Maggie\Finance\Entity\Transaction:
   e2e_transaction_groceries_3:
     account: '@e2e_account_checking'
     category: '@e2e_category_groceries'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
     amountCents: -4300
     currency: EUR
     bookedAt: '<e2eDate("first day of this month +16 days")>'
@@ -222,6 +225,7 @@ Maggie\Finance\Entity\Transaction:
   e2e_transaction_last_month_groceries:
     account: '@e2e_account_checking'
     category: '@e2e_category_groceries'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
     amountCents: -38000
     currency: EUR
     bookedAt: '<e2eDate("first day of last month +10 days")>'
