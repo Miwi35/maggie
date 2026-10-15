@@ -423,6 +423,11 @@ web:
     areas: [finance, chat]
   e2e/web/tests/finance-rules.spec.ts:
     areas: [finance]
+    quarantine:
+      since: 2026-10-15
+      reason: >-
+        « Filing the history » (line 218) red on PRs that do not touch finance
+        (#475, #484), green on a re-run with no change. Fix: MAG-473.
   e2e/web/tests/finance-treasury.spec.ts:
     areas: [finance, chat]
 
