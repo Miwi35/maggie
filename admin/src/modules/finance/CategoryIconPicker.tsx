@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useInput } from 'react-admin'
 import { useWatch } from 'react-hook-form'
 import Box from '@mui/material/Box'
@@ -59,12 +59,12 @@ export const CategoryIconPicker = ({ source, label, helperText }: CategoryIconPi
   const isCurrent = (name: string) => current !== null && name.toLowerCase() === current.toLowerCase()
   const currentLabel = current === null ? 'Aucune' : (known?.label ?? current)
 
-  const tiles = useMemo<Tile[]>(() => {
+  const tiles = ((): Tile[] => {
     const found = filterCategoryIcons(query).map((entry) => ({ name: entry.name, label: entry.label }))
     const unknownShown = current !== null && known === undefined && (query.trim() === '' || normalizeSearch(current).includes(normalizeSearch(query)))
 
     return unknownShown ? [{ name: current, label: current }, ...found] : found
-  }, [query, current, known])
+  })()
 
   const close = () => {
     setOpen(false)
