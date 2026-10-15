@@ -7,7 +7,10 @@ namespace Maggie\Cookbook\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Exception\UnknownUtensilException;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -22,16 +25,27 @@ class UpdateRecipeProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Recipe
     {
         $ingredients = RecipeIngredientsPayload::fromContext($context);
+        $utensils = RecipeUtensilsPayload::fromContext($context);
 
-        $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
-            recipeId: (string) $data->getId(),
-            name: $data->getName(),
-            servings: $data->getServings(),
-            tags: $data->getTags(),
-            notes: $data->getNotes(),
-            ingredients: $ingredients,
-            clearFields: null === $data->getNotes() ? ['notes'] : [],
-        ));
+        try {
+            $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
+                recipeId: (string) $data->getId(),
+                name: $data->getName(),
+                servings: $data->getServings(),
+                tags: $data->getTags(),
+                notes: $data->getNotes(),
+                ingredients: $ingredients,
+                utensils: $utensils,
+                clearFields: null === $data->getNotes() ? ['notes'] : [],
+            ));
+        } catch (HandlerFailedException $e) {
+            // A utensil named by an id that is not one of the owner's: the request is wrong, not the server.
+            if ($e->getPrevious() instanceof UnknownUtensilException) {
+                throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
+            }
+
+            throw $e;
+        }
 
         return $envelope->last(HandledStamp::class)->getResult();
     }

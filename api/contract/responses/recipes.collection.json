@@ -44,6 +44,15 @@
                     "unit": "g"
                 }
             ],
+            "utensils": [
+                {
+                    "@id": "/api/utensils/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "@type": "Utensil",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "name": "Recorded Utensil",
+                    "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            ],
             "createdAt": "2026-01-01T00:00:00+00:00",
             "updatedAt": "2026-01-01T00:00:00+00:00"
         }

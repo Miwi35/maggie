@@ -24,5 +24,6 @@
     "Transaction": "/users/{userId}/api/transactions/{id}",
     "TreasurySettings": "/users/{userId}/api/treasury_settings/{id}",
     "User": "/users/{userId}/api/users/{id}",
-    "UserPreference": "/users/{userId}/api/user_preferences/{id}"
+    "UserPreference": "/users/{userId}/api/user_preferences/{id}",
+    "Utensil": "/users/{userId}/api/utensils/{id}"
 }

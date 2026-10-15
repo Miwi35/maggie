@@ -1,0 +1,28 @@
+{
+    "@context": "/api/contexts/Utensil",
+    "@id": "/api/utensils",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/utensils/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Utensil",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Utensil",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/utensils{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

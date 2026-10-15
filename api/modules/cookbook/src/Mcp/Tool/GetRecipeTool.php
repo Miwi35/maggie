@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Cookbook\Mcp\UtensilsArgument;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\RecipeScaler;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_recipe', description: 'Get a recipe by ID with its ingredients. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor.')]
+#[McpTool(name: 'get_recipe', description: 'Get a recipe by ID with its ingredients and the utensils it is made with. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor.')]
 class GetRecipeTool
 {
     public function __construct(
@@ -55,6 +56,7 @@ class GetRecipeTool
             'tags' => $recipe->getTags(),
             'notes' => $recipe->getNotes(),
             'ingredients' => $ingredients,
+            'utensils' => UtensilsArgument::describe($recipe),
         ];
 
         if (null !== $guests) {

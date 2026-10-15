@@ -110,6 +110,11 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     quantity: 200.0
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
 
+Maggie\Cookbook\Entity\Utensil:
+  recorded_utensil:
+    name: Recorded Utensil
+    user: '@recorded_user'
+
 Maggie\Cookbook\Entity\Recipe:
   recorded_recipe:
     name: Recorded Recipe
@@ -117,6 +122,7 @@ Maggie\Cookbook\Entity\Recipe:
     tags: ['quick', 'vegetarian']
     notes: The notes the client renders
     user: '@recorded_user'
+    utensils: ['@recorded_utensil']
 
 Maggie\Calendar\Entity\Proaction:
   recorded_proaction:

@@ -45,6 +45,7 @@ MCP_TOOL_NAMES = (
     "manage_safety_cushion",
     "manage_stores",
     "manage_transactions",
+    "manage_utensils",
     "monthly_review",
     "move_to_fallback",
     "remove_grocery_item",

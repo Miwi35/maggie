@@ -61,6 +61,7 @@ _MANAGE_OBJECTS = {
     "manage_recurring_operations": "l'opération récurrente",
     "manage_stores": "le magasin",
     "manage_transactions": "la transaction",
+    "manage_utensils": "l'ustensile",
 }
 
 # `manage_*` tools whose `list` action answers without arguments and stays small enough to

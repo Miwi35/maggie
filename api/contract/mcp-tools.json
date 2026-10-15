@@ -287,13 +287,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "utensils": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "name"
             ]
         },
-        "description": "Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list."
+        "description": "Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it."
     },
     "create_task": {
         "name": "create_task",
@@ -559,7 +566,7 @@
                 "recipeId"
             ]
         },
-        "description": "Get a recipe by ID with its ingredients. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor."
+        "description": "Get a recipe by ID with its ingredients and the utensils it is made with. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor."
     },
     "get_recurring_operations": {
         "name": "get_recurring_operations",
@@ -2143,6 +2150,35 @@
         },
         "description": "Read or change the treasury settings: salaryExpectedDay, the day of the month the salary is expected on (1 to 31; on a shorter month, its last day), and overdraftLimitCents, the overdraft the bank allows in positive integer cents (0, the default, means any negative balance is an overdraft; get_treasury_outlook only announces an overdraft below minus this limit). Action get returns the settings and salaryDelay; action update sets salaryExpectedDay and/or overdraftLimitCents — only what is given changes — or forgets the day with clearSalaryExpectedDay true. Setting the day does not look back by itself: offer to run detect_internal_transfers afterwards, which marks as advances the transfers from savings already made during a delay. salaryDelay says whether the salary is late, for the previous month and the current one: isConfigured is false when no expected day or no reference salary is known, and then nothing is late — say so instead of saying the salary is on time. The salary is late from the day after the expected day until the credits in the « Salaire » category reach 90 % of the reference salary; a bonus closes nothing. isLate, delayDays (days since the expected day of the oldest month still open) and shortfallCents (what is still missing, integer cents) sum it up; months[] gives month, expectedOn, receivedCents, referenceCents, isReceived, receivedOn, isDue, delayDays and shortfallCents."
     },
+    "manage_utensils": {
+        "name": "manage_utensils",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "utensilId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, rename, or delete the user's kitchen utensils (oven, Thermomix, mandoline…), the catalogue recipes say they are made with. A name is unique whatever its case: create answers the existing utensil when the name is already there. Deleting a utensil removes it from its recipes, which stay."
+    },
     "monthly_review": {
         "name": "monthly_review",
         "inputSchema": {
@@ -2597,13 +2633,20 @@
                         "null"
                     ],
                     "default": null
+                },
+                "utensils": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "recipeId"
             ]
         },
-        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags."
+        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it; it replaces the full list if provided, and [] empties it."
     },
     "update_stock": {
         "name": "update_stock",
