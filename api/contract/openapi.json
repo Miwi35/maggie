@@ -2251,6 +2251,251 @@
                 }
             }
         },
+        "/api/errands": {
+            "get": {
+                "operationId": "api_errands_get_collection",
+                "tags": [
+                    "Errand"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Errand collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Errand.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Errand.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Errand"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Errand.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Errand resources.",
+                "description": "Retrieves the collection of Errand resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[endedAt]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endedAt[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endedAt[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endedAt[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endedAt[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "store",
+                        "in": "query",
+                        "description": "Restrict to one store, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    }
+                ]
+            }
+        },
+        "/api/errands/{id}": {
+            "get": {
+                "operationId": "api_errands_id_get",
+                "tags": [
+                    "Errand"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Errand resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Errand.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Errand"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Errand.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Errand resource.",
+                "description": "Retrieves a Errand resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Errand identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/events": {
             "get": {
                 "operationId": "api_events_get_collection",
@@ -11646,6 +11891,157 @@
                     }
                 ]
             },
+            "Errand": {
+                "type": "object",
+                "description": "A finished errand: what was bought, where and when (MAG-488). One per store —\nending the errand without naming a store archives one per store the checked\nlines were in. Read-only: it is written by EndErrandHandler alone, and read by\nthe « Courses passées » views, the `list_past_errands` MCP tool and, later,\nthe « tu en prends souvent » suggestions.\n\nThe store's name and each line's label are copied, not referenced only: a\npast errand must still read « Lidl · Tomates » once the store or the product\nis gone.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "store": {
+                        "description": "Sets the store and copies its name.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "storeName": {
+                        "readOnly": true,
+                        "description": "The store's name when the errand ended; null for lines with no store.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "endedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "itemCount": {
+                        "readOnly": true,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PurchasedItem"
+                        }
+                    }
+                }
+            },
+            "Errand.html": {
+                "type": "object",
+                "description": "A finished errand: what was bought, where and when (MAG-488). One per store —\nending the errand without naming a store archives one per store the checked\nlines were in. Read-only: it is written by EndErrandHandler alone, and read by\nthe « Courses passées » views, the `list_past_errands` MCP tool and, later,\nthe « tu en prends souvent » suggestions.\n\nThe store's name and each line's label are copied, not referenced only: a\npast errand must still read « Lidl · Tomates » once the store or the product\nis gone.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "store": {
+                        "description": "Sets the store and copies its name.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "storeName": {
+                        "readOnly": true,
+                        "description": "The store's name when the errand ended; null for lines with no store.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "endedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "itemCount": {
+                        "readOnly": true,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PurchasedItem.html"
+                        }
+                    }
+                }
+            },
+            "Errand.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "store": {
+                                "description": "Sets the store and copies its name.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "storeName": {
+                                "readOnly": true,
+                                "description": "The store's name when the errand ended; null for lines with no store.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "endedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "itemCount": {
+                                "readOnly": true,
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/PurchasedItem.jsonld"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "A finished errand: what was bought, where and when (MAG-488). One per store —\nending the errand without naming a store archives one per store the checked\nlines were in. Read-only: it is written by EndErrandHandler alone, and read by\nthe « Courses passées » views, the `list_past_errands` MCP tool and, later,\nthe « tu en prends souvent » suggestions.\n\nThe store's name and each line's label are copied, not referenced only: a\npast errand must still read « Lidl · Tomates » once the store or the product\nis gone."
+            },
             "Error": {
                 "type": "object",
                 "description": "A representation of common errors.",
@@ -16112,6 +16508,342 @@
                     }
                 ]
             },
+            "PurchasedItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "errand": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "label": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
+            "PurchasedItem.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "errand": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "label": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
+            "PurchasedItem.jsonld": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "errand": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "product": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "label": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "position": {
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
             "Qualification.html_noid": {
                 "type": "object",
                 "properties": {
@@ -20099,6 +20831,10 @@
         {
             "name": "Transaction",
             "description": "Resource 'Transaction' operations."
+        },
+        {
+            "name": "Errand",
+            "description": "A finished errand: what was bought, where and when (MAG-488). One per store —\nending the errand without naming a store archives one per store the checked\nlines were in. Read-only: it is written by EndErrandHandler alone, and read by\nthe « Courses passées » views, the `list_past_errands` MCP tool and, later,\nthe « tu en prends souvent » suggestions.\n\nThe store's name and each line's label are copied, not referenced only: a\npast errand must still read « Lidl · Tomates » once the store or the product\nis gone."
         },
         {
             "name": "GroceryList",

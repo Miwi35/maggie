@@ -29,6 +29,7 @@ import TuneIcon from '@mui/icons-material/Tune'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import LowPriorityIcon from '@mui/icons-material/LowPriority'
 import StorefrontIcon from '@mui/icons-material/Storefront'
+import HistoryIcon from '@mui/icons-material/History'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
@@ -102,6 +103,12 @@ export const CustomMenu = () => {
                 to="/stores"
                 primaryText="Magasins"
                 leftIcon={tinted('cuisine', <StorefrontIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/errands"
+                primaryText="Courses passées"
+                leftIcon={tinted('cuisine', <HistoryIcon />)}
                 sx={{ pl: 4 }}
               />
             </List>

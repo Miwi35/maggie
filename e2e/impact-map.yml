@@ -234,6 +234,7 @@ areas:
     - mobile/app/src/main/java/com/maggie/app/data/repository/{GroceryList,Product,Store}Repository.kt
     - mobile/app/src/main/java/com/maggie/app/data/model/{GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
     - e2e/web/pages/GroceryListPage.ts
+    - e2e/web/pages/PastErrandsPage.ts
     - e2e/mobile/scripts/grocery-api.js
   cookbook:
     - api/modules/cookbook/**

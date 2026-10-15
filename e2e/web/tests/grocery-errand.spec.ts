@@ -1,11 +1,12 @@
 import { test, expect, seedId, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { calledTools, toolResults } from '../helpers/agui.js'
-import { getCollection } from '../helpers/api.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openMercureProbe, openSubscribed, userTopic } from '../helpers/mercure.js'
 import type { MercureProbe } from '../helpers/mercure.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
+import { PastErrandsPage } from '../pages/PastErrandsPage.js'
 
 /**
  * The errand: the aisles, the tick box, the end of the trip, the shop that
@@ -122,6 +123,9 @@ const WRITES = {
   errandKept: 'Olives MAG-101',
   deleted: 'Lait MAG-283',
   kept: 'Pain MAG-283',
+  archivedFirst: 'Pistaches MAG-488',
+  archivedSecond: 'Dattes MAG-488',
+  notBought: 'Figues MAG-488',
   restockedRice: 'Riz MAG-298',
   untouchedDetergent: 'Lessive MAG-298',
 }
@@ -863,3 +867,65 @@ async function expectStockState(api: APIRequestContext, productId: string, stock
     )
     .toBe(stockState)
 }
+
+interface PastErrand {
+  '@id': string
+  storeName: string | null
+  endedAt: string
+  itemCount: number
+  items: { label: string }[]
+}
+
+test('what was bought is kept in « Courses passées », with its date and its shop — MAG-488', async ({ otherUser }) => {
+  const [first, second, notBought] = [WRITES.archivedFirst, WRITES.archivedSecond, WRITES.notBought]
+  const { api } = otherUser
+
+  // Given two lines ticked in one shop, and one left on the list
+  const grocery = new GroceryListPage(otherUser.page)
+  await grocery.open()
+  for (const label of [first, second, notBought]) {
+    await grocery.addItem(label, { quantity: 1, store: SHOPS.market })
+    await expect(grocery.line(label), 'the line to tick never reached the list').toBeVisible()
+  }
+  await grocery.tickBox(first).click()
+  await grocery.tickBox(second).click()
+  await expectLine(api, second, (item) => true === item?.checked, 'the second ticked line')
+
+  // When the errand ends
+  await grocery.endErrand()
+  await expect(grocery.remainingLine(notBought)).toBeVisible()
+
+  // Then the database holds one errand for the shop, with the two lines bought
+  const archived = await waitForIndexed<PastErrand>(
+    api,
+    '/api/errands',
+    (errand) => errand.items?.some((item) => item.label === first) ?? false,
+    { what: 'The archived errand' },
+  )
+  expect(archived.storeName).toBe(SHOPS.market)
+  expect(archived.items.map((item) => item.label).sort()).toEqual([first, second].sort())
+  await expectLine(api, notBought, (item) => false === item?.checked, 'the line not bought, still on the list')
+
+  // …and the owner finds it in « Courses passées », filtered on the shop
+  const pastErrands = new PastErrandsPage(otherUser.page)
+  await pastErrands.open()
+  await pastErrands.filterByStore(SHOPS.market)
+
+  const day = new Date(archived.endedAt).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  })
+  // Most recent first: the errand just ended is the top row of its shop.
+  const row = pastErrands.rows().first()
+  await expect(row).toContainText(SHOPS.market)
+  await expect(row).toContainText(day)
+  await expect(row).toContainText('2')
+
+  await row.click()
+  const lines = pastErrands.boughtLines()
+  await expect(lines).toContainText(first)
+  await expect(lines).toContainText(second)
+  await expect(lines).not.toContainText(notBought)
+})

@@ -7,6 +7,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Cookbook\Entity\Ingredient;
+use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
@@ -245,5 +246,93 @@ class EndErrandControllerTest extends WebTestCase
         $this->assertElasticsearchIndexDispatchedFor(Product::class, $pastaId);
         $this->assertElasticsearchIndexDispatchedFor(Ingredient::class, $flourId);
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testEndingAnErrandArchivesItsCheckedLines(): void
+    {
+        $this->loadFixtures('end_errand_history.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $storeId = (string) $this->getFixture('store_carrefour')->getId();
+        $pastaId = (string) $this->getFixture('product_pasta')->getId();
+        $breadId = (string) $this->getFixture('item_bread')->getId();
+
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+        $before = new \DateTimeImmutable('-1 second');
+        $data = $this->endErrand(['storeId' => $storeId]);
+
+        self::assertCount(1, $data['errands']);
+        self::assertSame(['storeName' => 'Carrefour', 'itemCount' => 3], array_diff_key($data['errands'][0], ['id' => true]));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        $errands = $em->getRepository(Errand::class)->findAll();
+        self::assertCount(1, $errands);
+        $errand = $errands[0];
+        self::assertSame($data['errands'][0]['id'], (string) $errand->getId());
+        self::assertSame($storeId, (string) $errand->getStore()?->getId());
+        self::assertSame('Carrefour', $errand->getStoreName());
+        self::assertSame((string) $this->getFixture('test_user')->getId(), (string) $errand->getUser()->getId());
+        self::assertGreaterThanOrEqual($before, $errand->getEndedAt());
+        self::assertSame(3, $errand->getItemCount());
+
+        $lines = array_map(static fn ($item) => [
+            $item->getLabel(),
+            $item->getQuantity(),
+            $item->getUnit()?->value,
+            null !== $item->getProduct() ? (string) $item->getProduct()->getId() : null,
+            $item->getPackagingUnit()?->value,
+            $item->getPackagingSize(),
+            $item->getPackagingSizeUnit()?->value,
+        ], $errand->getItems()->toArray());
+        self::assertSame([
+            ['Pâtes', 2.0, 'pack', $pastaId, 'pack', 500.0, 'g'],
+            ['Tomates', 3.0, 'piece', null, null, null, null],
+            ['Lait', 1.0, 'l', null, null, null, null],
+        ], $lines);
+
+        // The bought lines left the list, the unbought one stayed.
+        $remaining = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertSame([$breadId], array_map(static fn ($item) => (string) $item->getId(), $remaining));
+
+        $this->assertMercureUpdatePublished('/api/errands/'.$errand->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Errand::class, (string) $errand->getId());
+    }
+
+    public function testEndingWithoutStoreArchivesOneErrandPerStore(): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->endErrand();
+
+        $summaries = array_map(static fn ($errand) => [$errand['storeName'], $errand['itemCount']], $data['errands']);
+        sort($summaries);
+        self::assertSame([['Auchan', 1], ['Lidl', 2]], $summaries);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $byStore = [];
+        foreach ($em->getRepository(Errand::class)->findAll() as $errand) {
+            $byStore[$errand->getStoreName()] = array_map(static fn ($item) => $item->getLabel(), $errand->getItems()->toArray());
+        }
+        ksort($byStore);
+        self::assertSame(['Auchan' => ['Chocolat'], 'Lidl' => ['Tomates', 'Beurre']], $byStore);
+    }
+
+    public function testNothingCheckedArchivesNothing(): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        // Auchan's checked line is out of the Lidl errand; ending an unknown store finds nothing.
+        $data = $this->endErrand(['storeId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV']);
+
+        self::assertSame([], $data['errands']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame([], $em->getRepository(Errand::class)->findAll());
     }
 }

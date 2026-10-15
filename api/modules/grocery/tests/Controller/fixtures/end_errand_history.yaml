@@ -1,0 +1,62 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: end-errand-history@example.com
+    googleId: google-end-errand-history
+    name: End Errand History User
+
+Maggie\Grocery\Entity\Store:
+  store_carrefour:
+    name: Carrefour
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  product_pasta:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_pasta:
+    groceryList: '@grocery_list'
+    product: '@product_pasta'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_carrefour'
+    position: 1
+  item_tomato:
+    groceryList: '@grocery_list'
+    customLabel: Tomates
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_carrefour'
+    position: 2
+  item_milk:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_carrefour'
+    position: 3
+  item_bread:
+    groceryList: '@grocery_list'
+    customLabel: Pain
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_carrefour'
+    position: 4

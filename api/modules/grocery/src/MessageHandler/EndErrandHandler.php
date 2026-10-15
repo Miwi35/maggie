@@ -6,8 +6,10 @@ namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\PurchasedItem;
 use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Message\EndErrandCommand;
 use Maggie\Grocery\Message\EndErrandResult;
@@ -39,6 +41,12 @@ class EndErrandHandler
         /** @var array<string, Product> $restocked */
         $restocked = [];
 
+        // One errand per store: a session through several shops is several
+        // errands, each one with its own store (MAG-488).
+        /** @var array<string, Errand> $errands */
+        $errands = [];
+        $endedAt = new \DateTimeImmutable();
+
         foreach ($items as $item) {
             if (!$item->isChecked()) {
                 continue;
@@ -58,6 +66,17 @@ class EndErrandHandler
                 $restocked[(string) $product->getId()] = $product;
             }
 
+            $store = $item->getStore();
+            $storeKey = null !== $store ? (string) $store->getId() : '';
+            if (!isset($errands[$storeKey])) {
+                $errands[$storeKey] = (new Errand())
+                    ->setUser($user)
+                    ->setStore($store)
+                    ->setEndedAt($endedAt);
+                $this->em->persist($errands[$storeKey]);
+            }
+            $errands[$storeKey]->addItem(PurchasedItem::fromGroceryItem($item));
+
             $list->removeItem($item);
             $this->em->remove($item);
         }
@@ -65,6 +84,6 @@ class EndErrandHandler
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        return new EndErrandResult($list, array_values($restocked));
+        return new EndErrandResult($list, array_values($restocked), array_values($errands));
     }
 }

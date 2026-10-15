@@ -1,6 +1,7 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
+import { ErrandList } from './ErrandList'
 import { GroceryListView } from './GroceryListView'
 import { ProductCreate } from './ProductCreate'
 import { ProductEdit } from './ProductEdit'
@@ -26,5 +27,6 @@ export const groceryResources = (
       create={StoreCreate}
       edit={StoreEdit}
     />
+    <ResourceGuesser name="errands" list={ErrandList} />
   </>
 )
