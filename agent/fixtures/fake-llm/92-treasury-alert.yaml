@@ -1,0 +1,21 @@
+# The daily treasury alert (MAG-281): `app:finance:treasury-alerts` files a
+# proaction whose prompt opens with « Alerte trésorerie » when the salary is late
+# and an overdraft is forecast within a week. Maggie reads the outlook again
+# through `get_treasury_outlook` (the prompt tells her to), then proposes the
+# advance — and only proposes: the transfer is the user's, never said done.
+#
+# The fake does not read the result: the journey asserts the tool ran and that the
+# message sits in the conversation; the figures are `GetTreasuryOutlookToolTest`'s
+# and the prompt's wording is `TreasuryAlertsCommandTest`'s. The prompt avoids the
+# words earlier scenarios match on (« prévu » is 30-upcoming-events').
+name: treasury-alert
+description: The message Maggie writes when the salary is late and an overdraft is coming.
+
+match:
+  user_contains: "Alerte trésorerie"
+
+turns:
+  - tools:
+      - name: get_treasury_outlook
+        input: {}
+  - text: "Votre salaire est en retard et votre compte courant passerait à découvert dans les jours qui viennent. Je vous propose une avance depuis votre épargne : le virement reste à passer de votre côté, je n'ai rien déplacé. Vous pourrez la rendre dès que le salaire arrivera."

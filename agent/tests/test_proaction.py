@@ -2,9 +2,16 @@ import json
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import respx
+
 from app.db.context_model import ContextStatus
+from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import LLMGateway
+from app.llm.tools import ToolRouter
+from app.mcp.client import McpClient
 from app.proactions.api import Proaction, ProactionApiUnreachable
+from app.queue.proaction_consumer import execute_proaction
 
 API_PROACTION = {
     "id": "01JPROACTION0000000000000A",
@@ -463,3 +470,141 @@ class TestADueReminderIsDelivered:
         _, content = await self._sent("Planifie la journée", silent=True)
 
         assert content == "Planifie la journée"
+
+
+TREASURY_ALERT_PROMPT = (
+    "Alerte trésorerie du 2026-10-31. Le salaire attendu le 2026-10-25 n'est pas arrivé : 6 jour(s) de retard.\n"
+    "Le compte courant passerait à découvert le 2026-11-06 (solde le plus bas : -100,00 €, limite de découvert autorisée : 0,00 €).\n"
+    "Avance conseillée : 100,00 €, depuis le compte « Livret A » (source : get_treasury_outlook, solde du compte 6 000,00 €).\n"
+    "Tu ne fais que proposer : n'exécute aucun virement."
+)
+TREASURY_OUTLOOK = {
+    "salary": {"isConfigured": True, "isLate": True, "delayDays": 6},
+    "overdraft": {"isForecast": True, "onDate": "2026-11-06", "worstBalanceCents": -10000, "limitCents": 0},
+    "advice": {"amountCents": 10000, "sourceAccountName": "Livret A", "sourceAmountCents": 10000},
+}
+MCP_URL = "http://nginx/_mcp"
+
+
+class TestTreasuryAlertProaction:
+    """The proaction `app:finance:treasury-alerts` files (MAG-281), run through the real tool loop.
+
+    Only the model (the fake LLM's `92-treasury-alert.yaml`) and the HTTP to the API (respx) are
+    simulated: the gateway, the tool router, the policy and the MCP client are the production ones.
+    """
+
+    @staticmethod
+    def _gateway() -> LLMGateway:
+        gateway = _gateway()
+        gateway.client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        gateway.tool_router = ToolRouter()
+        gateway.tool_router.get_tool_definitions = AsyncMock(
+            return_value=[
+                {
+                    "name": "get_treasury_outlook",
+                    "description": "Read the treasury until the salary comes.",
+                    "input_schema": {"type": "object", "properties": {}},
+                }
+            ]
+        )
+        gateway._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "Tu es Maggie."}])
+        return gateway
+
+    @staticmethod
+    def _proaction(status: str = "running") -> Proaction:
+        return Proaction.from_api(
+            API_PROACTION | {"id": "pro-1", "userId": "01JTREASURYUSER000000000A", "prompt": TREASURY_ALERT_PROMPT, "status": status}
+        )
+
+    @staticmethod
+    def _outlook_reply(outlook: dict) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": json.dumps(outlook)}]}},
+        )
+
+    @staticmethod
+    async def _run(gateway: LLMGateway, proaction: Proaction, *, dry_run: bool = False):
+        mcp = McpClient()
+        mcp.server_url = MCP_URL
+        mcp._http_client = httpx.AsyncClient()
+        mcp._session_id = "session-1"
+        try:
+            with (
+                patch("app.llm.tools.mcp_client", mcp),
+                patch("app.llm.gateway.resolve_context", AsyncMock(return_value={"action": "matched", "id": "ctx-1"})),
+                patch("app.queue.proaction_consumer.proactions_api") as repo,
+                patch("app.queue.proaction_consumer.publisher") as publisher,
+                patch("app.queue.proaction_consumer.message_repo") as messages,
+                patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
+            ):
+                repo.record = AsyncMock(return_value=proaction)
+                publisher.publish = AsyncMock()
+                messages.create = AsyncMock()
+                summarizer.maybe_summarize = AsyncMock(return_value=None)
+                result = await execute_proaction(gateway, proaction, dry_run=dry_run)
+                return result, repo, messages
+        finally:
+            await mcp._http_client.aclose()
+
+    @respx.mock
+    async def test_maggie_reads_the_outlook_for_the_user_and_proposes_without_claiming_a_transfer(self):
+        route = respx.post(MCP_URL).mock(return_value=self._outlook_reply(TREASURY_OUTLOOK))
+        proaction = self._proaction()
+
+        result, repo, messages = await self._run(self._gateway(), proaction)
+
+        assert result["status"] == "completed"
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["params"]["name"] == "get_treasury_outlook"
+        assert route.calls.last.request.headers["X-Maggie-User-Id"] == proaction.user_id
+        assert json.loads(result["toolCalls"][0]["result"])["overdraft"]["onDate"] == "2026-11-06"
+        repo.record.assert_awaited_once()
+        assert repo.record.await_args.args[1] == "completed"
+        messages.create.assert_awaited_once()
+        stored = messages.create.await_args.kwargs
+        assert stored["user_id"] == proaction.user_id
+        assert stored["role"] == "assistant"
+        assert stored["context_id"] == "ctx-1"
+        assert "Je vous propose une avance" in stored["content"]
+        assert "rendre" in stored["content"]
+        for claim in ("c'est fait", "j'ai viré", "virement effectué", "ai effectué"):
+            assert claim not in stored["content"].lower()
+
+    @respx.mock
+    async def test_a_dry_run_shows_the_message_without_storing_or_taking_the_proaction(self):
+        respx.post(MCP_URL).mock(return_value=self._outlook_reply(TREASURY_OUTLOOK))
+
+        result, repo, messages = await self._run(self._gateway(), self._proaction("pending"), dry_run=True)
+
+        assert "Je vous propose une avance" in result["message"]
+        assert result["status"] == "pending"
+        repo.record.assert_not_awaited()
+        messages.create.assert_not_awaited()
+
+    @respx.mock
+    async def test_an_api_that_does_not_answer_is_handed_to_the_model_as_an_error_not_as_figures(self):
+        respx.post(MCP_URL).mock(return_value=httpx.Response(500, text="Internal Server Error"))
+
+        result, repo, _ = await self._run(self._gateway(), self._proaction())
+
+        assert result["status"] == "completed"
+        outcome = json.loads(result["toolCalls"][0]["result"])
+        assert "error" in outcome
+        assert "overdraft" not in outcome
+        assert repo.record.await_args.args[1] == "completed"
+
+    @respx.mock
+    async def test_a_model_that_fails_marks_the_proaction_failed_and_stores_nothing(self):
+        respx.post(MCP_URL).mock(return_value=self._outlook_reply(TREASURY_OUTLOOK))
+        gateway = self._gateway()
+        gateway.client = MagicMock()
+        gateway.client.messages.create = AsyncMock(side_effect=RuntimeError("model down"))
+
+        result, repo, messages = await self._run(gateway, self._proaction())
+
+        assert result["status"] == "failed"
+        assert result["error"] == "model down"
+        assert repo.record.await_args.args[1] == "failed"
+        assert repo.record.await_args.kwargs["error"] == "model down"
+        messages.create.assert_not_awaited()

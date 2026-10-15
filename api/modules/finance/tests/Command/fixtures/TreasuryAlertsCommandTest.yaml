@@ -1,0 +1,48 @@
+# Treasury alerts (MAG-281). Everyone is expected to be paid on the 25th, the
+# reference is declared on the cushion (4 950 €), the Courant holds 200 € and
+# the Livret 6 000 €. The tests pin the day with a mock clock and add the
+# credits and planned movements each case needs.
+Maggie\Core\Entity\User:
+  '{late, arrived, far, flush, unset, other}':
+    email: 'treasury-alerts-<current()>\@example.com'
+    googleId: 'google-treasury-alerts-<current()>'
+    name: 'Treasury Alerts <current()>'
+
+Maggie\Finance\Entity\TreasurySettings:
+  'settings_{late, arrived, far, flush, other}':
+    salaryExpectedDay: 25
+    user: '@<current()>'
+  settings_unset:
+    salaryExpectedDay: null
+    user: '@unset'
+
+Maggie\Finance\Entity\SafetyCushion:
+  'cushion_{late, arrived, far, flush, unset, other}':
+    targetMonths: 3
+    monthlyNetIncomeCents: 495000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    user: '@<current()>'
+
+Maggie\Finance\Entity\Account:
+  'checking_{late, arrived, far, flush, unset, other}':
+    name: 'Courant <current()>'
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 20000
+    isCushion: false
+    user: '@<current()>'
+  'livret_{late, arrived, far, flush, unset, other}':
+    name: 'Livret <current()>'
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 600000
+    isCushion: false
+    user: '@<current()>'
+
+Maggie\Finance\Entity\Category:
+  'salary_{late, arrived, far, flush, unset, other}':
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    standardKey: salary
+    user: '@<current()>'
