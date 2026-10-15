@@ -18,13 +18,12 @@ enum class TaskView(val key: String, val label: String) {
     val addable: Boolean get() = this != DONE
 
     /**
-     * The due day a task added from this view gets: today in « Aujourd'hui », tomorrow in
-     * « À venir », none in « À faire un jour ».
+     * The due day a task added from this view gets: tomorrow in « À venir », none elsewhere —
+     * added to the day (MAG-497), it takes a slot, not a deadline.
      */
     fun defaultDueDate(today: LocalDate): String? = when (this) {
-        TODAY -> today.toString()
         UPCOMING -> today.plusDays(1).toString()
-        SOMEDAY, DONE -> null
+        TODAY, SOMEDAY, DONE -> null
     }
 }
 

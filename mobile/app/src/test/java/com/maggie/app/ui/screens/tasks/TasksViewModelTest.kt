@@ -381,11 +381,11 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `a task added in Aujourd'hui is due today`() = runTest {
+    fun `a task added in Aujourd'hui takes a slot, not a due day`() = runTest {
         val request = addFrom(TaskView.TODAY)
 
         assertEquals("Acheter du pain", request.title)
-        assertEquals("2026-10-15", request.dueDate)
+        assertNull(request.dueDate)
     }
 
     @Test
