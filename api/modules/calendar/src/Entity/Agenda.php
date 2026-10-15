@@ -69,8 +69,10 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
     /** The agenda where Maggie files her proactions (ADR-012, MAG-326). */
     public const MODULE_AGENT = 'agent';
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255)]

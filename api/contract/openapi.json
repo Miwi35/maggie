@@ -13420,6 +13420,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13450,11 +13455,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13585,6 +13585,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13615,11 +13620,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13746,6 +13746,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13776,11 +13781,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13916,6 +13916,11 @@
                                 ],
                                 "format": "date-time"
                             },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
                             "startAt": {
                                 "type": [
                                     "string",
@@ -13946,11 +13951,6 @@
                             },
                             "allDay": {
                                 "type": "boolean"
-                            },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"
@@ -14314,6 +14314,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14327,11 +14332,6 @@
                             "null"
                         ],
                         "format": "date-time"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14487,6 +14487,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14500,11 +14505,6 @@
                             "null"
                         ],
                         "format": "date-time"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14665,6 +14665,11 @@
                                 ],
                                 "format": "date-time"
                             },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
                             "startAt": {
                                 "type": [
                                     "string",
@@ -14678,11 +14683,6 @@
                                     "null"
                                 ],
                                 "format": "date-time"
-                            },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"

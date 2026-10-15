@@ -62,8 +62,10 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     use HasGoogleTaskTrackingTrait;
     use MercurePayloadFilterTrait;
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
