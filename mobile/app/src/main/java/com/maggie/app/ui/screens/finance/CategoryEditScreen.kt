@@ -168,6 +168,8 @@ internal fun CategoryEditScreen(
     var searchingParent by rememberSaveable { mutableStateOf(false) }
     var choosingIcon by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    // Held above the full-screen choices so the form is back where it was, not at the top.
+    val scrollState = rememberScrollState()
 
     BackHandler(
         onBack = when {
@@ -276,7 +278,7 @@ internal fun CategoryEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

@@ -142,6 +142,9 @@ tags:
     id: "category_icon_tile_home"
 - tapOn:
     id: "category_icon_tile_directions-car"
+- scrollUntilVisible:
+    element:
+      id: "category_icon"
 - extendedWaitUntil:
     visible: "Icône, Voiture"
     timeout: 10000
