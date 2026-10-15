@@ -1,0 +1,121 @@
+"""Maggie reads the day's tasks late-first, offers one undated task, and writes only after a yes (MAG-409).
+
+Whether a real model follows the prompt is judged on the real model; what this proves is the
+run itself with the shipped scenarios: the tools it reaches and their arguments, the order of
+the answer, and that the task is written once, by its own id, only on the second message.
+"""
+
+import json
+from datetime import timedelta
+from unittest.mock import patch
+
+import pytest
+
+from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient, expand_days
+from app.llm.runner import run_tool_loop
+from app.llm.tool_blocks import replay
+from app.llm.tools import ToolRouter
+
+USER = "user-1"
+TASK_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
+OTHER_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7X"
+OFFERED = [{"name": name, "input_schema": {}} for name in ("get_events_by_date", "get_tasks", "update_task")]
+
+
+class FakeTaskApi:
+    def __init__(self):
+        self.calls: list[tuple[str, dict]] = []
+
+    async def ensure_connected(self) -> None:
+        return None
+
+    async def list_tools(self) -> list[dict]:
+        return []
+
+    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
+        self.calls.append((name, dict(arguments)))
+        if name == "get_tasks" and arguments.get("view") == "today":
+            tasks = [{"id": OTHER_ID, "title": "Renouveler le passeport", "dueDate": "2030-11-11", "overdueDays": 2}]
+        elif name == "get_tasks":
+            tasks = [{"id": TASK_ID, "title": "Ranger le garage", "dueDate": None, "overdueDays": None}]
+        else:
+            return json.dumps({"success": True})
+        return json.dumps({"view": arguments.get("view"), "tasks": tasks, "count": len(tasks)})
+
+
+@pytest.fixture()
+def api():
+    fake = FakeTaskApi()
+    with patch("app.llm.tools.mcp_client", fake):
+        yield fake
+
+
+async def ask(messages: list[dict]) -> dict:
+    with patch("app.llm.runner.record_llm_usage"):
+        return await run_tool_loop(
+            "Tu es Maggie.",
+            messages,
+            OFFERED,
+            client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
+            tool_router=ToolRouter(),
+            user_id=USER,
+            model="fake",
+            source="chat",
+        )
+
+
+def called(result: dict) -> list[str]:
+    return [call["name"] for call in result["tool_calls"]]
+
+
+class TestTheDay:
+    async def test_it_reads_the_agenda_and_today_then_someday_and_writes_nothing(self, api):
+        result = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])
+
+        assert called(result) == ["get_events_by_date", "get_tasks", "get_tasks"]
+        assert [args for name, args in api.calls if name == "get_tasks"] == [{"view": "today"}, {"view": "someday"}]
+        assert "update_task" not in called(result)
+
+    async def test_the_late_task_is_named_before_the_one_offered(self, api):
+        result = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])
+
+        answer = result["response"]
+        assert answer.index("Renouveler le passeport") < answer.index("Ranger le garage")
+        assert "en retard de 2 jours" in answer
+        assert answer.count("Ranger le garage") == 1, "one task offered, not a list"
+
+
+class TestTheYes:
+    async def test_tomorrow_is_written_on_the_task_the_read_returned(self, api):
+        first = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])
+        history = [
+            {"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"},
+            *replay(first["blocks"]),
+            {"role": "assistant", "content": first["response"]},
+            {"role": "user", "content": "Oui, demain"},
+        ]
+        api.calls.clear()
+
+        result = await ask(history)
+
+        assert called(result) == ["update_task"]
+        assert api.calls == [("update_task", {"id": TASK_ID, "dueDate": expand_days("${tomorrow}")})]
+        assert "Ranger le garage" in result["response"]
+
+    async def test_without_the_read_in_the_history_nothing_is_written(self, api):
+        result = await ask([{"role": "user", "content": "Oui, demain"}])
+
+        assert called(result) == []
+        assert result["response"].startswith("[fake-llm]")
+
+
+class TestRelativeDays:
+    def test_today_and_tomorrow_are_paris_days(self):
+        from datetime import date
+
+        today = date.fromisoformat(expand_days("${today}"))
+
+        assert expand_days("${tomorrow}") == (today + timedelta(days=1)).isoformat()
+
+    def test_a_text_without_a_placeholder_is_untouched(self):
+        assert expand_days("rien à changer $5") == "rien à changer $5"

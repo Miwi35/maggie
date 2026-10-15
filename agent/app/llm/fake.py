@@ -26,8 +26,10 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -228,6 +230,7 @@ class Scenario:
         """
         if not text:
             return text
+        text = expand_days(text)
         if self.history_matches:
             found = re.search(self.history_matches, history, re.IGNORECASE)
         elif self.user_matches:
@@ -263,6 +266,18 @@ class Scenario:
         if isinstance(value, list):
             return [self.render_input(item, user_text, history) for item in value]
         return value
+
+
+def expand_days(text: str) -> str:
+    """`${today}` and `${tomorrow}` become YYYY-MM-DD in Paris, the clock the stack runs on (MAG-409).
+
+    A scenario cannot hardcode « demain »: the fake does not read tool results, so it cannot
+    ask `date_time` either. The agent runs under the e2e clock, so this is the day the API sees.
+    """
+    if "${" not in text:
+        return text
+    today = datetime.now(ZoneInfo("Europe/Paris")).date()
+    return text.replace("${today}", today.isoformat()).replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
 
 
 def _as_tuple(value: Any) -> tuple[str, ...]:

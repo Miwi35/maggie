@@ -1,0 +1,18 @@
+# « Oui, demain » after 78-tasks-today.yaml offered « Ranger le garage » (MAG-409).
+#
+# The task is written only now that the user agreed, and by the id its own `get_tasks` result
+# gave: `history_matches` captures it from the replayed `tool_result` (as in
+# 76-delete-event-just-created.yaml). `${tomorrow}` is the day after the stack's clock, in
+# Paris — a scenario cannot hardcode « demain ».
+name: tasks-schedule-someday
+description: Give the offered someday task tomorrow's due date once the user agrees.
+
+match:
+  user_contains: "oui, demain"
+  history_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Ranger le garage'
+
+turns:
+  - tools:
+      - name: update_task
+        input: {id: "\\1", dueDate: "${tomorrow}"}
+  - text: "C'est fait : Ranger le garage est planifiée pour demain."

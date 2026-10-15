@@ -1,0 +1,27 @@
+# « Qu'est-ce que j'ai aujourd'hui ? » on a light day (MAG-409).
+#
+# The model's side, in the order the prompt asks for: the agenda and `get_tasks` with
+# `view: today` (late tasks first, ranked by the API), then `view: someday` because the day
+# is light, then ONE task to offer — and nothing written until the user says yes (see
+# 78-tasks-schedule-someday.yaml). The fake does not read tool results, so the titles below
+# are the ones the journey creates: what is proved is that the real tools run in this order
+# and that the late task is named before the offered one.
+#
+# « qu'est-ce que j'ai aujourd'hui », without « prévu » or « mon agenda »: those belong to
+# 30-upcoming-events.yaml.
+name: tasks-today
+description: Read the day's agenda and tasks, then offer one undated task to plan.
+
+match:
+  user_contains: "qu'est-ce que j'ai aujourd'hui"
+
+turns:
+  - tools:
+      - name: get_events_by_date
+        input: {date: "${today}"}
+      - name: get_tasks
+        input: {view: today}
+  - tools:
+      - name: get_tasks
+        input: {view: someday}
+  - text: "Vous avez une tâche en retard de 2 jours : Renouveler le passeport. Pour le reste, la journée est légère. Voulez-vous que je planifie Ranger le garage, qui n'a pas de date ?"
