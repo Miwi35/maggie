@@ -16310,7 +16310,7 @@
                     },
                     "utensils": {
                         "readOnly": true,
-                        "description": "What the recipe is made with, from its owner's catalogue (MAG-489). Read\nas `[{@id , id, name}]`; written by the processors from the raw body — by\nid or by name — never by the deserializer, which would read a name as an\nIRI.",
+                        "description": "What the recipe is made with, from its owner's catalogue (MAG-489). Read\nas the embedded utensils (`@id`, `id`, `name`…); written by the\nprocessors from the raw body — by id or by name — never by the\ndeserializer, which would read a name as an IRI.",
                         "type": "array",
                         "items": {
                             "type": "string",
