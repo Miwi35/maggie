@@ -74,6 +74,12 @@ class AssistantActivity : ComponentActivity() {
         LateScreenshot.consume()
     }
 
+    /** The screenshot the overlay waits for will not come: the overlay says why instead. */
+    private fun onMissedScreenshot(miss: ScreenshotMiss) {
+        pendingContext?.withMissedScreenshot(miss)?.let { pendingContext = it }
+        LateScreenshot.consume()
+    }
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -121,6 +127,9 @@ class AssistantActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             LateScreenshot.hasArrived.collect { if (it) onLateScreenshot() }
+        }
+        lifecycleScope.launch {
+            LateScreenshot.hasMissed.collect { miss -> miss?.let(::onMissedScreenshot) }
         }
 
         requestMicAndListen()

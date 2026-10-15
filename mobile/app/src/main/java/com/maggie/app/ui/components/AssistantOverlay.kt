@@ -147,8 +147,12 @@ fun AssistantOverlay(
                             onSelect = onSelectScreenshotRegion,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                         )
+                    } else {
+                        ScreenshotStatus("Capture d'écran indisponible : elle n'a pas pu être lue")
                     }
                 }
+                // No thumbnail without a word (MAG-214): still coming, or why it is not.
+                pendingContext?.screenshotStatus()?.let { ScreenshotStatus(it) }
 
                 // Messages
                 LazyColumn(
@@ -226,4 +230,17 @@ fun AssistantOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun ScreenshotStatus(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .testTag(UiTags.ASSIST_SCREENSHOT_STATUS),
+    )
 }

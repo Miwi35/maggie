@@ -65,7 +65,7 @@ class VoiceResultRouterTest {
         var overlay: ScreenContext? = null
         val coordinator = AssistLaunchCoordinator(
             onLaunch = { overlay = it },
-            onLateScreenshot = { kept -> if (kept) overlay = overlay?.withArrivedScreenshot() },
+            onLateScreenshot = { miss -> if (miss == null) overlay = overlay?.withArrivedScreenshot() },
         )
         coordinator.onShow(withAssist = true, withScreenshot = true)
         coordinator.onAssist("com.example.shop", "Boutique", null, emptyList())

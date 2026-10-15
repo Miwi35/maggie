@@ -90,6 +90,9 @@ object UiTags {
 
     /** « Tout l'écran » under it: drops the circled zone. */
     const val ASSIST_SCREENSHOT_RESET = "assist_screenshot_reset"
+
+    /** In place of the screenshot: « en cours… », or why there is none (MAG-214). */
+    const val ASSIST_SCREENSHOT_STATUS = "assist_screenshot_status"
     const val CHAT_CLOSE = "chat_close"
 
     /** The conversation's list, and the « ↓ nouvelle réponse » button shown when the user scrolled away from it (MAG-348). */

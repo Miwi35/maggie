@@ -25,6 +25,9 @@ import android.content.Intent
  * and deletes it ([PendingScreenshot], MAG-214). [screenshotPending] says the
  * overlay opened before the screenshot came: the session tells it when it does
  * ([LateScreenshot]), and [withArrivedScreenshot] turns it into [hasScreenshot].
+ * [screenshotMiss] says why there is none when Android was asked for one: the
+ * overlay shows it beside the rest, the model is told nothing of it — alone, it is
+ * no context.
  */
 data class ScreenContext(
     val appPackage: String? = null,
@@ -33,6 +36,7 @@ data class ScreenContext(
     val texts: List<String> = emptyList(),
     val hasScreenshot: Boolean = false,
     val screenshotPending: Boolean = false,
+    val screenshotMiss: ScreenshotMiss? = null,
 ) {
     /**
      * [appLabel] counts: a context naming the app but not its package is still
@@ -51,6 +55,20 @@ data class ScreenContext(
      */
     fun withArrivedScreenshot(): ScreenContext? =
         if (screenshotPending) copy(hasScreenshot = true, screenshotPending = false) else null
+
+    /** The screenshot this context was waiting for will not come, for [miss]; null as above. */
+    fun withMissedScreenshot(miss: ScreenshotMiss): ScreenContext? =
+        if (screenshotPending) copy(screenshotPending = false, screenshotMiss = miss) else null
+
+    /**
+     * The line the overlay shows under « Contexte : … » when there is no thumbnail to show
+     * (MAG-214): still coming, or why it will not. Null when there is nothing to say.
+     */
+    fun screenshotStatus(): String? = when {
+        screenshotPending -> "Capture d'écran en cours…"
+        screenshotMiss != null -> "Capture d'écran indisponible : ${screenshotMiss.reason}"
+        else -> null
+    }
 
     /**
      * The provenance the overlay shows, so the user sees what Maggie is about to
@@ -103,6 +121,7 @@ data class ScreenContext(
         intent.putStringArrayListExtra(EXTRA_TEXTS, ArrayList(texts))
         intent.putExtra(EXTRA_SCREENSHOT, hasScreenshot)
         intent.putExtra(EXTRA_SCREENSHOT_PENDING, screenshotPending)
+        intent.putExtra(EXTRA_SCREENSHOT_MISS, screenshotMiss?.name)
     }
 
     private fun host(uri: String): String? =
@@ -120,6 +139,7 @@ data class ScreenContext(
         const val EXTRA_TEXTS = "com.maggie.app.extra.SCREEN_TEXTS"
         const val EXTRA_SCREENSHOT = "com.maggie.app.extra.SCREEN_SCREENSHOT"
         const val EXTRA_SCREENSHOT_PENDING = "com.maggie.app.extra.SCREEN_SCREENSHOT_PENDING"
+        const val EXTRA_SCREENSHOT_MISS = "com.maggie.app.extra.SCREEN_SCREENSHOT_MISS"
 
         /**
          * What the user actually said, out of a message that carries a context
@@ -155,6 +175,7 @@ data class ScreenContext(
                 texts = intent.getStringArrayListExtra(EXTRA_TEXTS)?.toList() ?: emptyList(),
                 hasScreenshot = intent.getBooleanExtra(EXTRA_SCREENSHOT, false),
                 screenshotPending = intent.getBooleanExtra(EXTRA_SCREENSHOT_PENDING, false),
+                screenshotMiss = ScreenshotMiss.fromName(intent.getStringExtra(EXTRA_SCREENSHOT_MISS)),
             )
             return context.takeIf { !it.isEmpty }
         }

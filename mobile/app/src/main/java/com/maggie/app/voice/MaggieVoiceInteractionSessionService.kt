@@ -36,7 +36,9 @@ private class MaggieVoiceInteractionSession(
     private val coordinator = AssistLaunchCoordinator(::launchOverlay, ::lateScreenshot)
     private val giveUp = Runnable { coordinator.onTimeout() }
     private val stopWaitingForScreenshot = Runnable {
+        Log.i(TAG, "Screenshot still missing after ${LATE_SCREENSHOT_TIMEOUT_MS} ms: given up")
         coordinator.onScreenshotAbandoned()
+        LateScreenshot.miss(ScreenshotMiss.LATE)
         finish()
     }
 
@@ -54,6 +56,9 @@ private class MaggieVoiceInteractionSession(
             finish()
             return
         }
+        // Which pieces Android promised: the one line that tells, from a logcat, whether a
+        // missing thumbnail was never asked for (MAG-214).
+        Log.i(TAG, "Shown, flags=$showFlags")
         val waiting = coordinator.onShow(
             withAssist = showFlags and SHOW_WITH_ASSIST != 0,
             withScreenshot = showFlags and SHOW_WITH_SCREENSHOT != 0,
@@ -107,16 +112,21 @@ private class MaggieVoiceInteractionSession(
     override fun onHandleScreenshot(screenshot: Bitmap?) {
         super.onHandleScreenshot(screenshot)
         if (screenshot == null) {
-            coordinator.onScreenshot(kept = false)
+            Log.i(TAG, "Screenshot refused by Android")
+            coordinator.onScreenshot(kept = false, miss = ScreenshotMiss.REFUSED)
             return
         }
+        Log.i(TAG, "Screenshot received, ${screenshot.width}x${screenshot.height} ${screenshot.config}")
         val file = ScreenshotEncoder.file(service)
         Thread {
+            // Throwable, not Exception: a bitmap too big to copy is an OutOfMemoryError,
+            // and an uncaught one would leave the overlay waiting for nothing.
             val kept = try {
                 file.parentFile?.mkdirs()
                 file.writeBytes(ScreenshotEncoder.encode(screenshot))
+                Log.i(TAG, "Screenshot kept, ${file.length()} bytes")
                 true
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w(TAG, "Screenshot not kept", e)
                 false
             }
@@ -174,11 +184,16 @@ private class MaggieVoiceInteractionSession(
         }
     }
 
-    /** The screenshot came after the overlay opened: it goes to the overlay if it is still there. */
-    private fun lateScreenshot(kept: Boolean) {
+    /**
+     * The screenshot came after the overlay opened: it goes to the overlay if it is still
+     * there — or, when it could not be kept, the reason does.
+     */
+    private fun lateScreenshot(miss: ScreenshotMiss?) {
         handler.removeCallbacks(stopWaitingForScreenshot)
-        if (kept) {
-            if (AssistantActivity.isShowing) LateScreenshot.arrive() else ScreenshotEncoder.file(service).delete()
+        when {
+            miss != null -> LateScreenshot.miss(miss)
+            AssistantActivity.isShowing -> LateScreenshot.arrive()
+            else -> ScreenshotEncoder.file(service).delete()
         }
         finish()
     }

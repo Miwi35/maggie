@@ -202,6 +202,7 @@ class ScreenContextTest {
         every { incoming.getStringArrayListExtra(ScreenContext.EXTRA_TEXTS) } returns arrayListOf("Café moulu 250 g")
         every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT, false) } returns true
         every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT_PENDING, false) } returns false
+        every { incoming.getStringExtra(ScreenContext.EXTRA_SCREENSHOT_MISS) } returns null
 
         assertEquals(sent, ScreenContext.fromIntent(incoming))
     }
@@ -231,5 +232,70 @@ class ScreenContextTest {
     @Test
     fun `a screenshot still on its way is not announced to the model`() {
         assertNull(ScreenContext(screenshotPending = true).toPromptBlock())
+    }
+
+    @Test
+    fun `the reason a screenshot is missing travels in the intent`() {
+        val sent = ScreenContext(appLabel = "Boutique", screenshotMiss = ScreenshotMiss.REFUSED)
+        val outgoing = mockk<Intent>(relaxed = true)
+        sent.putInto(outgoing)
+        verify { outgoing.putExtra(ScreenContext.EXTRA_SCREENSHOT_MISS, "REFUSED") }
+
+        val incoming = mockk<Intent>()
+        every { incoming.getStringExtra(any()) } returns null
+        every { incoming.getStringExtra(ScreenContext.EXTRA_LABEL) } returns "Boutique"
+        every { incoming.getStringExtra(ScreenContext.EXTRA_SCREENSHOT_MISS) } returns "REFUSED"
+        every { incoming.getStringArrayListExtra(any()) } returns null
+        every { incoming.getBooleanExtra(any(), false) } returns false
+
+        assertEquals(sent, ScreenContext.fromIntent(incoming))
+    }
+
+    @Test
+    fun `an unknown reason from an intent is dropped, not trusted`() {
+        val incoming = mockk<Intent>()
+        every { incoming.getStringExtra(any()) } returns null
+        every { incoming.getStringExtra(ScreenContext.EXTRA_LABEL) } returns "Boutique"
+        every { incoming.getStringExtra(ScreenContext.EXTRA_SCREENSHOT_MISS) } returns "whatever"
+        every { incoming.getStringArrayListExtra(any()) } returns null
+        every { incoming.getBooleanExtra(any(), false) } returns false
+
+        assertNull(ScreenContext.fromIntent(incoming)?.screenshotMiss)
+    }
+
+    @Test
+    fun `a screenshot that will not come replaces the wait with its reason`() {
+        val waiting = ScreenContext(appLabel = "Boutique", screenshotPending = true)
+
+        assertEquals(
+            ScreenContext(appLabel = "Boutique", screenshotMiss = ScreenshotMiss.LATE),
+            waiting.withMissedScreenshot(ScreenshotMiss.LATE),
+        )
+        assertNull(ScreenContext(appLabel = "Boutique").withMissedScreenshot(ScreenshotMiss.LATE))
+    }
+
+    @Test
+    fun `a missing screenshot tells the model nothing`() {
+        assertTrue(ScreenContext(screenshotMiss = ScreenshotMiss.REFUSED).isEmpty)
+        assertEquals(
+            ScreenContext(appLabel = "Boutique").toPromptBlock(),
+            ScreenContext(appLabel = "Boutique", screenshotMiss = ScreenshotMiss.REFUSED).toPromptBlock(),
+        )
+    }
+
+    @Test
+    fun `every reason says something to the user`() {
+        ScreenshotMiss.entries.forEach { assertTrue(it.name, it.reason.isNotBlank()) }
+    }
+
+    @Test
+    fun `the overlay says a screenshot is coming, or why it is not`() {
+        assertEquals("Capture d'écran en cours…", ScreenContext(screenshotPending = true).screenshotStatus())
+        assertEquals(
+            "Capture d'écran indisponible : elle n'est pas arrivée à temps",
+            ScreenContext(screenshotMiss = ScreenshotMiss.LATE).screenshotStatus(),
+        )
+        assertNull(ScreenContext(hasScreenshot = true).screenshotStatus())
+        assertNull(ScreenContext(appLabel = "Boutique").screenshotStatus())
     }
 }
