@@ -14,7 +14,7 @@ tags:
 # same server, and the flows of the other shards, still meet « Courses ».
 #
 # Three levels (MAG-411): Loisirs › Bars is created under Loisirs with the « add a
-# sub-category » button, Obsydian under Bars through the parent's full-screen search,
+# sub-category » button, its icon picked in the full-screen grid by typing « voiture » (MAG-474), Obsydian under Bars through the parent's full-screen search,
 # the tree shows Loisirs › Bars › Obsydian, and a transaction is filed in it through the
 # category search on its detail. Everything is put back: the transaction goes back to
 # « Loisirs » and Bars is deleted with Obsydian, so the shared seed is left as found.
@@ -119,6 +119,29 @@ tags:
     id: "category_name"
 - inputText: "Bars"
 - hideKeyboard
+
+# The icon is chosen from a grid, not typed (MAG-474): no icon yet, « voiture » leaves the
+# car alone, and the choice comes back to the form.
+- scrollUntilVisible:
+    element:
+      id: "category_icon"
+- extendedWaitUntil:
+    visible: "Icône, aucune"
+    timeout: 10000
+- tapOn:
+    id: "category_icon"
+- tapOn:
+    id: "category_icon_search"
+- inputText: "voiture"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Voiture"
+    timeout: 10000
+- assertNotVisible: "Maison"
+- tapOn: "Voiture"
+- extendedWaitUntil:
+    visible: "Icône, Voiture"
+    timeout: 10000
 - tapOn: "Créer"
 
 - extendedWaitUntil:
@@ -127,6 +150,8 @@ tags:
 - extendedWaitUntil:
     visible: "Bars"
     timeout: 30000
+# The row carries the icon that was picked.
+- assertVisible: "Repère : icône directions-car"
 
 # Obsydian, under Bars: the parent is chosen by path in a full-screen search.
 - tapOn: "Nouvelle catégorie"

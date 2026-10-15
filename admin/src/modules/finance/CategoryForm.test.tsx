@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
@@ -198,6 +198,141 @@ describe('CategoryForm', () => {
     await user.type(screen.getByLabelText(/Nom/), ' et garages')
 
     expect(screen.getByLabelText('Rente')).toBeChecked()
+  })
+})
+
+/** MAG-474: the icon is picked from a grid with a search field, not typed as a name. */
+describe('CategoryForm, icon picker', () => {
+  const openPicker = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('button', { name: 'Icône : Aucune' }))
+
+    return screen.findByRole('dialog', { name: 'Choisir une icône' })
+  }
+
+  test('the icon is no longer a text field', async () => {
+    renderCreate()
+
+    expect(await screen.findByRole('button', { name: 'Icône : Aucune' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /Icône/ })).not.toBeInTheDocument()
+  })
+
+  test('opens on a search field and the whole grid, each icon with its label', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+
+    const dialog = await openPicker(user)
+
+    expect(within(dialog).getByLabelText('Rechercher une icône')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Aucune icône' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(dialog).getByRole('button', { name: 'Courses' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Voiture' })).toBeInTheDocument()
+    // 26 icons and « Aucune icône »; the close button is not a tile.
+    expect(within(dialog).getAllByRole('button', { pressed: false })).toHaveLength(26)
+  })
+
+  test('typing « voiture » leaves only the car', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'Voiture')
+
+    expect(within(dialog).getAllByRole('button', { pressed: false }).map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Voiture',
+    ])
+  })
+
+  test('the search ignores accents and finds a keyword', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'supermarche')
+
+    expect(within(dialog).getByRole('button', { name: 'Courses' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Voiture' })).not.toBeInTheDocument()
+  })
+
+  test('says so when nothing matches, and « Aucune icône » stays available', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'zzz')
+
+    expect(within(dialog).getByText('Aucune icône ne correspond.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Aucune icône' })).toBeInTheDocument()
+  })
+
+  test('choosing an icon closes the box, shows it on the button and sends its name', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    const dialog = await openPicker(user)
+    await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'courses')
+    await user.click(within(dialog).getByRole('button', { name: 'Courses' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const button = screen.getByRole('button', { name: 'Icône : Courses' })
+    expect(within(button).getByTestId('category-glyph')).toHaveAttribute('data-icon', 'shopping-cart')
+
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({ name: 'Courses', icon: 'shopping-cart' })
+  })
+
+  test('the preview takes the colour of the form', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+
+    await user.click(await screen.findByRole('button', { name: 'Couleur #4CAF50' }))
+
+    const button = screen.getByRole('button', { name: 'Icône : Aucune' })
+    expect(within(button).getByTestId('category-glyph')).toHaveAttribute('data-color', '#4CAF50')
+  })
+
+  test('the icon can be taken away again', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Courses')
+    let dialog = await openPicker(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Courses' }))
+    await user.click(await screen.findByRole('button', { name: 'Icône : Courses' }))
+    dialog = await screen.findByRole('dialog', { name: 'Choisir une icône' })
+    expect(within(dialog).getByRole('button', { name: 'Courses' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(dialog).getByRole('button', { name: 'Aucune icône' }))
+
+    expect(await screen.findByRole('button', { name: 'Icône : Aucune' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data.icon ?? null).toBeNull()
+  })
+
+  test('closing the box without choosing changes nothing', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Icône : Aucune' })).toBeInTheDocument()
+  })
+
+  test('an icon outside the catalogue keeps its name, is listed first and selected', async () => {
+    const user = userEvent.setup()
+    renderEdit({ ...RENTE, icon: 'rocket' })
+
+    await user.click(await screen.findByRole('button', { name: 'Icône : rocket' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Choisir une icône' })
+
+    const tiles = within(dialog).getAllByRole('button', { name: /^(?!Annuler|Aucune icône)/ })
+    expect(tiles[0]).toHaveAttribute('aria-label', 'rocket')
+    expect(tiles[0]).toHaveAttribute('aria-pressed', 'true')
   })
 })
 
