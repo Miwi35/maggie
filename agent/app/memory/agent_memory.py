@@ -39,6 +39,10 @@ class MemoryBlocks:
     recalled: str = ""
 
 
+async def _nothing() -> list[Recalled]:
+    return []
+
+
 def _estimated_tokens(text: str) -> int:
     return len(text) // 4
 
@@ -110,7 +114,9 @@ class AgentMemory:
         # two never add up. Catching the folder up with its bucket (`_folder_notice`) keeps its own timeout.
         profile, found = await asyncio.gather(
             self._profile(user_id),
-            recall_for_turn(user_id, text, today or datetime.now().date(), source=source, context_id=context_id),
+            recall_for_turn(user_id, text, today or datetime.now().date(), source=source, context_id=context_id)
+            if text.strip()
+            else _nothing(),
         )
         recalled = render_recalled(found)
         MEMORY_BLOCK_TOKENS.labels(block="profile").observe(_estimated_tokens(profile))
