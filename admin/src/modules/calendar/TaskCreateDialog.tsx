@@ -9,6 +9,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import { localDay } from '../../dates'
+import { EstimateFields, parseMinutes } from './TaskEditDialog'
 
 interface TaskCreateDialogProps {
   open: boolean
@@ -26,6 +27,8 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
   const [priority, setPriority] = useState('medium')
   const [criticality, setCriticality] = useState('low')
   const [dueDate, setDueDate] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const [firstStep, setFirstStep] = useState('')
   const [titleError, setTitleError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -36,6 +39,8 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
     setPriority('medium')
     setCriticality('low')
     setDueDate(defaultDueDate ? localDay(defaultDueDate) : '')
+    setMinutes('')
+    setFirstStep('')
     setTitleError(false)
   }, [open, defaultDueDate])
 
@@ -44,6 +49,8 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
       setTitleError(true)
       return
     }
+    const estimatedMinutes = parseMinutes(minutes)
+    if (Number.isNaN(estimatedMinutes)) return
 
     setSubmitting(true)
 
@@ -56,6 +63,8 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
           criticality,
           // A plain day, the field's own type: no zone can move it (MAG-404).
           ...(dueDate ? { dueDate } : {}),
+          ...(estimatedMinutes != null ? { estimatedMinutes } : {}),
+          ...(firstStep.trim() ? { firstStep: firstStep.trim() } : {}),
         },
       })
       .then(() => {
@@ -121,6 +130,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
             onChange={(e) => setDueDate(e.target.value)}
             slotProps={{ inputLabel: { shrink: true } }}
           />
+          <EstimateFields minutes={minutes} onMinutes={setMinutes} firstStep={firstStep} onFirstStep={setFirstStep} />
         </Stack>
       </DialogContent>
       <DialogActions>

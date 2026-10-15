@@ -315,6 +315,7 @@ export const Dashboard = () => {
         dueDate: t.dueDate ?? undefined,
         completedAt: t.completedAt ?? undefined,
         overdueDays: t.overdueDays ?? null,
+        postponedSince: t.postponedSince ?? null,
         isSubtask: !!t.parent,
         urgency: t.urgency ?? null,
         orderScore: t.orderScore ?? null,

@@ -118,6 +118,51 @@ describe('TaskEditDialog', () => {
     )
   })
 
+  test('shows and saves the estimated minutes and the first step (MAG-497)', async () => {
+    renderDialog({ ...TASK, estimatedMinutes: 20, firstStep: 'Ouvrir le dossier' })
+
+    expect(screen.getByLabelText('Durée estimée')).toHaveValue(20)
+    expect(screen.getByLabelText('Premier pas')).toHaveValue('Ouvrir le dossier')
+
+    await userEvent.clear(screen.getByLabelText('Durée estimée'))
+    await userEvent.type(screen.getByLabelText('Durée estimée'), '45')
+    await userEvent.clear(screen.getByLabelText('Premier pas'))
+    await userEvent.type(screen.getByLabelText('Premier pas'), '  Sortir les cartons  ')
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        'tasks',
+        expect.objectContaining({ data: expect.objectContaining({ estimatedMinutes: 45, firstStep: 'Sortir les cartons' }) }),
+      ),
+    )
+  })
+
+  test('clearing the minutes and the first step sends null for both', async () => {
+    renderDialog({ ...TASK, estimatedMinutes: 20, firstStep: 'Ouvrir le dossier' })
+
+    await userEvent.clear(screen.getByLabelText('Durée estimée'))
+    await userEvent.clear(screen.getByLabelText('Premier pas'))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        'tasks',
+        expect.objectContaining({ data: expect.objectContaining({ estimatedMinutes: null, firstStep: null }) }),
+      ),
+    )
+  })
+
+  test('refuses minutes out of 1 to 1440', async () => {
+    renderDialog()
+
+    await userEvent.type(screen.getByLabelText('Durée estimée'), '2000')
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(screen.getByText('Entre 1 et 1440 minutes')).toBeInTheDocument()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
   test('ticking a subtask completes that subtask only', async () => {
     renderDialog()
 

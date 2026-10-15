@@ -1,7 +1,8 @@
 import { getToken } from '../../auth/session'
+import { daysBetween, parseDay } from '../../dates'
 import type { TaskData } from './TaskEditDialog'
 
-const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost/api').replace(/\/$/, '')
+export const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost/api').replace(/\/$/, '')
 
 /** The four views of the « Tâches » page, in the order of its tabs (MAG-408). */
 export const TASK_VIEWS = ['today', 'upcoming', 'someday', 'done'] as const
@@ -25,7 +26,7 @@ export interface TaskViewResult {
   totalItems: number
 }
 
-const headers = (extra: Record<string, string> = {}): Record<string, string> => {
+export const headers = (extra: Record<string, string> = {}): Record<string, string> => {
   const token = getToken()
 
   return { Accept: 'application/ld+json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra }
@@ -59,8 +60,8 @@ export async function setTaskDone(id: string, done: boolean): Promise<void> {
   }
 }
 
-/** Creates a task from its title, and its due day (`YYYY-MM-DD`) when it has one. */
-export async function createTask(title: string, dueDate?: string): Promise<void> {
+/** Creates a task from its title, and its due day (`YYYY-MM-DD`) when it has one; resolves to its id. */
+export async function createTask(title: string, dueDate?: string): Promise<string> {
   const response = await fetch(`${apiUrl}/tasks`, {
     method: 'POST',
     headers: headers({ 'Content-Type': 'application/ld+json' }),
@@ -69,4 +70,33 @@ export async function createTask(title: string, dueDate?: string): Promise<void>
   if (!response.ok) {
     throw new Error(`Tâche : ${response.status}`)
   }
+  const body = (await response.json().catch(() => ({}))) as { id?: string }
+
+  return String(body.id ?? '')
+}
+
+/** The whole task, as the edit form wants it — the day only carries what it draws. */
+export async function fetchTask(id: string): Promise<ViewTask> {
+  const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, { headers: headers() })
+  if (!response.ok) {
+    throw new Error(`Tâche : ${response.status}`)
+  }
+
+  return (await response.json()) as ViewTask
+}
+
+/**
+ * « reportée depuis … » (MAG-497), from the day the API says a task has been
+ * put off since: « hier », a weekday within the week, a date beyond. Never a
+ * count of days late — a postponed task is not a reproach.
+ */
+export function postponedLabel(since: string | null | undefined, today: string): string | null {
+  if (!since) return null
+  const days = daysBetween(since, today)
+  if (days <= 0) return null
+  if (days === 1) return 'reportée depuis hier'
+  const day = parseDay(since)
+  if (days < 7) return `reportée depuis ${day.toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase()}`
+
+  return `reportée depuis le ${day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
 }

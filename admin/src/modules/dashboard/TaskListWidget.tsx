@@ -10,10 +10,12 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import EventBusyIcon from '@mui/icons-material/EventBusy'
-import { parseDay } from '../../dates'
+import HistoryIcon from '@mui/icons-material/History'
+import { localDay, parseDay } from '../../dates'
 import { criticalityColor } from '../../design/tokens'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 import { UrgencyBadge } from '../calendar/UrgencyBadge'
+import { postponedLabel } from '../calendar/taskViews'
 
 export interface DashboardTask {
   id: string
@@ -24,6 +26,8 @@ export interface DashboardTask {
   completedAt?: string
   /** Whole days late, from the API (MAG-405); null or absent when the task is not late. */
   overdueDays?: number | null
+  /** The day it has been put off since, `YYYY-MM-DD` (MAG-497): « reportée », never red. */
+  postponedSince?: string | null
   /** A subtask is shown under its task, indented. */
   isSubtask?: boolean
   /** Computed by the API (MAG-406): `low`, `normal`, `high` or `critical`. */
@@ -115,7 +119,10 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
           <List dense disablePadding>
             {sorted.map((task) => {
               const isDone = task.completedAt != null
-              const late = !isDone && task.overdueDays != null && task.overdueDays > 0
+              // A critical task keeps its word in red (MAG-405); any other one is « reportée » (MAG-497).
+              const critical = task.urgency === 'critical'
+              const late = !isDone && critical && task.overdueDays != null && task.overdueDays > 0
+              const postponed = isDone || critical ? null : postponedLabel(task.postponedSince, localDay(new Date()))
               return (
                 <ListItem
                   key={task.id}
@@ -155,9 +162,20 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
                         </Typography>
                       }
                       secondary={
-                        late || task.urgency ? (
+                        late || postponed || task.urgency ? (
                           <>
                             <UrgencyBadge urgency={task.urgency} />
+                            {postponed && (
+                              <Typography
+                                component="span"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                              >
+                                <HistoryIcon aria-hidden fontSize="inherit" />
+                                {postponed}
+                              </Typography>
+                            )}
                             {late && (
                               <Typography
                                 component="span"
@@ -180,7 +198,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone, ordered = false, 
                       color="text.secondary"
                       sx={{ ml: 1, flexShrink: 0 }}
                     >
-                      {late ? `prévue le ${shortDay(task.dueDate)}` : shortDay(task.dueDate)}
+                      {late || postponed ? `prévue le ${shortDay(task.dueDate)}` : shortDay(task.dueDate)}
                     </Typography>
                   )}
                 </ListItem>

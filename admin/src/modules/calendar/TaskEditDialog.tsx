@@ -9,6 +9,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import Link from '@mui/material/Link'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -44,6 +45,23 @@ export interface TaskData {
   links?: TaskLink[]
   /** Computed by the API from the criticality and the due day (MAG-406); read only. */
   urgency?: string | null
+  /** How long it should take, in minutes (1 to 1440) — Maggie's own (MAG-497). */
+  estimatedMinutes?: number | null
+  /** The first small gesture that starts it — Maggie's own (MAG-497). */
+  firstStep?: string | null
+  /** `YYYY-MM-DD`: computed by the API, the day the task has been put off since. */
+  postponedSince?: string | null
+}
+
+/** The bounds of « Durée estimée », the API's own. */
+export const MAX_ESTIMATED_MINUTES = 1440
+
+/** The minutes typed in « Durée estimée »: null when empty, NaN when out of bounds. */
+export const parseMinutes = (value: string): number | null => {
+  if (!value.trim()) return null
+  const minutes = Number(value)
+
+  return Number.isInteger(minutes) && minutes >= 1 && minutes <= MAX_ESTIMATED_MINUTES ? minutes : Number.NaN
 }
 
 interface TaskEditDialogProps {
@@ -51,6 +69,41 @@ interface TaskEditDialogProps {
   task: TaskData | null
   onClose: () => void
   onUpdated: () => void
+}
+
+interface EstimateFieldsProps {
+  minutes: string
+  onMinutes: (value: string) => void
+  firstStep: string
+  onFirstStep: (value: string) => void
+}
+
+/** « Durée estimée » and « Premier pas », the same in the create and the edit form (MAG-497). */
+export const EstimateFields = ({ minutes, onMinutes, firstStep, onFirstStep }: EstimateFieldsProps) => {
+  const invalid = Number.isNaN(parseMinutes(minutes))
+
+  return (
+    <>
+      <TextField
+        label="Durée estimée"
+        type="number"
+        value={minutes}
+        onChange={(e) => onMinutes(e.target.value)}
+        error={invalid}
+        helperText={invalid ? `Entre 1 et ${MAX_ESTIMATED_MINUTES} minutes` : undefined}
+        slotProps={{
+          htmlInput: { min: 1, max: MAX_ESTIMATED_MINUTES, step: 1 },
+          input: { endAdornment: <InputAdornment position="end">min</InputAdornment> },
+        }}
+      />
+      <TextField
+        label="Premier pas"
+        value={firstStep}
+        onChange={(e) => onFirstStep(e.target.value)}
+        slotProps={{ htmlInput: { maxLength: 255 } }}
+      />
+    </>
+  )
 }
 
 /** React-admin hands back resources as IRIs; `parent` wants one either way. */
@@ -73,6 +126,8 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
   const [priority, setPriority] = useState('medium')
   const [criticality, setCriticality] = useState('low')
   const [dueDate, setDueDate] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const [firstStep, setFirstStep] = useState('')
   const [isDone, setIsDone] = useState(false)
   const [titleError, setTitleError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -91,6 +146,8 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
     setCriticality(task.criticality)
     // A day already; the slice still copes with a row cached before MAG-404.
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : '')
+    setMinutes(task.estimatedMinutes != null ? String(task.estimatedMinutes) : '')
+    setFirstStep(task.firstStep ?? '')
     setIsDone(task.completedAt != null)
     setTitleError(false)
     setSubtasks([])
@@ -176,6 +233,8 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
       setTitleError(true)
       return
     }
+    const estimatedMinutes = parseMinutes(minutes)
+    if (Number.isNaN(estimatedMinutes)) return
 
     setSubmitting(true)
 
@@ -188,6 +247,8 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
           priority,
           criticality,
           dueDate: dueDate || null,
+          estimatedMinutes,
+          firstStep: firstStep.trim() || null,
           completedAt: isDone && !task.completedAt ? new Date().toISOString() : isDone ? task.completedAt : null,
         },
         previousData: task,
@@ -260,6 +321,7 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
             onChange={(e) => setDueDate(e.target.value)}
             slotProps={{ inputLabel: { shrink: true } }}
           />
+          <EstimateFields minutes={minutes} onMinutes={setMinutes} firstStep={firstStep} onFirstStep={setFirstStep} />
           <FormControlLabel
             control={<Switch checked={isDone} onChange={(e) => setIsDone(e.target.checked)} />}
             label="Terminée"

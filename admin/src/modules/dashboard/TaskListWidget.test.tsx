@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { addDays, localDay } from '../../dates'
 import { criticalityColor } from '../../design/tokens'
 import { TaskListWidget } from './TaskListWidget'
 import type { DashboardTask } from './TaskListWidget'
@@ -98,20 +99,32 @@ describe('TaskListWidget', () => {
     expect(screen.queryByRole('checkbox')).toBeNull()
   })
 
-  // MAG-405: a late task says so in words and with an icon, never by colour alone.
+  // MAG-405, MAG-497: a late task says so in words and with an icon, never by colour alone —
+  // « reportée », never a reproach, unless it is critical.
   describe('a late task', () => {
+    const today = localDay(new Date())
     const LATE: DashboardTask[] = [
-      { id: '/api/tasks/01LATE', title: 'Renvoyer le formulaire', criticality: 'low', dueDate: '2026-10-11', overdueDays: 2 },
+      { id: '/api/tasks/01LATE', title: 'Renvoyer le formulaire', criticality: 'low', dueDate: '2026-10-11', overdueDays: 2, postponedSince: addDays(today, -2), urgency: 'high' },
       { id: '/api/tasks/01TODAY', title: 'Appeler le garage', criticality: 'critical', dueDate: '2026-10-13', overdueDays: null },
     ]
 
-    test('reads « En retard de N j » with an icon, and its original due day', () => {
+    test('reads « reportée depuis … » with an icon, never « En retard », and its original due day', () => {
       renderWidget(LATE, false, { ordered: true })
 
       const row = screen.getByText('Renvoyer le formulaire').closest('li') as HTMLElement
-      const badge = within(row).getByText('En retard de 2 j')
+      const badge = within(row).getByText(/^reportée depuis /)
       expect(badge.querySelector('svg')).not.toBeNull()
+      expect(within(row).queryByText(/En retard/)).toBeNull()
       expect(within(row).getByText(/^prévue le 11 oct/)).toBeInTheDocument()
+    })
+
+    test('a critical one keeps « En retard de N j » and its mark', () => {
+      renderWidget([{ ...LATE[0], urgency: 'critical' }], false, { ordered: true })
+
+      const row = screen.getByText('Renvoyer le formulaire').closest('li') as HTMLElement
+      expect(within(row).getByText('En retard de 2 j').querySelector('svg')).not.toBeNull()
+      expect(within(row).getByTestId('urgency-badge')).toHaveTextContent('critique')
+      expect(within(row).queryByText(/reportée/)).toBeNull()
     })
 
     test('does not flag a task due today', () => {
@@ -150,7 +163,7 @@ describe('TaskListWidget', () => {
     test('drops the badge once the task is done', () => {
       renderWidget([{ ...LATE[0], completedAt: '2026-10-13T08:00:00Z' }], false, { ordered: true })
 
-      expect(screen.queryByText(/En retard/)).toBeNull()
+      expect(screen.queryByText(/En retard|reportée/)).toBeNull()
     })
   })
 
@@ -158,7 +171,7 @@ describe('TaskListWidget', () => {
   describe('the urgency and the order', () => {
     const SCORED: DashboardTask[] = [
       { id: '/api/tasks/01WATER', title: 'Arroser', criticality: 'low', dueDate: '2026-10-13', urgency: 'normal', orderScore: 55 },
-      { id: '/api/tasks/01BOOK', title: 'Rendre le livre', criticality: 'low', dueDate: '2026-10-12', overdueDays: 1, urgency: 'high', orderScore: 67 },
+      { id: '/api/tasks/01BOOK', title: 'Rendre le livre', criticality: 'low', dueDate: '2026-10-12', overdueDays: 1, postponedSince: addDays(localDay(new Date()), -1), urgency: 'high', orderScore: 67 },
       { id: '/api/tasks/01CANTEEN', title: 'Payer la cantine', criticality: 'high', dueDate: '2026-10-13', urgency: 'high', orderScore: 78 },
     ]
 
@@ -171,8 +184,8 @@ describe('TaskListWidget', () => {
       expect(urgencyOf('Rendre le livre')).toHaveTextContent('haute')
       expect(urgencyOf('Arroser')).toHaveTextContent('normale')
       expect(urgencyOf('Arroser').querySelector('svg')).not.toBeNull()
-      // The late task keeps its lateness beside its urgency.
-      expect(within(screen.getByText('Rendre le livre').closest('li') as HTMLElement).getByText('En retard de 1 j')).toBeInTheDocument()
+      // The late task is put off, beside its urgency.
+      expect(within(screen.getByText('Rendre le livre').closest('li') as HTMLElement).getByText('reportée depuis hier')).toBeInTheDocument()
     })
 
     test('lists the highest score first', () => {
