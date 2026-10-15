@@ -46,6 +46,26 @@ class EventUpdateApiTest extends WebTestCase
         return $em->getRepository(Event::class)->find($this->getFixture('event_1')->getId());
     }
 
+    /** The admin sends the whole record back, its `id` an IRI (MAG-480). */
+    public function testPatchSendingBackTheWholeRecordReadBeforeSavesIt(): void
+    {
+        $entity = $this->getFixture('event_1');
+
+        $this->client->request('GET', '/api/events/'.$entity->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $entity->getId();
+        $record['summary'] = 'Renommé';
+
+        $this->patch($record);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Renommé', $this->reload()->getSummary());
+    }
+
     public function testPatchRequiresAuthentication(): void
     {
         $this->client->request('PATCH', '/api/events/'.$this->getFixture('event_1')->getId(), [], [], [

@@ -44,8 +44,10 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
 {
     use MercurePayloadFilterTrait;
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255)]

@@ -76,9 +76,11 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         return 'agenda';
     }
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
-    private Ulid $id;
+    #[ApiProperty(writable: false)]
+    protected Ulid $id;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]

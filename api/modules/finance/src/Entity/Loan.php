@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -47,8 +48,10 @@ class Loan implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 {
     use MercurePayloadFilterTrait;
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255)]

@@ -63,6 +63,49 @@ class IngredientApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function testPatchSendingBackTheWholeRecordReadBeforeSavesIt(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->client->request('GET', '/api/ingredients/'.$tomato->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $tomato->getId();
+        $record['name'] = 'Tomate cerise';
+
+        $this->patchIngredient($tomato, $record);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Tomate cerise', $this->reload($tomato)->getName());
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchThroughTheProductRouteSendingBackTheWholeRecordSavesIt(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->client->request('GET', '/api/products/'.$tomato->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $tomato->getId();
+        $record['name'] = 'Tomate cerise';
+
+        $this->client->request('PATCH', '/api/products/'.$tomato->getId(), [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($record, JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Tomate cerise', $this->reload($tomato)->getName());
+    }
+
     public function testPatchWithNullNutritionAndCiqualCodeClearsThem(): void
     {
         $tomato = $this->loadTomato();

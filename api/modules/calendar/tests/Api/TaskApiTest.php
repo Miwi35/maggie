@@ -51,6 +51,26 @@ class TaskApiTest extends WebTestCase
         return $this->getFixture('task_done');
     }
 
+    /** The admin sends the whole record back, its `id` an IRI (MAG-480). */
+    public function testPatchSendingBackTheWholeRecordReadBeforeSavesIt(): void
+    {
+        $entity = $this->loadDoneTask();
+
+        $this->client->request('GET', '/api/tasks/'.$entity->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $entity->getId();
+        $record['title'] = 'Renommé';
+
+        $this->patchTask($entity, $record);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Renommé', $this->reload($entity)->getTitle());
+    }
+
     public function testPatchTasksRequiresAuthentication(): void
     {
         $task = $this->loadDoneTask();
