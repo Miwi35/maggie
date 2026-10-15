@@ -13,6 +13,7 @@ from app.db.pending_action_repository import pending_action_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.style_synthesis import style_synthesizer
+from app.memory.encoder import memory_encoder
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
@@ -21,6 +22,8 @@ from app.user_timezone import resolve_user_timezone
 logger = logging.getLogger(__name__)
 
 EXECUTION_INTERVAL = 60  # seconds
+ENCODING_PAGE = 20  # threads looked at per query by the encoding pass
+ENCODING_MAX_PAGES = 50  # pages per cycle: what is left is found again at the next one
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
 
 
@@ -248,10 +251,51 @@ async def _style_synthesis_loop() -> None:
         await asyncio.sleep(settings.style_synthesis_interval_hours * 3600)
 
 
+async def run_memory_encoding(now: datetime | None = None, user_id: str | None = None) -> int:
+    """Write the carte and the obvious fiches of every thread silent for `memory_encode_after_seconds` (MAG-15).
+
+    Not the dormancy clock: a thread is encoded a few minutes after its last message, once, and
+    again only if it is spoken in and goes quiet again. Returns how many threads were encoded.
+    `user_id` narrows the pass to one user (the e2e stack's way of running it on demand).
+    """
+    now = now or _utcnow()
+    silent_before = now - timedelta(seconds=settings.memory_encode_after_seconds)
+    encoded = 0
+    offset = 0
+    for _ in range(ENCODING_MAX_PAGES):
+        page = await context_repo.find_to_encode(silent_before, now, ENCODING_PAGE, offset, user_id)
+        encoded_here = 0
+        for ctx in page:
+            # Never raises: a thread that cannot be encoded now is found again at the next cycle.
+            if await memory_encoder.encode(ctx, silent_before) is not None:
+                encoded_here += 1
+        encoded += encoded_here
+        if len(page) < ENCODING_PAGE:
+            break
+        # An encoded thread leaves the list; the others (failed, given up, memory off) stay in front and must
+        # not hide the threads behind them.
+        offset += len(page) - encoded_here
+    if encoded:
+        logger.info(f"Memory encoding: {encoded} thread(s) encoded")
+    return encoded
+
+
+async def _memory_encoding_loop() -> None:
+    """Every minute, encode the threads that went quiet. Never on the path of a turn."""
+    while True:
+        try:
+            await run_memory_encoding()
+        except Exception as e:
+            logger.error(f"Memory encoding loop error: {e}")
+
+        await asyncio.sleep(settings.memory_encode_interval_seconds)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
     _tasks.append(asyncio.create_task(_daily_planning_loop()))
     _tasks.append(asyncio.create_task(_context_lifecycle_loop()))
     _tasks.append(asyncio.create_task(_style_synthesis_loop()))
+    _tasks.append(asyncio.create_task(_memory_encoding_loop()))
     logger.info("Proaction scheduler started")

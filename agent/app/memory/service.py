@@ -147,6 +147,7 @@ class MemoryService:
         self._status: dict[str, UserStatus] = {}
         self._pass_locks: dict[str, asyncio.Lock] = {}
         self._file_locks: dict[str, asyncio.Lock] = {}
+        self._index_locks: dict[str, asyncio.Lock] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._known: set[str] = set()
         self._loop_task: asyncio.Task | None = None
@@ -214,13 +215,18 @@ class MemoryService:
         paths.check_user_id(user_id)
         if paths.kind_of(rel) == "conversation":
             current = self.folder(user_id).read(rel)
-            if current is not None and not text.startswith(current):
+            # It may grow at the end, or have its carte rewritten on top: the messages themselves never change.
+            if current is not None and not (
+                text.startswith(current) or carte_mod.split(text)[1] == carte_mod.split(current)[1]
+            ):
                 raise paths.UnsafePath(f"{rel!r} is a conversation: it can only grow, never be rewritten")
-        existed = await self._save_local_and_queue(user_id, rel, text)
-        indexed = await index_file(user_id, rel, text)
-        if indexed.stamped is not None:
-            await self._save_local_and_queue(user_id, rel, indexed.stamped)
-            await index_file(user_id, rel, indexed.stamped)
+        # Held until the file is indexed: a sync pass reconciling the index meanwhile would index it a second time.
+        async with self._lock(self._index_locks, user_id):
+            existed = await self._save_local_and_queue(user_id, rel, text)
+            indexed = await index_file(user_id, rel, text)
+            if indexed.stamped is not None:
+                await self._save_local_and_queue(user_id, rel, indexed.stamped)
+                await index_file(user_id, rel, indexed.stamped)
         if journal:
             verb = "modifié" if existed else "créé"
             await self.journal(user_id, f"{verb} `{rel}`" + (f" — {reason}" if reason else ""))
@@ -698,13 +704,18 @@ class MemoryService:
             text = folder.read(rel)
             if text is None or hashes.get(rel) == carte_mod.content_hash(text):
                 continue
-            indexed = await index_file(user_id, rel, text)
-            report.reindexed += 1
-            if indexed.stamped is not None:
-                await self._save_local_and_queue(user_id, rel, indexed.stamped)
-                await index_file(user_id, rel, indexed.stamped)
-                await self.journal(user_id, f"identifiant ajouté à `{rel}`")
-                report.again = True
+            async with self._lock(self._index_locks, user_id):
+                # A write may have indexed the file while this pass waited: look again before indexing.
+                text = folder.read(rel)
+                if text is None or (await memory_index_repo.hashes(user_id)).get(rel) == carte_mod.content_hash(text):
+                    continue
+                indexed = await index_file(user_id, rel, text)
+                report.reindexed += 1
+                if indexed.stamped is not None:
+                    await self._save_local_and_queue(user_id, rel, indexed.stamped)
+                    await index_file(user_id, rel, indexed.stamped)
+                    await self.journal(user_id, f"identifiant ajouté à `{rel}`")
+                    report.again = True
 
     async def _generate(self, user_id: str, remote: RemoteView, state: dict[str, Known], report: PassReport) -> None:
         """Write the generated files that are missing or stale — never over a version someone edited."""

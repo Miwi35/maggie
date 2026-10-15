@@ -176,8 +176,8 @@ def with_id(text: str, identifier: str) -> str:
     return f"{FENCE}\n" + "\n".join(lines) + f"\n{FENCE}\n" + body
 
 
-def render(carte: Carte, body: str) -> str:
-    """A new file from a carte and a body — for what Maggie writes, never to rewrite what the owner wrote."""
+def render_head(carte: Carte, *, extra_first: bool = False) -> str:
+    """The frontmatter block of a carte, fences included. `extra_first` keeps the keys nobody here knows on top."""
     data: dict[str, Any] = {}
     if carte.id:
         data["id"] = carte.id
@@ -187,9 +187,17 @@ def render(carte: Carte, body: str) -> str:
         value = getattr(carte, name)
         if value:
             data[name] = value
-    data.update(carte.extra)
+    if extra_first:
+        data = {**carte.extra, **data}
+    else:
+        data.update(carte.extra)
     head = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False).rstrip("\n")
-    return f"{FENCE}\n{head}\n{FENCE}\n\n{body.strip()}\n"
+    return f"{FENCE}\n{head}\n{FENCE}\n"
+
+
+def render(carte: Carte, body: str) -> str:
+    """A new file from a carte and a body — for what Maggie writes, never to rewrite what the owner wrote."""
+    return f"{render_head(carte)}\n{body.strip()}\n"
 
 
 def search_text(path_title: str, carte: Carte, body: str) -> str:

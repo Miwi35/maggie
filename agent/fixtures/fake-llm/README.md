@@ -89,13 +89,14 @@ being answered out.
 
 ## Beyond chat
 
-Four calls in the agent are not a conversation, and each has its scenario here
+Five calls in the agent are not a conversation, and each has its scenario here
 because otherwise they would fall through to "no scenario":
 
 | Call | Matched on |
 |---|---|
 | Context routing, before every streamed message and after every proaction | `system_contains: routeur de contexte` |
 | Thread summary, once a thread has grown by `CONTEXT_SUMMARY_EVERY_MESSAGES` | `system_contains: tu résumes un fil de conversation` |
+| Encoding of a thread gone quiet (MAG-15), `MEMORY_ENCODE_AFTER_SECONDS` after its last message | `system_contains: tu écris la mémoire de maggie` |
 | Transcript cleanup, after Whisper | `user_contains: assistant de transcription` |
 | A proaction (`POST /agent/proaction`) | the prompt it was scheduled with |
 

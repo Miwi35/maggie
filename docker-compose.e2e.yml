@@ -560,6 +560,12 @@ services:
       # Four instead of the default ten, so two exchanges are enough to summarize a
       # thread and a journey can assert on the summary without sending five (MAG-11).
       CONTEXT_SUMMARY_EVERY_MESSAGES: "4"
+      # Twenty seconds of silence instead of five minutes, looked at every five seconds (MAG-15).
+      # With the e2e clock pinned (CI) that never elapses, so the journey runs the pass itself
+      # through POST /e2e/memory/{user}/encode. Only a thread matching 13-memory-encoding.yaml is
+      # encoded: the others get no scenario, and the encoder writes nothing for them.
+      MEMORY_ENCODE_AFTER_SECONDS: "20"
+      MEMORY_ENCODE_INTERVAL_SECONDS: "5"
       # Two instead of the default eight, so the global window of the history holds the
       # previous exchange and nothing more (MAG-13). That is what makes
       # 72-thread-history-recall.yaml a proof: a sentence from an older thread can only be

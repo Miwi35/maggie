@@ -34,6 +34,10 @@ class ConversationContext(AgentBase):
     # summary stops, so the next pass only has to read the messages after it.
     summary = Column(Text, nullable=True)
     summary_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Where the encoding along the way (MAG-15) stopped: the last message whose passage has been
+    # written into the memory folder. A pass reads what comes after, so a thread picked up again
+    # is encoded from there and nothing is written twice.
+    encoded_up_to = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     closed_at = Column(DateTime(timezone=True), nullable=True)
