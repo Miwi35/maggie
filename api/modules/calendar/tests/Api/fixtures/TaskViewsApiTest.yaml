@@ -1,0 +1,130 @@
+# The four views (MAG-408). The tests pin the clock at 2026-10-13 12:00 UTC (Paris).
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  # today
+  late:
+    title: Late
+    dueDate: '<(new \DateTimeImmutable("2026-10-10"))>'
+    user: '@test_user'
+
+  due_today:
+    title: Due today
+    dueDate: '<(new \DateTimeImmutable("2026-10-13"))>'
+    user: '@test_user'
+
+  sub_of_today:
+    title: Undated subtask of a task due today
+    parent: '@due_today'
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  # upcoming: by day, then by score within a day
+  up_tomorrow:
+    title: Due tomorrow
+    dueDate: '<(new \DateTimeImmutable("2026-10-14"))>'
+    user: '@test_user'
+
+  up_soon_low:
+    title: Due the 18th, low
+    dueDate: '<(new \DateTimeImmutable("2026-10-18"))>'
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  up_soon_high:
+    title: Due the 18th, critical
+    dueDate: '<(new \DateTimeImmutable("2026-10-18"))>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    position: '00000000000000000002'
+    user: '@test_user'
+
+  up_far:
+    title: Due the 30th
+    dueDate: '<(new \DateTimeImmutable("2026-10-30"))>'
+    user: '@test_user'
+
+  sub_future:
+    title: Dated subtask of a far task
+    parent: '@up_far'
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@test_user'
+
+  # someday: by priority, then by position, the unpositioned last
+  some_low:
+    title: Someday, low priority
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    position: '00000000000000000000'
+    user: '@test_user'
+
+  some_medium_second:
+    title: Someday, medium second
+    position: '00000000000000000002'
+    user: '@test_user'
+
+  some_medium_first:
+    title: Someday, medium first
+    position: '00000000000000000001'
+    user: '@test_user'
+
+  some_medium_none:
+    title: Someday, medium unpositioned
+    user: '@test_user'
+
+  some_high:
+    title: Someday, high priority
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    position: '00000000000000000009'
+    user: '@test_user'
+
+  # done: the most recently done first, dated or not
+  done_old:
+    title: Done a while ago
+    completedAt: '<(new \DateTimeImmutable("2026-10-01 10:00"))>'
+    dueDate: '<(new \DateTimeImmutable("2026-09-30"))>'
+    user: '@test_user'
+
+  done_mid:
+    title: Done last week
+    completedAt: '<(new \DateTimeImmutable("2026-10-05 10:00"))>'
+    user: '@test_user'
+
+  done_new:
+    title: Done yesterday
+    completedAt: '<(new \DateTimeImmutable("2026-10-12 10:00"))>'
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@test_user'
+
+  done_sub:
+    title: Done subtask
+    parent: '@due_today'
+    completedAt: '<(new \DateTimeImmutable("2026-10-11 10:00"))>'
+    user: '@test_user'
+
+  # someone else's: in no view
+  other_late:
+    title: Someone else's late task
+    dueDate: '<(new \DateTimeImmutable("2026-10-01"))>'
+    user: '@other_user'
+
+  other_some:
+    title: Someone else's someday task
+    user: '@other_user'
+
+  other_done:
+    title: Someone else's done task
+    completedAt: '<(new \DateTimeImmutable("2026-10-12 11:00"))>'
+    user: '@other_user'
+

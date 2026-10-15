@@ -1,0 +1,70 @@
+{
+    "@context": "/api/contexts/Task",
+    "@id": "/api/tasks/view/today",
+    "@type": "Collection",
+    "totalItems": 2,
+    "counts": {
+        "today": 2,
+        "upcoming": 0,
+        "someday": 0,
+        "done": 1
+    },
+    "member": [
+        {
+            "@context": "/api/contexts/Task",
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded open task",
+            "description": "A task with a due date and no completion",
+            "priority": "high",
+            "criticality": "high",
+            "dueDate": "2026-03-20",
+            "completedAt": null,
+            "parent": null,
+            "position": "00000000000000000000",
+            "links": [],
+            "overdueDays": 33,
+            "urgency": "critical",
+            "orderScore": 111,
+            "googleTaskId": null,
+            "googleTaskListId": null,
+            "googleTaskEtag": null,
+            "googleTaskUpdatedAt": null,
+            "done": false,
+            "googleSynced": false
+        },
+        {
+            "@context": "/api/contexts/Task",
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded subtask",
+            "description": null,
+            "priority": "medium",
+            "criticality": "low",
+            "dueDate": null,
+            "completedAt": null,
+            "parent": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "position": "00000000000000000001",
+            "links": [
+                {
+                    "type": "email",
+                    "description": "Le mail du déménageur",
+                    "link": "https://mail.google.com/mail/#all/abc"
+                }
+            ],
+            "overdueDays": null,
+            "urgency": "low",
+            "orderScore": 3,
+            "googleTaskId": null,
+            "googleTaskListId": null,
+            "googleTaskEtag": null,
+            "googleTaskUpdatedAt": null,
+            "done": false,
+            "googleSynced": false
+        }
+    ]
+}
