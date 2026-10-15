@@ -6,6 +6,7 @@ namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Event\CategorizationRuleSaved;
@@ -48,7 +49,9 @@ class CreateCategorizationRuleHandler
 
         $rule = new CategorizationRule();
         $rule->setUser($user);
-        $rule->setCategory($category);
+        $rule->requalify(null !== $command->qualification
+            ? Qualification::fromArray($command->qualification, $category)
+            : Qualification::fromCategory($category));
         $rule->setLabelPattern($command->labelPattern);
         $rule->setMatchType(MatchType::from($command->matchType));
         $rule->setDirection(AmountDirection::from($command->direction));

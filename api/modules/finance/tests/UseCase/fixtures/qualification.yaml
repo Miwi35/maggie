@@ -1,0 +1,77 @@
+# A car loan paid on the 5th, and fuel filed by a rule (MAG-476). Shared by
+# the REST and the MCP tests of the qualification, so they argue about the
+# same world: « Crédit auto » is a repayment, mandatory.
+Maggie\Core\Entity\User:
+  test_user:
+    email: qualification-test@example.com
+    googleId: google-qualification-test
+    name: Qualification Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  loans:
+    name: Crédits
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Debt)>'
+    user: '@test_user'
+  transport:
+    name: Transport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  car_loan:
+    label: Crédit auto
+    counterpartyName: Banque Auto
+    category: '@loans'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::Repayment))>'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -25000
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_fuel:
+    labelPattern: TOTALENERGIES
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@transport'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 0
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  jan_loan:
+    account: '@checking'
+    amountCents: -25000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-05"))>'
+    label: PRLV BANQUE AUTO ECHEANCE 01
+    counterpartyName: Banque Auto
+    user: '@test_user'
+  feb_loan:
+    account: '@checking'
+    amountCents: -25000
+    bookedAt: '<(new \DateTimeImmutable("2027-02-05"))>'
+    label: PRLV BANQUE AUTO ECHEANCE 02
+    counterpartyName: Banque Auto
+    user: '@test_user'
+  fuel:
+    account: '@checking'
+    amountCents: -6000
+    bookedAt: '<(new \DateTimeImmutable("2027-02-10"))>'
+    label: CB TOTALENERGIES 10/02
+    counterpartyName: TotalEnergies
+    user: '@test_user'

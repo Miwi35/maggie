@@ -15,8 +15,8 @@ use Maggie\Finance\Command\MergeDuplicateAccountsCommand;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -162,7 +162,7 @@ final class MergeDuplicateAccountsCommandTest extends KernelTestCase
         $this->movement($original, 'CARTE BOULANGERIE', -450, '2026-09-20');
         $this->movement($original, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
         $categorised = $this->movement($copy, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05', 'bank-tx-edf');
-        $categorised->assignCategory($this->em()->find(Category::class, $this->getFixture('energy')->getId()), CategorySource::Manual);
+        $categorised->qualify(Qualification::none($this->em()->find(Category::class, $this->getFixture('energy')->getId())), null);
         $this->movement($copy, 'VIREMENT SALAIRE', 235000, '2026-10-06', 'bank-tx-salary');
         $this->em()->flush();
 

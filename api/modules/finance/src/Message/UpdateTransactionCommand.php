@@ -18,6 +18,12 @@ final readonly class UpdateTransactionCommand
      * it gives back. `oneOffEnvelopeId` attributes the spend to a one-off
      * envelope; clearing `oneOffEnvelope` takes it back to its category's envelopes.
      *
+     * `qualification` is the owner's own, whole (`Qualification::toArray()`),
+     * with `categoryId`, or the current category when it is omitted.
+     * `qualifiedByRuleId` instead files the line with the whole qualification
+     * of that rule.
+     *
+     * @param array<string, mixed>|null                                                      $qualification
      * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'|'oneOffEnvelope'> $clearFields
      */
     public function __construct(
@@ -31,7 +37,8 @@ final readonly class UpdateTransactionCommand
         public ?string $currency = null,
         public ?bool $isExceptional = null,
         public ?string $categoryId = null,
-        public ?string $categorySource = null,
+        public ?array $qualification = null,
+        public ?string $qualifiedByRuleId = null,
         public ?string $retrospect = null,
         public ?string $transferKind = null,
         public ?string $transferSource = null,

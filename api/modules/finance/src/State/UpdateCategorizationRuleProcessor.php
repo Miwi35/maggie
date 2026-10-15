@@ -32,6 +32,12 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             }
         }
 
+        // Only a change of the qualification is sent: re-sending the stored
+        // one with a new category would keep it from following the category.
+        $previous = $context['previous_data'] ?? null;
+        $qualification = $data->getQualification()->toArray();
+        $qualificationChanged = $previous instanceof CategorizationRule && $qualification !== $previous->getQualification()->toArray();
+
         $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
             userId: (string) $data->getUser()->getId(),
             categorizationRuleId: (string) $data->getId(),
@@ -45,6 +51,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             isActive: $data->isActive(),
             clearFields: $clearFields,
             applyToExisting: $data->shouldApplyToExisting(),
+            qualification: $qualificationChanged ? $qualification : null,
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

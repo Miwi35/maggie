@@ -570,7 +570,7 @@ class MergeDuplicateAccounts
         $changed = false;
 
         if (null === $twin->getCategory() && null !== $copy->getCategory()) {
-            $twin->assignCategory($copy->getCategory(), $copy->getCategorySource());
+            $twin->takeQualificationOf($copy);
             $changed = true;
         }
         if ($copy->isExceptional() && !$twin->isExceptional()) {

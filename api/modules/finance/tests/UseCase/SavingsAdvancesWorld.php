@@ -6,8 +6,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 
@@ -43,7 +43,7 @@ trait SavingsAdvancesWorld
         if (null !== $categoryRef) {
             $category = $this->getFixture($categoryRef);
             \assert($category instanceof Category);
-            $transaction->assignCategory($category, CategorySource::Manual);
+            $transaction->qualify(Qualification::none($category), null);
         }
 
         $this->em->persist($transaction);

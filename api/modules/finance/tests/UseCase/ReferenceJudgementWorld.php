@@ -5,9 +5,9 @@ namespace Maggie\Finance\Tests\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RecurringLinkSource;
 
 /**
@@ -59,7 +59,7 @@ trait ReferenceJudgementWorld
         $spend->setBookedAt(new \DateTimeImmutable('2026-09-20'));
         $spend->setLabel('Achat');
         if ($inGroceries) {
-            $spend->assignCategory($this->getFixture($user.'_food'), CategorySource::Manual);
+            $spend->qualify(Qualification::none($this->getFixture($user.'_food')), null);
         }
         $this->em->persist($spend);
 

@@ -33,6 +33,8 @@ use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\State\CreateRecurringOperationProcessor;
 use Maggie\Finance\State\DeleteRecurringOperationProcessor;
 use Maggie\Finance\State\UpdateRecurringOperationProcessor;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -54,7 +56,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
     new Patch(processor: UpdateRecurringOperationProcessor::class),
     new Delete(processor: DeleteRecurringOperationProcessor::class),
 ])]
-class RecurringOperation implements MercurePublishable, OwnedByUserInterface, IndexableInterface
+class RecurringOperation implements MercurePublishable, OwnedByUserInterface, IndexableInterface, QualifyingOperation
 {
     use MercurePayloadFilterTrait;
 
@@ -95,6 +97,18 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[Assert\NotNull]
     #[IndexedRelation(targetEntity: Category::class, sourceField: 'categoryId')]
     private Category $category;
+
+    /**
+     * Whether its lines are mandatory and what kind of movement they are,
+     * copied whole, with `category`, onto every transaction it recognises.
+     */
+    #[ORM\Embedded(class: Qualification::class)]
+    #[IndexedField(type: 'object', properties: Qualification::SEARCH_MAPPING)]
+    // Built anew from the body, never merged into the stored one: a PATCH
+    // naming one parameter and not the other is refused, not completed.
+    #[ApiProperty(genId: false)]
+    #[Context(denormalizationContext: [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false])]
+    private Qualification $qualification;
 
     /** Its currency is the operation's: there is no other. */
     #[ORM\ManyToOne(targetEntity: Account::class)]
@@ -157,6 +171,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     public function __construct()
     {
         $this->id = new Ulid();
+        $this->qualification = Qualification::none();
     }
 
     #[Assert\Callback]
@@ -249,6 +264,29 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     public function setCategory(Category $category): static
     {
         $this->category = $category;
+
+        return $this;
+    }
+
+    public function getQualification(): Qualification
+    {
+        return $this->qualification->withCategory($this->category);
+    }
+
+    /** For the deserializer: the parameters only, the category travels as `category`. */
+    public function setQualification(Qualification $qualification): static
+    {
+        $this->qualification = $qualification->withCategory(null);
+
+        return $this;
+    }
+
+    /** Takes a whole qualification, its category included: an operation always has one. */
+    public function requalify(Qualification $qualification): static
+    {
+        $this->category = $qualification->getCategory()
+            ?? throw new \DomainException('An operation is qualified with a category.');
+        $this->qualification = $qualification->withCategory(null);
 
         return $this;
     }
@@ -447,6 +485,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
             'amountTolerancePercent' => $this->amountTolerancePercent,
             'dateToleranceDays' => $this->dateToleranceDays,
             'endsOn' => $this->endsOn?->format('Y-m-d'),
+            'qualification' => $this->qualification->toArray(),
             'categoryId' => (string) $this->category->getId(),
             'accountId' => (string) $this->account->getId(),
             'userId' => (string) $this->user->getId(),
@@ -471,8 +510,9 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
             'endsOn' => $this->endsOn?->format('Y-m-d'),
             'monthlyCostCents' => $this->getMonthlyCostCents(),
             'yearlyCostCents' => $this->getYearlyCostCents(),
+            'qualification' => $this->qualification->toArray(),
             'categoryId' => (string) $this->category->getId(),
             'accountId' => (string) $this->account->getId(),
-        ], $changedProperties, ['category' => 'categoryId', 'account' => 'accountId']);
+        ], $changedProperties, [...Qualification::changedPropertyMap(), 'category' => 'categoryId', 'account' => 'accountId']);
     }
 }

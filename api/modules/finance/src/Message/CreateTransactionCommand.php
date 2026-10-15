@@ -6,6 +6,7 @@ namespace Maggie\Finance\Message;
 
 final readonly class CreateTransactionCommand
 {
+    /** @param array<string, mixed>|null $qualification the owner's own, whole (`Qualification::toArray()`) */
     public function __construct(
         public string $userId,
         public string $accountId,
@@ -17,6 +18,7 @@ final readonly class CreateTransactionCommand
         public bool $isExceptional = false,
         public ?string $categoryId = null,
         public ?string $note = null,
+        public ?array $qualification = null,
     ) {
     }
 }

@@ -104,6 +104,8 @@ framework:
             'Maggie\Finance\Message\DeleteCategorizationRuleCommand': sync
             'Maggie\Finance\Message\ApplyCategorizationRuleCommand': sync
             'Maggie\Finance\Event\CategorizationRuleSaved': sync
+            'Maggie\Finance\Event\OperationQualificationSaved': sync
+            'Maggie\Finance\Message\RequalifyTransactionsCommand': sync
             'Maggie\Finance\Message\UpdateSafetyCushionCommand': sync
             'Maggie\Finance\Message\CreateTreasurySettingsCommand': sync
             'Maggie\Finance\Message\UpdateTreasurySettingsCommand': sync

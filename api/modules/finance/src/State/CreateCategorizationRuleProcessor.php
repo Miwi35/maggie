@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Message\CreateCategorizationRuleCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -38,6 +39,8 @@ class CreateCategorizationRuleProcessor implements ProcessorInterface
             priority: $data->getPriority(),
             isActive: $data->isActive(),
             applyToExisting: $data->shouldApplyToExisting(),
+            // Left at its default, the body named none: the category's applies.
+            qualification: $data->getQualification()->toArray() === Qualification::none()->toArray() ? null : $data->getQualification()->toArray(),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

@@ -1,0 +1,172 @@
+# One line per flag of category, as the data stood before MAG-476: the
+# categories said what a line was, the transactions said nothing.
+Maggie\Core\Entity\User:
+  test_user:
+    email: qualification-migration@example.com
+    googleId: google-qualification-migration
+    name: Qualification Migration User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  restaurants:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  savings:
+    name: Livret
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Saving)>'
+    user: '@test_user'
+  stocks:
+    name: PEA
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Investment)>'
+    user: '@test_user'
+  loans:
+    name: Crédits
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Debt)>'
+    user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  advance_repayment:
+    name: Remboursement avance
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  overdraft_repayment:
+    name: Remboursement comble découvert
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_resto:
+    labelPattern: RESTO
+    category: '@restaurants'
+    priority: 0
+    user: '@test_user'
+  rule_brasserie:
+    labelPattern: brasserie
+    category: '@restaurants'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 5
+    user: '@test_user'
+  rule_rent:
+    labelPattern: LOYER
+    matchType: '<(Maggie\Finance\Enum\MatchType::StartsWith)>'
+    category: '@housing'
+    user: '@test_user'
+  rule_advance:
+    labelPattern: AVANCE
+    category: '@advance_repayment'
+    user: '@test_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  rent:
+    label: Loyer
+    counterpartyName: Agence Immo
+    category: '@housing'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -90000
+    user: '@test_user'
+  car_loan:
+    label: Crédit auto
+    counterpartyName: Banque Auto
+    category: '@loans'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -25000
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  t_rent:
+    account: '@checking'
+    amountCents: -90000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-05"))>'
+    label: PRLV AGENCE IMMO
+    category: '@housing'
+    recurringOperation: '@rent'
+    recurringOccurrenceOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    user: '@test_user'
+  t_brasserie:
+    account: '@checking'
+    amountCents: -4500
+    bookedAt: '<(new \DateTimeImmutable("2027-01-08"))>'
+    label: CB BRASSERIE DU PORT RESTO
+    category: '@restaurants'
+    user: '@test_user'
+  t_resto:
+    account: '@checking'
+    amountCents: -2200
+    bookedAt: '<(new \DateTimeImmutable("2027-01-09"))>'
+    label: CB RESTO DU COIN
+    category: '@restaurants'
+    user: '@test_user'
+  t_rent_by_rule:
+    account: '@checking'
+    amountCents: -90000
+    bookedAt: '<(new \DateTimeImmutable("2027-02-05"))>'
+    label: LOYER FEVRIER
+    category: '@housing'
+    user: '@test_user'
+  t_savings:
+    account: '@checking'
+    amountCents: -20000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-10"))>'
+    label: VIR LIVRET A
+    category: '@savings'
+    user: '@test_user'
+  t_stocks:
+    account: '@checking'
+    amountCents: -15000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-11"))>'
+    label: VIR PEA
+    category: '@stocks'
+    user: '@test_user'
+  t_loan:
+    account: '@checking'
+    amountCents: -25000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-05"))>'
+    label: PRLV BANQUE AUTO
+    category: '@loans'
+    user: '@test_user'
+  t_salary:
+    account: '@checking'
+    amountCents: 250000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-28"))>'
+    label: VIR SALAIRE
+    category: '@salary'
+    user: '@test_user'
+  t_advance:
+    account: '@checking'
+    amountCents: -30000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-29"))>'
+    label: VIR REMBOURSEMENT 01
+    category: '@advance_repayment'
+    user: '@test_user'
+  t_overdraft:
+    account: '@checking'
+    amountCents: -10000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-30"))>'
+    label: VIR COMBLE DECOUVERT
+    category: '@overdraft_repayment'
+    user: '@test_user'
+  t_uncategorized:
+    account: '@checking'
+    amountCents: -1000
+    bookedAt: '<(new \DateTimeImmutable("2027-01-31"))>'
+    label: CB INCONNU
+    user: '@test_user'

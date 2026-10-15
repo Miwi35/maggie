@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\CreateTransactionCommand;
@@ -46,10 +46,17 @@ class CreateTransactionHandler
         Transaction::assertNoteFits($command->note);
         $transaction->setNote($command->note);
 
+        $category = null;
         if (null !== $command->categoryId) {
             $category = $this->references->category($command->categoryId, $user);
             $this->natureGuard->assertCompatible($command->amountCents, $category);
-            $transaction->assignCategory($category, CategorySource::Manual);
+        }
+        // A line entered by hand is qualified by hand; a category alone carries
+        // what its deprecated flag meant, until MAG-479 has the clients send one.
+        if (null !== $command->qualification) {
+            $transaction->qualify(Qualification::fromArray($command->qualification, $category), null);
+        } elseif (null !== $category) {
+            $transaction->qualify(Qualification::fromCategory($category), null);
         }
 
         // Categorization, transfer and rejection follow from the insert itself

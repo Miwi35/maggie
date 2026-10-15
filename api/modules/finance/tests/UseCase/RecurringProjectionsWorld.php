@@ -5,9 +5,9 @@ namespace Maggie\Finance\Tests\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\TransactionStatus;
@@ -56,7 +56,7 @@ trait RecurringProjectionsWorld
         $transaction = (new Transaction())
             ->setUser($operation->getUser())
             ->setAccount($operation->getAccount())
-            ->assignCategory($operation->getCategory(), CategorySource::Manual)
+            ->qualify(Qualification::none($operation->getCategory()), null)
             ->setAmountCents($amountCents)
             ->setBookedAt(new \DateTimeImmutable($bookedAt ?? $occurrenceOn))
             ->setLabel($operation->getLabel())

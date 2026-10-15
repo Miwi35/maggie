@@ -7,6 +7,7 @@ namespace Maggie\Finance\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Message\CreateRecurringOperationCommand;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -43,6 +44,8 @@ class CreateRecurringOperationProcessor implements ProcessorInterface
             amountTolerancePercent: $data->getAmountTolerancePercent(),
             dateToleranceDays: $data->getDateToleranceDays(),
             endsOn: $data->getEndsOn()?->format('Y-m-d'),
+            // Left at its default, the body named none: the category's applies.
+            qualification: $data->getQualification()->toArray() === Qualification::none()->toArray() ? null : $data->getQualification()->toArray(),
         ));
     }
 }

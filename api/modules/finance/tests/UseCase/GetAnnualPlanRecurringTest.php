@@ -4,6 +4,7 @@ namespace Maggie\Finance\Tests\UseCase;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\UseCase\GetAnnualPlan;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -143,7 +144,7 @@ class GetAnnualPlanRecurringTest extends KernelTestCase
         $transaction = (new \Maggie\Finance\Entity\Transaction())
             ->setUser($account->getUser())
             ->setAccount($account)
-            ->assignCategory($this->getFixture($categoryRef), \Maggie\Finance\Enum\CategorySource::Manual)
+            ->qualify(Qualification::none($this->getFixture($categoryRef)), null)
             ->setAmountCents($amountCents)
             ->setBookedAt(new \DateTimeImmutable($bookedAt))
             ->setLabel('Dépense');

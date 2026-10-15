@@ -8,6 +8,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Doctrine\TransactionListener;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
@@ -149,7 +150,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         $line = $this->line(-3000, '2027-05-02');
         /** @var Category $sport */
         $sport = $this->getFixture('sport');
-        $line->assignCategory($sport, CategorySource::Manual);
+        $line->qualify(Qualification::none($sport), null);
         $this->store();
 
         $this->attach->execute($this->user());

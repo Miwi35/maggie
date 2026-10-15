@@ -6,6 +6,7 @@ namespace Maggie\Core\Elasticsearch\Hydrator;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\SearchDocumentValue;
 use Symfony\Component\Uid\Ulid;
 
 final class ElasticsearchEntityHydrator
@@ -178,6 +179,11 @@ final class ElasticsearchEntityHydrator
         // Handle Ulid
         if (Ulid::class === $typeName && \is_string($value)) {
             return Ulid::fromString($value);
+        }
+
+        // Handle an embedded value object, indexed as one object field
+        if (\is_array($value) && is_subclass_of($typeName, SearchDocumentValue::class)) {
+            return $typeName::fromSearchDocument($value);
         }
 
         return $value;

@@ -72,7 +72,7 @@ class CategorizeTransaction
             return false;
         }
 
-        $transaction->assignCategory($rule->getCategory(), CategorySource::Rule);
+        $transaction->qualify($rule->getQualification(), $rule);
 
         return true;
     }

@@ -9,6 +9,8 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Exception\InvalidQualificationException;
+use Maggie\Finance\Mcp\QualificationArguments;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Message\DeleteTransactionCommand;
 use Maggie\Finance\Message\UpdateTransactionCommand;
@@ -20,7 +22,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with categoryId (the category and its sub-categories; with limit 1, the latest line of that category), direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those (advance, repayment and funding each list only their own). Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user\'s own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). transferKind advance is an internal transfer from a savings or investment account to a checking one made while the salary was late, which the detection marks (get_savings_advances says what is left to give back); repayment is the transfer that gives an advance back, from the checking account to the source: the detection marks it when its amount equals exactly what is left of an open advance of that source (a partial amount is never reconciled), and by hand it takes counterpartId plus repaysTransactionId, the id of the advance (the debit leg get_savings_advances lists), set on the debit leg, the one leaving the checking account. funding is the user\'s regular top-up of a savings account, which the detection never takes for a repayment whatever its amount: mark it with transferKind funding and counterpartId (or alone when only one account is known); it stays a neutral internal transfer. propose_advance_repayments says what to transfer to give the advances back. An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history. recurringOperationId names the recurring operation the line is an occurrence of, and recurringOccurrenceOn (ISO date) the due date it settles: a line is attached automatically when its counterparty, its date and its amount all match a free occurrence. On update, recurringOperationId attaches the line by hand (to recurringOccurrenceOn, or to the due date nearest its bookedAt), recurringOccurrenceOn alone moves it to another due date of its series, and recurringOperation in clear detaches it; a gesture made here is recorded as the user\'s own (recurringSource manual), which the automatic attachment never overwrites. Attaching gives the line the category of the recurring operation, unless the user set the category by hand. note is the user\'s free text about the line (2000 characters at most): set it on create or update, a blank note or note in clear removes it, and an update that omits it leaves it alone. oneOffEnvelopeId attributes a spend by hand to a one-off envelope (an event such as Hellfest 2026, created with manage_envelopes mode one_off): the line keeps its category but leaves the monthly and annual envelopes and counts in the one-off one only; an empty oneOffEnvelopeId or oneOffEnvelope in clear takes the attribution back.')]
+#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with categoryId (the category and its sub-categories; with limit 1, the latest line of that category), direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those (advance, repayment and funding each list only their own). Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user\'s own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). transferKind advance is an internal transfer from a savings or investment account to a checking one made while the salary was late, which the detection marks (get_savings_advances says what is left to give back); repayment is the transfer that gives an advance back, from the checking account to the source: the detection marks it when its amount equals exactly what is left of an open advance of that source (a partial amount is never reconciled), and by hand it takes counterpartId plus repaysTransactionId, the id of the advance (the debit leg get_savings_advances lists), set on the debit leg, the one leaving the checking account. funding is the user\'s regular top-up of a savings account, which the detection never takes for a repayment whatever its amount: mark it with transferKind funding and counterpartId (or alone when only one account is known); it stays a neutral internal transfer. propose_advance_repayments says what to transfer to give the advances back. An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history. recurringOperationId names the recurring operation the line is an occurrence of, and recurringOccurrenceOn (ISO date) the due date it settles: a line is attached automatically when its counterparty, its date and its amount all match a free occurrence. On update, recurringOperationId attaches the line by hand (to recurringOccurrenceOn, or to the due date nearest its bookedAt), recurringOccurrenceOn alone moves it to another due date of its series, and recurringOperation in clear detaches it; a gesture made here is recorded as the user\'s own (recurringSource manual), which the automatic attachment never overwrites. Attaching gives the line the whole qualification of the recurring operation (categoryId, mandatory, kind), unless the user qualified it by hand. note is the user\'s free text about the line (2000 characters at most): set it on create or update, a blank note or note in clear removes it, and an update that omits it leaves it alone. oneOffEnvelopeId attributes a spend by hand to a one-off envelope (an event such as Hellfest 2026, created with manage_envelopes mode one_off): the line keeps its category but leaves the monthly and annual envelopes and counts in the one-off one only; an empty oneOffEnvelopeId or oneOffEnvelope in clear takes the attribution back. qualifiedBy says who qualified a line: manual (the user, by hand: what is set here), series (qualifiedBySeriesId) or rule (qualifiedByRuleId); a change to that series or rule reaches the line, never once it is qualified by hand.'.QualificationArguments::DESCRIPTION)]
 class ManageTransactionsTool
 {
     private const DEFAULT_LIMIT = 30;
@@ -59,16 +61,20 @@ class ManageTransactionsTool
         ?string $repaysTransactionId = null,
         ?string $note = null,
         ?string $oneOffEnvelopeId = null,
+        ?bool $mandatory = null,
+        ?string $kind = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list($accountId, $limit, $fromDate, $toDate, $query, $direction, $transferKind, $categoryId),
-                'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $note),
-                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $recurringOperationId, $recurringOccurrenceOn, $clear, $repaysTransactionId, $note, $oneOffEnvelopeId),
+                'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $note, ['mandatory' => $mandatory, 'kind' => $kind]),
+                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $recurringOperationId, $recurringOccurrenceOn, $clear, $repaysTransactionId, $note, $oneOffEnvelopeId, ['mandatory' => $mandatory, 'kind' => $kind]),
                 'categorize' => $this->categorize($transactionId, $categoryId),
                 'delete' => $this->delete($transactionId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, categorize, or delete."], JSON_THROW_ON_ERROR),
             };
+        } catch (InvalidQualificationException $e) {
+            return json_encode($e->toResponse(), JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
@@ -139,7 +145,8 @@ class ManageTransactionsTool
         return false !== $parsed && $parsed->format('Y-m-d') === $day ? $parsed : null;
     }
 
-    private function create(?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $note): string
+    /** @param array<string, mixed> $qualification */
+    private function create(?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $note, array $qualification): string
     {
         if (null === $accountId || null === $label || null === $amountCents) {
             return json_encode(['error' => 'accountId, amountCents and label are required for create.'], JSON_THROW_ON_ERROR);
@@ -158,6 +165,7 @@ class ManageTransactionsTool
             isExceptional: $isExceptional ?? false,
             categoryId: $categoryId,
             note: $note,
+            qualification: QualificationArguments::whole($qualification),
         ));
 
         /** @var Transaction $transaction */
@@ -169,12 +177,18 @@ class ManageTransactionsTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    /** @param list<string>|null $clear */
-    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $transferKind, ?string $counterpartId, ?string $recurringOperationId, ?string $recurringOccurrenceOn, ?array $clear, ?string $repaysTransactionId = null, ?string $note = null, ?string $oneOffEnvelopeId = null): string
+    /**
+     * @param list<string>|null    $clear
+     * @param array<string, mixed> $qualification
+     */
+    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $transferKind, ?string $counterpartId, ?string $recurringOperationId, ?string $recurringOccurrenceOn, ?array $clear, ?string $repaysTransactionId = null, ?string $note = null, ?string $oneOffEnvelopeId = null, array $qualification = []): string
     {
         if (null === $transactionId) {
             return json_encode(['error' => 'transactionId is required for update.'], JSON_THROW_ON_ERROR);
         }
+
+        $user = $this->userContext->requireUser();
+        $current = $this->transactionRepository->findOneBy(['id' => $transactionId, 'user' => $user]);
 
         // Fails loudly on an unknown kind rather than silently leaving the line alone.
         $kind = null === $transferKind ? null : TransferKind::from($transferKind)->value;
@@ -187,7 +201,7 @@ class ManageTransactionsTool
         }
 
         $envelope = $this->bus->dispatch(new UpdateTransactionCommand(
-            userId: (string) $this->userContext->requireUser()->getId(),
+            userId: (string) $user->getId(),
             transactionId: $transactionId,
             accountId: $accountId,
             amountCents: $amountCents,
@@ -197,6 +211,7 @@ class ManageTransactionsTool
             currency: $currency,
             isExceptional: $isExceptional,
             categoryId: $categoryId,
+            qualification: QualificationArguments::whole($qualification, $current?->getQualification()),
             // A marking made through the tool is the user speaking: the
             // detection leaves `manual` alone for good.
             transferKind: $kind,
@@ -274,6 +289,10 @@ class ManageTransactionsTool
             'counterpartId' => null !== $transaction->getCounterpart() ? (string) $transaction->getCounterpart()->getId() : null,
             'repaysTransactionId' => null !== $transaction->getRepays() ? (string) $transaction->getRepays()->getId() : null,
             'categorySource' => $transaction->getCategorySource()->value,
+            ...$transaction->getQualification()->toArray(),
+            'qualifiedBy' => $transaction->getQualifiedBy(),
+            'qualifiedBySeriesId' => null !== $transaction->getQualifiedBySeries() ? (string) $transaction->getQualifiedBySeries()->getId() : null,
+            'qualifiedByRuleId' => null !== $transaction->getQualifiedByRule() ? (string) $transaction->getQualifiedByRule()->getId() : null,
             'recurringOperationId' => null !== $transaction->getRecurringOperation() ? (string) $transaction->getRecurringOperation()->getId() : null,
             'recurringOccurrenceOn' => $transaction->getRecurringOccurrenceOn()?->format('Y-m-d'),
             'recurringSource' => $transaction->getRecurringSource()->value,

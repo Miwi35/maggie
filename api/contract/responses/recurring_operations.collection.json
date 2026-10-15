@@ -13,6 +13,11 @@
             "counterpartyKey": "loyer sci verda",
             "labelPattern": "SCI VERDA",
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "account": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "period": "monthly",
             "anchorOn": "2026-01-05T00:00:00+00:00",
@@ -34,6 +39,11 @@
             "counterpartyName": "SALLE FORME",
             "counterpartyKey": "salle forme",
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "account": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "period": "monthly",
             "anchorOn": "2026-01-20T00:00:00+00:00",
@@ -54,6 +64,11 @@
             "counterpartyName": "RECORDED EMPLOYER",
             "counterpartyKey": "recorded employer",
             "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "qualification": {
+                "@type": "Qualification",
+                "mandatory": false,
+                "kind": "none"
+            },
             "account": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "period": "monthly",
             "anchorOn": "2025-01-25T00:00:00+00:00",
