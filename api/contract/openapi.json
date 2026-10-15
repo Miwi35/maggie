@@ -13448,6 +13448,11 @@
                         "nullable": true,
                         "example": 4
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13482,11 +13487,6 @@
                     "guestsIsDefault": {
                         "readOnly": true,
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13625,6 +13625,11 @@
                         "nullable": true,
                         "example": 4
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13659,11 +13664,6 @@
                     "guestsIsDefault": {
                         "readOnly": true,
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13798,6 +13798,11 @@
                         "nullable": true,
                         "example": 4
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -13832,11 +13837,6 @@
                     "guestsIsDefault": {
                         "readOnly": true,
                         "type": "boolean"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -13980,6 +13980,11 @@
                                 "nullable": true,
                                 "example": 4
                             },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
                             "startAt": {
                                 "type": [
                                     "string",
@@ -14014,11 +14019,6 @@
                             "guestsIsDefault": {
                                 "readOnly": true,
                                 "type": "boolean"
-                            },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"
@@ -14382,6 +14382,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14395,11 +14400,6 @@
                             "null"
                         ],
                         "format": "date-time"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14555,6 +14555,11 @@
                         ],
                         "format": "date-time"
                     },
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -14568,11 +14573,6 @@
                             "null"
                         ],
                         "format": "date-time"
-                    },
-                    "id": {
-                        "readOnly": true,
-                        "type": "string",
-                        "format": "ulid"
                     },
                     "summary": {
                         "type": "string"
@@ -14733,6 +14733,11 @@
                                 ],
                                 "format": "date-time"
                             },
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
                             "startAt": {
                                 "type": [
                                     "string",
@@ -14746,11 +14751,6 @@
                                     "null"
                                 ],
                                 "format": "date-time"
-                            },
-                            "id": {
-                                "readOnly": true,
-                                "type": "string",
-                                "format": "ulid"
                             },
                             "summary": {
                                 "type": "string"
