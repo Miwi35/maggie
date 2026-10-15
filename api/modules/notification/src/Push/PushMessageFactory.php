@@ -19,11 +19,15 @@ use Maggie\Notification\Enum\NotificationType;
  */
 class PushMessageFactory
 {
-    /** Android channels, one per kind of message (MAG-29 creates them on the device). */
-    public const CHANNEL_CHAT = 'chat';
-    public const CHANNEL_REMINDERS = 'reminders';
-    public const CHANNEL_APPROVALS = 'approvals';
-    public const CHANNEL_FINANCE = 'finance';
+    /**
+     * Android channels, one per kind of message (the app creates them on the device, with
+     * Maggie's chime). The `_v2` ids are the second generation: a channel's sound is frozen
+     * at creation, so the chime needed new ids (MAG-485).
+     */
+    public const CHANNEL_CHAT = 'chat_v2';
+    public const CHANNEL_REMINDERS = 'reminders_v2';
+    public const CHANNEL_APPROVALS = 'approvals_v2';
+    public const CHANNEL_FINANCE = 'finance_v2';
 
     /**
      * FCM refuses a message over 4096 bytes, and title and text travel twice

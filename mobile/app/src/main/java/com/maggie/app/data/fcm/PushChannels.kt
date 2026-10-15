@@ -2,7 +2,11 @@ package com.maggie.app.data.fcm
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ContentResolver
 import android.content.Context
+import android.media.AudioAttributes
+import android.net.Uri
+import com.maggie.app.R
 
 /**
  * The Android notification channels of the push.
@@ -11,12 +15,20 @@ import android.content.Context
  * it sends, and a message sent to a channel the phone never created is shown without sound
  * or importance. `api/contract/push-channels.json` lists the server's, and
  * `PushChannelsContractTest` compares this list to it. No channel per notification type.
+ *
+ * Every channel rings Maggie's chime (`res/raw/maggie_chime.ogg`, the admin's). Android freezes a
+ * channel's sound when it is created, and recreating a deleted id brings the old settings back:
+ * a new sound therefore needs new ids (`_v2`), and [LEGACY] ones are deleted at each start.
+ * A channel the owner muted in the system settings stays muted: an existing channel is never touched.
  */
 object PushChannels {
-    const val CHAT = "chat"
-    const val REMINDERS = "reminders"
-    const val APPROVALS = "approvals"
-    const val FINANCE = "finance"
+    const val CHAT = "chat_v2"
+    const val REMINDERS = "reminders_v2"
+    const val APPROVALS = "approvals_v2"
+    const val FINANCE = "finance_v2"
+
+    /** The channels of the default-sound generation, removed from the phone's settings. */
+    val LEGACY: List<String> = listOf("chat", "reminders", "approvals", "finance")
 
     val ALL: List<String> = listOf(CHAT, REMINDERS, APPROVALS, FINANCE)
 
@@ -30,6 +42,12 @@ object PushChannels {
 
     fun create(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        LEGACY.forEach(manager::deleteNotificationChannel)
+        val chime = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.maggie_chime}")
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         listOf(
             NotificationChannel(CHAT, "Messages", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Messages de Maggie"
@@ -43,6 +61,9 @@ object PushChannels {
             NotificationChannel(FINANCE, "Finances", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Alertes sur vos comptes et vos banques"
             },
-        ).forEach(manager::createNotificationChannel)
+        ).forEach { channel ->
+            channel.setSound(chime, attributes)
+            manager.createNotificationChannel(channel)
+        }
     }
 }

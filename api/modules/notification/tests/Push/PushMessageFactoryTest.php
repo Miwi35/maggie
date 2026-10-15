@@ -34,7 +34,7 @@ final class PushMessageFactoryTest extends TestCase
             'actionLabel' => 'Voir l\'événement',
         ], $message['data']);
         self::assertSame('high', $message['android']['priority']);
-        self::assertSame('chat', $message['android']['notification']['channel_id']);
+        self::assertSame('chat_v2', $message['android']['notification']['channel_id']);
         self::assertSame((string) $notification->getId(), $message['android']['notification']['tag']);
     }
 
@@ -112,13 +112,13 @@ final class PushMessageFactoryTest extends TestCase
     /** @return iterable<string, array{NotificationType, string}> */
     public static function channels(): iterable
     {
-        yield 'reminder' => [NotificationType::Reminder, 'reminders'];
-        yield 'task due' => [NotificationType::TaskDue, 'reminders'];
-        yield 'approval' => [NotificationType::Approval, 'approvals'];
-        yield 'consent' => [NotificationType::ConsentExpiring, 'finance'];
-        yield 'finance' => [NotificationType::Finance, 'finance'];
-        yield 'proaction' => [NotificationType::Proaction, 'chat'];
-        yield 'grocery' => [NotificationType::Grocery, 'chat'];
+        yield 'reminder' => [NotificationType::Reminder, 'reminders_v2'];
+        yield 'task due' => [NotificationType::TaskDue, 'reminders_v2'];
+        yield 'approval' => [NotificationType::Approval, 'approvals_v2'];
+        yield 'consent' => [NotificationType::ConsentExpiring, 'finance_v2'];
+        yield 'finance' => [NotificationType::Finance, 'finance_v2'];
+        yield 'proaction' => [NotificationType::Proaction, 'chat_v2'];
+        yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
     }
 
     #[DataProvider('channels')]
