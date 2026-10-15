@@ -1,5 +1,6 @@
 package com.maggie.app.data.api
 
+import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.alreadyPlannedLabel
 import com.maggie.app.data.model.packagesTotalLabel
 import com.maggie.app.data.model.toBuyLabel
@@ -559,7 +560,7 @@ class MaggieApiServiceTest {
         assertTrue(capturedUrl!!.endsWith("/api/recipes/01C/deletion-impact"))
     }
 
-    private val previewJson = """{"mealId":"m1","groceryChoiceMadeAt":null,"ingredients":[
+    private val previewJson = """{"mealId":"m1","groceryChoiceMadeAt":null,"guests":4,"guestsIsDefault":false,"ingredients":[
         {"ingredientId":"rice","name":"Riz","quantity":300,"unit":"g",
          "packaging":{"unit":"pack","size":500,"sizeUnit":"g"},"packagedQuantity":1,
          "toBuy":{"quantity":1,"unit":"pack"},"converted":true,"stockState":"out","suggested":true,
@@ -602,6 +603,9 @@ class MaggieApiServiceTest {
         assertEquals(HttpMethod.Get, capturedMethod)
         assertTrue(capturedUrl!!.endsWith("/api/meals/m1/grocery_preview"))
         assertEquals(listOf("Riz", "Légumes pour couscous"), preview.ingredients.map { it.name })
+        // MAG-483: the people the quantities are scaled to, read under the names the API sends.
+        assertEquals(4, preview.guests)
+        assertFalse(preview.guestsIsDefault)
         assertEquals(listOf(true, false), preview.ingredients.map { it.suggested })
         assertEquals("1 paquet (500 g)", preview.ingredients[0].toBuyLabel())
         assertEquals("1 bocal", preview.ingredients[1].toBuyLabel())
@@ -1402,5 +1406,63 @@ class MaggieApiServiceTest {
     @Test
     fun `a refusal reads the error key of the treasury endpoints`() {
         assertEquals("Nope.", refusalMessage(400, """{"error":"Nope."}"""))
+    }
+
+    @Test
+    fun `a scaled recipe is asked for with guests and its quantities are read as the API scaled them`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(
+            body = """{"id":"r1","name":"Carbonara","servings":4,"scaledFor":6,"scaleFactor":1.5,
+                "ingredients":[{"id":"l1","ingredientName":"Pâtes","quantity":300,"unit":"g"}]}""",
+            seen = seen,
+        )
+
+        val recipe = MaggieApiService(client).getScaledRecipe("r1", 6)
+
+        assertEquals(HttpMethod.Get, seen.single().first)
+        assertTrue(seen.single().second, seen.single().second.endsWith("/api/recipes/r1?guests=6"))
+        assertEquals(300f, recipe.ingredients.single().quantity)
+    }
+
+    @Test
+    fun `the meal settings are read and written on their own endpoint`() = runBlocking {
+        val requests = mutableListOf<Triple<HttpMethod, String, String>>()
+        val client = HttpClient(
+            MockEngine { request ->
+                requests += Triple(request.method, request.url.toString(), (request.body as? TextContent)?.text.orEmpty())
+                respond(
+                    content = ByteReadChannel("""{"id":"ms-1","defaultGuests":4,"defaults":{"defaultGuests":2}}"""),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+        }
+        val api = MaggieApiService(client)
+
+        val read = api.getMealSettings()
+        val written = api.updateMealSettings(MealSettingsValues(4))
+
+        assertEquals(4, read.defaultGuests)
+        assertEquals(2, read.defaults.defaultGuests)
+        assertEquals(4, written.values.defaultGuests)
+        assertEquals(HttpMethod.Get, requests[0].first)
+        assertEquals(HttpMethod.Put, requests[1].first)
+        assertTrue(requests[1].second.endsWith("/api/meal-settings/me"))
+        assertEquals("""{"defaultGuests":4}""", requests[1].third)
+    }
+
+    @Test
+    fun `a refused default number of guests says why`() = runBlocking {
+        val client = approvalClient(
+            status = HttpStatusCode.BadRequest,
+            body = """{"error":"A meal is cooked for at least one guest, not 0."}""",
+            seen = mutableListOf(),
+        )
+
+        val error = runCatching { MaggieApiService(client).updateMealSettings(MealSettingsValues(0)) }.exceptionOrNull()
+
+        assertEquals("A meal is cooked for at least one guest, not 0.", error?.message)
     }
 }

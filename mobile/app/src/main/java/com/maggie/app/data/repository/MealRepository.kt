@@ -23,6 +23,10 @@ class MealRepository(
         apiService.updateMeal(id, request)
     }
 
+    suspend fun defaultGuests(): Result<Int> = runCatching {
+        apiService.getMealSettings().defaultGuests
+    }
+
     suspend fun deleteMeal(id: String): Result<Unit> = runCatching {
         apiService.deleteMeal(id)
     }

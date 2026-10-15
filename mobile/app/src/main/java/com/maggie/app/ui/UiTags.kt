@@ -519,6 +519,15 @@ object UiTags {
     fun settingsTaskOrder(group: String): String = SETTINGS_TASK_ORDER + "_" + group
 
     /**
+     * Settings > Repas (MAG-483): the row of the list, the stepper of the default number of guests
+     * (`settings_meals_guests_minus`, `_value`, `_plus`), « Enregistrer » and the line that says it went through.
+     */
+    const val SETTINGS_MEALS = "settings_meals"
+    const val SETTINGS_MEALS_GUESTS = "settings_meals_guests"
+    const val SETTINGS_MEALS_SAVE = "settings_meals_save"
+    const val SETTINGS_MEALS_SAVED = "settings_meals_saved"
+
+    /**
      * The meal being planned (MAG-378): the « Menu » field that opens the recipe search, the
      * recipes chosen under it and their remove buttons, and « Créer ».
      */
@@ -526,6 +535,27 @@ object UiTags {
     const val MEAL_MENU_RECIPE = "meal_menu_recipe"
     const val MEAL_MENU_RECIPE_REMOVE = "meal_menu_recipe_remove"
     const val MEAL_CREATE_SUBMIT = "meal_create_submit"
+
+    /** « Convives » of the meal being planned: the stepper (`meal_guests_minus`, `_value`, `_plus`) and the « par défaut » mark. */
+    const val MEAL_GUESTS = "meal_guests"
+    const val MEAL_GUESTS_DEFAULT = "meal_guests_default"
+    const val MEAL_GUESTS_PLUS = "meal_guests_plus"
+    const val MEAL_GUESTS_VALUE = "meal_guests_value"
+
+    /** The people a planned meal in the week view is cooked for, and « Quantités pour N convives » on the ingredient choice. */
+    const val MEAL_ROW_GUESTS = "meal_row_guests"
+    const val MEAL_CHOICE_GUESTS = "meal_choice_guests"
+
+    /**
+     * « Pour N personnes » on the recipe sheet (MAG-483): the stepper (`recipe_guests_minus`, `_value`,
+     * `_plus`), « Parts de la recette », the line that says a simulation is shown, its error, and the
+     * quantity of each ingredient.
+     */
+    const val RECIPE_GUESTS = "recipe_guests"
+    const val RECIPE_GUESTS_RESET = "recipe_guests_reset"
+    const val RECIPE_GUESTS_SIMULATION = "recipe_guests_simulation"
+    const val RECIPE_GUESTS_ERROR = "recipe_guests_error"
+    const val RECIPE_INGREDIENT_QUANTITY = "recipe_ingredient_quantity"
 
     /** The recipe search a menu is chosen in — a window of its own: its field, one result, and « Terminer ». */
     const val MEAL_RECIPE_SEARCH_FIELD = "meal_recipe_search_field"

@@ -12,6 +12,7 @@ import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.TaskSettings
+import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
@@ -45,6 +46,8 @@ const val DEFAULT_AGENT_NAME = "Maggie"
 
 private const val TASK_SETTINGS_UNREADABLE = "Impossible de lire les réglages des tâches."
 private const val TASK_SETTINGS_UNSAVED = "Impossible d'enregistrer les réglages des tâches"
+private const val MEAL_SETTINGS_UNREADABLE = "Impossible de lire les réglages des repas."
+private const val MEAL_SETTINGS_UNSAVED = "Les réglages des repas n'ont pas été enregistrés."
 
 data class SettingsUiState(
     val user: User? = null,
@@ -58,6 +61,8 @@ data class SettingsUiState(
     val error: String? = null,
     /** Réglages › Tâches (MAG-407), loaded and failing on its own. */
     val tasks: TaskSettingsUiState = TaskSettingsUiState(),
+    /** Réglages › Repas (MAG-483), loaded when the page opens and failing on its own. */
+    val meals: MealSettingsUiState = MealSettingsUiState(),
 )
 
 class SettingsViewModel(
@@ -268,6 +273,57 @@ class SettingsViewModel(
         refreshTaskOrderPreview()
     }
 
+    fun loadMealSettings() {
+        viewModelScope.launch {
+            updateMeals { it.copy(isLoading = true, error = null) }
+            try {
+                val settings = apiService.getMealSettings()
+                updateMeals { it.copy(settings = settings, guests = settings.defaultGuests, isLoading = false) }
+            } catch (e: Exception) {
+                updateMeals { it.copy(isLoading = false, error = e.message ?: MEAL_SETTINGS_UNREADABLE) }
+            }
+        }
+    }
+
+    /** « − » and « + » of the default number of guests: never under one; nothing is sent before [saveMealSettings]. */
+    fun stepDefaultGuests(delta: Int) {
+        updateMeals { meals ->
+            val guests = meals.guests ?: return@updateMeals meals
+            meals.copy(guests = (guests + delta).coerceAtLeast(1), saved = false, error = null)
+        }
+    }
+
+    fun saveMealSettings() {
+        val meals = _uiState.value.meals
+        val guests = meals.guests ?: return
+        if (meals.isSaving) return
+        viewModelScope.launch {
+            updateMeals { it.copy(isSaving = true, error = null, saved = false) }
+            try {
+                val settings = apiService.updateMealSettings(MealSettingsValues(guests))
+                updateMeals { it.copy(settings = settings, guests = settings.defaultGuests, isSaving = false, saved = true) }
+            } catch (e: Exception) {
+                updateMeals { it.copy(isSaving = false, error = e.message ?: MEAL_SETTINGS_UNSAVED) }
+            }
+        }
+    }
+
+    // The number follows only when the user holds no edit of their own.
+    private suspend fun rereadMealSettings() {
+        val settings = try { apiService.getMealSettings() } catch (_: Exception) { return }
+        updateMeals { current ->
+            current.copy(
+                settings = settings,
+                guests = if (current.isDirty) current.guests else settings.defaultGuests,
+                isLoading = false,
+            )
+        }
+    }
+
+    private inline fun updateMeals(change: (MealSettingsUiState) -> MealSettingsUiState) {
+        _uiState.value = _uiState.value.copy(meals = change(_uiState.value.meals))
+    }
+
     private inline fun updateTasks(change: (TaskSettingsUiState) -> TaskSettingsUiState) {
         _uiState.value = _uiState.value.copy(tasks = change(_uiState.value.tasks))
     }
@@ -395,6 +451,12 @@ class SettingsViewModel(
                     .catch { /* SSE reconnects automatically */ }
                     .coalesced()
                     .collect { rereadTaskSettings() }
+            }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.MEAL_SETTINGS))
+                    .catch { /* SSE reconnects automatically */ }
+                    .coalesced()
+                    .collect { rereadMealSettings() }
             }
             launch {
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))

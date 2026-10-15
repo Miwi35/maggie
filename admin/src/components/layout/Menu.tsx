@@ -343,6 +343,12 @@ export const CustomMenu = () => {
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
+                to="/settings/meals"
+                primaryText="Repas"
+                leftIcon={<RestaurantMenuIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
                 to="/settings/agent"
                 primaryText={agentName}
                 leftIcon={<SmartToyIcon />}

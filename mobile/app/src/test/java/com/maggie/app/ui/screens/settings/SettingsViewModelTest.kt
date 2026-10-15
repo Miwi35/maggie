@@ -10,6 +10,8 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.TaskOrderPreviewItem
+import com.maggie.app.data.model.MealSettings
+import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.model.User
@@ -556,5 +558,129 @@ class SettingsViewModelTest {
 
         assertEquals(TaskOrderMove.UP, viewModel.uiState.value.tasks.moves["t3"])
         assertEquals(4, viewModel.uiState.value.tasks.settings?.orderLevels?.get("priority"))
+    }
+
+    private fun mealSettings(guests: Int = 3) = MealSettings("ms1", guests, MealSettingsValues(2))
+
+    @Test
+    fun `the meal settings are not read before the page opens`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.meals.settings)
+        coVerify(exactly = 0) { apiService.getMealSettings() }
+    }
+
+    @Test
+    fun `opening Repas reads the default number of guests`() = runTest {
+        coEvery { apiService.getMealSettings() } returns mealSettings(3)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+
+        val meals = viewModel.uiState.value.meals
+        assertEquals(3, meals.guests)
+        assertEquals(3, meals.settings?.defaultGuests)
+        assertFalse(meals.isLoading)
+        assertNull(meals.error)
+    }
+
+    @Test
+    fun `a meal settings page that cannot be read shows why and can be retried`() = runTest {
+        coEvery { apiService.getMealSettings() } throws IllegalStateException("offline")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+
+        assertEquals("offline", viewModel.uiState.value.meals.error)
+        assertNull(viewModel.uiState.value.meals.guests)
+
+        coEvery { apiService.getMealSettings() } returns mealSettings(3)
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+        assertEquals(3, viewModel.uiState.value.meals.guests)
+        assertNull(viewModel.uiState.value.meals.error)
+    }
+
+    @Test
+    fun `the stepper edits the number without saving, and never goes under one`() = runTest {
+        coEvery { apiService.getMealSettings() } returns mealSettings(2)
+        val viewModel = viewModel()
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+
+        viewModel.stepDefaultGuests(1)
+        assertEquals(3, viewModel.uiState.value.meals.guests)
+        assertTrue(viewModel.uiState.value.meals.isDirty)
+
+        repeat(5) { viewModel.stepDefaultGuests(-1) }
+        assertEquals(1, viewModel.uiState.value.meals.guests)
+        coVerify(exactly = 0) { apiService.updateMealSettings(any()) }
+    }
+
+    @Test
+    fun `Enregistrer sends the number and shows what the server kept`() = runTest {
+        coEvery { apiService.getMealSettings() } returns mealSettings(2)
+        coEvery { apiService.updateMealSettings(MealSettingsValues(4)) } returns mealSettings(4)
+        val viewModel = viewModel()
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+
+        viewModel.stepDefaultGuests(2)
+        viewModel.saveMealSettings()
+        advanceUntilIdle()
+
+        val meals = viewModel.uiState.value.meals
+        assertEquals(4, meals.settings?.defaultGuests)
+        assertEquals(4, meals.guests)
+        assertTrue(meals.saved)
+        assertFalse(meals.isSaving)
+        assertFalse(meals.isDirty)
+    }
+
+    @Test
+    fun `a refused default number shows the API's sentence and keeps the edit`() = runTest {
+        coEvery { apiService.getMealSettings() } returns mealSettings(2)
+        coEvery { apiService.updateMealSettings(any()) } throws ApiRefusalException(400, "A meal is cooked for at least one guest, not 0.")
+        val viewModel = viewModel()
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+
+        viewModel.stepDefaultGuests(1)
+        viewModel.saveMealSettings()
+        advanceUntilIdle()
+
+        val meals = viewModel.uiState.value.meals
+        assertEquals("A meal is cooked for at least one guest, not 0.", meals.error)
+        assertEquals(3, meals.guests)
+        assertFalse(meals.saved)
+        assertFalse(meals.isSaving)
+    }
+
+    @Test
+    fun `a change published on the meal settings topic reads them again, unless the user is editing`() = runTest {
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.MEAL_SETTINGS)) } returns updates
+        coEvery { apiService.getMealSettings() } returns mealSettings(2)
+        val viewModel = viewModel()
+        viewModel.loadMealSettings()
+        advanceUntilIdle()
+        runCurrent()
+
+        coEvery { apiService.getMealSettings() } returns mealSettings(5)
+        updates.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+        assertEquals(5, viewModel.uiState.value.meals.guests)
+
+        viewModel.stepDefaultGuests(1)
+        coEvery { apiService.getMealSettings() } returns mealSettings(7)
+        updates.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+        assertEquals(7, viewModel.uiState.value.meals.settings?.defaultGuests)
+        assertEquals(6, viewModel.uiState.value.meals.guests)
     }
 }

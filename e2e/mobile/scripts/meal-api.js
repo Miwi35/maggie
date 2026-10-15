@@ -7,6 +7,7 @@
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  create (sets output.recipeId) | expect-single | expect-chosen | expect-renamed | expect-deleted | remove
+//   EXPECT_GUESTS  with expect-single: the guests the meal must hold (MAG-483)
 //
 // Everything carries the ticket's number and is gone after `remove`, meal and
 // grocery lines included (deleting the meal takes its lines off the list).
@@ -135,6 +136,13 @@ if (ACTION === 'create') {
   pause(2000)
   if (meals().length !== 1) {
     fail('the double tap created ' + meals().length + ' meals')
+  }
+  // MAG-483: the guests the phone stepped to are the ones the meal holds.
+  if (typeof EXPECT_GUESTS !== 'undefined' && EXPECT_GUESTS) {
+    const guests = meals()[0].guests
+    if (String(guests) !== String(EXPECT_GUESTS)) {
+      fail('the meal holds ' + guests + ' guests, expected ' + EXPECT_GUESTS)
+    }
   }
 } else if (ACTION === 'expect-chosen') {
   for (;;) {

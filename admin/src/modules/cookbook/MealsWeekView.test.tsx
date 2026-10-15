@@ -252,7 +252,8 @@ describe('MealsWeekView — choosing the ingredients', () => {
     let answer: (value: unknown) => void = () => {}
     fetchMock.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
     await planTheGratin()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const previewReads = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('grocery_preview')).length
+    await waitFor(() => expect(previewReads()).toBe(1))
     const listReads = () => mockGetList.mock.calls.filter(([resource]) => resource === 'meals').length
     const before = listReads()
 
@@ -265,7 +266,7 @@ describe('MealsWeekView — choosing the ingredients', () => {
     answer({ ok: true, status: 200, json: () => Promise.resolve({ mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [rice] }) })
     expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(previewReads()).toBe(1)
   })
 
   test('closes the dialog for a meal whose recipes have no ingredient', async () => {
@@ -696,5 +697,199 @@ describe('MealsWeekView — moving a meal', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Déplacement annulé/))
     expect(fetchMock).not.toHaveBeenCalled()
     expect(inCell('meal-cell-lunch-1', /Tartiflette/)).toBeTruthy()
+  })
+})
+
+describe('MealsWeekView — the guests of a meal (MAG-483)', () => {
+  const fetchMock = vi.fn()
+  const planned = {
+    id: '01MEAL',
+    '@id': '/api/meals/01MEAL',
+    date: '2026-04-14',
+    slot: 'lunch',
+    summary: 'Déjeuner : Tartiflette',
+    recipes: [{ id: '01TARTIFLETTE', name: 'Tartiflette' }],
+    guests: 2,
+    guestsIsDefault: true,
+  }
+
+  const settingsRead = () => fetchMock.mock.calls.filter(([url]) => url === '/api/meal-settings/me')
+  const patches = () =>
+    fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH').map(([url, init]) => [url, JSON.parse(init.body)])
+
+  const answerFetch = (defaultGuests: number | 'refused', patch: (body: { guests: number | null }) => object = (body) => body) =>
+    fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+      if (url === '/api/meal-settings/me') {
+        return defaultGuests === 'refused'
+          ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
+          : Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ defaultGuests }) })
+      }
+      if (init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(patch(JSON.parse(String(init.body)))) })
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [] }) })
+    })
+
+  const pickTheGratin = async (dialog: ReturnType<typeof within>, user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(dialog.getByLabelText('Menu'))
+    await user.click(await screen.findByRole('option', { name: gratin.name }))
+  }
+
+  const guestsButton = () => screen.getByRole('button', { name: /^Convives du repas Déjeuner : Tartiflette/, hidden: true })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mercure.onMessage = undefined
+    mockCreate.mockResolvedValue({ data: {} })
+    mockGetList.mockImplementation(answer(agendas))
+    answerFetch(4)
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('starts from the default in Réglages › Repas, marked « par défaut »', async () => {
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+
+    await waitFor(() => expect(dialog.getByTestId('guests-value')).toHaveTextContent('4'))
+    expect(dialog.getByText('par défaut')).toBeInTheDocument()
+    expect(settingsRead()).toHaveLength(1)
+  })
+
+  test('sends no guests while the field is untouched: the meal follows the default', async () => {
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+    await waitFor(() => expect(dialog.getByTestId('guests-value')).toHaveTextContent('4'))
+    await pickTheGratin(dialog, user)
+    await user.click(dialog.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('guests')
+  })
+
+  test('sends the number once it is changed, and drops the « par défaut » mark', async () => {
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+    await waitFor(() => expect(dialog.getByTestId('guests-value')).toHaveTextContent('4'))
+
+    await user.click(dialog.getByRole('button', { name: /de plus/ }))
+    await user.click(dialog.getByRole('button', { name: /de plus/ }))
+    expect(dialog.getByTestId('guests-value')).toHaveTextContent('6')
+    expect(dialog.queryByText('par défaut')).not.toBeInTheDocument()
+
+    await pickTheGratin(dialog, user)
+    await user.click(dialog.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data.guests).toBe(6)
+  })
+
+  test('never goes below one guest', async () => {
+    answerFetch(1)
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+    await waitFor(() => expect(dialog.getByTestId('guests-value')).toHaveTextContent('1'))
+
+    expect(dialog.getByRole('button', { name: /de moins/ })).toBeDisabled()
+  })
+
+  test('still opens when the default cannot be read, and sends nothing for an untouched field', async () => {
+    answerFetch('refused')
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+    await waitFor(() => expect(settingsRead()).toHaveLength(1))
+    await pickTheGratin(dialog, user)
+    await user.click(dialog.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('guests')
+  })
+
+  describe('on a planned meal', () => {
+    const renderPlanned = async (meal: object = planned) => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date('2026-04-15T12:00:00Z'))
+      mockGetList.mockImplementation(answer(agendas, [meal]))
+      const user = setupUser()
+      render(<MealsWeekView />)
+      await waitFor(() => expect(within(screen.getByTestId('meal-cell-lunch-1')).queryByText(/Tartiflette/)).toBeTruthy())
+
+      return user
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    test('shows how many people it is cooked for', async () => {
+      await renderPlanned()
+
+      expect(guestsButton()).toHaveAccessibleName('Convives du repas Déjeuner : Tartiflette : 2 (par défaut)')
+    })
+
+    test('changes the number with a PATCH carrying the guests only', async () => {
+      const user = await renderPlanned()
+      answerFetch(2, (body) => ({ guests: body.guests, guestsIsDefault: false }))
+
+      await user.click(guestsButton())
+      const dialog = within(await screen.findByRole('dialog'))
+      expect(dialog.getByText('par défaut')).toBeInTheDocument()
+      expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+
+      for (let i = 0; i < 4; i++) await user.click(dialog.getByRole('button', { name: /de plus/ }))
+      await user.click(dialog.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(patches()).toEqual([['/api/meals/01MEAL', { guests: 6 }]]))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(guestsButton()).toHaveAccessibleName('Convives du repas Déjeuner : Tartiflette : 6')
+    })
+
+    test('gives a meal with its own number back to the default', async () => {
+      const user = await renderPlanned({ ...planned, guests: 6, guestsIsDefault: false })
+      answerFetch(2, () => ({ guests: 2, guestsIsDefault: true }))
+
+      await user.click(guestsButton())
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Revenir au défaut' }))
+
+      await waitFor(() => expect(patches()).toEqual([['/api/meals/01MEAL', { guests: null }]]))
+      await waitFor(() => expect(guestsButton()).toHaveAccessibleName('Convives du repas Déjeuner : Tartiflette : 2 (par défaut)'))
+    })
+
+    test('offers no way back to the default for a meal that follows it', async () => {
+      const user = await renderPlanned()
+
+      await user.click(guestsButton())
+
+      expect(within(await screen.findByRole('dialog')).queryByRole('button', { name: 'Revenir au défaut' })).not.toBeInTheDocument()
+    })
+
+    test('keeps the dialog and says so when the API refuses the number', async () => {
+      const user = await renderPlanned()
+      fetchMock.mockImplementation(() => Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({}) }))
+
+      await user.click(guestsButton())
+      const dialog = within(await screen.findByRole('dialog'))
+      await user.click(dialog.getByRole('button', { name: /de plus/ }))
+      await user.click(dialog.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Le nombre de convives n’a pas pu être enregistré', { type: 'error' }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(guestsButton()).toHaveAccessibleName('Convives du repas Déjeuner : Tartiflette : 2 (par défaut)')
+    })
+
+    test('dragging the meal to another cell leaves its guests alone', async () => {
+      await renderPlanned({ ...planned, guests: 6, guestsIsDefault: false })
+
+      act(() => {
+        dnd.props?.onDragEnd?.({ active: { id: '01MEAL' }, over: { id: 'dinner:3' } } as never)
+      })
+
+      await waitFor(() => expect(patches()).toHaveLength(1))
+      expect(patches()[0][1]).toEqual({ date: '2026-04-16', slot: 'dinner' })
+      expect(guestsButton()).toHaveAccessibleName('Convives du repas Déjeuner : Tartiflette : 6')
+    })
   })
 })

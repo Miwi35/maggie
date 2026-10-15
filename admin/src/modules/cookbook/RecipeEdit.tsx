@@ -18,6 +18,7 @@ import {
 import { useMercure } from '../../hooks/useMercure'
 import { CiqualFoodAutocomplete } from './CiqualFoodAutocomplete'
 import { RecipeDeleteButton } from './RecipeDeleteButton'
+import { RecipeScaleSimulation } from './RecipeScaleSimulation'
 import { TagsInput } from './TagsInput'
 
 const unitChoices = [
@@ -170,6 +171,7 @@ export const RecipeEdit = () => (
           />
         </SimpleFormIterator>
       </ArrayInput>
+      <RecipeScaleSimulation />
     </SimpleForm>
   </Edit>
 )

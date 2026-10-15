@@ -6,17 +6,42 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.repository.RecipeRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+internal const val SIMULATION_DEBOUNCE_MS = 300L
+internal const val MAX_SIMULATED_GUESTS = 999
+internal const val SIMULATION_ERROR = "Impossible de calculer les quantités pour ce nombre de personnes."
+
+/**
+ * « Pour N personnes » (MAG-483): the quantities the API scaled to [guests]. Nothing is stored.
+ * [ingredients] is null while no answer is held — and after a failed one, so the sheet falls back
+ * to the recipe's own quantities and says why in [error].
+ */
+data class RecipeSimulation(
+    val guests: Int,
+    val ingredients: List<RecipeIngredient>? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+)
 
 data class RecipeDetailUiState(
     val recipe: Recipe? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
-)
+    val simulation: RecipeSimulation? = null,
+) {
+    /** What the sheet lists: the scaled quantities during a simulation, the recipe's own otherwise. */
+    val ingredients: List<RecipeIngredient> get() = simulation?.ingredients ?: recipe?.ingredients.orEmpty()
+}
 
 /** The open recipe sheet: it follows the recipe as it changes elsewhere, without a pull-to-refresh. */
 class RecipeDetailViewModel(
@@ -35,6 +60,42 @@ class RecipeDetailViewModel(
     init {
         load()
         subscribeToMercure()
+    }
+
+    private var simulationJob: Job? = null
+
+    /**
+     * « − » and « + » of « Pour N personnes »: starts from the recipe's servings, never under one.
+     * Quick taps send one request: the previous one is cancelled, and a pause precedes the next.
+     */
+    fun stepGuests(delta: Int) {
+        val recipe = _uiState.value.recipe ?: return
+        val current = _uiState.value.simulation
+        val guests = ((current?.guests ?: recipe.servings) + delta).coerceIn(1, MAX_SIMULATED_GUESTS)
+        simulate(guests, current?.ingredients)
+    }
+
+    /** « Parts de la recette »: back to the recipe's own quantities. */
+    fun resetSimulation() {
+        simulationJob?.cancel()
+        _uiState.update { it.copy(simulation = null) }
+    }
+
+    private fun simulate(guests: Int, keeping: List<RecipeIngredient>?) {
+        simulationJob?.cancel()
+        _uiState.update { it.copy(simulation = RecipeSimulation(guests, keeping, isLoading = true)) }
+        simulationJob = viewModelScope.launch {
+            delay(SIMULATION_DEBOUNCE_MS)
+            val result = recipeRepository.getScaledRecipe(recipeId, guests)
+            ensureActive()
+            result
+                .onSuccess { scaled ->
+                    _uiState.update { it.copy(simulation = RecipeSimulation(guests, scaled.ingredients)) }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(simulation = RecipeSimulation(guests, error = SIMULATION_ERROR)) }
+                }
+        }
     }
 
     private fun load() {
@@ -67,6 +128,7 @@ class RecipeDetailViewModel(
                 .onSuccess { _uiState.value = RecipeDetailUiState(recipe = it, isLoading = false) }
             is RecipeMessage.Changed -> _uiState.value.recipe?.let { current ->
                 _uiState.value = _uiState.value.copy(recipe = message.patch.applyTo(current))
+                _uiState.value.simulation?.let { simulate(it.guests, it.ingredients) }
             } ?: run { changedBeforeLoad = true }
         }
     }

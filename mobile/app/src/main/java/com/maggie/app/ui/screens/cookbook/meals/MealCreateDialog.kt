@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.cookbook.meals
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,11 +18,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.uiTagRoot
 
@@ -42,7 +46,10 @@ fun MealCreateDialog(
     val recipeUiState by recipeListViewModel.uiState.collectAsState()
     var searching by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { recipeListViewModel.refresh() }
+    LaunchedEffect(Unit) {
+        recipeListViewModel.refresh()
+        viewModel.loadDefaultGuests()
+    }
     DisposableEffect(Unit) { onDispose { viewModel.reset() } }
 
     AlertDialog(
@@ -63,6 +70,13 @@ fun MealCreateDialog(
                     enabled = !state.isSubmitting,
                     onOpenSearch = { searching = true },
                     onRemove = viewModel::remove,
+                )
+
+                GuestsField(
+                    guests = state.guests,
+                    isDefault = state.guestsIsDefault,
+                    enabled = !state.isSubmitting,
+                    onStep = viewModel::stepGuests,
                 )
 
                 state.error?.let {
@@ -99,5 +113,28 @@ fun MealCreateDialog(
             onPick = viewModel::add,
             onDone = { searching = false },
         )
+    }
+}
+
+/** « Convives »: the number of people, by steps; marked « par défaut » while it follows the setting. */
+@Composable
+private fun GuestsField(guests: Int, isDefault: Boolean, enabled: Boolean, onStep: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            Text("Convives", style = MaterialTheme.typography.bodyLarge)
+            if (isDefault) {
+                Text(
+                    text = "par défaut",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(UiTags.MEAL_GUESTS_DEFAULT),
+                )
+            }
+        }
+        GuestsStepper(value = guests, onStep = onStep, tag = UiTags.MEAL_GUESTS, enabled = enabled)
     }
 }

@@ -11,6 +11,9 @@ data class MealGroceryPreview(
     val mealId: String,
     val groceryChoiceMadeAt: String? = null,
     val ingredients: List<MealGroceryIngredient> = emptyList(),
+    // The people the quantities are scaled to, and whether that is the user's default (MAG-483).
+    val guests: Int? = null,
+    val guestsIsDefault: Boolean = true,
 )
 
 @Serializable

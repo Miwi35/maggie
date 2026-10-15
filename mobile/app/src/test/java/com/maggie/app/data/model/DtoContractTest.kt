@@ -250,6 +250,20 @@ class DtoContractTest {
     }
 
     @Test
+    fun `meal settings deserialise from the recorded response`() {
+        assertItemContract("meal_settings.me", serializer<MealSettings>(), "MealSettings")
+        val body = readRecording("meal_settings.me")
+        assertDeclaredFieldsExist("MealSettingsValues", serializer<MealSettingsValues>(), body["defaults"]!!.jsonObject.keys, "meal_settings.me")
+    }
+
+    @Test
+    fun `a meal carries the guests that count, not the DTO default`() {
+        val meal = json.decodeFromJsonElement(serializer<Meal>(), readRecording("meals.collection")["member"]!!.jsonArray.first())
+
+        assertEquals(2, meal.guests)
+    }
+
+    @Test
     fun `the monthly review carries its reference salary under the names the API sends`() {
         val review = json.decodeFromJsonElement(serializer<MonthlyReview>(), readRecording("finance_monthly_review.read"))
 

@@ -156,4 +156,118 @@ class RecipeDetailViewModelTest {
 
         assertEquals(viewModel.uiState.value.recipe!!.ingredients.single().quantity, 500f)
     }
+
+    private fun scaled(quantity: Float) = Result.success(carbonara(quantity))
+
+    @Test
+    fun `no simulation is shown before the user steps`() = runTest {
+        val viewModel = openSheet()
+
+        assertNull(viewModel.uiState.value.simulation)
+        assertEquals(carbonara().ingredients, viewModel.uiState.value.ingredients)
+    }
+
+    @Test
+    fun `stepping starts from the recipe's servings and shows the quantities the API scaled`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 5) } returns scaled(250f)
+        val viewModel = openSheet()
+
+        viewModel.stepGuests(1)
+        assertEquals(RecipeSimulation(guests = 5, isLoading = true), viewModel.uiState.value.simulation)
+        advanceUntilIdle()
+
+        val simulation = viewModel.uiState.value.simulation!!
+        assertEquals(5, simulation.guests)
+        assertEquals(false, simulation.isLoading)
+        assertEquals(250f, viewModel.uiState.value.ingredients.single().quantity)
+        assertEquals(200f, viewModel.uiState.value.recipe!!.ingredients.single().quantity)
+    }
+
+    @Test
+    fun `quick taps ask the API once, for the last number`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 7) } returns scaled(350f)
+        val viewModel = openSheet()
+
+        viewModel.stepGuests(1)
+        viewModel.stepGuests(1)
+        viewModel.stepGuests(1)
+        advanceUntilIdle()
+
+        assertEquals(7, viewModel.uiState.value.simulation!!.guests)
+        coVerify(exactly = 1) { recipeRepository.getScaledRecipe(any(), any()) }
+    }
+
+    @Test
+    fun `an answer that arrives after a newer tap is dropped`() = runTest {
+        val slow = CompletableDeferred<Result<com.maggie.app.data.model.Recipe>>()
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 5) } coAnswers { slow.await() }
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 6) } returns scaled(300f)
+        val viewModel = openSheet()
+
+        viewModel.stepGuests(1)
+        testScheduler.advanceTimeBy(SIMULATION_DEBOUNCE_MS + 1)
+        testScheduler.runCurrent()
+        viewModel.stepGuests(1)
+        slow.complete(scaled(250f))
+        advanceUntilIdle()
+
+        assertEquals(6, viewModel.uiState.value.simulation!!.guests)
+        assertEquals(300f, viewModel.uiState.value.ingredients.single().quantity)
+    }
+
+    @Test
+    fun `the number never goes under one`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 1) } returns scaled(50f)
+        val viewModel = openSheet()
+
+        repeat(6) { viewModel.stepGuests(-1) }
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.simulation!!.guests)
+    }
+
+    @Test
+    fun `back to the recipe's parts shows the original and cancels what was in flight`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 5) } returns scaled(250f)
+        val viewModel = openSheet()
+        viewModel.stepGuests(1)
+        advanceUntilIdle()
+
+        viewModel.resetSimulation()
+        assertNull(viewModel.uiState.value.simulation)
+        assertEquals(200f, viewModel.uiState.value.ingredients.single().quantity)
+
+        viewModel.stepGuests(1)
+        viewModel.resetSimulation()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.simulation)
+        coVerify(exactly = 1) { recipeRepository.getScaledRecipe(any(), any()) }
+    }
+
+    @Test
+    fun `a failed simulation says so and keeps the recipe's own quantities`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 5) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = openSheet()
+
+        viewModel.stepGuests(1)
+        advanceUntilIdle()
+
+        val simulation = viewModel.uiState.value.simulation!!
+        assertEquals(SIMULATION_ERROR, simulation.error)
+        assertEquals(5, simulation.guests)
+        assertEquals(200f, viewModel.uiState.value.ingredients.single().quantity)
+    }
+
+    @Test
+    fun `a recipe changed elsewhere during a simulation scales the new recipe again`() = runTest {
+        coEvery { recipeRepository.getScaledRecipe("recipe-1", 5) } returns scaled(250f) andThen scaled(437.5f)
+        val viewModel = openSheet()
+        viewModel.stepGuests(1)
+        advanceUntilIdle()
+
+        receive(viewModel, published(publishedLine(350)))
+
+        assertEquals(437.5f, viewModel.uiState.value.ingredients.single().quantity)
+        assertEquals(350f, viewModel.uiState.value.recipe!!.ingredients.single().quantity)
+    }
 }

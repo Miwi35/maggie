@@ -17,6 +17,8 @@ import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealGroceryPreview
+import com.maggie.app.data.model.MealSettings
+import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
@@ -314,6 +316,8 @@ data class MealCreateRequest(
     val date: String,
     val slot: String,
     val recipes: List<String> = emptyList(),
+    // Absent: the meal follows the user's default (MAG-482).
+    val guests: Int? = null,
 )
 
 /**
@@ -884,6 +888,21 @@ class MaggieApiService(
         }.orRefusal().body<ApiCollection<TaskOrderPreviewItem>>().member
     }
 
+    // Meal settings (MAG-483): the default number of guests. Plain JSON; a refused write (400) says why in `error`.
+    suspend fun getMealSettings(): MealSettings {
+        return client.get("$baseUrl/api/meal-settings/me") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateMealSettings(values: MealSettingsValues): MealSettings {
+        return client.put("$baseUrl/api/meal-settings/me") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(values)
+        }.orRefusal().body()
+    }
+
     // Chat — agent-owned endpoints
     suspend fun getMessages(userId: String = "default", afterDate: String? = null): List<ChatMessage> {
         return client.get("$baseUrl/agent/messages") {
@@ -1087,6 +1106,14 @@ class MaggieApiService(
         return client.get("$baseUrl/api/recipes/$id") {
             accept(ContentType("application", "ld+json"))
         }.body()
+    }
+
+    /** The recipe with its quantities scaled by the API to [guests] people; nothing is stored (MAG-483). */
+    suspend fun getScaledRecipe(id: String, guests: Int): Recipe {
+        return client.get("$baseUrl/api/recipes/$id") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("guests", guests.toString())
+        }.orRefusal().body()
     }
 
     suspend fun createRecipe(request: RecipeCreateRequest): Recipe {

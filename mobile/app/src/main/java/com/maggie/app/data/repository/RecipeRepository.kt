@@ -39,6 +39,11 @@ class RecipeRepository(
         apiService.getRecipe(id)
     }
 
+    /** A simulation: the recipe as the API scales it to [guests], never stored. */
+    suspend fun getScaledRecipe(id: String, guests: Int): Result<Recipe> = runCatching {
+        apiService.getScaledRecipe(id, guests)
+    }
+
     suspend fun createRecipe(request: RecipeCreateRequest): Result<Recipe> = runCatching {
         val recipe = apiService.createRecipe(request)
         recipeDao.upsertAll(listOf(RecipeEntity.fromModel(recipe)))

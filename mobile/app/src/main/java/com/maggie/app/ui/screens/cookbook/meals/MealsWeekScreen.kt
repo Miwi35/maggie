@@ -42,6 +42,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+/** « 1 convive », « 4 convives ». */
+internal fun guestsLabel(guests: Int): String = if (guests > 1) "$guests convives" else "$guests convive"
+
 @Composable
 fun MealsWeekScreen(
     viewModel: MealsWeekViewModel,
@@ -224,6 +227,12 @@ private fun MealSlotCell(
                         .fillMaxWidth()
                         .combinedClickable(onClick = { onOpen(meal) }, onLongClick = { onLongPress(meal) })
                         .testTag(UiTags.MEAL_ROW),
+                )
+                Text(
+                    text = guestsLabel(meal.guests),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(UiTags.MEAL_ROW_GUESTS),
                 )
             }
             Text(
