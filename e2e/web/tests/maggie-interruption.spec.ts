@@ -152,6 +152,32 @@ test('« C\'est noté » on an event reminder marks it read and closes it, and t
   }, { what: `The notification "${title}" marked read` })
 })
 
+test('a task alert « Dans 3 j » interrupts, and « Voir la tâche » opens the task', async ({ interruptedUser }) => {
+  const { page, api, session } = interruptedUser
+  const title = `Dans 3 j : Déclarer les impôts ${test.info().retry}`
+  const dashboard = new DashboardPage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  // What the morning cron files (MAG-410): the cron itself is run by the smoke journey, which
+  // no browser can; the notification it creates goes through the same command as this one.
+  expect(
+    (
+      await callMcpTool(api, 'manage_notifications', {
+        action: 'create',
+        type: 'task_due',
+        title,
+        relatedEntityIri: '/api/tasks/e2e-task-due-1',
+      })
+    ).error,
+  ).toBeUndefined()
+
+  const interruption = page.getByRole('alertdialog').filter({ hasText: title })
+  await expect(interruption).toBeVisible({ timeout: 5_000 })
+  await interruption.getByRole('button', { name: 'Voir la tâche' }).click()
+  await expect(page).toHaveURL(/\/tasks\//)
+})
+
 test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)

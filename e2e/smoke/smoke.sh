@@ -728,6 +728,72 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+step "11b. A critical task due in three days becomes a « Dans 3 j » notification"
+# ---------------------------------------------------------------------------
+# MAG-410. Same bargain as the reminders above: the producer is the cron, which no
+# browser can run. The user's morning is set to the minute the stack's clock reads
+# in Paris (the seeded users' timezone), so the cron has no hour to wait for; the
+# task is created for three days from that Paris day.
+paris_now="$(TZ=Europe/Paris date -d "@$now_epoch" +%H:%M)"
+task_due_day="$(TZ=Europe/Paris date -d "@$((now_epoch + 3 * 86400))" +%F)"
+task_title="Tâche smoke $(date -u -d "@$now_epoch" +%H%M%S)"
+
+assert_eq "$paris_now" \
+  "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t}')" \
+    "$BASE_URL/api/task-settings/me" | jq -r '.morningTime // empty')" \
+  "the user's morning is now"
+
+task_created="$(curl -sS -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
+  -d "$(jq -nc --arg s "$task_title" --arg d "$task_due_day" \
+    '{title: $s, dueDate: $d, criticality: "critical", priority: "medium"}')" \
+  "$BASE_URL/api/tasks")"
+task_id="$(printf '%s' "$task_created" | jq -r '.id // empty')"
+if [ -n "$task_id" ]; then
+  pass "the critical task was created, due in three days"
+else
+  fail "could not create the task — response: $(printf '%s' "$task_created" | head -c 300)"
+fi
+
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+
+task_alerts_of() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
+    | jq -c --arg t "Dans 3 j : $task_title" '[.member[] | select(.title == $t)]'
+}
+
+task_notified=""
+for _ in $(seq 1 60); do
+  task_notifications="$(task_alerts_of)"
+  if [ "$(printf '%s' "$task_notifications" | jq -r 'length')" -gt 0 ]; then
+    task_notified=yes
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$task_notified" ]; then
+  pass "the morning cron produced the task alert"
+else
+  fail "the cron wrote no notification for '$task_title' — is the morning time read in the user's timezone?"
+fi
+
+assert_eq task_due "$(printf '%s' "$task_notifications" | jq -r '.[0].type // empty')" \
+  "the notification carries the task-due kind"
+assert_eq "/api/tasks/$task_id" "$(printf '%s' "$task_notifications" | jq -r '.[0].relatedEntityIri // empty')" \
+  "the notification points back at the task"
+
+# The cron runs every minute: a second run in the same morning says nothing more.
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+sleep 5
+assert_eq 1 "$(task_alerts_of | jq -r 'length')" "a second run of the cron alerts nobody twice"
+
+# Back to the default morning: the account is shared with the journeys that follow.
+curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"morningTime":"08:00"}' "$BASE_URL/api/task-settings/me"
+
+# ---------------------------------------------------------------------------
 step "12. A bank consent runs from the picker to the callback"
 # ---------------------------------------------------------------------------
 # MAG-102. The browser harness cannot drive this one: `connect()` hands the

@@ -8,10 +8,12 @@
 //
 // Parameters (plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   EMAIL   the account, default the one the app signs in as (e2e@maggie.local)
+//   MESSAGE the sentence a fake-llm scenario matches, default the finance one (MAG-314)
 
 (function () {
 const base = E2E_BASE_URL
 const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e@maggie.local'
+const message = typeof MESSAGE !== 'undefined' && MESSAGE ? MESSAGE : 'MAG-314 interruption : préviens-moi pour mes comptes'
 
 function fail(message) {
   throw new Error('[interruption-api] ' + message)
@@ -30,7 +32,7 @@ const sent = http.post(base + '/agent/chat', {
   headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
   // A unique tail: the same words sent again within a minute follow the turn already
   // answering them (MAG-386), and the flow raises two notifications in a row.
-  body: JSON.stringify({ message: 'MAG-314 interruption : préviens-moi pour mes comptes (' + Date.now() + ').' }),
+  body: JSON.stringify({ message: message + ' (' + Date.now() + ').' }),
 })
 if (!sent.ok) {
   fail('the message answered ' + sent.status + ': ' + sent.body)
