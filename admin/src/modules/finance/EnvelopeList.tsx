@@ -8,12 +8,10 @@ import { useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import { EnvelopeAdjustments } from './EnvelopeAdjustments'
+import { BUDGET_TOPICS } from './useEnvelopeAdjustments'
 import { EnvelopeTreeScreen } from './EnvelopeTreeScreen'
 import { ToQualifyPill } from './ToQualifyPill'
 import { useBudgetStatus } from './useBudgetStatus'
-
-// Spends move the gauges, envelopes and categories move the tree itself.
-const BUDGET_TOPICS = ['/api/envelopes/{id}', '/api/transactions/{id}', '/api/categories/{id}']
 
 /** Whether a Mercure message is about a record the editor or the tree reads through react-admin. */
 const touchesRecords = (data?: string): boolean => {

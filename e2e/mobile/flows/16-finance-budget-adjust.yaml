@@ -8,7 +8,7 @@ tags:
 # Given Loisirs at 100 € and 140 € spent in the month under way and in the two before it,
 # when Budgets > Ajuster is opened, then Loisirs shows its actual (140 € against 100 €), next
 # month at 100 € and a suggestion with its reason; applying the suggestion sets next month's
-# Loisirs to the proposed 150 €, and the suggestion is gone once the list is read again.
+# Loisirs to the proposed 140 € (the 140 € spent, already a multiple of 5 €), and the suggestion is gone once the list is read again.
 # Nothing is written before the tap on « Appliquer ».
 #
 # What is not here: the ± and the slider, « Tout appliquer », the seasons and the refused
@@ -51,7 +51,7 @@ tags:
 - tapOn:
     id: "budget_adjust_apply_Loisirs"
 - extendedWaitUntil:
-    visible: ".* : 150[.,]00 EUR"
+    visible: ".* : 140[.,]00 EUR"
     timeout: 30000
 - extendedWaitUntil:
     notVisible:

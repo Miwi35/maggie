@@ -39,7 +39,10 @@ export interface Adjustment {
 
 export type ApplyOutcome = { ok: true } | { ok: false; error: string }
 
-const TOPICS = ['/api/envelopes/{id}']
+// Spends move the gauges, envelopes and categories move the tree itself.
+// One list for the whole budget screen: `useMercure` opens a stream per distinct list, and over
+// HTTP/1.1 a sixth stream leaves the page unable to send any request.
+export const BUDGET_TOPICS = ['/api/envelopes/{id}', '/api/transactions/{id}', '/api/categories/{id}']
 
 const headers = (extra: Record<string, string> = {}) => {
   const token = localStorage.getItem('token')
@@ -101,7 +104,7 @@ export function useEnvelopeAdjustments(month: string) {
     void refresh()
   }, [refresh])
 
-  useMercure(TOPICS, () => {
+  useMercure(BUDGET_TOPICS, () => {
     void refresh()
   })
 

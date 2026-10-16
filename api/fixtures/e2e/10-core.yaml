@@ -149,6 +149,14 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-season-google-id'
         name: 'Max Primeur'
 
+    # The envelope adjustments journey (MAG-461). It spends in the three months
+    # up to the clock's day, two of them complete: on the neighbour that moves
+    # the lifestyle the independence counter divides by.
+    e2e_adjust_user:
+        email: 'e2e-adjust@maggie.local'
+        googleId: 'e2e-adjust-google-id'
+        name: 'Alix Ajuste'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
