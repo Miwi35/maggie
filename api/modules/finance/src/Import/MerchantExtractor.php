@@ -113,6 +113,24 @@ final class MerchantExtractor
         return $merchant;
     }
 
+    /**
+     * The label as the statement spells it, without the dates and references
+     * that change from one month to the next: « VIR. DE TOM MARTIN 12/03 REF
+     * 4411 » is « VIR. DE TOM MARTIN ». Unlike `extract`, the operation wording
+     * and the intermediary stay — they are how the owner recognises the line.
+     */
+    public static function withoutReferences(string $label): string
+    {
+        $value = preg_replace('/\s+/u', ' ', trim($label)) ?? $label;
+        $stripped = $value;
+        foreach (self::NOISE as $noise) {
+            $stripped = preg_replace($noise, '', $stripped) ?? $stripped;
+        }
+        $stripped = trim($stripped, " \t\n\r\0\x0B-/,.");
+
+        return '' === $stripped ? $value : $stripped;
+    }
+
     /** Two spellings of the same shop group together under this. */
     public static function key(string $merchant): string
     {

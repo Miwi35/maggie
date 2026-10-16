@@ -50,6 +50,7 @@ import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
@@ -73,6 +74,7 @@ import com.maggie.app.ui.screens.finance.RecurringOperationViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
 import com.maggie.app.ui.screens.finance.ToSortViewModel
+import com.maggie.app.ui.screens.finance.ContactViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
@@ -285,6 +287,7 @@ class MaggieApp : Application() {
             single { MonthlyReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { TransactionRepository(get()) }
+            single { ContactRepository(get()) }
             single { NotificationRepository(get()) }
             single { SearchRepository(get()) }
             single { ContextRepository(get()) }
@@ -342,8 +345,9 @@ class MaggieApp : Application() {
             viewModel { BudgetViewModel(get(), get(), get(), get(), get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
             viewModel { RuleSuggestionViewModel(get(), get()) }
-            viewModel { ToSortViewModel(get(), get(), get()) }
+            viewModel { ToSortViewModel(get(), get(), get(), get()) }
             viewModel { ToQualifyViewModel(get(), get(), get()) }
+            viewModel { ContactViewModel(get()) }
             viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }

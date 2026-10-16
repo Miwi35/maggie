@@ -24,6 +24,7 @@ object DeepLinks {
     const val GROCERY_ROUTE = "link/grocery/{$ARG_ID}"
     const val RECIPE_ROUTE = "link/recipe/{$ARG_ID}"
     const val ACCOUNT_ROUTE = "link/finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"
+    const val CONTACT_ROUTE = "link/finance/contacts/{$ARG_ID}"
 
     private val PATTERNS: Map<String, List<String>> = mapOf(
         EVENT_ROUTE to listOf("$SCHEME://event/{$ARG_ID}"),
@@ -32,7 +33,9 @@ object DeepLinks {
         RECIPE_ROUTE to listOf("$SCHEME://recipe/{$ARG_ID}"),
         ACCOUNT_ROUTE to listOf("$SCHEME://finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"),
         Screen.FinanceDashboard.route to listOf("$SCHEME://finance"),
+        CONTACT_ROUTE to listOf("$SCHEME://finance/contacts/{$ARG_ID}"),
         Screen.AccountList.route to listOf("$SCHEME://finance/accounts"),
+        Screen.Contacts.route to listOf("$SCHEME://finance/contacts"),
         Screen.BudgetList.route to listOf("$SCHEME://finance/budgets"),
         Screen.CategoryList.route to listOf("$SCHEME://finance/categories"),
         Screen.CategorizationRuleList.route to listOf("$SCHEME://finance/rules"),

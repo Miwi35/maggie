@@ -653,6 +653,35 @@ object UiTags {
     /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
     const val TO_QUALIFY_PILL = "to_qualify_pill"
 
+    /** The card's « Associer à un contact ? » and the contact a line is attached to (MAG-450). */
+    const val TO_SORT_CONTACT = "to_sort_contact"
+    const val TO_SORT_CONTACT_NAME = "to_sort_contact_name"
+
+    /**
+     * Contacts (MAG-450), reached from « Comptes »: the accounts' entry, the list's search, « Nouveau contact »
+     * and its name and « Créer », a row, the empty list; the page's name, notes, « Enregistrer », « Supprimer »,
+     * a label of « Ses comptes » and its « Retirer », the « + » of a suggestion.
+     */
+    const val ACCOUNTS_CONTACTS = "accounts_contacts"
+    const val CONTACT_SEARCH = "contact_search"
+    const val CONTACT_ADD = "contact_add"
+    const val CONTACT_NEW_NAME = "contact_new_name"
+    const val CONTACT_NEW_CONFIRM = "contact_new_confirm"
+    const val CONTACT_ROW = "contact_row"
+    const val CONTACT_EMPTY = "contact_empty"
+    const val CONTACT_NAME = "contact_name"
+    const val CONTACT_NOTES = "contact_notes"
+    const val CONTACT_SAVE = "contact_save"
+    const val CONTACT_DELETE = "contact_delete"
+    const val CONTACT_COUNTERPARTY = "contact_counterparty"
+    const val CONTACT_COUNTERPARTY_REMOVE = "contact_counterparty_remove"
+    const val CONTACT_SUGGESTION_ADD = "contact_suggestion_add"
+
+    /** The full-screen contact picker — a window of its own: its field, one result, « + Créer « … » ». */
+    const val CONTACT_PICKER_SEARCH = "contact_picker_search"
+    const val CONTACT_PICKER_RESULT = "contact_picker_result"
+    const val CONTACT_PICKER_CREATE = "contact_picker_create"
+
     /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
     const val REJECTION_BADGE = "rejection_badge"
 

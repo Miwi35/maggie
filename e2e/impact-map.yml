@@ -441,6 +441,8 @@ web:
     areas: [finance, chat]
   e2e/web/tests/finance-rules.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-peer-debts.spec.ts:
+    areas: [finance]
   e2e/web/tests/finance-to-sort.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-treasury.spec.ts:
@@ -542,6 +544,9 @@ mobile:
   e2e/mobile/flows/13-finance-to-sort.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/to-sort-api.js]
+  e2e/mobile/flows/19-finance-contacts.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/contacts-api.js]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-budget-api.js]

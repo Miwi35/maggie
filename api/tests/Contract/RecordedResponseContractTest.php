@@ -93,6 +93,8 @@ final class RecordedResponseContractTest extends WebTestCase
         'finance_dashboard.read' => '/api/finance/dashboard?year=2026&month=3',
         'envelopes.collection' => '/api/envelopes',
         'finance_budget_status.read' => '/api/finance/budget-status?year=2026&month=3',
+        'contacts.collection' => '/api/contacts',
+        'contact_counterparties.collection' => '/api/contact_counterparties',
     ];
 
     private KernelBrowser $client;
@@ -211,6 +213,7 @@ final class RecordedResponseContractTest extends WebTestCase
         self::assertIsArray($body);
         self::assertSame('rule', $body['transactions'][0]['suggestion']['source'] ?? null, 'The recorded pile holds no suggested line, so the recording proves nothing about a suggestion.');
         self::assertNull($body['transactions'][1]['suggestion'], 'The recorded pile holds no line without suggestion.');
+        self::assertTrue($body['transactions'][2]['asksForContact'] ?? null, 'The recorded pile holds no transfer asking for its contact.');
 
         $this->assertMatchesContract(
             'responses/finance_transactions_to_sort.read.json',
@@ -235,12 +238,37 @@ final class RecordedResponseContractTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($body);
-        self::assertSame([false, false, true], array_column($body['items'], 'recognised'), 'The recorded queue must hold two lines to qualify and one recognised.');
+        self::assertSame([false, false, false, true], array_column($body['items'], 'recognised'), 'The recorded queue must hold three lines to qualify and one recognised.');
 
         $this->assertMatchesContract(
             'responses/finance_review_queue.read.json',
             self::stabilise($body),
             'GET /api/finance/review/queue no longer returns what it used to. The mobile DTOs (ReviewQueue.kt) and the admin hook read this response.',
+        );
+    }
+
+    /**
+     * « Peut-être aussi Tom » (MAG-450), as the controller sends it: the
+     * labels of unclaimed lines that name the contact.
+     */
+    public function testTheCounterpartySuggestionsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedToSort.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/contacts/'.$this->getFixture('recorded_contact')->getId().'/counterparty-suggestions', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty($body, 'The recorded world suggests no counterparty, so the recording proves nothing about a suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/finance_contact_counterparty_suggestions.read.json',
+            self::stabilise($body),
+            'GET /api/finance/contacts/{id}/counterparty-suggestions no longer returns what it used to. The mobile DTOs (Contact.kt) are written against this response.',
         );
     }
 

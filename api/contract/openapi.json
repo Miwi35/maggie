@@ -2209,6 +2209,758 @@
                 }
             }
         },
+        "/api/contacts": {
+            "get": {
+                "operationId": "api_contacts_get_collection",
+                "tags": [
+                    "Contact"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Contact collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Contact.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Contact.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Contact"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Contact.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Contact resources.",
+                "description": "Retrieves the collection of Contact resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_contacts_post",
+                "tags": [
+                    "Contact"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Contact resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Contact resource.",
+                "description": "Creates a Contact resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Contact resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Contact"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Contact"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Contact"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/contacts/{id}": {
+            "get": {
+                "operationId": "api_contacts_id_get",
+                "tags": [
+                    "Contact"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Contact resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Contact resource.",
+                "description": "Retrieves a Contact resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Contact identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_contacts_id_delete",
+                "tags": [
+                    "Contact"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Contact resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Contact resource.",
+                "description": "Removes the Contact resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Contact identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_contacts_id_patch",
+                "tags": [
+                    "Contact"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Contact resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Contact.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Contact resource.",
+                "description": "Updates the Contact resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Contact identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Contact resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Contact.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/contact_counterparties": {
+            "get": {
+                "operationId": "api_contact_counterparties_get_collection",
+                "tags": [
+                    "ContactCounterparty"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ContactCounterparty collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "ContactCounterparty.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/ContactCounterparty.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ContactCounterparty"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ContactCounterparty.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of ContactCounterparty resources.",
+                "description": "Retrieves the collection of ContactCounterparty resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "contact",
+                        "in": "query",
+                        "description": "Restrict to one contact, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/contacts/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_contact_counterparties_post",
+                "tags": [
+                    "ContactCounterparty"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "ContactCounterparty resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a ContactCounterparty resource.",
+                "description": "Creates a ContactCounterparty resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new ContactCounterparty resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContactCounterparty"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContactCounterparty"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContactCounterparty"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/contact_counterparties/{id}": {
+            "get": {
+                "operationId": "api_contact_counterparties_id_get",
+                "tags": [
+                    "ContactCounterparty"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ContactCounterparty resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContactCounterparty.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a ContactCounterparty resource.",
+                "description": "Retrieves a ContactCounterparty resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ContactCounterparty identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_contact_counterparties_id_delete",
+                "tags": [
+                    "ContactCounterparty"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "ContactCounterparty resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the ContactCounterparty resource.",
+                "description": "Removes the ContactCounterparty resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ContactCounterparty identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/envelopes": {
             "get": {
                 "operationId": "api_envelopes_get_collection",
@@ -11957,6 +12709,279 @@
                 ],
                 "description": "Unprocessable entity"
             },
+            "Contact": {
+                "type": "object",
+                "description": "A person the owner lends to or borrows from (MAG-450) — one list for both\nsides. Their transfers are recognised by the labels in `ContactCounterparty`.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "default": "",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "Contact.html": {
+                "type": "object",
+                "description": "A person the owner lends to or borrows from (MAG-450) — one list for both\nsides. Their transfers are recognised by the labels in `ContactCounterparty`.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "default": "",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "Contact.jsonMergePatch": {
+                "type": "object",
+                "description": "A person the owner lends to or borrows from (MAG-450) — one list for both\nsides. Their transfers are recognised by the labels in `ContactCounterparty`.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "default": "",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "Contact.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "name": {
+                                "maxLength": 255,
+                                "default": "",
+                                "type": "string"
+                            },
+                            "notes": {
+                                "maxLength": 2000,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            }
+                        },
+                        "required": [
+                            "name"
+                        ]
+                    }
+                ],
+                "description": "A person the owner lends to or borrows from (MAG-450) — one list for both\nsides. Their transfers are recognised by the labels in `ContactCounterparty`."
+            },
+            "ContactCounterparty": {
+                "type": "object",
+                "description": "One way a contact shows on the owner's statements: « VIR. DE TOM MARTIN »,\n« PAYPAL *TOMMARTIN ». Every transfer it recognises is attached to the\ncontact (`Transaction.contact`); a label belongs to one contact only.\n\nLinked and removed, never edited: a different label is another counterparty.\nRead from Doctrine, with the number of transfers it recognises and the date\nof the last one, which a search index would hold stale.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "contact": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "As the statement spells it.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "matchKey": {
+                        "readOnly": true,
+                        "description": "`MerchantExtractor::key($label)`: what a transaction is recognised by.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "transactionCount": {
+                        "readOnly": true,
+                        "description": "Filled on read (ContactCounterpartyProvider): how many transfers it recognises.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "lastSeenOn": {
+                        "readOnly": true,
+                        "description": "Filled on read: the date of the last of them.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "contact",
+                    "label"
+                ]
+            },
+            "ContactCounterparty.html": {
+                "type": "object",
+                "description": "One way a contact shows on the owner's statements: « VIR. DE TOM MARTIN »,\n« PAYPAL *TOMMARTIN ». Every transfer it recognises is attached to the\ncontact (`Transaction.contact`); a label belongs to one contact only.\n\nLinked and removed, never edited: a different label is another counterparty.\nRead from Doctrine, with the number of transfers it recognises and the date\nof the last one, which a search index would hold stale.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "contact": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "As the statement spells it.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "matchKey": {
+                        "readOnly": true,
+                        "description": "`MerchantExtractor::key($label)`: what a transaction is recognised by.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "transactionCount": {
+                        "readOnly": true,
+                        "description": "Filled on read (ContactCounterpartyProvider): how many transfers it recognises.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "lastSeenOn": {
+                        "readOnly": true,
+                        "description": "Filled on read: the date of the last of them.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "contact",
+                    "label"
+                ]
+            },
+            "ContactCounterparty.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "contact": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "label": {
+                                "maxLength": 255,
+                                "description": "As the statement spells it.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "matchKey": {
+                                "readOnly": true,
+                                "description": "`MerchantExtractor::key($label)`: what a transaction is recognised by.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "transactionCount": {
+                                "readOnly": true,
+                                "description": "Filled on read (ContactCounterpartyProvider): how many transfers it recognises.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "lastSeenOn": {
+                                "readOnly": true,
+                                "description": "Filled on read: the date of the last of them.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "contact",
+                            "label"
+                        ]
+                    }
+                ],
+                "description": "One way a contact shows on the owner's statements: « VIR. DE TOM MARTIN »,\n« PAYPAL *TOMMARTIN ». Every transfer it recognises is attached to the\ncontact (`Transaction.contact`); a label belongs to one contact only.\n\nLinked and removed, never edited: a different label is another counterparty.\nRead from Doctrine, with the number of transfers it recognises and the date\nof the last one, which a search index would hold stale."
+            },
             "Envelope": {
                 "type": "object",
                 "properties": {
@@ -20485,6 +21510,16 @@
                             "null"
                         ]
                     },
+                    "contact": {
+                        "readOnly": true,
+                        "description": "The person this transfer comes from or goes to, recognised by one of\ntheir counterparties (MAG-450). Read-only over REST: it is derived from\nthe label, on every write and when a counterparty is linked or removed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -20731,6 +21766,16 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "contact": {
+                        "readOnly": true,
+                        "description": "The person this transfer comes from or goes to, recognised by one of\ntheir counterparties (MAG-450). Read-only over REST: it is derived from\nthe label, on every write and when a counterparty is linked or removed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "user": {
                         "type": "string",
@@ -20979,6 +22024,16 @@
                             "null"
                         ]
                     },
+                    "contact": {
+                        "readOnly": true,
+                        "description": "The person this transfer comes from or goes to, recognised by one of\ntheir counterparties (MAG-450). Read-only over REST: it is derived from\nthe label, on every write and when a counterparty is linked or removed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -21218,6 +22273,16 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "contact": {
+                                "readOnly": true,
+                                "description": "The person this transfer comes from or goes to, recognised by one of\ntheir counterparties (MAG-450). Read-only over REST: it is derived from\nthe label, on every write and when a counterparty is linked or removed.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
                             },
                             "user": {
                                 "type": "string",
@@ -21700,6 +22765,14 @@
         {
             "name": "Category",
             "description": "Resource 'Category' operations."
+        },
+        {
+            "name": "Contact",
+            "description": "A person the owner lends to or borrows from (MAG-450) — one list for both\nsides. Their transfers are recognised by the labels in `ContactCounterparty`."
+        },
+        {
+            "name": "ContactCounterparty",
+            "description": "One way a contact shows on the owner's statements: « VIR. DE TOM MARTIN »,\n« PAYPAL *TOMMARTIN ». Every transfer it recognises is attached to the\ncontact (`Transaction.contact`); a label belongs to one contact only.\n\nLinked and removed, never edited: a different label is another counterparty.\nRead from Doctrine, with the number of transfers it recognises and the date\nof the last one, which a search index would hold stale."
         },
         {
             "name": "Envelope",

@@ -142,8 +142,8 @@ class AdaptiveNavigationTest {
     }
 
     @Test
-    fun `the four lists draw their detail beside them where the window has room`() {
-        listOf(Screen.Calendar, Screen.Cookbook, Screen.Grocery, Screen.AccountList).forEach { screen ->
+    fun `the lists draw their detail beside them where the window has room`() {
+        listOf(Screen.Calendar, Screen.Cookbook, Screen.Grocery, Screen.AccountList, Screen.Contacts).forEach { screen ->
             val chrome = chromeFor(tabletLandscape, screen.route)
 
             assertTrue(screen.route, chrome.showsDetailPane)

@@ -1,6 +1,6 @@
 {
-    "total": 2,
-    "totalCents": 6520,
+    "total": 3,
+    "totalCents": 46520,
     "transactions": [
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -18,7 +18,10 @@
                 "categoryPath": "Recorded Food › Recorded Courses",
                 "source": "rule",
                 "reason": "Règle « contient CARREFOUR »"
-            }
+            },
+            "contact": null,
+            "asksForContact": false,
+            "counterpartyLabel": "CARREFOUR MARKET 1234"
         },
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -31,7 +34,26 @@
             "accountName": "Recorded Account",
             "judgeable": true,
             "retrospect": "unrated",
-            "suggestion": null
+            "suggestion": null,
+            "contact": null,
+            "asksForContact": false,
+            "counterpartyLabel": "DUPONT MARTIN"
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "VIR INST DE RECORDED TOM",
+            "counterpartyName": null,
+            "amountCents": 40000,
+            "currency": "EUR",
+            "bookedAt": "2026-03-10",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "judgeable": false,
+            "retrospect": "unrated",
+            "suggestion": null,
+            "contact": null,
+            "asksForContact": true,
+            "counterpartyLabel": "VIR INST DE RECORDED TOM"
         }
     ]
 }

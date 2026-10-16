@@ -44,6 +44,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import EventRepeatIcon from '@mui/icons-material/EventRepeat'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import PeopleIcon from '@mui/icons-material/People'
 import { ModuleIcon } from './ModuleIcon'
 import type { ModuleName } from '../../theme'
 import { useAgentName } from '../../hooks/useAgentName'
@@ -183,6 +184,12 @@ export const CustomMenu = () => {
                 to="/accounts"
                 primaryText="Comptes"
                 leftIcon={tinted('comptes', <AccountBalanceIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/contacts"
+                primaryText="Contacts"
+                leftIcon={tinted('comptes', <PeopleIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

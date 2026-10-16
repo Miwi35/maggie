@@ -26,6 +26,12 @@ data class TransactionToSort(
     val suggestion: SortSuggestion? = null,
     val judgeable: Boolean = false,
     val retrospect: String = RETROSPECT_UNRATED,
+    // The contact one of the owner's counterparties recognises the line as (MAG-450).
+    val contact: ContactRef? = null,
+    // Whether « Associer à un contact ? » is worth asking: a transfer nobody claims yet.
+    val asksForContact: Boolean = false,
+    // The label to link when a contact is picked: the counterparty the bank named, or the label without its references.
+    val counterpartyLabel: String = "",
 )
 
 const val RETROSPECT_UNRATED = "unrated"

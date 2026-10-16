@@ -12,6 +12,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Contact;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\QualifyingOperation;
 use Maggie\Finance\Entity\RecurringOperation;
@@ -974,6 +975,63 @@ class TransactionRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The lines whose contact may change when a counterparty is linked or
+     * removed: those attached to someone, and those that could be.
+     *
+     * @return Transaction[]
+     */
+    public function findContactCandidates(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :none OR t.contact IS NOT NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The lines attached to these contacts, newest first.
+     *
+     * @param Contact[] $contacts
+     *
+     * @return Transaction[]
+     */
+    public function findByContacts(array $contacts): array
+    {
+        if ([] === $contacts) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.contact IN (:contacts)')
+            ->setParameter('contacts', array_map(static fn (Contact $c): string => $c->getId()->toRfc4122(), $contacts), ArrayParameterType::STRING)
+            ->orderBy('t.bookedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The lines no contact claims yet, that a counterparty could: neither a
+     * neutral movement nor attached to someone.
+     *
+     * @return Transaction[]
+     */
+    public function findWithoutContact(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.contact IS NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->orderBy('t.bookedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**

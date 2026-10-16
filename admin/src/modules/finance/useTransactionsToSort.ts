@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { linkCounterparty } from './contactsApi'
 
 export interface SortSuggestion {
   categoryId: string
@@ -20,6 +21,12 @@ export interface ToSortTransaction {
   /** An expense that is not an internal movement: the only lines a satisfaction can be given to. */
   judgeable: boolean
   retrospect: Satisfaction
+  /** The person the transfer is attached to (MAG-450). */
+  contact: { id: string; name: string } | null
+  /** A transfer no contact claims yet: « Associer à un contact ? » is worth asking. */
+  asksForContact: boolean
+  /** The label linking the line to a contact gives them. */
+  counterpartyLabel: string
 }
 
 /** « À conserver », « Superflue », or not said yet. */
@@ -194,11 +201,24 @@ export function useTransactionsToSort() {
     [load],
   )
 
+  /**
+   * Links the line's label to a contact — this transfer and every other one it
+   * recognises —, then reads the pile again. Rejects with the API's message (a
+   * label already someone else's) for the caller to show.
+   */
+  const linkContact = useCallback(
+    async (transaction: ToSortTransaction, contactId: string): Promise<void> => {
+      await linkCounterparty(contactId, transaction.counterpartyLabel)
+      await load()
+    },
+    [load],
+  )
+
   /** Says whether a spend was worth it; saying « unrated » takes the verdict back. */
   const judge = useCallback(
     (transactionId: string, retrospect: Satisfaction) => patch(transactionId, { retrospect }, JUDGE_ERROR),
     [patch],
   )
 
-  return { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload: load }
+  return { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload: load, linkContact }
 }

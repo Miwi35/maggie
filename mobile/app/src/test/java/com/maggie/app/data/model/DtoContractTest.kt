@@ -291,9 +291,52 @@ class DtoContractTest {
         assertEquals("rule", suggested.suggestion?.source)
         assertTrue("reason fell back to its default", suggested.suggestion?.reason.orEmpty().isNotEmpty())
         assertEquals(pile.total, pile.transactions.size)
-        assertEquals(6520, pile.totalCents)
-        assertTrue(pile.transactions.all { it.judgeable })
+        assertEquals(46520, pile.totalCents)
+        // Only the spends can be judged: the transfer received (MAG-450) cannot.
+        assertEquals(listOf(false, false, true), pile.transactions.map { it.amountCents > 0 })
+        assertTrue(pile.transactions.filter { it.amountCents < 0 }.all { it.judgeable })
         assertEquals(RETROSPECT_UNRATED, pile.transactions.first().retrospect)
+        // MAG-450: only the transfer nobody claims asks for a contact, and each line names the label to link.
+        assertEquals(listOf("VIR INST DE RECORDED TOM"), pile.transactions.filter { it.asksForContact }.map { it.label })
+        assertTrue("counterpartyLabel fell back to its default", pile.transactions.all { it.counterpartyLabel.isNotEmpty() })
+        // ContactRef (id, name) is not proved here: no recorded line has a contact yet.
+    }
+
+    @Test
+    fun `contacts deserialise from the recorded response`() =
+        assertCollectionContract("contacts", serializer<Contact>(), "Contact")
+
+    @Test
+    fun `a contact's labels deserialise from the recorded response, with their count and last day`() {
+        assertCollectionContract("contact_counterparties", serializer<ContactCounterparty>(), "ContactCounterparty")
+        val counterparty = json.decodeFromJsonElement(
+            ApiCollection.serializer(serializer<ContactCounterparty>()),
+            readRecording("contact_counterparties.collection"),
+        ).member.first()
+
+        assertEquals(1, counterparty.transactionCount)
+        assertEquals("2026-03-17", counterparty.lastSeenOn)
+        assertTrue(counterparty.contact.startsWith("/api/contacts/"))
+    }
+
+    @Test
+    fun `a contact's counterparty suggestions deserialise from the recorded response`() {
+        // A plain JSON array, not a Hydra collection.
+        val file = File(repositoryRoot(), "api/contract/responses/finance_contact_counterparty_suggestions.read.json")
+        assertTrue("The recording ${file.absolutePath} is missing. The API suite writes it: " +
+            "UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract", file.isFile)
+        val members = Json.parseToJsonElement(file.readText()).jsonArray
+        assertTrue("The recording finance_contact_counterparty_suggestions.read is empty, so it proves nothing.", members.isNotEmpty())
+
+        val suggestions = json.decodeFromJsonElement(ListSerializer(serializer<CounterpartySuggestion>()), members)
+
+        assertDeclaredFieldsExist(
+            "CounterpartySuggestion",
+            serializer<CounterpartySuggestion>(),
+            members.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_contact_counterparty_suggestions.read",
+        )
+        assertTrue("transactionCount fell back to its default", suggestions.all { it.transactionCount > 0 })
     }
 
     @Test

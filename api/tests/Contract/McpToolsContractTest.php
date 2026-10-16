@@ -148,6 +148,10 @@ final class McpToolsContractTest extends KernelTestCase
         $verbs = array_unique([...array_map(static fn (string $name): string => explode('_', $name)[0], $known), 'list']);
         foreach ($tools as $tool) {
             array_push($known, ...array_keys($tool['inputSchema']['properties'] ?? []));
+            // The values an argument takes (an `action` enum) are names the agent sends, not tools.
+            foreach ($tool['inputSchema']['properties'] ?? [] as $property) {
+                array_push($known, ...array_filter($property['enum'] ?? [], 'is_string'));
+            }
         }
 
         preg_match_all('/\b[a-z]+(?:_[a-z]+)+\b/', $description, $matches);

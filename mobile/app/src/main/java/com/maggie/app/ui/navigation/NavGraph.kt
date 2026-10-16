@@ -116,6 +116,8 @@ import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategoryListScreen
 import com.maggie.app.ui.screens.finance.CategoryViewModel
+import com.maggie.app.ui.screens.finance.ContactScreen
+import com.maggie.app.ui.screens.finance.ContactViewModel
 import com.maggie.app.ui.screens.finance.ToSortScreen
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
 import com.maggie.app.ui.screens.finance.ToSortViewModel
@@ -214,6 +216,7 @@ sealed class Screen(val route: String, val label: String) {
     data object PastErrands : Screen("past_errands", "Courses passées")
     data object StoreAisles : Screen("stores/aisles", "Rayons")
     data object AccountList : Screen("accounts", "Comptes")
+    data object Contacts : Screen("contacts", "Contacts")
     data object CategoryList : Screen("categories", "Catégories")
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
@@ -272,6 +275,7 @@ private val DETAIL_PANE_ROUTES = setOf(
     Screen.Cookbook.route,
     Screen.Grocery.route,
     Screen.AccountList.route,
+    Screen.Contacts.route,
 )
 
 // A detail that is a route of its own on a narrow window, and the list route whose pane takes it over.
@@ -495,6 +499,8 @@ fun NavGraph() {
 
     // Cookbook transient state
     var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
+    // The contact a link asked for, handed to the contacts screen once and cleared (MAG-450).
+    var linkedContactId by rememberSaveable { mutableStateOf<String?>(null) }
     // The transaction « En faire une opération récurrente » was tapped on: the form opens filled from it (MAG-309).
     var recurringSeed by rememberSavedSelection<Transaction>()
     // The advance « Préparer l'avance » filled in: the new-transaction form opens with it, nothing saved (MAG-280).
@@ -875,6 +881,19 @@ fun NavGraph() {
                             Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
                             navController.replaceLink(entry, Screen.AccountList.route, singleTop = true)
                         }
+                    }
+                }
+                composable(DeepLinks.CONTACT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.CONTACT_ROUTE)) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    LoadingScreen()
+                    LaunchedEffect(id, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        if (DeepLinks.isValidId(id)) {
+                            linkedContactId = id
+                        } else {
+                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                        }
+                        navController.replaceLink(entry, Screen.Contacts.route, singleTop = true)
                     }
                 }
                 composable(Screen.Dashboard.route) {
@@ -1276,6 +1295,9 @@ fun NavGraph() {
                             AccountListScreen(
                                 viewModel = accountViewModel,
                                 onBack = { navController.backInFinance() },
+                                onOpenContacts = {
+                                    navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
+                                },
                                 onOpenAccount = { accountId, accountName ->
                                     selectedAccount = accountId to accountName
                                     if (!paneShown) {
@@ -1298,6 +1320,16 @@ fun NavGraph() {
                             }
                         },
                         placeholder = "Touchez un compte pour voir ses transactions ici.",
+                    )
+                }
+                composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
+                    val contactViewModel: ContactViewModel = koinViewModel()
+                    ContactScreen(
+                        viewModel = contactViewModel,
+                        onBack = { navController.backInFinance() },
+                        showsDetailPane = paneShown,
+                        openContactId = linkedContactId,
+                        onOpenConsumed = { linkedContactId = null },
                     )
                 }
                 composable(Screen.CategoryList.route, deepLinks = DeepLinks.forRoute(Screen.CategoryList.route)) {

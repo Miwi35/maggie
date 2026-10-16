@@ -8,6 +8,11 @@ import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.ContactCounterparty
+import com.maggie.app.data.model.ContactCounterpartyCreateRequest
+import com.maggie.app.data.model.ContactCreateRequest
+import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.Context
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Errand
@@ -1614,6 +1619,67 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    // Finance — Contacts and the labels they appear under (MAG-450)
+    suspend fun getContacts(): List<Contact> {
+        return client.get("$baseUrl/api/contacts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<Contact>>().member
+    }
+
+    suspend fun createContact(request: ContactCreateRequest): Contact {
+        return client.post("$baseUrl/api/contacts") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** [notes] null erases them: the merge-patch spells the null out, absent would mean « unchanged ». */
+    suspend fun updateContact(id: String, name: String, notes: String?): Contact {
+        return client.patch("$baseUrl/api/contacts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(
+                buildJsonObject {
+                    put("name", JsonPrimitive(name))
+                    put("notes", notes?.let(::JsonPrimitive) ?: JsonNull)
+                },
+            )
+        }.orRefusal().body()
+    }
+
+    /** The contact's lines stay, detached; its labels go with it. */
+    suspend fun deleteContact(id: String) {
+        client.delete("$baseUrl/api/contacts/$id").orRefusal()
+    }
+
+    suspend fun getContactCounterparties(contactId: String): List<ContactCounterparty> {
+        return client.get("$baseUrl/api/contact_counterparties") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("contact", contactId)
+        }.orRefusal().body<ApiCollection<ContactCounterparty>>().member
+    }
+
+    /** A 400 says the label already belongs to someone else, by name: [ApiRefusalException] carries the sentence. */
+    suspend fun createContactCounterparty(request: ContactCounterpartyCreateRequest): ContactCounterparty {
+        return client.post("$baseUrl/api/contact_counterparties") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** Detaches the lines the label had attached. */
+    suspend fun deleteContactCounterparty(id: String) {
+        client.delete("$baseUrl/api/contact_counterparties/$id").orRefusal()
+    }
+
+    suspend fun getCounterpartySuggestions(contactId: String): List<CounterpartySuggestion> {
+        return client.get("$baseUrl/api/finance/contacts/$contactId/counterparty-suggestions").orRefusal().body()
     }
 
     // Finance — Envelopes (budgets)

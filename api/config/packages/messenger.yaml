@@ -144,6 +144,12 @@ framework:
             'Maggie\Finance\Message\AttachRecurringOperationsCommand': sync
             'Maggie\Finance\Message\AttachRecurringTransactionCommand': sync
             'Maggie\Finance\Message\TagStandardCategoriesCommand': sync
+            'Maggie\Finance\Message\CreateContactCommand': sync
+            'Maggie\Finance\Message\UpdateContactCommand': sync
+            'Maggie\Finance\Message\DeleteContactCommand': sync
+            'Maggie\Finance\Message\LinkContactCounterpartyCommand': sync
+            'Maggie\Finance\Message\UnlinkContactCounterpartyCommand': sync
+            'Maggie\Finance\Message\RelinkContactTransactionsCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': sync
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': sync
 

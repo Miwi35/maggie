@@ -1181,6 +1181,87 @@
         },
         "description": "List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount; the label is optional when direction is debit or credit AND an amount bound is given — then the rule recognises a transaction on its sign and amount alone, whatever its label or counterparty (« an income of 4 750 € ± 10 % is the salary »: direction credit, minAmountCents 427500, maxAmountCents 522500; compute the bounds yourself). A rule with no label and no directed amount bound is refused with the current state, nothing is deduced. Amounts: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins and gives the line its whole qualification (categoryId, mandatory, kind); a line qualified by hand is never overwritten. Updating the categoryId, mandatory or kind of a rule reaches every line it qualified, except those qualified by hand since. On update, only provided fields change; to remove the label or an amount bound, list labelPattern, minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern if any, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
     },
+    "manage_contacts": {
+        "name": "manage_contacts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "list",
+                        "search",
+                        "create",
+                        "update",
+                        "delete",
+                        "link_counterparty",
+                        "unlink_counterparty",
+                        "suggest_counterparties"
+                    ]
+                },
+                "contactId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "notes": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "query": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "label": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "transactionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "counterpartyId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "The people the owner lends money to or borrows from — one list for both — and the labels under which each one appears on the bank statements (counterparties, e.g. « VIR. DE TOM MARTIN »). Actions: list (every contact with its counterparties), search (by name, query), create (name, optional notes), update (contactId; only provided fields change; to empty notes, list it in clear), delete (contactId; their transactions are detached), link_counterparty (contactId and either label or transactionId — the label of that transaction is used; every non-internal transaction it recognises, past and future, is attached to the contact; a label belongs to one contact only), unlink_counterparty (counterpartyId; its transactions are detached), suggest_counterparties (contactId; labels of unattached transactions that contain a word of the name, most frequent first — confirm them with link_counterparty). A transfer between the owner's own accounts is never attached to a contact."
+    },
     "manage_envelopes": {
         "name": "manage_envelopes",
         "inputSchema": {
