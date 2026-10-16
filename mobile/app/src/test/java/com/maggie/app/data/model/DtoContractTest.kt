@@ -105,6 +105,16 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the evening's review deserialises from the recorded response under the names the API sends (MAG-500)`() {
+        assertItemContract("day_reviews.read", serializer<DayReview>(), "DayReview")
+        val review = json.decodeFromJsonElement(serializer<DayReview>(), readRecording("day_reviews.read"))
+
+        assertEquals(listOf(DayReview.START_SMALL, DayReview.TIMER), review.helped)
+        assertTrue(review.isDone)
+        assertEquals(DayReview.HELPED.map { it.first }.toSet(), setOf("start_small", "morning", "timer"))
+    }
+
+    @Test
     fun `the morning's proposal deserialises from the recorded response, its slots and its reserve`() {
         val body = readRecording("day_plans.proposal")
         val proposal = json.decodeFromJsonElement(serializer<DayProposal>(), body)

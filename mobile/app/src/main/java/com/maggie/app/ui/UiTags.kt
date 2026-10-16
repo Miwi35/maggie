@@ -393,6 +393,30 @@ object UiTags {
     const val TASKS_MORNING_LATER = "tasks_morning_later"
     const val TASKS_CHANGE = "tasks_change"
 
+    /**
+     * « Le soir » (MAG-500): the review, its list of what is done, each task left by id with its three
+     * ways out and « Annuler », each « Qu'est-ce qui t'a aidé ? » choice by value, « Bonne nuit » and
+     * « Plus tard »; « Le soir » on the day.
+     */
+    const val TASKS_EVENING = "tasks_evening"
+    const val TASKS_EVENING_DONE = "tasks_evening_done"
+    const val TASKS_EVENING_LEFT_PREFIX = "tasks_evening_left_"
+    const val TASKS_EVENING_OUTCOME_PREFIX = "tasks_evening_outcome_"
+    const val TASKS_EVENING_UNDO_PREFIX = "tasks_evening_undo_"
+    const val TASKS_EVENING_HELPED_PREFIX = "tasks_evening_helped_"
+    const val TASKS_EVENING_GOOD_NIGHT = "tasks_evening_good_night"
+    const val TASKS_EVENING_LATER = "tasks_evening_later"
+    const val TASKS_EVENING_OPEN = "tasks_evening_open"
+
+    fun tasksEveningLeft(taskId: String) = TASKS_EVENING_LEFT_PREFIX + taskId
+
+    /** [outcome] is `tomorrow`, `later` or `aside`. */
+    fun tasksEveningOutcome(taskId: String, outcome: String) = "$TASKS_EVENING_OUTCOME_PREFIX${outcome}_$taskId"
+
+    fun tasksEveningUndo(taskId: String) = TASKS_EVENING_UNDO_PREFIX + taskId
+
+    fun tasksEveningHelped(value: String) = TASKS_EVENING_HELPED_PREFIX + value
+
     fun tasksMorningSlot(position: Int) = TASKS_MORNING_SLOT_PREFIX + position
 
     fun tasksMorningSwap(position: Int) = TASKS_MORNING_SWAP_PREFIX + position
@@ -602,6 +626,7 @@ object UiTags {
      */
     const val SETTINGS_TASKS = "settings_tasks"
     const val SETTINGS_TASKS_MORNING = "settings_tasks_morning"
+    const val SETTINGS_TASKS_EVENING = "settings_tasks_evening"
     const val SETTINGS_TASKS_CHIP_PREFIX = "settings_tasks_chip_"
     const val SETTINGS_TASKS_OVERDUE_PREFIX = "settings_tasks_overdue_"
     const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"

@@ -66,6 +66,8 @@ import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
 import com.maggie.app.data.model.DayProposal
+import com.maggie.app.data.model.DayReview
+import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.Loan
@@ -787,6 +789,22 @@ class MaggieApiService(
     /** Replaces the day's whole list of slots, in order; the answer is the day as [getDayPlan] reads it. */
     suspend fun updateDayPlan(date: String, request: DayPlanUpdateRequest): DayPlan {
         return client.put("$baseUrl/api/day-plans/$date") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** The evening's review of [date] (MAG-500), created empty on its first read. */
+    suspend fun getDayReview(date: String): DayReview {
+        return client.get("$baseUrl/api/day-reviews/$date") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** « Bonne nuit »: what helped, the whole list; the review is closed. */
+    suspend fun updateDayReview(date: String, request: DayReviewUpdateRequest): DayReview {
+        return client.put("$baseUrl/api/day-reviews/$date") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
             setBody(request)

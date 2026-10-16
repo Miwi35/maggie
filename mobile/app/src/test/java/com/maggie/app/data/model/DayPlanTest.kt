@@ -21,6 +21,13 @@ class DayPlanTest {
     }
 
     @Test
+    fun `the evening's Demain writes without settling the day, every other PUT leaves confirm out (MAG-500)`() {
+        val body = json.encodeToString(DayPlanUpdateRequest(listOf(DaySlotRequest.task("a")), confirm = false))
+
+        assertEquals("""{"slots":[{"type":"task","taskId":"a"}],"confirm":false}""", body)
+    }
+
+    @Test
     fun `an emptied day sends an empty list`() {
         assertEquals("""{"slots":[]}""", json.encodeToString(DayPlanUpdateRequest(emptyList())))
     }

@@ -95,6 +95,11 @@ internal fun DayContent(
                 TextButton(onClick = viewModel::openMorning, modifier = Modifier.testTag(UiTags.TASKS_CHANGE)) {
                     Text("Changer")
                 }
+                if (day.total > 0) {
+                    TextButton(onClick = viewModel::openEvening, modifier = Modifier.testTag(UiTags.TASKS_EVENING_OPEN)) {
+                        Text("Le soir")
+                    }
+                }
             }
         }
         if (day.slots.isNotEmpty()) {

@@ -65,7 +65,7 @@ import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
 /**
- * Réglages › Tâches (MAG-407): « Heure du matin », then when each urgency alerts. Every change
+ * Réglages › Tâches (MAG-407): « Heure du matin » and « Heure du soir » (MAG-500), then when each urgency alerts. Every change
  * is saved as it is made; no help text, the owner's choice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,7 +77,8 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
 
     TaskSettingsPage(title = "Tâches", tasks = tasks, onBack = onBack, onRetry = viewModel::loadTaskSettings) {
         val settings = tasks.settings ?: return@TaskSettingsPage
-        MorningTimeRow(time = settings.morningTime, onPick = viewModel::setMorningTime)
+        TimeRow(label = "Heure du matin", tag = UiTags.SETTINGS_TASKS_MORNING, time = settings.morningTime, onPick = viewModel::setMorningTime)
+        TimeRow(label = "Heure du soir", tag = UiTags.SETTINGS_TASKS_EVENING, time = settings.eveningTime, onPick = viewModel::setEveningTime)
         TaskSettingsChoices.URGENCY_LABELS.forEach { (urgency, label) ->
             val rule = settings.alertSchedule[urgency] ?: return@forEach
             HorizontalDivider()
@@ -210,20 +211,20 @@ private fun TaskSettingsPage(
     }
 }
 
-/** « Heure du matin » and its value on one line; a tap opens the 24 h clock. */
+/** « Heure du matin » or « du soir » and its value on one line; a tap opens the 24 h clock. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MorningTimeRow(time: String, onPick: (hour: Int, minute: Int) -> Unit) {
+private fun TimeRow(label: String, tag: String, time: String, onPick: (hour: Int, minute: Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { open = true }
-            .testTag(UiTags.SETTINGS_TASKS_MORNING)
+            .testTag(tag)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Heure du matin", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(time, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
     }
 
@@ -232,7 +233,7 @@ private fun MorningTimeRow(time: String, onPick: (hour: Int, minute: Int) -> Uni
         val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
         AlertDialog(
             onDismissRequest = { open = false },
-            title = { Text("Heure du matin") },
+            title = { Text(label) },
             text = { InFrench { TimePicker(state = state) } },
             confirmButton = {
                 TextButton(

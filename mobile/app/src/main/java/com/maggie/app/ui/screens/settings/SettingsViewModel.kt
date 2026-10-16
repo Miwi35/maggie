@@ -145,6 +145,14 @@ class SettingsViewModel(
         saveTaskSettings(current.copy(morningTime = time), buildJsonObject { put("morningTime", time) })
     }
 
+    /** « Heure du soir » (MAG-500): after it, the first visit of Tâches opens the review. */
+    fun setEveningTime(hour: Int, minute: Int) {
+        val time = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.eveningTime == time) return
+        saveTaskSettings(current.copy(eveningTime = time), buildJsonObject { put("eveningTime", time) })
+    }
+
     /** A « J-n » chip of [urgency]: the day on or off. */
     fun toggleAlertDay(urgency: String, days: Int) = changeAlertRule(urgency) { rule ->
         val next = TaskSettingsChoices.toggleDay(rule, days)
@@ -172,15 +180,16 @@ class SettingsViewModel(
         )
     }
 
-    /** « Valeurs par défaut » of Réglages › Tâches: the alerts and the morning, not the order. */
+    /** « Valeurs par défaut » of Réglages › Tâches: the alerts, the morning and the evening, not the order. */
     fun resetAlertsToDefaults() {
         val current = _uiState.value.tasks.settings ?: return
         val defaults = current.defaults
         saveTaskSettings(
-            current.copy(alertSchedule = defaults.alertSchedule, morningTime = defaults.morningTime),
+            current.copy(alertSchedule = defaults.alertSchedule, morningTime = defaults.morningTime, eveningTime = defaults.eveningTime),
             buildJsonObject {
                 put("alertSchedule", JsonObject(defaults.alertSchedule.mapValues { (_, rule) -> rule.toJson() }))
                 put("morningTime", defaults.morningTime)
+                put("eveningTime", defaults.eveningTime)
             },
         )
     }

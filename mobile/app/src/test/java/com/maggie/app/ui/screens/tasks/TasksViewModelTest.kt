@@ -8,6 +8,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayProposal
+import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.ProposalEntry
 import com.maggie.app.data.model.ProposalSlot
 import com.maggie.app.data.model.DaySlot
@@ -80,6 +81,8 @@ class TasksViewModelTest {
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
         // Unreadable morning time: the morning never opens by itself unless a test says so.
         coEvery { taskRepository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
+        // Nor the evening.
+        coEvery { taskRepository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
         serve(TaskView.TODAY, late, canteen)
         serveDay(day(listOf(form, call), reserve = listOf(photos, books)))
     }
@@ -954,5 +957,230 @@ class TasksViewModelTest {
         assertNull(viewModel.uiState.value.morning)
         assertEquals(listOf("d1", "d2"), viewModel.uiState.value.day?.taskIds)
         coVerify(exactly = 0) { taskRepository.setDaySlots(any(), any()) }
+    }
+
+    // « Le soir » (MAG-500)
+
+    private val tomorrow = today.plusDays(1)
+    private val doneAt = "2026-10-15T09:00:00Z"
+
+    /** « 3 sur 5 »: the form, the call and the bins done, the plants and the bread left. */
+    private val evening = day(
+        listOf(
+            form.copy(completedAt = doneAt),
+            plants,
+            call.copy(completedAt = doneAt),
+            bread.copy(dueDate = "2026-10-17"),
+            bins.copy(completedAt = doneAt),
+        ),
+    )
+
+    private val todayPuts = mutableListOf<List<String>>()
+    private val tomorrowPuts = mutableListOf<List<String>>()
+
+    /** The evening opened at 21:05 on [evening], tomorrow holding [tomorrowTasks]; the PUTs of both days captured. */
+    private fun TestScope.openEvening(
+        tomorrowTasks: List<DayTask> = emptyList(),
+        reviewedAt: String? = null,
+        now: LocalTime = LocalTime.of(21, 5),
+    ): TasksViewModel {
+        serveDay(evening)
+        coEvery { taskRepository.getEveningTime() } returns Result.success("21:00")
+        coEvery { taskRepository.getDayReview(today) } returns Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = reviewedAt))
+        coEvery { taskRepository.getDayPlan(tomorrow) } returns Result.success(day(tomorrowTasks).copy(date = tomorrow.toString()))
+        coEvery { taskRepository.setDaySlots(today, capture(todayPuts), true) } answers { Result.success(dayOf(todayPuts.last())) }
+        coEvery { taskRepository.setDaySlots(tomorrow, capture(tomorrowPuts), false) } answers {
+            Result.success(dayOf(tomorrowPuts.last()).copy(date = tomorrow.toString()))
+        }
+        coEvery { taskRepository.setDueDate(any(), any()) } answers { Result.success(task(firstArg(), "t")) }
+        val viewModel = createViewModel(now = now)
+        viewModel.onOpened()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `the evening opens by itself after the evening time, what is done first, then what is left`() = runTest {
+        val viewModel = openEvening()
+
+        val state = viewModel.uiState.value.evening
+        assertNotNull(state)
+        assertEquals(listOf("d1", "d2", "d3"), state!!.done.map { it.id })
+        assertEquals(listOf("d4", "d5"), state.left.map { it.id })
+        assertEquals(5, state.day.total)
+        assertEquals(EveningOutcome.LATER, state.outcomeOf("d4"))
+        assertEquals(emptyList<String>(), state.tomorrowIds)
+        assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `the evening does not open before the evening time`() = runTest {
+        val viewModel = openEvening(now = LocalTime.of(20, 59))
+
+        assertNull(viewModel.uiState.value.evening)
+    }
+
+    @Test
+    fun `the evening does not open once Bonne nuit was said`() = runTest {
+        val viewModel = openEvening(reviewedAt = "2026-10-15T19:10:00Z")
+
+        assertNull(viewModel.uiState.value.evening)
+    }
+
+    @Test
+    fun `the evening wins over the morning of a day never confirmed`() = runTest {
+        coEvery { taskRepository.getMorningTime() } returns Result.success("08:00")
+        val viewModel = openEvening()
+
+        assertNotNull(viewModel.uiState.value.evening)
+        assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `Demain writes the task in tomorrow's five without settling it`() = runTest {
+        val viewModel = openEvening(tomorrowTasks = listOf(photos))
+
+        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("r1", "d4")), tomorrowPuts)
+        val state = viewModel.uiState.value.evening!!
+        assertEquals(EveningOutcome.TOMORROW, state.outcomeOf("d4"))
+        assertEquals(listOf("r1", "d4"), state.tomorrowIds)
+        assertTrue(todayPuts.isEmpty())
+    }
+
+    @Test
+    fun `Plus tard after Demain takes the task out of tomorrow again`() = runTest {
+        val viewModel = openEvening(tomorrowTasks = listOf(photos))
+        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
+        advanceUntilIdle()
+
+        viewModel.chooseOutcome("d4", EveningOutcome.LATER)
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("r1", "d4"), listOf("r1")), tomorrowPuts)
+        assertEquals(EveningOutcome.LATER, viewModel.uiState.value.evening!!.outcomeOf("d4"))
+    }
+
+    @Test
+    fun `Demain beyond five is refused - the way out stays Plus tard`() = runTest {
+        val viewModel = openEvening(tomorrowTasks = listOf(form, call, bins, photos, books))
+
+        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(EveningOutcome.LATER, state.evening!!.outcomeOf("d4"))
+        assertFalse(state.evening!!.canGoTomorrow("d4"))
+        assertEquals("Demain a déjà 5 tâches.", state.message)
+        assertTrue(tomorrowPuts.isEmpty())
+    }
+
+    @Test
+    fun `a task already in tomorrow's five comes out Demain`() = runTest {
+        val viewModel = openEvening(tomorrowTasks = listOf(plants))
+
+        assertEquals(EveningOutcome.TOMORROW, viewModel.uiState.value.evening!!.outcomeOf("d4"))
+    }
+
+    @Test
+    fun `Mettre de côté clears the due day and takes the task out of today, Annuler puts both back`() = runTest {
+        val viewModel = openEvening()
+
+        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.setDueDate("d5", null) }
+        assertEquals(listOf(listOf("d1", "d4", "d2", "d3")), todayPuts)
+        var state = viewModel.uiState.value.evening!!
+        assertEquals(EveningOutcome.ASIDE, state.outcomeOf("d5"))
+        assertEquals(5, state.day.total)
+
+        viewModel.chooseOutcome("d5", EveningOutcome.LATER)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.setDueDate("d5", "2026-10-17") }
+        assertEquals(listOf("d1", "d4", "d2", "d5", "d3"), todayPuts.last())
+        state = viewModel.uiState.value.evening!!
+        assertEquals(EveningOutcome.LATER, state.outcomeOf("d5"))
+        assertEquals(listOf("d1", "d4", "d2", "d5", "d3"), state.todayIds)
+    }
+
+    @Test
+    fun `a gesture that fails keeps its way out and says so`() = runTest {
+        val viewModel = openEvening()
+        coEvery { taskRepository.setDueDate("d5", null) } returns Result.failure(IllegalStateException("offline"))
+
+        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(EveningOutcome.LATER, state.evening!!.outcomeOf("d5"))
+        assertFalse(state.evening!!.isSaving)
+        assertEquals("Impossible de modifier la tâche.", state.message)
+        assertTrue(todayPuts.isEmpty())
+    }
+
+    @Test
+    fun `what helped is ticked and unticked, and Bonne nuit records it in the list's order and closes`() = runTest {
+        val viewModel = openEvening()
+        coEvery { taskRepository.saveDayReview(today, any()) } returns
+            Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = "2026-10-15T19:10:00Z"))
+
+        viewModel.toggleHelped(DayReview.TIMER)
+        viewModel.toggleHelped(DayReview.START_SMALL)
+        viewModel.toggleHelped(DayReview.MORNING)
+        viewModel.toggleHelped(DayReview.MORNING)
+        assertEquals(setOf("timer", "start_small"), viewModel.uiState.value.evening!!.helped)
+
+        viewModel.goodNight()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.saveDayReview(today, listOf("start_small", "timer")) }
+        assertNull(viewModel.uiState.value.evening)
+        assertNotNull(viewModel.uiState.value.day)
+    }
+
+    @Test
+    fun `a Bonne nuit that fails keeps the review open and says so`() = runTest {
+        val viewModel = openEvening()
+        coEvery { taskRepository.saveDayReview(today, any()) } returns Result.failure(IllegalStateException("offline"))
+
+        viewModel.goodNight()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNotNull(state.evening)
+        assertFalse(state.evening!!.isSaving)
+        assertEquals("Impossible d'enregistrer le bilan.", state.message)
+    }
+
+    @Test
+    fun `Plus tard closes the evening without recording it, and it does not open again by itself`() = runTest {
+        val viewModel = openEvening()
+
+        viewModel.dismissEvening()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.evening)
+        coVerify(exactly = 0) { taskRepository.saveDayReview(any(), any()) }
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.evening)
+
+        viewModel.openEvening()
+        advanceUntilIdle()
+        assertNotNull("« Le soir » on the day opens it on demand", viewModel.uiState.value.evening)
+    }
+
+    @Test
+    fun `restoreAt puts a task back where it stood among those still there`() {
+        val original = listOf("a", "b", "c", "d", "e")
+        assertEquals(listOf("a", "b", "c", "d", "e"), restoreAt(listOf("a", "b", "d", "e"), "c", original))
+        assertEquals(listOf("a", "b"), restoreAt(listOf("b"), "a", original))
+        assertEquals(listOf("a", "d", "e"), restoreAt(listOf("a", "e"), "d", original))
+        assertEquals(listOf("a", "c"), restoreAt(listOf("a", "c"), "c", original))
     }
 }

@@ -9,12 +9,14 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayProposal
+import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.util.DateRanges
+import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -61,6 +63,8 @@ data class TasksUiState(
     val opened: Task? = null,
     /** « Ta journée » (MAG-498): the morning's proposal on screen instead of the day; `null` when closed. */
     val morning: MorningState? = null,
+    /** « Le soir » (MAG-500): the review on screen instead of the day; `null` when closed. */
+    val evening: EveningState? = null,
 ) {
     /** What the open tab draws has arrived: the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean get() = if (view == TaskView.TODAY) day != null else tasks.isNotEmpty()
@@ -78,6 +82,54 @@ data class MorningState(
     /** « C'est parti » is in flight. */
     val isConfirming: Boolean = false,
 )
+
+/** The three ways out of a task left at night, each one gesture (MAG-500). */
+enum class EveningOutcome(val label: String) {
+    /** Written in tomorrow's five, without settling that day: the morning keeps it. */
+    TOMORROW("Demain"),
+
+    /** Left in the reserve; it comes back « reportée ». */
+    LATER("Plus tard"),
+
+    /** No due day, out of today: it waits in « Un jour ». « Annuler » puts it back. */
+    ASIDE("Mettre de côté"),
+}
+
+/**
+ * The evening's review: [day] as it stood when the review opened — a task set aside leaves today,
+ * not the review. [todayIds] and [tomorrowIds] are the two days as written since; [tomorrowIds] is
+ * `null` while tomorrow is read.
+ */
+data class EveningState(
+    val day: DayPlan,
+    val todayIds: List<String> = day.taskIds,
+    val tomorrowIds: List<String>? = null,
+    val outcomes: Map<String, EveningOutcome> = emptyMap(),
+    val helped: Set<String> = emptySet(),
+    /** A gesture or « Bonne nuit » is in flight. */
+    val isSaving: Boolean = false,
+) {
+    val done: List<DayTask> get() = day.slots.map { it.task }.filter { it.isDone }
+
+    val left: List<DayTask> get() = day.slots.map { it.task }.filterNot { it.isDone }
+
+    fun outcomeOf(taskId: String): EveningOutcome = outcomes[taskId] ?: EveningOutcome.LATER
+
+    /** Tomorrow already holds five others: « Demain » is refused, the way out stays « Plus tard ». */
+    fun isTomorrowFull(taskId: String): Boolean =
+        tomorrowIds != null && tomorrowIds.size >= DayPlan.MAX_SLOTS && taskId !in tomorrowIds
+
+    /** « Demain » waits for tomorrow to be read, and is refused once it holds five others. */
+    fun canGoTomorrow(taskId: String): Boolean = tomorrowIds != null && !isTomorrowFull(taskId)
+}
+
+/** [ids] with [id] back where it stood in [original], after the last one before it still there. */
+internal fun restoreAt(ids: List<String>, id: String, original: List<String>): List<String> {
+    if (id in ids) return ids
+    val before = original.takeWhile { it != id }.lastOrNull { it in ids }
+    val at = before?.let { ids.indexOf(it) + 1 } ?: 0
+    return ids.take(at) + id + ids.drop(at)
+}
 
 /**
  * The tasks screen (MAG-408): one of four views at a time, read from `/api/tasks/view/{view}`.
@@ -104,9 +156,13 @@ class TasksViewModel(
     private var moreJob: Job? = null
     private var listenJob: Job? = null
     private var proposalJob: Job? = null
+    private var tomorrowJob: Job? = null
 
     /** The morning opens once per run of the app: leaving it unconfirmed does not bring it back. */
     private var morningOffered = false
+
+    /** So does the evening: « Plus tard » does not bring it back before the next run. */
+    private var eveningOffered = false
 
     /**
      * The screen came on: the list is read again, without blanking what is already there, and a
@@ -311,6 +367,132 @@ class TasksViewModel(
         return true
     }
 
+    /** « Le soir » on the day, or by itself after the evening time: the day as it stands, tomorrow read now. */
+    fun openEvening() {
+        val day = _uiState.value.day ?: return
+        if (_uiState.value.evening != null || day.total == 0) return
+        _uiState.update { it.copy(evening = EveningState(day = day), message = null) }
+        tomorrowJob?.cancel()
+        tomorrowJob = viewModelScope.launch {
+            taskRepository.getDayPlan(today().plusDays(1)).onSuccess { tomorrow ->
+                _uiState.update { s ->
+                    val evening = s.evening ?: return@update s
+                    // A task already in tomorrow's five comes out that way.
+                    val planned = tomorrow.taskIds.filter { id -> evening.left.any { it.id == id } }
+                    s.copy(
+                        evening = evening.copy(
+                            tomorrowIds = tomorrow.taskIds,
+                            outcomes = planned.associateWith { EveningOutcome.TOMORROW } + evening.outcomes,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * The way out of [taskId], written at once; the previous one is undone first, so a task is in one
+     * place at a time. « Demain » beyond five is refused and the task stays « Plus tard »; « Plus tard »
+     * after « Mettre de côté » is « Annuler »: the due day and the slot come back.
+     */
+    fun chooseOutcome(taskId: String, outcome: EveningOutcome) {
+        val evening = _uiState.value.evening ?: return
+        val task = evening.left.firstOrNull { it.id == taskId } ?: return
+        val previous = evening.outcomeOf(taskId)
+        if (evening.isSaving || outcome == previous) return
+        // Tomorrow is written whole: not before it was read, or its five would be lost.
+        val touchesTomorrow = outcome == EveningOutcome.TOMORROW || previous == EveningOutcome.TOMORROW
+        if (touchesTomorrow && evening.tomorrowIds == null) return
+        if (outcome == EveningOutcome.TOMORROW && evening.isTomorrowFull(taskId)) {
+            _uiState.update { it.copy(message = "Demain a déjà ${DayPlan.MAX_SLOTS} tâches.") }
+            return
+        }
+        _uiState.update { it.copy(evening = evening.copy(isSaving = true), message = null) }
+        viewModelScope.launch {
+            val today = today()
+            val tomorrow = today.plusDays(1)
+            var todayIds = evening.todayIds
+            // Only what this gesture wrote: tomorrow as read stays as it is otherwise.
+            var tomorrowIds: List<String>? = null
+            val written = runCatching {
+                if (previous == EveningOutcome.TOMORROW) {
+                    tomorrowIds = taskRepository.setDaySlots(tomorrow, evening.tomorrowIds.orEmpty() - taskId, confirm = false).getOrThrow().taskIds
+                }
+                if (previous == EveningOutcome.ASIDE) {
+                    taskRepository.setDueDate(taskId, task.dueDate).getOrThrow()
+                    todayIds = taskRepository.setDaySlots(today, restoreAt(todayIds, taskId, evening.day.taskIds)).getOrThrow().taskIds
+                }
+                if (outcome == EveningOutcome.TOMORROW) {
+                    val before = tomorrowIds ?: evening.tomorrowIds.orEmpty()
+                    tomorrowIds = taskRepository.setDaySlots(tomorrow, before - taskId + taskId, confirm = false).getOrThrow().taskIds
+                }
+                if (outcome == EveningOutcome.ASIDE) {
+                    taskRepository.setDueDate(taskId, null).getOrThrow()
+                    todayIds = taskRepository.setDaySlots(today, todayIds - taskId).getOrThrow().taskIds
+                }
+            }.rethrowCancellation()
+            _uiState.update { s ->
+                val current = s.evening ?: return@update s
+                val next = current.copy(todayIds = todayIds, tomorrowIds = tomorrowIds ?: current.tomorrowIds, isSaving = false)
+                if (written.isSuccess) {
+                    s.copy(evening = next.copy(outcomes = current.outcomes + (taskId to outcome)))
+                } else {
+                    s.copy(evening = next, message = "Impossible de modifier la tâche.")
+                }
+            }
+        }
+    }
+
+    /** « Qu'est-ce qui t'a aidé ? »: [value] ticked or unticked, recorded by « Bonne nuit ». */
+    fun toggleHelped(value: String) {
+        _uiState.update { s ->
+            val evening = s.evening ?: return@update s
+            val helped = if (value in evening.helped) evening.helped - value else evening.helped + value
+            s.copy(evening = evening.copy(helped = helped))
+        }
+    }
+
+    /** « Bonne nuit »: what helped is recorded, the review closes and does not open again today. */
+    fun goodNight() {
+        val evening = _uiState.value.evening ?: return
+        if (evening.isSaving) return
+        _uiState.update { it.copy(evening = evening.copy(isSaving = true), message = null) }
+        val helped = DayReview.HELPED.map { it.first }.filter { it in evening.helped }
+        viewModelScope.launch {
+            taskRepository.saveDayReview(today(), helped)
+                .onSuccess {
+                    _uiState.update { it.copy(evening = null) }
+                    reload()
+                }
+                .onFailure {
+                    _uiState.update { s -> s.copy(evening = s.evening?.copy(isSaving = false), message = "Impossible d'enregistrer le bilan.") }
+                }
+        }
+    }
+
+    /** « Plus tard »: the review closes without being recorded; what the gestures wrote stays. */
+    fun dismissEvening() {
+        if (_uiState.value.evening?.isSaving == true) return
+        tomorrowJob?.cancel()
+        _uiState.update { it.copy(evening = null) }
+        reload()
+    }
+
+    /**
+     * Whether the evening opens by itself: the first time the day is read after the evening time, on a
+     * day that holds tasks, while its review is not done. Nothing opens when the evening time or the
+     * review cannot be read.
+     */
+    private suspend fun eveningDue(day: DayPlan): Boolean {
+        if (eveningOffered || day.total == 0 || _uiState.value.evening != null) return false
+        val eveningTime = taskRepository.getEveningTime().getOrNull()?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+            ?: return false
+        if (now() < eveningTime) return false
+        if (taskRepository.getDayReview(today()).getOrNull()?.isDone != false) return false
+        eveningOffered = true
+        return true
+    }
+
     /** The day lists a shorter task: its detail needs the whole one, read before it opens. */
     fun openTask(id: String) {
         viewModelScope.launch {
@@ -373,9 +555,11 @@ class TasksViewModel(
         val counts = async { taskRepository.getTaskView(TaskView.TODAY) }
         taskRepository.getDayPlan(today())
             .onSuccess { day ->
-                val morning = morningDue(day)
+                // The evening first: past it, a day never confirmed is reviewed, not prepared.
+                val evening = eveningDue(day)
+                val morning = !evening && morningDue(day)
                 _uiState.update { it.copy(day = day, isLoading = false) }
-                if (morning) openMorning()
+                if (evening) openEvening() else if (morning) openMorning()
             }
             .onFailure { e -> failed(e, "Impossible de charger la journée.") }
         counts.await().onSuccess { response -> _uiState.update { it.copy(counts = response.counts) } }
