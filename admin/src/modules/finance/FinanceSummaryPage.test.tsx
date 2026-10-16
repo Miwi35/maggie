@@ -23,6 +23,7 @@ const ANSWERS: Record<string, Body> = {
     },
     independence: { hasPassiveIncomeCategories: true, isMeasurable: true, coveragePercent: 12.4 },
   },
+  '/api/finance/transactions/to-sort': { total: 3, transactions: [] },
   '/api/finance/monthly-review': { pendingCount: 4 },
   '/api/finance/recurring-operations/overview': {
     operations: [],
@@ -144,6 +145,7 @@ describe('FinanceSummaryPage', () => {
   test('Revue, Comptes, Budget and Planification read their own figures', async () => {
     stubApi()
     const { unmount } = renderPage('/finance/summary/review')
+    expect(await within(await block('to-sort')).findByText('3 transactions')).toBeInTheDocument()
     expect(await within(await block('monthly-review')).findByText('4 dépenses')).toBeInTheDocument()
     expect(await within(await block('recurring')).findByText('7 opérations actives')).toBeInTheDocument()
     expect(within(await block('rules')).getByRole('link', { name: 'Règles de catégorisation' })).toBeInTheDocument()
