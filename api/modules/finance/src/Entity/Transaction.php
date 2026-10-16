@@ -861,17 +861,23 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     public function setMyShareCents(?int $myShareCents): static
     {
         if (null !== $myShareCents) {
-            if (!$this->canBeShared()) {
-                throw new \DomainException('Only a spend can be shared: not an income, an internal transfer or a rejection.');
-            }
-            if ($myShareCents < 0 || $myShareCents >= abs($this->amountCents)) {
-                throw new \DomainException(sprintf('myShareCents must be between 0 and %d.', abs($this->amountCents) - 1));
-            }
+            $this->assertCanKeep($myShareCents);
         }
 
         $this->myShareCents = $myShareCents;
 
         return $this;
+    }
+
+    /** @throws \DomainException when the line is not a spend, or the part not below its amount */
+    public function assertCanKeep(int $myShareCents): void
+    {
+        if (!$this->canBeShared()) {
+            throw new \DomainException('Only a spend can be shared: not an income, an internal transfer or a rejection.');
+        }
+        if ($myShareCents < 0 || $myShareCents >= abs($this->amountCents)) {
+            throw new \DomainException(sprintf('myShareCents must be between 0 and %d.', abs($this->amountCents) - 1));
+        }
     }
 
     /** A spend that is neither a transfer between the owner's accounts nor a rejection. Not serialized. */

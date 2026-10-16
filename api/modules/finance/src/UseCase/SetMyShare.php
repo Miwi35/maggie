@@ -35,7 +35,8 @@ class SetMyShare
      */
     public function execute(Transaction $transaction, int $myShareCents, array $shares, ?string $object, ?string $notes): PeerDebt
     {
-        $transaction->setMyShareCents($myShareCents);
+        // Everything is checked before anything is written: a part never stands without its créance.
+        $transaction->assertCanKeep($myShareCents);
         $owedCents = abs($transaction->getAmountCents()) - $myShareCents;
 
         if (null !== $notes && mb_strlen($notes) > PeerDebt::NOTES_MAX_LENGTH) {
@@ -69,6 +70,7 @@ class SetMyShare
         ));
         $debt->setObject(null === $object || '' === trim($object) ? $transaction->getLabel() : $object);
         $debt->setNotes($notes);
+        $transaction->setMyShareCents($myShareCents);
 
         $this->em->flush();
 

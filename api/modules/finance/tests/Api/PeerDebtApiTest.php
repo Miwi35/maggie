@@ -361,6 +361,53 @@ class PeerDebtApiTest extends WebTestCase
         self::assertSame(-9000, $this->transaction('dinner')->getAmountCents());
     }
 
+    public function testASharedSpendCannotBecomeAnInternalTransfer(): void
+    {
+        $this->login();
+
+        $this->call('PUT', '/api/finance/transactions/'.$this->id('dinner').'/transfer', ['transferKind' => 'internal']);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('none', $this->transaction('dinner')->getTransferKind()->value);
+        self::assertSame(3000, $this->transaction('dinner')->getMyShareCents());
+    }
+
+    public function testDeletingASharedSpendForgetsItsDebt(): void
+    {
+        $this->login();
+        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $debtId = (string) $this->debtOf('gite')?->getId();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->call('DELETE', '/api/transactions/'.$this->id('gite'));
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertNull($this->em()->find(PeerDebt::class, $debtId));
+        self::assertCount(0, $this->em()->getRepository(PeerDebtShare::class)->findBy(['peerDebt' => $debtId]));
+        $this->assertMercureDeletePublished('/api/peer_debts/'.$debtId);
+        $this->assertElasticsearchDeleteDispatched('peer_debts');
+    }
+
+    public function testDeletingASpendSomeoneStartedToRepayKeepsItsDebt(): void
+    {
+        $this->login();
+        $debtId = (string) $this->debtOf('dinner')?->getId();
+
+        $this->call('DELETE', '/api/transactions/'.$this->id('dinner'));
+
+        self::assertResponseStatusCodeSame(204);
+        $debt = $this->em()->find(PeerDebt::class, $debtId);
+        self::assertNotNull($debt);
+        self::assertNull($debt->getOriginTransactionId());
+        self::assertSame(5000, $debt->getRemainingCents());
+        $this->assertMercureUpdatePublished('/peer_debts/'.$debtId);
+
+        // Tom still owes it: he cannot be deleted.
+        $this->call('DELETE', '/api/contacts/'.$this->id('tom'));
+        self::assertResponseStatusCodeSame(400);
+    }
+
     public function testAContactWithAShareCannotBeDeleted(): void
     {
         $this->login();
