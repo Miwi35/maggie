@@ -98,11 +98,13 @@ tags:
 - tapOn:
     id: "finance_block_cushion"
 
+# The summary's block is gone: the cushion screen is on top of it.
 - extendedWaitUntil:
-    visible: "Matelas"
+    notVisible:
+      id: "finance_block_cushion"
     timeout: 20000
 
-# Back goes to the Trésorerie page it was opened from, and a menu tab from there to the Dashboard.
+# Back goes to the Trésorerie page it was opened from.
 - pressKey: back
 
 - extendedWaitUntil:
