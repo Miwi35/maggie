@@ -762,6 +762,22 @@
         },
         "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself. Pass agendas (a list of agenda names as the user says them — case, accents and approximations do not matter — or ids) whenever the user asked to be told only about some agendas (« ne me parle que de Défaut et Garde Ael », a rule to apply to every read from then on): only their events come back, and a name matching no agenda returns an error listing the user's agendas and no events at all. Omit it to read every agenda. Each event carries the name of its agenda (agenda) and its times in its own time zone (timeZone): announce those. To find an event by its name — before deleting or moving it, or before saying it does not exist — pass query, the distinctive word(s) of its title (case, accents and typos do not matter), and no days: the search then covers the next year, not a week; a recurring series comes back once, as its master event (id, rrule, first coming occurrence in startAt). Never conclude that an event does not exist from a short window; pass that id to update_event or delete_event."
     },
+    "get_upcoming_projection": {
+        "name": "get_upcoming_projection",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read what is coming (\"qu'est-ce qui arrive la semaine prochaine ?\", \"que me restera-t-il le mois prochain ?\"): the week after this one (Monday to Sunday) and the month after this one, projected from what is entered. date is optional, a day as YYYY-MM-DD (today by default): the week and the month are the ones after it. Nothing is extrapolated: only the occurrences the owner's confirmed recurring series still expect that no line is attached to, and the planned and committed movements on the open checking accounts; transfers between accounts are left out. week and month each give from and until (until is excluded), incomeCents (the expected income, the salary included when it is a confirmed series), expenseCents, netCents, incomes[] and expenses[] ({date, label, amountCents signed, source recurring, planned or committed, categoryId, categoryName}) and days[] ({date, incomeCents, expenseCents}) for a chart. month adds the envelopes as adjusted for that month: envelopes[] ({envelopeId, categoryId, categoryName, categoryPath, amountCents, committedCents, projectedCents, isOvercommitted}) for the top-level monthly envelopes — amountCents is the amount written for the month (its own envelope, else the month under way rolled over; a suggestion from envelope_adjustments that was not applied weighs nothing), committedCents what recurring and planned expenses already fill in its categories, projectedCents the greater of the two. envelopesCents is their sum, unbudgetedCents the commitments outside every envelope, projectedExpenseCents the two together and remainingCents the expected income less that spending: what is left to put toward the projects, negative when the month is short — say so, and name isOvercommitted envelopes. Annual and one-off envelopes are not part of a month. Project tracking is not here yet. Amounts are integer cents, divide by 100 to speak them. A pure read."
+    },
     "get_user_timezone": {
         "name": "get_user_timezone",
         "inputSchema": {

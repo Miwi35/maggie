@@ -1,0 +1,88 @@
+# The world of the « À venir » projection (MAG-463), read on Friday 2026-10-16:
+# the week after is 2026-10-19 → 2026-10-25, the month after is November 2026.
+# Series and lines are written by the tests, on fixed dates.
+#
+#  - November envelopes: Courses 400 €, Logement 800 € (the rent is 900 €: overcommitted).
+#  - Loisirs has an October envelope of 200 € and none for November: it rolls over.
+#  - Assurance has no envelope at all.
+Maggie\Core\Entity\User:
+  test_user:
+    email: upcoming-projection@example.com
+    googleId: google-upcoming-projection
+    name: Upcoming Projection User
+  other_user:
+    email: upcoming-projection-other@example.com
+    googleId: google-upcoming-projection-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  insurance:
+    name: Assurance
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  other_housing:
+    name: Logement de l'autre
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  envelope (template):
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    currency: EUR
+    user: '@test_user'
+
+  groceries_nov (extends envelope):
+    category: '@groceries'
+    amountCents: 40000
+    year: 2026
+    month: 11
+
+  housing_nov (extends envelope):
+    category: '@housing'
+    amountCents: 80000
+    year: 2026
+    month: 11
+
+  leisure_oct (extends envelope):
+    category: '@leisure'
+    amountCents: 20000
+    year: 2026
+    month: 10
+
+  groceries_oct (extends envelope):
+    category: '@groceries'
+    amountCents: 38000
+    year: 2026
+    month: 10
