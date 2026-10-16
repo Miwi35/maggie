@@ -38,6 +38,18 @@ export class TasksPage extends AdminShell {
   readonly later: Locator
   /** « Changer », on the day: the proposal on demand. */
   readonly change: Locator
+  /** « Le soir » (MAG-500): the review, which replaces the day after the evening time until « Bonne nuit ». */
+  readonly evening: Locator
+  /** What is done, listed first. */
+  readonly eveningDone: Locator
+  /** Each task left, with its three ways out. */
+  readonly eveningLeft: Locator
+  /** « Bonne nuit »: records what helped and closes. */
+  readonly goodNight: Locator
+  /** « Plus tard »: closes the review without recording it. */
+  readonly eveningLater: Locator
+  /** « Le soir », on the day: the review on demand. */
+  readonly openEveningButton: Locator
 
   constructor(page: Page) {
     super(page)
@@ -55,27 +67,46 @@ export class TasksPage extends AdminShell {
     this.go = this.morning.getByRole('button', { name: "C'est parti" })
     this.later = this.morning.getByRole('button', { name: 'Plus tard' })
     this.change = this.content.getByRole('button', { name: 'Changer', exact: true })
+    this.evening = this.content.getByRole('region', { name: 'Le soir' })
+    this.eveningDone = this.evening.getByRole('list', { name: 'Fait' })
+    this.eveningLeft = this.evening.getByRole('list', { name: 'Reste' })
+    this.goodNight = this.evening.getByRole('button', { name: 'Bonne nuit', exact: true })
+    this.eveningLater = this.evening.getByRole('button', { name: 'Plus tard', exact: true })
+    this.openEveningButton = this.content.getByRole('button', { name: 'Le soir', exact: true })
   }
 
   /**
-   * The page on « Aujourd'hui », the day shown. The morning (MAG-498) is offered once per load
-   * while the day is unconfirmed and replaces the day: a journey about the day puts it off.
+   * The page on « Aujourd'hui », the day shown. The morning (MAG-498) and the evening (MAG-500) are
+   * offered once per load and replace the day: a journey about the day puts them off.
    */
   async open(): Promise<void> {
     await this.openMorning()
     if (await this.later.isVisible()) {
       await this.later.click()
     }
+    if (await this.eveningLater.isVisible()) {
+      await this.eveningLater.click()
+    }
     await expect(this.dayCreate).toBeVisible()
   }
 
-  /** The page once « Ta journée » or the day is on screen — whichever the state of the day calls for. */
+  /** The page once « Ta journée », « Le soir » or the day is on screen — whichever the hour and the day call for. */
   async openMorning(): Promise<void> {
     await this.goto(ROUTES.tasks)
     await expect(this.heading).toBeVisible()
     // The counts come with the first answer: the tabs are not final before.
     await expect(this.tab("Aujourd'hui")).toHaveText(/\(\d+\)/)
-    await expect(this.later.or(this.dayCreate)).toBeVisible()
+    await expect(this.later.or(this.eveningLater).or(this.dayCreate)).toBeVisible()
+  }
+
+  /** The row of `title` among the tasks left in the evening. */
+  leftRow(title: string): Locator {
+    return this.eveningLeft.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
+  }
+
+  /** The way out of `title` in the evening: « Demain », « Plus tard » or « Mettre de côté ». */
+  outcome(title: string, label: 'Demain' | 'Plus tard' | 'Mettre de côté'): Locator {
+    return this.leftRow(title).getByRole('button', { name: `${title} : ${label}`, exact: true })
   }
 
   /** The row of `title` in the proposal. */

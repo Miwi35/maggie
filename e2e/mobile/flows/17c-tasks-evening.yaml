@@ -1,0 +1,119 @@
+appId: com.maggie.app.e2e
+name: 17c-tasks-evening
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/day-review-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-other@maggie.local
+---
+# « Le soir » (MAG-500), extending MAG-100: the review of the day, then « Bonne nuit ».
+#
+# Given today's day holding five tasks of the journey's own, three of them done, and the evening
+# time moved to 00:00 (`scripts/day-review-api.js`), when Tâches opens, then the review comes
+# before the day — what is done first, then the two left; when « Commencer petit » is ticked and
+# « Bonne nuit » tapped, then the review is recorded (the script reads it back) and, the app
+# started again, it does not open again.
+#
+# There is no undoing « Bonne nuit »: a retry on the same stack meets today's review done
+# (`output.reviewed`) and only checks that it does not open. The three ways out of a task left
+# are `TasksViewModelTest`'s and `TasksEveningScreenTest`'s, and the web journey's
+# (`agenda-tasks.spec.ts`). It signs in as the seed's second user, like `17b-tasks-day`.
+
+- runScript:
+    file: ../scripts/day-review-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17c-tasks-evening.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+- runFlow:
+    when:
+      true: ${output.reviewed == false}
+    commands:
+      # The review, before the day: « 3 sur 5 », what is done, then what is left.
+      - extendedWaitUntil:
+          visible:
+            id: "tasks_evening"
+          timeout: 30000
+      - assertVisible:
+          id: "tasks_ring"
+      - assertVisible: ".*3 sur 5.*"
+      - assertVisible:
+          id: "tasks_evening_done"
+      - assertVisible: ".*Soir 1 MAG-500.*"
+      - assertVisible:
+          text: ".*Soir 4 MAG-500.*"
+          below:
+            id: "tasks_evening_done"
+
+      # « Commencer petit », then « Bonne nuit »: the review closes on the day.
+      - scrollUntilVisible:
+          element:
+            id: "tasks_evening_helped_start_small"
+          timeout: 20000
+      - tapOn:
+          id: "tasks_evening_helped_start_small"
+      - scrollUntilVisible:
+          element:
+            id: "tasks_evening_good_night"
+          timeout: 20000
+      - tapOn:
+          id: "tasks_evening_good_night"
+      - extendedWaitUntil:
+          notVisible:
+            id: "tasks_evening"
+          timeout: 30000
+      - extendedWaitUntil:
+          visible:
+            id: "tasks_now"
+          timeout: 30000
+      - runScript:
+          file: ../scripts/day-review-api.js
+          env:
+            ACTION: expect-reviewed
+            TODAY: ${TODAY}
+            EMAIL: e2e-other@maggie.local
+
+# Started again, the app does not open the review once « Bonne nuit » was said.
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/17c-tasks-evening.yaml
+      e2e_email: e2e-other@maggie.local
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 30000
+- assertNotVisible:
+    id: "tasks_evening"
