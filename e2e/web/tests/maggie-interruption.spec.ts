@@ -178,6 +178,37 @@ test('a task alert « Dans 3 j » interrupts, and « Voir la tâche » opens the
   await expect(page).toHaveURL(/\/tasks\//)
 })
 
+test('touching a task alert in the bell opens the task screen, not a missing page (MAG-410 recette)', async ({
+  interruptedUser,
+}) => {
+  const { page, api } = interruptedUser
+  const title = `Dans 3 j : Appeler le garage ${test.info().retry}`
+  const bell = new NotificationBell(page)
+  await openSubscribed(page, () => bell.goto('/'))
+
+  expect(
+    (
+      await callMcpTool(api, 'manage_notifications', {
+        action: 'create',
+        type: 'task_due',
+        title,
+        relatedEntityIri: '/api/tasks/e2e-task-due-bell',
+      })
+    ).error,
+  ).toBeUndefined()
+
+  const interruption = page.getByRole('alertdialog').filter({ hasText: title })
+  await expect(interruption).toBeVisible({ timeout: 5_000 })
+  await interruption.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(interruption).toBeHidden()
+
+  await bell.open()
+  await bell.item(title).click()
+
+  await expect(page).toHaveURL(/#\/tasks\/.+\/show/)
+  await expect(page).not.toHaveURL(/#\/api\//)
+})
+
 test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)

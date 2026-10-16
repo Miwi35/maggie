@@ -13,13 +13,14 @@ import { NotificationBell } from './NotificationBell'
 const refetch = vi.fn()
 const update = vi.fn()
 const remove = vi.fn()
+const redirect = vi.fn()
 let listed: unknown[] = []
 let onMercure: (data?: string) => void = () => {}
 
 vi.mock('react-admin', () => ({
   useGetList: () => ({ data: listed, refetch }),
   useDataProvider: () => ({ update, delete: remove }),
-  useRedirect: () => vi.fn(),
+  useRedirect: () => redirect,
 }))
 
 vi.mock('../../hooks/useMercure', () => ({
@@ -61,6 +62,7 @@ describe('NotificationBell — live updates from Mercure', () => {
     refetch.mockReset()
     update.mockReset()
     remove.mockReset()
+    redirect.mockReset()
     listed = [dentist]
   })
 
@@ -158,6 +160,38 @@ describe('NotificationBell — live updates from Mercure', () => {
     expect(update).toHaveBeenCalledOnce()
     expect(unread()).toBe('')
     expect(refetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('NotificationBell — opening what a notification is about', () => {
+  beforeEach(() => {
+    refetch.mockReset()
+    update.mockReset()
+    redirect.mockReset()
+  })
+
+  test.each([
+    ['a task due', 'Dans 3 j : Appeler le garage', '/api/tasks/01K0TASK', '/tasks/%2Fapi%2Ftasks%2F01K0TASK/show'],
+    ['a budget alert', 'Enveloppe dépassée', '/finance/budgets', '/envelopes'],
+  ])('%s opens the admin screen of its IRI, not the raw API path', async (_, title, relatedEntityIri, path) => {
+    const read = { ...dentist, title, relatedEntityIri, readAt: '2026-10-07T10:05:00+00:00' }
+    listed = [read]
+    render(<NotificationBell />)
+
+    await openBell()
+    await userEvent.click(screen.getByText(title))
+
+    expect(redirect).toHaveBeenCalledExactlyOnceWith(path)
+  })
+
+  test('a notification with no IRI opens nothing', async () => {
+    listed = [{ ...dentist, readAt: '2026-10-07T10:05:00+00:00' }]
+    render(<NotificationBell />)
+
+    await openBell()
+    await userEvent.click(screen.getByText('Dentiste demain'))
+
+    expect(redirect).not.toHaveBeenCalled()
   })
 })
 
