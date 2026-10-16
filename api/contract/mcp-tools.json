@@ -441,7 +441,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "End shopping errand. Removes all checked (bought) items, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
+        "description": "End shopping errand. Archives all checked (bought) items as past errands, one per store (errands: id, storeName, itemCount; read them back with list_past_errands), and removes them from the list, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
     },
     "generate_grocery_list": {
         "name": "generate_grocery_list",
@@ -725,6 +725,26 @@
             }
         },
         "description": "Daily weather forecast from Open-Meteo: min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather."
+    },
+    "list_past_errands": {
+        "name": "list_past_errands",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "store": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 5
+                }
+            }
+        },
+        "description": "Past errands (« courses passées »), most recent first: what the user bought, where and when — e.g. « qu'est-ce que j'ai acheté la dernière fois chez Carrefour ? » is store=\"Carrefour\", limit=1. Each errand is one store (storeName, null when the lines had none), endedAt (ISO 8601) and its items: label, quantity, unit, product (IRI, null for a free-text line) and the packaging the product had then (packagingUnit, packagingSize, packagingSizeUnit, null when unknown). store matches the store name in part, case-insensitively; limit is 1 to 20 (5 by default). An errand is archived by end_errand."
     },
     "list_proactions": {
         "name": "list_proactions",

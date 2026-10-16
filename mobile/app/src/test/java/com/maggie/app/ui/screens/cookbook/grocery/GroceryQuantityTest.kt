@@ -5,6 +5,7 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.Need
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.PurchasedItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -101,5 +102,30 @@ class GroceryQuantityTest {
         assertEquals("800 g pour les repas", packaged.neededReminder())
         assertNull(packaged.copy(needed = null).neededReminder())
         assertNull(packaged.copy(needed = emptyList()).neededReminder())
+    }
+
+    @Test
+    fun `a past errand's packaged line reads in packagings, with what one holds`() {
+        val rice = PurchasedItem(
+            label = "Riz",
+            quantity = 2f,
+            unit = CookbookUnit.PACK,
+            packagingUnit = CookbookUnit.PACK,
+            packagingSize = 500f,
+            packagingSizeUnit = CookbookUnit.G,
+        )
+
+        assertEquals("2 paquets · paquet de 500 g", rice.quantityLabel())
+        assertEquals("1 paquet · paquet de 500 g", rice.copy(quantity = 1f).quantityLabel())
+        // No size: « 2 paquets · paquet » would say the same thing twice.
+        assertEquals("2 paquets", rice.copy(packagingSize = null).quantityLabel())
+    }
+
+    @Test
+    fun `a past errand's loose line reads in its own unit, or not at all without a quantity`() {
+        assertEquals("3 pièces", PurchasedItem(label = "Citrons", quantity = 3f, unit = CookbookUnit.PIECE).quantityLabel())
+        assertEquals("1,5 kg", PurchasedItem(label = "Pommes", quantity = 1.5f, unit = CookbookUnit.KG).quantityLabel())
+        assertEquals("2", PurchasedItem(label = "Sacs", quantity = 2f).quantityLabel())
+        assertNull(PurchasedItem(label = "Sacs").quantityLabel())
     }
 }

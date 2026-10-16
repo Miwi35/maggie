@@ -22,6 +22,7 @@ export const ROUTES = {
   tasks: '/tasks',
   events: '/events',
   grocery: '/grocery',
+  pastErrands: '/errands',
   products: '/products',
   recipes: '/recipes',
   meals: '/meals',

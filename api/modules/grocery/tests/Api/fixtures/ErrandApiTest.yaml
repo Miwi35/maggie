@@ -1,0 +1,23 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: errand-api-test@example.com
+    googleId: google-errand-api-test
+    name: Errand Api Test User
+  other_user:
+    email: errand-api-other@example.com
+    googleId: google-errand-api-other
+    name: Errand Api Other User
+
+Maggie\Grocery\Entity\Store:
+  store_lidl:
+    name: Lidl
+    visitOrder: 1
+    user: '@test_user'
+  store_carrefour:
+    name: Carrefour
+    visitOrder: 2
+    user: '@test_user'
+  other_store:
+    name: Monoprix
+    visitOrder: 1
+    user: '@other_user'

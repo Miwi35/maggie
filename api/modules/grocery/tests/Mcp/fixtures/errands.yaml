@@ -1,0 +1,39 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: errand-tools-test@example.com
+    googleId: google-errand-tools-test
+    name: Errand Tools Test User
+  other_user:
+    email: errand-tools-other@example.com
+    googleId: google-errand-tools-other
+    name: Errand Tools Other User
+
+Maggie\Grocery\Entity\Store:
+  carrefour:
+    name: Carrefour Market
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_milk:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 1
+  item_bread:
+    groceryList: '@grocery_list'
+    customLabel: Pain
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 2

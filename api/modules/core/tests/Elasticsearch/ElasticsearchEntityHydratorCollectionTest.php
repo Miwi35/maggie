@@ -13,7 +13,10 @@ use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
+use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\PurchasedItem;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -171,5 +174,34 @@ class ElasticsearchEntityHydratorCollectionTest extends KernelTestCase
 
         self::assertInstanceOf(Meal::class, $hydrated);
         self::assertSame($expected, $this->ids($hydrated->getRecipes()));
+    }
+
+    /**
+     * The mapping's `OrderBy` holds on the Elasticsearch path too: a past
+     * errand's lines come back in their order, not in the database's (MAG-488).
+     */
+    public function testAnOrderedCollectionComesBackInItsMappedOrder(): void
+    {
+        $em = $this->em();
+        $user = $em->getRepository(User::class)->findOneBy([]);
+        self::assertNotNull($user);
+        $errand = (new Errand())->setUser($user);
+        foreach (['Ail', 'Beurre', 'Café'] as $label) {
+            $errand->addItem(PurchasedItem::of($label, 1, null));
+        }
+        // Written in one order, ranked in the other.
+        foreach ($errand->getItems() as $index => $item) {
+            $item->setPosition(2 - $index);
+        }
+        $em->persist($errand);
+        $em->flush();
+
+        $hydrated = $this->hydrate($errand);
+
+        self::assertInstanceOf(Errand::class, $hydrated);
+        self::assertSame(
+            ['Café', 'Beurre', 'Ail'],
+            array_map(static fn (PurchasedItem $item): string => $item->getLabel(), $hydrated->getItems()->toArray()),
+        );
     }
 }

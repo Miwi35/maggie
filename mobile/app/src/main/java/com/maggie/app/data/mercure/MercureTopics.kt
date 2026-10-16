@@ -45,6 +45,7 @@ object MercureTopics {
     const val AGENDAS = "agendas"
     const val CATEGORIES = "categories"
     const val DAY_PLANS = "day_plans"
+    const val ERRANDS = "errands"
     const val EVENTS = "events"
     const val GROCERY_LISTS = "grocery_lists"
     const val MEALS = "meals"
@@ -68,6 +69,7 @@ object MercureTopics {
         AGENDAS,
         CATEGORIES,
         DAY_PLANS,
+        ERRANDS,
         EVENTS,
         GROCERY_LISTS,
         MEALS,

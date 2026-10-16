@@ -56,12 +56,14 @@ import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.SearchRepository
+import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
@@ -264,6 +266,7 @@ class MaggieApp : Application() {
             single { ProductRepository(get()) }
             single { StoreRepository(get()) }
             single { RecurringGroceryRepository(get()) }
+            single { ErrandRepository(get()) }
             single { AccountRepository(get()) }
             single { CategoryRepository(get()) }
             single { BudgetRepository(get()) }
@@ -324,6 +327,7 @@ class MaggieApp : Application() {
             viewModel { GroceryViewModel(get(), get(), get(), get(), get()) }
             viewModel { ProductViewModel(get(), get()) }
             viewModel { RecurringGroceryViewModel(get(), get(), get()) }
+            viewModel { PastErrandsViewModel(get(), get(), get()) }
             viewModel { StoreViewModel(get()) }
             viewModel { AccountViewModel(get()) }
             viewModel { CategoryViewModel(get(), get(), get()) }

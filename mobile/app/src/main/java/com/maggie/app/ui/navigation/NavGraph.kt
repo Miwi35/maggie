@@ -86,6 +86,8 @@ import com.maggie.app.ui.screens.cookbook.CookbookScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.ItemDetailContent
+import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsScreen
+import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountViewModel
@@ -200,6 +202,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Grocery : Screen("grocery", "Courses")
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
+    data object PastErrands : Screen("past_errands", "Courses passées")
     data object AccountList : Screen("accounts", "Comptes")
     data object CategoryList : Screen("categories", "Catégories")
     data object BudgetList : Screen("budgets", "Budgets")
@@ -1148,6 +1151,9 @@ fun NavGraph() {
                                     onNavigateToStores = {
                                         navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
                                     },
+                                    onNavigateToPastErrands = {
+                                        navController.navigate(Screen.PastErrands.route) { launchSingleTop = true }
+                                    },
                                     onOpenItemInPane = if (paneShown) {
                                         { groceryPaneItemId = it.id }
                                     } else {
@@ -1194,6 +1200,13 @@ fun NavGraph() {
                     val storeViewModel: StoreViewModel = koinViewModel()
                     StoreListScreen(
                         viewModel = storeViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.PastErrands.route) {
+                    val pastErrandsViewModel: PastErrandsViewModel = koinViewModel()
+                    PastErrandsScreen(
+                        viewModel = pastErrandsViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

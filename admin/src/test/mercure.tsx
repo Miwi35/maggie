@@ -36,7 +36,10 @@ export function renderLiveList(
   listed: unknown[],
   route?: { path: string; entry: string },
 ) {
-  const getList = vi.fn(() => Promise.resolve({ data: listed, total: listed.length }))
+  // Another resource the screen reads on the way (the stores of a filter) is empty.
+  const getList = vi.fn((read: string) =>
+    Promise.resolve(read === resource ? { data: listed, total: listed.length } : { data: [], total: 0 }),
+  )
   const dataProvider = testDataProvider({
     getList: getList as unknown as DataProvider['getList'],
     getOne: (() => Promise.resolve({ data: { id: 'stub' } })) as unknown as DataProvider['getOne'],
@@ -63,6 +66,10 @@ export function renderLiveList(
 
   return { getList }
 }
+
+/** The reads of `resource` only: a screen may read another one for a filter. */
+const readsOf = (getList: ReturnType<typeof renderLiveList>['getList'], resource: string) =>
+  getList.mock.calls.filter(([read]) => read === resource)
 
 export interface LiveListSpec {
   name: string
@@ -101,7 +108,7 @@ export function liveListSuite(spec: LiveListSpec) {
 
       expect(screen.getByText(spec.created.text)).toBeInTheDocument()
       expect(screen.getByText(spec.listedText)).toBeInTheDocument()
-      expect(getList).toHaveBeenCalledTimes(1)
+      expect(readsOf(getList, spec.resource)).toHaveLength(1)
     })
 
     test('an updated row changes in place', async () => {
@@ -112,7 +119,7 @@ export function liveListSuite(spec: LiveListSpec) {
 
       expect(screen.getByText(spec.updated.text)).toBeInTheDocument()
       expect(screen.queryByText(spec.listedText)).not.toBeInTheDocument()
-      expect(getList).toHaveBeenCalledTimes(1)
+      expect(readsOf(getList, spec.resource)).toHaveLength(1)
     })
 
     test('a deleted row disappears', async () => {
@@ -122,14 +129,14 @@ export function liveListSuite(spec: LiveListSpec) {
       await emitMercure(spec.topic, { '@id': spec.listed.id, deleted: true })
 
       expect(screen.queryByText(spec.listedText)).not.toBeInTheDocument()
-      expect(getList).toHaveBeenCalledTimes(1)
+      expect(readsOf(getList, spec.resource)).toHaveLength(1)
     })
 
     test('a row created on an empty list replaces the empty page', async () => {
       const { getList } = renderLiveList(spec.screen(), spec.resource, [], spec.route)
-      await waitFor(() => expect(getList).toHaveBeenCalled())
+      await waitFor(() => expect(readsOf(getList, spec.resource)).toHaveLength(1))
       await act(async () => {
-        await getList.mock.results[0].value
+        await Promise.all(getList.mock.results.map((result) => result.value))
       })
 
       await emitMercure(spec.topic, {
@@ -138,7 +145,7 @@ export function liveListSuite(spec: LiveListSpec) {
       })
 
       expect(await screen.findByText(spec.created.text)).toBeInTheDocument()
-      expect(getList).toHaveBeenCalledTimes(1)
+      expect(readsOf(getList, spec.resource)).toHaveLength(1)
     })
   })
 }

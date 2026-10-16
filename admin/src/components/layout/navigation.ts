@@ -47,6 +47,7 @@ export const NAVIGATION: NavModule[] = [
     parts: [
       resourcePart('Produits', 'products'),
       resourcePart('Magasins', 'stores'),
+      resourcePart('Courses passées', 'errands'),
     ],
   },
   {

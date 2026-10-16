@@ -331,6 +331,63 @@ class MaggieApiServiceTest {
         assertEquals(listOf("Riz"), response.restockedProducts.map { it.name })
     }
 
+    private fun errandClient(body: String, seen: MutableList<io.ktor.client.request.HttpRequestData>) = HttpClient(
+        MockEngine { request ->
+            seen += request
+            respond(
+                content = ByteReadChannel(body),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/ld+json"),
+            )
+        },
+    ) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+    }
+
+    /** « Courses passées » (MAG-488): a page of the history, never the whole of it, and the lines as bought. */
+    @Test
+    fun `getErrands asks for one page and reads the errands, their total and their lines`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"member":[{"@id":"/api/errands/e1","id":"e1","store":"/api/stores/s1","storeName":"Lidl",
+               "endedAt":"2026-10-02T18:00:00+02:00","itemCount":1,"items":[{"id":"pi-1","product":"/api/products/p1",
+               "label":"Riz","quantity":2,"unit":"pack","packagingUnit":"pack","packagingSize":500,"packagingSizeUnit":"g"}]}],
+               "totalItems":31}""",
+            seen,
+        )
+
+        val page = MaggieApiService(client).getErrands(page = 2)
+
+        val request = seen.single()
+        assertEquals("/api/errands", request.url.encodedPath)
+        assertEquals("2", request.url.parameters["page"])
+        assertNull("the history is paged, not read whole", request.url.parameters["pagination"])
+        assertTrue(request.headers.getAll(HttpHeaders.Accept).orEmpty().joinToString().contains("application/ld+json"))
+        assertEquals(31, page.totalItems)
+        val errand = page.member.single()
+        assertEquals("e1", errand.id)
+        assertEquals("Lidl", errand.storeName)
+        assertEquals(1, errand.itemCount)
+        val item = errand.items.single()
+        assertEquals(com.maggie.app.data.model.CookbookUnit.PACK, item.packagingUnit)
+        assertEquals(500f, item.packagingSize)
+        assertEquals(com.maggie.app.data.model.CookbookUnit.G, item.packagingSizeUnit)
+    }
+
+    @Test
+    fun `getErrand reads one errand by its id`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"@id":"/api/errands/e1","id":"e1","storeName":null,"endedAt":"2026-10-02T18:00:00+02:00","itemCount":0,"items":[]}""",
+            seen,
+        )
+
+        val errand = MaggieApiService(client).getErrand("e1")
+
+        assertEquals("/api/errands/e1", seen.single().url.encodedPath)
+        assertNull(errand.storeName)
+    }
+
     private fun approvalClient(
         status: HttpStatusCode = HttpStatusCode.OK,
         body: String,

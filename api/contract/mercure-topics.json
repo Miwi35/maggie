@@ -6,6 +6,7 @@
     "Category": "/users/{userId}/api/categories/{id}",
     "DayPlan": "/users/{userId}/api/day_plans/{id}",
     "Envelope": "/users/{userId}/api/envelopes/{id}",
+    "Errand": "/users/{userId}/api/errands/{id}",
     "Event": "/users/{userId}/api/events/{id}",
     "GroceryList": "/users/{userId}/api/grocery_lists/{id}",
     "Ingredient": "/users/{userId}/api/ingredients/{id}",

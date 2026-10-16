@@ -29,6 +29,7 @@ MCP_TOOL_NAMES = (
     "get_tasks",
     "get_upcoming_events",
     "get_user_timezone",
+    "list_past_errands",
     "manage_accounts",
     "manage_agendas",
     "manage_categories",

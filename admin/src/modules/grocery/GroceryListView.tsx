@@ -660,7 +660,8 @@ export const GroceryListView = () => {
     if (!groceryList) return
     try {
       const token = localStorage.getItem('token')
-      // One call: the API deletes the ticked lines and puts their products back in stock.
+      // One call: the API archives the ticked lines in « Courses passées », takes them off
+      // the list and puts their products back in stock.
       const response = await fetch(`${entrypoint}/grocery/end-errand`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

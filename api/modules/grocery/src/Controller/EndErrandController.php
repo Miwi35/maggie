@@ -97,6 +97,11 @@ final class EndErrandController
                 'stockState' => $product->getStockState()->value,
             ], $result->restockedProducts),
             'restockedCount' => \count($result->restockedProducts),
+            'errands' => array_map(static fn ($errand) => [
+                'id' => (string) $errand->getId(),
+                'storeName' => $errand->getStoreName(),
+                'itemCount' => $errand->getItemCount(),
+            ], $result->errands),
         ]);
     }
 }

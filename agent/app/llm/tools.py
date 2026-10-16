@@ -384,6 +384,7 @@ A2A_ALLOWED_TOOLS = frozenset(
         "get_recipe",
         "get_tasks",
         "get_upcoming_events",
+        "list_past_errands",
         "search",
         "search_ciqual_foods",
         "search_ingredients",
