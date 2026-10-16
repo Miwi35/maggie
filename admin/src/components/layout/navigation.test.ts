@@ -57,6 +57,7 @@ describe('the seven Finance menus', () => {
         '/accounts',
         '/categories',
         '/categorization_rules',
+        '/contacts',
         '/envelopes',
         '/finance/banks',
         '/finance/cushion',

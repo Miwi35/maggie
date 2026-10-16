@@ -157,6 +157,8 @@ describe('FinanceSummaryPage', () => {
       'href',
       '/finance/import',
     )
+    expect(await within(await block('contacts')).findByText('3 contacts')).toBeInTheDocument()
+    expect(within(await block('contacts')).getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/contacts')
     accounts.unmount()
 
     const budget = renderPage('/finance/summary/budget')
