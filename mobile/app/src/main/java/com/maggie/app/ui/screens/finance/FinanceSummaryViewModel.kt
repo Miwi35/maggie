@@ -120,7 +120,7 @@ class FinanceSummaryViewModel(
         SummaryBlock.INDEPENDENCE -> {
             val date = today()
             dashboardRepository.getDashboard(date.year, date.monthValue)
-                .toBlock { BlockState.Ready(listOf(independenceSummary(it.independence))) }
+                .toBlock { BlockState.Ready(listOf(independenceSummary(it.tiles.planning.independence))) }
         }
         SummaryBlock.BANKS -> bankRepository.getConnections().toBlock(::banksBlock)
         SummaryBlock.CATEGORIES -> categoryRepository.getCategories()
