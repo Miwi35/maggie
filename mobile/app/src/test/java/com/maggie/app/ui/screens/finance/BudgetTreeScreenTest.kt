@@ -10,7 +10,6 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.Transaction
@@ -67,7 +66,6 @@ class BudgetTreeScreenTest {
                 ),
             ),
         )
-        coEvery { budgetRepository.getDailyScore(any(), any()) } returns Result.success(DailyScore(score = "green"))
         val categoryRepository = mockk<CategoryRepository>()
         coEvery { categoryRepository.getCategories() } returns Result.success(
             listOf(
