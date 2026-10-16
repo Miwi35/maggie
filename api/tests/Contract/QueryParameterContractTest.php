@@ -127,6 +127,9 @@ final class QueryParameterContractTest extends WebTestCase
         '/api/stores' => [
             'order[name]' => 'admin GroceryListView',
         ],
+        '/api/utensils' => [
+            'order[name]' => 'mobile getUtensils, the utensil catalogue by name (MAG-492)',
+        ],
         '/api/aisles' => [
             'store' => 'admin StoreAisles and GroceryListView, mobile StoreAislesViewModel and GroceryViewModel, the aisles of one store (MAG-493)',
         ],
