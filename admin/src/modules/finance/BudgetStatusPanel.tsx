@@ -11,8 +11,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useNotify, useRefresh } from 'react-admin'
-import { DailyScoreBanner } from './DailyScoreBanner'
 import { EnvelopeSplitSlider } from './EnvelopeSplitSlider'
+import { FinanceScoresSection } from './FinanceScoresSection'
 import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
 import { consumedPercent, formatPeriod, formatSeason } from './budgetModes'
@@ -216,6 +216,8 @@ interface BudgetStatusPanelProps {
   status: BudgetStatus | null
   loading: boolean
   refresh: () => void | Promise<void>
+  /** Bumped by the host on each live update, so the scores are read again. */
+  scoresToken?: number
 }
 
 /**
@@ -230,6 +232,7 @@ export const BudgetStatusPanel = ({
   status,
   loading,
   refresh,
+  scoresToken = 0,
 }: BudgetStatusPanelProps) => {
   const { rollOver, running } = useRollOverEnvelopes()
   const notify = useNotify()
@@ -267,7 +270,7 @@ export const BudgetStatusPanel = ({
 
   return (
     <>
-      <DailyScoreBanner year={year} month={month} />
+      <FinanceScoresSection year={year} month={month} refreshToken={scoresToken} />
       <Card sx={{ mb: 2 }}>
       <CardContent>
         <Stack

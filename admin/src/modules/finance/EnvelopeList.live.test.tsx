@@ -9,7 +9,9 @@ import { CATEGORIES, STATUS, line } from './envelopeTreeFixtures'
 import type { BudgetStatus } from './useBudgetStatus'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
-vi.mock('./DailyScoreBanner', () => ({ DailyScoreBanner: () => null }))
+vi.mock('./FinanceScoresSection', () => ({
+  FinanceScoresSection: ({ refreshToken }: { refreshToken?: number }) => <span data-testid="scores-token">{refreshToken}</span>,
+}))
 
 let served: BudgetStatus = STATUS
 const getList = vi.fn(() => Promise.resolve({ data: CATEGORIES, total: CATEGORIES.length }))
@@ -83,11 +85,13 @@ describe('EnvelopeList — live updates from Mercure', () => {
       ...STATUS,
       budgets: STATUS.budgets.map((l) => (l.id === 'e-loisirs' ? { ...l, consumedCents: 9000 } : l)),
     }
+    expect(screen.getByTestId('scores-token')).toHaveTextContent('0')
     await emitMercure('/api/transactions/{id}', { '@id': '/api/transactions/t1' })
 
     await waitFor(async () =>
       expect(within(await treeNode('Loisirs')).getByTestId('envelope-node-amount')).toHaveTextContent(/90,00\s€\s\/\s300,00\s€/),
     )
+    expect(screen.getByTestId('scores-token')).toHaveTextContent('1')
   })
 
   test('a category created elsewhere is read again for the tree', async () => {

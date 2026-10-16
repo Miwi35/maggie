@@ -29,9 +29,11 @@ export const EnvelopeList = () => {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const { status, loading, refresh } = useBudgetStatus(year, month)
   const refreshRecords = useRefresh()
+  const [scoresToken, setScoresToken] = useState(0)
 
   useMercure(BUDGET_TOPICS, (data) => {
     refresh()
+    setScoresToken((token) => token + 1)
     if (touchesRecords(data)) refreshRecords()
   })
 
@@ -45,6 +47,7 @@ export const EnvelopeList = () => {
         status={status}
         loading={loading}
         refresh={refresh}
+        scoresToken={scoresToken}
       />
       <EnvelopeTreeScreen year={year} month={month} status={status} loading={loading} refresh={refresh} />
     </>

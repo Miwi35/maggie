@@ -1,0 +1,291 @@
+{
+    "date": "2026-03-15",
+    "week": {
+        "status": "red",
+        "label": "Dépassement",
+        "reasons": [
+            {
+                "code": "week_budget_exceeded",
+                "amountCents": 1349
+            }
+        ],
+        "rhythm": {
+            "budgetCents": 0,
+            "spentCents": 1349,
+            "expectedSpentCents": 0,
+            "remainingCents": -1349,
+            "expectedRemainingCents": 0,
+            "status": "above",
+            "label": "Au-dessus du rythme",
+            "curve": [
+                {
+                    "date": "2026-03-09",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-10",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-11",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-12",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-13",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-14",
+                    "spentCents": 1349,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-15",
+                    "spentCents": 1349,
+                    "expectedCents": 0
+                }
+            ],
+            "debits": []
+        }
+    },
+    "month": {
+        "status": "red",
+        "label": "Dépassement",
+        "reasons": [
+            {
+                "code": "optional_category_exceeded",
+                "categoryName": "Recorded Parent Category",
+                "amountCents": 95599
+            },
+            {
+                "code": "total_budget_exceeded",
+                "amountCents": 95599
+            },
+            {
+                "code": "cushion_incomplete",
+                "amountCents": 1361544
+            },
+            {
+                "code": "above_last_year",
+                "amountCents": 130249
+            }
+        ],
+        "rhythm": {
+            "budgetCents": 30000,
+            "spentCents": 121349,
+            "expectedSpentCents": 90000,
+            "remainingCents": -91349,
+            "expectedRemainingCents": -60000,
+            "status": "above",
+            "label": "Au-dessus du rythme",
+            "curve": [
+                {
+                    "date": "2026-03-01",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-02",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-03",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-04",
+                    "spentCents": 0,
+                    "expectedCents": 0
+                },
+                {
+                    "date": "2026-03-05",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-06",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-07",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-08",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-09",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-10",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-11",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-12",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-13",
+                    "spentCents": 120000,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-14",
+                    "spentCents": 121349,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-15",
+                    "spentCents": 121349,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-16",
+                    "spentCents": null,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-17",
+                    "spentCents": null,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-18",
+                    "spentCents": null,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-19",
+                    "spentCents": null,
+                    "expectedCents": 90000
+                },
+                {
+                    "date": "2026-03-20",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-21",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-22",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-23",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-24",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-25",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-26",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-27",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-28",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-29",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-30",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                },
+                {
+                    "date": "2026-03-31",
+                    "spentCents": null,
+                    "expectedCents": 93000
+                }
+            ],
+            "debits": [
+                {
+                    "date": "2026-03-05",
+                    "label": "Loyer",
+                    "amountCents": 90000,
+                    "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                },
+                {
+                    "date": "2026-03-20",
+                    "label": "Salle de sport",
+                    "amountCents": 3000,
+                    "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            ]
+        }
+    },
+    "global": {
+        "status": "red",
+        "label": "Dépassement",
+        "reasons": [
+            {
+                "code": "optional_category_exceeded",
+                "categoryName": "Recorded Parent Category",
+                "amountCents": 95599
+            },
+            {
+                "code": "total_budget_exceeded",
+                "amountCents": 95599
+            },
+            {
+                "code": "cushion_incomplete",
+                "amountCents": 1361544
+            },
+            {
+                "code": "above_last_year",
+                "amountCents": 130249
+            },
+            {
+                "code": "annual_category_exceeded",
+                "categoryName": "Recorded Category",
+                "amountCents": 278297
+            }
+        ]
+    }
+}

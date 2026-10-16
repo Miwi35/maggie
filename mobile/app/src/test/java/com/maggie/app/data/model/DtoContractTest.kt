@@ -346,6 +346,30 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the finance scores deserialise from the recorded response, with the rhythm, its curve and its debits`() {
+        val body = readRecording("finance_scores.read")
+
+        val scores = json.decodeFromJsonElement(serializer<FinanceScores>(), body)
+
+        val week = body["week"]!!.jsonObject
+        val month = body["month"]!!.jsonObject
+        val weekRhythm = week["rhythm"]!!.jsonObject
+        val monthRhythm = month["rhythm"]!!.jsonObject
+        val source = "finance_scores.read"
+        assertDeclaredFieldsExist("FinanceScores", serializer<FinanceScores>(), body.keys, source)
+        assertDeclaredFieldsExist("PeriodScore", serializer<PeriodScore>(), week.keys + month.keys, source)
+        assertDeclaredFieldsExist("GlobalScore", serializer<GlobalScore>(), body["global"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("ScoreReason", serializer<ScoreReason>(), keysOf(week, "reasons") + keysOf(month, "reasons"), source)
+        assertDeclaredFieldsExist("Rhythm", serializer<Rhythm>(), weekRhythm.keys + monthRhythm.keys, source)
+        assertDeclaredFieldsExist("RhythmPoint", serializer<RhythmPoint>(), keysOf(monthRhythm, "curve"), source)
+        assertDeclaredFieldsExist("RhythmDebit", serializer<RhythmDebit>(), keysOf(monthRhythm, "debits"), source)
+
+        // The days to come carry no spending: null on the wire, not zero.
+        assertTrue(scores.month.rhythm.curve.any { it.spentCents == null })
+        assertTrue(scores.month.rhythm.debits.isNotEmpty())
+    }
+
+    @Test
     fun `the current user deserialises from the recorded response`() =
         assertItemContract("users.me", serializer<User>(), "User")
 

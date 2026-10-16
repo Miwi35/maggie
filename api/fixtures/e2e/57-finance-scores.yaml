@@ -1,0 +1,93 @@
+# The scores journeys (MAG-417, extends MAG-102): the rings and the rhythm curve
+# of the Finance dashboard, on the web and on the phone.
+#
+# One account for both, because both only read. It owns what the curve needs
+# to be told from a straight line: a rent of 700 € debited on the 5th (a
+# monthly series, so the curve steps there and the debit is marked) and
+# 300 € of groceries on the 1st, against a 1 420 € budget — 700 € of rent and
+# 720 € of groceries. 1 000 € spent, 420 € left, whatever the month.
+#
+# The rent is booked on the 5th: the journeys assume the stack's day is the 5th
+# or later, which CI guarantees (it pins the 13th, `e2e/clock.sh`).
+#
+# No other journey signs in here: a series of its own on the owner's account
+# would move the lifestyle and the recurring operations they read.
+
+Maggie\Core\Entity\User:
+  e2e_scores_user:
+    email: 'e2e-scores@maggie.local'
+    googleId: 'e2e-scores-google-id'
+    name: 'Sacha Rythme'
+
+Maggie\Finance\Entity\Account:
+  e2e_scores_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@e2e_scores_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_scores_housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@e2e_scores_user'
+  e2e_scores_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_scores_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  e2e_scores_rent:
+    label: Loyer
+    counterpartyName: PROPRIO
+    category: '@e2e_scores_housing'
+    account: '@e2e_scores_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<e2eDate("first day of this month", "+4 days", "-3 months")>'
+    referenceAmountCents: -70000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@e2e_scores_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_scores_housing_envelope:
+    category: '@e2e_scores_housing'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 70000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_scores_user'
+  e2e_scores_food_envelope:
+    category: '@e2e_scores_food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 72000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_scores_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_scores_rent_paid:
+    account: '@e2e_scores_checking'
+    category: '@e2e_scores_housing'
+    amountCents: -70000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "+4 days")>'
+    label: 'LOYER'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "+4 days")>'
+    user: '@e2e_scores_user'
+  e2e_scores_groceries:
+    account: '@e2e_scores_checking'
+    category: '@e2e_scores_food'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'SUPERMARCHE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_scores_user'

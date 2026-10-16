@@ -103,8 +103,8 @@ test('a finance module with nothing in it invites rather than breaks', async ({ 
     'no envelope, no gauge — and no gauge of somebody else either',
   ).toHaveCount(0)
   await expect(
-    budget.scoreBanner,
-    'the day score has nothing to compare against, and says so',
+    await budget.scoreReasons('month'),
+    'the score has nothing to compare against, and says so',
   ).toContainText('Aucune enveloppe sur cette période')
 
   const categories = new FinanceCategoriesPage(otherUser.page)

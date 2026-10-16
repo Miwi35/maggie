@@ -135,3 +135,45 @@ test('a month with nothing in it is shown as empty, not as the month before', as
     euros(CHECKING_CENTS + SAVINGS_CENTS),
   )
 })
+
+/**
+ * The rings and the rhythm curve (MAG-417, extends MAG-102 — they replace the
+ * daily score).
+ *
+ * An account of its own, `e2e-scores@maggie.local`: a rent of 700 € debited on
+ * the 5th and 300 € of groceries, against 700 € + 720 € of budget — 1 000 €
+ * spent, 420 € left. CI pins the day to the 13th, where the pace says rent
+ * and a share of the groceries are due: the remainder is exact whatever the
+ * day, the status is read as a word and never as a colour alone, and the rent
+ * is marked on the curve on the 5th (see 57-finance-scores.yaml).
+ */
+test('the rings say what is left and in which state, and the curve marks the rent on the 5th', async ({
+  scoresUser,
+}) => {
+  const overview = new FinanceOverviewPage(scoresUser.page)
+  await overview.open()
+
+  const month = overview.scoreRing('month')
+  await expect(month).toBeVisible()
+  await expect(month.getByTestId('ring-remaining')).toContainText(euros(42000))
+  await expect(month.getByTestId('ring-expected')).toContainText('Devrait rester')
+  await expect(month.getByTestId('rhythm-tick')).toBeVisible()
+  // Nothing is overspent: red is for a budget gone, and this one is not.
+  expect(['green', 'neutral', 'orange']).toContain(await month.getAttribute('data-status'))
+  await expect(month).toContainText(/Dans le vert|Dans les clous|Attention/)
+
+  // A touch gives the reasons, and another one hides them.
+  const reasons = await overview.scoreReasons('month')
+  await expect(reasons).toBeVisible()
+  await expect(reasons.getByRole('listitem').first()).toBeVisible()
+  await month.getByRole('button').click()
+  await expect(reasons).toBeHidden()
+
+  await expect(overview.scoreRing('week')).toBeVisible()
+
+  const [year, monthNumber] = seedAnchorDate().split('-')
+  const rent = overview.debitMarker('Loyer')
+  await expect(rent).toHaveCount(1)
+  await expect(rent).toHaveAttribute('data-date', `${year}-${monthNumber}-05`)
+  await expect(overview.rhythmCurve.getByTestId('spent-line')).toBeVisible()
+})

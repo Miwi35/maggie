@@ -1,0 +1,60 @@
+appId: com.maggie.app.e2e
+name: finance-scores
+tags:
+  - finance
+---
+# The rings and the rhythm curve of the Finance dashboard, from the phone (MAG-417, extends MAG-102).
+#
+# Étant donné un loyer de 700,00 € prélevé le 5 et 300,00 € de courses, contre 1 420,00 € d'enveloppes
+# Quand j'ouvre les finances
+# Alors les anneaux de la semaine et du mois disent leur état en toutes lettres
+# Quand je touche l'anneau du mois
+# Alors les raisons de son état s'affichent, et se referment au second toucher
+# Quand je descends jusqu'à la courbe du rythme
+# Alors le loyer y est marqué à son jour : « Loyer · 5 »
+#
+# The data is seeded for `e2e-scores@maggie.local` (api/fixtures/e2e/57-finance-scores.yaml), an
+# account only the scores journeys sign in to. CI pins the day to the 13th, after the rent. The
+# amounts are not asserted — they are drawn with the phone's locale (`ScoreRingsTest` reads them,
+# and `finance-overview.spec.ts` asserts the 420,00 € left on the web).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/finance-scores.yaml
+      e2e_email: e2e-scores@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance"
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- assertVisible:
+    id: "finance_score_ring_month"
+# The status is a word, never a colour alone; nothing is overspent here, so never « Dépassement ».
+- assertVisible: ".*(Dans le vert|Dans les clous|Attention).*"
+- assertNotVisible: ".*Dépassement.*"
+
+- tapOn:
+    id: "finance_score_ring_month"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_reasons"
+    timeout: 10000
+- tapOn:
+    id: "finance_score_ring_month"
+- assertNotVisible:
+    id: "finance_score_reasons"
+
+- scrollUntilVisible:
+    element:
+      id: "finance_rhythm_curve"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Loyer · 5"
+    timeout: 10000

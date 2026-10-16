@@ -131,7 +131,6 @@ private fun BudgetTreePane(
                 onPrevious = { viewModel.shiftPeriod(-1) },
                 onNext = { viewModel.shiftPeriod(1) },
             )
-            uiState.score?.let { DailyScoreCard(it) }
             uiState.status?.takeIf { it.budgets.isNotEmpty() }?.let { status ->
                 Text(
                     text = "${formatCents(status.totalConsumedCents)} consommés sur " +

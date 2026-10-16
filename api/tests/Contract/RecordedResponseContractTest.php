@@ -88,7 +88,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'task_settings.preview' => '/api/task-settings/me/preview',
         'meal_settings.me' => '/api/meal-settings/me',
         'finance_monthly_review.read' => '/api/finance/monthly-review?year=2026&month=3',
-        'finance_daily_score.read' => '/api/finance/daily-score?year=2026&month=3',
+        'finance_scores.read' => '/api/finance/scores?date=2026-03-15',
         'finance_cushion_status.read' => '/api/finance/cushion-status',
         'finance_dashboard.read' => '/api/finance/dashboard?year=2026&month=3',
         'envelopes.collection' => '/api/envelopes',

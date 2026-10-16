@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedAnchorDate, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { euros, overBudget } from '../helpers/money.js'
-import { MONTH_LABELS, SCORE_LABELS, periodLabel } from '../pages/financeLabels.js'
+import { MONTH_LABELS, periodLabel } from '../pages/financeLabels.js'
 import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
 import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
 import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
@@ -109,22 +109,25 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
  *
  * `GetDailyScore` only ever turns red or orange on the budget; an incomplete
  * safety net cannot make the month bad, it can only hold green back. The
- * seeded net covers 1,8 months out of 3, so the month lands on "Dans les
- * clous" with the cushion named as the reason — and a banner that showed the
- * score without its cause would be a verdict, which is the one thing
- * `DailyScoreBanner` was written not to be.
+ * seeded net covers 1,8 months out of 3, so the month ring names the cushion
+ * as a reason — and a ring that showed its status without its cause would be
+ * a verdict, which is why touching it opens the reasons.
  *
- * The deficit's amount is asserted in `finance-cushion.spec.ts`, which owns
- * the target it is computed from.
+ * The status word is not pinned here: since MAG-416 the month also follows
+ * its spending rhythm, which moves with the day the journey runs. The
+ * rhythm itself is asserted in `finance-overview.spec.ts`. The deficit's
+ * amount is asserted in `finance-cushion.spec.ts`, which owns the target it
+ * is computed from.
  */
-test('the day score is held back by the safety net, and says so', async ({ page }) => {
+test('the month score is held back by the safety net, and says so', async ({ page }) => {
   const budget = new FinanceBudgetPage(page)
   await budget.open()
 
-  await expect(budget.scoreBanner).toContainText(SCORE_LABELS.neutral)
-  await expect(budget.scoreBanner).toContainText('Matelas incomplet')
+  await expect(budget.scoreRing('month')).toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
+  const reasons = await budget.scoreReasons('month')
+  await expect(reasons).toContainText('Matelas incomplet')
   await expect(
-    budget.scoreBanner,
+    reasons,
     'no envelope is overspent, so nothing is reported as exceeded',
   ).not.toContainText('dépassée')
 })

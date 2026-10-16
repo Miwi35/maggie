@@ -182,7 +182,7 @@ of the API's.
 
 **Leave `--now` alone unless you know why you are moving it.** Production code
 derives its period from the real clock — `FinanceDashboardController`,
-`DailyScoreController`, `EnvelopeRepository::findForPeriod`,
+`FinanceScoresController`, `EnvelopeRepository::findForPeriod`,
 `GetUpcomingEventsTool` all call `new DateTimeImmutable()`. Anchor the seed in
 the past and every one of them returns an empty list while the data sits there,
 which is the same silent failure as a literal date, applied to the whole

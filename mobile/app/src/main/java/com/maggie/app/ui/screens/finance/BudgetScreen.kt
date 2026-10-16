@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -61,7 +60,6 @@ import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.EnvelopeConsumption
 import com.maggie.app.data.model.NestedBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
-import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
@@ -73,8 +71,6 @@ import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.overlappingMonth
-import com.maggie.app.data.model.reasonText
-import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
@@ -157,8 +153,6 @@ fun BudgetScreen(
                 onPrevious = { viewModel.shiftPeriod(-1) },
                 onNext = { viewModel.shiftPeriod(1) },
             )
-
-            uiState.score?.let { DailyScoreCard(it) }
 
             uiState.status?.let { status ->
                 if (status.budgets.isNotEmpty()) {
@@ -255,36 +249,6 @@ fun BudgetScreen(
             },
             onDismiss = { editingThreshold = null },
         )
-    }
-}
-
-/**
- * The daily signal, always with the reasons behind it: a score on its own
- * reads as a verdict.
- */
-@Composable
-internal fun DailyScoreCard(score: DailyScore) {
-    val container = when (score.score) {
-        "green" -> MaterialTheme.colorScheme.primaryContainer
-        "orange" -> MaterialTheme.colorScheme.tertiaryContainer
-        "red" -> MaterialTheme.colorScheme.errorContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = container),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(scoreLabel(score.score), style = MaterialTheme.typography.titleMedium)
-            score.reasons.forEach { reason ->
-                Text(
-                    text = "• ${reasonText(reason)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-        }
     }
 }
 

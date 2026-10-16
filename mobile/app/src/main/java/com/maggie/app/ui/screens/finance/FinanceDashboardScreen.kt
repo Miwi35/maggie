@@ -5,17 +5,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -46,11 +47,13 @@ import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.nestBudgetLines
 import com.maggie.app.data.model.postChangeLabel
-import com.maggie.app.data.model.reasonText
-import com.maggie.app.data.model.scoreLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.RhythmCurvePanel
+import com.maggie.app.ui.components.ScoreRings
+import com.maggie.app.ui.components.ScoresUnavailable
 import com.maggie.app.ui.components.TreasuryBanner
+import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.FinanceAccess
 import com.maggie.app.ui.navigation.FinanceFrequency
 import com.maggie.app.ui.navigation.Screen
@@ -66,6 +69,7 @@ fun FinanceDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val dashboard = uiState.dashboard
+    val twoColumns = rememberAppLayout().detailPaneFits
 
     // Back from the treasury screen, the banner follows what was prepared there.
     LaunchedEffect(Unit) { viewModel.refreshTreasury() }
@@ -109,11 +113,7 @@ fun FinanceDashboardScreen(
             }
 
             // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            val head: LazyListScope.() -> Unit = {
                 uiState.treasuryBanner?.let { banner ->
                     item {
                         TreasuryBanner(
@@ -124,7 +124,9 @@ fun FinanceDashboardScreen(
                         )
                     }
                 }
-                if (dashboard != null) item { ScoreCard(dashboard) }
+                scoreItems(uiState, onRetry = viewModel::refreshScores)
+            }
+            val body: LazyListScope.() -> Unit = {
                 item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
                 if (dashboard != null) {
                     item { BalanceCard(dashboard) }
@@ -149,6 +151,51 @@ fun FinanceDashboardScreen(
                 }
                 item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
                 item { AccessSection(FinanceFrequency.RARE, onOpen) }
+            }
+
+            if (twoColumns) {
+                // Room for two panes: the scores on the left, the figures and the accesses on the right.
+                Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        content = head,
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        content = body,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    head()
+                    body()
+                }
+            }
+        }
+    }
+}
+
+/** The rings and the curve; a failed or pending load says so in their place, the rest of the screen goes on. */
+private fun LazyListScope.scoreItems(uiState: FinanceDashboardUiState, onRetry: () -> Unit) {
+    val scores = uiState.scores
+    val error = uiState.scoresError
+    when {
+        scores != null -> {
+            item { ScoreRings(week = scores.week, month = scores.month) }
+            item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
+        }
+        error != null -> item { ScoresUnavailable(message = error, onRetry = onRetry) }
+        uiState.isLoadingScores -> item {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -185,32 +232,6 @@ private fun AccessSection(frequency: FinanceFrequency, onOpen: (String) -> Unit)
             ) {
                 Text(access.label, modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScoreCard(dashboard: FinanceDashboard) {
-    val container = when (dashboard.score.score) {
-        "green" -> MaterialTheme.colorScheme.primaryContainer
-        "orange" -> MaterialTheme.colorScheme.tertiaryContainer
-        "red" -> MaterialTheme.colorScheme.errorContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = container),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(scoreLabel(dashboard.score.score), style = MaterialTheme.typography.titleMedium)
-            dashboard.score.reasons.forEach { reason ->
-                Text(
-                    text = "• ${reasonText(reason)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
             }
         }
     }

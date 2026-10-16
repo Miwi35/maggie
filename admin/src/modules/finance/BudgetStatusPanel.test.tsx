@@ -10,7 +10,7 @@ const rollOver = vi.fn()
 const refresh = vi.fn()
 let status: BudgetStatus | null = null
 
-vi.mock('./DailyScoreBanner', () => ({ DailyScoreBanner: () => null }))
+vi.mock('./FinanceScoresSection', () => ({ FinanceScoresSection: () => null }))
 vi.mock('./useRollOverEnvelopes', () => ({
   useRollOverEnvelopes: () => ({ rollOver, running: false }),
 }))

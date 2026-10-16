@@ -10,6 +10,7 @@ import type {
 import {
   APPROVALS_USER_EMAIL,
   ENVELOPE_ALERT_USER_EMAIL,
+  SCORES_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
   OTHER_USER_EMAIL,
@@ -40,6 +41,7 @@ export {
   MEALS_USER_EMAIL,
   ENVELOPE_ALERT_USER_EMAIL,
   SEASON_USER_EMAIL,
+  SCORES_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -151,6 +153,8 @@ export interface MaggieFixtures {
   envelopeAlertUser: OtherUser
   /** The seasonality journey's (MAG-494): its grocery list and its chat are its own. */
   seasonUser: OtherUser
+  /** The thirteenth seeded account, for the rings and the rhythm curve (MAG-417). */
+  scoresUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -370,6 +374,10 @@ export const test = base.extend<MaggieFixtures>({
   },
   seasonUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(SEASON_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  scoresUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(SCORES_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {
