@@ -77,3 +77,64 @@ tags:
     visible:
       id: "calendar_view_week"
     timeout: 30000
+
+# The Finance menus (MAG-426): a menu opens a summary page with one block per aspect,
+# each leading to its screen, and the back arrow lands on the Dashboard — the menus
+# are siblings, not a trail. Trésorerie → Matelas and Avances d'épargne.
+- openLink: "maggie-e2e://finance"
+
+- extendedWaitUntil:
+    visible: ".*Solde de tous les comptes.*"
+    timeout: 20000
+
+- tapOn:
+    id: "finance_menu_treasury"
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_cushion"
+    timeout: 20000
+
+- tapOn:
+    id: "finance_block_cushion"
+
+- extendedWaitUntil:
+    visible: "Matelas"
+    timeout: 20000
+
+# Back goes to the Trésorerie page it was opened from, and a menu tab from there to the Dashboard.
+- pressKey: back
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_savings_advances"
+    timeout: 20000
+
+- tapOn:
+    id: "finance_block_savings_advances"
+
+- extendedWaitUntil:
+    visible:
+      id: "savings_advances_total"
+    timeout: 20000
+
+# Back twice: the block's page, then the Dashboard it was opened from.
+- pressKey: back
+- pressKey: back
+
+- extendedWaitUntil:
+    visible: ".*Solde de tous les comptes.*"
+    timeout: 20000
+
+# Revue: no « À qualifier » nor operations list on the phone yet (MAG-478) — the page
+# carries the rules and the recurring operations.
+- tapOn:
+    id: "finance_menu_review"
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_categorization_rules"
+    timeout: 20000
+
+- assertVisible:
+    id: "finance_block_recurring_operations"

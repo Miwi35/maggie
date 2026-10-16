@@ -47,6 +47,8 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
 import com.maggie.app.data.model.rechargePlanLabel
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,14 +76,16 @@ fun CushionScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Matelas") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.Cushion.route) {
+                TopAppBar(
+                    title = { Text("Matelas") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

@@ -81,6 +81,8 @@ import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.layout.WindowWidth
@@ -143,23 +145,25 @@ fun BudgetScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Budgets") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    AdjustAction(onAdjust)
-                    IconButton(
-                        onClick = { viewModel.rollOverPreviousPeriod() },
-                        enabled = !uiState.isRollingOver,
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.BudgetList.route) {
+                TopAppBar(
+                    title = { Text("Budgets") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                    actions = {
+                        AdjustAction(onAdjust)
+                        IconButton(
+                            onClick = { viewModel.rollOverPreviousPeriod() },
+                            enabled = !uiState.isRollingOver,
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

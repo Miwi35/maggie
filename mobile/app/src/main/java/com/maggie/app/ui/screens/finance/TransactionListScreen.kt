@@ -72,6 +72,8 @@ import com.maggie.app.data.model.transactionStatusCodes
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import java.time.LocalDate
@@ -283,17 +285,19 @@ fun TransactionListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(accountName) },
-                navigationIcon = {
-                    // No arrow in the detail pane beside the accounts (MAG-263): the list is still there.
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+            FinanceTopBar(Screen.AccountTransactions.route) {
+                TopAppBar(
+                    title = { Text(accountName) },
+                    navigationIcon = {
+                        // No arrow in the detail pane beside the accounts (MAG-263): the list is still there.
+                        if (onBack != null) {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

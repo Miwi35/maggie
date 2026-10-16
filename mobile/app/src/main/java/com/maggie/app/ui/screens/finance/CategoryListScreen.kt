@@ -44,7 +44,9 @@ import com.maggie.app.data.model.CategoryRow
 import com.maggie.app.data.model.categoryKindLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.layout.ListDetailPane
+import com.maggie.app.ui.navigation.Screen
 
 /**
  * The categories as a tree of up to three levels, opened on the editor of the one touched.
@@ -117,22 +119,24 @@ private fun CategoryTreeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Catégories") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onOpenRules) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Rule,
-                            contentDescription = "Règles de catégorisation",
-                        )
-                    }
-                },
-            )
+            FinanceTopBar(Screen.CategoryList.route) {
+                TopAppBar(
+                    title = { Text("Catégories") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onOpenRules) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Rule,
+                                contentDescription = "Règles de catégorisation",
+                            )
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

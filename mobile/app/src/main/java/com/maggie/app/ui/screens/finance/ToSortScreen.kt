@@ -64,7 +64,9 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.CategorySearchDialog
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.layout.ListDetailPane
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -175,14 +177,16 @@ fun ToSortScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("À qualifier") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.TransactionsToSort.route) {
+                TopAppBar(
+                    title = { Text("À qualifier") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

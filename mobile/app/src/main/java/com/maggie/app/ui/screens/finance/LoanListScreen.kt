@@ -48,6 +48,8 @@ import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.data.model.formatRate
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,14 +71,16 @@ fun LoanListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Prêts") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.LoanList.route) {
+                TopAppBar(
+                    title = { Text("Prêts") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

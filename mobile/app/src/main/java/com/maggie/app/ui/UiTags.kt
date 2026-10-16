@@ -221,8 +221,16 @@ object UiTags {
     const val SAVINGS_ADVANCES_SAVE_DAY = "savings_advances_save_day"
     const val SAVINGS_ADVANCE_DONE_PREFIX = "savings_advance_done_"
 
-    /** Finance dashboard — one access per part of the module, suffixed by its route. */
-    const val FINANCE_ACCESS_PREFIX = "finance_access_"
+    /**
+     * Finance menus (MAG-426) — the tabs row of the phone and the rail of the tablet (one tab or
+     * item per menu, suffixed by its key), and on a menu's summary page one block per aspect,
+     * suffixed by the route it opens.
+     */
+    const val FINANCE_MENU_TABS = "finance_menu_tabs"
+    const val FINANCE_MENU_RAIL = "finance_menu_rail"
+    const val FINANCE_MENU_PREFIX = "finance_menu_"
+    const val FINANCE_BLOCK_PREFIX = "finance_block_"
+    const val ACCOUNT_LAST_SYNC = "account_last_sync"
     const val REFERENCE_SALARY_LINK = "reference_salary_link"
     const val REFERENCE_SHARE = "reference_share"
 
@@ -562,7 +570,9 @@ object UiTags {
 
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
-    fun financeAccess(route: String) = FINANCE_ACCESS_PREFIX + route
+    fun financeMenu(key: String) = FINANCE_MENU_PREFIX + key
+
+    fun financeBlock(route: String) = FINANCE_BLOCK_PREFIX + route
 
     fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
 

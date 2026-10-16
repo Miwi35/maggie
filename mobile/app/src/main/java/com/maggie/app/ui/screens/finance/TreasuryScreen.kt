@@ -47,6 +47,8 @@ import com.maggie.app.data.model.toPrefill
 import com.maggie.app.data.model.treasuryDate
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,14 +84,16 @@ fun TreasuryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Trésorerie") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.Treasury.route) {
+                TopAppBar(
+                    title = { Text("Trésorerie") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

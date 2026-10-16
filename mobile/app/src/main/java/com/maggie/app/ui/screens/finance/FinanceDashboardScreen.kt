@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +27,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,20 +39,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
 import com.maggie.app.ui.components.TreasuryBanner
 import com.maggie.app.ui.layout.rememberAppLayout
-import com.maggie.app.ui.navigation.FinanceAccess
-import com.maggie.app.ui.navigation.FinanceFrequency
 import com.maggie.app.ui.navigation.Screen
-import com.maggie.app.ui.navigation.financeAccessesBy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,14 +79,16 @@ fun FinanceDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Finance") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.FinanceDashboard.route) {
+                TopAppBar(
+                    title = { Text("Finance") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
@@ -157,7 +154,6 @@ private fun OverviewTab(
             }
         }
 
-        // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
         val head: LazyListScope.() -> Unit = {
             if (dashboard?.todo?.reviewReady == true) {
                 item {
@@ -206,13 +202,10 @@ private fun OverviewTab(
                 item { BudgetTileCard(dashboard.tiles.budget, dashboard.todo, onOpen) }
                 item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
             }
-            item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
-            item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
-            item { AccessSection(FinanceFrequency.RARE, onOpen) }
         }
 
         if (twoColumns) {
-            // Room for two panes: the scores and the next project on the left, the tiles and the accesses on the right.
+            // Room for two panes: the scores and the next project on the left, the tiles on the right.
             Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -238,41 +231,5 @@ private fun OverviewTab(
             }
         }
 
-    }
-}
-
-@Composable
-private fun AccessRow(accesses: List<FinanceAccess>, onOpen: (String) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        accesses.forEach { access ->
-            FilledTonalButton(
-                onClick = { onOpen(access.route) },
-                modifier = Modifier.weight(1f).testTag(UiTags.financeAccess(access.route)),
-            ) {
-                Text(access.label, textAlign = TextAlign.Center)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccessSection(frequency: FinanceFrequency, onOpen: (String) -> Unit) {
-    val title = requireNotNull(frequency.title) { "The daily accesses have no section" }
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        financeAccessesBy(frequency).forEach { access ->
-            TextButton(
-                onClick = { onOpen(access.route) },
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.financeAccess(access.route)),
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-            ) {
-                Text(access.label, modifier = Modifier.weight(1f))
-                Icon(Icons.Default.ChevronRight, contentDescription = null)
-            }
-        }
     }
 }

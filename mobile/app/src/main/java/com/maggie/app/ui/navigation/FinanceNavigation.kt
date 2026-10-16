@@ -1,43 +1,86 @@
 package com.maggie.app.ui.navigation
 
-enum class FinanceFrequency(val title: String?) {
-    DAILY(null),
-    MONTHLY("Chaque mois"),
-    RARE("Réglages finance"),
-}
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.ui.graphics.vector.ImageVector
 
-data class FinanceAccess(val screen: Screen, val label: String, val frequency: FinanceFrequency) {
-    val route: String get() = screen.route
-}
-
-// Most used first: the dashboard lists them in this order (spec: finance functional spec, « Navigation mobile »).
-val FINANCE_ACCESSES = listOf(
-    FinanceAccess(Screen.BudgetList, "Budgets et enveloppes", FinanceFrequency.DAILY),
-    FinanceAccess(Screen.AccountList, "Comptes et transactions", FinanceFrequency.DAILY),
-    FinanceAccess(Screen.TransactionsToSort, "À qualifier", FinanceFrequency.DAILY),
-    FinanceAccess(Screen.Treasury, "Trésorerie", FinanceFrequency.MONTHLY),
-    FinanceAccess(Screen.RecurringOperations, "Opérations récurrentes", FinanceFrequency.MONTHLY),
-    FinanceAccess(Screen.MonthlyReview, "Revue mensuelle", FinanceFrequency.MONTHLY),
-    FinanceAccess(Screen.Cushion, "Matelas", FinanceFrequency.MONTHLY),
-    FinanceAccess(Screen.SavingsAdvances, "Avances d'épargne", FinanceFrequency.MONTHLY),
-    FinanceAccess(Screen.LoanList, "Prêts", FinanceFrequency.RARE),
-    FinanceAccess(Screen.CategoryList, "Catégories", FinanceFrequency.RARE),
-    FinanceAccess(Screen.CategorizationRuleList, "Règles de catégorisation", FinanceFrequency.RARE),
-    FinanceAccess(Screen.BankConnectionList, "Banques", FinanceFrequency.RARE),
-)
-
-internal fun financeAccessesBy(frequency: FinanceFrequency): List<FinanceAccess> =
-    FINANCE_ACCESSES.filter { it.frequency == frequency }
-
-private val FINANCE_ROUTES: Set<String> =
-    FINANCE_ACCESSES.map { it.route }.toSet() +
-        setOf(
-            Screen.FinanceDashboard.route,
-            Screen.AccountTransactions.route,
-            // Opened from the rules screen, not from the dashboard: back belongs
-            // to the list it was opened from, like a transaction to its account.
+/**
+ * The seven Finance menus (owner, 15 Oct.; spec « Sept menus Finance, peu de pages »).
+ *
+ * Same names and same grouping as the admin's side menu. A menu lists only the screens
+ * that exist: nothing here is a placeholder, and a screen that arrives with its ticket is
+ * added to its menu's [routes] and nowhere else. The first route is the menu's [home].
+ *
+ * A menu never opens a list of links: its home is either the screen itself (Dashboard,
+ * Comptes, Budget) or a summary page with one block per aspect (the four `Finance…` routes).
+ */
+enum class FinanceMenu(
+    val key: String,
+    val label: String,
+    val icon: ImageVector,
+    val routes: List<String>,
+) {
+    DASHBOARD(
+        "dashboard", "Dashboard", Icons.Default.Dashboard,
+        listOf(Screen.FinanceDashboard.route),
+    ),
+    ACCOUNTS(
+        "accounts", "Comptes", Icons.Default.AccountBalance,
+        listOf(Screen.AccountList.route, Screen.AccountTransactions.route),
+    ),
+    REVIEW(
+        "review", "Revue", Icons.AutoMirrored.Filled.FactCheck,
+        listOf(
+            Screen.FinanceReview.route,
+            Screen.TransactionsToSort.route,
+            Screen.MonthlyReview.route,
+            Screen.CategorizationRuleList.route,
             Screen.RuleSuggestions.route,
-        )
+            Screen.RecurringOperations.route,
+        ),
+    ),
+    BUDGET(
+        "budget", "Budget", Icons.Default.AccountBalanceWallet,
+        listOf(Screen.BudgetList.route),
+    ),
+    TREASURY(
+        "treasury", "Trésorerie", Icons.Default.Savings,
+        listOf(
+            Screen.FinanceTreasuryMenu.route,
+            Screen.Treasury.route,
+            Screen.Cushion.route,
+            Screen.SavingsAdvances.route,
+        ),
+    ),
+    PLANNING(
+        "planning", "Planification", Icons.Default.Timeline,
+        listOf(Screen.FinancePlanning.route, Screen.LoanList.route),
+    ),
+    SETTINGS(
+        "settings", "Configuration", Icons.Default.Settings,
+        listOf(
+            Screen.FinanceConfiguration.route,
+            Screen.BankConnectionList.route,
+            Screen.CategoryList.route,
+        ),
+    ),
+    ;
+
+    val home: String get() = routes.first()
+
+    companion object {
+        /** The menu a finance route belongs to, `null` for a route outside the module. */
+        fun of(route: String?): FinanceMenu? = entries.firstOrNull { route in it.routes }
+    }
+}
+
+private val FINANCE_ROUTES: Set<String> = FinanceMenu.entries.flatMap { it.routes }.toSet()
 
 enum class FinanceBack { POP, REPLACE_WITH_DASHBOARD }
 
@@ -49,3 +92,16 @@ enum class FinanceBack { POP, REPLACE_WITH_DASHBOARD }
  */
 internal fun financeBackAction(previousRoute: String?): FinanceBack =
     if (previousRoute in FINANCE_ROUTES) FinanceBack.POP else FinanceBack.REPLACE_WITH_DASHBOARD
+
+/**
+ * What a tap on a menu does to the back stack.
+ *
+ * The menus are siblings, not a trail: Dashboard → Trésorerie → Revue goes back to the
+ * Dashboard in one step, not through Trésorerie. With the dashboard underneath, everything
+ * above it goes; without it (the module was opened by a link on a deeper screen) the
+ * current screen is the one replaced, and its back swaps in the dashboard like any other.
+ */
+internal data class FinanceTabAction(val route: String, val popToDashboard: Boolean)
+
+internal fun financeTabAction(target: FinanceMenu, dashboardInBackStack: Boolean): FinanceTabAction =
+    FinanceTabAction(route = target.home, popToDashboard = dashboardInBackStack)

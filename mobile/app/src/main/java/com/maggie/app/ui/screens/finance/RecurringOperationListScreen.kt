@@ -65,6 +65,8 @@ import com.maggie.app.data.model.referenceSourceLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 
 /**
  * The recurring operations: what they cost each month and each year, which one did not arrive,
@@ -160,14 +162,16 @@ fun RecurringOperationListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Opérations récurrentes") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.RecurringOperations.route) {
+                TopAppBar(
+                    title = { Text("Opérations récurrentes") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

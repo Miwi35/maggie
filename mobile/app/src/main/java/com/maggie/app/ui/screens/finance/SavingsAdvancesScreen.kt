@@ -48,6 +48,8 @@ import com.maggie.app.data.model.formatAdvanceDate
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.unproposedReasonLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,14 +76,16 @@ fun SavingsAdvancesScreen(
     Scaffold(
         modifier = Modifier.testTag(UiTags.SAVINGS_ADVANCES),
         topBar = {
-            TopAppBar(
-                title = { Text("Avances d'épargne") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.SavingsAdvances.route) {
+                TopAppBar(
+                    title = { Text("Avances d'épargne") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

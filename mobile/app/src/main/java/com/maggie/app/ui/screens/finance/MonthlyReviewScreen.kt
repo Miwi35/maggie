@@ -42,6 +42,8 @@ import com.maggie.app.data.model.optimisationScoreLabel
 import com.maggie.app.data.model.referenceShareLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,14 +65,16 @@ fun MonthlyReviewScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Revue mensuelle") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.MonthlyReview.route) {
+                TopAppBar(
+                    title = { Text("Revue mensuelle") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +73,8 @@ import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
+import com.maggie.app.ui.components.FinanceNavigationRail
+import com.maggie.app.ui.components.LocalFinanceMenuSelection
 import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.layout.AppLayout
@@ -107,6 +110,10 @@ import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
+import com.maggie.app.ui.screens.finance.FinanceSummaryScreen
+import com.maggie.app.ui.screens.finance.BlockState
+import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
+import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
@@ -233,6 +240,10 @@ sealed class Screen(val route: String, val label: String) {
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
+    data object FinanceReview : Screen("finance_review", "Revue")
+    data object FinanceTreasuryMenu : Screen("finance_treasury_menu", "Trésorerie")
+    data object FinancePlanning : Screen("finance_planning", "Planification")
+    data object FinanceConfiguration : Screen("finance_configuration", "Configuration")
     data object AccountTransactions : Screen("account_transactions", "Transactions")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -254,11 +265,15 @@ private val MAIN_SCREENS = setOf(
 )
 
 // The full-screen chat has its own input: a second way in would duplicate it
-internal fun showsChatBottomBar(route: String?): Boolean = route in MAIN_SCREENS && route != Screen.Chat.route
+// The Finance menus keep it too: the bottom of the screen is Maggie's, the menus are the tabs above.
+internal fun showsChatBottomBar(route: String?): Boolean =
+    (route in MAIN_SCREENS && route != Screen.Chat.route) || FinanceMenu.of(route) != null
 
 /** Which parts of the frame this window and this route call for (MAG-35). */
 internal data class Chrome(
     val showsRail: Boolean,
+    /** The seven Finance menus as a rail — the tabs row of the phone, on a window wide enough for a rail. */
+    val showsFinanceRail: Boolean,
     val showsChatPanel: Boolean,
     val showsChatBar: Boolean,
     /** The conversation is reached from the rail's header, the window being too short for a bar. */
@@ -363,6 +378,7 @@ internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
         // The rail serves the drawer's destinations, so it appears where the drawer
         // did: on the main screens. A detail route keeps the whole width, as today.
         showsRail = layout.navigation == NavigationKind.RAIL && route in MAIN_SCREENS,
+        showsFinanceRail = layout.navigation == NavigationKind.RAIL && FinanceMenu.of(route) != null,
         // Exactly one of the three, and the window says which: the panel *is* the
         // conversation, and the rail's header is where a window too short for a band
         // under the content puts the band's three buttons.
@@ -405,6 +421,23 @@ private fun NavController.backInFinance() {
             popUpTo(currentId) { inclusive = true }
         }
     }
+}
+
+@Composable
+private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController) {
+    val viewModel: FinanceSummaryViewModel = koinViewModel()
+    FinanceSummaryScreen(
+        menu = menu,
+        viewModel = viewModel,
+        onBack = { navController.backInFinance() },
+        onOpen = { route ->
+            navController.navigate(route) {
+                launchSingleTop = true
+                // The dashboard already underneath is returned to, not stacked a second time.
+                if (route == Screen.FinanceDashboard.route) popUpTo(route) { inclusive = false }
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -597,6 +630,21 @@ fun NavGraph() {
         navController.navigate(route) { launchSingleTop = true }
     }
 
+    // The menus are siblings: Dashboard → Trésorerie → Revue goes back to the Dashboard in one step.
+    fun selectFinanceMenu(menu: FinanceMenu) {
+        val dashboardInBackStack = runCatching { navController.getBackStackEntry(Screen.FinanceDashboard.route) }.isSuccess
+        val action = financeTabAction(menu, dashboardInBackStack)
+        val currentId = navController.currentBackStackEntry?.destination?.id
+        navController.navigate(action.route) {
+            if (action.popToDashboard) {
+                popUpTo(Screen.FinanceDashboard.route) { inclusive = false }
+            } else if (currentId != null) {
+                popUpTo(currentId) { inclusive = true }
+            }
+            launchSingleTop = true
+        }
+    }
+
     // The detail of an event or a task acts the same in its sheet and in the calendar's detail pane.
     fun editEvent(event: ExpandedEvent) {
         selectedEvent = null
@@ -718,854 +766,889 @@ fun NavGraph() {
         }
     }
 
-    AppShell(
-        drawerState = drawerState,
-        drawerGesturesEnabled = isMainScreen,
-        drawer = {
-            AppDrawerContent(
-                currentRoute = currentRoute,
-                onNavigate = ::navigateTo,
-                onCloseDrawer = { scope.launch { drawerState.close() } },
-            )
-        },
-        rail = if (chrome.showsRail) {
-            {
-                MaggieNavigationRail(
+    CompositionLocalProvider(LocalFinanceMenuSelection provides { menu -> selectFinanceMenu(menu) }) {
+        AppShell(
+            drawerState = drawerState,
+            drawerGesturesEnabled = isMainScreen,
+            drawer = {
+                AppDrawerContent(
                     currentRoute = currentRoute,
                     onNavigate = ::navigateTo,
-                    chatAction = if (chrome.showsChatInRail) {
-                        {
-                            ChatRailActions(
-                                onOpenChat = { showChatSheet = true },
-                                onMicClick = ::startVoiceMode,
-                            )
-                        }
-                    } else {
-                        null
-                    },
+                    onCloseDrawer = { scope.launch { drawerState.close() } },
                 )
-            }
-        } else {
-            null
-        },
-        chatPanel = if (chrome.showsChatPanel) {
-            {
-                ChatPanel(
-                    viewModel = chatViewModel,
-                    onMicClick = ::startVoiceMode,
-                    onOpenThreads = { showContextSheet = true },
-                )
-            }
-        } else {
-            null
-        },
-    ) {
-        Scaffold(
-            modifier = Modifier.weight(1f),
-            // Still nothing from here, band or no band: each piece pays its own inset
-            // (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the screens that nest a
-            // `Scaffold` of their own — Cuisine, Calendrier — already get `safeDrawing`
-            // from it. Material 3 1.3 does not consume `contentWindowInsets` for the
-            // body, so handing one down here would pay the gesture bar twice on exactly
-            // the screens this ticket is giving height back to.
-            contentWindowInsets = WindowInsets(0),
-            topBar = {
-                if (isMainScreen) {
-                    MaggieTopBar(
-                        title = title,
-                        onMenuClick = if (chrome.showsRail) {
+            },
+            rail = if (chrome.showsRail) {
+                {
+                    MaggieNavigationRail(
+                        currentRoute = currentRoute,
+                        onNavigate = ::navigateTo,
+                        chatAction = if (chrome.showsChatInRail) {
+                            {
+                                ChatRailActions(
+                                    onOpenChat = { showChatSheet = true },
+                                    onMicClick = ::startVoiceMode,
+                                )
+                            }
+                        } else {
                             null
-                        } else {
-                            { scope.launch { drawerState.open() } }
                         },
-                        unreadCount = notificationUiState.unreadCount,
-                        onNotificationsClick = { navigateTo(Screen.Notifications.route) },
-                        onSearchClick = { navigateTo(Screen.Search.route) },
-                        dense = chrome.denseTopBar,
                     )
                 }
+            } else if (chrome.showsFinanceRail) {
+                {
+                    FinanceNavigationRail(
+                        currentRoute = currentRoute,
+                        onSelect = ::selectFinanceMenu,
+                        chatAction = if (chrome.showsChatInRail) {
+                            {
+                                ChatRailActions(
+                                    onOpenChat = { showChatSheet = true },
+                                    onMicClick = ::startVoiceMode,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    )
+                }
+            } else {
+                null
             },
-            bottomBar = {
-                if (chrome.showsChatBar) {
-                    ChatBottomBar(
-                        onOpenChat = { showChatSheet = true },
-                        onMicClick = ::startVoiceMode,
-                    )
-                }
-            },
-        ) { paddingValues ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Loading.route,
-                modifier = Modifier.padding(paddingValues),
-                enterTransition = { fadeIn() },
-                exitTransition = { fadeOut() },
-                popEnterTransition = { fadeIn() },
-                popExitTransition = { fadeOut() },
-            ) {
-                composable(Screen.Loading.route) {
-                    LoadingScreen()
-                }
-                composable(Screen.Login.route) {
-                    LoginScreen(viewModel = loginViewModel)
-                }
-                composable(DeepLinks.EVENT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.EVENT_ROUTE)) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    LoadingScreen()
-                    LaunchedEffect(id, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        val event = id?.takeIf(DeepLinks::isValidId)?.let { eventRepository.findEvent(it) }
-                        if (event != null) {
-                            val master = event.recurringEvent?.let { eventRepository.findEvent(it.removePrefix("/api/events/")) }
-                            selectedTask = null
-                            selectedEvent = EventExpander.single(event, master, calendarViewModel.uiState.value.agendas.associateBy { it.id })
-                        } else {
-                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
-                        }
-                        navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
-                    }
-                }
-                composable(DeepLinks.TASK_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.TASK_ROUTE)) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    LoadingScreen()
-                    LaunchedEffect(id, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        val task = id?.takeIf(DeepLinks::isValidId)?.let { taskRepository.findTask(it) }
-                        if (task != null) {
-                            selectedEvent = null
-                            selectedTask = task
-                        } else {
-                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
-                        }
-                        navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
-                    }
-                }
-                composable(DeepLinks.GROCERY_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.GROCERY_ROUTE)) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    LoadingScreen()
-                    LaunchedEffect(id, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        groceryItemToOpen = id?.takeIf(DeepLinks::isValidId)
-                        navController.replaceLink(entry, Screen.Grocery.route, singleTop = true)
-                    }
-                }
-                composable(DeepLinks.RECIPE_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.RECIPE_ROUTE)) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    LoadingScreen()
-                    LaunchedEffect(id, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        if (DeepLinks.isValidId(id)) {
-                            detailRecipeId = id
-                            navController.replaceLink(entry, Screen.RecipeDetail.route)
-                        } else {
-                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
-                            navController.replaceLink(entry, Screen.Cookbook.route, singleTop = true)
-                        }
-                    }
-                }
-                composable(
-                    DeepLinks.ACCOUNT_ROUTE,
-                    arguments = listOf(
-                        navArgument(DeepLinks.ARG_NAME) {
-                            type = NavType.StringType
-                            nullable = true
-                            defaultValue = null
-                        },
-                    ),
-                    deepLinks = DeepLinks.forRoute(DeepLinks.ACCOUNT_ROUTE),
-                ) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    val name = entry.arguments?.getString(DeepLinks.ARG_NAME)
-                    LoadingScreen()
-                    LaunchedEffect(id, name, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        if (DeepLinks.isValidId(id)) {
-                            selectedAccount = id!! to (name?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
-                            navController.replaceLink(entry, Screen.AccountTransactions.route)
-                        } else {
-                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
-                            navController.replaceLink(entry, Screen.AccountList.route, singleTop = true)
-                        }
-                    }
-                }
-                composable(DeepLinks.CONTACT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.CONTACT_ROUTE)) { entry ->
-                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
-                    LoadingScreen()
-                    LaunchedEffect(id, linkReady) {
-                        if (!linkReady) return@LaunchedEffect
-                        if (DeepLinks.isValidId(id)) {
-                            linkedContactId = id
-                        } else {
-                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
-                        }
-                        navController.replaceLink(entry, Screen.Contacts.route, singleTop = true)
-                    }
-                }
-                composable(Screen.Dashboard.route) {
-                    DashboardScreen(
-                        viewModel = dashboardViewModel,
-                        onEventClick = { selectedEvent = it },
-                        onTaskClick = {
-                            selectedEvent = null
-                            selectedTask = it
-                        },
-                    )
-                }
-                composable(
-                    Screen.Chat.route,
-                    arguments = listOf(
-                        navArgument(DeepLinks.ARG_MESSAGE) {
-                            type = NavType.StringType
-                            nullable = true
-                            defaultValue = null
-                        },
-                    ),
-                    deepLinks = DeepLinks.forRoute(Screen.Chat.route),
-                ) { entry ->
-                    ChatScreen(
+            chatPanel = if (chrome.showsChatPanel) {
+                {
+                    ChatPanel(
                         viewModel = chatViewModel,
-                        draft = DeepLinks.chatDraft(entry.arguments?.getString(DeepLinks.ARG_MESSAGE)),
+                        onMicClick = ::startVoiceMode,
+                        onOpenThreads = { showContextSheet = true },
                     )
                 }
-                composable(Screen.Calendar.route) {
-                    val event = selectedEvent
-                    val task = selectedTask
-                    val proaction = selectedProaction
-                    ListDetailPane(
-                        showsDetailPane = paneShown,
-                        list = {
-                            FullCalendarScreen(
-                                viewModel = calendarViewModel,
-                                onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
-                                onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
-                                onOpenTasks = { navigateTo(Screen.Tasks.route) },
-                                onEventClick = {
-                                    // A meal is edited in the Cuisine module, not as an event.
-                                    if (it.agendaIri == PROACTIONS_FILTER_ID) {
-                                        selectedTask = null
-                                        selectedEvent = null
-                                        selectedProactionId = it.id
-                                    } else if (it.agendaIri != MEALS_FILTER_ID) {
-                                        selectedTask = null
-                                        selectedProactionId = null
-                                        selectedEvent = it
-                                    }
-                                },
-                            )
-                        },
-                        detail = when {
-                            proaction != null -> ({
-                                ProactionDetailContent(
-                                    proaction = proaction,
-                                    onMove = { calendarViewModel.moveProaction(proaction.id, it) },
-                                    onDelete = {
-                                        selectedProactionId = null
-                                        calendarViewModel.deleteProaction(proaction.id)
-                                    },
-                                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                                )
-                            })
-                            event != null -> ({
-                                EventDetailContent(
-                                    event = event,
-                                    onEdit = { editEvent(event) },
-                                    onDelete = { deleteEvent(event) },
-                                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                                )
-                            })
-                            task != null -> ({
-                                TaskDetailContent(
-                                    task = task,
-                                    subtasks = subtasksState,
-                                    subtaskActions = subtaskActions,
-                                    onEdit = { editTask(task) },
-                                    onDelete = { deleteTask(task) },
-                                    onToggleDone = { done -> toggleTaskDone(task, done) },
-                                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                                )
-                            })
-                            else -> null
-                        },
-                        placeholder = "Touchez un événement pour le voir ici.",
-                    )
-                }
-                composable(Screen.Tasks.route) {
-                    val task = selectedTask
-                    ListDetailPane(
-                        showsDetailPane = paneShown,
-                        list = {
-                            TasksScreen(
-                                viewModel = tasksViewModel,
-                                onTaskClick = {
-                                    selectedEvent = null
-                                    selectedProactionId = null
-                                    selectedTask = it
-                                },
-                                onFocus = {
-                                    focusTaskId = it
-                                    navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
-                                },
-                            )
-                        },
-                        detail = task?.let { open ->
-                            {
-                                TaskDetailContent(
-                                    task = open,
-                                    subtasks = subtasksState,
-                                    subtaskActions = subtaskActions,
-                                    onEdit = { editTask(open) },
-                                    onDelete = { deleteTask(open) },
-                                    onToggleDone = { done -> toggleTaskDone(open, done) },
-                                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                                )
+            } else {
+                null
+            },
+        ) {
+            Scaffold(
+                modifier = Modifier.weight(1f),
+                // Still nothing from here, band or no band: each piece pays its own inset
+                // (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the screens that nest a
+                // `Scaffold` of their own — Cuisine, Calendrier — already get `safeDrawing`
+                // from it. Material 3 1.3 does not consume `contentWindowInsets` for the
+                // body, so handing one down here would pay the gesture bar twice on exactly
+                // the screens this ticket is giving height back to.
+                contentWindowInsets = WindowInsets(0),
+                topBar = {
+                    if (isMainScreen) {
+                        MaggieTopBar(
+                            title = title,
+                            onMenuClick = if (chrome.showsRail) {
+                                null
+                            } else {
+                                { scope.launch { drawerState.open() } }
+                            },
+                            unreadCount = notificationUiState.unreadCount,
+                            onNotificationsClick = { navigateTo(Screen.Notifications.route) },
+                            onSearchClick = { navigateTo(Screen.Search.route) },
+                            dense = chrome.denseTopBar,
+                        )
+                    }
+                },
+                bottomBar = {
+                    if (chrome.showsChatBar) {
+                        ChatBottomBar(
+                            onOpenChat = { showChatSheet = true },
+                            onMicClick = ::startVoiceMode,
+                        )
+                    }
+                },
+            ) { paddingValues ->
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Loading.route,
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { fadeIn() },
+                    exitTransition = { fadeOut() },
+                    popEnterTransition = { fadeIn() },
+                    popExitTransition = { fadeOut() },
+                ) {
+                    composable(Screen.Loading.route) {
+                        LoadingScreen()
+                    }
+                    composable(Screen.Login.route) {
+                        LoginScreen(viewModel = loginViewModel)
+                    }
+                    composable(DeepLinks.EVENT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.EVENT_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            val event = id?.takeIf(DeepLinks::isValidId)?.let { eventRepository.findEvent(it) }
+                            if (event != null) {
+                                val master = event.recurringEvent?.let { eventRepository.findEvent(it.removePrefix("/api/events/")) }
+                                selectedTask = null
+                                selectedEvent = EventExpander.single(event, master, calendarViewModel.uiState.value.agendas.associateBy { it.id })
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
                             }
-                        },
-                        placeholder = "Touchez une tâche pour la voir ici.",
-                    )
-                }
-                composable(Screen.EventCreate.route) {
-                    EventCreateScreen(
-                        agendas = agendas,
-                        onConfirm = { request ->
-                            scope.launch {
-                                eventRepository.createEvent(request)
-                                navController.popBackStack()
-                                refreshAll()
+                            navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
+                        }
+                    }
+                    composable(DeepLinks.TASK_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.TASK_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            val task = id?.takeIf(DeepLinks::isValidId)?.let { taskRepository.findTask(it) }
+                            if (task != null) {
+                                selectedEvent = null
+                                selectedTask = task
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
                             }
-                        },
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.TaskFocus.route) { entry ->
-                    val focusId = focusTaskId
-                    PopWhenMissing(navController, entry, focusId != null)
-                    if (focusId != null) {
-                        FocusScreen(
-                            taskId = focusId,
-                            viewModel = focusViewModel,
-                            onExit = {
-                                focusViewModel.close()
-                                focusTaskId = null
-                                navController.popBackStack()
+                            navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
+                        }
+                    }
+                    composable(DeepLinks.GROCERY_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.GROCERY_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            groceryItemToOpen = id?.takeIf(DeepLinks::isValidId)
+                            navController.replaceLink(entry, Screen.Grocery.route, singleTop = true)
+                        }
+                    }
+                    composable(DeepLinks.RECIPE_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.RECIPE_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            if (DeepLinks.isValidId(id)) {
+                                detailRecipeId = id
+                                navController.replaceLink(entry, Screen.RecipeDetail.route)
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                                navController.replaceLink(entry, Screen.Cookbook.route, singleTop = true)
+                            }
+                        }
+                    }
+                    composable(
+                        DeepLinks.ACCOUNT_ROUTE,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_NAME) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                        deepLinks = DeepLinks.forRoute(DeepLinks.ACCOUNT_ROUTE),
+                    ) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        val name = entry.arguments?.getString(DeepLinks.ARG_NAME)
+                        LoadingScreen()
+                        LaunchedEffect(id, name, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            if (DeepLinks.isValidId(id)) {
+                                selectedAccount = id!! to (name?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
+                                navController.replaceLink(entry, Screen.AccountTransactions.route)
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                                navController.replaceLink(entry, Screen.AccountList.route, singleTop = true)
+                            }
+                        }
+                    }
+                    composable(DeepLinks.CONTACT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.CONTACT_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            if (DeepLinks.isValidId(id)) {
+                                linkedContactId = id
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                            }
+                            navController.replaceLink(entry, Screen.Contacts.route, singleTop = true)
+                        }
+                    }
+                    composable(Screen.Dashboard.route) {
+                        DashboardScreen(
+                            viewModel = dashboardViewModel,
+                            onEventClick = { selectedEvent = it },
+                            onTaskClick = {
+                                selectedEvent = null
+                                selectedTask = it
                             },
                         )
                     }
-                }
-                composable(Screen.TaskCreate.route) {
-                    TaskCreateScreen(
-                        onConfirm = { request ->
-                            scope.launch {
-                                taskRepository.createTask(request)
-                                navController.popBackStack()
-                                refreshAll()
-                            }
-                        },
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.EventEdit.route) { entry ->
-                    val event = editingEvent
-                    PopWhenMissing(navController, entry, event != null)
-                    if (event != null) {
-                        EventEditScreen(
-                            event = event,
-                            agendas = agendas,
-                            onConfirm = { data ->
-                                scope.launch {
-                                    recurringEventEditor.edit(event, editingRecurrenceAction, data)
-                                    editingEvent = null
-                                    editingRecurrenceAction = null
-                                    navController.popBackStack()
-                                    refreshAll()
-                                }
+                    composable(
+                        Screen.Chat.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_MESSAGE) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
                             },
-                            onBack = {
-                                editingEvent = null
-                                editingRecurrenceAction = null
-                                navController.popBackStack()
-                            },
+                        ),
+                        deepLinks = DeepLinks.forRoute(Screen.Chat.route),
+                    ) { entry ->
+                        ChatScreen(
+                            viewModel = chatViewModel,
+                            draft = DeepLinks.chatDraft(entry.arguments?.getString(DeepLinks.ARG_MESSAGE)),
                         )
                     }
-                }
-                composable(Screen.TaskEdit.route) { entry ->
-                    val task = editingTask
-                    PopWhenMissing(navController, entry, task != null)
-                    if (task != null) {
-                        LaunchedEffect(task.id) { subtasksViewModel.load(task) }
-                        TaskEditScreen(
-                            task = task,
-                            subtasks = subtasksState,
-                            subtaskActions = subtaskActions,
-                            onConfirm = { data ->
-                                scope.launch {
-                                    taskRepository.updateTask(task.id, data)
-                                    editingTask = null
-                                    navController.popBackStack()
-                                    refreshAll()
-                                }
-                            },
-                            onBack = {
-                                editingTask = null
-                                navController.popBackStack()
-                            },
-                        )
-                    }
-                }
-                composable(Screen.Settings.route) {
-                    SettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavigateToProactions = {
-                            navController.navigate(Screen.Proactions.route) { launchSingleTop = true }
-                        },
-                    )
-                }
-                composable(Screen.Notifications.route) {
-                    NotificationScreen(
-                        viewModel = notificationViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.Search.route) {
-                    SearchScreen(
-                        onBack = { navController.popBackStack() },
-                        onResultClick = { index, id ->
-                            when (index) {
-                                "events", "meals" -> {
-                                    navController.popBackStack()
-                                    navController.navigate(Screen.Calendar.route) { launchSingleTop = true }
-                                }
-                                "recipes" -> {
-                                    detailRecipeId = id
-                                    navController.navigate(Screen.RecipeDetail.route) { launchSingleTop = true }
-                                }
-                                else -> navController.popBackStack()
-                            }
-                        },
-                    )
-                }
-                composable(Screen.Proactions.route) {
-                    ProactionScreen(
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.Cookbook.route) {
-                    val paneRecipeId = detailRecipeId
-                    ListDetailPane(
-                        showsDetailPane = paneShown,
-                        list = {
-                            CookbookScreen(
-                                recipeListViewModel = recipeListViewModel,
-                                mealsWeekViewModel = mealsWeekViewModel,
-                                mealsCalendarViewModel = mealsCalendarViewModel,
-                                onRecipeClick = { id ->
-                                    detailRecipeId = id
-                                    if (!paneShown) navController.navigate(Screen.RecipeDetail.route)
-                                },
-                                onCreateRecipe = {
-                                    navController.navigate(Screen.RecipeCreate.route)
-                                },
-                                onCreateMeal = { day, slot ->
-                                    mealCreateState = day to slot
-                                },
-                                onOpenMeal = { meal ->
-                                    // Started before the sheet draws: a meal reopened never shows the last opening's state.
-                                    mealDetailViewModel.open(meal)
-                                    openedMeal = meal
-                                },
-                            )
-                        },
-                        detail = paneRecipeId?.let { id ->
-                            {
-                                key(id) {
-                                    RecipeDetailScreen(
-                                        recipeId = id,
-                                        recipeRepository = recipeRepository,
-                                        viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
-                                        onBack = null,
-                                        onEdit = ::editRecipe,
-                                        onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
-                                    )
-                                }
-                            }
-                        },
-                        placeholder = "Touchez une recette pour la voir ici.",
-                    )
-                }
-                composable(Screen.Grocery.route) {
-                    val groceryState by groceryViewModel.uiState.collectAsState()
-                    val recurringState by recurringGroceryViewModel.uiState.collectAsState()
-                    // Resolved on every state: an item deleted or changed elsewhere is not edited from a stale copy.
-                    val paneItem = groceryPaneItemId?.let { id ->
-                        (groceryState.groceryList?.items.orEmpty() + groceryState.laterItems).firstOrNull { it.id == id }
-                    }
-                    ListDetailPane(
-                        showsDetailPane = paneShown,
-                        list = {
-                            Box(Modifier.fillMaxSize().testTag(UiTags.GROCERY)) {
-                                GroceryScreen(
-                                    viewModel = groceryViewModel,
-                                    recurringViewModel = recurringGroceryViewModel,
-                                    openItemId = groceryItemToOpen,
-                                    onOpenItemHandled = { groceryItemToOpen = null },
-                                    onNavigateToProducts = {
-                                        navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
-                                    },
-                                    onNavigateToStores = {
-                                        navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
-                                    },
-                                    onNavigateToPastErrands = {
-                                        navController.navigate(Screen.PastErrands.route) { launchSingleTop = true }
-                                    },
-                                    onOpenItemInPane = if (paneShown) {
-                                        { groceryPaneItemId = it.id }
-                                    } else {
-                                        null
+                    composable(Screen.Calendar.route) {
+                        val event = selectedEvent
+                        val task = selectedTask
+                        val proaction = selectedProaction
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                FullCalendarScreen(
+                                    viewModel = calendarViewModel,
+                                    onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
+                                    onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
+                                    onOpenTasks = { navigateTo(Screen.Tasks.route) },
+                                    onEventClick = {
+                                        // A meal is edited in the Cuisine module, not as an event.
+                                        if (it.agendaIri == PROACTIONS_FILTER_ID) {
+                                            selectedTask = null
+                                            selectedEvent = null
+                                            selectedProactionId = it.id
+                                        } else if (it.agendaIri != MEALS_FILTER_ID) {
+                                            selectedTask = null
+                                            selectedProactionId = null
+                                            selectedEvent = it
+                                        }
                                     },
                                 )
-                            }
-                        },
-                        detail = paneItem?.let { item ->
-                            {
-                                // The form remembers what was typed: another item is another form.
-                                key(item.id) {
-                                    ItemDetailContent(
-                                        item = item,
-                                        products = groceryState.products,
-                                        stores = groceryState.stores,
-                                        onSave = { label, quantity, storeId, storeName, category ->
-                                            item.id?.let { id ->
-                                                groceryViewModel.updateItem(id, label, quantity, null, storeId, storeName, category)
-                                            }
-                                            groceryPaneItemId = null
+                            },
+                            detail = when {
+                                proaction != null -> ({
+                                    ProactionDetailContent(
+                                        proaction = proaction,
+                                        onMove = { calendarViewModel.moveProaction(proaction.id, it) },
+                                        onDelete = {
+                                            selectedProactionId = null
+                                            calendarViewModel.deleteProaction(proaction.id)
                                         },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
-                                        recurring = recurringState.forProduct(item.product?.id)?.frequency,
-                                        onRecurringChange = item.product?.id?.let { productId ->
-                                            { frequency -> recurringGroceryViewModel.setFrequency(productId, frequency) }
-                                        },
-                                        aislesByStore = groceryState.aislesByStore,
-                                        onLoadAisles = { groceryViewModel.loadAisles(it) },
-                                        onSaveAisle = { storeId, aisle -> groceryViewModel.setItemAisle(item, storeId, aisle) },
+                                    )
+                                })
+                                event != null -> ({
+                                    EventDetailContent(
+                                        event = event,
+                                        onEdit = { editEvent(event) },
+                                        onDelete = { deleteEvent(event) },
+                                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                                    )
+                                })
+                                task != null -> ({
+                                    TaskDetailContent(
+                                        task = task,
+                                        subtasks = subtasksState,
+                                        subtaskActions = subtaskActions,
+                                        onEdit = { editTask(task) },
+                                        onDelete = { deleteTask(task) },
+                                        onToggleDone = { done -> toggleTaskDone(task, done) },
+                                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                                    )
+                                })
+                                else -> null
+                            },
+                            placeholder = "Touchez un événement pour le voir ici.",
+                        )
+                    }
+                    composable(Screen.Tasks.route) {
+                        val task = selectedTask
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                TasksScreen(
+                                    viewModel = tasksViewModel,
+                                    onTaskClick = {
+                                        selectedEvent = null
+                                        selectedProactionId = null
+                                        selectedTask = it
+                                    },
+                                    onFocus = {
+                                        focusTaskId = it
+                                        navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
+                                    },
+                                )
+                            },
+                            detail = task?.let { open ->
+                                {
+                                    TaskDetailContent(
+                                        task = open,
+                                        subtasks = subtasksState,
+                                        subtaskActions = subtaskActions,
+                                        onEdit = { editTask(open) },
+                                        onDelete = { deleteTask(open) },
+                                        onToggleDone = { done -> toggleTaskDone(open, done) },
+                                        modifier = Modifier.verticalScroll(rememberScrollState()),
                                     )
                                 }
-                            }
-                        },
-                        placeholder = "Touchez un article pour le modifier ici.",
-                    )
-                }
-                composable(Screen.ProductList.route) {
-                    val productViewModel: ProductViewModel = koinViewModel()
-                    ProductListScreen(
-                        viewModel = productViewModel,
-                        recurringViewModel = recurringGroceryViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.StoreList.route) {
-                    val storeViewModel: StoreViewModel = koinViewModel()
-                    StoreListScreen(
-                        viewModel = storeViewModel,
-                        onBack = { navController.popBackStack() },
-                        onOpenAisles = { store ->
-                            aislesStoreId = store.id
-                            aislesStoreName = store.name
-                            navController.navigate(Screen.StoreAisles.route) { launchSingleTop = true }
-                        },
-                    )
-                }
-                composable(Screen.PastErrands.route) {
-                    val pastErrandsViewModel: PastErrandsViewModel = koinViewModel()
-                    PastErrandsScreen(
-                        viewModel = pastErrandsViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.StoreAisles.route) { entry ->
-                    val id = aislesStoreId
-                    PopWhenMissing(navController, entry, id != null)
-                    if (id != null) {
-                        StoreAislesScreen(
-                            storeName = aislesStoreName,
-                            viewModel = koinViewModel<StoreAislesViewModel>(key = "aisles-$id") { parametersOf(id) },
+                            },
+                            placeholder = "Touchez une tâche pour la voir ici.",
+                        )
+                    }
+                    composable(Screen.EventCreate.route) {
+                        EventCreateScreen(
+                            agendas = agendas,
+                            onConfirm = { request ->
+                                scope.launch {
+                                    eventRepository.createEvent(request)
+                                    navController.popBackStack()
+                                    refreshAll()
+                                }
+                            },
                             onBack = { navController.popBackStack() },
                         )
                     }
-                }
-                composable(Screen.AccountList.route, deepLinks = DeepLinks.forRoute(Screen.AccountList.route)) {
-                    val accountViewModel: AccountViewModel = koinViewModel()
-                    val account = selectedAccount
-                    ListDetailPane(
-                        showsDetailPane = paneShown,
-                        list = {
-                            AccountListScreen(
-                                viewModel = accountViewModel,
-                                onBack = { navController.backInFinance() },
-                                onOpenContacts = {
-                                    navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
-                                },
-                                onOpenAccount = { accountId, accountName ->
-                                    selectedAccount = accountId to accountName
-                                    if (!paneShown) {
-                                        navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                                    }
+                    composable(Screen.TaskFocus.route) { entry ->
+                        val focusId = focusTaskId
+                        PopWhenMissing(navController, entry, focusId != null)
+                        if (focusId != null) {
+                            FocusScreen(
+                                taskId = focusId,
+                                viewModel = focusViewModel,
+                                onExit = {
+                                    focusViewModel.close()
+                                    focusTaskId = null
+                                    navController.popBackStack()
                                 },
                             )
-                        },
-                        detail = account?.let {
-                            {
-                                AccountTransactions(
-                                    it,
-                                    onBack = null,
-                                    onMakeRecurring = openRecurringFrom,
-                                    prefill = transactionPrefill,
-                                    onPrefillConsumed = { transactionPrefill = null },
-                                    openTransactionId = transactionToOpen,
-                                    onTransactionOpened = { transactionToOpen = null },
-                                    onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
-                                    openIncidents = incidentsToOpen,
-                                    onIncidentsOpened = { incidentsToOpen = false },
-                                )
-                            }
-                        },
-                        placeholder = "Touchez un compte pour voir ses transactions ici.",
-                    )
-                }
-                composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
-                    val contactViewModel: ContactViewModel = koinViewModel()
-                    ContactScreen(
-                        viewModel = contactViewModel,
-                        onBack = { navController.backInFinance() },
-                        showsDetailPane = paneShown,
-                        openContactId = linkedContactId,
-                        onOpenConsumed = { linkedContactId = null },
-                    )
-                }
-                composable(Screen.CategoryList.route, deepLinks = DeepLinks.forRoute(Screen.CategoryList.route)) {
-                    val categoryViewModel: CategoryViewModel = koinViewModel()
-                    CategoryListScreen(
-                        viewModel = categoryViewModel,
-                        onBack = { navController.backInFinance() },
-                        showsDetailPane = paneShown,
-                        onOpenRules = {
-                            navController.navigate(Screen.CategorizationRuleList.route) {
-                                launchSingleTop = true
-                            }
-                        },
-                    )
-                }
-                composable(Screen.BudgetList.route, deepLinks = DeepLinks.forRoute(Screen.BudgetList.route)) {
-                    val budgetViewModel: BudgetViewModel = koinViewModel()
-                    val toQualify by koinViewModel<ToQualifyViewModel>().pile.collectAsState()
-                    BudgetScreen(
-                        viewModel = budgetViewModel,
-                        onBack = { navController.backInFinance() },
-                        canEditSplit = paneShown,
-                        showsDetailPane = paneShown,
-                        toQualify = toQualify,
-                        onOpenToQualify = { navController.navigate(Screen.TransactionsToSort.route) { launchSingleTop = true } },
-                        adjustments = koinViewModel<EnvelopeAdjustmentsViewModel>(),
-                    )
-                }
-                composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {
-                    val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
-                    CategorizationRuleListScreen(
-                        viewModel = ruleViewModel,
-                        onBack = { navController.backInFinance() },
-                        onOpenSuggestions = {
-                            navController.navigate(Screen.RuleSuggestions.route) {
-                                launchSingleTop = true
-                            }
-                        },
-                    )
-                }
-                composable(Screen.RuleSuggestions.route, deepLinks = DeepLinks.forRoute(Screen.RuleSuggestions.route)) {
-                    val suggestionViewModel: RuleSuggestionViewModel = koinViewModel()
-                    RuleSuggestionListScreen(
-                        viewModel = suggestionViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.TransactionsToSort.route, deepLinks = DeepLinks.forRoute(Screen.TransactionsToSort.route)) {
-                    val toSortViewModel: ToSortViewModel = koinViewModel()
-                    ToSortScreen(
-                        viewModel = toSortViewModel,
-                        onBack = { navController.backInFinance() },
-                        showsDetailPane = paneShown,
-                        onOpenTransaction = { line ->
-                            line.accountId?.let { accountId ->
-                                selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
-                                transactionToOpen = line.id
-                                navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                            }
-                        },
-                    )
-                }
-                composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
-                    val recurringViewModel: RecurringOperationViewModel = koinViewModel()
-                    RecurringOperationListScreen(
-                        viewModel = recurringViewModel,
-                        onBack = { navController.backInFinance() },
-                        seed = recurringSeed,
-                        onSeedConsumed = { recurringSeed = null },
-                        onBackToTransaction = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.BankConnectionList.route, deepLinks = DeepLinks.forRoute(Screen.BankConnectionList.route)) {
-                    val bankViewModel: BankConnectionViewModel = koinViewModel()
-                    BankConnectionListScreen(
-                        viewModel = bankViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.Cushion.route, deepLinks = DeepLinks.forRoute(Screen.Cushion.route)) {
-                    val cushionViewModel: CushionViewModel = koinViewModel()
-                    CushionScreen(
-                        viewModel = cushionViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.Treasury.route, deepLinks = DeepLinks.forRoute(Screen.Treasury.route)) {
-                    val treasuryViewModel: TreasuryViewModel = koinViewModel()
-                    TreasuryScreen(
-                        viewModel = treasuryViewModel,
-                        onBack = { navController.backInFinance() },
-                        onPrepareAdvance = { accountId, accountName, prefill ->
-                            selectedAccount = accountId to accountName.ifBlank { DEFAULT_ACCOUNT_NAME }
-                            transactionPrefill = prefill
-                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                        },
-                    )
-                }
-                composable(Screen.SavingsAdvances.route, deepLinks = DeepLinks.forRoute(Screen.SavingsAdvances.route)) {
-                    val savingsAdvancesViewModel: SavingsAdvancesViewModel = koinViewModel()
-                    SavingsAdvancesScreen(
-                        viewModel = savingsAdvancesViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {
-                    val loanViewModel: LoanViewModel = koinViewModel()
-                    LoanListScreen(
-                        viewModel = loanViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
-                    val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
-                    MonthlyReviewScreen(
-                        viewModel = reviewViewModel,
-                        onBack = { navController.backInFinance() },
-                    )
-                }
-                composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
-                    val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
-                    FinanceDashboardScreen(
-                        viewModel = dashboardViewModel,
-                        monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
-                        upcomingViewModel = koinViewModel<UpcomingViewModel>(),
-                        onBack = { navController.popBackStack() },
-                        onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
-                        onOpenIncidents = { account ->
-                            selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }
-                            incidentsToOpen = true
-                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                        },
-                    )
-                }
-                composable(Screen.AccountTransactions.route) { entry ->
-                    val account = selectedAccount
-                    // With a pane the fold effect replaces this route by the list: popping too would take the list away.
-                    PopWhenMissing(navController, entry, account != null || paneFits)
-                    val leave = {
-                        selectedAccount = null
-                        transactionToOpen = null
-                        incidentsToOpen = false
-                        navController.backInFinance()
+                        }
                     }
-                    BackHandler(onBack = leave)
-                    if (account != null) {
-                        AccountTransactions(
-                            account,
-                            onBack = leave,
-                            onMakeRecurring = openRecurringFrom,
-                            prefill = transactionPrefill,
-                            onPrefillConsumed = { transactionPrefill = null },
-                            openTransactionId = transactionToOpen,
-                            onTransactionOpened = { transactionToOpen = null },
-                            onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
-                            openIncidents = incidentsToOpen,
-                            onIncidentsOpened = { incidentsToOpen = false },
+                    composable(Screen.TaskCreate.route) {
+                        TaskCreateScreen(
+                            onConfirm = { request ->
+                                scope.launch {
+                                    taskRepository.createTask(request)
+                                    navController.popBackStack()
+                                    refreshAll()
+                                }
+                            },
+                            onBack = { navController.popBackStack() },
                         )
                     }
-                }
-                composable(Screen.RecipeDetail.route) { entry ->
-                    val id = detailRecipeId
-                    PopWhenMissing(navController, entry, id != null || paneFits)
-                    val leave = {
-                        detailRecipeId = null
-                        navController.popBackStack()
-                    }
-                    BackHandler(onBack = { leave() })
-                    if (id != null) {
-                        RecipeDetailScreen(
-                            recipeId = id,
-                            recipeRepository = recipeRepository,
-                            viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
-                            onBack = { leave() },
-                            onEdit = ::editRecipe,
-                            onDelete = { recipeId ->
-                                deleteRecipe(recipeId) {
+                    composable(Screen.EventEdit.route) { entry ->
+                        val event = editingEvent
+                        PopWhenMissing(navController, entry, event != null)
+                        if (event != null) {
+                            EventEditScreen(
+                                event = event,
+                                agendas = agendas,
+                                onConfirm = { data ->
+                                    scope.launch {
+                                        recurringEventEditor.edit(event, editingRecurrenceAction, data)
+                                        editingEvent = null
+                                        editingRecurrenceAction = null
+                                        navController.popBackStack()
+                                        refreshAll()
+                                    }
+                                },
+                                onBack = {
+                                    editingEvent = null
+                                    editingRecurrenceAction = null
                                     navController.popBackStack()
-                                    detailRecipeId = null
+                                },
+                            )
+                        }
+                    }
+                    composable(Screen.TaskEdit.route) { entry ->
+                        val task = editingTask
+                        PopWhenMissing(navController, entry, task != null)
+                        if (task != null) {
+                            LaunchedEffect(task.id) { subtasksViewModel.load(task) }
+                            TaskEditScreen(
+                                task = task,
+                                subtasks = subtasksState,
+                                subtaskActions = subtaskActions,
+                                onConfirm = { data ->
+                                    scope.launch {
+                                        taskRepository.updateTask(task.id, data)
+                                        editingTask = null
+                                        navController.popBackStack()
+                                        refreshAll()
+                                    }
+                                },
+                                onBack = {
+                                    editingTask = null
+                                    navController.popBackStack()
+                                },
+                            )
+                        }
+                    }
+                    composable(Screen.Settings.route) {
+                        SettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            onNavigateToProactions = {
+                                navController.navigate(Screen.Proactions.route) { launchSingleTop = true }
+                            },
+                        )
+                    }
+                    composable(Screen.Notifications.route) {
+                        NotificationScreen(
+                            viewModel = notificationViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Screen.Search.route) {
+                        SearchScreen(
+                            onBack = { navController.popBackStack() },
+                            onResultClick = { index, id ->
+                                when (index) {
+                                    "events", "meals" -> {
+                                        navController.popBackStack()
+                                        navController.navigate(Screen.Calendar.route) { launchSingleTop = true }
+                                    }
+                                    "recipes" -> {
+                                        detailRecipeId = id
+                                        navController.navigate(Screen.RecipeDetail.route) { launchSingleTop = true }
+                                    }
+                                    else -> navController.popBackStack()
                                 }
                             },
                         )
                     }
-                }
-                composable(Screen.RecipeCreate.route) {
-                    RecipeCreateScreen(
-                        viewModel = koinViewModel<RecipeCreateViewModel>(),
-                        onSaved = {
-                            navController.popBackStack()
-                            recipeListViewModel.refresh()
-                        },
-                        onBack = { navController.popBackStack() },
-                        onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
-                        onLoadUtensils = { recipeRepository.getUtensils().getOrThrow() },
-                    )
-                }
-                composable(Screen.MealIngredientChoice.route) { entry ->
-                    val id = mealToChooseIngredientsOf
-                    PopWhenMissing(navController, entry, id != null)
-                    if (id != null) {
-                        MealIngredientChoiceScreen(
-                            viewModel = koinViewModel<MealIngredientChoiceViewModel>(key = id) { parametersOf(id) },
-                            onLater = { navController.popBackStack() },
-                            onDone = {
-                                navController.popBackStack()
-                                groceryViewModel.refresh()
+                    composable(Screen.Proactions.route) {
+                        ProactionScreen(
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Screen.Cookbook.route) {
+                        val paneRecipeId = detailRecipeId
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                CookbookScreen(
+                                    recipeListViewModel = recipeListViewModel,
+                                    mealsWeekViewModel = mealsWeekViewModel,
+                                    mealsCalendarViewModel = mealsCalendarViewModel,
+                                    onRecipeClick = { id ->
+                                        detailRecipeId = id
+                                        if (!paneShown) navController.navigate(Screen.RecipeDetail.route)
+                                    },
+                                    onCreateRecipe = {
+                                        navController.navigate(Screen.RecipeCreate.route)
+                                    },
+                                    onCreateMeal = { day, slot ->
+                                        mealCreateState = day to slot
+                                    },
+                                    onOpenMeal = { meal ->
+                                        // Started before the sheet draws: a meal reopened never shows the last opening's state.
+                                        mealDetailViewModel.open(meal)
+                                        openedMeal = meal
+                                    },
+                                )
+                            },
+                            detail = paneRecipeId?.let { id ->
+                                {
+                                    key(id) {
+                                        RecipeDetailScreen(
+                                            recipeId = id,
+                                            recipeRepository = recipeRepository,
+                                            viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
+                                            onBack = null,
+                                            onEdit = ::editRecipe,
+                                            onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
+                                        )
+                                    }
+                                }
+                            },
+                            placeholder = "Touchez une recette pour la voir ici.",
+                        )
+                    }
+                    composable(Screen.Grocery.route) {
+                        val groceryState by groceryViewModel.uiState.collectAsState()
+                        val recurringState by recurringGroceryViewModel.uiState.collectAsState()
+                        // Resolved on every state: an item deleted or changed elsewhere is not edited from a stale copy.
+                        val paneItem = groceryPaneItemId?.let { id ->
+                            (groceryState.groceryList?.items.orEmpty() + groceryState.laterItems).firstOrNull { it.id == id }
+                        }
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                Box(Modifier.fillMaxSize().testTag(UiTags.GROCERY)) {
+                                    GroceryScreen(
+                                        viewModel = groceryViewModel,
+                                        recurringViewModel = recurringGroceryViewModel,
+                                        openItemId = groceryItemToOpen,
+                                        onOpenItemHandled = { groceryItemToOpen = null },
+                                        onNavigateToProducts = {
+                                            navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
+                                        },
+                                        onNavigateToStores = {
+                                            navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
+                                        },
+                                        onNavigateToPastErrands = {
+                                            navController.navigate(Screen.PastErrands.route) { launchSingleTop = true }
+                                        },
+                                        onOpenItemInPane = if (paneShown) {
+                                            { groceryPaneItemId = it.id }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
+                            },
+                            detail = paneItem?.let { item ->
+                                {
+                                    // The form remembers what was typed: another item is another form.
+                                    key(item.id) {
+                                        ItemDetailContent(
+                                            item = item,
+                                            products = groceryState.products,
+                                            stores = groceryState.stores,
+                                            onSave = { label, quantity, storeId, storeName, category ->
+                                                item.id?.let { id ->
+                                                    groceryViewModel.updateItem(id, label, quantity, null, storeId, storeName, category)
+                                                }
+                                                groceryPaneItemId = null
+                                            },
+                                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                                            recurring = recurringState.forProduct(item.product?.id)?.frequency,
+                                            onRecurringChange = item.product?.id?.let { productId ->
+                                                { frequency -> recurringGroceryViewModel.setFrequency(productId, frequency) }
+                                            },
+                                            aislesByStore = groceryState.aislesByStore,
+                                            onLoadAisles = { groceryViewModel.loadAisles(it) },
+                                            onSaveAisle = { storeId, aisle -> groceryViewModel.setItemAisle(item, storeId, aisle) },
+                                        )
+                                    }
+                                }
+                            },
+                            placeholder = "Touchez un article pour le modifier ici.",
+                        )
+                    }
+                    composable(Screen.ProductList.route) {
+                        val productViewModel: ProductViewModel = koinViewModel()
+                        ProductListScreen(
+                            viewModel = productViewModel,
+                            recurringViewModel = recurringGroceryViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Screen.StoreList.route) {
+                        val storeViewModel: StoreViewModel = koinViewModel()
+                        StoreListScreen(
+                            viewModel = storeViewModel,
+                            onBack = { navController.popBackStack() },
+                            onOpenAisles = { store ->
+                                aislesStoreId = store.id
+                                aislesStoreName = store.name
+                                navController.navigate(Screen.StoreAisles.route) { launchSingleTop = true }
                             },
                         )
                     }
-                }
-                composable(Screen.RecipeEdit.route) { entry ->
-                    val id = editRecipeId
-                    PopWhenMissing(navController, entry, id != null)
-                    if (id != null) {
-                        RecipeEditScreen(
-                            viewModel = koinViewModel<RecipeEditViewModel>(key = id) { parametersOf(id) },
+                    composable(Screen.PastErrands.route) {
+                        val pastErrandsViewModel: PastErrandsViewModel = koinViewModel()
+                        PastErrandsScreen(
+                            viewModel = pastErrandsViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Screen.StoreAisles.route) { entry ->
+                        val id = aislesStoreId
+                        PopWhenMissing(navController, entry, id != null)
+                        if (id != null) {
+                            StoreAislesScreen(
+                                storeName = aislesStoreName,
+                                viewModel = koinViewModel<StoreAislesViewModel>(key = "aisles-$id") { parametersOf(id) },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                    }
+                    composable(Screen.AccountList.route, deepLinks = DeepLinks.forRoute(Screen.AccountList.route)) {
+                        val accountViewModel: AccountViewModel = koinViewModel()
+                        val summaryViewModel: FinanceSummaryViewModel = koinViewModel()
+                        val summaryBlocks by summaryViewModel.blocks.collectAsState()
+                        LaunchedEffect(Unit) { summaryViewModel.load(listOf(SummaryBlock.LAST_SYNC)) }
+                        val account = selectedAccount
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                AccountListScreen(
+                                    viewModel = accountViewModel,
+                                    onBack = { navController.backInFinance() },
+                                    onOpenContacts = {
+                                        navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
+                                    },
+                                    lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
+                                    onOpenAccount = { accountId, accountName ->
+                                        selectedAccount = accountId to accountName
+                                        if (!paneShown) {
+                                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                                        }
+                                    },
+                                )
+                            },
+                            detail = account?.let {
+                                {
+                                    AccountTransactions(
+                                        it,
+                                        onBack = null,
+                                        onMakeRecurring = openRecurringFrom,
+                                        prefill = transactionPrefill,
+                                        onPrefillConsumed = { transactionPrefill = null },
+                                        openTransactionId = transactionToOpen,
+                                        onTransactionOpened = { transactionToOpen = null },
+                                        onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                                        openIncidents = incidentsToOpen,
+                                        onIncidentsOpened = { incidentsToOpen = false },
+                                    )
+                                }
+                            },
+                            placeholder = "Touchez un compte pour voir ses transactions ici.",
+                        )
+                    }
+                    composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
+                        val contactViewModel: ContactViewModel = koinViewModel()
+                        ContactScreen(
+                            viewModel = contactViewModel,
+                            onBack = { navController.backInFinance() },
+                            showsDetailPane = paneShown,
+                            openContactId = linkedContactId,
+                            onOpenConsumed = { linkedContactId = null },
+                        )
+                    }
+                    composable(Screen.CategoryList.route, deepLinks = DeepLinks.forRoute(Screen.CategoryList.route)) {
+                        val categoryViewModel: CategoryViewModel = koinViewModel()
+                        CategoryListScreen(
+                            viewModel = categoryViewModel,
+                            onBack = { navController.backInFinance() },
+                            showsDetailPane = paneShown,
+                            onOpenRules = {
+                                navController.navigate(Screen.CategorizationRuleList.route) {
+                                    launchSingleTop = true
+                                }
+                            },
+                        )
+                    }
+                    composable(Screen.BudgetList.route, deepLinks = DeepLinks.forRoute(Screen.BudgetList.route)) {
+                        val budgetViewModel: BudgetViewModel = koinViewModel()
+                        val toQualify by koinViewModel<ToQualifyViewModel>().pile.collectAsState()
+                        BudgetScreen(
+                            viewModel = budgetViewModel,
+                            onBack = { navController.backInFinance() },
+                            canEditSplit = paneShown,
+                            showsDetailPane = paneShown,
+                            toQualify = toQualify,
+                            onOpenToQualify = { navController.navigate(Screen.TransactionsToSort.route) { launchSingleTop = true } },
+                            adjustments = koinViewModel<EnvelopeAdjustmentsViewModel>(),
+                        )
+                    }
+                    composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {
+                        val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
+                        CategorizationRuleListScreen(
+                            viewModel = ruleViewModel,
+                            onBack = { navController.backInFinance() },
+                            onOpenSuggestions = {
+                                navController.navigate(Screen.RuleSuggestions.route) {
+                                    launchSingleTop = true
+                                }
+                            },
+                        )
+                    }
+                    composable(Screen.RuleSuggestions.route, deepLinks = DeepLinks.forRoute(Screen.RuleSuggestions.route)) {
+                        val suggestionViewModel: RuleSuggestionViewModel = koinViewModel()
+                        RuleSuggestionListScreen(
+                            viewModel = suggestionViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.TransactionsToSort.route, deepLinks = DeepLinks.forRoute(Screen.TransactionsToSort.route)) {
+                        val toSortViewModel: ToSortViewModel = koinViewModel()
+                        ToSortScreen(
+                            viewModel = toSortViewModel,
+                            onBack = { navController.backInFinance() },
+                            showsDetailPane = paneShown,
+                            onOpenTransaction = { line ->
+                                line.accountId?.let { accountId ->
+                                    selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
+                                    transactionToOpen = line.id
+                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                                }
+                            },
+                        )
+                    }
+                    composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
+                        val recurringViewModel: RecurringOperationViewModel = koinViewModel()
+                        RecurringOperationListScreen(
+                            viewModel = recurringViewModel,
+                            onBack = { navController.backInFinance() },
+                            seed = recurringSeed,
+                            onSeedConsumed = { recurringSeed = null },
+                            onBackToTransaction = { navController.popBackStack() },
+                        )
+                    }
+                    composable(Screen.BankConnectionList.route, deepLinks = DeepLinks.forRoute(Screen.BankConnectionList.route)) {
+                        val bankViewModel: BankConnectionViewModel = koinViewModel()
+                        BankConnectionListScreen(
+                            viewModel = bankViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.Cushion.route, deepLinks = DeepLinks.forRoute(Screen.Cushion.route)) {
+                        val cushionViewModel: CushionViewModel = koinViewModel()
+                        CushionScreen(
+                            viewModel = cushionViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.Treasury.route, deepLinks = DeepLinks.forRoute(Screen.Treasury.route)) {
+                        val treasuryViewModel: TreasuryViewModel = koinViewModel()
+                        TreasuryScreen(
+                            viewModel = treasuryViewModel,
+                            onBack = { navController.backInFinance() },
+                            onPrepareAdvance = { accountId, accountName, prefill ->
+                                selectedAccount = accountId to accountName.ifBlank { DEFAULT_ACCOUNT_NAME }
+                                transactionPrefill = prefill
+                                navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                            },
+                        )
+                    }
+                    composable(Screen.SavingsAdvances.route, deepLinks = DeepLinks.forRoute(Screen.SavingsAdvances.route)) {
+                        val savingsAdvancesViewModel: SavingsAdvancesViewModel = koinViewModel()
+                        SavingsAdvancesScreen(
+                            viewModel = savingsAdvancesViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {
+                        val loanViewModel: LoanViewModel = koinViewModel()
+                        LoanListScreen(
+                            viewModel = loanViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
+                        val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
+                        MonthlyReviewScreen(
+                            viewModel = reviewViewModel,
+                            onBack = { navController.backInFinance() },
+                        )
+                    }
+                    composable(Screen.FinanceReview.route) {
+                        FinanceSummaryPage(FinanceMenu.REVIEW, navController)
+                    }
+                    composable(Screen.FinanceTreasuryMenu.route) {
+                        FinanceSummaryPage(FinanceMenu.TREASURY, navController)
+                    }
+                    composable(Screen.FinancePlanning.route) {
+                        FinanceSummaryPage(FinanceMenu.PLANNING, navController)
+                    }
+                    composable(Screen.FinanceConfiguration.route) {
+                        FinanceSummaryPage(FinanceMenu.SETTINGS, navController)
+                    }
+                    composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
+                        val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
+                        FinanceDashboardScreen(
+                            viewModel = dashboardViewModel,
+                            monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
+                            upcomingViewModel = koinViewModel<UpcomingViewModel>(),
+                            onBack = { navController.popBackStack() },
+                            onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
+                            onOpenIncidents = { account ->
+                                selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }
+                                incidentsToOpen = true
+                                navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                            },
+                        )
+                    }
+                    composable(Screen.AccountTransactions.route) { entry ->
+                        val account = selectedAccount
+                        // With a pane the fold effect replaces this route by the list: popping too would take the list away.
+                        PopWhenMissing(navController, entry, account != null || paneFits)
+                        val leave = {
+                            selectedAccount = null
+                            transactionToOpen = null
+                            incidentsToOpen = false
+                            navController.backInFinance()
+                        }
+                        BackHandler(onBack = leave)
+                        if (account != null) {
+                            AccountTransactions(
+                                account,
+                                onBack = leave,
+                                onMakeRecurring = openRecurringFrom,
+                                prefill = transactionPrefill,
+                                onPrefillConsumed = { transactionPrefill = null },
+                                openTransactionId = transactionToOpen,
+                                onTransactionOpened = { transactionToOpen = null },
+                                onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                                openIncidents = incidentsToOpen,
+                                onIncidentsOpened = { incidentsToOpen = false },
+                            )
+                        }
+                    }
+                    composable(Screen.RecipeDetail.route) { entry ->
+                        val id = detailRecipeId
+                        PopWhenMissing(navController, entry, id != null || paneFits)
+                        val leave = {
+                            detailRecipeId = null
+                            navController.popBackStack()
+                        }
+                        BackHandler(onBack = { leave() })
+                        if (id != null) {
+                            RecipeDetailScreen(
+                                recipeId = id,
+                                recipeRepository = recipeRepository,
+                                viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
+                                onBack = { leave() },
+                                onEdit = ::editRecipe,
+                                onDelete = { recipeId ->
+                                    deleteRecipe(recipeId) {
+                                        navController.popBackStack()
+                                        detailRecipeId = null
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    composable(Screen.RecipeCreate.route) {
+                        RecipeCreateScreen(
+                            viewModel = koinViewModel<RecipeCreateViewModel>(),
                             onSaved = {
-                                editRecipeId = null
                                 navController.popBackStack()
                                 recipeListViewModel.refresh()
                             },
-                            onBack = {
-                                editRecipeId = null
-                                navController.popBackStack()
-                            },
+                            onBack = { navController.popBackStack() },
                             onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                             onLoadUtensils = { recipeRepository.getUtensils().getOrThrow() },
                         )
+                    }
+                    composable(Screen.MealIngredientChoice.route) { entry ->
+                        val id = mealToChooseIngredientsOf
+                        PopWhenMissing(navController, entry, id != null)
+                        if (id != null) {
+                            MealIngredientChoiceScreen(
+                                viewModel = koinViewModel<MealIngredientChoiceViewModel>(key = id) { parametersOf(id) },
+                                onLater = { navController.popBackStack() },
+                                onDone = {
+                                    navController.popBackStack()
+                                    groceryViewModel.refresh()
+                                },
+                            )
+                        }
+                    }
+                    composable(Screen.RecipeEdit.route) { entry ->
+                        val id = editRecipeId
+                        PopWhenMissing(navController, entry, id != null)
+                        if (id != null) {
+                            RecipeEditScreen(
+                                viewModel = koinViewModel<RecipeEditViewModel>(key = id) { parametersOf(id) },
+                                onSaved = {
+                                    editRecipeId = null
+                                    navController.popBackStack()
+                                    recipeListViewModel.refresh()
+                                },
+                                onBack = {
+                                    editRecipeId = null
+                                    navController.popBackStack()
+                                },
+                                onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
+                                onLoadUtensils = { recipeRepository.getUtensils().getOrThrow() },
+                            )
+                        }
                     }
                 }
             }
