@@ -74,6 +74,7 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,6 +184,7 @@ fun GroceryScreen(
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.uiTagRoot(),
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Produits") },
@@ -568,6 +570,7 @@ private fun DeleteConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.uiTagRoot(),
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {

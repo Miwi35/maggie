@@ -917,13 +917,12 @@ test('what was bought is kept in « Courses passées », with its date and its s
     year: 'numeric',
     timeZone: 'Europe/Paris',
   })
-  // Most recent first: the errand just ended is the top row of its shop.
-  const row = pastErrands.rows().first()
+  // The frozen clock gives every errand of the run the same date: find ours by what it bought.
+  const twoBought = pastErrands.rows().filter({ has: otherUser.page.getByText('2', { exact: true }) })
+  const row = await pastErrands.expandErrandWith(first, twoBought)
   await expect(row).toContainText(SHOPS.market)
   await expect(row).toContainText(day)
-  await expect(row.getByText('2', { exact: true }), 'the number of articles bought').toBeVisible()
 
-  await row.click()
   const lines = pastErrands.boughtLines()
   await expect(lines).toContainText(first)
   await expect(lines).toContainText(second)
