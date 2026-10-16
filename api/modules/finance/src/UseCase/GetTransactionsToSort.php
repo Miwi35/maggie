@@ -7,13 +7,13 @@ namespace Maggie\Finance\UseCase;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\MerchantDictionary;
 use Maggie\Finance\Contact\CounterpartyMatch;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Import\MerchantExtractor;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 
 /**
@@ -35,7 +35,7 @@ class GetTransactionsToSort
 
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
-        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $operationRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly CategorizeTransaction $categorizeTransaction,
     ) {
@@ -76,7 +76,7 @@ class GetTransactionsToSort
      * What the suggestions are drawn from: the owner's rules and the
      * categories by name. Read once for a whole page.
      *
-     * @return array{rules: CategorizationRule[], categoriesByName: array<string, Category>}
+     * @return array{rules: RecurringOperation[], categoriesByName: array<string, Category>}
      */
     public function suggestionContext(User $user): array
     {
@@ -85,13 +85,13 @@ class GetTransactionsToSort
             $categoriesByName[mb_strtolower($category->getName())] ??= $category;
         }
 
-        return ['rules' => $this->ruleRepository->findActiveForUser($user), 'categoriesByName' => $categoriesByName];
+        return ['rules' => $this->operationRepository->findActiveWithoutRecurrenceForUser($user), 'categoriesByName' => $categoriesByName];
     }
 
     /**
      * One line of the pile, with the suggestion it would get.
      *
-     * @param CategorizationRule[]    $rules
+     * @param RecurringOperation[]    $rules
      * @param array<string, Category> $categoriesByName
      *
      * @return array<string, mixed>
@@ -120,7 +120,7 @@ class GetTransactionsToSort
     }
 
     /**
-     * @param CategorizationRule[]    $rules
+     * @param RecurringOperation[]    $rules
      * @param array<string, Category> $categoriesByName
      *
      * @return array{categoryId: string, categoryPath: string, source: string, reason: string}|null
@@ -157,7 +157,7 @@ class GetTransactionsToSort
         ];
     }
 
-    private static function ruleReason(CategorizationRule $rule): string
+    private static function ruleReason(RecurringOperation $rule): string
     {
         $pattern = $rule->getLabelPattern();
         if (null === $pattern) {

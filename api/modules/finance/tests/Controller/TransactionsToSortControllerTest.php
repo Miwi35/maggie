@@ -6,7 +6,7 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\MatchType;
@@ -209,15 +209,16 @@ class TransactionsToSortControllerTest extends WebTestCase
         self::assertSame(CategorySource::Rule, $other->getCategorySource());
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        /** @var CategorizationRule $rule */
-        $rule = $em->find(CategorizationRule::class, $data['rule']['id']);
+        /** @var RecurringOperation $rule */
+        $rule = $em->find(RecurringOperation::class, $data['rule']['id']);
+        self::assertFalse($rule->hasRecurrence());
         self::assertSame(MatchType::Contains, $rule->getMatchType());
         self::assertSame($this->id('food'), (string) $rule->getCategory()->getId());
         self::assertSame($this->id('test_user'), (string) $rule->getUser()->getId());
 
         $this->assertMercureUpdatePublished('/transactions/');
         $this->assertElasticsearchIndexDispatched(Transaction::class);
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testAlwaysWithARuleThatAlreadySaysItOnlyAppliesIt(): void
@@ -233,7 +234,7 @@ class TransactionsToSortControllerTest extends WebTestCase
         self::assertSame($this->id('food'), (string) $this->stored('carrefour_old')->getCategory()->getId());
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(1, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(1, $em->getRepository(RecurringOperation::class)->findAll());
     }
 
     public function testAlwaysForAnotherCategoryOutranksTheRuleThatClaimedTheLine(): void

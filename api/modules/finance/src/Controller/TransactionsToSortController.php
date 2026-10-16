@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\GetTransactionsToSort;
 use Maggie\Finance\UseCase\SortTransaction;
@@ -147,7 +147,7 @@ final class TransactionsToSortController
     }
 
     /** @return array{id: string, labelPattern: ?string}|null */
-    private function serializeRule(?CategorizationRule $rule): ?array
+    private function serializeRule(?RecurringOperation $rule): ?array
     {
         return null === $rule ? null : ['id' => (string) $rule->getId(), 'labelPattern' => $rule->getLabelPattern()];
     }
