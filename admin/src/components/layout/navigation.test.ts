@@ -64,6 +64,7 @@ describe('the seven Finance menus', () => {
         '/finance/monthly-review',
         '/finance/recurring-operations',
         '/finance/savings-advances',
+        '/finance/to-sort',
         '/finance/treasury',
         '/loans',
       ].sort(),

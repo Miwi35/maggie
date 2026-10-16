@@ -10,6 +10,7 @@ import { useFinanceDashboard } from './useFinanceDashboard'
 import { useMonthlyReview } from './useMonthlyReview'
 import { useRecurringOverview } from './useRecurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
+import { useTransactionsToSort } from './useTransactionsToSort'
 import { useTreasuryOutlook } from './useTreasuryOutlook'
 
 /** The month a block reads: the current one, as the dashboard opens on. */
@@ -69,6 +70,21 @@ const MonthlyReviewBlock = () => {
     </>
   ) : (
     <Hint>Aucune dépense en attente de revue.</Hint>
+  )
+}
+
+const ToSortBlock = () => {
+  const { pile, loading } = useTransactionsToSort()
+
+  if (!pile) return <Unavailable loading={loading} />
+
+  return pile.total > 0 ? (
+    <>
+      <Figure>{count(pile.total, 'transaction')}</Figure>
+      <Hint warn>à trier</Hint>
+    </>
+  ) : (
+    <Hint>Rien à trier.</Hint>
   )
 }
 
@@ -212,6 +228,7 @@ const BanksBlock = () => {
 export const SUMMARY_BLOCKS: Record<string, ComponentType> = {
   accounts: AccountsBlock,
   import: ImportBlock,
+  'to-sort': ToSortBlock,
   'monthly-review': MonthlyReviewBlock,
   rules: RulesBlock,
   recurring: RecurringBlock,
