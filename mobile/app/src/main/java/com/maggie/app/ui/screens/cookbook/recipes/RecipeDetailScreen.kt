@@ -287,6 +287,8 @@ fun RecipeDetailScreen(
                         }
                     }
 
+                    RecipeMethod(r)
+
                     // Nutrition summary placeholder — will populate when ingredients carry macros
                     if (r.ingredients.isNotEmpty()) {
                         HorizontalDivider()

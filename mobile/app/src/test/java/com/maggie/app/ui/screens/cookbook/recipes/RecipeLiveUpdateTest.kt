@@ -57,4 +57,29 @@ class RecipeLiveUpdateTest {
         assertEquals(RecipeMessage.Unreadable, parseRecipeMessage(published(""""ingredients":[{"quantity":"x"}]"""), "recipe-1"))
         assertTrue(parseRecipeMessage(published(publishedLine(1)), "recipe-1") is RecipeMessage.Changed)
     }
+
+    @Test
+    fun `steps and utensils published replace the ones of the recipe`() {
+        val recipe = apply(
+            published(
+                """"utensils":[{"id":"u-1","name":"Casserole"}],""" +
+                    """"steps":[{"id":"s-1","position":1,"text":"Faire bouillir","durationMinutes":10,"background":true,""" +
+                    """"ingredients":[],"utensils":[{"id":"u-1","name":"Casserole"}],"waitsFor":[]}]""",
+            ),
+        )
+
+        assertEquals(listOf("Casserole"), recipe.utensils.map { it.name })
+        assertEquals("Faire bouillir", recipe.steps.single().text)
+        assertEquals(10, recipe.steps.single().durationMinutes)
+        assertTrue(recipe.steps.single().background)
+        assertEquals("Sans crème", recipe.notes)
+    }
+
+    @Test
+    fun `steps not published are kept`() {
+        val recipe = (parseRecipeMessage(published(""""servings":2"""), "recipe-1") as RecipeMessage.Changed).patch.applyTo(pastaDinner())
+
+        assertEquals(5, recipe.steps.size)
+        assertEquals(1, recipe.utensils.size)
+    }
 }

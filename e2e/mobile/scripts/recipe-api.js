@@ -7,7 +7,10 @@
 // lines planned from it move.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION    create (sets output.recipeId) | set-quantity | set-notes | remove | expect
+//   ACTION    create | create-method (both set output.recipeId) | set-quantity | set-notes | remove | expect
+//             create-method: the steps spec's reference example (MAG-492) — boil water 10 min in the
+//             background, cut the vegetables, cook the pasta 12 min in the background (waits 1),
+//             sauté 8 min, drain and mix (waits 3 and 4) — with its utensils
 //   RECIPE    the recipe's name
 //   QUANTITY  create, set-quantity: grams of the recipe's single line
 //   NOTES     set-notes: the notes
@@ -21,6 +24,8 @@
 const base = E2E_BASE_URL
 const email = 'e2e@maggie.local'
 const ingredientName = 'Orge MAG-330'
+const methodIngredients = ['Pâtes MAG-492', 'Légumes MAG-492']
+const methodUtensils = ['Casserole MAG-492', 'Poêle MAG-492', 'Mixeur MAG-492']
 
 function fail(message) {
   throw new Error('[recipe-api] ' + ACTION + ' "' + RECIPE + '": ' + message)
@@ -104,10 +109,27 @@ function removeLeftovers() {
       http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
     })
   collection('/api/ingredients?itemsPerPage=200')
-    .filter(function (row) { return row.name === ingredientName })
+    .filter(function (row) { return row.name === ingredientName || methodIngredients.indexOf(row.name) !== -1 })
     .forEach(function (row) {
       http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
     })
+  // The utensils the journey created by name, or added from the phone.
+  collection('/api/utensils?itemsPerPage=200')
+    .filter(function (row) { return methodUtensils.indexOf(row.name) !== -1 })
+    .forEach(function (row) {
+      http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
+    })
+}
+
+function createIngredient(name) {
+  const response = http.post(base + '/api/ingredients', {
+    headers: authorized(LD),
+    body: JSON.stringify({ name: name, category: 'grain' }),
+  })
+  if (!response.ok) {
+    fail('POST /api/ingredients answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body)['@id']
 }
 
 if (ACTION === 'create') {
@@ -126,6 +148,34 @@ if (ACTION === 'create') {
       servings: 2,
       notes: 'Notes de départ',
       ingredients: [{ ingredient: JSON.parse(ingredient.body)['@id'], quantity: Number(QUANTITY), unit: 'g' }],
+    }),
+  })
+  if (!response.ok) {
+    fail('POST /api/recipes answered ' + response.status + ': ' + response.body)
+  }
+  waitFor(function (row) { return row !== undefined }, 'the created recipe never became findable')
+  output.recipeId = JSON.parse(response.body).id
+} else if (ACTION === 'create-method') {
+  removeLeftovers()
+  const pasta = createIngredient(methodIngredients[0])
+  const vegetables = createIngredient(methodIngredients[1])
+  const response = http.post(base + '/api/recipes', {
+    headers: authorized(LD),
+    body: JSON.stringify({
+      name: RECIPE,
+      servings: 2,
+      ingredients: [
+        { ingredient: pasta, quantity: 200, unit: 'g' },
+        { ingredient: vegetables, quantity: 300, unit: 'g' },
+      ],
+      utensils: [{ name: methodUtensils[0] }, { name: methodUtensils[1] }],
+      steps: [
+        { text: "Mettre l'eau à bouillir", durationMinutes: 10, background: true, utensils: [{ name: methodUtensils[0] }] },
+        { text: 'Couper les légumes', ingredientIds: [methodIngredients[1]] },
+        { text: 'Cuire les pâtes', durationMinutes: 12, background: true, ingredientIds: [methodIngredients[0]], utensils: [{ name: methodUtensils[0] }], waitsFor: [1] },
+        { text: 'Faire revenir les légumes', durationMinutes: 8, ingredientIds: [methodIngredients[1]], utensils: [{ name: methodUtensils[1] }] },
+        { text: 'Égoutter, mélanger', waitsFor: [3, 4] },
+      ],
     }),
   })
   if (!response.ok) {

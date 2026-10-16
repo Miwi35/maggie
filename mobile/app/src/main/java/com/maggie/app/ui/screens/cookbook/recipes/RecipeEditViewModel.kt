@@ -11,70 +11,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.addJsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-
-/** The fields of the edit sheet, as the owner types them. */
-data class RecipeForm(
-    val name: String = "",
-    val servings: String = "",
-    val tagsText: String = "",
-    val notes: String = "",
-    val ingredients: List<IngredientRow> = emptyList(),
-) {
-    fun toRequest(): JsonObject {
-        val tags = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
-        return buildJsonObject {
-            put("name", name)
-            put("servings", servings.toIntOrNull() ?: 4)
-            putJsonArray("tags") { tags.forEach { add(JsonPrimitive(it)) } }
-            put("notes", notes.ifBlank { null })
-            putJsonArray("ingredients") {
-                ingredients
-                    .filter { (it.ciqualAlimCode.isNotBlank() || it.ingredientId.isNotBlank()) && it.quantity.isNotBlank() }
-                    .forEach { row ->
-                        addJsonObject {
-                            if (row.ciqualAlimCode.isNotBlank()) {
-                                put("ciqualAlimCode", row.ciqualAlimCode)
-                            } else {
-                                put("ingredientId", row.ingredientId)
-                            }
-                            put("quantity", row.quantity.toFloatOrNull() ?: 0f)
-                            put("unit", row.unit.name.lowercase())
-                        }
-                    }
-            }
-        }
-    }
-
-    companion object {
-        fun of(recipe: Recipe) = RecipeForm(
-            name = recipe.name,
-            servings = recipe.servings.toString(),
-            tagsText = recipe.tags.joinToString(", "),
-            notes = recipe.notes ?: "",
-            ingredients = recipe.ingredients.map { ing ->
-                IngredientRow(
-                    ciqualAlimCode = ing.ciqualAlimCode ?: "",
-                    ciqualFoodName = ing.ingredientName ?: "",
-                    ingredientId = ing.ingredientId(),
-                    quantity = ing.quantity.toString(),
-                    unit = ing.unit,
-                )
-            },
-        )
-    }
-}
 
 data class RecipeEditUiState(
     val isLoading: Boolean = true,
     val form: RecipeForm = RecipeForm(),
     /** The recipe changed elsewhere under a field being edited: that field was kept, the owner may reload. */
     val changedElsewhere: Boolean = false,
+    val isSaving: Boolean = false,
+    /** What the API refused that no step explains, or why the save failed. */
+    val error: String? = null,
+    /** The API's refusal of a step, by the step's key. */
+    val stepErrors: Map<Int, String> = emptyMap(),
 )
 
 class RecipeEditViewModel(
@@ -102,7 +49,31 @@ class RecipeEditViewModel(
     fun onServings(value: String) = edit { it.copy(servings = value) }
     fun onTags(value: String) = edit { it.copy(tagsText = value) }
     fun onNotes(value: String) = edit { it.copy(notes = value) }
-    fun onIngredients(value: List<IngredientRow>) = edit { it.copy(ingredients = value) }
+    fun onIngredients(value: List<IngredientRow>) = edit { it.withIngredients(value) }
+
+    fun addStep() = edit { it.addStep() }
+    fun removeStep(key: Int) = edit { it.removeStep(key) }
+    fun moveStep(key: Int, delta: Int) = edit { it.moveStep(key, delta) }
+    fun addUtensil(utensil: UtensilRef) = edit { it.addUtensil(utensil) }
+    fun removeUtensil(utensil: UtensilRef) = edit { it.removeUtensil(utensil) }
+
+    /** Sends the form; [onSaved] runs once the API accepted it. A refusal stays on the sheet, on its step when it names one. */
+    fun save(onSaved: () -> Unit) {
+        val sent = _uiState.value.form
+        if (_uiState.value.isSaving) return
+        _uiState.value = _uiState.value.copy(isSaving = true, error = null, stepErrors = emptyMap())
+        viewModelScope.launch {
+            recipeRepository.updateRecipe(recipeId, sent.toRequest())
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isSaving = false)
+                    onSaved()
+                }
+                .onFailure { failure ->
+                    val refusal = RecipeRefusal.of(sent, failure)
+                    _uiState.value = _uiState.value.copy(isSaving = false, error = refusal.general, stepErrors = refusal.steps)
+                }
+        }
+    }
 
     /** Drops the changes in progress for what the server now holds. */
     fun reload() {
@@ -110,8 +81,15 @@ class RecipeEditViewModel(
         _uiState.value = _uiState.value.copy(form = RecipeForm.of(current), changedElsewhere = false)
     }
 
-    private fun edit(change: (RecipeForm) -> RecipeForm) {
-        _uiState.value = _uiState.value.copy(form = change(_uiState.value.form))
+    /** Any change of the form; the refusal shown on a step goes when that step changes. */
+    fun edit(change: (RecipeForm) -> RecipeForm) {
+        val before = _uiState.value.form
+        val after = change(before)
+        _uiState.value = _uiState.value.copy(
+            form = after,
+            error = null,
+            stepErrors = _uiState.value.stepErrors.stillValid(before, after),
+        )
     }
 
     private fun load() {
@@ -159,13 +137,17 @@ class RecipeEditViewModel(
             tagsText = if (form.tagsText == before.tagsText) now.tagsText else form.tagsText,
             notes = if (form.notes == before.notes) now.notes else form.notes,
             ingredients = if (form.ingredients == before.ingredients) now.ingredients else form.ingredients,
+            utensils = if (form.utensils == before.utensils) now.utensils else form.utensils,
+            steps = if (form.steps == before.steps) now.steps else form.steps,
         )
         // Only a field edited here AND changed there, to something else, is worth a warning.
         val conflict = (form.name != before.name && now.name != before.name && form.name != now.name) ||
             (form.servings != before.servings && now.servings != before.servings && form.servings != now.servings) ||
             (form.tagsText != before.tagsText && now.tagsText != before.tagsText && form.tagsText != now.tagsText) ||
             (form.notes != before.notes && now.notes != before.notes && form.notes != now.notes) ||
-            (form.ingredients != before.ingredients && now.ingredients != before.ingredients && form.ingredients != now.ingredients)
+            (form.ingredients != before.ingredients && now.ingredients != before.ingredients && form.ingredients != now.ingredients) ||
+            (form.utensils != before.utensils && now.utensils != before.utensils && form.utensils != now.utensils) ||
+            (form.steps != before.steps && now.steps != before.steps && form.steps != now.steps)
 
         recipe = incoming
         _uiState.value = _uiState.value.copy(form = merged, changedElsewhere = _uiState.value.changedElsewhere || conflict)
