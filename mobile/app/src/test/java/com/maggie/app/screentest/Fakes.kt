@@ -467,6 +467,7 @@ class FakeTransactionTransfers(
         // The API leaves the rejected payments out of the list and serves them as incidents (MAG-375).
         coEvery { repository.getTransactions(any()) } answers { Result.success(lines.filterNot { it.isRejected }) }
         coEvery { repository.getIncidents(any()) } answers { Result.success(incidents()) }
+        coEvery { repository.getSettledIncidents(any()) } returns Result.success(emptyList())
         coEvery { repository.getTransfer(any()) } answers {
             val line = lines.first { it.id == firstArg<String>() }
             Result.success(

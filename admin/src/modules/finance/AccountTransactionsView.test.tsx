@@ -35,7 +35,12 @@ const stubFetch = (transfer: unknown = {}, incidents: unknown[] = []) =>
     'fetch',
     vi.fn(async (url: string) => ({
       ok: true,
-      json: async () => (String(url).endsWith('/incidents') ? { incidents } : transfer),
+      json: async () =>
+        String(url).endsWith('/incidents')
+          ? { incidents }
+          : String(url).endsWith('/incidents?settled=true')
+            ? { incidents: [] }
+            : transfer,
     })),
   )
 
@@ -427,6 +432,90 @@ describe('Incidents tab', () => {
     await user.click(await screen.findByRole('tab', { name: 'Incidents' }))
     expect(await screen.findByText('Impossible de lire les incidents')).toBeInTheDocument()
     expect(screen.queryByText('Aucun incident sur ce compte')).not.toBeInTheDocument()
+  })
+
+  /** A server that keeps the settled rejections apart, as the API does. */
+  const stubSettlement = (all: (typeof incident)[], { failSettle = false } = {}) => {
+    const settledIds = new Set<string>()
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = String(url)
+        const method = init?.method ?? 'GET'
+        const match = path.match(/\/api\/finance\/transactions\/([^/]+)\/rejection-settlement$/)
+        if (match) {
+          calls.push(`${method} ${match[1]}`)
+          if (failSettle) return { ok: false, json: async () => ({ error: 'boom' }) }
+          if (method === 'POST') settledIds.add(match[1])
+          else settledIds.delete(match[1])
+          return { ok: true, json: async () => ({ success: true }) }
+        }
+        const wantsSettled = path.endsWith('?settled=true')
+        return {
+          ok: true,
+          json: async () => ({
+            incidents: all
+              .filter((i) => settledIds.has(i.debitId) === wantsSettled)
+              .map((i) => ({ ...i, settledAt: settledIds.has(i.debitId) ? '2026-10-16T10:00:00+00:00' : null })),
+          }),
+        }
+      }),
+    )
+    return calls
+  }
+
+  test('« Régularisé » takes the rejection out of the pile into « Régularisés », « Annuler » puts it back', async () => {
+    const second = { ...incident, debitId: '01D2', creditId: '01C2', counterpartyName: 'Mme Martin', kind: 'transfer' }
+    const calls = stubSettlement([incident, second])
+    const user = userEvent.setup()
+
+    renderView()
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (2)' }))
+    await user.click(await screen.findByRole('button', { name: 'Régularisé : EDF' }))
+
+    await screen.findByRole('tab', { name: 'Incidents (1)' })
+    expect(calls).toEqual(['POST 01DEBIT'])
+    expect(screen.queryByRole('button', { name: 'Régularisé : EDF' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Régularisé : Mme Martin' })).toBeInTheDocument()
+    expect(screen.getByText('Rejet EDF régularisé')).toBeInTheDocument()
+    await user.click(screen.getByText('Régularisés (1)'))
+    expect(await screen.findByRole('button', { name: 'Remettre dans la pile : EDF' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    await screen.findByRole('tab', { name: 'Incidents (2)' })
+    expect(calls).toEqual(['POST 01DEBIT', 'DELETE 01DEBIT'])
+    expect(screen.getByRole('button', { name: 'Régularisé : EDF' })).toBeInTheDocument()
+    expect(screen.queryByText('Régularisés (1)')).not.toBeInTheDocument()
+  })
+
+  test('a settled rejection can be put back from « Régularisés » after « Annuler » is gone', async () => {
+    const calls = stubSettlement([incident])
+    const user = userEvent.setup()
+
+    renderView()
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (1)' }))
+    await user.click(await screen.findByRole('button', { name: 'Régularisé : EDF' }))
+    await user.click(await screen.findByText('Régularisés (1)'))
+    await user.click(await screen.findByRole('button', { name: 'Remettre dans la pile : EDF' }))
+
+    await screen.findByRole('tab', { name: 'Incidents (1)' })
+    expect(calls).toEqual(['POST 01DEBIT', 'DELETE 01DEBIT'])
+  })
+
+  test('a refused settlement says so and leaves the rejection in the pile', async () => {
+    stubSettlement([incident], { failSettle: true })
+    const user = userEvent.setup()
+
+    renderView()
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (1)' }))
+    await user.click(await screen.findByRole('button', { name: 'Régularisé : EDF' }))
+
+    expect(await screen.findByText('Impossible de régulariser ce rejet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Régularisé : EDF' })).toBeInTheDocument()
+    expect(screen.queryByText('Rejet EDF régularisé')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   test('a rejection detected while the screen is open joins the tab without a reload', async () => {

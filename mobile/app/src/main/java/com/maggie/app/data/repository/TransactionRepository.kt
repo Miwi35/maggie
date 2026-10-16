@@ -52,6 +52,19 @@ class TransactionRepository(
         apiService.getAccountIncidents(accountId)
     }
 
+    /** The rejections the owner already settled, apart from the pile (MAG-424). */
+    suspend fun getSettledIncidents(accountId: String): Result<List<AccountIncident>> = runCatching {
+        apiService.getAccountIncidents(accountId, settled = true)
+    }
+
+    suspend fun settleRejection(transactionId: String): Result<Unit> = runCatching {
+        apiService.settleRejection(transactionId)
+    }
+
+    suspend fun unsettleRejection(transactionId: String): Result<Unit> = runCatching {
+        apiService.unsettleRejection(transactionId)
+    }
+
     suspend fun createTransaction(request: TransactionCreateRequest): Result<Transaction> = runCatching {
         apiService.createTransaction(request)
     }

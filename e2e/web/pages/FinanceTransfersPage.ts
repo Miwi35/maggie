@@ -43,6 +43,21 @@ export class FinanceTransfersPage extends FinanceAccountsPage {
     return this.content.getByRole('tab', { name: `Incidents (${count})` })
   }
 
+  /** « Régularisé » on a rejection of the pile (MAG-424). */
+  settle(counterparty: string): Locator {
+    return this.content.getByRole('button', { name: `Régularisé : ${counterparty}` })
+  }
+
+  /** The folded « Régularisés (n) » section under the pile. */
+  settledSection(count: number): Locator {
+    return this.content.getByRole('button', { name: `Régularisés (${count})` })
+  }
+
+  /** « Annuler » on the bar that follows « Régularisé », for a few seconds. */
+  get undo(): Locator {
+    return this.page.getByRole('button', { name: 'Annuler', exact: true })
+  }
+
   /** The detail of a rejection: its two original operations. */
   get incidentDetail(): Locator {
     return this.page.getByRole('dialog', { name: /rejeté/ })

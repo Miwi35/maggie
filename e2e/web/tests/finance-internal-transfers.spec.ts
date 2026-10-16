@@ -330,6 +330,58 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
 })
 
 /**
+ * « Régularisé » (MAG-424): a rejection the owner dealt with leaves the pile
+ * for the folded « Régularisés » section, and « Annuler » puts it back.
+ * Created the way the MAG-350 journey creates them, through the API.
+ */
+test('a settled rejection leaves the pile for « Régularisés », and « Annuler » brings it back', async ({
+  transfersUser,
+}) => {
+  const { api, page } = transfersUser
+  const attempt = test.info().retry
+  const accountId = await createAccount(api, `Courant MAG-424, essai ${attempt}`, 'checking')
+  createdAccountIds.push(accountId)
+  const rejections = [
+    { payee: 'EDF', debit: `PRELEVEMENT EDF MAG-424 ESSAI ${attempt}`, credit: `REJET PRLV EDF MAG-424 ESSAI ${attempt}`, cents: 20_600, day: 5 },
+    { payee: 'ORANGE', debit: `PRELEVEMENT ORANGE MAG-424 ESSAI ${attempt}`, credit: `REJET PRLV ORANGE MAG-424 ESSAI ${attempt}`, cents: 3_999, day: 8 },
+  ]
+  for (const rejection of rejections) {
+    await createTransaction(api, accountId, rejection.debit, -rejection.cents, lastMonthDay(rejection.day))
+    await createTransaction(api, accountId, rejection.credit, rejection.cents, lastMonthDay(rejection.day + 1))
+  }
+  for (const label of rejections.flatMap((rejection) => [rejection.debit, rejection.credit])) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?transferKind=rejected&itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'rejected',
+      { what: `The line "${label}", recognised as a rejection` },
+    )
+  }
+
+  const account = new FinanceTransfersPage(page)
+  await account.openTransactions(accountId)
+  await account.incidentsTab(2).click()
+  const orange = account.row('ORANGE')
+  await expect(orange).toHaveCount(1)
+
+  // The newest first: ORANGE. It leaves the pile, and « Annuler » puts it back.
+  await account.settle('ORANGE').click()
+  await expect(account.incidentsTab(1)).toBeVisible()
+  await expect(account.settle('ORANGE')).toHaveCount(0)
+  await expect(account.settle('EDF')).toBeVisible()
+  await account.undo.click()
+  await expect(account.incidentsTab(2)).toBeVisible()
+  await expect(account.settle('ORANGE')).toBeVisible()
+  await expect(account.settledSection(1)).toHaveCount(0)
+
+  // Settled again and left so, it waits in the folded « Régularisés ».
+  await account.settle('ORANGE').click()
+  await expect(account.incidentsTab(1)).toBeVisible()
+  await account.settledSection(1).click()
+  await expect(account.content.getByRole('button', { name: 'Remettre dans la pile : ORANGE' })).toBeVisible()
+})
+
+/**
  * One sheet for every line (MAG-464): an ordinary line opens on its six
  * sections, marking it internal leaves Nature and Note, and taking the marking
  * off brings the others back.

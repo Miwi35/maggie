@@ -17,7 +17,12 @@ data class AccountIncident(
     val amountCents: Int = 0,
     // "direct_debit" or "transfer".
     val kind: String = "direct_debit",
+    // When the owner said it was dealt with (« Régularisé », MAG-424); null while in the pile.
+    val settledAt: String? = null,
 ) {
+    /** The key of the line in a list: the two legs, as the API pairs them. */
+    val key: String get() = "$debitId|$creditId"
+
     /** The leg a tap opens: the payment itself, or the credit when the payment is not followed. */
     val openId: String? get() = debitId ?: creditId
 

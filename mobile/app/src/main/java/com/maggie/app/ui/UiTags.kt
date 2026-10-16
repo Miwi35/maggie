@@ -710,6 +710,12 @@ object UiTags {
     /** One rejection of the Incidents tab. */
     const val INCIDENT_ROW = "incident_row"
 
+    /** « Régularisé » on a rejection of the pile, and the folded « Régularisés (n) » section (MAG-424). */
+    const val INCIDENT_SETTLE = "incident_settle"
+    const val SETTLED_INCIDENTS_HEADER = "settled_incidents_header"
+    const val SETTLED_INCIDENT_ROW = "settled_incident_row"
+    const val INCIDENT_UNSETTLE = "incident_unsettle"
+
     /** The detail screen's « Ce n'est pas un rejet »: there is no marking from the phone, only this release. */
     const val REJECTION_RELEASE = "rejection_release"
 

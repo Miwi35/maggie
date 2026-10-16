@@ -1575,9 +1575,24 @@ class MaggieApiService(
         }
     }
 
-    /** The account's rejected payments, one line each; the transaction list leaves them out (MAG-375). */
-    suspend fun getAccountIncidents(accountId: String): List<AccountIncident> {
-        return client.get("$baseUrl/api/accounts/$accountId/incidents").body<AccountIncidents>().incidents
+    /**
+     * The account's rejected payments, one line each; the transaction list leaves them out (MAG-375).
+     * The pile, or with [settled] those the owner already settled (MAG-424).
+     */
+    suspend fun getAccountIncidents(accountId: String, settled: Boolean = false): List<AccountIncident> {
+        return client.get("$baseUrl/api/accounts/$accountId/incidents") {
+            if (settled) url.parameters.append("settled", "true")
+        }.orRefusal().body<AccountIncidents>().incidents
+    }
+
+    /** « Régularisé »: either leg of the rejection names it, the API settles both (MAG-424). */
+    suspend fun settleRejection(transactionId: String) {
+        client.post("$baseUrl/api/finance/transactions/$transactionId/rejection-settlement").orRefusal()
+    }
+
+    /** « Annuler »: the rejection goes back to the pile. */
+    suspend fun unsettleRejection(transactionId: String) {
+        client.delete("$baseUrl/api/finance/transactions/$transactionId/rejection-settlement").orRefusal()
     }
 
     suspend fun createTransaction(request: TransactionCreateRequest): Transaction {

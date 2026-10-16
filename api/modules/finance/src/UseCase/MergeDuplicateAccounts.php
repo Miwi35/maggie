@@ -589,6 +589,10 @@ class MergeDuplicateAccounts
         if ($copy->isInternalTransfer() && !$twin->isInternalTransfer() && null !== $leg && $leg !== $twin) {
             // The kind travels too: a rejection stays a rejection, never a transfer.
             $twin->pairWith($leg, $copy->getTransferKind(), $copy->getTransferSource());
+            // And so does the owner's word that it was dealt with.
+            if (null !== $copy->getRejectionSettledAt()) {
+                $twin->settleRejection($copy->getRejectionSettledAt());
+            }
             $touched[(string) $leg->getId()] = $leg;
             $changed = true;
         } elseif (null !== $leg && $leg->getCounterpart() === $copy) {

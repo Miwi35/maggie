@@ -123,7 +123,7 @@ export const AccountTransactionsView = () => {
   const live = useMemo(() => transactionLive(accountIri), [accountIri])
 
   const [tab, setTab] = useState(0)
-  const { incidents, error, reload } = useAccountIncidents(id)
+  const { incidents, settled, error, actionError, reload, settle, unsettle } = useAccountIncidents(id)
   // A rejection is detected when its credit lands: the pair leaves the list
   // and enters the incidents on the same message, so both are read again.
   useMercure(TRANSACTION_TOPICS, () => { reload() })
@@ -158,7 +158,14 @@ export const AccountTransactionsView = () => {
         </LiveList>
       </Box>
       <Box hidden={tab !== 1}>
-        <AccountIncidents incidents={incidents} error={error} />
+        <AccountIncidents
+          incidents={incidents}
+          settled={settled}
+          error={error}
+          actionError={actionError}
+          onSettle={settle}
+          onUnsettle={unsettle}
+        />
       </Box>
     </>
   )

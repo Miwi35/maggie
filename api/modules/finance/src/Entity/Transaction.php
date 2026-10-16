@@ -224,6 +224,16 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     private ?self $counterpart = null;
 
     /**
+     * When the owner said this rejected payment was dealt with (paid again,
+     * by another means), so it leaves the account's incidents. Carried by
+     * both legs, like the marking; it goes with the marking.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'date')]
+    private ?\DateTimeImmutable $rejectionSettledAt = null;
+
+    /**
      * The advance this line gives back: the debit leg of a repayment points at
      * the debit leg of the advance. What is left to give back is never stored —
      * it is the advance minus the lines pointing at it.
@@ -664,6 +674,31 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getRejectionSettledAt(): ?\DateTimeImmutable
+    {
+        return $this->rejectionSettledAt;
+    }
+
+    /**
+     * Says the rejected payment was dealt with, on both legs; null takes it
+     * back to the pile.
+     *
+     * @throws \DomainException when this line is not a rejected payment
+     */
+    public function settleRejection(?\DateTimeImmutable $settledAt): static
+    {
+        if (TransferKind::Rejected !== $this->transferKind) {
+            throw new \DomainException('This transaction is not a rejected payment: only a rejection is settled.');
+        }
+
+        $this->rejectionSettledAt = $settledAt;
+        if (null !== $this->counterpart && TransferKind::Rejected === $this->counterpart->transferKind) {
+            $this->counterpart->rejectionSettledAt = $settledAt;
+        }
+
+        return $this;
+    }
+
     /** Takes this line out of the transfers, with who decided that. */
     public function releaseInternalTransfer(TransferSource $source): static
     {
@@ -686,14 +721,16 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
         $this->transferKind = TransferKind::None;
         $this->counterpart = null;
-        // A line that is no longer a repayment gives nothing back.
+        // A line that is no longer a repayment gives nothing back, nor a rejection anything settled.
         $this->repays = null;
+        $this->rejectionSettledAt = null;
 
         if (null !== $former && $former->counterpart === $this) {
             $former->transferKind = TransferKind::None;
             $former->transferSource = TransferSource::Auto;
             $former->counterpart = null;
             $former->repays = null;
+            $former->rejectionSettledAt = null;
         }
     }
 
@@ -836,6 +873,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'rejectionSettledAt' => $this->rejectionSettledAt?->format(\DateTimeInterface::ATOM),
             'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
@@ -870,6 +908,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'rejectionSettledAt' => $this->rejectionSettledAt?->format(\DateTimeInterface::ATOM),
             'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),

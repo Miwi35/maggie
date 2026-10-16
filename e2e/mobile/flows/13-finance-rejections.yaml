@@ -1,0 +1,88 @@
+appId: com.maggie.app.e2e
+name: 13-finance-rejections
+tags:
+  - finance
+---
+# « Régularisé » on a rejected payment, from the phone (MAG-424, extends MAG-102).
+#
+# Étant donné un compte avec deux rejets
+# Quand je touche « Régularisé » sur le premier
+# Alors il quitte la pile et apparaît dans « Régularisés »
+# Quand je touche « Annuler »
+# Alors il revient
+#
+# The data is set by `scripts/rejections-api.js` on the seed's second user. The tablet shows
+# the same tab in the detail pane; the admin's side is `finance-internal-transfers.spec.ts`,
+# the refusals and the undo window `TransactionViewModelTest`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-rejections.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/rejections-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: "Compte MAG-424"
+    timeout: 30000
+- tapOn: "Compte MAG-424"
+
+# The two pairs are detected as their credits land.
+- extendedWaitUntil:
+    visible: "Incidents \\(2\\)"
+    timeout: 30000
+- tapOn:
+    id: "incidents_tab"
+- extendedWaitUntil:
+    visible:
+      id: "incident_settle"
+    timeout: 30000
+
+- tapOn:
+    id: "incident_settle"
+    index: 0
+- extendedWaitUntil:
+    visible: "Incidents \\(1\\)"
+    timeout: 30000
+
+# « Annuler » at once, while the bar is there: the rejection comes back.
+- extendedWaitUntil:
+    visible: "Annuler"
+    timeout: 10000
+- tapOn: "Annuler"
+- extendedWaitUntil:
+    visible: "Incidents \\(2\\)"
+    timeout: 30000
+
+# Settled again, and left so: it waits in « Régularisés ».
+- tapOn:
+    id: "incident_settle"
+    index: 0
+- extendedWaitUntil:
+    visible: "Incidents \\(1\\)"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "settled_incidents_header"
+    timeout: 30000
+- tapOn:
+    id: "settled_incidents_header"
+- extendedWaitUntil:
+    visible:
+      id: "settled_incident_row"
+    timeout: 10000
+
+# Left as found.
+- runScript:
+    file: ../scripts/rejections-api.js
+    env:
+      ACTION: remove
