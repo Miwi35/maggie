@@ -539,6 +539,9 @@ mobile:
     paths: [e2e/mobile/scripts/day-review-api.js]
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
+  e2e/mobile/flows/13-finance-to-sort.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/to-sort-api.js]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-budget-api.js]
