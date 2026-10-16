@@ -19,9 +19,15 @@ const answer = (body: unknown, ok = true) =>
   Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) })
 
 const stubApi = (payload: MonthBalance | unknown, ok = true) => {
-  const fetchMock = vi.fn((url: string) =>
-    url.includes('/api/finance/month-balance') ? answer(payload, ok) : answer({}, false),
-  )
+  // The API answers the month it is asked for.
+  const fetchMock = vi.fn((url: string) => {
+    if (!url.includes('/api/finance/month-balance')) {
+      return answer({}, false)
+    }
+    const asked = /month=(\d{4}-\d{2})/.exec(url)?.[1]
+
+    return answer(asked && ok ? { ...(payload as object), month: asked } : payload, ok)
+  })
   vi.stubGlobal('fetch', fetchMock)
 
   return fetchMock
@@ -146,6 +152,9 @@ describe('MonthBalanceTab', () => {
       expect(monthRequests(fetchMock).at(-1)).toMatch(/month=\d{4}-01$/)
     })
     expect(monthRequests(fetchMock).length).toBeGreaterThan(1)
+    await waitFor(() => {
+      expect(screen.getByTestId('month-balance').getAttribute('data-month')).toMatch(/-01$/)
+    })
   })
 
   test('a Mercure update reloads the balance', async () => {

@@ -90,5 +90,8 @@ export function useMonthBalance(year: number, month: number) {
     refresh()
   }, [refresh])
 
-  return { balance, loading, error, refresh }
+  // Never the previous month's figures under the new month's picker.
+  const shown = balance !== null && balance.month === monthKey(year, month) ? balance : null
+
+  return { balance: shown, loading, error, refresh }
 }
