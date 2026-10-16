@@ -49,6 +49,7 @@ import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -79,6 +80,7 @@ fun AccountListScreen(
     )
 
     Scaffold(
+        modifier = Modifier.uiTagRoot(),
         topBar = {
             FinanceTopBar(Screen.AccountList.route) {
                 TopAppBar(
