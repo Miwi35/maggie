@@ -119,10 +119,10 @@ const ItemList = ({ title, items, empty, testId }: { title: string; items: Upcom
       </Typography>
     ) : (
       <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-        {items.map((item) => (
+        {items.map((item, index) => (
           <Stack
             component="li"
-            key={`${item.date}-${item.label}-${item.source}-${item.amountCents}`}
+            key={`${index}-${item.date}-${item.label}-${item.source}-${item.amountCents}`}
             data-testid="upcoming-item"
             data-date={item.date}
             data-label={item.label}

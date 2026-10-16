@@ -6,7 +6,7 @@ tags:
 # The « À venir » tab of the finance dashboard, from the phone (MAG-463, extends MAG-102).
 #
 # Étant donné une opération récurrente « Loyer » attendue le mois suivant et une enveloppe ajustée pour ce mois
-#   (le compte du propriétaire, `api/fixtures/e2e/`)
+#   (`e2e-upcoming@maggie.local`, `api/fixtures/e2e/58-finance-upcoming.yaml`)
 # Quand j'ouvre les finances puis l'onglet « À venir »
 # Alors je vois la semaine suivante et le mois suivant, avec le loyer parmi les dépenses prévues
 # Et les enveloppes du mois suivant
@@ -25,6 +25,7 @@ tags:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/20-finance-upcoming.yaml
+      e2e_email: e2e-upcoming@maggie.local
 
 - runFlow: ../subflows/sign-in.yaml
 
