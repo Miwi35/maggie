@@ -138,6 +138,22 @@ class AccountTimelineScreenTest {
     }
 
     @Test
+    fun `an account created while the pager is open does not shift the account that is selected`() {
+        val viewModel = mockk<AccountViewModel>(relaxed = true)
+        val state = MutableStateFlow(ui(timeline()))
+        every { viewModel.uiState } returns state
+        compose.setContent { AccountPagerScreen(viewModel = viewModel, onBack = {}, actions = AccountTimelineActions { _, _, _ -> }) }
+        compose.waitForIdle()
+
+        // « Alpha » sorts before both: the pager keeps showing « Compte courant », now on page 1.
+        state.value = state.value.copy(accounts = listOf(Account(id = "a0", name = "Alpha"), checking, savings))
+        compose.waitForIdle()
+
+        verify(exactly = 0) { viewModel.selectAccount("a2") }
+        verify(exactly = 0) { viewModel.selectAccount("a0") }
+    }
+
+    @Test
     fun `each dot is described by the account's full label`() {
         show(ui(timeline()))
 
