@@ -13,6 +13,7 @@ import { Title, useNotify } from 'react-admin'
 import { formatCents } from './accountTypes'
 import { CUSHION_STATE_LABELS, useCushionStatus } from './useCushionStatus'
 import type { CushionStatus } from './useCushionStatus'
+import { accountLabel } from './accountLabel'
 
 const stateColor = (state: string): 'success' | 'warning' | 'info' =>
   state === 'complete' ? 'success' : state === 'recharging' ? 'warning' : 'info'
@@ -97,7 +98,7 @@ const CushionSummary = ({ status }: { status: CushionStatus }) => (
       ) : (
         status.accounts.map((account) => (
           <Typography key={account.id} variant="body2" color="text.secondary">
-            {account.name} — {formatCents(account.balanceCents, account.currency)}
+            {accountLabel(account)} — {formatCents(account.balanceCents, account.currency)}
           </Typography>
         ))
       )}

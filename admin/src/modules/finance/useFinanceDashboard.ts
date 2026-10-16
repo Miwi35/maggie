@@ -57,6 +57,7 @@ export interface FinanceDashboard {
     accounts: {
       id: string
       name: string
+      bank: string | null
       type: string
       balanceCents: number
       currency: string

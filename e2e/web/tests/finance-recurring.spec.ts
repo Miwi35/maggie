@@ -619,7 +619,7 @@ test('a series without counterparty nor label recognises a credit by its amount 
   await recurring.form.getByRole('button', { name: 'Recette' }).click()
   await recurring.form.getByLabel(/Montant de référence/).fill('4750')
   await recurring.form.getByLabel('Tolérance sur le montant (%)').fill('10')
-  await recurring.choose(/Compte/, accountName)
+  await recurring.choose(/Compte/, `EUR · ${accountName}`)
   await recurring.choose(/Catégorie/, categoryName)
   await recurring.form.getByLabel(/Date d’une échéance/).fill(day)
 
@@ -755,4 +755,29 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
   const line = (await getCollection<StoredTransaction>(api, '/api/transactions?itemsPerPage=100')).find((t) => t.label === label)
   const stored = await api.get(`/api/transactions/${line?.id}`)
   expect(await stored.json()).toMatchObject({ qualifiedBy: 'manual', qualification: { mandatory: true, kind: 'repayment' } })
+})
+
+test('two accounts with the same name are told apart by their bank in the account selector (MAG-501)', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+
+  // Given two « Courant » accounts, one per bank.
+  const accountName = `Courant MAG-501, essai ${attempt}`
+  for (const bank of ['Boursorama', 'Crédit Agricole']) {
+    createdAccountIds.push(
+      await created(api, '/api/accounts', { name: accountName, bank, type: 'checking', currency: 'EUR', balanceCents: 0 }),
+    )
+  }
+
+  // When I open the account selector of a new recurring operation.
+  const recurring = new FinanceRecurringPage(page)
+  await recurring.open()
+  await page.getByRole('button', { name: 'Nouvelle opération récurrente' }).click()
+  await recurring.form.getByRole('combobox', { name: /Compte/ }).click()
+
+  // Then each option reads « Banque · devise · nom ».
+  await expect(page.getByRole('option', { name: `Boursorama · EUR · ${accountName}`, exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: `Crédit Agricole · EUR · ${accountName}`, exact: true })).toBeVisible()
 })

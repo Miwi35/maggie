@@ -104,4 +104,14 @@ class GetCushionStatusTest extends KernelTestCase
         self::assertSame(0, $cushion->getMonthlyNetIncomeCents());
         self::assertSame(0, $cushion->getTargetCents());
     }
+
+    public function testItNamesTheBankOfEachCushionAccount(): void
+    {
+        $this->getFixture('measured_livret')->setBank('Boursorama');
+        $this->em->flush();
+
+        $accounts = $this->cushionOf('measured')['accounts'];
+
+        self::assertSame(['Boursorama'], array_column($accounts, 'bank'));
+    }
 }

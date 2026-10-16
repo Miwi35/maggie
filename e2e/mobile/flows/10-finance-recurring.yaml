@@ -212,7 +212,7 @@ tags:
     id: "recurring_pick_search"
 - inputText: "MAG-475"
 - hideKeyboard
-- tapOn: "Courant MAG-475"
+- tapOn: "EUR · Courant MAG-475"
 - scrollUntilVisible:
     element: "Recette"
     timeout: 20000

@@ -56,4 +56,18 @@ class GetFinanceDashboardTest extends KernelTestCase
         self::assertSame(0, $data['savingCapacity']['monthlyNetIncomeCents']);
         self::assertFalse($data['savingCapacity']['isIncomeKnown']);
     }
+
+    public function testItNamesTheBankOfEachAccountOfTheBalance(): void
+    {
+        $this->getFixture('measured_checking')->setBank('Crédit Agricole');
+        $this->em->flush();
+        /** @var User $user */
+        $user = $this->getFixture('measured_user');
+
+        $accounts = $this->useCase->execute($user, 2026, 9)['balance']['accounts'];
+        $banks = array_column($accounts, 'bank', 'name');
+
+        self::assertSame('Crédit Agricole', $banks['Courant measured']);
+        self::assertNull($banks['Livret measured']);
+    }
 }

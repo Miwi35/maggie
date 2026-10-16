@@ -28,6 +28,7 @@ import { RecurringMatchesPanel } from './RecurringMatchesPanel'
 import { Qualification, RequalifiedNotice } from './Qualification'
 import { NO_QUALIFICATION, senseOfAmount } from './qualificationKinds'
 import type { QualificationValue } from './qualificationKinds'
+import { accountLabel } from './accountLabel'
 
 /** What the form opens with: a series being edited, or a transaction being generalised. */
 export interface RecurringFormValues {
@@ -82,7 +83,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: accounts = [] } = useGetList<RaRecord & { name: string }>('accounts', {
+  const { data: accounts = [] } = useGetList<RaRecord & { name: string; bank?: string | null; currency?: string }>('accounts', {
     pagination: { page: 1, perPage: 200 },
     sort: { field: 'name', order: 'ASC' },
   })
@@ -231,7 +232,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             >
               {accounts.map((a) => (
                 <MenuItem key={a.id} value={String(a.id)}>
-                  {a.name}
+                  {accountLabel(a)}
                 </MenuItem>
               ))}
             </TextField>

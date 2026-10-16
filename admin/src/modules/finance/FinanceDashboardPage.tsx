@@ -17,6 +17,7 @@ import { PeriodPicker } from './PeriodPicker'
 import { ReferenceSalaryCard } from './ReferenceSalaryCard'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import type { FinanceDashboard } from './useFinanceDashboard'
+import { accountLabel } from './accountLabel'
 
 const DASHBOARD_TOPICS = [
   '/api/transactions/{id}',
@@ -41,7 +42,7 @@ const BalanceCard = ({ dashboard }: { dashboard: FinanceDashboard }) => (
       {dashboard.balance.accounts.map((account) => (
         <Stack key={account.id} direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
-            {account.name}
+            {accountLabel(account)}
             {account.isCushion && ' · matelas'}
           </Typography>
           <Typography variant="caption">

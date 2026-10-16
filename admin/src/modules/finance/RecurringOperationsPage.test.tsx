@@ -241,8 +241,7 @@ describe('RecurringOperationsPage — the list', () => {
     const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
     await waitFor(() => expect(within(flixo).getByText('Flixo')).toBeInTheDocument())
     expect(within(flixo).getByText('Abonnements')).toBeInTheDocument()
-    expect(within(flixo).getByText('Courant')).toBeInTheDocument()
-    expect(within(flixo).getByText('Crédit Agricole')).toBeInTheDocument()
+    expect(within(flixo).getByText('Crédit Agricole · EUR · Courant')).toBeInTheDocument()
     expect(within(flixo).getByText('Le 12 de chaque mois')).toBeInTheDocument()
     expect(within(flixo).getByText('déclaré')).toBeInTheDocument()
     expect(nbsp(within(flixo).getByText(/ \/ mois$/).textContent)).toBe('-13,49 € / mois')
@@ -254,13 +253,30 @@ describe('RecurringOperationsPage — the list', () => {
     expect(within(loyer).getByText('mesuré')).toBeInTheDocument()
   })
 
-  test('shows the bank under the account, and nothing when the account has none', async () => {
-    overviews = [overviewOf([FLIXO, series({ id: '01SAL', label: 'Salaire', accountBank: null })])]
+  test('reads the account as bank · currency · name, without the bank when the account has none', async () => {
+    overviews = [overviewOf([FLIXO, series({ id: '01SAL', label: 'Salaire', accountName: 'Livret', accountBank: null })])]
     renderPage()
 
     const flixo = await waitFor(() => rowOf('Abonnement Flixo'))
-    expect(within(flixo).getByText('Crédit Agricole')).toBeInTheDocument()
-    expect(within(rowOf('Salaire')).queryByText('Crédit Agricole')).not.toBeInTheDocument()
+    expect(within(flixo).getByText('Crédit Agricole · EUR · Courant')).toBeInTheDocument()
+    expect(within(rowOf('Salaire')).getByText('EUR · Livret')).toBeInTheDocument()
+  })
+
+  test('tells two accounts of the same name apart in the account filter', async () => {
+    const user = userEvent.setup()
+    overviews = [
+      overviewOf([
+        series({ id: '01A', label: 'Loyer A', accountId: '01BOU', accountName: 'Compte courant', accountBank: 'Boursorama' }),
+        series({ id: '01B', label: 'Loyer B', accountId: '01CA', accountName: 'Compte courant', accountBank: 'Crédit Agricole' }),
+      ]),
+    ]
+    renderPage()
+    await waitFor(() => rowOf('Loyer A'))
+
+    await user.click(screen.getByRole('combobox', { name: 'Compte' }))
+
+    expect(await screen.findByRole('option', { name: 'Boursorama · EUR · Compte courant' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Crédit Agricole · EUR · Compte courant' })).toBeInTheDocument()
   })
 
   test('filters the list by account', async () => {
@@ -276,7 +292,7 @@ describe('RecurringOperationsPage — the list', () => {
     expect(rowOf('Salaire')).toBeInTheDocument()
 
     await user.click(screen.getByRole('combobox', { name: 'Compte' }))
-    await user.click(await screen.findByRole('option', { name: 'Revolut' }))
+    await user.click(await screen.findByRole('option', { name: 'Revolut · EUR · Revolut' }))
 
     expect(screen.queryByText('Abonnement Flixo')).not.toBeInTheDocument()
     expect(rowOf('Salaire')).toBeInTheDocument()

@@ -27,6 +27,7 @@ import { AccountIncidents } from './AccountIncidents'
 import { useAccountIncidents } from './useAccountIncidents'
 import type { RaRecord } from 'react-admin'
 import { CategoryPathField } from './CategoryPathField'
+import { accountLabel } from './accountLabel'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -118,7 +119,7 @@ export const AccountTransactionsView = () => {
   // all once the collection fell back to Doctrine.
   const accountIri = `/api/accounts/${id}`
   const { data: account } = useGetOne('accounts', { id: accountIri })
-  const accountName = (account?.name as string) ?? 'Compte'
+  const accountName = account ? accountLabel(account) : 'Compte'
   const live = useMemo(() => transactionLive(accountIri), [accountIri])
 
   const [tab, setTab] = useState(0)

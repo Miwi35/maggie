@@ -66,7 +66,7 @@ test.describe('Importing a statement', () => {
       'nothing is confirmable before a rehearsal has run',
     ).toHaveCount(0)
 
-    await importPage.chooseAccount('Compte courant')
+    await importPage.chooseAccount('Crédit Mutuel · EUR · Compte courant')
     await importPage.dropStatement(STATEMENT)
     await importPage.simulate.click()
 
@@ -108,7 +108,7 @@ test.describe('Importing a statement', () => {
   }) => {
     const importPage = new FinanceImportPage(page)
     await importPage.open()
-    await importPage.chooseAccount('Compte courant')
+    await importPage.chooseAccount('Crédit Mutuel · EUR · Compte courant')
     await importPage.dropStatement(STATEMENT)
     await importPage.simulate.click()
 
@@ -149,7 +149,7 @@ test.describe('Importing a statement', () => {
   test('re-importing the same file brings nothing, and says so', async ({ page }) => {
     const importPage = new FinanceImportPage(page)
     await importPage.open()
-    await importPage.chooseAccount('Compte courant')
+    await importPage.chooseAccount('Crédit Mutuel · EUR · Compte courant')
     await importPage.dropStatement(STATEMENT)
     await importPage.simulate.click()
 

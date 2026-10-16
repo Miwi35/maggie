@@ -56,8 +56,15 @@ import type {
   RecurringStored,
   RecurringSuggestion,
 } from './recurringOperations'
+import { accountLabel } from './accountLabel'
 
 const TOPICS = ['/api/recurring_operations/{id}', '/api/transactions/{id}']
+
+const accountOf = (series: RecurringSeries) => ({
+  name: series.accountName,
+  bank: series.accountBank,
+  currency: series.currency,
+})
 
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
@@ -169,7 +176,7 @@ export const RecurringOperationsPage = () => {
     storedList.map((record) => [idOf(String(record.id)), record as unknown as RecurringStored]),
   )
   const operations = overview?.operations ?? []
-  const accounts = [...new Map(operations.map((o) => [o.accountId, o.accountName])).entries()]
+  const accounts = [...new Map(operations.map((o) => [o.accountId, accountLabel(accountOf(o))])).entries()]
   const activeFilter = accounts.some(([id]) => id === accountFilter) ? accountFilter : ''
   const shown = activeFilter ? operations.filter((o) => o.accountId === activeFilter) : operations
   const detailMissing = operations.some((operation) => !stored.has(operation.id))
@@ -332,9 +339,9 @@ export const RecurringOperationsPage = () => {
           slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
         >
           <MenuItem value="">Tous les comptes</MenuItem>
-          {accounts.map(([id, name]) => (
+          {accounts.map(([id, label]) => (
             <MenuItem key={id} value={id}>
-              {name}
+              {label}
             </MenuItem>
           ))}
         </TextField>
@@ -384,12 +391,7 @@ export const RecurringOperationsPage = () => {
                     <TableCell>{detail?.counterpartyName ?? detail?.labelPattern ?? '—'}</TableCell>
                     <TableCell>{series.categoryName}</TableCell>
                     <TableCell>
-                      {series.accountName}
-                      {series.accountBank && (
-                        <Typography variant="caption" color="text.secondary" component="div">
-                          {series.accountBank}
-                        </Typography>
-                      )}
+                      {accountLabel(accountOf(series))}
                     </TableCell>
                     <TableCell>
                       {capitalise(describeSchedule(series.period, series.dayRule, detail?.anchorOn))}

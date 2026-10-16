@@ -99,6 +99,31 @@ describe('AccountTransactionsView', () => {
     expect(screen.getByTestId('app-bar-title').textContent).toBe('Transactions — Compte joint')
   })
 
+  test('the title tells the bank, the currency and the name of the account (MAG-501)', async () => {
+    const provider = testDataProvider({
+      getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
+      getOne: (() =>
+        Promise.resolve({
+          data: { id: ACCOUNT_IRI, name: 'Compte joint', bank: 'Boursorama', currency: 'EUR' },
+        })) as unknown as DataProvider['getOne'],
+    })
+    render(
+      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
+        <AdminContext dataProvider={provider}>
+          <h6 id="react-admin-title" data-testid="app-bar-title" />
+          <Routes>
+            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+          </Routes>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Aucune transaction sur ce compte')
+    await waitFor(() =>
+      expect(screen.getByTestId('app-bar-title')).toHaveTextContent('Transactions — Boursorama · EUR · Compte joint'),
+    )
+  })
+
   test('a recette reads Reçue or Attendue in the list, a dépense Dépensée — never the other way round', async () => {
     const rows = [
       { id: '/api/transactions/1', label: 'Salaire', amountCents: 235000, currency: 'EUR', status: 'spent', bookedAt: '2026-07-31' },

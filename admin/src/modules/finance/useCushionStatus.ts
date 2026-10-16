@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 export interface CushionAccount {
   id: string
   name: string
+  bank: string | null
   balanceCents: number
   currency: string
 }

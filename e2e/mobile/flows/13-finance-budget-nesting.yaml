@@ -81,9 +81,9 @@ tags:
 # The ticket is attributed to Hellfest from its sheet, through the full-screen choice.
 - openLink: "maggie-e2e://finance/accounts"
 - extendedWaitUntil:
-    visible: "Compte MAG-412"
+    visible: "EUR · Compte MAG-412"
     timeout: 20000
-- tapOn: "Compte MAG-412"
+- tapOn: "EUR · Compte MAG-412"
 - extendedWaitUntil:
     visible: "BILLET HELLFEST MAG-414"
     timeout: 30000

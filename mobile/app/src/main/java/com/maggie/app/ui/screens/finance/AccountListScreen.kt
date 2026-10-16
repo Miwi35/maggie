@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.AccountCreateRequest
 import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.label
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
@@ -115,7 +116,7 @@ fun AccountListScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onOpenAccount(account.id, account.name) },
+                                .clickable { onOpenAccount(account.id, account.label()) },
                         ) {
                             Row(
                                 modifier = Modifier
@@ -126,12 +127,11 @@ fun AccountListScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = account.name,
+                                        text = account.label(),
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     val subtitle = buildString {
                                         append(accountTypeLabel(account.type))
-                                        account.bank?.let { append(" · $it") }
                                         if (account.isCushion) append(" · Matelas")
                                     }
                                     Text(

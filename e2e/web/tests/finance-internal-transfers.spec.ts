@@ -395,7 +395,7 @@ test('the two legs of a transfer imported from statements are both marked, and l
   const importLeg = async (accountName: string, day: string, label: string, signedCents: number) => {
     const importPage = new FinanceImportPage(page)
     await importPage.open()
-    await importPage.chooseAccount(accountName)
+    await importPage.chooseAccount(`EUR · ${accountName}`)
     await importPage.dropStatement(
       ['Date;Libellé;Montant', `${frenchDate(day)};${label};${amount(signedCents)}`, ''].join('\n'),
     )
