@@ -22,6 +22,10 @@ import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.MyShare
+import com.maggie.app.data.model.MyShareRequest
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtSummary
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealSettings
 import com.maggie.app.data.model.MealSettingsValues
@@ -1698,6 +1702,35 @@ class MaggieApiService(
 
     suspend fun getCounterpartySuggestions(contactId: String): List<CounterpartySuggestion> {
         return client.get("$baseUrl/api/finance/contacts/$contactId/counterparty-suggestions").orRefusal().body()
+    }
+
+    // Finance — My part of a shared spend and the créances it makes (MAG-451)
+    suspend fun getMyShare(transactionId: String): MyShare {
+        return client.get("$baseUrl/api/finance/transactions/$transactionId/my-share").orRefusal().body()
+    }
+
+    /** A 400 carries the server's sentence (shares that do not add up, a part too large…) in [ApiRefusalException]. */
+    suspend fun setMyShare(transactionId: String, request: MyShareRequest): MyShare {
+        return client.put("$baseUrl/api/finance/transactions/$transactionId/my-share") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** The whole spend is the owner's again; refused (400) once someone gave something back. */
+    suspend fun removeMyShare(transactionId: String): MyShare {
+        return client.delete("$baseUrl/api/finance/transactions/$transactionId/my-share").orRefusal().body()
+    }
+
+    suspend fun getPeerDebts(): List<PeerDebt> {
+        return client.get("$baseUrl/api/peer_debts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<PeerDebt>>().member
+    }
+
+    suspend fun getPeerDebtSummary(): PeerDebtSummary {
+        return client.get("$baseUrl/api/finance/peer-debts/summary").orRefusal().body()
     }
 
     // Finance — Envelopes (budgets)

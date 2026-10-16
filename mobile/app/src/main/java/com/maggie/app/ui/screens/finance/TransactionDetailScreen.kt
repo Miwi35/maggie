@@ -56,7 +56,10 @@ import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.ui.UiTags
 
-/** What the sheet does for the owner; each gesture acts at once, there is no « Enregistrer » for the whole sheet. */
+/**
+ * What the sheet does for the owner; each gesture acts at once, there is no « Enregistrer » for the
+ * whole sheet — only « Partage » keeps a draft, the part and the people being one decision.
+ */
 class TransactionSheetActions(
     val onBack: () -> Unit,
     val onSearchCounterpart: () -> Unit,
@@ -68,6 +71,8 @@ class TransactionSheetActions(
     val onDetach: () -> Unit = {},
     val onSaveNote: (String) -> Unit = {},
     val onPickOneOffEnvelope: (() -> Unit)? = null,
+    // « Partage » (MAG-451): its edits are a draft until its own « Enregistrer ».
+    val share: ShareSheetActions? = null,
 )
 
 /**
@@ -135,7 +140,7 @@ fun TransactionDetailScreen(
                         TransactionSheetSection.Nature -> NatureSection(state, actions)
                         TransactionSheetSection.Classement -> ClassementSection(state, actions, categories, provenance, oneOffEnvelopeName)
                         TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
-                        TransactionSheetSection.Partage -> EmptySlot("Pas encore disponible")
+                        TransactionSheetSection.Partage -> ShareSection(state, actions.share)
                         TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
                         TransactionSheetSection.Note -> NoteSection(state, actions)
                     }

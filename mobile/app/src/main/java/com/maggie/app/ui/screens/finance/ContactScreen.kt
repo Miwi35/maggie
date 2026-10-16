@@ -46,8 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ContactCounterparty
+import com.maggie.app.data.model.ContactDebt
 import com.maggie.app.data.model.CounterpartySuggestion
+import com.maggie.app.data.model.debtDayLabel
 import com.maggie.app.data.model.lastSeenLabel
+import com.maggie.app.data.model.owesYouLabel
 import com.maggie.app.data.model.transferCount
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
@@ -316,6 +319,18 @@ private fun ContactPage(
             }
 
             HorizontalDivider()
+            Text("En cours", style = MaterialTheme.typography.titleMedium)
+            when {
+                detail.isLoading -> CircularProgressIndicator()
+                detail.openDebts.isEmpty() -> Text(
+                    "${contact.name} ne te doit rien pour l'instant.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                else -> detail.openDebts.forEach { DebtRow(it) }
+            }
+
+            HorizontalDivider()
             Text("Ses comptes", style = MaterialTheme.typography.titleMedium)
             when {
                 detail.isLoading -> CircularProgressIndicator()
@@ -337,6 +352,27 @@ private fun ContactPage(
                 }
             }
         }
+    }
+}
+
+/** One open créance: its object and day, and what is left of their share. */
+@Composable
+private fun DebtRow(debt: ContactDebt) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.CONTACT_DEBT),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(debt.subject, style = MaterialTheme.typography.bodyLarge)
+            debtDayLabel(debt.createdOn)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text(
+            owesYouLabel(debt.remainingCents),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(UiTags.CONTACT_DEBT_REMAINING),
+        )
     }
 }
 

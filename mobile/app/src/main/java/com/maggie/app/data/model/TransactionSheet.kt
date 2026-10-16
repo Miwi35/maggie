@@ -27,7 +27,7 @@ data class TransactionPill(val kind: TransactionPillKind, val label: String)
 
 /**
  * The one row of pills a line wears in the lists. [seriesName] is the name of the series the line
- * is attached to, when the screen knows it. Nothing emits SHARED yet: the sharing lot (MAG-451) does.
+ * is attached to, when the screen knows it. A shared spend (MAG-451) wears « Partagée ».
  */
 fun transactionPills(transaction: Transaction, seriesName: String? = null): List<TransactionPill> = buildList {
     transferBadgeLabel(transaction.transferKind, transaction.amountCents)?.let {
@@ -35,6 +35,9 @@ fun transactionPills(transaction: Transaction, seriesName: String? = null): List
     }
     if (transaction.isAttachedToRecurring) {
         add(TransactionPill(TransactionPillKind.SERIES, if (seriesName.isNullOrBlank()) "Série" else "Série · $seriesName"))
+    }
+    if (transaction.isShared) {
+        add(TransactionPill(TransactionPillKind.SHARED, "Partagée"))
     }
     if (transaction.transferKind == "none" && transaction.category == null) {
         add(TransactionPill(TransactionPillKind.TO_SORT, "À qualifier"))

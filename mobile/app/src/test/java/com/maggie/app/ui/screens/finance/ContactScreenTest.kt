@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -9,7 +10,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.CounterpartySuggestion
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtShare
+import com.maggie.app.data.model.owesYouLabel
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
@@ -32,9 +37,11 @@ class ContactScreenTest {
 
     private val tom = Contact(id = "c-tom", name = "Tom")
     private val contacts = mockk<ContactRepository>()
+    private val peerDebts = mockk<PeerDebtRepository>()
 
-    private fun viewModel(list: List<Contact> = listOf(tom)): ContactViewModel {
+    private fun viewModel(list: List<Contact> = listOf(tom), debts: List<PeerDebt> = emptyList()): ContactViewModel {
         coEvery { contacts.getContacts() } returns Result.success(list)
+        coEvery { peerDebts.getPeerDebts() } returns Result.success(debts)
         coEvery { contacts.getCounterparties("c-tom") } returns Result.success(
             listOf(
                 ContactCounterparty(
@@ -49,7 +56,7 @@ class ContactScreenTest {
         coEvery { contacts.getSuggestions("c-tom") } returns Result.success(
             listOf(CounterpartySuggestion(label = "LYDIA TOM M", transactionCount = 1, lastSeenOn = "2026-10-01")),
         )
-        return ContactViewModel(contacts)
+        return ContactViewModel(contacts, peerDebts)
     }
 
     @Test
@@ -65,6 +72,37 @@ class ContactScreenTest {
         compose.onNodeWithText("· dernier le 12 octobre 2026").assertIsDisplayed()
         compose.onNodeWithText("Peut-être aussi Tom :").assertIsDisplayed()
         compose.onNodeWithText("LYDIA TOM M").assertIsDisplayed()
+    }
+
+    @Test
+    fun `« En cours » lists what they still owe, its object, day and « te doit »`() {
+        val gite = PeerDebt(
+            id = "d-1",
+            `object` = "Gîte des Cimes",
+            createdAt = "2026-10-10T09:00:00+00:00",
+            amountCents = 60000,
+            remainingCents = 60000,
+            shares = listOf(PeerDebtShare(id = "s-1", contactId = "c-tom", contactName = "Tom", amountCents = 20000, remainingCents = 20000)),
+        )
+        val model = viewModel(debts = listOf(gite))
+        compose.setContent { ContactScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithText("Tom").performClick()
+
+        compose.onNodeWithText("En cours").assertIsDisplayed()
+        compose.onNodeWithText("Gîte des Cimes").assertIsDisplayed()
+        compose.onNodeWithText("10 octobre 2026").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CONTACT_DEBT_REMAINING).assertTextEquals(owesYouLabel(20000))
+    }
+
+    @Test
+    fun `nothing owed says so`() {
+        val model = viewModel()
+        compose.setContent { ContactScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithText("Tom").performClick()
+
+        compose.onNodeWithText("Tom ne te doit rien pour l'instant.").assertIsDisplayed()
     }
 
     @Test

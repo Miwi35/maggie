@@ -88,6 +88,8 @@ fun TransactionListScreen(
     // A line to open the sheet of as soon as the list holds it (« Voir la fiche » of « À qualifier »).
     openTransactionId: String? = null,
     onTransactionOpened: () -> Unit = {},
+    // « Voir tout ce qu'on te doit » of a shared spend (MAG-451): the contacts, until MAG-455's screen.
+    onOpenPeerDebts: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -115,6 +117,19 @@ fun TransactionListScreen(
 
     val detail = uiState.detail
     if (detail != null) {
+        // « Ajouter une personne »: the full-screen picker, in a window of its own over the sheet or its pane.
+        uiState.shareContacts?.let { choice ->
+            val chosen = detail.share?.people.orEmpty().map { it.contactId }.toSet()
+            ContactPickerDialog(
+                contacts = choice.contacts.filter { it.id !in chosen },
+                isLoading = choice.isLoading,
+                title = "Qui te doit ?",
+                subtitle = detail.transaction.label,
+                onPick = viewModel::pickShareContact,
+                onCreate = viewModel::createShareContact,
+                onDismiss = viewModel::closeShareContactPicker,
+            )
+        }
         val ruleDraft = uiState.ruleDraft
         if (ruleDraft != null) {
             TransactionRuleDraftScreen(
@@ -163,6 +178,17 @@ fun TransactionListScreen(
                     onDetach = viewModel::detachFromSeries,
                     onSaveNote = viewModel::setNote,
                     onPickOneOffEnvelope = { choosingOneOffEnvelope = true },
+                    share = ShareSheetActions(
+                        onEnable = viewModel::setShareEnabled,
+                        onMyShareChange = viewModel::changeMyShare,
+                        onAddPerson = viewModel::openShareContactPicker,
+                        onRemovePerson = viewModel::removeSharePerson,
+                        onAmountChange = viewModel::editShareAmount,
+                        onSubjectChange = viewModel::changeShareSubject,
+                        onNotesChange = viewModel::changeShareNotes,
+                        onSave = viewModel::saveShare,
+                        onSeeAllOwed = onOpenPeerDebts,
+                    ),
                 ),
                 categories = uiState.categories,
                 provenance = qualificationProvenance(

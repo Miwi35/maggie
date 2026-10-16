@@ -39,6 +39,9 @@ data class Transaction(
     val qualifiedBy: String? = null,
     val qualifiedBySeries: String? = null,
     val qualifiedByRule: String? = null,
+    // The part of a shared spend the owner kept, in absolute cents: only it counts in the
+    // envelopes, the rest is owed by others (MAG-451). Null while the spend is not shared.
+    val myShareCents: Int? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
 
@@ -49,6 +52,8 @@ data class Transaction(
     val isInternalTransfer: Boolean get() = transferKind != "none" && transferKind != "rejected"
 
     val isRejected: Boolean get() = transferKind == "rejected"
+
+    val isShared: Boolean get() = myShareCents != null
 }
 
 /**

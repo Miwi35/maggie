@@ -45,6 +45,12 @@ import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.MyShare
+import com.maggie.app.data.model.MyShareRequest
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtShare
+import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TreasuryOutlook
@@ -53,6 +59,8 @@ import com.maggie.app.data.repository.BankConnectionRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.ErrandPage
@@ -444,8 +452,17 @@ class FakeTransactionTransfers(
     transactions: List<Transaction> = listOf(Seed.transferOut, Seed.groceries),
     private val counterpart: TransferLeg = Seed.transferIn,
     private val candidates: List<TransferLeg> = listOf(Seed.transferIn),
+    contacts: List<Contact> = emptyList(),
 ) {
     private val lines = transactions.toMutableList()
+    private val people = contacts.toMutableList()
+
+    /** The créance of each shared line (MAG-451), by line id. */
+    private val debts = mutableMapOf<String, PeerDebt>()
+
+    /** The `PUT …/my-share` bodies the sheet sent, and the lines whose share it took back. */
+    val sharesSent = mutableListOf<MyShareRequest>()
+    val sharesRemoved = mutableListOf<String>()
     private val paired = lines.filter { it.isInternalTransfer }.map { it.id }.toMutableSet()
 
     /** The counterpart ids the screen asked to mark with, `null` for « none ». */
@@ -551,7 +568,70 @@ class FakeTransactionTransfers(
             Result.success(CategorizationRule(id = "rule-1", labelPattern = firstArg<CategorizationRuleCreateRequest>().labelPattern))
         }
 
-        TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth, recurringRepository, ruleRepository)
+        val peerDebtRepository = mockk<PeerDebtRepository>()
+        coEvery { peerDebtRepository.getMyShare(any()) } answers { Result.success(myShareOf(firstArg())) }
+        coEvery { peerDebtRepository.setMyShare(any(), any()) } answers {
+            val id = firstArg<String>()
+            val request = secondArg<MyShareRequest>()
+            sharesSent += request
+            val index = lines.indexOfFirst { it.id == id }
+            val owed = kotlin.math.abs(lines[index].amountCents) - request.myShareCents
+            val amounts = if (request.shares.all { it.amountCents == null }) {
+                splitEqually(owed, request.shares.size)
+            } else {
+                request.shares.map { it.amountCents ?: 0 }
+            }
+            lines[index] = lines[index].copy(myShareCents = request.myShareCents)
+            debts[id] = PeerDebt(
+                id = "debt-$id",
+                `object` = request.`object` ?: lines[index].label,
+                notes = request.notes,
+                originTransactionId = id,
+                amountCents = owed,
+                remainingCents = owed,
+                shares = request.shares.mapIndexed { i, share ->
+                    PeerDebtShare(
+                        id = "share-$i",
+                        contactId = share.contactId,
+                        contactName = people.first { it.id == share.contactId }.name,
+                        amountCents = amounts[i],
+                        remainingCents = amounts[i],
+                    )
+                },
+            )
+            Result.success(myShareOf(id))
+        }
+        coEvery { peerDebtRepository.removeMyShare(any()) } answers {
+            val id = firstArg<String>()
+            sharesRemoved += id
+            val index = lines.indexOfFirst { it.id == id }
+            lines[index] = lines[index].copy(myShareCents = null)
+            debts -= id
+            Result.success(myShareOf(id))
+        }
+        val contactRepository = mockk<ContactRepository>()
+        coEvery { contactRepository.getContacts() } answers { Result.success(people.toList()) }
+        coEvery { contactRepository.createContact(any()) } answers {
+            val contact = Contact(id = "c-${firstArg<String>().lowercase()}", name = firstArg())
+            people += contact
+            Result.success(contact)
+        }
+
+        TransactionViewModel(
+            repository, categoryRepository, "acc-savings", mercure, auth, recurringRepository, ruleRepository,
+            peerDebtRepository, contactRepository,
+        )
+    }
+
+    private fun myShareOf(id: String): MyShare {
+        val line = lines.first { it.id == id }
+        return MyShare(
+            transactionId = id,
+            amountCents = line.amountCents,
+            myShareCents = line.myShareCents,
+            canBeShared = line.amountCents < 0 && line.transferKind == "none",
+            peerDebt = debts[id],
+        )
     }
 
     /** One incident per rejected debit, with the credit that gave it back when this account has it. */

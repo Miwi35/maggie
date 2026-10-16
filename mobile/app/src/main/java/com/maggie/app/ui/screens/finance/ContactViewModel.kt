@@ -4,21 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
+import com.maggie.app.data.model.ContactDebt
 import com.maggie.app.data.model.ContactSearch
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.contactSearch
+import com.maggie.app.data.model.openDebtsOf
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/** A contact's page: their labels on the statement and the ones that may be theirs too. */
+/** A contact's page: their labels on the statement, the ones that may be theirs too, and what they owe. */
 data class ContactDetail(
     val contact: Contact,
     val isLoading: Boolean = true,
     val counterparties: List<ContactCounterparty> = emptyList(),
     val suggestions: List<CounterpartySuggestion> = emptyList(),
+    /** « En cours » (MAG-451): the open créances they still owe something on. */
+    val openDebts: List<ContactDebt> = emptyList(),
 )
 
 data class ContactUiState(
@@ -47,10 +52,12 @@ data class ContactUiState(
  * A contact is a name, notes, and the labels they appear under (« Ses comptes »): linking one
  * attaches every line it recognises, the ones to come too. « Peut-être aussi » offers the labels
  * that look like theirs; nothing is linked until the owner adds one. After each link or removal
- * the page is read again: the counts and the suggestions are the server's.
+ * the page is read again: the counts and the suggestions are the server's. « En cours » lists the
+ * shared spends they still owe their part of (MAG-451).
  */
 class ContactViewModel(
     private val contactRepository: ContactRepository,
+    private val peerDebtRepository: PeerDebtRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ContactUiState())
@@ -110,15 +117,18 @@ class ContactViewModel(
         viewModelScope.launch {
             val counterparties = async { contactRepository.getCounterparties(contactId) }
             val suggestions = async { contactRepository.getSuggestions(contactId) }
+            val debts = async { peerDebtRepository.getPeerDebts() }
             val linked = counterparties.await()
             // No suggestion is no reason to hide the page: « Ses comptes » is what it is for.
             val maybe = suggestions.await().getOrDefault(emptyList())
+            // Nor is a créance list that could not be read.
+            val owed = openDebtsOf(debts.await().getOrDefault(emptyList()), contactId)
             val detail = _uiState.value.detail?.takeIf { it.contact.id == contactId } ?: return@launch
 
             linked
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
-                        detail = detail.copy(isLoading = false, counterparties = it, suggestions = maybe),
+                        detail = detail.copy(isLoading = false, counterparties = it, suggestions = maybe, openDebts = owed),
                     )
                 }
                 .onFailure { failure ->
