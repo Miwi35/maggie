@@ -87,6 +87,7 @@ import com.maggie.app.ui.screens.cookbook.meals.MealDetailViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
@@ -323,6 +324,7 @@ class MaggieApp : Application() {
             viewModel { RecipeListViewModel(get(), get(), get()) }
             viewModel { (recipeId: String) -> RecipeDetailViewModel(recipeId, get(), get(), get()) }
             viewModel { (recipeId: String) -> RecipeEditViewModel(recipeId, get(), get(), get()) }
+            viewModel { RecipeCreateViewModel(get()) }
             viewModel { MealsWeekViewModel(get(), get(), get()) }
             viewModel { MealCreateViewModel(get()) }
             viewModel { MealDetailViewModel(get()) }

@@ -29,6 +29,7 @@ import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
@@ -287,23 +288,6 @@ data class PersonalityResponse(
 data class FcmTokenRequest(
     val token: String,
     val deviceName: String? = null,
-)
-
-@Serializable
-data class RecipeCreateRequest(
-    val name: String,
-    val servings: Int = 4,
-    val tags: List<String> = emptyList(),
-    val notes: String? = null,
-    val ingredients: List<RecipeIngredientRequest> = emptyList(),
-)
-
-@Serializable
-data class RecipeIngredientRequest(
-    val ingredient: String? = null,
-    val ciqualAlimCode: String? = null,
-    val quantity: Float,
-    val unit: String,
 )
 
 @Serializable
@@ -1168,12 +1152,13 @@ class MaggieApiService(
         }.orRefusal().body()
     }
 
-    suspend fun createRecipe(request: RecipeCreateRequest): Recipe {
+    // A 400 names the step or the field it refuses (MAG-490): the refusal carries that sentence.
+    suspend fun createRecipe(data: JsonObject): Recipe {
         return client.post("$baseUrl/api/recipes") {
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
-            setBody(request)
-        }.body()
+            setBody(data)
+        }.orRefusal().body()
     }
 
     suspend fun updateRecipe(id: String, data: JsonObject): Recipe {
@@ -1181,7 +1166,16 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(data)
-        }.body()
+        }.orRefusal().body()
+    }
+
+    /** The user's whole utensil catalogue, by name. */
+    suspend fun getUtensils(): List<Utensil> {
+        return client.get("$baseUrl/api/utensils") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("order[name]", "asc")
+        }.orRefusal().body<ApiCollection<Utensil>>().member
     }
 
     suspend fun getRecipeDeletionImpact(id: String): RecipeDeletionImpact {

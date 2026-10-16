@@ -144,6 +144,31 @@ class DtoContractTest {
         assertCollectionContract("recipes", serializer<Recipe>(), "Recipe")
 
     @Test
+    fun `the steps and utensils of a recipe deserialise from the recorded response`() {
+        val recipe = readRecording("recipes.collection")["member"]!!.jsonArray.first().jsonObject
+        val steps = recipe["steps"]!!.jsonArray.map { it.jsonObject }
+        val utensils = recipe["utensils"]!!.jsonArray.map { it.jsonObject }
+
+        assertTrue("The recording carries no step: it proves nothing about them.", steps.isNotEmpty())
+        assertTrue("The recording carries no utensil: it proves nothing about them.", utensils.isNotEmpty())
+
+        assertDeclaredFieldsExist("RecipeStep", serializer<RecipeStep>(), steps.flatMap { it.keys }.toSet(), "recipes.collection (steps)")
+        assertDeclaredFieldsExist("Utensil", serializer<Utensil>(), utensils.flatMap { it.keys }.toSet(), "recipes.collection (utensils)")
+        assertDeclaredFieldsExist(
+            "StepIngredient",
+            serializer<StepIngredient>(),
+            steps.flatMap { it["ingredients"]!!.jsonArray }.flatMap { it.jsonObject.keys }.toSet(),
+            "recipes.collection (step ingredients)",
+        )
+
+        val decoded = json.decodeFromJsonElement(serializer<Recipe>(), recipe)
+        assertEquals(listOf(1, 2), decoded.steps.map { it.position })
+        assertEquals(listOf(1), decoded.steps[1].waitsFor)
+        assertEquals(12, decoded.steps[1].durationMinutes)
+        assertTrue(decoded.steps[1].background)
+    }
+
+    @Test
     fun `ingredients deserialise from the recorded response`() =
         assertCollectionContract("ingredients", serializer<Ingredient>(), "Ingredient")
 

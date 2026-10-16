@@ -1,0 +1,102 @@
+appId: com.maggie.app.e2e
+name: 12-recipe-steps
+tags:
+  - cookbook
+---
+# The equipment and the steps of a recipe, on the sheet and from the phone (MAG-492,
+# extends 12-recipe-realtime). The recipe is the steps spec's reference example, created
+# over HTTP by `scripts/recipe-api.js` as Maggie or the admin would send it: what the sheet
+# must show is what the API really serves, not a fixture of the phone's. Then a utensil is
+# added from the phone through the full-screen search, with creation on the fly, and it comes
+# back on the sheet. The recipe, its ingredients and the utensils are this flow's own and
+# are deleted at the end.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/12-recipe-steps.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: create-method
+      RECIPE: Pâtes aux légumes MAG-492
+
+# Opened by its link: the cookbook list shows a page of the recipes of the whole test database.
+- openLink: "maggie-e2e://recipe/${output.recipeId}"
+
+- extendedWaitUntil:
+    visible: "Matériel"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Casserole MAG-492"
+- scrollUntilVisible:
+    element: "Poêle MAG-492"
+
+# The steps, with what the cook needs to know to chain them.
+- scrollUntilVisible:
+    element: "Cuire les pâtes"
+- extendedWaitUntil:
+    visible: "12 min · en fond"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Égoutter, mélanger"
+- extendedWaitUntil:
+    visible: "attend 3, 4"
+    timeout: 10000
+- assertVisible: "Faire revenir les légumes"
+- assertVisible: "8 min"
+
+# A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.
+- scrollUntilVisible:
+    element:
+      id: "recipe_utensil"
+    direction: UP
+- tapOn: "Modifier"
+- extendedWaitUntil:
+    visible:
+      id: "recipe_utensil_add"
+    timeout: 20000
+- tapOn:
+    id: "recipe_utensil_add"
+- extendedWaitUntil:
+    visible:
+      id: "recipe_utensil_search"
+    timeout: 20000
+- tapOn:
+    id: "recipe_utensil_search"
+- inputText: "Mixeur MAG-492"
+- extendedWaitUntil:
+    visible:
+      id: "recipe_utensil_create"
+    timeout: 20000
+- tapOn:
+    id: "recipe_utensil_create"
+
+# Back on the form, the new utensil is among the recipe's; saved, it is on the sheet.
+- extendedWaitUntil:
+    visible: "Mixeur MAG-492"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "recipe_save"
+- tapOn:
+    id: "recipe_save"
+- extendedWaitUntil:
+    visible: "Matériel"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Mixeur MAG-492"
+    timeout: 30000
+- assertVisible: "Casserole MAG-492"
+
+# Left as found.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: remove
+      RECIPE: Pâtes aux légumes MAG-492

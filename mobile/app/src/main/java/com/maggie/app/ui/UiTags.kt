@@ -654,6 +654,25 @@ object UiTags {
     const val SEASON_MONTHS = "season_months"
     const val PRODUCT_SEASON_EDIT = "product_season_edit"
 
+    /**
+     * The equipment and the steps of a recipe (MAG-492). On the sheet: the utensil chips and one step row
+     * (`recipe_step`, `recipe_step_duration`, `recipe_step_waits`). On the edit sheet: « Ajouter une étape »,
+     * a step's text, its « Ustensile » button, « Enregistrer », and the full-screen utensil search with its
+     * field, one result and the « Créer » row.
+     */
+    const val RECIPE_UTENSIL = "recipe_utensil"
+    const val RECIPE_STEP = "recipe_step"
+    const val RECIPE_STEP_DURATION = "recipe_step_duration"
+    const val RECIPE_STEP_WAITS = "recipe_step_waits"
+    const val RECIPE_STEP_ADD = "recipe_step_add"
+    const val RECIPE_STEP_TEXT = "recipe_step_text"
+    const val RECIPE_STEP_ERROR = "recipe_step_error"
+    const val RECIPE_UTENSIL_ADD = "recipe_utensil_add"
+    const val RECIPE_UTENSIL_SEARCH = "recipe_utensil_search"
+    const val RECIPE_UTENSIL_RESULT = "recipe_utensil_result"
+    const val RECIPE_UTENSIL_CREATE = "recipe_utensil_create"
+    const val RECIPE_SAVE = "recipe_save"
+
     /** The recipe search a menu is chosen in — a window of its own: its field, one result, and « Terminer ». */
     const val MEAL_RECIPE_SEARCH_FIELD = "meal_recipe_search_field"
     const val MEAL_RECIPE_RESULT = "meal_recipe_result"

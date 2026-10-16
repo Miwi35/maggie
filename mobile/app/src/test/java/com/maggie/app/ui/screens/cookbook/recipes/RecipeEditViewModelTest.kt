@@ -1,10 +1,12 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.RecipeRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -21,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -209,5 +212,172 @@ class RecipeEditViewModelTest {
         assertEquals("Ma carbonara", viewModel.uiState.value.form.name)
         assertEquals("Version distante", viewModel.uiState.value.form.notes)
         assertEquals(false, viewModel.uiState.value.changedElsewhere)
+    }
+
+    private fun TestScope.openDinner(): RecipeEditViewModel {
+        coEvery { recipeRepository.getRecipe("recipe-1") } returns Result.success(pastaDinner())
+        return openSheet()
+    }
+
+    @Test
+    fun `the sheet opens on the steps and the equipment of the recipe`() = runTest {
+        val viewModel = openDinner()
+
+        assertEquals(5, viewModel.uiState.value.form.steps.size)
+        assertEquals(listOf(UtensilRef("u-pot", "Casserole")), viewModel.uiState.value.form.utensils)
+    }
+
+    @Test
+    fun `adding a step appends an empty one`() = runTest {
+        val viewModel = openDinner()
+
+        viewModel.addStep()
+
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), viewModel.uiState.value.form.steps.map { it.key })
+        assertEquals("", viewModel.uiState.value.form.steps.last().text)
+    }
+
+    @Test
+    fun `moving a step swaps it with its neighbour`() = runTest {
+        val viewModel = openDinner()
+
+        viewModel.moveStep(key = 4, delta = -1)
+
+        assertEquals(listOf(1, 2, 4, 3, 5), viewModel.uiState.value.form.steps.map { it.key })
+    }
+
+    @Test
+    fun `a dependency that becomes a later step after a move is removed`() = runTest {
+        val viewModel = openDinner()
+
+        viewModel.moveStep(key = 1, delta = 1)
+        viewModel.moveStep(key = 1, delta = 1)
+
+        assertEquals(emptyList<Int>(), viewModel.uiState.value.form.steps.first { it.key == 3 }.waitsFor)
+    }
+
+    @Test
+    fun `removing a step takes it out of the dependencies`() = runTest {
+        val viewModel = openDinner()
+
+        viewModel.removeStep(3)
+
+        assertEquals(listOf(4), viewModel.uiState.value.form.steps.first { it.key == 5 }.waitsFor)
+    }
+
+    @Test
+    fun `a utensil added then removed leaves the equipment as it was`() = runTest {
+        val viewModel = openDinner()
+
+        viewModel.addUtensil(UtensilRef(name = "Fouet"))
+        assertEquals(2, viewModel.uiState.value.form.utensils.size)
+        viewModel.removeUtensil(UtensilRef(name = "Fouet"))
+
+        assertEquals(listOf(UtensilRef("u-pot", "Casserole")), viewModel.uiState.value.form.utensils)
+    }
+
+    @Test
+    fun `a step edited here is kept when the equipment changes elsewhere`() = runTest {
+        val viewModel = openDinner()
+        viewModel.edit { it.setStepText(2, "Émincer les légumes") }
+
+        receive(published(""""utensils":[{"id":"u-pot","name":"Casserole"},{"id":"u-whisk","name":"Fouet"}]"""))
+
+        assertEquals("Émincer les légumes", viewModel.uiState.value.form.steps[1].text)
+        assertEquals(2, viewModel.uiState.value.form.utensils.size)
+        assertEquals(false, viewModel.uiState.value.changedElsewhere)
+    }
+
+    @Test
+    fun `the steps follow a recipe whose steps changed elsewhere`() = runTest {
+        val viewModel = openDinner()
+
+        receive(published(""""steps":[{"id":"s-1","position":1,"text":"Tout mélanger","durationMinutes":null,"background":false,"ingredients":[],"utensils":[],"waitsFor":[]}]"""))
+
+        assertEquals(listOf("Tout mélanger"), viewModel.uiState.value.form.steps.map { it.text })
+    }
+
+    @Test
+    fun `saving sends the steps and calls back once the API accepted`() = runTest {
+        val viewModel = openDinner()
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns Result.success(pastaDinner())
+        var saved = false
+
+        viewModel.save { saved = true }
+        advanceUntilIdle()
+
+        assertEquals(true, saved)
+        assertEquals(false, viewModel.uiState.value.isSaving)
+        coVerify { recipeRepository.updateRecipe("recipe-1", match { it["steps"].toString().contains("Cuire les pâtes") }) }
+    }
+
+    @Test
+    fun `a 400 naming a step is shown on that step`() = runTest {
+        val viewModel = openDinner()
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns
+            Result.failure(ApiRefusalException(400, "Step 3 cannot wait for step 4."))
+        var saved = false
+
+        viewModel.save { saved = true }
+        advanceUntilIdle()
+
+        assertEquals(false, saved)
+        assertEquals(mapOf(3 to "Step 3 cannot wait for step 4."), viewModel.uiState.value.stepErrors)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a 400 naming a step after a move is shown on the step moved, not on its old place`() = runTest {
+        val viewModel = openDinner()
+        viewModel.moveStep(key = 4, delta = -1)
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns
+            Result.failure(ApiRefusalException(400, "Step 3 : duration must be positive."))
+
+        viewModel.save {}
+        advanceUntilIdle()
+
+        assertEquals(setOf(4), viewModel.uiState.value.stepErrors.keys)
+    }
+
+    @Test
+    fun `the refusal of a step goes when that step is edited, the others stay`() = runTest {
+        val viewModel = openDinner()
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns
+            Result.failure(ApiRefusalException(400, "Step 3 cannot wait for step 4."))
+        viewModel.save {}
+        advanceUntilIdle()
+
+        viewModel.edit { it.setStepText(1, "Faire bouillir l'eau") }
+        assertEquals(setOf(3), viewModel.uiState.value.stepErrors.keys)
+
+        viewModel.edit { it.setStepDuration(3, "15") }
+        assertEquals(emptyMap<Int, String>(), viewModel.uiState.value.stepErrors)
+    }
+
+    @Test
+    fun `a refusal that names no step is shown on the sheet`() = runTest {
+        val viewModel = openDinner()
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns
+            Result.failure(ApiRefusalException(400, "The name is required."))
+
+        viewModel.save {}
+        advanceUntilIdle()
+
+        assertEquals("The name is required.", viewModel.uiState.value.error)
+        assertEquals(emptyMap<Int, String>(), viewModel.uiState.value.stepErrors)
+    }
+
+    @Test
+    fun `an unreachable API leaves a message and the form untouched`() = runTest {
+        val viewModel = openDinner()
+        val before = viewModel.uiState.value.form
+        coEvery { recipeRepository.updateRecipe("recipe-1", any()) } returns Result.failure(java.io.IOException("offline"))
+
+        viewModel.save {}
+        advanceUntilIdle()
+
+        assertEquals(RecipeRefusal.UNREACHABLE, viewModel.uiState.value.error)
+        assertEquals(before, viewModel.uiState.value.form)
+        assertEquals(false, viewModel.uiState.value.isSaving)
     }
 }

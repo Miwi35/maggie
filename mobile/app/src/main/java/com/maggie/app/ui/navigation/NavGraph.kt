@@ -133,6 +133,7 @@ import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
@@ -1442,15 +1443,14 @@ fun NavGraph() {
                 }
                 composable(Screen.RecipeCreate.route) {
                     RecipeCreateScreen(
-                        onConfirm = { request ->
-                            scope.launch {
-                                recipeRepository.createRecipe(request)
-                                navController.popBackStack()
-                                recipeListViewModel.refresh()
-                            }
+                        viewModel = koinViewModel<RecipeCreateViewModel>(),
+                        onSaved = {
+                            navController.popBackStack()
+                            recipeListViewModel.refresh()
                         },
                         onBack = { navController.popBackStack() },
                         onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
+                        onLoadUtensils = { recipeRepository.getUtensils().getOrThrow() },
                     )
                 }
                 composable(Screen.MealIngredientChoice.route) { entry ->
@@ -1472,21 +1472,18 @@ fun NavGraph() {
                     PopWhenMissing(navController, entry, id != null)
                     if (id != null) {
                         RecipeEditScreen(
-                            recipeId = id,
                             viewModel = koinViewModel<RecipeEditViewModel>(key = id) { parametersOf(id) },
-                            onConfirm = { recipeId, data ->
-                                scope.launch {
-                                    recipeRepository.updateRecipe(recipeId, data)
-                                    editRecipeId = null
-                                    navController.popBackStack()
-                                    recipeListViewModel.refresh()
-                                }
+                            onSaved = {
+                                editRecipeId = null
+                                navController.popBackStack()
+                                recipeListViewModel.refresh()
                             },
                             onBack = {
                                 editRecipeId = null
                                 navController.popBackStack()
                             },
                             onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
+                            onLoadUtensils = { recipeRepository.getUtensils().getOrThrow() },
                         )
                     }
                 }

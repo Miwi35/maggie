@@ -2,11 +2,11 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RecipeDeletionImpact
-import com.maggie.app.data.api.RecipeCreateRequest
 import com.maggie.app.data.local.dao.RecipeDao
 import com.maggie.app.data.local.entity.RecipeEntity
 import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.Utensil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
@@ -44,8 +44,8 @@ class RecipeRepository(
         apiService.getScaledRecipe(id, guests)
     }
 
-    suspend fun createRecipe(request: RecipeCreateRequest): Result<Recipe> = runCatching {
-        val recipe = apiService.createRecipe(request)
+    suspend fun createRecipe(data: JsonObject): Result<Recipe> = runCatching {
+        val recipe = apiService.createRecipe(data)
         recipeDao.upsertAll(listOf(RecipeEntity.fromModel(recipe)))
         recipe
     }
@@ -54,6 +54,10 @@ class RecipeRepository(
         val recipe = apiService.updateRecipe(id, data)
         recipeDao.upsertAll(listOf(RecipeEntity.fromModel(recipe)))
         recipe
+    }
+
+    suspend fun getUtensils(): Result<List<Utensil>> = runCatching {
+        apiService.getUtensils()
     }
 
     suspend fun getDeletionImpact(id: String): Result<RecipeDeletionImpact> = runCatching {

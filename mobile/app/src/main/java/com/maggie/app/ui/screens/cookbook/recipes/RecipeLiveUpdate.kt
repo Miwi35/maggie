@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.cookbook.recipes
 
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
+import com.maggie.app.data.model.RecipeStep
+import com.maggie.app.data.model.Utensil
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -39,6 +41,8 @@ class RecipePatch(private val fields: JsonObject) {
         notes = if ("notes" in fields) (fields["notes"] as? JsonPrimitive)?.contentOrNull else recipe.notes,
         ingredients = fields["ingredients"]?.let { json.decodeFromJsonElement(ListSerializer(RecipeIngredient.serializer()), it) }
             ?: recipe.ingredients,
+        utensils = fields["utensils"]?.let { json.decodeFromJsonElement(ListSerializer(Utensil.serializer()), it) } ?: recipe.utensils,
+        steps = fields["steps"]?.let { json.decodeFromJsonElement(ListSerializer(RecipeStep.serializer()), it) } ?: recipe.steps,
     )
 
     private companion object {

@@ -6,21 +6,15 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -30,14 +24,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,10 +40,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.api.RecipeCreateRequest
-import com.maggie.app.data.api.RecipeIngredientRequest
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
+import com.maggie.app.data.model.Utensil
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -65,120 +56,29 @@ data class IngredientRow(
     val unit: CookbookUnit = CookbookUnit.G,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeCreateScreen(
-    onConfirm: (RecipeCreateRequest) -> Unit,
+    viewModel: RecipeCreateViewModel,
+    onSaved: () -> Unit,
     onBack: () -> Unit,
     onSearchCiqual: suspend (String) -> List<CiqualFood> = { emptyList() },
+    onLoadUtensils: suspend () -> List<Utensil> = { emptyList() },
 ) {
-    var name by remember { mutableStateOf("") }
-    var servings by remember { mutableStateOf("4") }
-    var tagsText by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    val ingredientRows = remember { mutableStateListOf<IngredientRow>() }
+    val state by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Nouvelle recette") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
-        },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nom") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = servings,
-                onValueChange = { servings = it },
-                label = { Text("Portions") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-
-            OutlinedTextField(
-                value = tagsText,
-                onValueChange = { tagsText = it },
-                label = { Text("Tags (séparés par des virgules)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Notes") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Ingrédients")
-                TextButton(onClick = { ingredientRows.add(IngredientRow()) }) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Ajouter")
-                }
-            }
-
-            ingredientRows.forEachIndexed { index, row ->
-                IngredientRowInput(
-                    row = row,
-                    onUpdate = { ingredientRows[index] = it },
-                    onRemove = { ingredientRows.removeAt(index) },
-                    onSearchCiqual = onSearchCiqual,
-                )
-            }
-
-            Button(
-                onClick = {
-                    val tags = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                    val ingredients = ingredientRows
-                        .filter { it.ciqualAlimCode.isNotBlank() && it.quantity.isNotBlank() }
-                        .map { row ->
-                            RecipeIngredientRequest(
-                                ciqualAlimCode = row.ciqualAlimCode,
-                                quantity = row.quantity.toFloatOrNull() ?: 0f,
-                                unit = row.unit.name.lowercase(),
-                            )
-                        }
-                    onConfirm(
-                        RecipeCreateRequest(
-                            name = name,
-                            servings = servings.toIntOrNull() ?: 4,
-                            tags = tags,
-                            notes = notes.ifBlank { null },
-                            ingredients = ingredients,
-                        ),
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotBlank(),
-            ) {
-                Text("Créer")
-            }
-        }
-    }
+    RecipeFormScreen(
+        title = "Nouvelle recette",
+        saveLabel = "Créer",
+        form = state.form,
+        isSaving = state.isSaving,
+        error = state.error,
+        stepErrors = state.stepErrors,
+        edit = viewModel::edit,
+        onSave = { viewModel.save(onSaved) },
+        onBack = onBack,
+        onSearchCiqual = onSearchCiqual,
+        onLoadUtensils = onLoadUtensils,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
