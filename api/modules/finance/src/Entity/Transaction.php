@@ -272,6 +272,17 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[IndexedField(type: 'text')]
     private ?string $note = null;
 
+    /**
+     * The person this transfer comes from or goes to, recognised by one of
+     * their counterparties (MAG-450). Read-only over REST: it is derived from
+     * the label, on every write and when a counterparty is linked or removed.
+     */
+    #[ORM\ManyToOne(targetEntity: Contact::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false)]
+    #[IndexedRelation(targetEntity: Contact::class, sourceField: 'contactId')]
+    private ?Contact $contact = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
@@ -778,6 +789,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getContact(): ?Contact
+    {
+        return $this->contact;
+    }
+
+    public function setContact(?Contact $contact): static
+    {
+        $this->contact = $contact;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -819,6 +842,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringSource' => $this->recurringSource->value,
             'note' => $this->note,
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
+            'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -852,6 +876,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'recurringSource' => $this->recurringSource->value,
             'note' => $this->note,
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
+            'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
         ], self::withDerivedProperties($changedProperties), [
             ...Qualification::changedPropertyMap(),
             'qualifiedBySeries' => 'qualifiedBySeriesId',
@@ -862,6 +887,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'repays' => 'repaysId',
             'recurringOperation' => 'recurringOperationId',
             'oneOffEnvelope' => 'oneOffEnvelopeId',
+            'contact' => 'contactId',
         ]);
     }
 

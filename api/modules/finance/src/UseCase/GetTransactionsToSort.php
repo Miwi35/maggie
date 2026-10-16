@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\MerchantDictionary;
+use Maggie\Finance\Contact\CounterpartyMatch;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Transaction;
@@ -23,6 +24,9 @@ use Maggie\Finance\Repository\TransactionRepository;
  *
  * The rules speak first (they are the owner's own), the merchant dictionary
  * only when no rule claims the line.
+ *
+ * A transfer no contact claims also asks « Associer à un contact ? » (MAG-450),
+ * with the label linking would give the contact.
  */
 class GetTransactionsToSort
 {
@@ -48,7 +52,8 @@ class GetTransactionsToSort
      *     transactions: list<array{
      *         id: string, label: string, counterpartyName: ?string, amountCents: int, currency: string,
      *         bookedAt: string, accountId: string, accountName: string, judgeable: bool, retrospect: string,
-     *         suggestion: array{categoryId: string, categoryPath: string, source: string, reason: string}|null
+     *         suggestion: array{categoryId: string, categoryPath: string, source: string, reason: string}|null,
+     *         contact: array{id: string, name: string}|null, asksForContact: bool, counterpartyLabel: string
      *     }>
      * }
      */
@@ -105,6 +110,12 @@ class GetTransactionsToSort
             'judgeable' => $transaction->canBeJudged(),
             'retrospect' => $transaction->getRetrospect()->value,
             'suggestion' => $this->suggest($transaction, $rules, $categoriesByName),
+            'contact' => null === $transaction->getContact() ? null : [
+                'id' => (string) $transaction->getContact()->getId(),
+                'name' => $transaction->getContact()->getName(),
+            ],
+            'asksForContact' => CounterpartyMatch::asksForContact($transaction),
+            'counterpartyLabel' => CounterpartyMatch::labelFor($transaction),
         ];
     }
 

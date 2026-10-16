@@ -1,5 +1,5 @@
 # What the « À trier » and review-queue recordings add to RecordedResponses.yaml:
-# a line a rule claims, a line nothing claims and a line a rule recognised (the other recordings must not see them,
+# a line a rule claims, a line nothing claims, a line a rule recognised and a transfer no contact claims (the other recordings must not see them,
 # hence a file of its own).
 Maggie\Finance\Entity\Category:
   recorded_to_sort_food_root:
@@ -46,4 +46,13 @@ Maggie\Finance\Entity\Transaction:
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
     label: CARREFOUR CITY 99
+    user: '@recorded_user'
+
+  # A transfer no contact claims: the pile asks « Associer à un contact ? » (MAG-450).
+  recorded_to_sort_transfer:
+    account: '@recorded_account'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+    label: VIR INST DE RECORDED TOM
     user: '@recorded_user'

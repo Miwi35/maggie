@@ -1,0 +1,31 @@
+{
+    "@context": "/api/contexts/ContactCounterparty",
+    "@id": "/api/contact_counterparties",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/contact_counterparties/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "ContactCounterparty",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "contact": "/api/contacts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "Recorded transaction",
+            "matchKey": "recorded transaction",
+            "transactionCount": 1,
+            "lastSeenOn": "2026-03-17"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/contact_counterparties{?contact}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "contact",
+                "property": "contact",
+                "required": false
+            }
+        ]
+    }
+}

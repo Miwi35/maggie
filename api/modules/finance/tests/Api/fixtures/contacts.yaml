@@ -1,0 +1,147 @@
+# Contacts and their counterparties (MAG-450), shared by the API and MCP suites.
+# Tom has no counterparty yet: his four transfers wait for one. Anna's label is
+# linked, her transfer attached. An internal transfer and a PayPal payment say
+# « TOM MARTIN » too.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-contacts-test@example.com
+    googleId: google-finance-contacts-test
+    name: Finance Contacts Test User
+  other_user:
+    email: finance-contacts-other@example.com
+    googleId: google-finance-contacts-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@test_user'
+  others_checking:
+    name: Compte de quelqu'un d'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Contact:
+  tom:
+    name: Tom
+    notes: Mon frère
+    user: '@test_user'
+  anna:
+    name: Anna
+    user: '@test_user'
+  others_contact:
+    name: Paul
+    user: '@other_user'
+
+Maggie\Finance\Entity\ContactCounterparty:
+  anna_label:
+    contact: '@anna'
+    label: VIR INST DE ANNA DUPONT
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  tom_1:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-05"))>'
+    label: VIR. DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tom_2:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-05"))>'
+    label: VIR. DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tom_3:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-05"))>'
+    label: VIR. DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tom_4:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: VIR. DE TOM MARTIN 05/09 REF 44115566
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  internal_tom:
+    account: '@savings'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-06"))>'
+    label: VIR. DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    isExceptional: false
+    user: '@test_user'
+  paypal_1:
+    account: '@checking'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-12"))>'
+    label: PAYPAL *TOMMARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  paypal_2:
+    account: '@checking'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-12"))>'
+    label: PAYPAL *TOMMARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  anna_1:
+    account: '@checking'
+    amountCents: 15000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-10"))>'
+    label: VIR INST DE ANNA DUPONT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  julie_1:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-15"))>'
+    label: VIR INST DE JULIE DURAND
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  groceries:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-16"))>'
+    label: CARREFOUR MARKET
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

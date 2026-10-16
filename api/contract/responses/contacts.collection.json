@@ -1,0 +1,16 @@
+{
+    "@context": "/api/contexts/Contact",
+    "@id": "/api/contacts",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/contacts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Contact",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Tom",
+            "notes": "Recorded notes",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ]
+}

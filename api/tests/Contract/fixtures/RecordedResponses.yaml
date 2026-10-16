@@ -347,6 +347,19 @@ Maggie\Finance\Entity\Envelope:
     month: null
     user: '@recorded_user'
 
+Maggie\Finance\Entity\Contact:
+  recorded_contact:
+    name: Recorded Tom
+    notes: Recorded notes
+    user: '@recorded_user'
+
+# Attaches `recorded_transaction` to the contact: the transactions recording carries a `contact`.
+Maggie\Finance\Entity\ContactCounterparty:
+  recorded_counterparty:
+    contact: '@recorded_contact'
+    label: Recorded transaction
+    user: '@recorded_user'
+
 Maggie\Finance\Entity\Transaction:
   recorded_one_off_spend:
     account: '@recorded_account'

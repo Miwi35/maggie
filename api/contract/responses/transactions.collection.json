@@ -50,6 +50,7 @@
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
+            "contact": "/api/contacts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": true
         },
