@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 
 /** The months as the picker shows them, January first. */
 internal val SEASON_MONTH_LABELS = listOf(
@@ -64,6 +65,8 @@ internal fun SeasonMonthsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        // A dialog is its own window: its tags need their own root (MAG-98).
+        modifier = Modifier.uiTagRoot(),
         title = { Text("Saison de $productName") },
         text = {
             FlowRow(
@@ -88,3 +91,19 @@ internal fun SeasonMonthsDialog(
         },
     )
 }
+
+/** Opens the season months of a product card, showing those ticked. */
+@Composable
+internal fun SeasonMonthsButton(months: List<Int>?, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.testTag(UiTags.PRODUCT_SEASON_EDIT)) {
+        Text(seasonSummary(months))
+    }
+}
+
+/** The months ticked, spelled out: « Mois de saison : janv., sept., oct. ». */
+internal fun seasonSummary(months: List<Int>?): String =
+    if (months.isNullOrEmpty()) {
+        "Mois de saison : aucun"
+    } else {
+        "Mois de saison : " + months.mapNotNull { SEASON_MONTH_LABELS.getOrNull(it - 1)?.lowercase() }.joinToString(", ")
+    }

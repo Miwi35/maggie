@@ -40,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.ProductCreateRequest
@@ -50,7 +49,6 @@ import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.packagingLabel
-import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 
@@ -215,12 +213,7 @@ internal fun ProductCard(
                     )
                 }
                 onSeasonMonthsChange?.let {
-                    TextButton(
-                        onClick = { editingSeason = true },
-                        modifier = Modifier.testTag(UiTags.PRODUCT_SEASON_EDIT),
-                    ) {
-                        Text(seasonSummary(product.seasonMonths))
-                    }
+                    SeasonMonthsButton(product.seasonMonths, onClick = { editingSeason = true })
                 }
                 onRecurringChange?.let {
                     RecurringSetting(
@@ -252,14 +245,6 @@ internal fun ProductCard(
         )
     }
 }
-
-/** The months ticked, spelled out: « Mois de saison : janv., sept., oct. ». */
-internal fun seasonSummary(months: List<Int>?): String =
-    if (months.isNullOrEmpty()) {
-        "Mois de saison : aucun"
-    } else {
-        "Mois de saison : " + months.mapNotNull { SEASON_MONTH_LABELS.getOrNull(it - 1)?.lowercase() }.joinToString(", ")
-    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

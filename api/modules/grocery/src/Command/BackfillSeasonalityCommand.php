@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Grocery\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Message\UpdateProductCommand;
 use Maggie\Grocery\Service\SeasonalityCatalog;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Gives the products without season months (MAG-494) their months from the
@@ -31,7 +32,7 @@ class BackfillSeasonalityCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SeasonalityCatalog $catalog,
-        private readonly EntityBroadcaster $broadcaster,
+        private readonly MessageBusInterface $messageBus,
     ) {
         parent::__construct();
     }
@@ -52,7 +53,7 @@ class BackfillSeasonalityCommand extends Command
             ->getQuery()
             ->getResult();
 
-        $filled = [];
+        $filled = 0;
         foreach ($products as $product) {
             $months = $this->catalog->monthsForProduct($product);
             if (null === $months) {
@@ -60,26 +61,20 @@ class BackfillSeasonalityCommand extends Command
             }
 
             $io->writeln(sprintf('%s « %s » : %s', $product->getId(), $product->getName(), implode(', ', $months)), OutputInterface::VERBOSITY_VERBOSE);
+            ++$filled;
             if (!$dryRun) {
-                $product->setSeasonMonths($months);
+                // Through the bus, so the projection tells the screens and the index.
+                $this->messageBus->dispatch(new UpdateProductCommand((string) $product->getId(), seasonMonths: $months));
             }
-            $filled[] = $product;
         }
 
         if ($dryRun) {
-            $io->info(sprintf('%d product(s) would get their season months.', \count($filled)));
+            $io->info(sprintf('%d product(s) would get their season months.', $filled));
 
             return Command::SUCCESS;
         }
 
-        $this->em->flush();
-
-        // A flush outside the bus publishes nothing: the screens and the index learn it here.
-        foreach ($filled as $product) {
-            $this->broadcaster->broadcast($product);
-        }
-
-        $io->success(sprintf('%d product(s) got their season months.', \count($filled)));
+        $io->success(sprintf('%d product(s) got their season months.', $filled));
 
         return Command::SUCCESS;
     }
