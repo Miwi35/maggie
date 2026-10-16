@@ -70,6 +70,7 @@ class FinanceNavigationTest {
         assertEquals(FinanceMenu.PLANNING, FinanceMenu.of(Screen.LoanList.route))
         assertEquals(FinanceMenu.SETTINGS, FinanceMenu.of(Screen.CategoryList.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.AccountTransactions.route))
+        assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.Contacts.route))
         assertNull(FinanceMenu.of(Screen.Dashboard.route))
         assertNull(FinanceMenu.of(null))
     }
