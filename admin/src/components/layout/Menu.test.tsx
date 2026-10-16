@@ -119,3 +119,65 @@ describe('CustomMenu — the meal settings entry', () => {
     expect(entries.indexOf('/settings/meals')).toBe(entries.indexOf('/settings/tasks/order') + 1)
   })
 })
+
+describe('CustomMenu — Finance', () => {
+  const renderFinanceMenu = async (path = '/') => {
+    stubPersonality('Maggie')
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
+          <CustomMenu />
+        </AdminContext>
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('Finance'))
+
+    return user
+  }
+
+  test('opens on seven menus, in order, each on its own page', async () => {
+    await renderFinanceMenu()
+
+    const entries = [
+      ['Dashboard', '/finance/dashboard'],
+      ['Comptes', '/finance/summary/accounts'],
+      ['Revue', '/finance/summary/review'],
+      ['Budget', '/finance/summary/budget'],
+      ['Trésorerie', '/finance/summary/treasury'],
+      ['Planification', '/finance/summary/planning'],
+      ['Configuration', '/finance/summary/settings'],
+    ]
+    for (const [name, href] of entries) {
+      expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('href', href)
+    }
+
+    const hrefs = screen.getAllByRole('menuitem').map((item) => item.getAttribute('href'))
+    const finance = hrefs.slice(hrefs.indexOf('/finance/dashboard'))
+    expect(finance.slice(0, 7)).toEqual(entries.map(([, href]) => href))
+  })
+
+  test('no longer lists the screens one by one', async () => {
+    await renderFinanceMenu()
+    await screen.findByRole('menuitem', { name: 'Trésorerie' })
+
+    for (const old of ['Banques', 'Matelas', "Avances d'épargne", 'Prêts', 'Import de relevé', 'Revue mensuelle', "Vue d'ensemble"]) {
+      expect(screen.queryByRole('menuitem', { name: old })).toBeNull()
+    }
+  })
+
+  test('highlights the menu the page belongs to, not only the one whose route it is', async () => {
+    await renderFinanceMenu('/finance/cushion')
+
+    expect(await screen.findByRole('menuitem', { name: 'Trésorerie' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveClass('Mui-selected')
+  })
+
+  test('highlights nothing in Finance on another module', async () => {
+    await renderFinanceMenu('/calendar')
+
+    await screen.findByRole('menuitem', { name: 'Trésorerie' })
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Comptes' })).not.toHaveClass('Mui-selected')
+  })
+})

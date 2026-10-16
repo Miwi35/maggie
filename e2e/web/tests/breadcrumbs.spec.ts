@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { FinanceCushionPage } from '../pages/FinanceCushionPage.js'
 import { ROUTES } from '../pages/routes.js'
 
 /**
@@ -103,4 +104,38 @@ test('a settings page and the dashboard carry their trail @responsive', async ({
   // Below `md` only the parent is shown, so the page's own name is not there.
   await shell.goto(ROUTES.preferences)
   await expect(trail).toContainText(narrow ? 'Paramètres' : 'Préférences')
+})
+
+/**
+ * Finance › Trésorerie › Matelas (MAG-427).
+ *
+ * A menu opens its summary page, whose blocks lead to the detailed screens: the
+ * owner reaches the cushion by the menu, then by its block, and the trail says
+ * where he is. Below `md` the trail only shows the way back, to the menu.
+ */
+test('the menu opens a summary page whose block leads to the cushion, and the trail says where @responsive', async ({
+  page,
+}) => {
+  const shell = new AdminShell(page)
+  const trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
+  const narrow = (page.viewportSize()?.width ?? NARROW_BELOW) < NARROW_BELOW
+
+  await shell.goto(ROUTES.dashboard)
+  await shell.navigateTo('Trésorerie', 'Finance')
+
+  await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)
+  await expect(shell.content.getByTestId('summary-block')).toHaveCount(3)
+
+  await shell.content.getByRole('link', { name: 'Matelas' }).click()
+
+  await expect(page).toHaveURL(/#\/finance\/cushion$/)
+  await expect(new FinanceCushionPage(page).summary).toBeVisible()
+  if (narrow) {
+    await expect(trail.getByRole('link', { name: 'Trésorerie' })).toBeVisible()
+  } else {
+    await expect(trail).toContainText('Finance›Trésorerie›Matelas')
+    await expect(trail.getByText('Matelas')).toHaveAttribute('aria-current', 'page')
+    await trail.getByRole('link', { name: 'Trésorerie' }).click()
+    await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)
+  }
 })
