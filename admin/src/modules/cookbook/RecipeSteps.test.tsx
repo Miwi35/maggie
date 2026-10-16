@@ -120,7 +120,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('the reference example is entered in the form and sent as written', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const update = vi.fn().mockResolvedValue({ data: recipe })
     renderEdit(update)
     await screen.findByLabelText(/^Nom/)
@@ -133,8 +133,12 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
     const texts = ["Mettre l'eau à bouillir", 'Couper les légumes', 'Cuire les pâtes', 'Faire revenir les légumes', 'Égoutter, mélanger']
     const durations = ['10', '', '12', '8', '']
     for (let i = 0; i < 5; i++) {
-      await user.type(within(group(i + 1)).getByLabelText('Texte'), texts[i])
-      if (durations[i]) await user.type(within(group(i + 1)).getByLabelText('Durée (min)'), durations[i])
+      await user.click(within(group(i + 1)).getByLabelText('Texte'))
+      await user.paste(texts[i])
+      if (durations[i]) {
+        await user.click(within(group(i + 1)).getByLabelText('Durée (min)'))
+        await user.paste(durations[i])
+      }
     }
     await user.click(within(group(1)).getByRole('checkbox', { name: 'En fond' }))
     await user.click(within(group(3)).getByRole('checkbox', { name: 'En fond' }))
@@ -159,7 +163,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('a utensil of the catalogue is picked, a new one is created by typing it', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const update = vi.fn().mockResolvedValue({ data: recipe })
     renderEdit(update)
     await screen.findByLabelText(/^Nom/)
@@ -174,7 +178,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('a name already in the catalogue is not offered for creation', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderEdit(vi.fn())
     await screen.findByLabelText(/^Nom/)
 
@@ -194,7 +198,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('« en fond » is only available with a duration', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderEdit(vi.fn(), { ...recipe, steps: [step(1, 'Couper')] })
 
     const background = within(await screen.findByRole('group', { name: 'Étape 1' })).getByRole('checkbox', { name: 'En fond' })
@@ -208,7 +212,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('moving the first step after the third removes the dependency that became impossible before sending', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const update = vi.fn().mockResolvedValue({ data: recipe })
     renderEdit(update, { ...recipe, steps: example })
     await screen.findByRole('group', { name: 'Étape 5' })
@@ -230,7 +234,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('removing a step renumbers the others and drops what waited for it', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const update = vi.fn().mockResolvedValue({ data: recipe })
     renderEdit(update, { ...recipe, steps: example })
     await screen.findByRole('group', { name: 'Étape 5' })
@@ -248,7 +252,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('a 400 from the API is shown on the step it is about', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const message = 'Step 2: a step runs in the background only with a duration.'
     const update = vi.fn().mockRejectedValue(new HttpError(message, 400, { 'hydra:description': message }))
     renderEdit(update, { ...recipe, steps: [step(1, 'Couper'), step(2, 'Cuire')] })
@@ -266,7 +270,7 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
   })
 
   test('a 400 about the list as a whole is shown above the steps', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const message = 'steps must be a list.'
     const update = vi.fn().mockRejectedValue(new HttpError(message, 400, { 'hydra:description': message }))
     renderEdit(update, { ...recipe, steps: [step(1, 'Couper')] })
