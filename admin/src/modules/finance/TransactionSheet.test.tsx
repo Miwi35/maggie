@@ -123,6 +123,25 @@ describe('TransactionSheet', () => {
     },
   )
 
+  test('the Partage section offers to share a spend (MAG-451)', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          url.endsWith('/my-share')
+            ? { transactionId: '01TX', amountCents: -1349, myShareCents: null, canBeShared: true, peerDebt: null }
+            : transferState,
+      } as Response),
+    )
+
+    renderSheet()
+
+    const section = await screen.findByRole('region', { name: 'Partage' })
+    expect(await within(section).findByRole('switch', { name: 'Dépense partagée' })).not.toBeChecked()
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/transactions/01TX/my-share')
+  })
+
   test('a rejection says whether it is regularised', async () => {
     transferState = { transferKind: 'rejected', transferSource: 'manual', counterpart: null }
 

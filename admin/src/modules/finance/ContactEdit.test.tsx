@@ -31,6 +31,31 @@ const LYDIA = {
   transactionCount: 3,
   lastSeenOn: '2026-04-02',
 }
+/** The gîte: Tom owes 200 €; Julie's share and a settled debt are not his business. */
+const GITE = {
+  id: '01GITE',
+  direction: 'owed_to_me',
+  object: 'Gîte Ardèche',
+  notes: null,
+  originTransactionId: '01TX',
+  amountCents: 60000,
+  repaidCents: 0,
+  remainingCents: 60000,
+  status: 'open',
+  createdAt: '2026-08-14T10:00:00+00:00',
+  shares: [
+    { id: '01S1', contactId: '01JULIE', contactName: 'Julie', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
+    { id: '01S2', contactId: '01TOM', contactName: 'Tom', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
+  ],
+}
+const SETTLED = {
+  ...GITE,
+  id: '01OLD',
+  object: 'Restaurant',
+  status: 'settled',
+  remainingCents: 0,
+  shares: [{ id: '01S3', contactId: '01TOM', contactName: 'Tom', amountCents: 3000, repaidCents: 3000, remainingCents: 0 }],
+}
 const PAYPAL_SUGGESTION = { label: 'PAYPAL *TOMMARTIN', transactionCount: 2, lastSeenOn: '2026-02-10' }
 
 const answer = (ok: boolean, body: unknown, status = ok ? 200 : 400) =>
@@ -40,10 +65,12 @@ const fetchMock = vi.fn()
 let linked: unknown[] = []
 let suggested: unknown[] = []
 let refusal: string | null = null
+let debts: unknown[] = []
 
 /** A tiny API: the two reads, and the writes that move a label between them. */
 const api = (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
+  if (url === '/api/peer_debts') return answer(true, { member: debts })
   if (url.startsWith('/api/contact_counterparties?')) return answer(true, { member: linked })
   if (url === '/api/finance/contacts/01TOM/counterparty-suggestions') return answer(true, suggested)
   if (method === 'POST' && url === '/api/contact_counterparties') {
@@ -98,6 +125,7 @@ describe('ContactEdit — the « fiche contact »', () => {
     linked = [VIR, LYDIA]
     suggested = [PAYPAL_SUGGESTION]
     refusal = null
+    debts = []
     fetchMock.mockImplementation(api)
     vi.stubGlobal('fetch', fetchMock)
   })
@@ -123,9 +151,29 @@ describe('ContactEdit — the « fiche contact »', () => {
     expect(within(suggestions).getByText('PAYPAL *TOMMARTIN')).toBeInTheDocument()
     expect(within(suggestions).getByText('2 virements · dernier le 10/02/2026')).toBeInTheDocument()
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
       `/api/contact_counterparties?contact=${encodeURIComponent('/api/contacts/01TOM')}&itemsPerPage=100`,
     )
+  })
+
+  test('« En cours » lists his open créances with what is left of his share', async () => {
+    debts = [GITE, SETTLED]
+    renderEdit()
+
+    const open = await screen.findByRole('list', { name: 'Créances en cours' })
+    const items = within(open).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Gîte Ardèche')
+    expect(items[0]).toHaveTextContent('14/08/2026')
+    expect(items[0].textContent?.replace(/\s/gu, ' ')).toContain('te doit 200,00 €')
+    expect(screen.queryByText('Restaurant')).not.toBeInTheDocument()
+  })
+
+  test('« En cours » says when nothing is open', async () => {
+    renderEdit()
+
+    const section = await screen.findByRole('region', { name: 'En cours' })
+    expect(await within(section).findByText('Rien en cours.')).toBeInTheDocument()
   })
 
   test('« Retirer » unlinks the label and reads the list again', async () => {
