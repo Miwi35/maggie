@@ -1078,7 +1078,7 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `a set-aside that fails halfway shows the task in Un jour, Annuler brings its due day back`() = runTest {
+    fun `a set-aside that fails halfway shows the task in Un jour and says so`() = runTest {
         val viewModel = openEvening()
         coEvery { taskRepository.setDaySlots(today, any(), true) } returns Result.failure(IllegalStateException("offline"))
 

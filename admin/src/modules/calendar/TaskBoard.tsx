@@ -155,7 +155,7 @@ export const TaskBoard = () => {
     fetchDayTimes()
       .then(async ({ morningTime, eveningTime }) => {
         if (eveningDue(now, eveningTime, opened.total, null)) {
-          const review = await fetchDayReview(today).catch(() => null)
+          const review = await fetchDayReview(opened.date).catch(() => null)
           if (review && eveningDue(now, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
             setReviewing(opened)
             return
@@ -165,7 +165,7 @@ export const TaskBoard = () => {
       })
       .catch(() => undefined)
       .finally(() => setOpening(false))
-  }, [day, today])
+  }, [day])
 
   const reload = useCallback(() => {
     loadRef.current()
