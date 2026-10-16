@@ -6,6 +6,7 @@ namespace Maggie\Finance\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Finance\Category\RulePattern;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Exception\InvalidQualificationException;
@@ -278,30 +279,9 @@ class ManageCategorizationRulesTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * Bank labels carry noise — dates, card numbers, receipt ids. Keep the
-     * leading words, which is what identifies the merchant.
-     */
     public static function patternFromLabel(string $label): string
     {
-        $normalized = trim(preg_replace('/\s+/u', ' ', $label) ?? '');
-        if ('' === $normalized) {
-            return '';
-        }
-
-        $words = [];
-        foreach (explode(' ', $normalized) as $word) {
-            // Stop at the first token that looks like a number, date or reference.
-            if (1 === preg_match('/\d/u', $word)) {
-                break;
-            }
-            $words[] = $word;
-            if (3 === \count($words)) {
-                break;
-            }
-        }
-
-        return [] === $words ? $normalized : implode(' ', $words);
+        return RulePattern::fromLabel($label);
     }
 
     /** @return array<string, mixed> */

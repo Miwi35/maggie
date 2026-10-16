@@ -194,6 +194,32 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The « À trier » pile (MAG-423), as the controller sends it: one line a
+     * rule claims — with its reason — and one nothing claims.
+     */
+    public function testTheToSortRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedToSort.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/transactions/to-sort', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame('rule', $body['transactions'][0]['suggestion']['source'] ?? null, 'The recorded pile holds no suggested line, so the recording proves nothing about a suggestion.');
+        self::assertNull($body['transactions'][1]['suggestion'], 'The recorded pile holds no line without suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/finance_transactions_to_sort.read.json',
+            self::stabilise($body),
+            'GET /api/finance/transactions/to-sort no longer returns what it used to. The mobile DTOs (ToSort.kt) are written against this response.',
+        );
+    }
+
+    /**
      * What the statement implies, read as the controller sends it: an offer, with no series behind it.
      */
     public function testTheSuggestionsRecordingIsCurrent(): void

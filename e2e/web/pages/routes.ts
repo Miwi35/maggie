@@ -43,6 +43,7 @@ export const ROUTES = {
   financeOverview: '/finance/dashboard',
   financeBanks: '/finance/banks',
   financeImport: '/finance/import',
+  financeToSort: '/finance/to-sort',
   financeCushion: '/finance/cushion',
   financeTreasury: '/finance/treasury',
   financeReview: '/finance/monthly-review',

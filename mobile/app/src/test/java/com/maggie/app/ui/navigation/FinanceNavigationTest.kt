@@ -46,7 +46,7 @@ class FinanceNavigationTest {
 
         assertEquals(order.sorted(), order)
         assertEquals(
-            listOf(Screen.BudgetList.route, Screen.AccountList.route),
+            listOf(Screen.BudgetList.route, Screen.AccountList.route, Screen.TransactionsToSort.route),
             financeAccessesBy(FinanceFrequency.DAILY).map { it.route },
         )
         assertEquals(

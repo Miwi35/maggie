@@ -1,0 +1,39 @@
+# What the « À trier » recording adds to RecordedResponses.yaml: a line a rule
+# claims and a line nothing claims (the other recordings must not see them,
+# hence a file of its own).
+Maggie\Finance\Entity\Category:
+  recorded_to_sort_food_root:
+    name: Recorded Food
+    user: '@recorded_user'
+
+  recorded_to_sort_food:
+    name: Recorded Courses
+    parent: '@recorded_to_sort_food_root'
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  recorded_to_sort_rule:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@recorded_to_sort_food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Transaction:
+  recorded_to_sort_claimed:
+    account: '@recorded_account'
+    amountCents: -5320
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-18"))>'
+    label: CARREFOUR MARKET 1234
+    user: '@recorded_user'
+
+  recorded_to_sort_unknown:
+    account: '@recorded_account'
+    amountCents: -1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-16"))>'
+    label: DUPONT MARTIN
+    user: '@recorded_user'

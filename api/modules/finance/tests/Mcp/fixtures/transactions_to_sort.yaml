@@ -1,0 +1,194 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: mcp-transactions-to-sort@example.com
+    googleId: google-mcp-transactions-to-sort
+    name: Transactions To Sort User
+  other_user:
+    email: mcp-transactions-to-sort-other@example.com
+    googleId: google-mcp-transactions-to-sort-other
+    name: Transactions To Sort Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food_root:
+    name: Dépenses courantes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  food_mid:
+    name: Alimentation
+    parent: '@food_root'
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  food:
+    name: Courses
+    parent: '@food_mid'
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  streaming:
+    name: TV & streaming
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  stranger_category:
+    name: Catégorie d'un autre
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  carrefour_new:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-12"))>'
+    label: CARREFOUR MARKET 1234
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  carrefour_old:
+    account: '@checking'
+    amountCents: -1850
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: CARREFOUR MARKET 5678
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix:
+    account: '@checking'
+    amountCents: -1399
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-10"))>'
+    label: PRELEVEMENT NETFLIX.COM 09/10
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  bakery_one:
+    account: '@checking'
+    amountCents: -2310
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-08"))>'
+    label: BOULANGERIE PAUL 4521 PARIS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  bakery_two:
+    account: '@checking'
+    amountCents: -990
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: BOULANGERIE PAUL 77 LYON
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  unknown:
+    account: '@checking'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-11"))>'
+    label: DUPONT MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  emptied_by_hand:
+    account: '@checking'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    amountCents: -700
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-01"))>'
+    label: VIDE GRENIER
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  already_sorted:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-09"))>'
+    label: CINEMA UGC
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  paired_transfer:
+    account: '@checking'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    amountCents: -10000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-07"))>'
+    label: VIREMENT VERS LIVRET
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  rejected_debit:
+    account: '@checking'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Rejected)>'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: PRELEVEMENT REJETE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  transfer_out:
+    account: '@checking'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-04"))>'
+    label: VIR LIVRET A
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  transfer_in:
+    account: '@savings'
+    amountCents: 30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: VIR DE COURANT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  stranger_line:
+    account: '@stranger_account'
+    amountCents: -100
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-12"))>'
+    label: CARREFOUR D UN AUTRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

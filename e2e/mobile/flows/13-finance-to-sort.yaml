@@ -1,0 +1,64 @@
+appId: com.maggie.app.e2e
+name: 13-finance-to-sort
+tags:
+  - finance
+---
+# The « À trier » pile, one card at a time, from the phone (MAG-423, extends MAG-102).
+#
+# Étant donné deux lignes Carrefour sans catégorie et une règle « contient CARREFOUR »
+# Quand j'ouvre À trier et que je valide avec « Toujours pour ce marchand »
+# Alors les deux lignes sont classées et la pile est vide
+#
+# The data is set by `scripts/to-sort-api.js` on the seed's second user, who holds no other
+# finance data: the pile is these two lines. The card says where the line would go and why
+# (the rule), « Toujours » is an opt-in switch, and the rule that already claims the line
+# files the other one in the same stroke — what the answer reports in the snackbar.
+#
+# What is not here: « Autre catégorie » and « Virement interne » (`ToSortViewModelTest`),
+# the tablet's list beside the card, and the admin's side of the same API
+# (`finance-to-sort.spec.ts`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-to-sort.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/to-sort-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/to-sort"
+
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
+- assertVisible: "2 lignes à trier"
+- assertVisible: ".*contient CARREFOUR.*"
+- assertVisible: ".*Courses MAG-423.*"
+
+- tapOn:
+    id: "to_sort_always"
+- tapOn:
+    id: "to_sort_validate"
+
+- extendedWaitUntil:
+    visible: ".*1 autre ligne classée.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_empty"
+    timeout: 30000
+- assertVisible: "Rien à trier"
+
+# Left as found.
+- runScript:
+    file: ../scripts/to-sort-api.js
+    env:
+      ACTION: remove

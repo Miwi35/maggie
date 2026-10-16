@@ -24,6 +24,7 @@ import { CategoryList } from './CategoryList'
 import { EnvelopeCreate } from './EnvelopeCreate'
 import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
+import { ToSortPage } from './ToSortPage'
 import { TransactionCreate } from './TransactionCreate'
 import { TransactionSheet } from './TransactionSheet'
 import { TransactionList } from './TransactionList'
@@ -35,6 +36,7 @@ export const financeResources = (
       <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
       <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
+      <Route path="/finance/to-sort" element={<ToSortPage />} />
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/treasury" element={<TreasuryPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />

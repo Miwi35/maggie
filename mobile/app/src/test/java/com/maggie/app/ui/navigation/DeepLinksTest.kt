@@ -39,6 +39,7 @@ class DeepLinksTest {
             Screen.CategoryList,
             Screen.CategorizationRuleList,
             Screen.RuleSuggestions,
+            Screen.TransactionsToSort,
             Screen.BankConnectionList,
             Screen.Cushion,
             Screen.Treasury,
