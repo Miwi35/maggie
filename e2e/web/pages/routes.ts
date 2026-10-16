@@ -46,6 +46,7 @@ export const ROUTES = {
   financeBanks: '/finance/banks',
   financeImport: '/finance/import',
   financeToSort: '/finance/to-sort',
+  financeToControl: '/finance/to-control',
   financeCushion: '/finance/cushion',
   financeTreasury: '/finance/treasury',
   financeReview: '/finance/monthly-review',

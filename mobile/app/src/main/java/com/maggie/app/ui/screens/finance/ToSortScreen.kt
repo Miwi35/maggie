@@ -23,7 +23,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,8 +51,6 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
-import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
-import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.toSortCounter
@@ -342,22 +339,13 @@ private fun SortCard(
 
             if (line.judgeable) {
                 Text("Cette dépense", style = MaterialTheme.typography.bodyLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = line.retrospect == RETROSPECT_KEEP,
-                        onClick = { onJudge(RETROSPECT_KEEP) },
-                        enabled = !state.isJudging,
-                        label = { Text("À conserver") },
-                        modifier = Modifier.testTag(UiTags.TO_SORT_KEEP),
-                    )
-                    FilterChip(
-                        selected = line.retrospect == RETROSPECT_AVOIDABLE,
-                        onClick = { onJudge(RETROSPECT_AVOIDABLE) },
-                        enabled = !state.isJudging,
-                        label = { Text("Superflue") },
-                        modifier = Modifier.testTag(UiTags.TO_SORT_AVOIDABLE),
-                    )
-                }
+                SatisfactionChips(
+                    retrospect = line.retrospect,
+                    enabled = !state.isJudging,
+                    onJudge = onJudge,
+                    keepTag = UiTags.TO_SORT_KEEP,
+                    avoidableTag = UiTags.TO_SORT_AVOIDABLE,
+                )
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

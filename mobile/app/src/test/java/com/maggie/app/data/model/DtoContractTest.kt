@@ -403,6 +403,38 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the recognised lines to control deserialise from the recorded response`() {
+        val name = "finance_review_recognised.read"
+        val body = readRecording(name)
+
+        val data = json.decodeFromJsonElement(serializer<RecognisedToControl>(), body)
+
+        assertDeclaredFieldsExist("RecognisedToControl", serializer<RecognisedToControl>(), body.keys, name)
+        val groups = keysOf(body, "groups")
+        assertDeclaredFieldsExist("RecognisedGroup", serializer<RecognisedGroup>(), groups, name)
+        val lines = body["groups"]!!.jsonArray
+            .flatMap { it.jsonObject["transactions"]!!.jsonArray }
+            .flatMap { it.jsonObject.keys }
+            .toSet()
+        assertDeclaredFieldsExist("RecognisedLine", serializer<RecognisedLine>(), lines, name)
+
+        val group = data.groups.single()
+        val line = group.transactions.single()
+        assertEquals("2026-03", data.month)
+        assertEquals(data.total, data.groups.sumOf { it.transactions.size })
+        assertEquals(OPERATION_RULE, group.operationType)
+        assertEquals(group.count, group.transactions.size)
+        assertEquals(-2450, group.totalCents)
+        assertEquals(1, group.unratedCount)
+        assertTrue(line.judgeable)
+        assertEquals(RETROSPECT_UNRATED, line.retrospect)
+        assertEquals("Recorded Food › Recorded Courses", line.categoryPath)
+        assertEquals("rule", line.qualifiedBy)
+        assertNotNull(line.qualifiedByRuleId)
+        assertEquals("2026-03-10", line.bookedAt)
+    }
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

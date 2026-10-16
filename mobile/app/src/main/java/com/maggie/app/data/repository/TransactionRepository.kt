@@ -3,6 +3,9 @@ package com.maggie.app.data.repository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.ControlRequest
+import com.maggie.app.data.model.ControlResult
+import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.InternalTransferAnswer
@@ -125,6 +128,31 @@ class TransactionRepository(
         apiService.sortTransaction(id, SortRequest(categoryId = categoryId, alwaysForMerchant = alwaysForMerchant))
     }.rethrowCancellation()
 
+    /** The lines an operation recognised in [month] (`YYYY-MM`) that nobody has checked yet, by operation. */
+    suspend fun getRecognisedToControl(month: String): Result<RecognisedToControl> = runCatching {
+        apiService.getRecognisedToControl(month)
+    }.rethrowCancellation()
+
+    /**
+     * Checks [ids]: « Valider », or with [keep] « Tout à conserver » (their unrated spends are judged « À conserver »).
+     * The API takes 200 lines at most, a longer group goes in several calls; the first refusal stops the rest.
+     */
+    suspend fun controlRecognised(ids: List<String>, keep: Boolean = false): Result<ControlResult> = runCatching {
+        var controlled = 0
+        var judged = 0
+        ids.chunked(CONTROL_BATCH).forEach { batch ->
+            val result = apiService.controlRecognised(ControlRequest(batch, if (keep) "keep" else null))
+            controlled += result.controlledCount
+            judged += result.judgedCount
+        }
+        ControlResult(controlled, judged)
+    }.rethrowCancellation()
+
+    /** One line as the API holds it: what « Corriger » starts from, since a rule or a series may have set its qualification. */
+    suspend fun getTransaction(id: String): Result<Transaction> = runCatching {
+        apiService.getTransaction(id)
+    }.rethrowCancellation()
+
     /** Answers « it is a move between my own accounts »; [counterpartId] null means the other leg is not imported. */
     suspend fun sortAsInternalTransfer(id: String, counterpartId: String?): Result<SortResult> = runCatching {
         apiService.sortTransaction(id, SortRequest(internalTransfer = InternalTransferAnswer(counterpartId)))
@@ -132,3 +160,6 @@ class TransactionRepository(
 }
 
 private const val TRANSACTION_PAGE_SIZE = 100
+
+// What `POST /api/finance/review/controls` accepts in one call.
+private const val CONTROL_BATCH = 200

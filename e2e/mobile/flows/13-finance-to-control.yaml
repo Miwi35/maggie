@@ -1,0 +1,64 @@
+appId: com.maggie.app.e2e
+name: 13-finance-to-control
+tags:
+  - finance
+---
+# « Reconnues à contrôler », a group at a time, from the phone (MAG-460, extends MAG-102).
+#
+# Étant donné 3 dépenses de ce mois reconnues par la règle « contient COURSES MAG460 »
+# Quand j'ouvre Reconnues à contrôler et que je touche « Tout à conserver » sur le groupe
+# Alors les 3 lignes sont jugées « À conserver », contrôlées, et le groupe disparaît (lu par le script)
+#
+# The data is set by `scripts/to-control-api.js` on the seed's second user, who holds no other
+# finance data: the list is this one group. The rule is written before the lines, so it recognises
+# them as they arrive. The script reads the server back after the gesture: a check is kept by the API,
+# so the group must not come back in `GET /api/finance/review/recognised`, whatever the phone shows.
+#
+# What is not here: the single-line gestures — « Superflue », « Corriger », « Voir la règle »,
+# « Voir la fiche » (`RecognisedToControlViewModelTest`, `RecognisedToControlScreenTest`) —
+# and the admin's side of the same API (`finance-to-sort.spec.ts`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-to-control.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/to-control-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/to-control"
+
+- extendedWaitUntil:
+    visible:
+      id: "to_control_group"
+    timeout: 30000
+- assertVisible: "3 reconnues à contrôler"
+- assertVisible: "COURSES MAG460 · 3"
+- assertVisible: "COURSES MAG460 111"
+- assertVisible: ".*Courses MAG-460.*"
+
+- tapOn:
+    id: "to_control_keep_all"
+
+- extendedWaitUntil:
+    visible:
+      id: "to_control_empty"
+    timeout: 30000
+- assertVisible: "Rien à contrôler"
+- runScript:
+    file: ../scripts/to-control-api.js
+    env:
+      ACTION: check
+
+# Left as found.
+- runScript:
+    file: ../scripts/to-control-api.js
+    env:
+      ACTION: remove

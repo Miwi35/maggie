@@ -41,6 +41,7 @@ object DeepLinks {
         Screen.CategorizationRuleList.route to listOf("$SCHEME://finance/rules"),
         Screen.RuleSuggestions.route to listOf("$SCHEME://finance/rule-suggestions"),
         Screen.TransactionsToSort.route to listOf("$SCHEME://finance/to-sort"),
+        Screen.RecognisedToControl.route to listOf("$SCHEME://finance/to-control"),
         Screen.RecurringOperations.route to listOf("$SCHEME://finance/recurring-operations"),
         Screen.BankConnectionList.route to listOf("$SCHEME://finance/banks"),
         Screen.Cushion.route to listOf("$SCHEME://finance/cushion"),

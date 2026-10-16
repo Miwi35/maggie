@@ -79,7 +79,7 @@ class GetReviewQueue
     }
 
     /** @return array<string, mixed> */
-    private function recognisedItem(Transaction $transaction): array
+    public function recognisedItem(Transaction $transaction): array
     {
         $category = $transaction->getCategory();
 
