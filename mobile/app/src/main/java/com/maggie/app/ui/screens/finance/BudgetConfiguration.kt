@@ -57,6 +57,7 @@ import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.EnvelopeConsumption
 import com.maggie.app.data.model.ONE_OFF_MODE
 import com.maggie.app.data.model.Season
+import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.budgetCaption
 import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
@@ -81,11 +82,13 @@ internal fun BudgetConfigurationScreen(
     uiState: BudgetUiState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
+    toQualify: ToSortPile? = null,
+    onOpenToQualify: () -> Unit = {},
 ) {
     val editor = uiState.editor
     ListDetailPane(
         showsDetailPane = true,
-        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, onBack) },
+        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify) },
         detail = editor?.let { open -> { EnvelopeEditorPane(viewModel, uiState, open) } },
         placeholder = "Touchez une catégorie pour régler son enveloppe.",
     )
@@ -98,6 +101,8 @@ private fun BudgetTreePane(
     uiState: BudgetUiState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
+    toQualify: ToSortPile?,
+    onOpenToQualify: () -> Unit,
 ) {
     val rows = remember(uiState.categories, uiState.status) { uiState.treeRows }
     val outside = uiState.status?.outsideMonthlyBudget
@@ -131,6 +136,7 @@ private fun BudgetTreePane(
                 onPrevious = { viewModel.shiftPeriod(-1) },
                 onNext = { viewModel.shiftPeriod(1) },
             )
+            ToQualifyRow(toQualify, onOpenToQualify)
             uiState.status?.takeIf { it.budgets.isNotEmpty() }?.let { status ->
                 Text(
                     text = "${formatCents(status.totalConsumedCents)} consommés sur " +

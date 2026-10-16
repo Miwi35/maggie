@@ -113,7 +113,7 @@ class TransactionSheetScreenTest {
     }
 
     @Test
-    fun `the list wears one row of pills, À trier on a line with no category`() {
+    fun `the list wears one row of pills, À qualifier on a line with no category`() {
         show(FakeTransactionTransfers(transactions = listOf(Seed.transferOut, coffee)))
 
         compose.onAllNodesWithTag(UiTags.TRANSFER_BADGE).assertCountEquals(1)

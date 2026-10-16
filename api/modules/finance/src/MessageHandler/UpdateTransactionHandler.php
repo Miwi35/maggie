@@ -13,6 +13,7 @@ use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
+use Maggie\Finance\Exception\SatisfactionException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -73,12 +74,17 @@ class UpdateTransactionHandler
         } elseif ($command->clears('note')) {
             $transaction->setNote(null);
         }
-        if (null !== $command->retrospect) {
-            $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
+        $verdict = null === $command->retrospect ? null : RetrospectVerdict::from($command->retrospect);
+        if (null !== $verdict) {
+            $transaction->setRetrospect($verdict);
         }
         $this->applyQualification($transaction, $command);
 
         $this->applyTransfer($transaction, $command);
+        // After the marking and the amount: what is judged is what the line has become.
+        if (null !== $verdict && RetrospectVerdict::Unrated !== $verdict && !$transaction->canBeJudged()) {
+            throw new SatisfactionException('A satisfaction goes to a spend only: an income or a transfer between your own accounts has nothing to judge.');
+        }
         // After the marking: a line made a transfer in the same update is no spend to attribute.
         $this->applyOneOffEnvelope($transaction, $command);
         $this->applyRepays($transaction, $command);

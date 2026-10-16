@@ -3,11 +3,14 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.RETROSPECT_UNRATED
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.sortedSummary
+import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,10 +30,15 @@ data class ToSortUiState(
     val pile: List<TransactionToSort> = emptyList(),
     val total: Int = 0,
     val categories: List<Category> = emptyList(),
-    /** The line open on a tablet's list; null means the newest, which is what a phone always shows. */
+    /** The line open on a tablet's list; null means the oldest, which is what a phone always shows. */
     val selectedId: String? = null,
     val alwaysForMerchant: Boolean = false,
+    /** « Obligatoire » and the type, chosen on the card before the category is: they go with the answer. */
+    val qualification: Qualification = Qualification.NONE,
     val isSorting: Boolean = false,
+    val isJudging: Boolean = false,
+    /** The « Créer un filtre » screen, opened from the card. */
+    val ruleDraft: RuleDraftState? = null,
     val choosingCategory: Boolean = false,
     val transfer: TransferChoice? = null,
     val message: String? = null,
@@ -38,6 +46,8 @@ data class ToSortUiState(
     val loadError: String? = null,
     /** An answer that was refused or lost: the card stays where it was. */
     val sortError: String? = null,
+    /** A satisfaction that was refused or lost: the line keeps the one it had. */
+    val judgeError: String? = null,
 ) {
     val current: TransactionToSort? get() = pile.firstOrNull { it.id == selectedId } ?: pile.firstOrNull()
 
@@ -47,10 +57,11 @@ data class ToSortUiState(
 }
 
 /**
- * The lines without a category, one card at a time (MAG-423).
+ * The lines without a category, oldest first, one card at a time (MAG-423, MAG-458).
  *
  * The card carries the heading the app would pick and its reason; one tap files the
- * line, then the next one comes. « Toujours pour ce marchand » is an opt-in that
+ * line, then the next one comes. The card also holds the sheet's gestures: « Obligatoire »
+ * and the type, « Créer un filtre », and the satisfaction of a spend. « Toujours pour ce marchand » is an opt-in that
  * falls back to off after every answer: a rule is a lasting decision, never the
  * leftover of the previous card. After each answer the pile is read again from the
  * server, since a rule may have filed lines that were further down.
@@ -58,10 +69,24 @@ data class ToSortUiState(
 class ToSortViewModel(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
+    ruleRepository: CategorizationRuleRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ToSortUiState())
     val uiState: StateFlow<ToSortUiState> = _uiState
+
+    // The rule is also applied to the history: its other lines leave the pile in the same stroke.
+    private val ruleDraftSession = RuleDraftSession(
+        scope = viewModelScope,
+        ruleRepository = ruleRepository,
+        read = { _uiState.value.ruleDraft },
+        write = { _uiState.value = _uiState.value.copy(ruleDraft = it) },
+        applyToExisting = true,
+        onSaved = {
+            _uiState.value = _uiState.value.copy(selectedId = null, qualification = Qualification.NONE, message = "Filtre créé")
+            refresh()
+        },
+    )
 
     init {
         refresh()
@@ -72,7 +97,7 @@ class ToSortViewModel(
 
         viewModelScope.launch {
             loadCategories()
-            transactionRepository.getToSort()
+            transactionRepository.getToSort(oldestFirst = true)
                 .onSuccess { applyPile(it) }
                 .onFailure { failure ->
                     _uiState.value = _uiState.value.copy(
@@ -107,7 +132,11 @@ class ToSortViewModel(
     }
 
     fun select(id: String) {
-        _uiState.value = _uiState.value.copy(selectedId = id, alwaysForMerchant = false)
+        _uiState.value = _uiState.value.copy(selectedId = id, alwaysForMerchant = false, qualification = Qualification.NONE)
+    }
+
+    fun setQualification(qualification: Qualification) {
+        _uiState.value = _uiState.value.copy(qualification = qualification)
     }
 
     fun setAlwaysForMerchant(always: Boolean) {
@@ -147,9 +176,20 @@ class ToSortViewModel(
         _uiState.value = state.copy(isSorting = true, sortError = null, message = null)
 
         viewModelScope.launch {
-            transactionRepository.sortToCategory(line.id, categoryId, state.alwaysForMerchant)
-                .onSuccess { afterSort(line, it) }
-                .onFailure { failedSort(it) }
+            val result = transactionRepository.sortToCategory(line.id, categoryId, state.alwaysForMerchant)
+                .getOrElse { return@launch failedSort(it) }
+            // The sort does not carry « Obligatoire » nor the type: they follow, on the line it just filed.
+            if (state.qualification != Qualification.NONE) {
+                transactionRepository.setQualification(line.id, categoryId, state.qualification)
+                    .onFailure {
+                        // The line is filed all the same: it leaves the pile, the owner is told what was lost.
+                        failedSort(it)
+                        _uiState.value = _uiState.value.copy(selectedId = null, qualification = Qualification.NONE)
+                        refresh()
+                        return@launch
+                    }
+            }
+            afterSort(line, result)
         }
     }
 
@@ -198,6 +238,7 @@ class ToSortViewModel(
             total = result.remaining,
             isSorting = false,
             alwaysForMerchant = false,
+            qualification = Qualification.NONE,
             selectedId = null,
             message = sortedSummary(result),
         )
@@ -211,11 +252,59 @@ class ToSortViewModel(
         )
     }
 
+    /** « À conserver » / « Superflue »: tapping the verdict the line already has takes it back. */
+    fun judge(verdict: String) {
+        val state = _uiState.value
+        val line = state.current ?: return
+        if (!line.judgeable || state.isJudging) {
+            return
+        }
+        val next = if (line.retrospect == verdict) RETROSPECT_UNRATED else verdict
+
+        _uiState.value = state.copy(isJudging = true, judgeError = null)
+
+        viewModelScope.launch {
+            transactionRepository.setRetrospect(line.id, next)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isJudging = false,
+                        pile = _uiState.value.pile.map { if (it.id == line.id) it.copy(retrospect = next) else it },
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(isJudging = false, judgeError = it.message ?: "Jugement impossible.")
+                }
+        }
+    }
+
+    /** « Créer un filtre »: the rule draft, filled from the open line and the qualification chosen on the card. */
+    fun openRuleDraft() {
+        val state = _uiState.value
+        val line = state.current ?: return
+        ruleDraftSession.open(line.label, line.amountCents, line.suggestion?.categoryId, state.qualification)
+    }
+
+    fun closeRuleDraft() = ruleDraftSession.close()
+
+    fun changeRulePattern(text: String) = ruleDraftSession.changePattern(text)
+
+    fun changeRuleAmount(amount: String, tolerance: String) = ruleDraftSession.changeAmount(amount, tolerance)
+
+    fun changeRuleCategory(categoryId: String?) = ruleDraftSession.changeCategory(categoryId)
+
+    fun changeRuleQualification(qualification: Qualification) = ruleDraftSession.changeQualification(qualification)
+
+    fun saveRule() = ruleDraftSession.save()
+
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(message = null)
     }
 
     fun clearSortError() {
         _uiState.value = _uiState.value.copy(sortError = null)
+    }
+
+    fun clearJudgeError() {
+        _uiState.value = _uiState.value.copy(judgeError = null)
     }
 }

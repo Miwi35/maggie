@@ -49,9 +49,15 @@ final class TransactionsToSortController
             return new JsonResponse(['error' => 'limit must be a positive integer'], Response::HTTP_BAD_REQUEST);
         }
 
+        $order = $request->query->get('order', 'newest');
+        if (!\in_array($order, ['newest', 'oldest'], true)) {
+            return new JsonResponse(['error' => 'order must be newest or oldest'], Response::HTTP_BAD_REQUEST);
+        }
+
         return new JsonResponse($this->getTransactionsToSort->execute(
             $user,
             null === $limit ? GetTransactionsToSort::DEFAULT_LIMIT : (int) $limit,
+            'oldest' === $order,
         ));
     }
 

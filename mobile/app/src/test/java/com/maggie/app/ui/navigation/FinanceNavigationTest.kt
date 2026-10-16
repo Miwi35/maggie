@@ -41,6 +41,14 @@ class FinanceNavigationTest {
     }
 
     @Test
+    fun `the lines to qualify keep their route and deep link under their new name`() {
+        assertEquals("transactions_to_sort", Screen.TransactionsToSort.route)
+        assertEquals("À qualifier", Screen.TransactionsToSort.label)
+        assertEquals("À qualifier", FINANCE_ACCESSES.first { it.route == Screen.TransactionsToSort.route }.label)
+        assertTrue(DeepLinks.patternsFor(Screen.TransactionsToSort.route).isNotEmpty())
+    }
+
+    @Test
     fun `accesses are ordered daily then monthly then rarely used`() {
         val order = FINANCE_ACCESSES.map { it.frequency.ordinal }
 

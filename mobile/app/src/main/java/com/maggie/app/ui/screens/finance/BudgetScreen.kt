@@ -68,6 +68,7 @@ import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.Season
+import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetCaption
@@ -77,6 +78,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.splitSharesOf
+import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -93,6 +95,9 @@ fun BudgetScreen(
     canEditSplit: Boolean = false,
     // The tablet configures the envelopes of the period: the tree beside the editor (MAG-419).
     showsDetailPane: Boolean = false,
+    // The pile of the lines to qualify: the pill shows under the period when it is not empty (MAG-458).
+    toQualify: ToSortPile? = null,
+    onOpenToQualify: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -121,7 +126,7 @@ fun BudgetScreen(
     )
 
     if (showsDetailPane) {
-        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack)
+        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify)
         return
     }
 
@@ -160,6 +165,7 @@ fun BudgetScreen(
                 onPrevious = { viewModel.shiftPeriod(-1) },
                 onNext = { viewModel.shiftPeriod(1) },
             )
+            ToQualifyRow(toQualify, onOpenToQualify)
 
             uiState.status?.let { status ->
                 if (status.budgets.isNotEmpty()) {
@@ -833,4 +839,11 @@ internal fun SeasonsEditor(seasons: List<SeasonDraft>, onChange: (List<SeasonDra
             Text("Ajouter une saison")
         }
     }
+}
+
+/** The « À qualifier · n · montant » pill, drawn only while the pile is not empty. */
+@Composable
+internal fun ToQualifyRow(pile: ToSortPile?, onOpen: () -> Unit) {
+    val label = pile?.let(::toSortPillLabel) ?: return
+    ToQualifyPill(label, onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp))
 }

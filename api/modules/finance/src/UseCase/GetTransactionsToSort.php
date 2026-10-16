@@ -38,41 +38,73 @@ class GetTransactionsToSort
     }
 
     /**
+     * `totalCents` is what the whole pile weighs (the amounts without their
+     * sign), for the « À qualifier · n · montant » pill; `judgeable` says
+     * whether the line is a spend the owner can give a satisfaction to.
+     *
      * @return array{
      *     total: int,
+     *     totalCents: int,
      *     transactions: list<array{
      *         id: string, label: string, counterpartyName: ?string, amountCents: int, currency: string,
-     *         bookedAt: string, accountId: string, accountName: string,
+     *         bookedAt: string, accountId: string, accountName: string, judgeable: bool, retrospect: string,
      *         suggestion: array{categoryId: string, categoryPath: string, source: string, reason: string}|null
      *     }>
      * }
      */
-    public function execute(User $user, int $limit = self::DEFAULT_LIMIT): array
+    public function execute(User $user, int $limit = self::DEFAULT_LIMIT, bool $oldestFirst = false): array
     {
-        $page = $this->transactionRepository->findToSortForUser($user, max(1, min($limit, self::MAX_LIMIT)));
+        $page = $this->transactionRepository->findToSortForUser($user, max(1, min($limit, self::MAX_LIMIT)), $oldestFirst);
+        $context = $this->suggestionContext($user);
 
-        $rules = $this->ruleRepository->findActiveForUser($user);
+        return [
+            'total' => $page['total'],
+            'totalCents' => $this->transactionRepository->sumToSortForUser($user),
+            'transactions' => array_map(
+                fn (Transaction $transaction): array => $this->row($transaction, $context['rules'], $context['categoriesByName']),
+                $page['transactions'],
+            ),
+        ];
+    }
+
+    /**
+     * What the suggestions are drawn from: the owner's rules and the
+     * categories by name. Read once for a whole page.
+     *
+     * @return array{rules: CategorizationRule[], categoriesByName: array<string, Category>}
+     */
+    public function suggestionContext(User $user): array
+    {
         $categoriesByName = [];
         foreach ($this->categoryRepository->findByUser($user) as $category) {
             $categoriesByName[mb_strtolower($category->getName())] ??= $category;
         }
 
+        return ['rules' => $this->ruleRepository->findActiveForUser($user), 'categoriesByName' => $categoriesByName];
+    }
+
+    /**
+     * One line of the pile, with the suggestion it would get.
+     *
+     * @param CategorizationRule[]    $rules
+     * @param array<string, Category> $categoriesByName
+     *
+     * @return array<string, mixed>
+     */
+    public function row(Transaction $transaction, array $rules, array $categoriesByName): array
+    {
         return [
-            'total' => $page['total'],
-            'transactions' => array_map(
-                fn (Transaction $transaction): array => [
-                    'id' => (string) $transaction->getId(),
-                    'label' => $transaction->getLabel(),
-                    'counterpartyName' => $transaction->getCounterpartyName(),
-                    'amountCents' => $transaction->getAmountCents(),
-                    'currency' => $transaction->getCurrency(),
-                    'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
-                    'accountId' => (string) $transaction->getAccount()->getId(),
-                    'accountName' => $transaction->getAccount()->getName(),
-                    'suggestion' => $this->suggest($transaction, $rules, $categoriesByName),
-                ],
-                $page['transactions'],
-            ),
+            'id' => (string) $transaction->getId(),
+            'label' => $transaction->getLabel(),
+            'counterpartyName' => $transaction->getCounterpartyName(),
+            'amountCents' => $transaction->getAmountCents(),
+            'currency' => $transaction->getCurrency(),
+            'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
+            'accountId' => (string) $transaction->getAccount()->getId(),
+            'accountName' => $transaction->getAccount()->getName(),
+            'judgeable' => $transaction->canBeJudged(),
+            'retrospect' => $transaction->getRetrospect()->value,
+            'suggestion' => $this->suggest($transaction, $rules, $categoriesByName),
         ];
     }
 

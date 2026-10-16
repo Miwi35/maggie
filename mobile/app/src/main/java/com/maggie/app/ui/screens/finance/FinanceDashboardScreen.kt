@@ -37,6 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -55,6 +57,8 @@ fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
+    // The pile of the lines to qualify: the pill shows when it is not empty.
+    toQualify: ToSortPile? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -104,6 +108,9 @@ fun FinanceDashboardScreen(
 
             // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
             val head: LazyListScope.() -> Unit = {
+                toQualify?.let(::toSortPillLabel)?.let { label ->
+                    item { ToQualifyPill(label, onClick = { onOpen(Screen.TransactionsToSort.route) }) }
+                }
                 uiState.treasuryBanner?.let { banner ->
                     item {
                         TreasuryBanner(

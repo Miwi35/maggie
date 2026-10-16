@@ -67,7 +67,7 @@ class TransactionSheetTest {
     @Test
     fun `an ordinary line without a category is to sort, a neutral one is not`() {
         assertEquals(
-            listOf(TransactionPill(TransactionPillKind.TO_SORT, "À trier")),
+            listOf(TransactionPill(TransactionPillKind.TO_SORT, "À qualifier")),
             transactionPills(ordinary.copy(category = null)),
         )
         assertTrue(transactionPills(ordinary.copy(category = null, transferKind = "funding")).none { it.kind == TransactionPillKind.TO_SORT })

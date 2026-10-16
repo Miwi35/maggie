@@ -1584,4 +1584,54 @@ class MaggieApiServiceTest {
 
         assertEquals("A meal is cooked for at least one guest, not 0.", error?.message)
     }
+
+    @Test
+    fun `the pile to qualify is read oldest first, a page of one for the pill, and carries its weight`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"total":3,"totalCents":6520,"transactions":[{"id":"t1","label":"X","amountCents":-1200,
+               "judgeable":true,"retrospect":"keep"}]}""",
+            seen,
+        )
+        val service = MaggieApiService(client)
+
+        val pile = service.getTransactionsToSort(limit = 1, oldestFirst = true)
+        service.getTransactionsToSort()
+
+        assertEquals("/api/finance/transactions/to-sort", seen[0].url.encodedPath)
+        assertEquals("1", seen[0].url.parameters["limit"])
+        assertEquals("oldest", seen[0].url.parameters["order"])
+        assertNull(seen[1].url.parameters["limit"])
+        assertNull(seen[1].url.parameters["order"])
+        assertEquals(6520, pile.totalCents)
+        assertTrue(pile.transactions.single().judgeable)
+        assertEquals("keep", pile.transactions.single().retrospect)
+    }
+
+    @Test
+    fun `a verdict is merge-patched on the transaction, and a refusal is an error with the API's words`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient("{}", seen)
+
+        MaggieApiService(client).rateTransaction("t1", "avoidable")
+
+        val request = seen.single()
+        assertEquals(HttpMethod.Patch, request.method)
+        assertEquals("/api/transactions/t1", request.url.encodedPath)
+        assertEquals("application/merge-patch+json", request.body.contentType.toString())
+        assertEquals("""{"retrospect":"avoidable"}""", String((request.body as TextContent).text.toByteArray()))
+
+        val refusing = HttpClient(
+            MockEngine {
+                respond(
+                    content = ByteReadChannel("""{"detail":"Only a spend can be judged."}"""),
+                    status = HttpStatusCode.BadRequest,
+                    headers = headersOf(HttpHeaders.ContentType, "application/problem+json"),
+                )
+            },
+        ) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+        val failure = runCatching { MaggieApiService(refusing).rateTransaction("t1", "keep") }.exceptionOrNull()
+
+        assertNotNull(failure)
+    }
 }

@@ -35,7 +35,21 @@ const centsOf = (euros: string): number | null => {
  * from the line — its label, its direction, its category — with the lines it
  * would catch listed live as the pattern changes.
  */
-export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onClose: () => void }) => {
+export const CreateFilterDialog = ({
+  record,
+  onClose,
+  onCreated,
+  title = 'Créer un filtre',
+  submitLabel = 'Créer le filtre',
+  applyToExistingByDefault = false,
+}: {
+  record: RaRecord
+  onClose: () => void
+  onCreated?: () => void
+  title?: string
+  submitLabel?: string
+  applyToExistingByDefault?: boolean
+}) => {
   const notify = useNotify()
   const [create, { isPending }] = useCreate()
   const [labelPattern, setLabelPattern] = useState(() => labelPatternFrom(String(record.label ?? '')))
@@ -47,7 +61,7 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
   const [qualification, setQualification] = useState<QualificationValue>(
     () => (record.qualification as QualificationValue | null | undefined) ?? NO_QUALIFICATION,
   )
-  const [applyToExisting, setApplyToExisting] = useState(false)
+  const [applyToExisting, setApplyToExisting] = useState(applyToExistingByDefault)
   const [error, setError] = useState<string | null>(null)
 
   const minAmountCents = centsOf(minAmount)
@@ -88,6 +102,7 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
       {
         onSuccess: () => {
           notify('Filtre créé', { type: 'info' })
+          onCreated?.()
           onClose()
         },
         onError: (e: unknown) => setError(e instanceof Error && e.message ? e.message : 'Impossible de créer le filtre'),
@@ -97,7 +112,7 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="create-filter-title">
-      <DialogTitle id="create-filter-title">Créer un filtre</DialogTitle>
+      <DialogTitle id="create-filter-title">{title}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
@@ -188,7 +203,7 @@ export const CreateFilterDialog = ({ record, onClose }: { record: RaRecord; onCl
       <DialogActions>
         <Button onClick={onClose}>Annuler</Button>
         <Button variant="contained" disabled={!valid || isPending} onClick={submit}>
-          Créer le filtre
+          {submitLabel}
         </Button>
       </DialogActions>
     </Dialog>

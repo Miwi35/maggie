@@ -1,5 +1,5 @@
-# What the « À trier » recording adds to RecordedResponses.yaml: a line a rule
-# claims and a line nothing claims (the other recordings must not see them,
+# What the « À trier » and review-queue recordings add to RecordedResponses.yaml:
+# a line a rule claims, a line nothing claims and a line a rule recognised (the other recordings must not see them,
 # hence a file of its own).
 Maggie\Finance\Entity\Category:
   recorded_to_sort_food_root:
@@ -36,4 +36,14 @@ Maggie\Finance\Entity\Transaction:
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-03-16"))>'
     label: DUPONT MARTIN
+    user: '@recorded_user'
+
+  recorded_to_sort_recognised:
+    account: '@recorded_account'
+    category: '@recorded_to_sort_food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: -2450
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+    label: CARREFOUR CITY 99
     user: '@recorded_user'

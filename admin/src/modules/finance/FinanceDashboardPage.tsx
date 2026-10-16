@@ -12,6 +12,7 @@ import { FinanceScoresCard } from './FinanceScoresSection'
 import { NextProjectCard } from './NextProjectCard'
 import { PeriodPicker } from './PeriodPicker'
 import { PlanningTile } from './PlanningTile'
+import { ToQualifyPill } from './ToQualifyPill'
 import { useFinanceDashboard } from './useFinanceDashboard'
 
 const DASHBOARD_TOPICS = [
@@ -70,6 +71,8 @@ export const FinanceDashboardPage = () => {
           Le tableau de bord n'a pas pu être chargé.
         </Alert>
       )}
+
+      <ToQualifyPill />
 
       {loading && !dashboard && <LinearProgress />}
 

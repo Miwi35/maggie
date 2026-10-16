@@ -12,7 +12,7 @@ data class SortSuggestion(
     val reason: String = "",
 )
 
-/** One line of the « À trier » pile, newest first. */
+/** One line of the « À qualifier » pile. [judgeable] is true for a spend that can be given a [retrospect]: "unrated", "keep" or "avoidable". */
 @Serializable
 data class TransactionToSort(
     val id: String,
@@ -24,13 +24,20 @@ data class TransactionToSort(
     val accountId: String? = null,
     val accountName: String? = null,
     val suggestion: SortSuggestion? = null,
+    val judgeable: Boolean = false,
+    val retrospect: String = RETROSPECT_UNRATED,
 )
 
-/** `GET /api/finance/transactions/to-sort`: [total] counts the whole pile, [transactions] is its first page. */
+const val RETROSPECT_UNRATED = "unrated"
+const val RETROSPECT_KEEP = "keep"
+const val RETROSPECT_AVOIDABLE = "avoidable"
+
+/** `GET /api/finance/transactions/to-sort`: [total] counts the whole pile and [totalCents] weighs it, [transactions] is its first page. */
 @Serializable
 data class ToSortPile(
     val total: Int = 0,
     val transactions: List<TransactionToSort> = emptyList(),
+    val totalCents: Int = 0,
 )
 
 @Serializable
@@ -77,9 +84,12 @@ fun sortedSummary(result: SortResult): String? {
 private fun otherLines(count: Int): String =
     if (count == 1) "1 autre ligne classée" else "$count autres lignes classées"
 
-/** « Il reste 3 lignes à trier » — and nothing to say about an empty pile. */
+/** « 3 à qualifier », or « Rien à qualifier » for an empty pile. */
 fun toSortCounter(remaining: Int): String = when (remaining) {
-    0 -> "Rien à trier"
-    1 -> "1 ligne à trier"
-    else -> "$remaining lignes à trier"
+    0 -> "Rien à qualifier"
+    else -> "$remaining à qualifier"
 }
+
+/** The pill of the dashboard and the budget: « À qualifier · 3 · 65.20 EUR », or null when there is nothing to qualify. */
+fun toSortPillLabel(pile: ToSortPile): String? =
+    if (pile.total > 0) "À qualifier · ${pile.total} · ${formatCents(pile.totalCents)}" else null

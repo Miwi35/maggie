@@ -370,23 +370,60 @@ class TransactionRepository extends ServiceEntityRepository
      * The lines waiting to be sorted by hand: no category and no transfer or
      * rejection marking, whoever emptied the category — a line whose category
      * was removed by hand still has none (the « À trier » pill says the same).
-     * Newest first.
+     * Newest first, or oldest first when the review walks the pile.
      *
      * @return array{transactions: Transaction[], total: int}
      */
-    public function findToSortForUser(User $user, int $limit): array
+    public function findToSortForUser(User $user, int $limit, bool $oldestFirst = false): array
     {
         $total = $this->countToSortForUser($user);
+        $direction = $oldestFirst ? 'ASC' : 'DESC';
 
         /** @var Transaction[] $transactions */
         $transactions = $this->toSortQuery($user)
-            ->orderBy('t.bookedAt', 'DESC')
-            ->addOrderBy('t.id', 'DESC')
+            ->orderBy('t.bookedAt', $direction)
+            ->addOrderBy('t.id', $direction)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
 
         return ['transactions' => $transactions, 'total' => $total];
+    }
+
+    /** What the pile weighs: the sum of the amounts, whatever their sign, in cents. */
+    public function sumToSortForUser(User $user): int
+    {
+        return (int) $this->toSortQuery($user)
+            ->select('COALESCE(SUM(ABS(t.amountCents)), 0)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * The lines of a period an operation recognised — a series or a rule set
+     * their qualification, the owner did not — oldest first. Transfers are
+     * left out: they are neutral, there is nothing to check on them.
+     *
+     * @return Transaction[]
+     */
+    public function findRecognisedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until, int $limit): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.categorySource IN (:operations)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->setParameter('operations', [CategorySource::Rule->value, CategorySource::Series->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     /** How many lines {@see findToSortForUser} stands for, without loading them. */

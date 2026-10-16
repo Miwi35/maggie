@@ -220,6 +220,31 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The review's queue (MAG-458): the lines nothing recognised first, then
+     * the ones an operation recognised in the month.
+     */
+    public function testTheReviewQueueRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedToSort.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/review/queue?month=2026-03', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame([false, false, true], array_column($body['items'], 'recognised'), 'The recorded queue must hold two lines to qualify and one recognised.');
+
+        $this->assertMatchesContract(
+            'responses/finance_review_queue.read.json',
+            self::stabilise($body),
+            'GET /api/finance/review/queue no longer returns what it used to. The mobile DTOs (ReviewQueue.kt) and the admin hook read this response.',
+        );
+    }
+
+    /**
      * What the statement implies, read as the controller sends it: an offer, with no series behind it.
      */
     public function testTheSuggestionsRecordingIsCurrent(): void

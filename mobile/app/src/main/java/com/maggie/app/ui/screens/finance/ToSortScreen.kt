@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,13 +40,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.QualificationKind
+import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
+import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.toSortCounter
@@ -56,8 +66,9 @@ import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.uiTagRoot
 
 /**
- * The lines without a category, one card at a time (MAG-423). On a phone the card is the
- * screen; with [showsDetailPane] (a tablet) the pile is a list and the card sits beside it.
+ * « À qualifier »: the lines without a category, oldest first, one card at a time (MAG-423, MAG-458).
+ * On a phone the card is the screen; with [showsDetailPane] (a tablet) the pile is a list and the card
+ * sits beside it. [onOpenTransaction] opens the line's own sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +76,7 @@ fun ToSortScreen(
     viewModel: ToSortViewModel,
     onBack: () -> Unit,
     showsDetailPane: Boolean = false,
+    onOpenTransaction: (TransactionToSort) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,7 +93,14 @@ fun ToSortScreen(
         error = state.sortError,
         snackbarHostState = snackbarHostState,
         onDismiss = viewModel::clearSortError,
-        message = "Classement impossible. La ligne reste à trier.",
+        message = "Classement impossible. La ligne reste à qualifier.",
+    )
+
+    ErrorSnackbar(
+        error = state.judgeError,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearJudgeError,
+        message = "Jugement impossible. La ligne garde son état.",
     )
 
     if (state.choosingCategory) {
@@ -104,10 +123,26 @@ fun ToSortScreen(
         )
     }
 
+    state.ruleDraft?.let { draft ->
+        TransactionRuleDraftScreen(
+            draft = draft,
+            categories = state.categories,
+            onPatternChange = viewModel::changeRulePattern,
+            onAmountChange = viewModel::changeRuleAmount,
+            onCategoryChange = viewModel::changeRuleCategory,
+            onQualificationChange = viewModel::changeRuleQualification,
+            onSave = viewModel::saveRule,
+            onBack = viewModel::closeRuleDraft,
+            title = "Créer un filtre",
+            appliesToExisting = true,
+        )
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("À trier") },
+                title = { Text("À qualifier") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -126,7 +161,7 @@ fun ToSortScreen(
 
                 !state.loaded -> EmptyState(
                     title = "Chargement impossible",
-                    description = "La pile à trier n'a pas pu être lue. Vérifiez votre connexion.",
+                    description = "La pile à qualifier n'a pas pu être lue. Vérifiez votre connexion.",
                     actionLabel = "Réessayer",
                     onAction = viewModel::refresh,
                 )
@@ -140,18 +175,18 @@ fun ToSortScreen(
                 showsDetailPane -> ListDetailPane(
                     showsDetailPane = true,
                     list = { PileList(state, onSelect = viewModel::select) },
-                    detail = { CardPane(state, viewModel) },
-                    placeholder = "Touchez une ligne pour la trier ici.",
+                    detail = { CardPane(state, viewModel, onOpenTransaction) },
+                    placeholder = "Touchez une ligne pour la qualifier ici.",
                 )
 
-                else -> CardPane(state, viewModel)
+                else -> CardPane(state, viewModel, onOpenTransaction)
             }
         }
     }
 }
 
 @Composable
-private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel) {
+private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel, onOpenTransaction: (TransactionToSort) -> Unit) {
     val line = state.current ?: return
 
     Column(
@@ -171,10 +206,15 @@ private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel) {
             onOther = viewModel::openCategorySearch,
             onAlways = viewModel::setAlwaysForMerchant,
             onTransfer = viewModel::openTransfer,
+            onQualify = viewModel::setQualification,
+            onJudge = viewModel::judge,
+            onCreateRule = viewModel::openRuleDraft,
+            onOpenSheet = { onOpenTransaction(line) },
         )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SortCard(
     line: TransactionToSort,
@@ -183,8 +223,13 @@ private fun SortCard(
     onOther: () -> Unit,
     onAlways: (Boolean) -> Unit,
     onTransfer: () -> Unit,
+    onQualify: (Qualification) -> Unit,
+    onJudge: (String) -> Unit,
+    onCreateRule: () -> Unit,
+    onOpenSheet: () -> Unit,
 ) {
     val suggestion = line.suggestion
+    var qualifying by rememberSaveable(line.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth().testTag(UiTags.TO_SORT_CARD),
@@ -249,12 +294,64 @@ private fun SortCard(
             }
 
             TextButton(
-                onClick = onTransfer,
-                enabled = !state.isSorting,
-                modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
-            ) { Text("Virement interne") }
+                onClick = { qualifying = !qualifying },
+                modifier = Modifier.testTag(UiTags.TO_SORT_QUALIFICATION),
+            ) { Text(qualificationToggleLabel(state.qualification, qualifying)) }
+            if (qualifying) {
+                QualificationFlags(
+                    qualification = state.qualification,
+                    onQualificationChange = onQualify,
+                    enabled = !state.isSorting,
+                )
+            }
+
+            if (line.judgeable) {
+                Text("Cette dépense", style = MaterialTheme.typography.bodyLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = line.retrospect == RETROSPECT_KEEP,
+                        onClick = { onJudge(RETROSPECT_KEEP) },
+                        enabled = !state.isJudging,
+                        label = { Text("À conserver") },
+                        modifier = Modifier.testTag(UiTags.TO_SORT_KEEP),
+                    )
+                    FilterChip(
+                        selected = line.retrospect == RETROSPECT_AVOIDABLE,
+                        onClick = { onJudge(RETROSPECT_AVOIDABLE) },
+                        enabled = !state.isJudging,
+                        label = { Text("Superflue") },
+                        modifier = Modifier.testTag(UiTags.TO_SORT_AVOIDABLE),
+                    )
+                }
+            }
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = onTransfer,
+                    enabled = !state.isSorting,
+                    modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
+                ) { Text("Virement interne") }
+                TextButton(
+                    onClick = onCreateRule,
+                    enabled = !state.isSorting,
+                    modifier = Modifier.testTag(UiTags.TO_SORT_RULE),
+                ) { Text("Créer un filtre") }
+                TextButton(
+                    onClick = onOpenSheet,
+                    modifier = Modifier.testTag(UiTags.TO_SORT_OPEN_SHEET),
+                ) { Text("Voir la fiche") }
+            }
         }
     }
+}
+
+// « Qualification », with what is already chosen once the block is folded: « Obligatoire · Épargne ».
+private fun qualificationToggleLabel(qualification: Qualification, open: Boolean): String {
+    val chosen = listOfNotNull(
+        "Obligatoire".takeIf { qualification.mandatory },
+        qualification.kind.label.takeIf { qualification.kind != QualificationKind.None },
+    )
+    return if (open || chosen.isEmpty()) "Qualification" else "Qualification · ${chosen.joinToString(" · ")}"
 }
 
 @Composable

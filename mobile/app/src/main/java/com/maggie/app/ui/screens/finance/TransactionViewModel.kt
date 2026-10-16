@@ -2,7 +2,6 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.auth.AuthRepository
@@ -14,18 +13,13 @@ import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.amountBoundsAround
-import com.maggie.app.data.model.RulePreviewRequest
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
-import com.maggie.app.data.model.categoryIri
-import com.maggie.app.data.model.ruleDirectionFor
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.TransactionRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -300,8 +294,8 @@ class TransactionViewModel(
     }
 
     fun closeDetail() {
-        previewJob?.cancel()
-        _uiState.value = _uiState.value.copy(detail = null, ruleDraft = null)
+        ruleDraftSession.close()
+        _uiState.value = _uiState.value.copy(detail = null)
     }
 
     private fun loadDetailInfo(transactionId: String) {
@@ -417,108 +411,32 @@ class TransactionViewModel(
         }
     }
 
-    private var previewJob: Job? = null
+    private val ruleDraftSession = RuleDraftSession(
+        scope = viewModelScope,
+        ruleRepository = ruleRepository,
+        read = { _uiState.value.ruleDraft },
+        write = { _uiState.value = _uiState.value.copy(ruleDraft = it) },
+        // The lines the rule files are no longer « À qualifier »: the list is read again.
+        onSaved = ::refresh,
+    )
 
     /** Opens « Créer un filtre » filled from the open line: its label, the direction of its amount, its category. */
     fun openRuleDraft() {
         val line = _uiState.value.detail?.transaction ?: return
-        val draft = RuleDraftState(
-            labelPattern = line.label.trim(),
-            direction = ruleDirectionFor(line.amountCents),
-            categoryId = line.categoryId,
-            qualification = line.qualification,
-        )
-        _uiState.value = _uiState.value.copy(ruleDraft = draft)
-        previewRule(draft, delayMs = 0)
+        ruleDraftSession.open(line.label, line.amountCents, line.categoryId, line.qualification)
     }
 
-    fun closeRuleDraft() {
-        previewJob?.cancel()
-        _uiState.value = _uiState.value.copy(ruleDraft = null)
-    }
+    fun closeRuleDraft() = ruleDraftSession.close()
 
-    /** The pattern changed: the list of matching lines follows once typing pauses. */
-    fun changeRulePattern(text: String) {
-        val draft = _uiState.value.ruleDraft ?: return
-        val changed = draft.copy(labelPattern = text, error = null)
-        _uiState.value = _uiState.value.copy(ruleDraft = changed)
-        previewRule(changed, delayMs = PREVIEW_DELAY_MS)
-    }
+    fun changeRulePattern(text: String) = ruleDraftSession.changePattern(text)
 
-    /** The amount (or its tolerance) changed: the rule may now hold on direction and amount alone. */
-    fun changeRuleAmount(amount: String, tolerance: String) {
-        val draft = _uiState.value.ruleDraft ?: return
-        val changed = draft.copy(amount = amount, tolerance = tolerance, error = null)
-        _uiState.value = _uiState.value.copy(ruleDraft = changed)
-        previewRule(changed, delayMs = PREVIEW_DELAY_MS)
-    }
+    fun changeRuleAmount(amount: String, tolerance: String) = ruleDraftSession.changeAmount(amount, tolerance)
 
-    fun changeRuleCategory(categoryId: String?) {
-        val draft = _uiState.value.ruleDraft ?: return
-        val changed = draft.copy(categoryId = categoryId, error = null)
-        _uiState.value = _uiState.value.copy(ruleDraft = changed)
-        previewRule(changed, delayMs = 0)
-    }
+    fun changeRuleCategory(categoryId: String?) = ruleDraftSession.changeCategory(categoryId)
 
-    fun changeRuleQualification(qualification: Qualification) {
-        updateDraft { it.copy(qualification = qualification, error = null) }
-    }
+    fun changeRuleQualification(qualification: Qualification) = ruleDraftSession.changeQualification(qualification)
 
-    // A newer request cancels the older one: a slow answer for « CARRE » never overwrites « CARREFOUR ».
-    private fun previewRule(draft: RuleDraftState, delayMs: Long) {
-        previewJob?.cancel()
-        if (draft.problem != null) {
-            updateDraft { it.copy(preview = null, isPreviewing = false) }
-            return
-        }
-        updateDraft { it.copy(isPreviewing = true) }
-        previewJob = viewModelScope.launch {
-            delay(delayMs)
-            val result = ruleRepository.previewRule(
-                RulePreviewRequest(
-                    labelPattern = draft.labelPattern.trim().ifEmpty { null },
-                    direction = draft.direction,
-                    minAmountCents = draft.amountBounds?.first,
-                    maxAmountCents = draft.amountBounds?.second,
-                    categoryId = draft.categoryId,
-                ),
-            )
-            result
-                .onSuccess { preview -> updateDraft { it.copy(preview = preview, isPreviewing = false, error = null) } }
-                .onFailure { e -> updateDraft { it.copy(isPreviewing = false, error = e.message ?: "L'aperçu est indisponible pour le moment.") } }
-        }
-    }
-
-    /** Saves the rule, then reloads the list: the lines it files are no longer « À trier ». */
-    fun saveRule() {
-        val draft = _uiState.value.ruleDraft ?: return
-        val categoryId = draft.categoryId ?: return
-        if (draft.problem != null || draft.isSaving) return
-        previewJob?.cancel()
-        viewModelScope.launch {
-            updateDraft { it.copy(isSaving = true, isPreviewing = false, error = null) }
-            ruleRepository.createRule(
-                CategorizationRuleCreateRequest(
-                    labelPattern = draft.labelPattern.trim().ifEmpty { null },
-                    category = categoryIri(categoryId),
-                    qualification = draft.qualification,
-                    direction = draft.direction,
-                    minAmountCents = draft.amountBounds?.first,
-                    maxAmountCents = draft.amountBounds?.second,
-                ),
-            )
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(ruleDraft = null)
-                    refresh()
-                }
-                .onFailure { e -> updateDraft { it.copy(isSaving = false, error = e.message) } }
-        }
-    }
-
-    private fun updateDraft(change: (RuleDraftState) -> RuleDraftState) {
-        val draft = _uiState.value.ruleDraft ?: return
-        _uiState.value = _uiState.value.copy(ruleDraft = change(draft))
-    }
+    fun saveRule() = ruleDraftSession.save()
 
     private fun updateDetail(transactionId: String, change: (TransferDetailState) -> TransferDetailState) {
         val open = _uiState.value.detail ?: return
@@ -528,9 +446,5 @@ class TransactionViewModel(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
-    }
-
-    private companion object {
-        const val PREVIEW_DELAY_MS = 300L
     }
 }

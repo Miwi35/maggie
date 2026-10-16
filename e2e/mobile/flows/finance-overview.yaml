@@ -75,7 +75,13 @@ tags:
       text: ".*Capacité d'épargne nette.*"
     timeout: 30000
 
-# A tile leads to its menu.
+# A tile leads to its menu. Back to the top first, then down to the tile: scrolling down from the
+# bottom of the page leaves the tile as a sliver under the month header, and the tap lands on the header.
+- scrollUntilVisible:
+    element:
+      id: "finance_score_ring_week"
+    direction: UP
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "finance_tile_accounts"

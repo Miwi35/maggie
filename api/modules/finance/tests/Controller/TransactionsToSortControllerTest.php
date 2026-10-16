@@ -350,4 +350,33 @@ class TransactionsToSortControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
         self::assertNull($this->stored('unknown')->getCategory());
     }
+
+    public function testThePileCanBeWalkedOldestFirstAndTellsWhatItWeighs(): void
+    {
+        $this->login();
+
+        $data = $this->call('GET', '/api/finance/transactions/to-sort?order=oldest');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('emptied_by_hand', $this->refOf($data['transactions'][0]['id']));
+        self::assertSame('carrefour_new', $this->refOf($data['transactions'][8]['id']));
+        self::assertSame(
+            array_sum(array_map(static fn (array $line): int => abs($line['amountCents']), $data['transactions'])),
+            $data['totalCents'],
+        );
+
+        $this->call('GET', '/api/finance/transactions/to-sort?order=sideways');
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testEachLineSaysWhetherASatisfactionCanBeGiven(): void
+    {
+        $this->login();
+
+        $lines = array_column($this->call('GET', '/api/finance/transactions/to-sort')['transactions'], null, 'id');
+
+        self::assertTrue($lines[$this->id('carrefour_new')]['judgeable']);
+        self::assertFalse($lines[$this->id('transfer_in')]['judgeable']);
+        self::assertSame('unrated', $lines[$this->id('carrefour_new')]['retrospect']);
+    }
 }

@@ -37,7 +37,7 @@ fun transactionPills(transaction: Transaction, seriesName: String? = null): List
         add(TransactionPill(TransactionPillKind.SERIES, if (seriesName.isNullOrBlank()) "Série" else "Série · $seriesName"))
     }
     if (transaction.transferKind == "none" && transaction.category == null) {
-        add(TransactionPill(TransactionPillKind.TO_SORT, "À trier"))
+        add(TransactionPill(TransactionPillKind.TO_SORT, "À qualifier"))
     }
 }
 

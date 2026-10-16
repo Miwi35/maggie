@@ -83,6 +83,9 @@ fun TransactionListScreen(
     onMakeRecurring: ((Transaction) -> Unit)? = null,
     prefill: TransactionPrefill? = null,
     onPrefillConsumed: () -> Unit = {},
+    // A line to open the sheet of as soon as the list holds it (« Voir la fiche » of « À qualifier »).
+    openTransactionId: String? = null,
+    onTransactionOpened: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -95,6 +98,12 @@ fun TransactionListScreen(
             dialogPrefill = prefill
             showCreateDialog = true
             onPrefillConsumed()
+        }
+    }
+    LaunchedEffect(openTransactionId, uiState.transactions) {
+        if (openTransactionId != null && uiState.transactions.any { it.id == openTransactionId }) {
+            viewModel.openDetail(openTransactionId)
+            onTransactionOpened()
         }
     }
     var searchingCounterpart by remember { mutableStateOf(false) }

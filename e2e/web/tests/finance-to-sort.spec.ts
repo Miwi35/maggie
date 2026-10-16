@@ -3,8 +3,8 @@ import { waitForIndexed } from '../helpers/api.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 
 /**
- * The « À trier » pile: two lines of one merchant are filed with one gesture
- * (MAG-423).
+ * The « À qualifier » pile: two lines of one merchant are filed with one gesture
+ * (MAG-423), and an unrecognised spend is qualified then judged (MAG-458).
  *
  * The pile is the owner's whole list of uncategorised operations, and other
  * files keep some of the seed's on purpose (DARTY, the suggestions' FROMAGERIE):
@@ -21,6 +21,7 @@ interface StoredTransaction {
   label?: string
   category?: string | null
   categorySource?: string
+  retrospect?: string
 }
 
 const letters = (length: number): string =>
@@ -88,4 +89,52 @@ test('« Toujours pour ce marchand » files the line and the other one of the sa
     )
     expect(filed.category).toBe(`/api/categories/${categoryId}`)
   }
+})
+
+test('an unrecognised spend is qualified, judged « Superflue » and leaves À qualifier', async ({ page, api }) => {
+  const label = `QUALIF ${letters(8)}`
+  const categoryName = `Loisirs ${letters(8)}`
+
+  const created = await api.post('/api/categories', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: { name: categoryName, obligation: 'optional' },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const categoryId = ((await created.json()) as { id: string }).id
+  await waitForIndexed(
+    api,
+    '/api/categories',
+    (candidate: { name?: string }) => candidate.name === categoryName,
+    { what: `The category ${categoryName}` },
+  )
+
+  const response = await api.post('/api/transactions', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: {
+      account: `/api/accounts/${seedId('e2e_account_checking')}`,
+      label,
+      amountCents: -3100,
+      currency: 'EUR',
+      bookedAt: seedDate(0),
+      status: 'spent',
+    },
+  })
+  expect(response.status(), await response.text()).toBe(201)
+
+  const toQualify = new FinanceToSortPage(page)
+  await toQualify.open()
+  await toQualify.select(label)
+
+  await toQualify.judge('Superflue')
+  await toQualify.chooseCategory(categoryName)
+  await expect(toQualify.pile.getByRole('button', { name: label })).toHaveCount(0)
+
+  const filed = await waitForIndexed<StoredTransaction>(
+    api,
+    '/api/transactions?itemsPerPage=100',
+    (candidate) => candidate.label === label && Boolean(candidate.category),
+    { what: `The transaction ${label}, once qualified` },
+  )
+  expect(filed.category).toBe(`/api/categories/${categoryId}`)
+  expect(filed.retrospect).toBe('avoidable')
 })
