@@ -209,10 +209,11 @@ test('a recipe created from the form carries the Ciqual food picked', async ({ p
     (response) => response.url().includes('/api/recipes') && response.request().method() === 'POST',
   )
 
-  // An icon button, labelled by `ra.action.add` — "Ajouter" in French. Pinned
+  // An icon button, labelled by `ra.action.add` — "Ajouter" in French (exact: the
+  // form also has « Ajouter une étape »). Pinned
   // by `RecipeCreate.handles.test.tsx`, so a renamed label fails there in
   // seconds rather than here in minutes.
-  await shell.content.getByRole('button', { name: 'Ajouter' }).click()
+  await shell.content.getByRole('button', { name: 'Ajouter', exact: true }).click()
 
   // Two characters is the autocomplete's threshold and 300 ms its debounce;
   // the option is chosen by its exact name rather than by position, because

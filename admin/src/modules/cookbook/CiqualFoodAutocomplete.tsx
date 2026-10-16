@@ -16,7 +16,8 @@ interface CiqualFood {
 
 const CIQUAL_BASE_URL = '/ciqual'
 
-export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?: string }) => {
+// `nameSource`: where a recipe row keeps the food's name, next to its code.
+export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode', nameSource }: { source?: string; nameSource?: string }) => {
   const { setValue, watch } = useFormContext()
   const { getSource } = useSourceContext()
   const scopedSource = getSource(source)
@@ -82,6 +83,8 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
       onChange={(_e, food) => {
         setSelected(food)
         setValue(scopedSource, food?.alim_code ?? null, { shouldDirty: true })
+        // The name the API gives the ingredient: a step of a recipe not saved yet points at it by name.
+        if (nameSource) setValue(getSource(nameSource), food?.alim_name_fr ?? null, { shouldDirty: true })
       }}
       renderInput={(params) => <TextField {...params} label="Aliment Ciqual" />}
       renderOption={({ key, ...props }, option) => (

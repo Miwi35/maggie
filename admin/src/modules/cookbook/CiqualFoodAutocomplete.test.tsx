@@ -68,7 +68,7 @@ describe('CiqualFoodAutocomplete', { timeout: 30_000 }, () => {
 
     await waitFor(() => expect(create).toHaveBeenCalled())
     const sent = create.mock.calls[0][1].data as Record<string, unknown>
-    expect(sent.ingredients).toEqual([{ ciqualAlimCode: TOMATO.alim_code, quantity: 400, unit: 'g' }])
+    expect(sent.ingredients).toEqual([{ ciqualAlimCode: TOMATO.alim_code, ingredientName: TOMATO.alim_name_fr, quantity: 400, unit: 'g' }])
     expect(sent).not.toHaveProperty('ciqualAlimCode')
   })
 

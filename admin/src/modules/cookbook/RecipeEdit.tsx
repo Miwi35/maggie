@@ -19,6 +19,9 @@ import { useMercure } from '../../hooks/useMercure'
 import { CiqualFoodAutocomplete } from './CiqualFoodAutocomplete'
 import { RecipeDeleteButton } from './RecipeDeleteButton'
 import { RecipeScaleSimulation } from './RecipeScaleSimulation'
+import { RecipeStepsInput, StepsErrorContext, useStepsErrors } from './RecipeStepsInput'
+import { RecipeUtensilsInput } from './RecipeUtensilsInput'
+import { recipeTransform } from './recipeSteps'
 import { TagsInput } from './TagsInput'
 
 const unitChoices = [
@@ -42,7 +45,7 @@ const positive = (value?: number | null) =>
 const RECIPE_TOPICS = ['/api/recipes/{id}']
 
 // The parts of the sheet the API publishes when they change.
-const LIVE_FIELDS = ['name', 'servings', 'tags', 'notes', 'ingredients'] as const
+const LIVE_FIELDS = ['name', 'servings', 'tags', 'notes', 'ingredients', 'utensils', 'steps'] as const
 
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -149,29 +152,37 @@ const RecipeEditToolbar = () => (
 
 // Pessimistic: the form only shows the new quantity once the API has kept it, and
 // a refusal stays on screen instead of silently putting the old value back.
-export const RecipeEdit = () => (
-  <Edit mutationMode="pessimistic">
-    <SimpleForm toolbar={<RecipeEditToolbar />}>
-      <RecipeLiveSync />
-      <TextInput source="name" label="Nom" validate={required()} fullWidth />
-      <NumberInput source="servings" label="Portions" />
-      <TagsInput source="tags" label="Tags (séparés par des virgules)" />
-      <TextInput source="notes" label="Notes" multiline rows={3} fullWidth />
-      <ArrayInput source="ingredients" label="Ingrédients">
-        <SimpleFormIterator inline>
-          <CiqualFoodAutocomplete source="ciqualAlimCode" />
-          <NumberInput source="quantity" label="Quantité" validate={[required(), positive]} sx={{ maxWidth: 120 }} />
-          <SelectInput
-            source="unit"
-            label="Unité"
-            choices={unitChoices}
-            defaultValue="g"
-            validate={required()}
-            sx={{ minWidth: 120 }}
-          />
-        </SimpleFormIterator>
-      </ArrayInput>
-      <RecipeScaleSimulation />
-    </SimpleForm>
-  </Edit>
-)
+export const RecipeEdit = () => {
+  const { value, onError } = useStepsErrors()
+
+  return (
+    <Edit mutationMode="pessimistic" transform={recipeTransform} mutationOptions={{ onError }}>
+      <StepsErrorContext.Provider value={value}>
+        <SimpleForm toolbar={<RecipeEditToolbar />}>
+          <RecipeLiveSync />
+          <TextInput source="name" label="Nom" validate={required()} fullWidth />
+          <NumberInput source="servings" label="Portions" />
+          <TagsInput source="tags" label="Tags (séparés par des virgules)" />
+          <TextInput source="notes" label="Notes" multiline rows={3} fullWidth />
+          <ArrayInput source="ingredients" label="Ingrédients">
+            <SimpleFormIterator inline>
+              <CiqualFoodAutocomplete source="ciqualAlimCode" nameSource="ingredientName" />
+              <NumberInput source="quantity" label="Quantité" validate={[required(), positive]} sx={{ maxWidth: 120 }} />
+              <SelectInput
+                source="unit"
+                label="Unité"
+                choices={unitChoices}
+                defaultValue="g"
+                validate={required()}
+                sx={{ minWidth: 120 }}
+              />
+            </SimpleFormIterator>
+          </ArrayInput>
+          <RecipeUtensilsInput />
+          <RecipeStepsInput />
+          <RecipeScaleSimulation />
+        </SimpleForm>
+      </StepsErrorContext.Provider>
+    </Edit>
+  )
+}
