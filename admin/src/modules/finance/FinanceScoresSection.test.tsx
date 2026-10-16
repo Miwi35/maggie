@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FinanceScoresSection } from './FinanceScoresSection'
+import { FinanceScoresCard, FinanceScoresSection } from './FinanceScoresSection'
 import { scores } from './scoresFixture'
 
 const answer = (body: unknown, ok = true) => ({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) })
@@ -66,5 +66,33 @@ describe('FinanceScoresSection', () => {
     await user.click(screen.getByRole('button', { name: 'Semaine' }))
 
     expect(screen.queryByTestId('debit-marker')).not.toBeInTheDocument()
+  })
+
+  test('the card draws the scores it is given, without fetching', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const data = scores()
+    data.week.rhythm.debits = []
+
+    render(<FinanceScoresCard scores={data} />)
+
+    expect(screen.getAllByTestId('score-ring')).toHaveLength(2)
+    expect(screen.getByTestId('debit-marker')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Semaine' }))
+    expect(screen.queryByTestId('debit-marker')).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('the card offers a retry only when the host gives one', async () => {
+    const user = userEvent.setup()
+    const retry = vi.fn()
+
+    const { rerender } = render(<FinanceScoresCard scores={null} error />)
+    expect(screen.queryByRole('button', { name: 'Réessayer' })).not.toBeInTheDocument()
+
+    rerender(<FinanceScoresCard scores={null} error onRetry={retry} />)
+    await user.click(screen.getByRole('button', { name: 'Réessayer' }))
+    expect(retry).toHaveBeenCalledTimes(1)
   })
 })

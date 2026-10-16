@@ -3,15 +3,14 @@ package com.maggie.app.ui.screens.finance
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
-import com.maggie.app.data.model.DashboardBalance
+import com.maggie.app.data.model.AccountsTile
 import com.maggie.app.data.model.FinanceDashboard
-import com.maggie.app.data.model.DashboardScore
 import com.maggie.app.data.model.FinanceScores
 import com.maggie.app.data.model.PeriodScore
-import com.maggie.app.data.model.MonthlyFlow
+import com.maggie.app.data.model.BudgetTile
+import com.maggie.app.data.model.ExpectedSalary
+import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.BalanceBeforeSalary
-import com.maggie.app.data.model.ReferenceSalary
-import com.maggie.app.data.model.SavingCapacity
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
 import com.maggie.app.data.repository.FinanceDashboardRepository
@@ -22,12 +21,15 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,11 +59,11 @@ class FinanceDashboardViewModelTest {
     private val dashboard = FinanceDashboard(
         year = 2026,
         month = 9,
-        balance = DashboardBalance(totalCents = 950000, cushionCents = 750000, availableCents = 200000),
-        monthlyFlows = listOf(
-            MonthlyFlow(month = "2026-09", incomeCents = 350000, expenseCents = 25000, netCents = 325000),
+        scores = scores,
+        tiles = FinanceTiles(
+            accounts = AccountsTile(totalCents = 950000, cushionCents = 750000, availableCents = 200000),
+            budget = BudgetTile(expectedSalary = ExpectedSalary(monthlyCents = 300000, source = "declared")),
         ),
-        savingCapacity = SavingCapacity(netCapacityCents = 290000, isIncomeKnown = true),
     )
 
     @Before
@@ -71,7 +73,6 @@ class FinanceDashboardViewModelTest {
         treasuryRepository = mockk()
         coEvery { treasuryRepository.getOutlook() } returns Result.success(TreasuryOutlook())
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard)
-        coEvery { dashboardRepository.getScores(any()) } returns Result.success(scores)
         mercureService = mockk()
         authRepository = mockk()
         coEvery { authRepository.getUserId() } returns "user-1"
@@ -93,7 +94,8 @@ class FinanceDashboardViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(2026, state.year)
         assertEquals(9, state.month)
-        assertEquals(950000, state.dashboard?.balance?.totalCents)
+        assertEquals(950000, state.dashboard?.tiles?.accounts?.totalCents)
+        assertEquals(scores, state.dashboard?.scores)
         assertFalse(state.isLoading)
         assertNull(state.error)
 
@@ -160,7 +162,7 @@ class FinanceDashboardViewModelTest {
         val state = viewModel.uiState.value
         assertNull(state.treasuryBanner)
         assertNull(state.error)
-        assertEquals(950000, state.dashboard?.balance?.totalCents)
+        assertEquals(950000, state.dashboard?.tiles?.accounts?.totalCents)
     }
 
     @Test
@@ -177,166 +179,122 @@ class FinanceDashboardViewModelTest {
         assertNull(viewModel.uiState.value.treasuryBanner)
     }
 
-    private fun dashboardWith(reference: ReferenceSalary) =
-        dashboard.copy(score = DashboardScore(referenceSalary = reference))
-
     @Test
-    fun `a declared reference salary reaches the state with its source`() = runTest {
+    fun `the expected salary of the tile reaches the state, unknown staying null`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        assertEquals(300000, viewModel.uiState.value.dashboard?.tiles?.budget?.expectedSalary?.monthlyCents)
+
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns
-            Result.success(dashboardWith(ReferenceSalary(monthlyCents = 300000, source = "declared")))
-        viewModel = buildViewModel()
+            Result.success(dashboard.copy(tiles = FinanceTiles(budget = BudgetTile(expectedSalary = null))))
+        viewModel.refresh()
         advanceUntilIdle()
 
-        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
-        assertEquals(300000, reference?.monthlyCents)
-        assertEquals("declared", reference?.source)
+        assertNull(viewModel.uiState.value.dashboard?.tiles?.budget?.expectedSalary)
     }
 
     @Test
-    fun `a measured reference salary reaches the state with its source`() = runTest {
-        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
-            Result.success(dashboardWith(ReferenceSalary(monthlyCents = 495000, source = "measured")))
-        viewModel = buildViewModel()
-        advanceUntilIdle()
-
-        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
-        assertEquals(495000, reference?.monthlyCents)
-        assertEquals("measured", reference?.source)
-    }
-
-    @Test
-    fun `an unknown reference salary stays null, never 0`() = runTest {
-        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
-            Result.success(dashboardWith(ReferenceSalary(monthlyCents = null, source = "unknown")))
+    fun `the dashboard is loading until the answer comes`() = runTest {
+        val answer = CompletableDeferred<Result<FinanceDashboard>>()
+        coEvery { dashboardRepository.getDashboard(any(), any()) } coAnswers { answer.await() }
 
         viewModel = buildViewModel()
         advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.dashboard)
 
-        val reference = viewModel.uiState.value.dashboard?.score?.referenceSalary
-        assertNull(reference?.monthlyCents)
-        assertEquals("unknown", reference?.source)
-    }
-
-    @Test
-    fun `a failed load leaves no reference salary to show`() = runTest {
-        coEvery { dashboardRepository.getDashboard(any(), any()) } returns
-            Result.failure(RuntimeException("boom"))
-
-        viewModel = buildViewModel()
+        answer.complete(Result.success(dashboard))
         advanceUntilIdle()
 
-        assertNull(viewModel.uiState.value.dashboard?.score?.referenceSalary)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(dashboard, viewModel.uiState.value.dashboard)
     }
 
     @Test
-    fun `the scores load with the dashboard, for today on the current month`() = runTest {
-        viewModel = buildViewModel()
-        assertTrue(viewModel.uiState.value.scores == null)
-
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(scores, state.scores)
-        assertFalse(state.isLoadingScores)
-        assertNull(state.scoresError)
-        coVerify { dashboardRepository.getScores("2026-09-17") }
-    }
-
-    @Test
-    fun `scores that fail to load leave the dashboard whole and say so`() = runTest {
-        coEvery { dashboardRepository.getScores(any()) } returns Result.failure(RuntimeException("scores down"))
-
+    fun `clearError drops the error and keeps the dashboard`() = runTest {
         viewModel = buildViewModel()
         advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals("scores down", state.scoresError)
-        assertNull(state.scores)
-        assertFalse(state.isLoadingScores)
-        assertEquals(950000, state.dashboard?.balance?.totalCents)
-        assertNull(state.error)
-    }
-
-    @Test
-    fun `a dashboard that fails to load leaves the scores whole`() = runTest {
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.failure(RuntimeException("boom"))
-
-        viewModel = buildViewModel()
+        viewModel.refresh()
         advanceUntilIdle()
+        assertEquals("boom", viewModel.uiState.value.error)
 
-        assertEquals(scores, viewModel.uiState.value.scores)
-        assertNull(viewModel.uiState.value.scoresError)
+        viewModel.clearError()
+
+        assertNull(viewModel.uiState.value.error)
+        assertNotNull(viewModel.uiState.value.dashboard)
     }
 
     @Test
-    fun `retrying after a failure loads the scores`() = runTest {
-        coEvery { dashboardRepository.getScores(any()) } returns Result.failure(RuntimeException("scores down"))
+    fun `the figures of the month left do not stay on screen while the new ones load`() = runTest {
         viewModel = buildViewModel()
         advanceUntilIdle()
+        val answer = CompletableDeferred<Result<FinanceDashboard>>()
+        coEvery { dashboardRepository.getDashboard(2026, 8) } coAnswers { answer.await() }
 
-        coEvery { dashboardRepository.getScores(any()) } returns Result.success(scores)
-        viewModel.refreshScores()
-        advanceUntilIdle()
+        viewModel.shiftPeriod(-1)
 
-        assertEquals(scores, viewModel.uiState.value.scores)
-        assertNull(viewModel.uiState.value.scoresError)
+        val state = viewModel.uiState.value
+        assertEquals(8, state.month)
+        assertNull(state.dashboard)
+        assertTrue(state.isLoading)
     }
 
     @Test
-    fun `a past month is scored on its last day`() = runTest {
+    fun `a failure on the new month does not keep the old month's figures`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        coEvery { dashboardRepository.getDashboard(2026, 8) } returns Result.failure(RuntimeException("boom"))
+
+        viewModel.shiftPeriod(-1)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.dashboard)
+        assertEquals("boom", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a late answer for the month left does not overwrite the month now shown`() = runTest {
+        val late = CompletableDeferred<Result<FinanceDashboard>>()
+        val august = dashboard.copy(month = 8, tiles = FinanceTiles(accounts = AccountsTile(totalCents = 1)))
+        // An answer that ignores the cancellation: only the check on arrival can keep it out.
+        coEvery { dashboardRepository.getDashboard(2026, 9) } coAnswers { withContext(NonCancellable) { late.await() } }
+        coEvery { dashboardRepository.getDashboard(2026, 8) } returns Result.success(august)
         viewModel = buildViewModel()
         advanceUntilIdle()
 
         viewModel.shiftPeriod(-1)
         advanceUntilIdle()
-
-        coVerify { dashboardRepository.getScores("2026-08-31") }
-    }
-
-    @Test
-    fun `a future month is scored on its first day`() = runTest {
-        viewModel = buildViewModel()
+        late.complete(Result.success(dashboard))
         advanceUntilIdle()
 
-        viewModel.shiftPeriod(1)
-        advanceUntilIdle()
-
-        coVerify { dashboardRepository.getScores("2026-10-01") }
+        assertEquals(8, viewModel.uiState.value.month)
+        assertEquals(august, viewModel.uiState.value.dashboard)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test
-    fun `the scores of the month left do not stay on screen while the new ones load`() = runTest {
-        viewModel = buildViewModel()
-        advanceUntilIdle()
-
-        viewModel.shiftPeriod(-1)
-
-        assertNull(viewModel.uiState.value.scores)
-    }
-
-    @Test
-    fun `scoresDate picks the day inside the month shown`() {
-        assertEquals(today, scoresDate(today, 2026, 9))
-        assertEquals(LocalDate.of(2024, 2, 29), scoresDate(today, 2024, 2))
-        assertEquals(LocalDate.of(2027, 1, 1), scoresDate(today, 2027, 1))
-    }
-
-    @Test
-    fun `a transaction or an envelope pushed by Mercure reloads the scores`() = runTest {
+    fun `an account, a transaction or an envelope pushed by Mercure reloads the dashboard`() = runTest {
         viewModel = buildViewModel()
         advanceUntilIdle()
         assertEquals(
-            setOf("/users/user-1/api/transactions/{id}", "/users/user-1/api/envelopes/{id}"),
+            setOf(
+                "/users/user-1/api/accounts/{id}",
+                "/users/user-1/api/transactions/{id}",
+                "/users/user-1/api/envelopes/{id}",
+            ),
             topics.toSet(),
         )
 
-        val updated = scores.copy(week = PeriodScore(status = "red", label = "Dépassement"))
-        coEvery { dashboardRepository.getScores(any()) } returns Result.success(updated)
+        val updated = dashboard.copy(
+            scores = scores.copy(week = PeriodScore(status = "red", label = "Dépassement")),
+            tiles = FinanceTiles(accounts = AccountsTile(totalCents = 1)),
+        )
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(updated)
         mercureEvents.tryEmit(MercureEvent(data = "{}"))
         advanceUntilIdle()
 
-        assertEquals(updated, viewModel.uiState.value.scores)
-        coVerify(atLeast = 2) { dashboardRepository.getScores("2026-09-17") }
-        assertNotNull(viewModel.uiState.value.dashboard)
+        assertEquals(updated, viewModel.uiState.value.dashboard)
+        coVerify(atLeast = 2) { dashboardRepository.getDashboard(2026, 9) }
     }
 }

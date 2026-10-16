@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\UseCase\GetFinanceDashboard;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_finance_dashboard', description: 'Read the whole financial picture for a month (defaults to the current one) in one call: the daily score with its reasons, the balance of every account and what of it is the safety cushion, twelve rolling months of money in and out, the budget gauges per envelope, the five biggest spending posts against the same posts last month, and the net saving capacity. Prefer this over calling the budget, score and loan tools one by one. All amounts are integer cents.')]
+#[McpTool(name: 'get_finance_dashboard', description: 'Read the whole financial picture for a month (defaults to the current one) in one call: `scores` (the week and the month with the amount left to spend, the spending rhythm and the reasons of each status), `tiles` (`accounts`: total, safety cushion and available with every account; `budget`: the root envelopes with consumed against budgeted, the safety cushion, the expected salary and the balance expected the eve of the salary, both null when unknown; `planning`: the independence counter and the net saving capacity), then the older blocks: `score` (the monthly score with its reasons and the reference salary), the balance of every account, twelve rolling months of money in and out, the budget gauges per envelope, and the five biggest spending posts against the same posts last month. Prefer this over calling the budget, score and loan tools one by one. All amounts are integer cents.')]
 class GetFinanceDashboardTool
 {
     public function __construct(
@@ -27,11 +27,17 @@ class GetFinanceDashboardTool
         }
 
         $now = new \DateTimeImmutable();
+        $year ??= (int) $now->format('Y');
+        $month ??= (int) $now->format('n');
 
-        return json_encode($this->getFinanceDashboard->execute(
-            $user,
-            $year ?? (int) $now->format('Y'),
-            $month ?? (int) $now->format('n'),
-        ), JSON_THROW_ON_ERROR);
+        if ($month < 1 || $month > 12) {
+            return json_encode(['error' => 'month must be between 1 and 12'], JSON_THROW_ON_ERROR);
+        }
+
+        if ($year < 2000 || $year > 2100) {
+            return json_encode(['error' => 'year must be between 2000 and 2100'], JSON_THROW_ON_ERROR);
+        }
+
+        return json_encode($this->getFinanceDashboard->execute($user, $year, $month), JSON_THROW_ON_ERROR);
     }
 }

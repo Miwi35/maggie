@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -16,13 +15,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -40,18 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.model.FinanceDashboard
-import com.maggie.app.data.model.consumedFraction
-import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.monthLabel
-import com.maggie.app.data.model.nestBudgetLines
-import com.maggie.app.data.model.postChangeLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
-import com.maggie.app.ui.components.ScoresUnavailable
 import com.maggie.app.ui.components.TreasuryBanner
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.FinanceAccess
@@ -124,17 +114,12 @@ fun FinanceDashboardScreen(
                         )
                     }
                 }
-                scoreItems(uiState, onRetry = viewModel::refreshScores)
-            }
-            val body: LazyListScope.() -> Unit = {
-                item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
                 if (dashboard != null) {
-                    item { BalanceCard(dashboard) }
-                    item { ReferenceSalaryCard(dashboard.score.referenceSalary, onOpen) }
-                    item { CapacityCard(dashboard) }
-                    item { IndependenceCard(dashboard) }
-                    item { TopPostsCard(dashboard) }
-                    item { EnvelopesCard(dashboard) }
+                    dashboard.scores?.let { scores ->
+                        item { ScoreRings(week = scores.week, month = scores.month) }
+                        item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
+                    }
+                    item { NextProjectCard() }
                 } else {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -149,12 +134,20 @@ fun FinanceDashboardScreen(
                         }
                     }
                 }
+            }
+            val body: LazyListScope.() -> Unit = {
+                if (dashboard != null) {
+                    item { AccountsTileCard(dashboard.tiles.accounts, onOpen) }
+                    item { BudgetTileCard(dashboard.tiles.budget, onOpen) }
+                    item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
+                }
+                item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
                 item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
                 item { AccessSection(FinanceFrequency.RARE, onOpen) }
             }
 
             if (twoColumns) {
-                // Room for two panes: the scores on the left, the figures and the accesses on the right.
+                // Room for two panes: the scores and the next project on the left, the tiles and the accesses on the right.
                 Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LazyColumn(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -178,24 +171,6 @@ fun FinanceDashboardScreen(
                     head()
                     body()
                 }
-            }
-        }
-    }
-}
-
-/** The rings and the curve; a failed or pending load says so in their place, the rest of the screen goes on. */
-private fun LazyListScope.scoreItems(uiState: FinanceDashboardUiState, onRetry: () -> Unit) {
-    val scores = uiState.scores
-    val error = uiState.scoresError
-    when {
-        scores != null -> {
-            item { ScoreRings(week = scores.week, month = scores.month) }
-            item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
-        }
-        error != null -> item { ScoresUnavailable(message = error, onRetry = onRetry) }
-        uiState.isLoadingScores -> item {
-            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
             }
         }
     }
@@ -232,217 +207,6 @@ private fun AccessSection(frequency: FinanceFrequency, onOpen: (String) -> Unit)
             ) {
                 Text(access.label, modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
-            }
-        }
-    }
-}
-
-@Composable
-private fun BalanceCard(dashboard: FinanceDashboard) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Solde de tous les comptes", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = formatCents(dashboard.balance.totalCents),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
-            Text(
-                text = "dont ${formatCents(dashboard.balance.cushionCents)} de matelas — " +
-                    "${formatCents(dashboard.balance.availableCents)} disponibles",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CapacityCard(dashboard: FinanceDashboard) {
-    val capacity = dashboard.savingCapacity
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Capacité d'épargne nette", style = MaterialTheme.typography.titleSmall)
-            if (capacity.isIncomeKnown) {
-                Text(
-                    text = "${formatCents(capacity.netCapacityCents)} / mois",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                Text(
-                    text = "${formatCents(capacity.monthlyNetIncomeCents)} de revenu − " +
-                        "${formatCents(capacity.loanPaymentsCents)} de mensualités − " +
-                        "${formatCents(capacity.estimatedLifestyleCents)} de train de vie",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = "Renseignez votre revenu dans le matelas pour l'obtenir.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/**
- * How far the rentes cover the way the owner lives (MAG-46).
- *
- * The card says what it compares, never a bare percentage: a ratio whose
- * terms are hidden cannot be checked. No target date — that is Premium, and
- * an empty one would read as a promise.
- */
-@Composable
-private fun IndependenceCard(dashboard: FinanceDashboard) {
-    val counter = dashboard.independence
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Indépendance financière", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = independenceSummary(counter),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
-
-            if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
-                // Two different states, two different things to say.
-                Text(
-                    text = if (counter.hasPassiveIncomeCategories) {
-                        "Le compteur se calcule sur les ${counter.sampleMonths} mois " +
-                            "complets précédents."
-                    } else {
-                        "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
-                            "dividendes — en créant la catégorie dans Finance › Catégories."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                return@Column
-            }
-
-            LinearProgressIndicator(
-                progress = { minOf(1f, counter.coveragePercent / 100f) },
-                color = if (counter.isReached) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.tertiary
-                },
-                modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
-            )
-
-            Text(
-                text = "${formatCents(counter.passiveIncomeCents)} de rentes sur " +
-                    "${formatCents(counter.lifestyleCents)} de train de vie, mesurés sur " +
-                    "${counter.sampleMonths} mois",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-
-            counter.byCategory.forEach { rente ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(rente.categoryName, style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        text = "${formatCents(rente.monthlyCents)} / mois · ${rente.sharePercent} %",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TopPostsCard(dashboard: FinanceDashboard) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Principaux postes du mois", style = MaterialTheme.typography.titleSmall)
-
-            if (dashboard.topPosts.isEmpty()) {
-                Text(
-                    text = "Aucune dépense sur ce mois.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-
-            dashboard.topPosts.forEach { post ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = post.categoryName ?: "Non catégorisé",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = postChangeLabel(post),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = formatCents(post.spentCents),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EnvelopesCard(dashboard: FinanceDashboard) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Enveloppes", style = MaterialTheme.typography.titleSmall)
-
-            if (dashboard.budgets.isEmpty()) {
-                Text(
-                    text = "Aucune enveloppe sur ce mois.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-
-            nestBudgetLines(dashboard.budgets).forEach { (line, depth, label) ->
-                Column(modifier = Modifier.padding(start = ((depth - 1) * 12).dp, top = 8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            text = "${formatCents(line.consumedCents, line.currency)} / " +
-                                formatCents(line.amountCents, line.currency),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (line.isOverspent) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { consumedFraction(line.consumedCents, line.amountCents) },
-                        color = when {
-                            line.isOverspent -> MaterialTheme.colorScheme.error
-                            line.isOvercommitted -> MaterialTheme.colorScheme.tertiary
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
-                    )
-                }
             }
         }
     }

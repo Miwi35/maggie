@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography'
 import { RhythmCurve } from './RhythmCurve'
 import { ScoreRings } from './ScoreRings'
 import { useFinanceScores } from './useFinanceScores'
+import type { FinanceScores } from './useFinanceScores'
 
 interface FinanceScoresSectionProps {
   year: number
@@ -24,18 +25,20 @@ interface FinanceScoresSectionProps {
   refreshToken?: number
 }
 
-/** The rings and the curve of the period shown. */
-export const FinanceScoresSection = ({ year, month, refreshToken = 0 }: FinanceScoresSectionProps) => {
-  const { scores, loading, error, refresh } = useFinanceScores(year, month)
-  const [period, setPeriod] = useState<'week' | 'month'>('month')
+interface FinanceScoresCardProps {
+  scores: FinanceScores | null
+  loading?: boolean
+  error?: boolean
+  onRetry?: () => void
+}
 
-  const seen = useRef(refreshToken)
-  useEffect(() => {
-    if (seen.current !== refreshToken) {
-      seen.current = refreshToken
-      refresh()
-    }
-  }, [refreshToken, refresh])
+/**
+ * The rings and the curve, drawn from scores the host already holds: the
+ * finance home gets them in its dashboard payload (one read, one refresh);
+ * the budget pages fetch their own through `FinanceScoresSection`.
+ */
+export const FinanceScoresCard = ({ scores, loading = false, error = false, onRetry }: FinanceScoresCardProps) => {
+  const [period, setPeriod] = useState<'week' | 'month'>('month')
 
   return (
     <Card sx={{ mb: 2 }} data-testid="finance-scores">
@@ -61,9 +64,11 @@ export const FinanceScoresSection = ({ year, month, refreshToken = 0 }: FinanceS
             severity="error"
             sx={{ mb: 1 }}
             action={
-              <Button color="inherit" size="small" onClick={() => { refresh() }}>
-                Réessayer
-              </Button>
+              onRetry && (
+                <Button color="inherit" size="small" onClick={onRetry}>
+                  Réessayer
+                </Button>
+              )
             }
           >
             Les scores n'ont pas pu être chargés.
@@ -80,5 +85,29 @@ export const FinanceScoresSection = ({ year, month, refreshToken = 0 }: FinanceS
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** The rings and the curve of the period shown, fetched from `/api/finance/scores`. */
+export const FinanceScoresSection = ({ year, month, refreshToken = 0 }: FinanceScoresSectionProps) => {
+  const { scores, loading, error, refresh } = useFinanceScores(year, month)
+
+  const seen = useRef(refreshToken)
+  useEffect(() => {
+    if (seen.current !== refreshToken) {
+      seen.current = refreshToken
+      refresh()
+    }
+  }, [refreshToken, refresh])
+
+  return (
+    <FinanceScoresCard
+      scores={scores}
+      loading={loading}
+      error={error}
+      onRetry={() => {
+        refresh()
+      }}
+    />
   )
 }

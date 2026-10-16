@@ -1,141 +1,139 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { AdminContext, testDataProvider } from 'react-admin'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { dashboardFixture } from './dashboardFixture'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
+import type { FinanceDashboard } from './useFinanceDashboard'
 
-vi.mock('../../hooks/useMercure', () => ({ useMercure: () => undefined }))
-
-const score = (referenceSalary: { monthlyCents: number | null; source: string }) => ({
-  score: 'neutral',
-  year: 2026,
-  month: 10,
-  reasons: [],
-  budget: {
-    totalBudgetedCents: 0,
-    totalConsumedCents: 0,
-    totalPlannedCents: 0,
-    totalAvailableCents: 0,
-    overspentCategories: [],
+const mercure = vi.hoisted(() => ({ onMessage: undefined as undefined | (() => void) }))
+vi.mock('../../hooks/useMercure', () => ({
+  useMercure: (_topics: string[], onMessage: () => void) => {
+    mercure.onMessage = onMessage
   },
-  cushion: { state: 'building', blocksGreenScore: false },
-  comparison: { thisMonthCents: 0, sameMonthLastYearCents: 0, differenceCents: 0, isBetter: false },
-  referenceSalary,
-})
+}))
 
-const dashboard = (referenceSalary: { monthlyCents: number | null; source: string }) => ({
-  year: 2026,
-  month: 10,
-  score: score(referenceSalary),
-  balance: { totalCents: 0, cushionCents: 0, availableCents: 0, accounts: [] },
-  monthlyFlows: [],
-  budgets: [],
-  topPosts: [],
-  savingCapacity: {
-    monthlyNetIncomeCents: 0,
-    loanPaymentsCents: 0,
-    estimatedLifestyleCents: 0,
-    netCapacityCents: 0,
-    isIncomeKnown: false,
-  },
-  independence: {
-    coveragePercent: 0,
-    lifestyleCents: 0,
-    passiveIncomeCents: 0,
-    gapCents: 0,
-    sampleMonths: 0,
-    isMeasurable: false,
-    hasPassiveIncomeCategories: false,
-    isReached: false,
-    loanPaymentsCents: 0,
-    monthlyNeedCents: 0,
-    coverageWithDebtPercent: 0,
-    nextMilestonePercent: null,
-    nextMilestoneGapCents: null,
-    byCategory: [],
-  },
-})
+const answer = (body: unknown, ok = true) => Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) })
 
-const stubApi = (payload: unknown, ok = true) => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url: string) => {
-      if (url.includes('/api/finance/dashboard')) {
-        return Promise.resolve({ ok, json: () => Promise.resolve(payload) })
-      }
-
-      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
-    }),
+const stubApi = (payload: FinanceDashboard | unknown, ok = true) => {
+  const fetchMock = vi.fn((url: string) =>
+    url.includes('/api/finance/dashboard') ? answer(payload, ok) : answer({}, false),
   )
+  vi.stubGlobal('fetch', fetchMock)
+
+  return fetchMock
 }
+
+const Where = () => <span data-testid="where">{useLocation().pathname}</span>
 
 const renderPage = () =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/finance/dashboard']}>
       <AdminContext dataProvider={testDataProvider()}>
         <FinanceDashboardPage />
+        <Where />
       </AdminContext>
     </MemoryRouter>,
   )
 
-describe('FinanceDashboardPage — reference salary', () => {
+describe('FinanceDashboardPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     localStorage.setItem('token', 'test-jwt-token')
   })
 
-  test('shows a declared reference salary', async () => {
-    stubApi(dashboard({ monthlyCents: 300000, source: 'declared' }))
+  test('lays out the rings, the curve, the next project and the three tiles', async () => {
+    stubApi(dashboardFixture())
     renderPage()
 
-    const card = await screen.findByTestId('reference-salary-card')
-    expect(card).toHaveTextContent(/3\s000,00\s€/)
-    expect(card).toHaveTextContent('déclaré sur le matelas')
+    expect(await screen.findByTestId('finance-scores')).toBeInTheDocument()
+    expect(screen.getAllByTestId('score-ring')).toHaveLength(2)
+    expect(screen.getByTestId('rhythm-curve')).toBeInTheDocument()
+    expect(screen.getByTestId('next-project-card')).toBeInTheDocument()
+    expect(screen.getByTestId('tile-accounts')).toBeInTheDocument()
+    expect(screen.getByTestId('tile-budget')).toBeInTheDocument()
+    expect(screen.getByTestId('tile-planning')).toBeInTheDocument()
   })
 
-  test('shows a measured reference salary', async () => {
-    stubApi(dashboard({ monthlyCents: 495000, source: 'measured' }))
+  test('feeds the rings from the dashboard payload: one read, no scores request', async () => {
+    const fetchMock = stubApi(dashboardFixture())
     renderPage()
 
-    const card = await screen.findByTestId('reference-salary-card')
-    expect(card).toHaveTextContent(/4\s950,00\s€/)
-    expect(card).toHaveTextContent('mesuré sur 12 mois')
+    await screen.findAllByTestId('score-ring')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/finance/dashboard')
   })
 
-  test('shows « non renseigné » and a link, not 0 €, when the reference is unknown', async () => {
-    stubApi(dashboard({ monthlyCents: null, source: 'unknown' }))
+  test('no longer draws the removed blocks', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+    await screen.findByTestId('tile-budget')
+
+    expect(screen.queryByText('Solde de tous les comptes')).not.toBeInTheDocument()
+    expect(screen.queryByText('Principaux postes du mois')).not.toBeInTheDocument()
+    expect(screen.queryByText('Recettes et dépenses sur douze mois')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('top-post')).not.toBeInTheDocument()
+  })
+
+  test.each([
+    ['tile-accounts', '/accounts'],
+    ['tile-budget', '/envelopes'],
+    ['tile-planning', '/finance/treasury'],
+  ])('a click on %s opens %s', async (testId, path) => {
+    const user = userEvent.setup()
+    stubApi(dashboardFixture())
     renderPage()
 
-    const card = await screen.findByTestId('reference-salary-card')
-    expect(card).toHaveTextContent('non renseigné')
-    expect(card).not.toHaveTextContent(/0,00\s€/)
-    expect(screen.getByRole('link', { name: /Ajouter l'opération récurrente/ })).toHaveAttribute(
-      'href',
-      '/finance/recurring-operations',
-    )
+    const tile = await screen.findByTestId(testId)
+    await user.click(within(tile).getAllByRole('link')[0])
+
+    expect(screen.getByTestId('where')).toHaveTextContent(path)
   })
 
-  test('lists each account of the balance as bank · currency · name', async () => {
-    const payload = dashboard({ monthlyCents: 300000, source: 'declared' })
-    payload.balance.accounts = [
-      { id: 'a1', name: 'Compte courant', bank: 'Boursorama', type: 'checking', balanceCents: 1000, currency: 'EUR', isCushion: false },
-      { id: 'a2', name: 'Compte courant', bank: 'Crédit Agricole', type: 'checking', balanceCents: 2000, currency: 'EUR', isCushion: false },
-      { id: 'a3', name: 'Livret', bank: null, type: 'savings', balanceCents: 3000, currency: 'EUR', isCushion: true },
-    ] as never
+  test('the salary link of the Budget tile opens the recurring operations, not the budget', async () => {
+    const user = userEvent.setup()
+    const payload = dashboardFixture()
+    payload.tiles.budget.expectedSalary = null
     stubApi(payload)
     renderPage()
 
-    expect(await screen.findByText('Boursorama · EUR · Compte courant')).toBeInTheDocument()
-    expect(screen.getByText('Crédit Agricole · EUR · Compte courant')).toBeInTheDocument()
-    expect(screen.getByText('EUR · Livret · matelas')).toBeInTheDocument()
+    await user.click(await screen.findByRole('link', { name: /Ajouter l'opération récurrente/ }))
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/recurring-operations')
   })
 
-  test('shows no salary at all, and no 0 €, when the API fails', async () => {
-    stubApi({ error: 'boom' }, false)
+  test('says the dashboard failed, keeps the page usable, and retries on demand', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => answer({ error: 'boom' }, false))
+      .mockImplementation(() => answer(dashboardFixture()))
+    vi.stubGlobal('fetch', fetchMock)
     renderPage()
 
-    await waitFor(() => expect(fetch).toHaveBeenCalled())
-    expect(screen.queryByTestId('reference-salary-card')).not.toBeInTheDocument()
-    expect(screen.queryByText(/0,00\s€/)).not.toBeInTheDocument()
+    expect(await screen.findByText("Le tableau de bord n'a pas pu être chargé.")).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "Vue d'ensemble" })).toBeInTheDocument()
+    expect(screen.queryByTestId('tile-budget')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Réessayer' }))
+
+    expect(await screen.findByTestId('tile-budget')).toBeInTheDocument()
+    expect(screen.queryByText("Le tableau de bord n'a pas pu être chargé.")).not.toBeInTheDocument()
+  })
+
+  test('a Mercure message reloads the tiles and the rings with the same single read', async () => {
+    const fetchMock = stubApi(dashboardFixture())
+    renderPage()
+    await screen.findByTestId('tile-accounts')
+
+    const updated = dashboardFixture()
+    updated.tiles.accounts.totalCents = 999900
+    fetchMock.mockImplementation(() => answer(updated))
+    act(() => mercure.onMessage?.())
+
+    await waitFor(() => expect(screen.getByTestId('tile-accounts')).toHaveTextContent(/9\s999,00\s€/))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

@@ -5,16 +5,17 @@ import { MONTH_LABELS } from './financeLabels.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Finance → Vue d'ensemble (`/finance/dashboard`).
+ * Finance → Vue d'ensemble (`/finance/dashboard`), the finance home (MAG-420).
  *
- * One read of `GetFinanceDashboard`, drawn as four cards and a chart. Nothing
- * here is stored: the balance is the sum of the accounts, the saving capacity
- * is income minus loan payments minus a measured lifestyle, and each top post
- * is this month against the same post last month. So the journey reads the
- * cards and checks the arithmetic against the fixtures.
+ * One read of `GetFinanceDashboard`, drawn top to bottom as the two rings, the
+ * month's curve against its rhythm, the « Prochain projet » example card, then
+ * three tiles — Comptes, Budget, Planification — each opening its menu.
+ * Nothing here is stored: the total is the sum of the accounts, the saving
+ * capacity is income minus loan payments minus a measured lifestyle. So the
+ * journeys read the tiles and check the arithmetic against the fixtures.
  *
- * Cards are reached through the subtitle each one carries — they are unique on
- * the screen and they are what a reader looks for.
+ * Tiles are reached by their test id (`tile-accounts`, `tile-budget`,
+ * `tile-planning`); the cards inside them by their own.
  */
 export class FinanceOverviewPage extends AdminShell {
   readonly heading: Locator
@@ -28,43 +29,66 @@ export class FinanceOverviewPage extends AdminShell {
     await this.goto(ROUTES.financeOverview)
     // Not the heading: it renders before the fetch answers, so waiting on it
     // would let an assertion run against a screen that has no data yet.
-    await expect(this.card('Solde de tous les comptes')).toBeVisible()
+    await expect(this.accountsTile).toBeVisible()
   }
 
-  /** One card of the dashboard, by the subtitle it is headed with. */
-  card(subtitle: string): Locator {
-    return this.content.locator('.MuiCard-root').filter({ hasText: subtitle })
+  /** « Comptes »: the total, the matelas set aside, each account. */
+  get accountsTile(): Locator {
+    return this.content.getByTestId('tile-accounts')
   }
 
-  /**
-   * A line of "Principaux postes du mois": the category, what it cost this
-   * month, and the change against last month.
-   *
-   * By `data-category`, as on the budget gauges: the posts repeat, and the
-   * assertion is that *this* category cost *that* much. Reaching one through
-   * the layout would make it "some post cost that much" the day a `Stack` is
-   * wrapped around them.
-   */
-  topPost(categoryName: string): Locator {
-    return this.content.locator(`[data-testid="top-post"][data-category="${categoryName}"]`)
+  /** « Budget »: envelope histogram, matelas, expected salary, balance before it. */
+  get budgetTile(): Locator {
+    return this.content.getByTestId('tile-budget')
+  }
+
+  /** « Planification »: saving capacity and financial independence. */
+  get planningTile(): Locator {
+    return this.content.getByTestId('tile-planning')
+  }
+
+  /** The tile's own title is the link that opens its menu (the whole card is clickable). */
+  tileLink(tile: Locator, name: string): Locator {
+    return tile.getByRole('heading', { name }).getByRole('link')
+  }
+
+  /** The « Prochain projet » card: a static example until MAG-425. */
+  get nextProject(): Locator {
+    return this.content.getByTestId('next-project-card')
+  }
+
+  /** The envelope's column in the Budget tile, by the category it carries. */
+  envelopeBar(name: string): Locator {
+    return this.budgetTile.locator(`[data-testid="budget-bar"][data-category="${name}"]`)
+  }
+
+  /** « Salaire attendu » of the Budget tile (MAG-275): the amount and where it comes from. */
+  expectedSalary(): Locator {
+    return this.budgetTile.getByTestId('expected-salary')
+  }
+
+  /** « Solde attendu avant le salaire » of the Budget tile. */
+  balanceBeforeSalary(): Locator {
+    return this.budgetTile.getByTestId('balance-before-salary')
+  }
+
+  /** The saving capacity, in the Planification tile. */
+  savingCapacity(): Locator {
+    return this.planningTile.getByTestId('saving-capacity')
+  }
+
+  /** The independence counter, in the Planification tile. */
+  independence(): Locator {
+    return this.planningTile.getByTestId('independence-card')
   }
 
   /**
    * A line of the independence counter's breakdown: one rente category, what
-   * it brings in per month, and its share. Addressed by `data-category` for
-   * the same reason as a top post.
+   * it brings in per month, and its share. Addressed by `data-category`: the
+   * lines repeat, and the assertion is that *this* category brings *that* much.
    */
   rente(categoryName: string): Locator {
     return this.content.locator(`[data-testid="rente"][data-category="${categoryName}"]`)
-  }
-
-  /**
-   * The « Salaire de référence » card (MAG-275): the mark the month is judged
-   * on, and where the figure comes from. Reached by its test id, since the
-   * subtitle is also a word the score banner can carry.
-   */
-  referenceSalary(): Locator {
-    return this.content.getByTestId('reference-salary-card')
   }
 
   /** The week's or the month's ring: the remainder, the status word, the tick. */

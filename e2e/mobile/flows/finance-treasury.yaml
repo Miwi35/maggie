@@ -108,7 +108,8 @@ tags:
       id: "finance_rhythm_curve"
     timeout: 30000
 - scrollUntilVisible:
-    element: ".*Solde de tous les comptes.*"
+    element:
+      id: "finance_tile_accounts"
     timeout: 30000
 # Fully on screen, centred: the last access sits under the gesture bar, where a tap lands on nothing.
 - scrollUntilVisible:

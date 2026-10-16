@@ -32,6 +32,8 @@ class FinanceDashboardToolTest extends KernelTestCase
 
         $dashboard = $this->dashboard();
 
+        self::assertArrayHasKey('scores', $dashboard);
+        self::assertArrayHasKey('tiles', $dashboard);
         self::assertArrayHasKey('score', $dashboard);
         self::assertArrayHasKey('balance', $dashboard);
         self::assertArrayHasKey('monthlyFlows', $dashboard);
@@ -124,5 +126,39 @@ class FinanceDashboardToolTest extends KernelTestCase
         self::assertSame([], $dashboard['budgets']);
         self::assertCount(12, $dashboard['monthlyFlows']);
         self::assertSame('neutral', $dashboard['score']['score']);
+    }
+
+    public function testItRendersTheSameScoresAndTilesAsTheRestEndpoint(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->loginFixtureUser();
+
+        $dashboard = $this->dashboard();
+
+        self::assertSame('2026-09-30', $dashboard['scores']['date']);
+        self::assertSame(['accounts', 'budget', 'planning'], array_keys($dashboard['tiles']));
+        self::assertSame(950000, $dashboard['tiles']['accounts']['totalCents']);
+        self::assertSame(
+            ['envelopes', 'cushion', 'expectedSalary', 'balanceBeforeSalary'],
+            array_keys($dashboard['tiles']['budget']),
+        );
+        self::assertSame(['independence', 'savingCapacity'], array_keys($dashboard['tiles']['planning']));
+    }
+
+    public function testAMonthOrAYearOutOfRangeIsAnError(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->loginFixtureUser();
+
+        foreach ([[2026, 0], [2026, 13], [1999, 9], [2101, 9]] as [$year, $month]) {
+            self::assertArrayHasKey('error', $this->dashboard($year, $month), "$year-$month");
+        }
+    }
+
+    public function testWithoutAUserItAnswersAnError(): void
+    {
+        $tool = self::getContainer()->get(GetFinanceDashboardTool::class);
+
+        self::assertArrayHasKey('error', json_decode($tool(2026, 9), true, 512, JSON_THROW_ON_ERROR));
     }
 }

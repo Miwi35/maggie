@@ -9,6 +9,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -454,10 +456,45 @@ class DtoContractTest {
     }
 
     @Test
-    fun `the finance dashboard score carries its reference salary under the names the API sends`() {
-        val dashboard = json.decodeFromJsonElement(serializer<FinanceDashboard>(), readRecording("finance_dashboard.read"))
+    fun `the finance dashboard carries its scores and its three tiles under the names the API sends`() {
+        val body = readRecording("finance_dashboard.read")
+        val source = "finance_dashboard.read"
 
-        assertEquals(ReferenceSalary(monthlyCents = 495000, source = "expected"), dashboard.score.referenceSalary)
+        val dashboard = json.decodeFromJsonElement(serializer<FinanceDashboard>(), body)
+
+        val tiles = body["tiles"]!!.jsonObject
+        val accounts = tiles["accounts"]!!.jsonObject
+        val budget = tiles["budget"]!!.jsonObject
+        val planning = tiles["planning"]!!.jsonObject
+        assertDeclaredFieldsExist("FinanceDashboard", serializer<FinanceDashboard>(), body.keys, source)
+        assertDeclaredFieldsExist("FinanceTiles", serializer<FinanceTiles>(), tiles.keys, source)
+        assertDeclaredFieldsExist("AccountsTile", serializer<AccountsTile>(), accounts.keys, source)
+        assertDeclaredFieldsExist("TileAccount", serializer<TileAccount>(), keysOf(accounts, "accounts"), source)
+        assertDeclaredFieldsExist("BudgetTile", serializer<BudgetTile>(), budget.keys, source)
+        assertDeclaredFieldsExist("TileEnvelope", serializer<TileEnvelope>(), keysOf(budget, "envelopes"), source)
+        assertDeclaredFieldsExist("TileCushion", serializer<TileCushion>(), budget["cushion"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("ExpectedSalary", serializer<ExpectedSalary>(), budget["expectedSalary"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("PlanningTile", serializer<PlanningTile>(), planning.keys, source)
+        assertDeclaredFieldsExist(
+            "IndependenceCounter",
+            serializer<IndependenceCounter>(),
+            planning["independence"]!!.jsonObject.keys,
+            source,
+        )
+        assertDeclaredFieldsExist(
+            "SavingCapacity",
+            serializer<SavingCapacity>(),
+            planning["savingCapacity"]!!.jsonObject.keys,
+            source,
+        )
+        assertDeclaredFieldsExist("FinanceScores", serializer<FinanceScores>(), body["scores"]!!.jsonObject.keys, source)
+
+        assertEquals(ExpectedSalary(monthlyCents = 495000, source = "expected"), dashboard.tiles.budget.expectedSalary)
+        // Null on the wire means « unknown », and stays null: never a 0 € balance.
+        assertNull(dashboard.tiles.budget.balanceBeforeSalary)
+        assertTrue(dashboard.tiles.accounts.accounts.single().isCushion)
+        assertTrue(dashboard.tiles.budget.envelopes.single().isOverspent)
+        assertNotNull(dashboard.scores)
     }
 
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {

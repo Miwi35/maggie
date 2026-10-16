@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react'
 import Box from '@mui/material/Box'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
@@ -15,7 +13,7 @@ const Hint = ({ children }: { children: ReactNode }) => (
 )
 
 /**
- * How far the rentes already cover the way the owner lives (MAG-46).
+ * The body of the Planification tile: how far the rentes already cover the way the owner lives (MAG-46).
  *
  * Both figures are measured over the last complete months, so the card says
  * what it compares rather than showing a bare percentage: a ratio whose terms
@@ -25,9 +23,9 @@ const Hint = ({ children }: { children: ReactNode }) => (
  * would read as a promise. No percentage either when there is nothing to
  * measure — 0 % would be a verdict on somebody who has simply not started.
  */
-export const IndependenceCard = ({ counter }: { counter: IndependenceCounter }) => (
-  <Card sx={{ flex: '1 1 320px' }} data-testid="independence-card">
-    <CardContent>
+export const IndependenceSummary = ({ counter }: { counter: IndependenceCounter }) => (
+  <Box data-testid="independence-card">
+    <Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
         Indépendance financière
       </Typography>
@@ -110,6 +108,6 @@ export const IndependenceCard = ({ counter }: { counter: IndependenceCounter }) 
           ))}
         </>
       )}
-    </CardContent>
-  </Card>
+    </Box>
+  </Box>
 )
