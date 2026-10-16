@@ -33,6 +33,9 @@ class UpdateTaskSettingsHandler
             if (null !== $command->morningTime && (!\is_string($command->morningTime) || 1 !== preg_match(TaskSettings::MORNING_TIME_PATTERN, $command->morningTime))) {
                 throw new \InvalidArgumentException('morningTime must be a time "HH:MM" from 00:00 to 23:59.');
             }
+            if (null !== $command->eveningTime && (!\is_string($command->eveningTime) || 1 !== preg_match(TaskSettings::MORNING_TIME_PATTERN, $command->eveningTime))) {
+                throw new \InvalidArgumentException('eveningTime must be a time "HH:MM" from 00:00 to 23:59.');
+            }
         } catch (\InvalidArgumentException $e) {
             throw new \DomainException($e->getMessage(), 0, $e);
         }
@@ -45,6 +48,9 @@ class UpdateTaskSettingsHandler
         }
         if (\is_string($command->morningTime)) {
             $settings->setMorningTime($command->morningTime);
+        }
+        if (\is_string($command->eveningTime)) {
+            $settings->setEveningTime($command->eveningTime);
         }
 
         return $this->updateTaskSettings->execute($settings);

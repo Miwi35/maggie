@@ -282,6 +282,35 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The evening's review (MAG-500), as `/api/day-reviews/{date}` sends it
+     * after « Bonne nuit »: what helped, and when it was done.
+     */
+    public function testTheDayReviewRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $path = '/api/day-reviews/2026-04-22';
+        $this->client->request('PUT', $path, [], [], array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders()), json_encode(['helped' => ['start_small', 'timer']], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotNull($body['reviewedAt'], 'The recorded review is not done, so it proves nothing about `reviewedAt`.');
+
+        $this->assertMatchesContract(
+            'responses/day_reviews.read.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (DayReview.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
      * The morning's proposal (MAG-498), as `/api/day-plans/{date}/proposal`
      * sends it: slots with their reason, the ranked reserve, the minutes.
      */

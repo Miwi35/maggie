@@ -52,6 +52,7 @@
         }
     },
     "morningTime": "08:00",
+    "eveningTime": "21:00",
     "defaults": {
         "orderWeights": {
             "timePressure": {
@@ -104,6 +105,7 @@
                 "overdueEveryDays": 2
             }
         },
-        "morningTime": "08:00"
+        "morningTime": "08:00",
+        "eveningTime": "21:00"
     }
 }

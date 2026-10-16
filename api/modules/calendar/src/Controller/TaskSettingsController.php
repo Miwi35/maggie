@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The task settings (MAG-406, MAG-407), created on first read. Written here and not
+ * The task settings (MAG-406, MAG-407, MAG-500), created on first read. Written here and not
  * through an API Platform `Patch` on an identifier-less path, which would
  * build a fresh entity (MeOperationContractTest). The PUT applies the fields
  * it is sent, and in `orderWeights` the weights it is sent: the others keep
@@ -29,7 +29,7 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 final class TaskSettingsController
 {
-    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime'];
+    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime', 'eveningTime'];
 
     public function __construct(
         private readonly Security $security,
@@ -103,6 +103,10 @@ final class TaskSettingsController
             return new JsonResponse(['error' => 'morningTime must be a time "HH:MM"'], Response::HTTP_BAD_REQUEST);
         }
 
+        if (\array_key_exists('eveningTime', $body) && !\is_string($body['eveningTime'])) {
+            return new JsonResponse(['error' => 'eveningTime must be a time "HH:MM"'], Response::HTTP_BAD_REQUEST);
+        }
+
         $orderWeights = $body['orderWeights'] ?? null;
         if (\array_key_exists('orderLevels', $body)) {
             try {
@@ -122,6 +126,7 @@ final class TaskSettingsController
                 orderWeights: $orderWeights,
                 alertSchedule: $body['alertSchedule'] ?? null,
                 morningTime: $body['morningTime'] ?? null,
+                eveningTime: $body['eveningTime'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             // A refused value is the caller's; anything else is ours, and not theirs to read.

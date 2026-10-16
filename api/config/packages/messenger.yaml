@@ -34,6 +34,8 @@ framework:
             'Maggie\Calendar\Message\UpdateTaskSettingsCommand': sync
             'Maggie\Calendar\Message\CreateDayPlanCommand': sync
             'Maggie\Calendar\Message\SetDayPlanCommand': sync
+            'Maggie\Calendar\Message\CreateDayReviewCommand': sync
+            'Maggie\Calendar\Message\SetDayReviewCommand': sync
             'Maggie\Calendar\Event\TaskCompleted': sync
             'Maggie\Calendar\Event\TaskReopened': sync
             'Maggie\Calendar\Message\PushEventToGoogleCommand': sync

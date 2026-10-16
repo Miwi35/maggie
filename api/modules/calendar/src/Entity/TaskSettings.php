@@ -17,7 +17,8 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * The task settings, one row per user, created on first read: the weights of
- * the order (MAG-406), the alert schedule and the morning time (MAG-407).
+ * the order (MAG-406), the alert schedule and the morning time (MAG-407),
+ * the evening time the review opens after (MAG-500).
  *
  * Read and written through `/api/task-settings/me`, never through an API
  * Platform operation on an identifier-less path, which would build a fresh
@@ -30,6 +31,7 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     use MercurePayloadFilterTrait;
 
     public const DEFAULT_MORNING_TIME = '08:00';
+    public const DEFAULT_EVENING_TIME = '21:00';
     public const MORNING_TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
 
     #[ORM\Id]
@@ -59,6 +61,10 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** The « morning » the alerts go out, `HH:MM` in the user's timezone. */
     #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_MORNING_TIME])]
     private string $morningTime = self::DEFAULT_MORNING_TIME;
+
+    /** The « evening » the review opens after, `HH:MM` in the user's timezone. */
+    #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_EVENING_TIME])]
+    private string $eveningTime = self::DEFAULT_EVENING_TIME;
 
     public function __construct()
     {
@@ -126,6 +132,22 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getEveningTime(): string
+    {
+        return $this->eveningTime;
+    }
+
+    /** @throws \InvalidArgumentException when it is not `HH:MM` */
+    public function setEveningTime(string $eveningTime): static
+    {
+        if (1 !== preg_match(self::MORNING_TIME_PATTERN, $eveningTime)) {
+            throw new \InvalidArgumentException(\sprintf('eveningTime must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $eveningTime));
+        }
+        $this->eveningTime = $eveningTime;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
@@ -133,6 +155,7 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
             'orderWeights' => $this->getOrderWeights(),
             'alertSchedule' => $this->getAlertSchedule(),
             'morningTime' => $this->morningTime,
+            'eveningTime' => $this->eveningTime,
         ], $changedProperties);
     }
 }
