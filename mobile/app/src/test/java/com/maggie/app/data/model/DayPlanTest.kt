@@ -46,4 +46,40 @@ class DayPlanTest {
         val slots = (1..5).map { DaySlot(it, task = DayTask("t$it", "T$it")) }
         assertTrue(DayPlan(id = "d", date = "2026-10-15", slots = slots, total = 5).isFull)
     }
+
+    private fun dayOf(vararg tasks: DayTask): DayPlan {
+        val slots = tasks.mapIndexed { i, t -> DaySlot(i + 1, task = t) }
+        return DayPlan(id = "d", date = "2026-10-15", slots = slots, now = slots.firstOrNull { !it.task.isDone }, total = slots.size)
+    }
+
+    @Test
+    fun `putting a task off takes the last place of the slots still to do`() {
+        val day = dayOf(DayTask("a", "A"), DayTask("b", "B"), DayTask("c", "C"))
+
+        assertEquals(listOf("b", "c", "a"), day.taskIdsPuttingOff("a"))
+        assertEquals(listOf("a", "c", "b"), day.taskIdsPuttingOff("b"))
+    }
+
+    @Test
+    fun `putting a task off leaves the slots already done where they were`() {
+        val done = "2026-10-15T07:00:00Z"
+        val day = dayOf(DayTask("a", "A", completedAt = done), DayTask("b", "B"), DayTask("c", "C"), DayTask("d", "D", completedAt = done))
+
+        assertEquals(listOf("a", "c", "b", "d"), day.taskIdsPuttingOff("b"))
+    }
+
+    @Test
+    fun `a done slot between two to do keeps its place when the first is put off`() {
+        val day = dayOf(DayTask("a", "A"), DayTask("b", "B"), DayTask("c", "C", completedAt = "2026-10-15T07:00:00Z"), DayTask("d", "D"))
+
+        assertEquals(listOf("b", "d", "c", "a"), day.taskIdsPuttingOff("a"))
+    }
+
+    @Test
+    fun `putting off the only task left to do changes nothing, nor does a task outside the day`() {
+        val day = dayOf(DayTask("a", "A"), DayTask("b", "B", completedAt = "2026-10-15T07:00:00Z"))
+
+        assertEquals(listOf("a", "b"), day.taskIdsPuttingOff("a"))
+        assertEquals(listOf("a", "b"), day.taskIdsPuttingOff("zzz"))
+    }
 }

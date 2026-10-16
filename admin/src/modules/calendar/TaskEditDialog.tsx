@@ -110,7 +110,7 @@ export const EstimateFields = ({ minutes, onMinutes, firstStep, onFirstStep }: E
 export const taskIri = (id: string): string => `/api/tasks/${id.split('/').pop() ?? id}`
 
 /** Siblings by `position` as a string, then by id — the API's own order. */
-const bySiblingOrder = (a: TaskData, b: TaskData): number => {
+export const bySiblingOrder = (a: TaskData, b: TaskData): number => {
   const pa = a.position ?? ''
   const pb = b.position ?? ''
   if (pa !== pb) return pa < pb ? -1 : 1

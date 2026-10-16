@@ -166,6 +166,8 @@ import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
+import com.maggie.app.ui.screens.tasks.FocusScreen
+import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.TasksScreen
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.login.LoginScreen
@@ -195,6 +197,7 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskCreate : Screen("task/create", "Nouvelle tâche")
     data object EventEdit : Screen("event/edit", "Modifier l'événement")
     data object TaskEdit : Screen("task/edit", "Modifier la tâche")
+    data object TaskFocus : Screen("task/focus", "Focus")
     data object Chat : Screen("chat", "Chat")
     data object Settings : Screen("settings", "Paramètres")
     data object Notifications : Screen("notifications", "Notifications")
@@ -417,6 +420,7 @@ fun NavGraph() {
     val dashboardViewModel: DashboardViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
     val tasksViewModel: TasksViewModel = koinViewModel()
+    val focusViewModel: FocusViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
@@ -476,6 +480,8 @@ fun NavGraph() {
     var editingRecurrenceAction by rememberSaveable { mutableStateOf<RecurrenceAction?>(null) }
     val recurringEventEditor = remember(eventRepository) { RecurringEventEditor(eventRepository) }
     var editingTask by rememberSavedSelection<Task>()
+    // The task in focus (MAG-499): kept by id, the Focus reads it whole.
+    var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // The subtasks of the task open, wherever it is drawn: sheet, pane or edit screen (MAG-404).
     val subtasksState by subtasksViewModel.uiState.collectAsState()
@@ -964,6 +970,10 @@ fun NavGraph() {
                                     selectedProactionId = null
                                     selectedTask = it
                                 },
+                                onFocus = {
+                                    focusTaskId = it
+                                    navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
+                                },
                             )
                         },
                         detail = task?.let { open ->
@@ -994,6 +1004,21 @@ fun NavGraph() {
                         },
                         onBack = { navController.popBackStack() },
                     )
+                }
+                composable(Screen.TaskFocus.route) { entry ->
+                    val focusId = focusTaskId
+                    PopWhenMissing(navController, entry, focusId != null)
+                    if (focusId != null) {
+                        FocusScreen(
+                            taskId = focusId,
+                            viewModel = focusViewModel,
+                            onExit = {
+                                focusViewModel.close()
+                                focusTaskId = null
+                                navController.popBackStack()
+                            },
+                        )
+                    }
                 }
                 composable(Screen.TaskCreate.route) {
                     TaskCreateScreen(

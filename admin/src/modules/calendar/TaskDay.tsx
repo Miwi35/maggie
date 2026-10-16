@@ -35,12 +35,14 @@ import CheckIcon from '@mui/icons-material/Check'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import UpdateIcon from '@mui/icons-material/Update'
 import { UrgencyBadge } from './UrgencyBadge'
-import { DAY_SLOTS, placeOnDay, saveDayPlan } from './dayPlan'
+import { TaskFocus } from './TaskFocus'
+import { DAY_SLOTS, deferOnDay, placeOnDay, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTarget, DayTask } from './dayPlan'
 import { createTask, postponedLabel, setTaskDone } from './taskViews'
 
@@ -164,12 +166,13 @@ interface SlotRowProps {
   busy: boolean
   onToggle: () => void
   onEdit: () => void
+  onFocus: () => void
   onMove: (offset: -1 | 1) => void
   onRemove: () => void
 }
 
 /** A slot of the day: a place a reserve task can be dropped on, and a task that can be dragged elsewhere. */
-const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onMove, onRemove }: SlotRowProps) => {
+const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onFocus, onMove, onRemove }: SlotRowProps) => {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: placeId(index) })
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
     id: `slot:${task.id}`,
@@ -230,6 +233,11 @@ const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onMove, on
         </Typography>
         <TaskMarks task={task} today={today} />
       </Box>
+      {!done && (
+        <IconButton size="small" aria-label={`Se concentrer sur ${task.title}`} title="Focus" onClick={onFocus}>
+          <CenterFocusStrongIcon fontSize="small" />
+        </IconButton>
+      )}
       <IconButton size="small" aria-label={`Monter ${task.title}`} disabled={busy || index === 0} onClick={() => onMove(-1)}>
         <ArrowUpwardIcon fontSize="small" />
       </IconButton>
@@ -367,6 +375,7 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskD
   const [busy, setBusy] = useState(false)
   const [reserveOpen, setReserveOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const [focusId, setFocusId] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -432,6 +441,32 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskD
     if (taskId && target !== null) place(taskId, target)
   }
 
+  // « Plus tard, sans souci »: the task goes after the other slots not done, and the day shows the next one.
+  const later = async (taskId: string) => {
+    const next = deferOnDay(
+      day.slots.map((slot) => ({ id: slot.task.id, done: slot.task.completedAt != null })),
+      taskId,
+    )
+    if (next) onDay(await saveDayPlan(today, next))
+    setFocusId(null)
+  }
+
+  const focused = focusId ? slotTasks.find((task) => task.id === focusId && task.completedAt == null) : undefined
+  if (focused) {
+    return (
+      <TaskFocus
+        key={focused.id}
+        task={focused}
+        onBack={() => setFocusId(null)}
+        onDone={() => {
+          setFocusId(null)
+          onReload()
+        }}
+        onLater={() => later(focused.id)}
+      />
+    )
+  }
+
   const now = day.now?.task
   let card: ReactNode = null
   if (now) {
@@ -453,8 +488,7 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskD
           <Button variant="contained" startIcon={<CheckIcon />} onClick={() => toggle(now)}>
             C'est fait
           </Button>
-          {/* Focus comes with MAG-499: until then, the task's own sheet. */}
-          <Button variant="outlined" startIcon={<TimerOutlinedIcon />} onClick={() => onEdit(now.id)}>
+          <Button variant="outlined" startIcon={<TimerOutlinedIcon />} onClick={() => setFocusId(now.id)}>
             Juste 10 minutes
           </Button>
         </Stack>
@@ -491,6 +525,7 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskD
             busy={busy}
             onToggle={() => toggle(task)}
             onEdit={() => onEdit(task.id)}
+            onFocus={() => setFocusId(task.id)}
             onMove={(offset) => place(task.id, index + offset)}
             onRemove={() => save(ids.filter((id) => id !== task.id))}
           />

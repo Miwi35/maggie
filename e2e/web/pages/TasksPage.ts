@@ -115,6 +115,16 @@ export class TasksPage extends AdminShell {
     return this.slots.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
+  /** The Focus of `title` (MAG-499): its first step, its ten-minute ring, its petits pas. */
+  focus(title: string): Locator {
+    return this.content.getByRole('region', { name: title, exact: true })
+  }
+
+  /** The Focus's ring, which reads the time left: « 10:00 ». */
+  get timer(): Locator {
+    return this.content.getByRole('timer', { name: 'Minuteur' })
+  }
+
   /** The row of `title` in the unfolded reserve. */
   reserveRow(title: string): Locator {
     return this.reserve.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })

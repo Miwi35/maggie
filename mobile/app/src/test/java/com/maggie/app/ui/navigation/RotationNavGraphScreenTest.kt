@@ -150,6 +150,7 @@ class RotationNavGraphScreenTest {
                     viewModel { detail }
                     viewModel { interruption }
                     viewModel { com.maggie.app.ui.screens.shared.SubtasksViewModel(get()) }
+                    viewModel { com.maggie.app.ui.screens.tasks.FocusViewModel(get()) }
                     viewModel { tasks }
                     single<InterruptionAlert> { InterruptionAlert {} }
                 },

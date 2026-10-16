@@ -98,6 +98,7 @@ import com.maggie.app.ui.interruption.InterruptionViewModel
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
+import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.util.SentrySetup
@@ -303,6 +304,7 @@ class MaggieApp : Application() {
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get()) }
+            viewModel { FocusViewModel(get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }

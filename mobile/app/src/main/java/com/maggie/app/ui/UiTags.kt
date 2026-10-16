@@ -409,6 +409,29 @@ object UiTags {
 
     fun tasksReplace(position: Int) = TASKS_REPLACE_PREFIX + position
 
+    /**
+     * The Focus (MAG-499): the screen, the timer's ring and its time, the button that starts, pauses,
+     * resumes or restarts it, the first step, each petit pas' box suffixed by its id, « Je bloque »
+     * with its add field, « C'est fait » and « Plus tard »; from the day, the slot menu's « Focus ».
+     */
+    const val FOCUS = "focus"
+    const val FOCUS_RING = "focus_ring"
+    const val FOCUS_TIME = "focus_time"
+    const val FOCUS_START = "focus_start"
+    const val FOCUS_PAUSE = "focus_pause"
+    const val FOCUS_RESUME = "focus_resume"
+    const val FOCUS_RESTART = "focus_restart"
+    const val FOCUS_FIRST_STEP = "focus_first_step"
+    const val FOCUS_STEP_PREFIX = "focus_step_"
+    const val FOCUS_BLOCKED = "focus_blocked"
+    const val FOCUS_ADD_INPUT = "focus_add_input"
+    const val FOCUS_ADD_SUBMIT = "focus_add_submit"
+    const val FOCUS_DONE = "focus_done"
+    const val FOCUS_LATER = "focus_later"
+    const val TASKS_SLOT_FOCUS = "tasks_slot_focus"
+
+    fun focusStep(id: String) = FOCUS_STEP_PREFIX + id
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 

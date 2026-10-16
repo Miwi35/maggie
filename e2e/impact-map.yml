@@ -527,6 +527,9 @@ mobile:
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-plan-api.js]
+  e2e/mobile/flows/17c-task-focus.yaml:
+    areas: [calendar]
+    paths: [e2e/mobile/scripts/focus-api.js]
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:

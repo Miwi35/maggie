@@ -70,6 +70,7 @@ internal fun DayContent(
     day: DayPlan,
     state: TasksUiState,
     viewModel: TasksViewModel,
+    onFocus: (taskId: String) -> Unit,
 ) {
     val onOpen: (String) -> Unit = viewModel::openTask
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -78,7 +79,7 @@ internal fun DayContent(
         }
         day.now?.let { now ->
             item(key = "now") {
-                NowCard(task = now.task, onToggle = viewModel::toggleDayTask, onOpen = onOpen)
+                NowCard(task = now.task, onToggle = viewModel::toggleDayTask, onOpen = onOpen, onFocus = onFocus)
             }
         }
         item(key = "slots") {
@@ -104,6 +105,7 @@ internal fun DayContent(
                     enabled = !state.isSavingDay,
                     onToggle = viewModel::toggleDayTask,
                     onOpen = onOpen,
+                    onFocus = onFocus,
                     onRemove = viewModel::removeFromDay,
                 )
             }
@@ -171,7 +173,7 @@ internal fun DayRing(done: Int, total: Int) {
 }
 
 @Composable
-private fun NowCard(task: DayTask, onToggle: (DayTask) -> Unit, onOpen: (String) -> Unit) {
+private fun NowCard(task: DayTask, onToggle: (DayTask) -> Unit, onOpen: (String) -> Unit, onFocus: (String) -> Unit) {
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -205,9 +207,8 @@ private fun NowCard(task: DayTask, onToggle: (DayTask) -> Unit, onOpen: (String)
                 }
                 task.estimatedMinutes?.let { Minutes(it) }
             }
-            // Focus comes with MAG-499; until then the button opens the task.
             Button(
-                onClick = { onOpen(task.id) },
+                onClick = { onFocus(task.id) },
                 modifier = Modifier.testTag(UiTags.TASKS_NOW_FOCUS),
             ) {
                 Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -224,6 +225,7 @@ private fun SlotRow(
     enabled: Boolean,
     onToggle: (DayTask) -> Unit,
     onOpen: (String) -> Unit,
+    onFocus: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     val task = slot.task
@@ -253,6 +255,16 @@ private fun SlotRow(
                 Icon(Icons.Default.MoreVert, contentDescription = "Options de « ${task.title} »")
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, modifier = Modifier.uiTagRoot()) {
+                if (!task.isDone) {
+                    DropdownMenuItem(
+                        text = { Text("Focus") },
+                        onClick = {
+                            menu = false
+                            onFocus(task.id)
+                        },
+                        modifier = Modifier.testTag(UiTags.TASKS_SLOT_FOCUS),
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Remettre dans la réserve") },
                     onClick = {
