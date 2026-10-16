@@ -111,6 +111,9 @@ final class QueryParameterContractTest extends WebTestCase
             'qualifiedByRule' => 'admin CategorizationRuleForm and mobile, how many transactions a rule requalifies (MAG-479)',
             'order[bookedAt]' => 'admin RecurringOperationsPage, mobile getTransactions',
         ],
+        '/api/contact_counterparties' => [
+            'contact' => 'admin ContactCounterpartiesSection and mobile getContactCounterparties, the labels of the contact open (MAG-450)',
+        ],
         '/api/grocery_lists' => [
             'order[createdAt]' => 'admin GroceryListView',
         ],

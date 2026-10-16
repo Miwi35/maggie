@@ -11,8 +11,10 @@ import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
  * A label belongs to one contact only and linking it claims every transfer
  * that carries it, so a retry must not meet the previous attempt's Tom: the
  * label and the name end with letters unique per attempt — letters, because
- * the label without its references keeps them, where digits would read as a
- * reference.
+ * digits would read as a reference, glued to the surname, because the
+ * counterparty taken from a label keeps its first four words only: a fifth
+ * word « VIR. DE TOM MARTIN ODPHES » became « VIR. DE TOM MARTIN », shared by
+ * every attempt.
  */
 
 interface StoredContact {
@@ -34,7 +36,7 @@ test('a transfer associated from « À trier » makes its label Tom\'s, and the 
   api,
 }) => {
   const suffix = letters(6)
-  const label = `VIR. DE TOM MARTIN ${suffix}`
+  const label = `VIR. DE TOM MARTIN-${suffix}`
   const name = `Tom ${suffix}`
 
   const transfer = async (): Promise<string> => {
