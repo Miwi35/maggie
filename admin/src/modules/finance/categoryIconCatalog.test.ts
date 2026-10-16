@@ -1,82 +1,119 @@
+import { readFileSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { describe, test, expect } from 'vitest'
-import { CATEGORY_ICONS } from './CategoryGlyph'
-import { CATEGORY_ICON_CATALOG, filterCategoryIcons, normalizeSearch } from './categoryIconCatalog'
+import { CATEGORY_ICON_SHAPES } from './categoryIconShapes.generated'
+import { CATEGORY_ICON_CATALOG, filterCategoryIcons, findCategoryIcon, normalizeSearch } from './categoryIconCatalog'
 
-/** The reference list: the mobile `CategoryIconCatalogTest` carries the same one. Add a name to both. */
-const REFERENCE_NAMES = [
-  'home',
-  'shopping-cart',
-  'repeat',
-  'water-drop',
-  'bolt',
-  'wifi',
-  'tv',
-  'cloud',
-  'sports-esports',
-  'trending-up',
-  'local-gas-station',
-  'account-balance',
-  'error-outline',
-  'payments',
-  'star',
-  'volunteer-activism',
-  'undo',
-  'redeem',
-  'restaurant',
-  'directions-car',
-  'flight',
-  'school',
-  'favorite',
-  'fitness-center',
-  'movie',
-  'savings',
-]
+/**
+ * `design/category-icons.json` is the catalogue both clients are generated from
+ * (`task icons:generate`); the mobile `CategoryIconCatalogTest` reads the same file. It must be
+ * found, never skipped: `task wt:test:admin` mounts `design/` as `/design`.
+ */
+const catalogueFile = (): string => {
+  let candidate = resolve(process.cwd())
+  for (;;) {
+    const file = join(candidate, 'design', 'category-icons.json')
+    try {
+      statSync(file)
+      return file
+    } catch {
+      const parent = dirname(candidate)
+      if (parent === candidate) break
+      candidate = parent
+    }
+  }
+  throw new Error(`No design/category-icons.json found above ${process.cwd()}.`)
+}
+
+interface SharedIcon {
+  name: string
+  label: string
+  keywords: string[]
+}
+
+const shared = (JSON.parse(readFileSync(catalogueFile(), 'utf8')) as { icons: SharedIcon[] }).icons
 
 const names = (query: string) => filterCategoryIcons(query).map((entry) => entry.name)
 
 describe('category icon catalogue', () => {
-  test('lists the same icons as the reference list, in order', () => {
-    expect(CATEGORY_ICON_CATALOG.map((entry) => entry.name)).toEqual(REFERENCE_NAMES)
+  test('lists exactly the names, labels and keywords of design/category-icons.json, in order', () => {
+    expect(CATEGORY_ICON_CATALOG.map(({ name, label, keywords }) => ({ name, label, keywords }))).toEqual(shared)
   })
 
-  test('draws exactly the icons it lists', () => {
-    expect(Object.keys(CATEGORY_ICONS).sort()).toEqual([...REFERENCE_NAMES].sort())
+  test('covers every Material icon the two clients share', () => {
+    expect(CATEGORY_ICON_CATALOG.length).toBeGreaterThan(1500)
+    expect(new Set(CATEGORY_ICON_CATALOG.map((entry) => entry.name)).size).toBe(CATEGORY_ICON_CATALOG.length)
   })
 
-  test('gives every icon a label and at least one search word', () => {
+  test('names are kebab case and every one has a shape to draw, and only those', () => {
+    for (const entry of CATEGORY_ICON_CATALOG) {
+      expect(entry.name, entry.name).toMatch(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/)
+      expect(CATEGORY_ICON_SHAPES[entry.name], entry.name).toBeDefined()
+    }
+    expect(Object.keys(CATEGORY_ICON_SHAPES).sort()).toEqual(CATEGORY_ICON_CATALOG.map((entry) => entry.name).sort())
+  })
+
+  test('keeps the icons chosen before the catalogue grew, with their label', () => {
+    expect(CATEGORY_ICON_CATALOG.slice(0, 3).map((entry) => entry.name)).toEqual(['home', 'shopping-cart', 'repeat'])
+    expect(findCategoryIcon('directions-car')?.label).toBe('Voiture')
+    expect(findCategoryIcon(' Shopping-Cart ')?.label).toBe('Courses')
+    expect(findCategoryIcon('icone-disparue')).toBeUndefined()
+    expect(findCategoryIcon(null)).toBeUndefined()
+  })
+
+  test('gives every icon a non-empty label', () => {
     for (const entry of CATEGORY_ICON_CATALOG) {
       expect(entry.label.trim(), entry.name).not.toBe('')
-      expect(entry.keywords.length, entry.name).toBeGreaterThan(0)
     }
   })
 
   test('a blank query keeps everything', () => {
-    expect(names('')).toEqual(REFERENCE_NAMES)
-    expect(names('   ')).toEqual(REFERENCE_NAMES)
+    expect(filterCategoryIcons('')).toHaveLength(CATEGORY_ICON_CATALOG.length)
+    expect(filterCategoryIcons('   ')).toHaveLength(CATEGORY_ICON_CATALOG.length)
   })
 
-  test('« voiture » leaves the car alone, « courses » the cart alone', () => {
-    expect(names('voiture')).toEqual(['directions-car'])
-    expect(names('courses')).toEqual(['shopping-cart'])
+  test.each([
+    ['chien', 'pets'],
+    ['médecin', 'medical-services'],
+    ['bebe', 'child-care'],
+    ['parking', 'local-parking'],
+    ['train', 'train'],
+    ['voiture', 'directions-car'],
+    ['courses', 'shopping-cart'],
+    ['carburant', 'local-gas-station'],
+  ])('« %s » finds %s', (query, expected) => {
+    expect(names(query)).toContain(expected)
   })
 
-  test('searches the keywords and the icon name, not only the label', () => {
-    expect(names('garage')).toEqual(['directions-car'])
-    expect(names('gas-station')).toEqual(['local-gas-station'])
+  test('the French label comes before a mere keyword', () => {
+    expect(names('voiture')[0]).toBe('directions-car')
+    expect(names('courses')[0]).toBe('shopping-cart')
+  })
+
+  test('searches the English name, split into words', () => {
+    expect(names('pets')).toContain('pets')
+    expect(names('gas station')).toContain('local-gas-station')
+    expect(names('local gas')).toContain('local-gas-station')
+    expect(names('gas-station')).toContain('local-gas-station')
+  })
+
+  test('every word of the query must match', () => {
+    expect(names('gas zzz')).toEqual([])
   })
 
   test('ignores case and accents, on both sides', () => {
-    expect(names('EPARGNE')).toEqual(['savings'])
-    expect(names('électricité')).toEqual(['bolt'])
-    expect(names('electricite')).toEqual(['bolt'])
-    expect(names('coeur')).toEqual(['favorite'])
+    expect(names('EPARGNE')).toContain('savings')
+    expect(names('électricité')).toContain('bolt')
+    expect(names('electricite')).toContain('bolt')
+    expect(names('coeur')).toContain('favorite')
   })
 
   test('an unknown word leaves nothing', () => {
     expect(names('zzz')).toEqual([])
   })
 
-  test('normalises accents, case and ligatures', () => {
+  test('normalises accents, case, ligatures and separators', () => {
     expect(normalizeSearch(' Cœur À Épargne ')).toBe('coeur a epargne')
+    expect(normalizeSearch('local_gas-station')).toBe('local gas station')
   })
 })

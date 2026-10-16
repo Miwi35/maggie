@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useInput } from 'react-admin'
 import { useWatch } from 'react-hook-form'
 import Box from '@mui/material/Box'
@@ -13,8 +13,7 @@ import FormLabel from '@mui/material/FormLabel'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
-import LabelIcon from '@mui/icons-material/Label'
-import { CATEGORY_ICONS, CategoryGlyph } from './CategoryGlyph'
+import { CategoryGlyph, CategoryIcon } from './CategoryGlyph'
 import { filterCategoryIcons, findCategoryIcon, normalizeSearch } from './categoryIconCatalog'
 
 interface CategoryIconPickerProps {
@@ -23,6 +22,15 @@ interface CategoryIconPickerProps {
   helperText?: string
 }
 
+const TILE_MIN_WIDTH = 96
+const TILE_HEIGHT = 84
+const GAP = 8
+const ROW_HEIGHT = TILE_HEIGHT + GAP
+const OVERSCAN_ROWS = 3
+// What a browser without layout (jsdom) reports as zero.
+const FALLBACK_COLUMNS = 4
+const FALLBACK_HEIGHT = 480
+
 const tileSx = (selected: boolean) => ({
   display: 'flex',
   flexDirection: 'column',
@@ -30,7 +38,8 @@ const tileSx = (selected: boolean) => ({
   justifyContent: 'center',
   gap: 0.5,
   p: 1,
-  minHeight: 84,
+  height: TILE_HEIGHT,
+  minWidth: 0,
   borderRadius: 2,
   border: selected ? '2px solid' : '1px solid',
   borderColor: selected ? 'primary.main' : 'divider',
@@ -38,8 +47,100 @@ const tileSx = (selected: boolean) => ({
 })
 
 interface Tile {
-  name: string
+  /** `null` is the « no icon » tile. */
+  name: string | null
   label: string
+}
+
+const NONE: Tile = { name: null, label: 'Aucune icône' }
+
+interface IconGridProps {
+  tiles: Tile[]
+  current: string | null
+  onChoose: (name: string | null) => void
+}
+
+/**
+ * The tiles in a scroll box that only renders the rows in view (about two thousand icons would
+ * freeze the dialog): rows are placed absolutely inside a spacer as tall as the whole grid.
+ */
+const IconGrid = ({ tiles, current, onChoose }: IconGridProps) => {
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  const [scrollTop, setScrollTop] = useState(0)
+
+  useLayoutEffect(() => {
+    if (viewport === null) {
+      return undefined
+    }
+    const measure = () => setSize({ width: viewport.clientWidth, height: viewport.clientHeight })
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(viewport)
+
+    return () => observer.disconnect()
+  }, [viewport])
+
+  const columns = size.width > 0 ? Math.max(1, Math.floor((size.width + GAP) / (TILE_MIN_WIDTH + GAP))) : FALLBACK_COLUMNS
+  const height = size.height > 0 ? size.height : FALLBACK_HEIGHT
+  const rowCount = Math.ceil(tiles.length / columns)
+  const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS)
+  const last = Math.min(rowCount - 1, Math.ceil((scrollTop + height) / ROW_HEIGHT) + OVERSCAN_ROWS)
+  const rows: number[] = []
+  for (let row = first; row <= last; row += 1) {
+    rows.push(row)
+  }
+
+  const isCurrent = (name: string | null) =>
+    current === null ? name === null : name !== null && name.toLowerCase() === current.toLowerCase()
+
+  return (
+    <Box
+      ref={setViewport}
+      data-testid="category-icon-grid"
+      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      sx={{ height: '50vh', minHeight: 240, overflowY: 'auto', position: 'relative' }}
+    >
+      <Box sx={{ height: rowCount * ROW_HEIGHT, position: 'relative' }}>
+        {rows.map((row) => (
+          <Box
+            key={row}
+            sx={{
+              position: 'absolute',
+              top: row * ROW_HEIGHT,
+              left: 0,
+              right: 0,
+              display: 'grid',
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              gap: `${GAP}px`,
+            }}
+          >
+            {tiles.slice(row * columns, (row + 1) * columns).map((tile) => (
+              <ButtonBase
+                key={tile.name ?? 'none'}
+                aria-label={tile.label}
+                aria-pressed={isCurrent(tile.name)}
+                onClick={() => onChoose(tile.name)}
+                sx={tileSx(isCurrent(tile.name))}
+              >
+                {tile.name === null ? <CloseIcon color="action" /> : <CategoryIcon name={tile.name} />}
+                <Typography
+                  variant="caption"
+                  align="center"
+                  sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {tile.label}
+                </Typography>
+              </ButtonBase>
+            ))}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
 }
 
 /**
@@ -56,10 +157,12 @@ export const CategoryIconPicker = ({ source, label, helperText }: CategoryIconPi
 
   const current = typeof field.value === 'string' && field.value.trim() !== '' ? field.value.trim() : null
   const known = findCategoryIcon(current)
-  const isCurrent = (name: string) => current !== null && name.toLowerCase() === current.toLowerCase()
   const currentLabel = current === null ? 'Aucune' : (known?.label ?? current)
 
-  const tiles = ((): Tile[] => {
+  const icons = ((): Tile[] => {
+    if (!open) {
+      return []
+    }
     const found = filterCategoryIcons(query).map((entry) => ({ name: entry.name, label: entry.label }))
     const unknownShown = current !== null && known === undefined && (query.trim() === '' || normalizeSearch(current).includes(normalizeSearch(query)))
 
@@ -105,38 +208,8 @@ export const CategoryIconPicker = ({ source, label, helperText }: CategoryIconPi
             onChange={(event) => setQuery(event.target.value)}
             sx={{ mt: 1, mb: 2 }}
           />
-          <Box
-            sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 1 }}
-          >
-            <ButtonBase
-              aria-label="Aucune icône"
-              aria-pressed={current === null}
-              onClick={() => choose(null)}
-              sx={tileSx(current === null)}
-            >
-              <CloseIcon color="action" />
-              <Typography variant="caption" align="center">Aucune icône</Typography>
-            </ButtonBase>
-            {tiles.map((tile) => {
-              const Icon = CATEGORY_ICONS[tile.name] ?? LabelIcon
-
-              return (
-                <ButtonBase
-                  key={tile.name}
-                  aria-label={tile.label}
-                  aria-pressed={isCurrent(tile.name)}
-                  onClick={() => choose(tile.name)}
-                  sx={tileSx(isCurrent(tile.name))}
-                >
-                  <Icon />
-                  <Typography variant="caption" align="center" sx={{ overflowWrap: 'anywhere' }}>
-                    {tile.label}
-                  </Typography>
-                </ButtonBase>
-              )
-            })}
-          </Box>
-          {tiles.length === 0 && (
+          <IconGrid key={query} tiles={[NONE, ...icons]} current={current} onChoose={choose} />
+          {icons.length === 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               Aucune icône ne correspond.
             </Typography>

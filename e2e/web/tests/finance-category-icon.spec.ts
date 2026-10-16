@@ -3,18 +3,18 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 
 /**
- * A category's icon is picked from a grid, not typed (MAG-474, extends MAG-102).
+ * A category's icon is picked from a grid, not typed (MAG-474, MAG-502, extends MAG-102).
  *
- * Given a new category with no icon, When I open the picker and type « courses », Then only
- * the Courses icon is left; When I choose it and save, Then the list shows the pastille with
- * the cart and the API holds the icon's name.
+ * Given a new category with no icon, When I open the picker and type « chien », Then the pets
+ * icon is offered among the whole Material set; When I choose it and save, Then the list shows
+ * the pastille with the paw and the API holds the icon's name.
  *
  * As the neighbour, with a category of its own: the owner's categories are not touched.
  */
 
-const NAME = 'Icône MAG-474'
+const NAME = 'Icône MAG-502'
 
-test('typing « courses » in the icon picker leaves the cart, and the list shows it once saved', async ({
+test('searching « chien » in the icon picker finds the pets icon, and the list shows it once saved', async ({
   otherUser,
 }) => {
   const { api, page } = otherUser
@@ -35,17 +35,17 @@ test('typing « courses » in the icon picker leaves the cart, and the list show
     const dialog = page.getByRole('dialog', { name: 'Choisir une icône' })
     await expect(dialog.getByRole('button', { name: 'Voiture' })).toBeVisible()
 
-    // And type « courses ».
-    await dialog.getByLabel('Rechercher une icône').fill('courses')
+    // And type « chien » (French search over the whole Material set, not only a short list).
+    await dialog.getByLabel('Rechercher une icône').fill('chien')
 
-    // Then only the Courses icon is left.
-    await expect(dialog.getByRole('button', { name: 'Courses' })).toBeVisible()
+    // Then the pets icon is offered, and the cars are gone.
+    await expect(dialog.getByRole('button', { name: 'Animaux' })).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Voiture' })).toHaveCount(0)
 
     // When I choose it and save.
-    await dialog.getByRole('button', { name: 'Courses' }).click()
+    await dialog.getByRole('button', { name: 'Animaux' }).click()
     await expect(dialog).toBeHidden()
-    await expect(categories.content.getByRole('button', { name: 'Icône : Courses' })).toBeVisible()
+    await expect(categories.content.getByRole('button', { name: 'Icône : Animaux' })).toBeVisible()
     await categories.content.getByRole('button', { name: 'Enregistrer' }).click()
     await page.waitForURL((url) => !url.hash.includes('/create'))
 
@@ -56,11 +56,11 @@ test('typing « courses » in the icon picker leaves the cart, and the list show
       (c) => c.name === NAME,
       { what: `The category ${NAME}` },
     )
-    expect(stored.icon).toBe('shopping-cart')
+    expect(stored.icon).toBe('pets')
 
-    // …and the list shows the pastille with the cart.
+    // …and the list shows the pastille with the paw.
     await categories.open()
-    await expect(categories.row(NAME).getByTestId('category-glyph')).toHaveAttribute('data-icon', 'shopping-cart')
+    await expect(categories.row(NAME).getByTestId('category-glyph')).toHaveAttribute('data-icon', 'pets')
   } finally {
     const created = await getCollection<{ id?: string; name?: string }>(api, '/api/categories?itemsPerPage=200')
     for (const category of created.filter((candidate) => candidate.name === NAME)) {

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -52,7 +53,7 @@ class CategoryIconPickerScreenTest {
     }
 
     @Test
-    fun `typing voiture leaves only the car`() {
+    fun `typing voiture puts the car first and drops the others`() {
         picker()
 
         compose.onNodeWithTag(UiTags.CATEGORY_ICON_SEARCH).performTextInput("voiture")
@@ -61,6 +62,25 @@ class CategoryIconPickerScreenTest {
         compose.onNodeWithText("Voiture").assertIsDisplayed()
         compose.onAllNodesWithText("Courses").assertCountEquals(0)
         compose.onAllNodesWithText("Maison").assertCountEquals(0)
+    }
+
+    @Test
+    fun `typing chien finds the pets icon and hands its name back`() {
+        picker()
+
+        compose.onNodeWithTag(UiTags.CATEGORY_ICON_SEARCH).performTextInput("chien")
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.CATEGORY_ICON_TILE_PREFIX + "pets").assertIsDisplayed().performClick()
+
+        assertEquals(listOf<String?>("pets"), picks)
+    }
+
+    @Test
+    fun `the grid only composes the tiles in view, not the whole catalogue`() {
+        picker()
+
+        compose.onAllNodesWithTag(UiTags.CATEGORY_ICON_TILE_PREFIX + "zoom-out").assertCountEquals(0)
+        compose.onNodeWithText("Courses").assertIsDisplayed()
     }
 
     @Test
@@ -105,10 +125,10 @@ class CategoryIconPickerScreenTest {
 
     @Test
     fun `a name outside the catalogue is listed first and selected`() {
-        picker(current = "rocket")
+        picker(current = "icone-disparue")
 
-        compose.onNodeWithText("rocket").assertIsDisplayed()
-        compose.onNodeWithText("rocket").assertIsSelected()
+        compose.onNodeWithText("icone-disparue").assertIsDisplayed()
+        compose.onNodeWithText("icone-disparue").assertIsSelected()
     }
 
     @Test

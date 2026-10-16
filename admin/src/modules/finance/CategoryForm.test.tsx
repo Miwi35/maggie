@@ -191,20 +191,52 @@ describe('CategoryForm, icon picker', () => {
     expect(within(dialog).getByRole('button', { name: 'Aucune icône' })).toHaveAttribute('aria-pressed', 'true')
     expect(within(dialog).getByRole('button', { name: 'Courses' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Voiture' })).toBeInTheDocument()
-    // 26 icons and « Aucune icône »; the close button is not a tile.
-    expect(within(dialog).getAllByRole('button', { pressed: false })).toHaveLength(26)
   })
 
-  test('typing « voiture » leaves only the car', async () => {
+  test('renders only the rows in view, not the two thousand icons', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    const tiles = within(dialog).getAllByRole('button', { pressed: false })
+    expect(tiles.length).toBeGreaterThan(10)
+    expect(tiles.length).toBeLessThan(120)
+    expect(within(dialog).queryByRole('button', { name: 'Parking' })).not.toBeInTheDocument()
+  })
+
+  test('scrolling the grid brings the next rows in', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+    const before = within(dialog).getAllByRole('button').map((b) => b.getAttribute('aria-label'))
+
+    fireEvent.scroll(within(dialog).getByTestId('category-icon-grid'), { target: { scrollTop: 40000 } })
+
+    const after = within(dialog).getAllByRole('button').map((b) => b.getAttribute('aria-label'))
+    expect(after).not.toEqual(before)
+    expect(after).not.toContain('Courses')
+  })
+
+  test('typing « chien » finds the pets icon', async () => {
+    const user = userEvent.setup()
+    renderCreate()
+    const dialog = await openPicker(user)
+
+    await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'chien')
+
+    expect(within(dialog).getByRole('button', { name: 'Animaux' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Voiture' })).not.toBeInTheDocument()
+  })
+
+  test('typing « voiture » puts the car first', async () => {
     const user = userEvent.setup()
     renderCreate()
     const dialog = await openPicker(user)
 
     await user.type(within(dialog).getByLabelText('Rechercher une icône'), 'Voiture')
 
-    expect(within(dialog).getAllByRole('button', { pressed: false }).map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Voiture',
-    ])
+    const labels = within(dialog).getAllByRole('button', { pressed: false }).map((b) => b.getAttribute('aria-label'))
+    expect(labels[0]).toBe('Voiture')
   })
 
   test('the search ignores accents and finds a keyword', async () => {
@@ -290,13 +322,13 @@ describe('CategoryForm, icon picker', () => {
 
   test('an icon outside the catalogue keeps its name, is listed first and selected', async () => {
     const user = userEvent.setup()
-    renderEdit({ ...RENTE, icon: 'rocket' })
+    renderEdit({ ...RENTE, icon: 'icone-disparue' })
 
-    await user.click(await screen.findByRole('button', { name: 'Icône : rocket' }))
+    await user.click(await screen.findByRole('button', { name: 'Icône : icone-disparue' }))
     const dialog = await screen.findByRole('dialog', { name: 'Choisir une icône' })
 
     const tiles = within(dialog).getAllByRole('button', { name: /^(?!Annuler|Aucune icône)/ })
-    expect(tiles[0]).toHaveAttribute('aria-label', 'rocket')
+    expect(tiles[0]).toHaveAttribute('aria-label', 'icone-disparue')
     expect(tiles[0]).toHaveAttribute('aria-pressed', 'true')
   })
 })
