@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -181,9 +182,10 @@ private fun AccountPager(
     val scope = rememberCoroutineScope()
 
     // The account on screen follows the page, as soon as it is the nearest one: its month is read while it settles.
+    val latestAccounts by rememberUpdatedState(accounts)
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { index ->
-            uiState.accounts.getOrNull(index)?.let { viewModel.selectAccount(it.id) }
+            latestAccounts.getOrNull(index)?.let { viewModel.selectAccount(it.id) }
         }
     }
 
