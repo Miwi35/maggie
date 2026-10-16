@@ -10,15 +10,20 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,7 +63,14 @@ class BudgetAlertThresholdScreenTest {
         val categoryRepository = mockk<CategoryRepository>()
         coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())
 
-        val viewModel = BudgetViewModel(budgetRepository, categoryRepository, LocalDate.of(2026, 10, 15))
+        val authRepository = mockk<AuthRepository>()
+        coEvery { authRepository.getUserId() } returns "user-1"
+        val mercureService = mockk<MercureService>()
+        every { mercureService.subscribe(any()) } returns emptyFlow()
+        val viewModel = BudgetViewModel(
+            budgetRepository, categoryRepository, mockk<TransactionRepository>(), mercureService, authRepository,
+            LocalDate.of(2026, 10, 15),
+        )
         compose.setContent { BudgetScreen(viewModel = viewModel, onBack = {}) }
         compose.waitForIdle()
     }

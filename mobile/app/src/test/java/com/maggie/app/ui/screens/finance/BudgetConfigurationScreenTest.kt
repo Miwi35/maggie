@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +13,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.api.EnvelopeUpdateRequest
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
@@ -19,16 +22,19 @@ import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Season
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import java.time.LocalDate
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
-import java.time.LocalDate
 
 /** The tablet's Budgets screen: the tree of categories beside the editor of the one touched (MAG-419). */
 @RunWith(AndroidJUnit4::class)
@@ -38,6 +44,7 @@ class BudgetConfigurationScreenTest {
     val compose = ScreenRule()
 
     private val budgetRepository = mockk<BudgetRepository>()
+    private val transactionRepository = mockk<TransactionRepository>()
 
     private val winter = Season(11, 2, 4500)
 
@@ -80,7 +87,15 @@ class BudgetConfigurationScreenTest {
             ),
         )
 
-        val viewModel = BudgetViewModel(budgetRepository, categoryRepository, LocalDate.of(2026, 11, 15))
+        val authRepository = mockk<AuthRepository>()
+        coEvery { authRepository.getUserId() } returns "user-1"
+        val mercureService = mockk<MercureService>()
+        every { mercureService.subscribe(any()) } returns emptyFlow()
+
+        val viewModel = BudgetViewModel(
+            budgetRepository, categoryRepository, transactionRepository, mercureService, authRepository,
+            LocalDate.of(2026, 11, 15),
+        )
         compose.setContent {
             BudgetScreen(viewModel = viewModel, onBack = {}, showsDetailPane = showsDetailPane)
         }
@@ -176,6 +191,7 @@ class BudgetConfigurationScreenTest {
     fun `the phone keeps the consultation, no tree and no editor pane`() {
         open(showsDetailPane = false)
 
+        compose.onNodeWithContentDescription("Déplier Loisirs").performClick()
         compose.onNodeWithText("Cinéma").assertExists()
         compose.onNodeWithTag(UiTags.BUDGET_TREE).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.budgetNode("Obsydian")).assertDoesNotExist()

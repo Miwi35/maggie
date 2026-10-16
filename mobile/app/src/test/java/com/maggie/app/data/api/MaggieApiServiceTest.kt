@@ -815,6 +815,26 @@ class MaggieApiServiceTest {
         assertEquals(0, service.countTransactionsOfCategory("cat-1"))
     }
     @Test
+    fun `getTransactionsOfCategoryPage asks for one category, newest first, a hundred a page`() = runBlocking {
+        var url: io.ktor.http.Url? = null
+        val service = MaggieApiService(
+            categoryClient { request ->
+                url = request.url
+                """{"member":[{"id":"t1","label":"BAR","amountCents":-500}]}"""
+            },
+        )
+
+        val lines = service.getTransactionsOfCategoryPage("cat-1", 3)
+
+        assertEquals(listOf("t1"), lines.map { it.id })
+        assertTrue(url!!.encodedPath.endsWith("/api/transactions"))
+        assertEquals("/api/categories/cat-1", url!!.parameters["category"])
+        assertEquals("desc", url!!.parameters["order[bookedAt]"])
+        assertEquals("100", url!!.parameters["itemsPerPage"])
+        assertEquals("3", url!!.parameters["page"])
+    }
+
+    @Test
     fun `countCategorizationRulesOf reads the category as the API spells it, an IRI`() = runBlocking {
         val service = MaggieApiService(
             categoryClient {

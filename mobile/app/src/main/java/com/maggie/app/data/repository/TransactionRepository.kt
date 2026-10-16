@@ -10,7 +10,10 @@ import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.categoryIri
+import com.maggie.app.data.model.bookedDate
 import com.maggie.app.data.model.envelopeIri
+import com.maggie.app.data.model.envelopeSpends
+import com.maggie.app.data.model.periodStart
 
 class TransactionRepository(
     private val apiService: MaggieApiService,
@@ -18,6 +21,27 @@ class TransactionRepository(
     suspend fun getTransactions(accountId: String? = null): Result<List<Transaction>> = runCatching {
         apiService.getTransactions(accountId)
     }
+
+    /**
+     * What weighs on an envelope in a period: the debits of [categoryIds] (its category and the
+     * sub-categories it takes along), as the budget counts them. Each category is read newest
+     * first, page by page, until it goes back past the start of the period.
+     */
+    suspend fun getEnvelopeSpends(categoryIds: Collection<String>, year: Int, month: Int?): Result<List<Transaction>> =
+        runCatching {
+            val lines = mutableListOf<Transaction>()
+            for (categoryId in categoryIds) {
+                var page = 1
+                while (true) {
+                    val batch = apiService.getTransactionsOfCategoryPage(categoryId, page)
+                    lines += batch
+                    val oldest = batch.lastOrNull()?.bookedAt?.let(::bookedDate)
+                    if (batch.size < TRANSACTION_PAGE_SIZE || (oldest != null && oldest < periodStart(year, month))) break
+                    page++
+                }
+            }
+            envelopeSpends(lines, year, month)
+        }
 
     suspend fun getIncidents(accountId: String): Result<List<AccountIncident>> = runCatching {
         apiService.getAccountIncidents(accountId)
@@ -68,3 +92,5 @@ class TransactionRepository(
         )
     }
 }
+
+private const val TRANSACTION_PAGE_SIZE = 100

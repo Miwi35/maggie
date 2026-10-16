@@ -1,6 +1,7 @@
 package com.maggie.app.data.model
 
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 
 @Serializable
 data class Envelope(
@@ -232,7 +233,32 @@ fun budgetBreakdown(line: EnvelopeConsumption): String = listOfNotNull(
 ).joinToString(" · ")
 
 /** An envelope placed in its tree: `depth` is 1 for an envelope with none above it. */
-data class NestedBudgetLine(val line: BudgetLine, val depth: Int, val label: String)
+data class NestedBudgetLine(
+    val line: BudgetLine,
+    val depth: Int,
+    val label: String,
+    // Whether envelopes are nested in it: only then does the row fold and unfold.
+    val hasChildren: Boolean = false,
+) {
+    /** What the row is folded under: the same category folds the same way from one month to the next. */
+    val expansionKey: String get() = "${line.mode}:${line.categoryId}"
+}
+
+/**
+ * The rows on screen: an envelope's nested envelopes follow it only while its key is in
+ * [expanded]. A folded envelope still shows the sums of everything below it.
+ */
+fun visibleBudgetLines(rows: List<NestedBudgetLine>, expanded: Set<String>): List<NestedBudgetLine> {
+    val visible = mutableListOf<NestedBudgetLine>()
+    var foldedAt: Int? = null
+    for (row in rows) {
+        if (foldedAt != null && row.depth > foldedAt) continue
+        foldedAt = null
+        visible += row
+        if (row.hasChildren && row.expansionKey !in expanded) foldedAt = row.depth
+    }
+    return visible
+}
 
 /**
  * The envelopes in tree order — each followed by the envelopes nested in it, its label
@@ -252,11 +278,32 @@ fun nestBudgetLines(lines: List<BudgetLine>): List<NestedBudgetLine> {
             } else {
                 line.categoryPath.ifEmpty { line.categoryName }
             }
-            rows += NestedBudgetLine(line, depth, label)
+            rows += NestedBudgetLine(line, depth, label, hasChildren = children[line.id].orEmpty().isNotEmpty())
             walk(line.id, depth + 1, line)
         }
     }
     walk(null, 1, null)
 
     return rows
+}
+
+/** The day a line is booked, from the API's date or date-time ("2026-07-15T00:00:00+00:00"). */
+fun bookedDate(bookedAt: String): LocalDate? =
+    runCatching { LocalDate.parse(bookedAt.take(10)) }.getOrNull()
+
+/** The first day of the month of an envelope, or of the year of an annual one (null month). */
+fun periodStart(year: Int, month: Int?): LocalDate = LocalDate.of(year, month ?: 1, 1)
+
+/**
+ * The lines an envelope's budget counts over its period, newest first: debits that are not
+ * transfers and not attributed to a one-off envelope — the same rule as the API's sums.
+ */
+fun envelopeSpends(lines: List<Transaction>, year: Int, month: Int?): List<Transaction> {
+    val from = periodStart(year, month)
+    val until = if (month == null) from.plusYears(1) else from.plusMonths(1)
+    return lines
+        .distinctBy { it.id }
+        .filter { it.amountCents < 0 && it.transferKind == "none" && it.oneOffEnvelope == null }
+        .filter { line -> bookedDate(line.bookedAt.orEmpty())?.let { it >= from && it < until } == true }
+        .sortedByDescending { it.bookedAt }
 }

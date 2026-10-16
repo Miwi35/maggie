@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -35,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -64,6 +68,7 @@ import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.DEFAULT_ALERT_THRESHOLD_PERCENT
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.Season
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetCaption
 import com.maggie.app.data.model.budgetPeriodLabel
@@ -95,10 +100,10 @@ fun BudgetScreen(
     // The tablet sets the alert threshold; the phone shows it (MAG-49).
     val canSetThreshold = rememberAppLayout().width != WindowWidth.COMPACT
     val budgets = uiState.status?.budgets ?: emptyList()
-    val nested = remember(budgets) { uiState.nestedBudgets }
+    val visibleBudgets = uiState.visibleBudgets
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     val snackbarHostState = remember { SnackbarHostState() }
-    // The phone consults; the tablet also sets an envelope's seasons (spec, rule 8).
+    // The tree is built (and seasons set) on the tablet and the web; the phone folds, unfolds and reads it (spec, rule 8).
     val editsSeasons = rememberAppLayout().width != WindowWidth.COMPACT
 
     LaunchedEffect(uiState.rollOverMessage) {
@@ -141,8 +146,10 @@ fun BudgetScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle enveloppe")
+            if (editsSeasons) {
+                FloatingActionButton(onClick = { showCreateDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Nouvelle enveloppe")
+                }
             }
         },
     ) { paddingValues ->
@@ -195,12 +202,17 @@ fun BudgetScreen(
                                 )
                             }
                         }
-                        items(nested, key = { it.line.id }) { row ->
+                        items(visibleBudgets, key = { it.line.id }) { row ->
+                            val label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName }
                             BudgetCard(
                                 line = row.line,
-                                label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName },
+                                label = label,
                                 caption = budgetCaption(row.line),
                                 depth = row.depth,
+                                hasChildren = row.hasChildren,
+                                expanded = row.expansionKey in uiState.expanded,
+                                onToggle = { viewModel.toggleExpanded(row.expansionKey) },
+                                onOpen = { viewModel.openDetail(row.line, tree.pathOf(row.line.categoryId) ?: label) },
                                 daughters = uiState.daughtersOf(row.line),
                                 splitEditor = uiState.splitEditor?.takeIf { it.motherId == row.line.id },
                                 canEditSplit = canEditSplit,
@@ -208,7 +220,11 @@ fun BudgetScreen(
                                 onMoveSplitBoundary = viewModel::moveSplitBoundary,
                                 onSaveSplit = viewModel::saveSplit,
                                 onCancelSplit = viewModel::cancelSplit,
-                                onDelete = { viewModel.deleteEnvelope(row.line.id) },
+                                onDelete = if (editsSeasons) {
+                                    { viewModel.deleteEnvelope(row.line.id) }
+                                } else {
+                                    null
+                                },
                                 onEditThreshold = if (canSetThreshold) {
                                     { editingThreshold = row.line }
                                 } else {
@@ -217,7 +233,24 @@ fun BudgetScreen(
                             )
                         }
                         if (outside != null && !outside.isEmpty) {
-                            outsideMonthlyBudget(outside, uiState.nestedAnnualBudgets, onDelete = viewModel::deleteEnvelope)
+                            outsideMonthlyBudget(
+                                outside = outside,
+                                annual = uiState.visibleAnnualBudgets,
+                                expanded = uiState.expanded,
+                                onToggle = viewModel::toggleExpanded,
+                                onOpen = { line -> viewModel.openDetail(line, line.categoryPath.ifEmpty { line.categoryName }) },
+                                onDelete = if (editsSeasons) viewModel::deleteEnvelope else null,
+                            )
+                        }
+                        if (!editsSeasons) {
+                            item(key = "edit-elsewhere") {
+                                Text(
+                                    "Les enveloppes se règlent sur la tablette ou le web.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -238,6 +271,10 @@ fun BudgetScreen(
             },
             onDismiss = { showCreateDialog = false },
         )
+    }
+
+    uiState.detail?.let { detail ->
+        EnvelopeDetailSheet(detail = detail, onDismiss = viewModel::closeDetail)
     }
 
     editingThreshold?.let { line ->
@@ -284,7 +321,10 @@ internal fun PeriodSelector(
 private fun LazyListScope.outsideMonthlyBudget(
     outside: OutsideMonthlyBudget,
     annual: List<NestedBudgetLine>,
-    onDelete: (String) -> Unit,
+    expanded: Set<String>,
+    onToggle: (String) -> Unit,
+    onOpen: (BudgetLine) -> Unit,
+    onDelete: ((String) -> Unit)?,
 ) {
     item(key = "outside-monthly-budget") {
         Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
@@ -302,7 +342,11 @@ private fun LazyListScope.outsideMonthlyBudget(
             label = row.label.ifEmpty { row.line.categoryName },
             caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
             depth = row.depth,
-            onDelete = { onDelete(row.line.id) },
+            hasChildren = row.hasChildren,
+            expanded = row.expansionKey in expanded,
+            onToggle = { onToggle(row.expansionKey) },
+            onOpen = { onOpen(row.line) },
+            onDelete = onDelete?.let { delete -> { delete(row.line.id) } },
         )
     }
     items(outside.oneOff, key = { it.id }) { line ->
@@ -311,7 +355,7 @@ private fun LazyListScope.outsideMonthlyBudget(
             label = line.name,
             caption = "Ponctuelle",
             depth = 1,
-            onDelete = { onDelete(line.id) },
+            onDelete = onDelete?.let { delete -> { delete(line.id) } },
         )
     }
 }
@@ -322,7 +366,12 @@ private fun BudgetCard(
     label: String,
     caption: String,
     depth: Int,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)?,
+    hasChildren: Boolean = false,
+    expanded: Boolean = false,
+    onToggle: () -> Unit = {},
+    // Null where there is nothing to open: a one-off envelope's lines are not read by category.
+    onOpen: (() -> Unit)? = null,
     onEditThreshold: (() -> Unit)? = null,
     daughters: List<BudgetLine> = emptyList(),
     splitEditor: SplitEditor? = null,
@@ -339,7 +388,11 @@ private fun BudgetCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
+                ) {
                     Text(text = label, style = MaterialTheme.typography.bodyLarge)
                     Text(
                         text = caption,
@@ -347,12 +400,22 @@ private fun BudgetCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Supprimer",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
+                if (hasChildren) {
+                    IconButton(onClick = onToggle) {
+                        Icon(
+                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded) "Replier $label" else "Déplier $label",
+                        )
+                    }
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
 
@@ -401,6 +464,55 @@ private fun BudgetCard(
                 )
             }
         }
+    }
+}
+
+/** The lines an envelope weighs on, sub-categories included: opened by touching the envelope. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EnvelopeDetailSheet(detail: EnvelopeDetail, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.uiTagRoot()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp).testTag(UiTags.BUDGET_DETAIL),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(detail.title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                detail.month?.let { "${monthLabel(it)} ${detail.year}" } ?: "Année ${detail.year}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when {
+                detail.isLoading -> CircularProgressIndicator(modifier = Modifier.padding(vertical = 16.dp))
+                detail.error != null -> Text(detail.error, color = MaterialTheme.colorScheme.error)
+                detail.transactions.isEmpty() -> Text(
+                    "Aucune dépense sur cette période.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(detail.transactions, key = { it.id }) { line -> EnvelopeSpendRow(line) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnvelopeSpendRow(line: Transaction) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(line.label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                line.bookedAt.orEmpty().take(10),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(formatCents(line.amountCents, line.currency), style = MaterialTheme.typography.bodyMedium)
     }
 }
 

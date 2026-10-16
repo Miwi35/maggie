@@ -5,7 +5,13 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.EnvelopeSplitChild
 import com.maggie.app.data.api.EnvelopeSplitRequest
 import com.maggie.app.data.api.RollOverRequest
+import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureEvent
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.BudgetLine
+import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Envelope
@@ -18,9 +24,13 @@ import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -41,6 +51,9 @@ class BudgetViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var budgetRepository: BudgetRepository
     private lateinit var categoryRepository: CategoryRepository
+    private lateinit var transactionRepository: TransactionRepository
+    private lateinit var mercureService: MercureService
+    private lateinit var authRepository: AuthRepository
     private lateinit var viewModel: BudgetViewModel
 
     private val today = LocalDate.of(2026, 7, 15)
@@ -78,6 +91,11 @@ class BudgetViewModelTest {
         Dispatchers.setMain(testDispatcher)
         budgetRepository = mockk()
         categoryRepository = mockk()
+        transactionRepository = mockk()
+        mercureService = mockk()
+        authRepository = mockk()
+        coEvery { authRepository.getUserId() } returns "user-1"
+        every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(sampleStatus)
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
     }
@@ -87,7 +105,8 @@ class BudgetViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = BudgetViewModel(budgetRepository, categoryRepository, today)
+    private fun buildViewModel(date: LocalDate = today) =
+        BudgetViewModel(budgetRepository, categoryRepository, transactionRepository, mercureService, authRepository, date)
 
     @Test
     fun `initial load fetches the current period and its categories`() = runTest {
@@ -207,7 +226,7 @@ class BudgetViewModelTest {
 
     @Test
     fun `shiftPeriod rolls over to the next year in December`() = runTest {
-        viewModel = BudgetViewModel(budgetRepository, categoryRepository, LocalDate.of(2026, 12, 1))
+        viewModel = buildViewModel(LocalDate.of(2026, 12, 1))
         advanceUntilIdle()
 
         viewModel.shiftPeriod(1)
@@ -342,7 +361,7 @@ class BudgetViewModelTest {
                 ),
             ),
         )
-        viewModel = BudgetViewModel(budgetRepository, categoryRepository, LocalDate.of(2026, 11, 3))
+        viewModel = buildViewModel(LocalDate.of(2026, 11, 3))
         advanceUntilIdle()
 
         val line = viewModel.uiState.value.nestedBudgets.single().line
@@ -570,5 +589,242 @@ class BudgetViewModelTest {
         viewModel.startSplit("env-1")
 
         assertNull(viewModel.uiState.value.splitEditor)
+    }
+
+    // MAG-418: the phone's tree, folded at first, and the lines of an envelope.
+    private val treeStatus = BudgetStatus(
+        year = 2026,
+        month = 7,
+        totalBudgetedCents = 30000,
+        budgets = listOf(
+            BudgetLine(
+                id = "env-loisirs", categoryId = "cat-loisirs", categoryName = "Loisirs", categoryPath = "Loisirs",
+                amountCents = 30000, year = 2026, month = 7, spentCents = 4000, consumedCents = 4000,
+            ),
+            BudgetLine(
+                id = "env-obsydian", categoryId = "cat-obsydian", categoryName = "Obsydian",
+                categoryPath = "Loisirs › Bars › Obsydian", parentEnvelopeId = "env-loisirs",
+                amountCents = 10000, year = 2026, month = 7, spentCents = 4000, consumedCents = 4000,
+            ),
+        ),
+    )
+
+    private val treeCategories = listOf(
+        Category(id = "cat-loisirs", name = "Loisirs", obligation = "optional"),
+        Category(id = "cat-bars", name = "Bars", obligation = "optional", parent = "/api/categories/cat-loisirs"),
+        Category(id = "cat-obsydian", name = "Obsydian", obligation = "optional", parent = "/api/categories/cat-bars"),
+    )
+
+    private fun loadTree() {
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } returns Result.success(treeStatus)
+        coEvery { categoryRepository.getCategories() } returns Result.success(treeCategories)
+    }
+
+    private fun spend(id: String, label: String, cents: Int = -4000) =
+        Transaction(id = id, label = label, amountCents = cents, bookedAt = "2026-07-10T00:00:00+00:00")
+
+    @Test
+    fun `the tree is folded at first, mothers show their cumulated sums`() = runTest {
+        loadTree()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("env-loisirs"), state.visibleBudgets.map { it.line.id })
+        assertTrue(state.visibleBudgets.single().hasChildren)
+        assertEquals(4000, state.visibleBudgets.single().line.consumedCents)
+    }
+
+    @Test
+    fun `unfolding Loisirs shows Bars - Obsydian, folding hides it again`() = runTest {
+        loadTree()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        val key = viewModel.uiState.value.visibleBudgets.single().expansionKey
+
+        viewModel.toggleExpanded(key)
+        val unfolded = viewModel.uiState.value.visibleBudgets
+        assertEquals(listOf("env-loisirs", "env-obsydian"), unfolded.map { it.line.id })
+        assertEquals("Bars › Obsydian", unfolded[1].label)
+
+        viewModel.toggleExpanded(key)
+        assertEquals(listOf("env-loisirs"), viewModel.uiState.value.visibleBudgets.map { it.line.id })
+    }
+
+    @Test
+    fun `an unfolded envelope stays unfolded when the period changes`() = runTest {
+        loadTree()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        viewModel.toggleExpanded(viewModel.uiState.value.visibleBudgets.single().expansionKey)
+
+        viewModel.shiftPeriod(-1)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.expanded.size)
+    }
+
+    @Test
+    fun `touching an envelope reads its month lines, sub-categories included`() = runTest {
+        loadTree()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), 2026, 7) } returns
+            Result.success(listOf(spend("t-1", "OBSYDIAN")))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        assertTrue(viewModel.uiState.value.detail!!.isLoading)
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals(listOf("cat-loisirs", "cat-bars", "cat-obsydian"), detail.categoryIds)
+        assertEquals(listOf("t-1"), detail.transactions.map { it.id })
+        assertFalse(detail.isLoading)
+        assertNull(detail.error)
+        coVerify { transactionRepository.getEnvelopeSpends(listOf("cat-loisirs", "cat-bars", "cat-obsydian"), 2026, 7) }
+    }
+
+    @Test
+    fun `an annual envelope reads the whole year`() = runTest {
+        loadTree()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), 2026, null) } returns Result.success(emptyList())
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail(
+            BudgetLine(id = "env-voyages", categoryId = "cat-voyages", categoryName = "Voyages", mode = "annual", year = 2026),
+            "Voyages",
+        )
+        advanceUntilIdle()
+
+        coVerify { transactionRepository.getEnvelopeSpends(listOf("cat-voyages"), 2026, null) }
+        assertTrue(viewModel.uiState.value.detail!!.transactions.isEmpty())
+    }
+
+    @Test
+    fun `an envelope with no spend opens an empty detail`() = runTest {
+        loadTree()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } returns Result.success(emptyList())
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertTrue(detail.transactions.isEmpty())
+        assertFalse(detail.isLoading)
+        assertNull(detail.error)
+    }
+
+    @Test
+    fun `a failing read of the lines says so and keeps the budget`() = runTest {
+        loadTree()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } returns
+            Result.failure(RuntimeException("boom"))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("boom", state.detail!!.error)
+        assertFalse(state.detail!!.isLoading)
+        assertEquals(treeStatus, state.status)
+    }
+
+    @Test
+    fun `closing the detail drops it`() = runTest {
+        loadTree()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } returns Result.success(emptyList())
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        viewModel.closeDetail()
+
+        assertNull(viewModel.uiState.value.detail)
+    }
+
+    @Test
+    fun `a Mercure update on transactions reloads the sums and the open lines`() = runTest {
+        loadTree()
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.TRANSACTIONS)) } returns events
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } returnsMany listOf(
+            Result.success(listOf(spend("t-1", "OBSYDIAN"))),
+            Result.success(listOf(spend("t-1", "OBSYDIAN"), spend("t-2", "BAR", -2500))),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        events.emit(MercureEvent(type = "update", data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("t-1", "t-2"), viewModel.uiState.value.detail!!.transactions.map { it.id })
+        coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `a Mercure update on envelopes reloads the sums`() = runTest {
+        loadTree()
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.ENVELOPES)) } returns events
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        events.emit(MercureEvent(type = "update", data = "{}"))
+        advanceUntilIdle()
+
+        coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `a slow answer for an earlier period does not overwrite the period now shown`() = runTest {
+        val slowJuly = CompletableDeferred<Result<BudgetStatus>>()
+        val august = BudgetStatus(year = 2026, month = 8, totalBudgetedCents = 1)
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } coAnswers { slowJuly.await() }
+        coEvery { budgetRepository.getBudgetStatus(2026, 8) } returns Result.success(august)
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.shiftPeriod(1)
+        advanceUntilIdle()
+        slowJuly.complete(Result.success(treeStatus))
+        advanceUntilIdle()
+
+        assertEquals(august, viewModel.uiState.value.status)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a slow reading of closed lines does not reopen the detail`() = runTest {
+        loadTree()
+        val slow = CompletableDeferred<Result<List<Transaction>>>()
+        coEvery { transactionRepository.getEnvelopeSpends(any(), any(), any()) } coAnswers { slow.await() }
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail(treeStatus.budgets.first(), "Loisirs")
+        advanceUntilIdle()
+
+        viewModel.closeDetail()
+        slow.complete(Result.success(listOf(spend("t-1", "OBSYDIAN"))))
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail)
+    }
+
+    @Test
+    fun `an empty period has an empty tree`() = runTest {
+        coEvery { budgetRepository.getBudgetStatus(2026, 7) } returns Result.success(BudgetStatus(year = 2026, month = 7))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.visibleBudgets.isEmpty())
+        assertNull(viewModel.uiState.value.error)
     }
 }

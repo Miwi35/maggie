@@ -17,6 +17,10 @@ tags:
 # rolled into the next, then next month's Cinéma reads 45 € and names its season (MAG-415).
 # The same journeys over the admin are in `finance-budget.spec.ts`.
 #
+# On the phone the tree is folded at first and read-only (MAG-418): Loisirs shows its
+# cumulated 40 / 300 € and unfolds into Bars › Obsydian; touching Loisirs lists the month's
+# lines of the whole subtree, the Obsydian spend among them.
+#
 # What is not here: the red and orange states with their icon and word, and the totals
 # counting the mother once — `BudgetViewModelTest`, `EnvelopeTest` and the API's
 # `BudgetStatusControllerTest` check them with figures.
@@ -43,15 +47,34 @@ tags:
 
 - openLink: "maggie-e2e://finance/budgets"
 
-# Obsydian 40 / 100 € nested under Loisirs 40 / 300 €, in that order.
+# Folded at first: Loisirs carries the cumulated 40 / 300 €, Obsydian is not drawn yet.
+- extendedWaitUntil:
+    visible: "Loisirs"
+    timeout: 30000
+- assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
+- assertNotVisible: "Bars › Obsydian"
+# The phone only reads the tree: no way to create or delete an envelope.
+- assertNotVisible: "Nouvelle enveloppe"
+
+# Unfolded: Obsydian 40 / 100 € nested under Loisirs 40 / 300 €.
+- tapOn: "Déplier Loisirs"
 - extendedWaitUntil:
     visible: "Bars › Obsydian"
-    timeout: 30000
-- assertVisible: "Loisirs"
+    timeout: 10000
 - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
-- assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
 # Bars has no envelope: it only appears inside Obsydian's path.
 - assertNotVisible: "Bars"
+
+# Touching Loisirs lists the month's lines of the subtree, Obsydian's spend included.
+- tapOn: "Loisirs"
+- extendedWaitUntil:
+    visible:
+      id: "budget_detail"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "OBSYDIAN MAG-412"
+    timeout: 20000
+- back
 
 # A 25 € spend on Bars, while the screen is open: the period is reloaded.
 - runScript:
