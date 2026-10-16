@@ -119,7 +119,7 @@ fun restockedProductsMessage(count: Int): String? = when {
     else -> "$count produits repassés en stock"
 }
 
-// A burst of Mercure updates (an errand ends: lines, products, the errand) is one fetch of the suggestions.
+// A burst of list updates (an errand ends, every line leaves) is one fetch of the suggestions.
 internal const val SUGGESTIONS_REFRESH_DELAY_MS = 300L
 
 // Taps on − / + made within this delay are one request carrying the last quantity.
@@ -147,7 +147,6 @@ class GroceryViewModel(
     val uiState: StateFlow<GroceryUiState> = _uiState
 
     private var mercureJob: Job? = null
-    private var suggestionsMercureJob: Job? = null
     private var suggestionsJob: Job? = null
 
     // Quantities shown but not yet confirmed by the API, by item id. They hide the
@@ -172,13 +171,10 @@ class GroceryViewModel(
                 .collect { authenticated ->
                     mercureJob?.cancel()
                     mercureJob = null
-                    suggestionsMercureJob?.cancel()
-                    suggestionsMercureJob = null
                     if (authenticated) {
                         refresh()
                         loadProductsAndStores()
                         mercureJob = subscribeToGroceryUpdates()
-                        suggestionsMercureJob = subscribeToSuggestionUpdates()
                     }
                 }
         }
@@ -192,7 +188,11 @@ class GroceryViewModel(
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { event ->
-                    // Any change to the list can take a product out of the suggestions, or put it back.
+                    // Any change to the list can take a product out of the suggestions, or put it back; an
+                    // errand's end empties it. The suggestions open no stream of their own: each holds one of
+                    // the app's connections to the hub for good, and past MercureService's per-host limit a
+                    // recipe sheet's subscription never connects. A snooze or a recurring item made on another
+                    // device shows at the next refresh.
                     refreshSuggestions(SUGGESTIONS_REFRESH_DELAY_MS)
                     try {
                         val payload = json.parseToJsonElement(event.data).jsonObject
@@ -243,23 +243,6 @@ class GroceryViewModel(
                         refresh()
                     }
                 }
-        }
-    }
-
-    /**
-     * The suggestions are computed by the API from the purchase history, the list, the
-     * recurring items and the snoozes. A snooze is a product update; an errand's end empties
-     * the list, whose topic [subscribeToGroceryUpdates] already listens to. One stream only:
-     * each holds one of the app's connections to the hub for good, and past
-     * [MercureService]'s per-host limit a recipe sheet's subscription never connects.
-     * A new recurring item shows at the next refresh.
-     */
-    private fun subscribeToSuggestionUpdates(): Job {
-        return viewModelScope.launch {
-            val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.PRODUCTS))
-                .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
-                .collect { refreshSuggestions(SUGGESTIONS_REFRESH_DELAY_MS) }
         }
     }
 
