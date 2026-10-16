@@ -35,6 +35,7 @@ class DeepLinksTest {
         val financeRoutes = listOf(
             Screen.FinanceDashboard,
             Screen.AccountList,
+            Screen.Contacts,
             Screen.BudgetList,
             Screen.CategoryList,
             Screen.CategorizationRuleList,
@@ -53,6 +54,12 @@ class DeepLinksTest {
             assertTrue("$route has no deep link", DeepLinks.patternsFor(route).isNotEmpty())
         }
         assertTrue(DeepLinks.patternsFor(DeepLinks.ACCOUNT_ROUTE).single().startsWith("$scheme://finance/accounts/"))
+    }
+
+    @Test
+    fun `the contacts open from finance contacts, and one contact from its id`() {
+        assertEquals(listOf("$scheme://finance/contacts"), DeepLinks.patternsFor(Screen.Contacts.route))
+        assertEquals(listOf("$scheme://finance/contacts/{id}"), DeepLinks.patternsFor(DeepLinks.CONTACT_ROUTE))
     }
 
     @Test
@@ -89,10 +96,11 @@ class DeepLinksTest {
             DeepLinks.GROCERY_ROUTE,
             DeepLinks.RECIPE_ROUTE,
             DeepLinks.ACCOUNT_ROUTE,
+            DeepLinks.CONTACT_ROUTE,
         )
         val screens = listOf(
             Screen.EventCreate, Screen.EventEdit, Screen.TaskCreate, Screen.TaskEdit, Screen.RecipeDetail,
-            Screen.RecipeCreate, Screen.RecipeEdit, Screen.AccountTransactions, Screen.Grocery,
+            Screen.RecipeCreate, Screen.RecipeEdit, Screen.AccountTransactions, Screen.Grocery, Screen.Contacts,
         ).map { it.route }
 
         assertTrue(entryRoutes.none { it in screens })

@@ -89,6 +89,14 @@ fun ToSortScreen(
         }
     }
 
+    // The server's own sentence: « … is already linked to Anna » says what to do next.
+    LaunchedEffect(state.contactError) {
+        state.contactError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearContactError()
+        }
+    }
+
     ErrorSnackbar(
         error = state.sortError,
         snackbarHostState = snackbarHostState,
@@ -112,6 +120,17 @@ fun ToSortScreen(
             onPick = { viewModel.chooseCategory(it.id) },
             onDismiss = viewModel::closeCategorySearch,
             searchTag = UiTags.TO_SORT_SEARCH,
+        )
+    }
+
+    state.contactChoice?.let { choice ->
+        ContactPickerDialog(
+            contacts = choice.contacts,
+            isLoading = choice.isLoading,
+            subtitle = state.current?.let { it.counterpartyLabel.ifBlank { it.label } },
+            onPick = viewModel::pickContact,
+            onCreate = viewModel::createContact,
+            onDismiss = viewModel::closeContactPicker,
         )
     }
 
@@ -210,6 +229,7 @@ private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel, onOpenTra
             onJudge = viewModel::judge,
             onCreateRule = viewModel::openRuleDraft,
             onOpenSheet = { onOpenTransaction(line) },
+            onContact = viewModel::openContactPicker,
         )
     }
 }
@@ -227,6 +247,7 @@ private fun SortCard(
     onJudge: (String) -> Unit,
     onCreateRule: () -> Unit,
     onOpenSheet: () -> Unit,
+    onContact: () -> Unit,
 ) {
     val suggestion = line.suggestion
     var qualifying by rememberSaveable(line.id) { mutableStateOf(false) }
@@ -246,6 +267,20 @@ private fun SortCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val contact = line.contact
+            if (contact != null) {
+                Text(
+                    "Contact : ${contact.name}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag(UiTags.TO_SORT_CONTACT_NAME),
+                )
+            } else if (line.asksForContact) {
+                TextButton(
+                    onClick = onContact,
+                    enabled = !state.isLinking && !state.isSorting,
+                    modifier = Modifier.testTag(UiTags.TO_SORT_CONTACT),
+                ) { Text("Associer à un contact ?") }
+            }
 
             HorizontalDivider()
 
@@ -379,7 +414,7 @@ private fun PileList(state: ToSortUiState, onSelect: (String) -> Unit) {
                     color = if (line.id == state.current?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    listOfNotNull(line.bookedAt, formatCents(line.amountCents, line.currency)).joinToString(" · "),
+                    listOfNotNull(line.bookedAt, formatCents(line.amountCents, line.currency), line.contact?.name).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -5,8 +5,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.ContactCounterparty
+import com.maggie.app.data.model.ContactRef
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.SortSuggestion
 import com.maggie.app.data.model.ToSortPile
@@ -15,6 +19,7 @@ import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
 import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -56,6 +61,7 @@ class ToSortScreenTest {
     )
 
     private val transactions = mockk<TransactionRepository>()
+    private val contactRepository = mockk<ContactRepository>()
 
     private fun viewModel(pile: List<TransactionToSort> = listOf(carrefour)): ToSortViewModel {
         coEvery { transactions.setRetrospect(any(), any()) } returns Result.success(Unit)
@@ -64,7 +70,7 @@ class ToSortScreenTest {
         coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(pile.size, pile))
         coEvery { transactions.sortToCategory(any(), any(), any()) } returns Result.success(SortResult(success = true))
 
-        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true))
+        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository)
     }
 
     @Test
@@ -164,5 +170,51 @@ class ToSortScreenTest {
         compose.onNodeWithTag(UiTags.TO_SORT_QUALIFICATION).performScrollTo().performClick()
 
         compose.onNodeWithText("Obligatoire").assertExists()
+    }
+
+    private val tomTransfer = TransactionToSort(
+        id = "tx-3",
+        label = "VIR. DE TOM MARTIN",
+        amountCents = 40000,
+        bookedAt = "2026-10-13",
+        asksForContact = true,
+        counterpartyLabel = "VIR. DE TOM MARTIN",
+    )
+
+    @Test
+    fun `a transfer nobody claims offers a contact, created in the full-screen picker`() {
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(Contact("c-anna", "Anna")))
+        coEvery { contactRepository.createContact("Tom") } returns Result.success(Contact("c-tom", "Tom"))
+        coEvery { contactRepository.link("c-tom", "VIR. DE TOM MARTIN") } returns
+            Result.success(ContactCounterparty(id = "cp-1", contact = "/api/contacts/c-tom", label = "VIR. DE TOM MARTIN"))
+        val model = viewModel(pile = listOf(tomTransfer))
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).performClick()
+        compose.onNodeWithTag(UiTags.CONTACT_PICKER_SEARCH).performTextInput("Tom")
+        compose.onNodeWithText("+ Créer « Tom »").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CONTACT_PICKER_CREATE).performClick()
+        compose.waitForIdle()
+
+        coVerify(exactly = 1) { contactRepository.createContact("Tom") }
+        coVerify(exactly = 1) { contactRepository.link("c-tom", "VIR. DE TOM MARTIN") }
+    }
+
+    @Test
+    fun `a line attached to a contact says whose it is and asks nothing`() {
+        val model = viewModel(pile = listOf(tomTransfer.copy(contact = ContactRef("c-tom", "Tom"), asksForContact = false)))
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CONTACT_NAME).assertIsDisplayed()
+        compose.onNodeWithText("Contact : Tom").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a purchase asks for no contact`() {
+        val model = viewModel()
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).assertDoesNotExist()
     }
 }

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategorizationRule
@@ -10,6 +11,9 @@ import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.model.RETROSPECT_UNRATED
 import com.maggie.app.data.model.RulePreview
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.ContactCounterparty
+import com.maggie.app.data.model.ContactRef
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.SortSuggestion
 import com.maggie.app.data.model.SortedRule
@@ -18,6 +22,7 @@ import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -46,6 +51,7 @@ class ToSortViewModelTest {
     private lateinit var transactions: TransactionRepository
     private lateinit var categories: CategoryRepository
     private lateinit var rules: CategorizationRuleRepository
+    private lateinit var contacts: ContactRepository
 
     private val carrefour = TransactionToSort(
         id = "tx-1",
@@ -66,6 +72,17 @@ class ToSortViewModelTest {
 
     private val mandatorySaving = Qualification(mandatory = true, kind = QualificationKind.Saving)
 
+    private val tomTransfer = TransactionToSort(
+        id = "tx-3",
+        label = "VIR. DE TOM MARTIN",
+        amountCents = 40000,
+        bookedAt = "2026-10-13",
+        asksForContact = true,
+        counterpartyLabel = "VIR. DE TOM MARTIN",
+    )
+
+    private val tom = Contact(id = "c-tom", name = "Tom")
+
     private val categoryList = listOf(
         Category(id = "cat-food", name = "Alimentation"),
         Category(id = "cat-courses", name = "Courses", parent = "/api/categories/cat-food"),
@@ -77,6 +94,8 @@ class ToSortViewModelTest {
         transactions = mockk()
         categories = mockk()
         rules = mockk()
+        contacts = mockk()
+        coEvery { contacts.getContacts() } returns Result.success(listOf(tom))
         coEvery { categories.getCategories() } returns Result.success(categoryList)
         coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(2, listOf(carrefour, unknown)))
     }
@@ -86,7 +105,7 @@ class ToSortViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun load() = ToSortViewModel(transactions, categories, rules)
+    private fun load() = ToSortViewModel(transactions, categories, rules, contacts)
 
     @Test
     fun `the pile is loading until the server has answered`() = runTest {
@@ -561,5 +580,141 @@ class ToSortViewModelTest {
         assertEquals("refused", viewModel.uiState.value.ruleDraft?.error)
         assertEquals("tx-1", viewModel.uiState.value.current?.id)
         coVerify(exactly = 1) { transactions.getToSort(oldestFirst = true) }
+    }
+
+    private fun linked(contactId: String) =
+        ContactCounterparty(id = "cp-1", contact = "/api/contacts/$contactId", label = "VIR. DE TOM MARTIN", transactionCount = 1)
+
+    @Test
+    fun `a transfer nobody claims opens the picker on the owner's contacts`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.current!!.asksForContact)
+        viewModel.openContactPicker()
+        assertTrue(viewModel.uiState.value.contactChoice!!.isLoading)
+        advanceUntilIdle()
+
+        assertEquals(listOf(tom), viewModel.uiState.value.contactChoice!!.contacts)
+        assertFalse(viewModel.uiState.value.contactChoice!!.isLoading)
+    }
+
+    @Test
+    fun `the picker opens even when no contact could be read, to create one`() = runTest {
+        coEvery { contacts.getContacts() } returns Result.failure(RuntimeException("Hors ligne"))
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.openContactPicker()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.contactChoice!!.contacts.isEmpty())
+    }
+
+    @Test
+    fun `closing the picker links nothing`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.openContactPicker()
+        viewModel.closeContactPicker()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.contactChoice)
+        coVerify(exactly = 0) { contacts.link(any(), any()) }
+    }
+
+    @Test
+    fun `picking a contact links the line's label to them, then the line shows whose it is`() = runTest {
+        val attached = tomTransfer.copy(contact = ContactRef("c-tom", "Tom"), asksForContact = false)
+        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
+            Result.success(ToSortPile(1, listOf(tomTransfer))),
+            Result.success(ToSortPile(1, listOf(attached))),
+        )
+        coEvery { contacts.link("c-tom", "VIR. DE TOM MARTIN") } returns Result.success(linked("c-tom"))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.openContactPicker()
+        advanceUntilIdle()
+        viewModel.pickContact(tom)
+        assertTrue(viewModel.uiState.value.isLinking)
+        assertNull(viewModel.uiState.value.contactChoice)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLinking)
+        assertEquals("Tom", state.current?.contact?.name)
+        assertFalse(state.current!!.asksForContact)
+        assertEquals("Associé à Tom", state.message)
+        coVerify(exactly = 0) { contacts.createContact(any()) }
+    }
+
+    @Test
+    fun `creating a contact from the picker creates them first, then links the label`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        coEvery { contacts.createContact("Tom") } returns Result.success(tom)
+        coEvery { contacts.link("c-tom", "VIR. DE TOM MARTIN") } returns Result.success(linked("c-tom"))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.openContactPicker()
+        viewModel.createContact(" Tom ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { contacts.createContact("Tom") }
+        coVerify(exactly = 1) { contacts.link("c-tom", "VIR. DE TOM MARTIN") }
+        assertEquals("Associé à Tom", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a contact that could not be created links nothing`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        coEvery { contacts.createContact(any()) } returns Result.failure(RuntimeException("Hors ligne"))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.createContact("Tom")
+        advanceUntilIdle()
+
+        assertEquals("Hors ligne", viewModel.uiState.value.contactError)
+        coVerify(exactly = 0) { contacts.link(any(), any()) }
+    }
+
+    @Test
+    fun `a label already someone else's is refused in the server's words and the line stays as it was`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(tomTransfer)))
+        coEvery { contacts.link("c-tom", any()) } returns
+            Result.failure(ApiRefusalException(400, "« VIR. DE TOM MARTIN » is already linked to Anna."))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.pickContact(tom)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("« VIR. DE TOM MARTIN » is already linked to Anna.", state.contactError)
+        assertFalse(state.isLinking)
+        assertTrue(state.current!!.asksForContact)
+
+        viewModel.clearContactError()
+        assertNull(viewModel.uiState.value.contactError)
+    }
+
+    @Test
+    fun `a line without a counterparty label links its own label`() = runTest {
+        val bare = tomTransfer.copy(counterpartyLabel = "")
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(bare)))
+        coEvery { contacts.link("c-tom", "VIR. DE TOM MARTIN") } returns Result.success(linked("c-tom"))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.pickContact(tom)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { contacts.link("c-tom", "VIR. DE TOM MARTIN") }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RETROSPECT_UNRATED
+import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransactionToSort
@@ -12,6 +13,7 @@ import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.sortedSummary
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,12 @@ import kotlinx.coroutines.launch
 data class TransferChoice(
     val isLoading: Boolean = true,
     val candidates: List<TransferLeg> = emptyList(),
+)
+
+/** « Associer à un contact ? » open: the owner's contacts, read when the picker opens. */
+data class ContactChoice(
+    val isLoading: Boolean = true,
+    val contacts: List<Contact> = emptyList(),
 )
 
 data class ToSortUiState(
@@ -41,6 +49,9 @@ data class ToSortUiState(
     val ruleDraft: RuleDraftState? = null,
     val choosingCategory: Boolean = false,
     val transfer: TransferChoice? = null,
+    val contactChoice: ContactChoice? = null,
+    /** A contact being created or linked to the open line. */
+    val isLinking: Boolean = false,
     val message: String? = null,
     /** A pile that could not be read. */
     val loadError: String? = null,
@@ -48,6 +59,8 @@ data class ToSortUiState(
     val sortError: String? = null,
     /** A satisfaction that was refused or lost: the line keeps the one it had. */
     val judgeError: String? = null,
+    /** A link refused (the label is someone else's) or lost, in the server's words. */
+    val contactError: String? = null,
 ) {
     val current: TransactionToSort? get() = pile.firstOrNull { it.id == selectedId } ?: pile.firstOrNull()
 
@@ -65,11 +78,16 @@ data class ToSortUiState(
  * falls back to off after every answer: a rule is a lasting decision, never the
  * leftover of the previous card. After each answer the pile is read again from the
  * server, since a rule may have filed lines that were further down.
+ *
+ * A transfer nobody claims yet asks « Associer à un contact ? » (MAG-450): the contact picked —
+ * or created on the spot — gets the line's label, and with it every line that label recognises.
+ * The line stays in the pile, which is read again to show whose it is: a contact is not a category.
  */
 class ToSortViewModel(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     ruleRepository: CategorizationRuleRepository,
+    private val contactRepository: ContactRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ToSortUiState())
@@ -277,6 +295,66 @@ class ToSortViewModel(
         }
     }
 
+    /** « Associer à un contact ? »: opens the full-screen picker on the owner's contacts. */
+    fun openContactPicker() {
+        if (_uiState.value.current == null) {
+            return
+        }
+        _uiState.value = _uiState.value.copy(contactChoice = ContactChoice())
+
+        viewModelScope.launch {
+            // No list is no reason to refuse the answer: « + Créer » stays possible.
+            val contacts = contactRepository.getContacts().getOrDefault(emptyList())
+            _uiState.value.contactChoice?.let {
+                _uiState.value = _uiState.value.copy(contactChoice = ContactChoice(isLoading = false, contacts = contacts))
+            }
+        }
+    }
+
+    fun closeContactPicker() {
+        _uiState.value = _uiState.value.copy(contactChoice = null)
+    }
+
+    /** An existing contact, picked: the line's label becomes theirs. */
+    fun pickContact(contact: Contact) {
+        linkCurrent(contact.name) { Result.success(contact) }
+    }
+
+    /** « + Créer « Tom » »: the contact is created first, then the label is linked to them. */
+    fun createContact(name: String) {
+        if (name.isBlank()) {
+            return
+        }
+        linkCurrent(name.trim()) { contactRepository.createContact(name.trim()) }
+    }
+
+    private fun linkCurrent(name: String, contactOf: suspend () -> Result<Contact>) {
+        val state = _uiState.value
+        val line = state.current ?: return
+        if (state.isLinking) {
+            return
+        }
+        _uiState.value = state.copy(isLinking = true, contactChoice = null, contactError = null, message = null)
+
+        viewModelScope.launch {
+            contactOf()
+                .fold(
+                    onSuccess = { contact -> contactRepository.link(contact.id, line.counterpartyLabel.ifBlank { line.label }) },
+                    onFailure = { Result.failure(it) },
+                )
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isLinking = false, message = "Associé à $name")
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(
+                        isLinking = false,
+                        contactError = failure.message ?: "Association impossible.",
+                    )
+                }
+        }
+    }
+
     /** « Créer un filtre »: the rule draft, filled from the open line and the qualification chosen on the card. */
     fun openRuleDraft() {
         val state = _uiState.value
@@ -295,6 +373,10 @@ class ToSortViewModel(
     fun changeRuleQualification(qualification: Qualification) = ruleDraftSession.changeQualification(qualification)
 
     fun saveRule() = ruleDraftSession.save()
+
+    fun clearContactError() {
+        _uiState.value = _uiState.value.copy(contactError = null)
+    }
 
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(message = null)

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,14 +41,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.AccountCreateRequest
 import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
 private val ACCOUNT_TYPES = listOf("checking", "savings", "investment", "cash")
@@ -58,6 +62,7 @@ fun AccountListScreen(
     viewModel: AccountViewModel,
     onBack: () -> Unit,
     onOpenAccount: (accountId: String, accountName: String) -> Unit = { _, _ -> },
+    onOpenContacts: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -77,6 +82,12 @@ fun AccountListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+                actions = {
+                    // The people behind the transfers live with the accounts (MAG-450).
+                    IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
+                        Icon(Icons.Default.Person, contentDescription = "Contacts")
                     }
                 },
             )
@@ -183,6 +194,7 @@ private fun AccountCreateDialog(
     var isCushion by remember { mutableStateOf(false) }
 
     AlertDialog(
+        modifier = Modifier.uiTagRoot(),
         onDismissRequest = onDismiss,
         title = { Text("Nouveau compte") },
         text = {

@@ -1,0 +1,106 @@
+appId: com.maggie.app.e2e
+name: 19-finance-contacts
+tags:
+  - finance
+---
+# Contacts and the labels they appear under, from the phone (MAG-450, extends MAG-102).
+#
+# Étant donné un virement « VIR. DE TOM MARTIN » de +400 € sans contact
+# Quand je l'associe depuis « À trier » en créant « Tom » dans le sélecteur plein écran
+# Alors la fiche de Tom liste « VIR. DE TOM MARTIN » avec « 1 virement »,
+# Et un second virement « VIR. DE TOM MARTIN » écrit ensuite est rattaché à Tom (« 2 virements »)
+#
+# The data is set by `scripts/contacts-api.js` on the seed's second user, who holds no other
+# finance data: the pile is this one transfer, and the user has no contact yet. The second
+# transfer is written through the API, as an import would: the API attaches it to Tom while
+# writing it (the script checks), and the page says so once it is read again.
+#
+# What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
+# `ContactScreenTest`), the tablet's page beside the list, and the admin's side of the same
+# API.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/19-finance-contacts.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/to-sort"
+
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
+- assertVisible: "VIR. DE TOM MARTIN"
+
+# « Associer à un contact ? », then « Tom » created in the full-screen picker.
+- tapOn:
+    id: "to_sort_contact"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_search"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_search"
+- inputText: "Tom"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_create"
+    timeout: 10000
+- assertVisible: "+ Créer « Tom »"
+- tapOn:
+    id: "contact_picker_create"
+
+# The line stays to sort — a contact is not a category — and says whose it is.
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_contact_name"
+    timeout: 30000
+- assertVisible: "Contact : Tom"
+
+# Tom's page, from « Comptes ».
+- openLink: "maggie-e2e://finance/accounts"
+- tapOn:
+    id: "accounts_contacts"
+- extendedWaitUntil:
+    visible:
+      id: "contact_row"
+    timeout: 30000
+- tapOn:
+    id: "contact_row"
+- extendedWaitUntil:
+    visible: "Ses comptes"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "contact_counterparty"
+    timeout: 30000
+- assertVisible: ".*TOM MARTIN.*"
+- assertVisible: "1 virement"
+
+# A second transfer under the same label, written afterwards: it is Tom's without a gesture.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: second
+- back
+- tapOn:
+    id: "contact_row"
+- extendedWaitUntil:
+    visible: "2 virements"
+    timeout: 30000
+
+# Left as found.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: remove
