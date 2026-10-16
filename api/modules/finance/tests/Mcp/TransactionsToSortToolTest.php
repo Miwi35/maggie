@@ -9,6 +9,7 @@ use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -145,5 +146,65 @@ class TransactionsToSortToolTest extends KernelTestCase
         self::assertNull($this->stored('carrefour_new')->getCategory());
         self::assertSame($this->id('leisure'), (string) $this->stored('already_sorted')->getCategory()->getId());
         self::assertNull($this->stored('stranger_line')->getCategory());
+    }
+
+    public function testToSortWeighsThePileAndFlagsWhatCanBeJudged(): void
+    {
+        $this->loadFixtures('transactions_to_sort.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('to_sort');
+
+        self::assertGreaterThan(0, $data['totalCents']);
+        $byId = array_column($data['transactions'], null, 'id');
+        self::assertTrue($byId[$this->id('carrefour_new')]['judgeable']);
+        self::assertFalse($byId[$this->id('transfer_in')]['judgeable']);
+        self::assertSame('unrated', $byId[$this->id('carrefour_new')]['retrospect']);
+    }
+
+    public function testUpdateGivesASatisfactionToASpend(): void
+    {
+        $this->loadFixtures('transactions_to_sort.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('update', transactionId: $this->id('carrefour_new'), retrospect: 'avoidable');
+
+        self::assertTrue($data['success']);
+        self::assertSame('avoidable', $data['transaction']['retrospect']);
+        self::assertSame(RetrospectVerdict::Avoidable, $this->stored('carrefour_new')->getRetrospect());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testUpdateRefusesASatisfactionOnAnIncomeAndOnATransfer(): void
+    {
+        $this->loadFixtures('transactions_to_sort.yaml');
+        $this->loginFixtureUser();
+
+        foreach (['recognised_income', 'paired_transfer'] as $ref) {
+            $data = $this->call('update', transactionId: $this->id($ref), retrospect: 'keep');
+
+            self::assertArrayHasKey('error', $data, $ref);
+            self::assertSame(RetrospectVerdict::Unrated, $this->stored($ref)->getRetrospect(), $ref);
+        }
+    }
+
+    public function testASpendMarkedAsATransferInTheSameUpdateCannotBeJudged(): void
+    {
+        $this->loadFixtures('transactions_to_sort.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('update', transactionId: $this->id('carrefour_new'), retrospect: 'keep', transferKind: 'internal');
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame(RetrospectVerdict::Unrated, $this->stored('carrefour_new')->getRetrospect());
+    }
+
+    public function testUpdateRefusesAnUnknownSatisfaction(): void
+    {
+        $this->loadFixtures('transactions_to_sort.yaml');
+        $this->loginFixtureUser();
+
+        self::assertArrayHasKey('error', $this->call('update', transactionId: $this->id('carrefour_new'), retrospect: 'great'));
     }
 }

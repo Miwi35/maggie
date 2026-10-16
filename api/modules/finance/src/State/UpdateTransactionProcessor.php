@@ -9,6 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
+use Maggie\Finance\Exception\SatisfactionException;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -97,7 +98,8 @@ class UpdateTransactionProcessor implements ProcessorInterface
             isExceptional: $data->isExceptional(),
             categoryId: $categoryChanged && null !== $category ? (string) $category->getId() : null,
             qualification: $qualificationChanged ? $qualification->toArray() : null,
-            retrospect: $data->getRetrospect()->value,
+            // Only a change is a judgement: the line carries its old verdict whenever it is edited.
+            retrospect: null === $previous || $data->getRetrospect() !== $previous->getRetrospect() ? $data->getRetrospect()->value : null,
             recurringOperationId: $recurringChanged && null !== $series ? (string) $series->getId() : null,
             // Left as it was, the occurrence is the one nearest the booking day.
             recurringOccurrenceOn: $occurrenceMoved && null !== $series ? $occurrenceOn : null,
@@ -116,7 +118,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             return $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
-            if ($cause instanceof OneOffAttributionException) {
+            if ($cause instanceof OneOffAttributionException || $cause instanceof SatisfactionException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
             }
             if ($cause instanceof RecurringAttachmentException) {

@@ -435,6 +435,17 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this->retrospect;
     }
 
+    /**
+     * Whether a satisfaction can be given: a spend only — a recipe or a
+     * movement between the owner's own accounts is neutral, there is nothing
+     * to judge. Not serialized: the clients read the sign and `transferKind`.
+     */
+    #[ApiProperty(readable: false)]
+    public function canBeJudged(): bool
+    {
+        return $this->amountCents < 0 && TransferKind::None === $this->transferKind;
+    }
+
     public function setRetrospect(RetrospectVerdict $retrospect): static
     {
         $this->retrospect = $retrospect;

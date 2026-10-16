@@ -1,5 +1,6 @@
 {
     "total": 2,
+    "totalCents": 6520,
     "transactions": [
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -10,6 +11,8 @@
             "bookedAt": "2026-03-18",
             "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "accountName": "Recorded Account",
+            "judgeable": true,
+            "retrospect": "unrated",
             "suggestion": {
                 "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
                 "categoryPath": "Recorded Food › Recorded Courses",
@@ -26,6 +29,8 @@
             "bookedAt": "2026-03-16",
             "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "accountName": "Recorded Account",
+            "judgeable": true,
+            "retrospect": "unrated",
             "suggestion": null
         }
     ]

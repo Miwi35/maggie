@@ -192,3 +192,47 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@other_user'
+  recognised_by_rule:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: -2000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: CINEMA PATHE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  recognised_by_series:
+    account: '@checking'
+    category: '@streaming'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Series)>'
+    amountCents: -1399
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: SPOTIFY
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  recognised_income:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: 4500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-08"))>'
+    label: REMBOURSEMENT CINEMA
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  recognised_last_month:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: -900
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+    label: CINEMA SEPTEMBRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

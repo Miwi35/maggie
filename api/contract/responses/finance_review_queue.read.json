@@ -1,0 +1,70 @@
+{
+    "month": "2026-03",
+    "unrecognisedCount": 2,
+    "unrecognisedCents": 6520,
+    "recognisedCount": 1,
+    "items": [
+        {
+            "recognised": false,
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "DUPONT MARTIN",
+            "counterpartyName": null,
+            "amountCents": -1200,
+            "currency": "EUR",
+            "bookedAt": "2026-03-16",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "judgeable": true,
+            "retrospect": "unrated",
+            "suggestion": null,
+            "categoryId": null,
+            "categoryPath": null,
+            "qualifiedBy": null,
+            "qualifiedBySeriesId": null,
+            "qualifiedByRuleId": null
+        },
+        {
+            "recognised": false,
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "CARREFOUR MARKET 1234",
+            "counterpartyName": null,
+            "amountCents": -5320,
+            "currency": "EUR",
+            "bookedAt": "2026-03-18",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "judgeable": true,
+            "retrospect": "unrated",
+            "suggestion": {
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryPath": "Recorded Food › Recorded Courses",
+                "source": "rule",
+                "reason": "Règle « contient CARREFOUR »"
+            },
+            "categoryId": null,
+            "categoryPath": null,
+            "qualifiedBy": null,
+            "qualifiedBySeriesId": null,
+            "qualifiedByRuleId": null
+        },
+        {
+            "recognised": true,
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "CARREFOUR CITY 99",
+            "counterpartyName": null,
+            "amountCents": -2450,
+            "currency": "EUR",
+            "bookedAt": "2026-03-10",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "judgeable": true,
+            "retrospect": "unrated",
+            "suggestion": null,
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryPath": "Recorded Food › Recorded Courses",
+            "qualifiedBy": "rule",
+            "qualifiedBySeriesId": null,
+            "qualifiedByRuleId": null
+        }
+    ]
+}
