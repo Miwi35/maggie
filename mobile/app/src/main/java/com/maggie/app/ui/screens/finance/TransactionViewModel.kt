@@ -246,6 +246,8 @@ class TransactionViewModel(
                         settlingIncident = null,
                         settlementError = e.message ?: SETTLE_ERROR,
                     )
+                    // The read this gesture cancelled is owed.
+                    refreshIncidents()
                 }
         }
     }
@@ -284,6 +286,8 @@ class TransactionViewModel(
                         settlingIncident = null,
                         settlementError = e.message ?: UNSETTLE_ERROR,
                     )
+                    // The read this gesture cancelled is owed.
+                    refreshIncidents()
                 }
         }
     }

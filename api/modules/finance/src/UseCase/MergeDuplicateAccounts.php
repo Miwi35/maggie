@@ -591,6 +591,9 @@ class MergeDuplicateAccounts
             && TransferKind::Rejected === $twin->getTransferKind() && TransferKind::Rejected === $copy->getTransferKind()) {
             $twin->settleRejection($copy->getRejectionSettledAt());
             $changed = true;
+            if (null !== $twin->getCounterpart()) {
+                $touched[(string) $twin->getCounterpart()->getId()] = $twin->getCounterpart();
+            }
         }
         if ($copy->isInternalTransfer() && !$twin->isInternalTransfer() && null !== $leg && $leg !== $twin) {
             // The kind travels too: a rejection stays a rejection, never a transfer.
