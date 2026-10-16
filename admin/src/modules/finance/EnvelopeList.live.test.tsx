@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { emitMercure } from '../../test/mercure'
 import { EnvelopeList } from './EnvelopeList'
@@ -44,7 +45,13 @@ describe('EnvelopeList — live updates from Mercure', () => {
         Promise.resolve({
           ok: true,
           json: () =>
-            Promise.resolve(String(url).includes('/to-sort') ? { total: 3, totalCents: 5799, transactions: [] } : served),
+            Promise.resolve(
+              String(url).includes('/to-sort')
+                ? { total: 3, totalCents: 5799, transactions: [] }
+                : String(url).includes('/envelope-adjustments')
+                  ? { month: '2026-10', targetMonth: '2026-11', suggestionCount: 0, envelopes: [] }
+                  : served,
+            ),
         }),
       ),
     )
@@ -68,6 +75,23 @@ describe('EnvelopeList — live updates from Mercure', () => {
     renderScreen()
 
     expect(await screen.findByRole('link', { name: /À qualifier · 3 · 57,99/ })).toHaveAttribute('href', '/finance/to-sort')
+  })
+
+  test('« Ajuster » opens the adjustments of the period on screen, and only then', async () => {
+    renderScreen()
+    await screen.findAllByTestId('budget-gauge')
+    expect(screen.queryByTestId('envelope-adjustments')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ajuster' }))
+
+    expect(await screen.findByTestId('envelope-adjustments')).toBeInTheDocument()
+    const now = new Date()
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    await waitFor(() =>
+      expect(
+        (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => String(url) === `/api/finance/envelope-adjustments?month=${month}`),
+      ).toBe(true),
+    )
   })
 
   test('an envelope created elsewhere appears in the tree and in the gauges', async () => {

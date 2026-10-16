@@ -1,7 +1,13 @@
 import { useState } from 'react'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import TuneIcon from '@mui/icons-material/Tune'
 import { useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
+import { EnvelopeAdjustments } from './EnvelopeAdjustments'
 import { EnvelopeTreeScreen } from './EnvelopeTreeScreen'
 import { ToQualifyPill } from './ToQualifyPill'
 import { useBudgetStatus } from './useBudgetStatus'
@@ -31,6 +37,7 @@ export const EnvelopeList = () => {
   const { status, loading, refresh } = useBudgetStatus(year, month)
   const refreshRecords = useRefresh()
   const [scoresToken, setScoresToken] = useState(0)
+  const [adjusting, setAdjusting] = useState(false)
 
   useMercure(BUDGET_TOPICS, (data) => {
     refresh()
@@ -51,6 +58,24 @@ export const EnvelopeList = () => {
         scoresToken={scoresToken}
       />
       <ToQualifyPill />
+      <Box sx={{ display: 'flex', mb: 2 }}>
+        <Button
+          size="small"
+          variant={adjusting ? 'contained' : 'outlined'}
+          startIcon={<TuneIcon />}
+          aria-pressed={adjusting}
+          onClick={() => setAdjusting((on) => !on)}
+        >
+          Ajuster
+        </Button>
+      </Box>
+      {adjusting && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <EnvelopeAdjustments key={`${year}-${month}`} month={`${year}-${String(month).padStart(2, '0')}`} />
+          </CardContent>
+        </Card>
+      )}
       <EnvelopeTreeScreen year={year} month={month} status={status} loading={loading} refresh={refresh} />
     </>
   )

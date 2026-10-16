@@ -235,6 +235,28 @@ export class FinanceBudgetPage extends AdminShell {
     ])
   }
 
+  /** « Ajuster »: opens next month's adjustments and returns the row of a category once they are read. */
+  async openAdjustments(categoryName: string): Promise<Locator> {
+    await this.content.getByRole('button', { name: 'Ajuster', exact: true }).click()
+    const row = this.content.locator(`[data-testid="adjustment-row"][data-category="${categoryName}"]`)
+    await expect(row).toBeVisible()
+
+    return row
+  }
+
+  /** Applies a category's suggestion and returns what the API answered: the screen redraws from it. */
+  async applySuggestion(categoryName: string): Promise<{ applied: { categoryId: string; envelopeId: string; amountCents: number }[] }> {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (candidate) => candidate.url().includes('/api/finance/envelope-adjustments') && 'POST' === candidate.request().method(),
+      ),
+      this.content.getByRole('button', { name: `Appliquer pour ${categoryName}` }).click(),
+    ])
+    expect(response.status(), await response.text()).toBe(200)
+
+    return response.json()
+  }
+
   /** The week's or the month's ring (MAG-417); its status is `data-status`, its word is its text. */
   scoreRing(period: 'week' | 'month'): Locator {
     return this.content.locator(`[data-testid="score-ring"][data-period="${period}"]`)

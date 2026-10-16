@@ -52,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,8 +99,11 @@ fun BudgetScreen(
     // The pile of the lines to qualify: the pill shows under the period when it is not empty (MAG-458).
     toQualify: ToSortPile? = null,
     onOpenToQualify: () -> Unit = {},
+    // « Ajuster » (MAG-461): the envelopes against what was really spent, on phone and tablet. Null: no entry.
+    adjustments: EnvelopeAdjustmentsViewModel? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var adjusting by rememberSaveable { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingThreshold by remember { mutableStateOf<BudgetLine?>(null) }
     // The tablet sets the alert threshold; the phone shows it (MAG-49).
@@ -125,8 +129,15 @@ fun BudgetScreen(
         onRetry = viewModel::refresh,
     )
 
+    if (adjusting && adjustments != null) {
+        EnvelopeAdjustmentsScreen(adjustments, onBack = { adjusting = false })
+        return
+    }
+
+    val onAdjust = adjustments?.let { { adjusting = true } }
+
     if (showsDetailPane) {
-        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify)
+        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify, onAdjust)
         return
     }
 
@@ -140,6 +151,7 @@ fun BudgetScreen(
                     }
                 },
                 actions = {
+                    AdjustAction(onAdjust)
                     IconButton(
                         onClick = { viewModel.rollOverPreviousPeriod() },
                         enabled = !uiState.isRollingOver,
@@ -846,4 +858,11 @@ internal fun SeasonsEditor(seasons: List<SeasonDraft>, onChange: (List<SeasonDra
 internal fun ToQualifyRow(pile: ToSortPile?, onOpen: () -> Unit) {
     val label = pile?.let(::toSortPillLabel) ?: return
     ToQualifyPill(label, onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/** The top bar's entry to « Ajuster » (MAG-461); nothing where the mode is not mounted. */
+@Composable
+internal fun AdjustAction(onAdjust: (() -> Unit)?) {
+    if (onAdjust == null) return
+    TextButton(onClick = onAdjust, modifier = Modifier.testTag(UiTags.BUDGET_ADJUST_OPEN)) { Text("Ajuster") }
 }

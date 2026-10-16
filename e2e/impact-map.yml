@@ -553,6 +553,9 @@ mobile:
   e2e/mobile/flows/16-finance-budget-split.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-budget-api.js]
+  e2e/mobile/flows/16-finance-budget-adjust.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/finance-budget-api.js]
   e2e/mobile/flows/12-thread-deletion.yaml:
     areas: [chat, realtime]
   e2e/mobile/flows/15-stop-and-correct.yaml:

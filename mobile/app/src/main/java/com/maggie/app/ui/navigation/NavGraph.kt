@@ -119,6 +119,7 @@ import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.ContactScreen
 import com.maggie.app.ui.screens.finance.ContactViewModel
 import com.maggie.app.ui.screens.finance.ToSortScreen
+import com.maggie.app.ui.screens.finance.EnvelopeAdjustmentsViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
 import com.maggie.app.ui.screens.finance.ToSortViewModel
 import com.maggie.app.ui.screens.finance.TransactionListScreen
@@ -1355,6 +1356,7 @@ fun NavGraph() {
                         showsDetailPane = paneShown,
                         toQualify = toQualify,
                         onOpenToQualify = { navController.navigate(Screen.TransactionsToSort.route) { launchSingleTop = true } },
+                        adjustments = koinViewModel<EnvelopeAdjustmentsViewModel>(),
                     )
                 }
                 composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {

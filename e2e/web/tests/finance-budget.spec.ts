@@ -454,6 +454,72 @@ test.describe('categories on three levels', () => {
     expect(carried.seasonalAmounts).toEqual([season])
   })
 
+  // MAG-461: next month's envelopes set against what was really spent. A suggestion only exists for
+  // the envelope that does not fit, and nothing is written before « Appliquer ».
+  test('Loisirs exceeded three months running: « Ajuster » proposes a higher amount, applied on request', async ({
+    otherUser,
+  }) => {
+    const { api, page } = otherUser
+    await removeTree(api)
+
+    // Given Loisirs budgeted 200 € and spent 250 € this month and the two before.
+    const loisirsId = await createdId(api, '/api/categories', { name: 'Loisirs', obligation: 'optional' })
+    const accountId = await createdId(api, '/api/accounts', {
+      name: 'Compte MAG-461',
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    treeAccountIds.push(accountId)
+    for (const back of [0, 1, 2]) {
+      const index = ANCHOR_YEAR * 12 + (ANCHOR_MONTH - 1) - back
+      const year = Math.floor(index / 12)
+      const month = (index % 12) + 1
+      treeEnvelopeIds.push(
+        await createdId(api, '/api/envelopes', {
+          category: `/api/categories/${loisirsId}`,
+          mode: 'monthly',
+          amountCents: 20000,
+          currency: 'EUR',
+          year,
+          month,
+        }),
+      )
+      await createdId(api, '/api/transactions', {
+        account: `/api/accounts/${accountId}`,
+        category: `/api/categories/${loisirsId}`,
+        label: `LOISIRS MAG-461 ${year}-${month}`,
+        amountCents: -25000,
+        currency: 'EUR',
+        bookedAt: `${year}-${String(month).padStart(2, '0')}-01`,
+        status: 'spent',
+      })
+    }
+
+    // When I open Budget › Ajuster and apply the suggestion.
+    const budget = new FinanceBudgetPage(page)
+    await budget.open()
+    const row = await budget.openAdjustments('Loisirs')
+    await expect(row.getByTestId('adjustment-actual')).toContainText(euros(25000))
+    await expect(row.getByTestId('adjustment-suggestion')).toContainText(`Relever à ${euros(25000)}`)
+    await expect(row.getByTestId('adjustment-amount'), 'nothing is written before the gesture').toContainText(euros(20000))
+    const applied = await budget.applySuggestion('Loisirs')
+
+    // Then Loisirs is worth 250 € next month.
+    expect(applied.applied).toEqual([expect.objectContaining({ categoryId: loisirsId, amountCents: 25000 })])
+    treeEnvelopeIds.push(applied.applied[0].envelopeId)
+    await expect(row.getByTestId('adjustment-applied')).toBeVisible()
+    await expect(row.getByTestId('adjustment-amount')).toContainText(euros(25000))
+    const stored = await waitForIndexed<StoredEnvelope>(
+      api,
+      '/api/envelopes',
+      (envelope) =>
+        envelope.category === `/api/categories/${loisirsId}` && envelope.year === NEXT.year && envelope.month === NEXT.month,
+      { what: `Loisirs set in ${MONTH_LABELS[NEXT.month]} ${NEXT.year}` },
+    )
+    expect(stored.amountCents).toBe(25000)
+  })
+
   test('moving the Bars|Cinéma boundary by 20 € shares Loisirs again, and survives a reload', async ({
     otherUser,
   }) => {

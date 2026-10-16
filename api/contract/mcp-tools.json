@@ -457,6 +457,35 @@
         },
         "description": "End shopping errand. Archives all checked (bought) items as past errands, one per store (errands: id, storeName, itemCount; read them back with list_past_errands), and removes them from the list, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
     },
+    "envelope_adjustments": {
+        "name": "envelope_adjustments",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "categoryIds": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Adjust the monthly envelopes to what was really spent (\"mes enveloppes sont-elles adaptées ?\"). month is YYYY-MM, the month read (defaults to the current one); the amounts proposed are for the month after it. The suggest action lists every monthly envelope of the month with its amountCents, what was really spent (actualCents), what the next month is budgeted at (targetAmountCents) and — only for the envelopes that do not fit — a suggestion {proposedCents, direction raise or lower, reason, seasonal}. An envelope fits, and has no suggestion, unless it was exceeded three months running with spending mostly judged worth keeping (raise), was left under three quarters of its amount three months running (lower), or the same month of the past years was far from next month's amount (a season: seasonal {fromMonth, toMonth} names the month, and the amount is for that month of every year). Spending mostly judged avoidable never raises an envelope. Give the reason as it is, in French, it says why. Nothing is written by suggest. The apply action writes next month's amounts for the suggestions of categoryIds (comma-separated category ids; all of them when omitted) — only after the owner agreed: never apply on your own. Amounts are integer cents, divide by 100 to speak them."
+    },
     "generate_grocery_list": {
         "name": "generate_grocery_list",
         "inputSchema": {

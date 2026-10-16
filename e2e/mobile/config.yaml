@@ -37,6 +37,7 @@ executionOrder:
     - 13-finance-to-sort
     - 13-finance-budget-nesting
     - 16-finance-budget-split
+    - 16-finance-budget-adjust
     - 14-rotation
     - 14-interruption
     - 15-calendar-more-than-a-page

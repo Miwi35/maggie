@@ -247,6 +247,28 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    public function testTheEnvelopeAdjustmentsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/Controller/fixtures/envelope_adjustments.yaml');
+
+        $user = $this->getFixture('test_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/envelope-adjustments?month=2026-09', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty(array_filter(array_column($body['envelopes'], 'suggestion')), 'The recorded world must hold an envelope with a suggestion.');
+        self::assertNotEmpty(array_filter(array_column(array_filter(array_column($body['envelopes'], 'suggestion')), 'seasonal')), 'The recorded world must hold a seasonal suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/finance_envelope_adjustments.read.json',
+            self::stabilise($body),
+            'GET /api/finance/envelope-adjustments no longer returns what it used to. The mobile DTOs (EnvelopeAdjustment.kt) and the admin hook read this response.',
+        );
+    }
+
     /**
      * « Peut-être aussi Tom » (MAG-450), as the controller sends it: the
      * labels of unclaimed lines that name the contact.

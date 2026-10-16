@@ -14,6 +14,7 @@
 //           Bars 100 €, Cinéma 50 €) | split (Bars 120 €, Cinéma 30 €)
 //           | hellfest (a one-off « Hellfest 2026 » of 400 € and an 89 € ticket in Loisirs, MAG-414)
 //           | cinema (Cinéma 20 € this month, 45 € in a season from next month on, MAG-415)
+//           | create-adjust (MAG-461: Loisirs at 100 € and 140 € spent, this month and the two before)
 //           | remove
 //   TODAY   the seed's anchor day, YYYY-MM-DD: the month the screen opens on
 //
@@ -86,14 +87,14 @@ function awaitOne(path, name) {
   }
 }
 
-function spend(accountId, categoryId, label, amountCents) {
+function spend(accountId, categoryId, label, amountCents, bookedAt) {
   post('/api/transactions', {
     account: '/api/accounts/' + accountId,
     category: '/api/categories/' + categoryId,
     label: label,
     amountCents: -amountCents,
     currency: 'EUR',
-    bookedAt: TODAY,
+    bookedAt: bookedAt || TODAY,
     status: 'spent',
   })
 }
@@ -149,6 +150,28 @@ if (ACTION === 'create') {
   spend(account.id, obsydian.id, 'OBSYDIAN MAG-412', 4000)
   // The next action looks the tree up by name: leave only once it is findable.
   awaitOne('/api/categories?itemsPerPage=200', 'Bars')
+  awaitOne('/api/accounts?itemsPerPage=200', accountName)
+} else if (ACTION === 'create-adjust') {
+  // Loisirs exceeded three months running: the month under way and the two before it.
+  removeLeftovers()
+  const loisirs = post('/api/categories', { name: 'Loisirs' })
+  const account = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
+  ;[0, 1, 2].forEach(function (back) {
+    const index = year * 12 + (month - 1) - back
+    const y = Math.floor(index / 12)
+    const m = index % 12 + 1
+    post('/api/envelopes', {
+      category: '/api/categories/' + loisirs.id,
+      mode: 'monthly',
+      amountCents: 10000,
+      currency: 'EUR',
+      year: y,
+      month: m,
+    })
+    const day = y + '-' + (m < 10 ? '0' : '') + m + '-' + (back === 0 ? TODAY.substring(8, 10) : '10')
+    spend(account.id, loisirs.id, 'LOISIRS MAG-461 ' + day, 14000, day)
+  })
+  awaitOne('/api/categories?itemsPerPage=200', 'Loisirs')
   awaitOne('/api/accounts?itemsPerPage=200', accountName)
 } else if (ACTION === 'spend-bars') {
   const account = awaitOne('/api/accounts?itemsPerPage=200', accountName)
