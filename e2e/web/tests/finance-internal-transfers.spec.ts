@@ -175,13 +175,13 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
   const transfers = new FinanceTransfersPage(actor)
   const checking = new FinanceTransfersPage(await transfersUser.secondWindow())
 
-  await checking.openTransactions(checkingId)
+  await checking.openTransactions(checkingId, { back: 1 })
   await expect(checking.row(credit)).toBeVisible()
   await expect(checking.badge(credit), 'nothing is marked before the detection').toHaveCount(0)
 
   // Subscribed before the detection publishes anything: an update sent while
   // the hub has not registered the subscriber is never delivered.
-  await openSubscribed(checking.page, () => checking.openTransactions(checkingId))
+  await openSubscribed(checking.page, () => checking.openTransactions(checkingId, { back: 1 }))
 
   await transfers.openDetection()
   await transfers.detect.click()
@@ -209,13 +209,12 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
     },
   )
 
-  // Each leg shows the other as its counterpart.
-  await expect(checking.row(credit)).toContainText(`Contrepartie : ${savingsName}`)
-  await expect(checking.row(credit)).toContainText(debit)
-  await transfers.openTransactions(savingsId)
+  // Each leg names the account on the other side (MAG-422): the credit came
+  // from the savings account, the debit went to the checking one.
+  await expect(checking.row(credit)).toContainText(`depuis ${savingsName}`)
+  await transfers.openTransactions(savingsId, { back: 1 })
   await expect(transfers.badge(debit)).toBeVisible()
-  await expect(transfers.row(debit)).toContainText(`Contrepartie : ${checkingName}`)
-  await expect(transfers.row(debit)).toContainText(credit)
+  await expect(transfers.row(debit)).toContainText(`vers ${checkingName}`)
 
   // Only the 80,00 € is left in the train de vie: the transfer is no spending.
   expect(await lifestyleCents(api)).toBe(before - transferCents / 3)
@@ -323,7 +322,7 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   }
 
   // Back in the list, and gone from the incidents.
-  await account.openTransactions(accountId)
+  await account.openTransactions(accountId, { back: 1 })
   await expect(account.row(debit)).toBeVisible()
   await expect(account.row(credit)).toBeVisible()
   await expect(account.incidentsTab(0)).toBeVisible()
@@ -405,7 +404,7 @@ test('an ordinary line opens on six sections, and marking it internal keeps only
   )
 
   const account = new FinanceTransfersPage(page)
-  await account.openTransactions(accountId)
+  await account.openTransactions(accountId, { back: 1 })
   await account.openTransaction(label)
   expect(await account.sheetSections()).toEqual(sections)
 
@@ -469,9 +468,9 @@ test('the two legs of a transfer imported from statements are both marked, and l
   }
 
   const transfers = new FinanceTransfersPage(page)
-  await transfers.openTransactions(checkingId)
+  await transfers.openTransactions(checkingId, { back: 1 })
   await expect(transfers.badge(credit)).toBeVisible()
-  await transfers.openTransactions(savingsId)
+  await transfers.openTransactions(savingsId, { back: 1 })
   await expect(transfers.badge(debit)).toBeVisible()
 
   expect(await monthIncomeCents(api, month), 'the credit leg is no income').toBe(incomeBefore)

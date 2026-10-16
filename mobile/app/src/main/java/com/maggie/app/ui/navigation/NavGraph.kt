@@ -94,6 +94,9 @@ import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsScreen
 import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
+import com.maggie.app.ui.screens.finance.AccountPagerScreen
+import com.maggie.app.ui.screens.finance.AccountTimelineActions
+import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
@@ -546,6 +549,8 @@ fun NavGraph() {
     // The contact a link asked for, handed to the contacts screen once and cleared (MAG-450).
     var linkedContactId by rememberSaveable { mutableStateOf<String?>(null) }
     var startContactCreation by rememberSaveable { mutableStateOf(false) }
+    // A line of the account timeline was touched (MAG-422): the account's full list opens, on that line when given.
+    var accountDrillDown by rememberSaveable { mutableStateOf(false) }
     // The transaction « En faire une opération récurrente » was tapped on: the form opens filled from it (MAG-309).
     var recurringSeed by rememberSavedSelection<Transaction>()
     // The advance « Préparer l'avance » filled in: the new-transaction form opens with it, nothing saved (MAG-280).
@@ -1374,42 +1379,74 @@ fun NavGraph() {
                         val summaryBlocks by summaryViewModel.blocks.collectAsState()
                         LaunchedEffect(Unit) { summaryViewModel.load(listOf(SummaryBlock.LAST_SYNC)) }
                         val account = selectedAccount
-                        ListDetailPane(
-                            showsDetailPane = paneShown,
-                            list = {
-                                AccountListScreen(
-                                    viewModel = accountViewModel,
-                                    onBack = { navController.backInFinance() },
-                                    onOpenContacts = {
-                                        navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
-                                    },
-                                    lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
-                                    onOpenAccount = { accountId, accountName ->
-                                        selectedAccount = accountId to accountName
-                                        if (!paneShown) {
-                                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                                        }
-                                    },
-                                )
-                            },
-                            detail = account?.let {
-                                {
-                                    AccountTransactions(
-                                        it,
-                                        onBack = null,
-                                        onMakeRecurring = openRecurringFrom,
-                                        prefill = transactionPrefill,
-                                        onPrefillConsumed = { transactionPrefill = null },
-                                        openTransactionId = transactionToOpen,
-                                        onTransactionOpened = { transactionToOpen = null },
-                                        onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
-                                        openIncidents = incidentsToOpen,
-                                        onIncidentsOpened = { incidentsToOpen = false },
-                                    )
+                        val openContacts = {
+                            navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
+                        }
+                        val timelineActions = AccountTimelineActions(
+                            onOpenTransaction = { accountId, accountName, transactionId ->
+                                selectedAccount = accountId to accountName
+                                transactionToOpen = transactionId
+                                accountDrillDown = true
+                                if (!paneShown) {
+                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                 }
                             },
-                            placeholder = "Touchez un compte pour voir ses transactions ici.",
                         )
+                        if (!paneShown) {
+                            // One account at a time, swiped (MAG-422); a touch on a line goes on to its sheet.
+                            AccountPagerScreen(
+                                viewModel = accountViewModel,
+                                onBack = { navController.backInFinance() },
+                                actions = timelineActions,
+                                onOpenContacts = openContacts,
+                            )
+                        } else {
+                            ListDetailPane(
+                                showsDetailPane = paneShown,
+                                list = {
+                                    AccountListScreen(
+                                        viewModel = accountViewModel,
+                                        onBack = { navController.backInFinance() },
+                                        onOpenContacts = openContacts,
+                                        lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
+                                        onOpenAccount = { accountId, accountName ->
+                                            selectedAccount = accountId to accountName
+                                            accountDrillDown = false
+                                            transactionToOpen = null
+                                            accountViewModel.selectAccount(accountId)
+                                        },
+                                    )
+                                },
+                                detail = account?.let {
+                                    {
+                                        if (accountDrillDown || transactionPrefill != null) {
+                                            AccountTransactions(
+                                                it,
+                                                onBack = {
+                                                    accountDrillDown = false
+                                                    transactionToOpen = null
+                                                },
+                                                onMakeRecurring = openRecurringFrom,
+                                                prefill = transactionPrefill,
+                                                onPrefillConsumed = { transactionPrefill = null },
+                                                openTransactionId = transactionToOpen,
+                                                onTransactionOpened = { transactionToOpen = null },
+                                                onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
+                                                openIncidents = incidentsToOpen,
+                                                onIncidentsOpened = { incidentsToOpen = false },
+                                            )
+                                        } else {
+                                            AccountTimelineDetail(
+                                                viewModel = accountViewModel,
+                                                accountId = it.first,
+                                                actions = timelineActions,
+                                            )
+                                        }
+                                    }
+                                },
+                                placeholder = "Touchez un compte pour voir ses transactions ici.",
+                            )
+                        }
                     }
                     composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
                         val contactViewModel: ContactViewModel = koinViewModel()
@@ -1494,6 +1531,7 @@ fun NavGraph() {
                                 line.accountId?.let { accountId ->
                                     selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
                                     transactionToOpen = line.id
+                                    accountDrillDown = true
                                     navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                 }
                             },
@@ -1604,6 +1642,7 @@ fun NavGraph() {
                             onOpenIncidents = { account ->
                                 selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }
                                 incidentsToOpen = true
+                                accountDrillDown = true
                                 navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                             },
                         )
@@ -1614,6 +1653,7 @@ fun NavGraph() {
                         PopWhenMissing(navController, entry, account != null || paneFits)
                         val leave = {
                             selectedAccount = null
+                            accountDrillDown = false
                             transactionToOpen = null
                             incidentsToOpen = false
                             navController.backInFinance()

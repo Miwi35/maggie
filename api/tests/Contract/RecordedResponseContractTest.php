@@ -10,6 +10,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
+use Maggie\Finance\Entity\Account;
+use Maggie\Finance\UseCase\GetAccountTimeline;
 use Maggie\Finance\UseCase\GetAnnualPlan;
 use Maggie\Finance\UseCase\GetRecurringOperations;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
@@ -456,6 +458,36 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/finance_review_recognised.read.json',
             self::stabilise($body),
             'GET /api/finance/review/recognised no longer returns what it used to. The mobile DTOs (RecognisedToControl.kt) and the admin hook read this response.',
+        );
+    }
+
+    /**
+     * An account over a month (MAG-422), read at a fixed day so the recording
+     * does not move with the clock: March's rent rose by a third that month,
+     * the gym's due date of the 20th never came, a transfer names the account
+     * opposite and a line is still planned.
+     */
+    public function testTheAccountTimelineRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedTimeline.yaml');
+
+        $account = $this->getFixture('recorded_account');
+        self::assertInstanceOf(Account::class, $account);
+
+        $timeline = self::getContainer()->get(GetAccountTimeline::class)->execute($account, new \DateTimeImmutable('2026-03-01'), new \DateTimeImmutable('2026-04-22'));
+        $body = json_decode((string) json_encode($timeline, \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+
+        $lines = array_merge(...array_column($body['days'], 'transactions'));
+        self::assertNotEmpty(array_filter(array_column($lines, 'counterpartAccount')), 'The recorded timeline holds no transfer, so it proves nothing about `counterpartAccount`.');
+        self::assertNotEmpty(array_filter(array_column($lines, 'recurringIncrease')), 'The recorded timeline holds no price rise.');
+        self::assertNotEmpty(array_merge(...array_column($body['days'], 'missedOccurrences')), 'The recorded timeline holds no missed due date.');
+        self::assertContains('planned', array_column($lines, 'status'));
+
+        $this->assertMatchesContract(
+            'responses/finance_account_timeline.read.json',
+            self::stabilise($body),
+            'GET /api/finance/accounts/{id}/timeline no longer returns what it used to. The mobile DTOs (AccountTimeline.kt) are written against this response.',
         );
     }
 

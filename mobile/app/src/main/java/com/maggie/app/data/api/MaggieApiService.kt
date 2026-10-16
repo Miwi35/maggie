@@ -45,6 +45,7 @@ import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.AccountTimeline
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
@@ -1488,6 +1489,23 @@ class MaggieApiService(
 
     suspend fun deleteAccount(id: String) {
         client.delete("$baseUrl/api/accounts/$id")
+    }
+
+    /** « Corriger le solde » of a hand-kept account: a merge-patch of the one field. */
+    suspend fun updateAccountBalance(id: String, balanceCents: Int): Account {
+        return client.patch("$baseUrl/api/accounts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("balanceCents", balanceCents) })
+        }.orRefusal().body()
+    }
+
+    /** One month of the account, day by day; [month] is `YYYY-MM`, the current month when null. */
+    suspend fun getAccountTimeline(accountId: String, month: String? = null): AccountTimeline {
+        return client.get("$baseUrl/api/finance/accounts/$accountId/timeline") {
+            accept(ContentType.Application.Json)
+            month?.let { url.parameters.append("month", it) }
+        }.orRefusal().body()
     }
 
     // Finance — Categories

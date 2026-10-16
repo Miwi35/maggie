@@ -440,7 +440,7 @@ private fun seriesNameOf(transaction: Transaction, names: Map<String, String>): 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TransactionCreateDialog(
+internal fun TransactionCreateDialog(
     categories: List<Category>,
     prefill: TransactionPrefill?,
     onConfirm: (amountCents: Int, label: String, status: String, categoryId: String?, bookedAt: String, qualification: Qualification) -> Unit,
