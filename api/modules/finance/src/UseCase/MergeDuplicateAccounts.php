@@ -11,6 +11,7 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\RetrospectVerdict;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -586,12 +587,18 @@ class MergeDuplicateAccounts
         }
 
         $leg = $copy->getCounterpart();
+        if (null === $twin->getRejectionSettledAt() && null !== $copy->getRejectionSettledAt()
+            && TransferKind::Rejected === $twin->getTransferKind() && TransferKind::Rejected === $copy->getTransferKind()) {
+            $twin->settleRejection($copy->getRejectionSettledAt());
+            $changed = true;
+        }
         if ($copy->isInternalTransfer() && !$twin->isInternalTransfer() && null !== $leg && $leg !== $twin) {
             // The kind travels too: a rejection stays a rejection, never a transfer.
+            // And so does the owner's word that it was dealt with — read first: pairing frees the copy.
+            $settledAt = $copy->getRejectionSettledAt();
             $twin->pairWith($leg, $copy->getTransferKind(), $copy->getTransferSource());
-            // And so does the owner's word that it was dealt with.
-            if (null !== $copy->getRejectionSettledAt()) {
-                $twin->settleRejection($copy->getRejectionSettledAt());
+            if (null !== $settledAt) {
+                $twin->settleRejection($settledAt);
             }
             $touched[(string) $leg->getId()] = $leg;
             $changed = true;

@@ -169,7 +169,11 @@ export const AccountIncidents = ({
     <>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
       {actionError && <Alert severity="error" sx={{ mb: 1 }}>{actionError}</Alert>}
-      {incidents.length === 0 ? (
+      {incidents.length === 0 && settled.length > 0 ? (
+        <Typography color="text.secondary" sx={{ py: 1 }}>
+          Aucun rejet à traiter.
+        </Typography>
+      ) : incidents.length === 0 ? (
         <Placeholder
           title="Aucun incident sur ce compte"
           description="Un prélèvement ou un virement rejeté par la banque apparaîtra ici, une ligne par rejet."
@@ -216,6 +220,8 @@ export const AccountIncidents = ({
       )}
       {open && <IncidentDetail incident={open} onClose={() => setOpen(null)} />}
       <Snackbar
+        // A second « Régularisé » while the bar is up gets its own full delay.
+        key={undo ? incidentKey(undo) : undefined}
         open={undo !== null}
         message={undo ? `Rejet ${undo.counterpartyName} régularisé` : undefined}
         autoHideDuration={UNDO_DELAY_MS}

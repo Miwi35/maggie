@@ -181,14 +181,20 @@ class TransactionViewModel(
         }
     }
 
+    // Only the latest read may land: one sent before a settlement must not put the line back.
+    private var incidentsRead = 0
+
     fun refreshIncidents() {
+        val read = ++incidentsRead
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingIncidents = true, incidentsError = null)
             transactionRepository.getIncidents(accountId)
                 .onSuccess { incidents ->
+                    if (read != incidentsRead) return@onSuccess
                     _uiState.value = _uiState.value.copy(incidents = incidents, isLoadingIncidents = false)
                 }
                 .onFailure { e ->
+                    if (read != incidentsRead) return@onFailure
                     _uiState.value = _uiState.value.copy(
                         isLoadingIncidents = false,
                         incidentsError = e.message ?: "Impossible de lire les incidents",
@@ -198,7 +204,7 @@ class TransactionViewModel(
         // The settled ones only fill the folded section: a failure leaves it as it was.
         viewModelScope.launch {
             transactionRepository.getSettledIncidents(accountId).onSuccess { settled ->
-                _uiState.value = _uiState.value.copy(settledIncidents = settled)
+                if (read == incidentsRead) _uiState.value = _uiState.value.copy(settledIncidents = settled)
             }
         }
     }
@@ -214,7 +220,9 @@ class TransactionViewModel(
         if (_uiState.value.settlingIncident != null) return
         val before = _uiState.value
         undoJob?.cancel()
+        incidentsRead++
         _uiState.value = before.copy(
+            isLoadingIncidents = false,
             incidents = before.incidents.filterNot { it.key == incident.key },
             settledIncidents = listOf(incident) + before.settledIncidents.filterNot { it.key == incident.key },
             settlingIncident = incident.key,
@@ -255,7 +263,9 @@ class TransactionViewModel(
         val id = incident.openId ?: return
         if (_uiState.value.settlingIncident != null) return
         val before = _uiState.value
+        incidentsRead++
         _uiState.value = before.copy(
+            isLoadingIncidents = false,
             incidents = (before.incidents + incident.copy(settledAt = null)).sortedByDescending { it.bookedAt },
             settledIncidents = before.settledIncidents.filterNot { it.key == incident.key },
             settlingIncident = incident.key,

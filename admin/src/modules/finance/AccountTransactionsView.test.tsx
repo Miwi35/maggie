@@ -435,7 +435,7 @@ describe('Incidents tab', () => {
   })
 
   /** A server that keeps the settled rejections apart, as the API does. */
-  const stubSettlement = (all: (typeof incident)[], { failSettle = false } = {}) => {
+  const stubSettlement = (all: (typeof incident)[], { failSettle = false, failUnsettle = false } = {}) => {
     const settledIds = new Set<string>()
     const calls: string[] = []
     vi.stubGlobal(
@@ -446,7 +446,9 @@ describe('Incidents tab', () => {
         const match = path.match(/\/api\/finance\/transactions\/([^/]+)\/rejection-settlement$/)
         if (match) {
           calls.push(`${method} ${match[1]}`)
-          if (failSettle) return { ok: false, json: async () => ({ error: 'boom' }) }
+          if ((method === 'POST' && failSettle) || (method === 'DELETE' && failUnsettle)) {
+            return { ok: false, json: async () => ({ error: 'boom' }) }
+          }
           if (method === 'POST') settledIds.add(match[1])
           else settledIds.delete(match[1])
           return { ok: true, json: async () => ({ success: true }) }
@@ -518,11 +520,29 @@ describe('Incidents tab', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  test('a refused « Annuler » says so and leaves the rejection settled', async () => {
+    stubSettlement([incident], { failUnsettle: true })
+    const user = userEvent.setup()
+
+    renderView()
+    await user.click(await screen.findByRole('tab', { name: 'Incidents (1)' }))
+    await user.click(await screen.findByRole('button', { name: 'Régularisé : EDF' }))
+    await user.click(await screen.findByRole('button', { name: 'Annuler' }))
+
+    expect(await screen.findByText('Impossible de remettre ce rejet dans la pile')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Incidents (0)' })).toBeInTheDocument()
+    expect(screen.getByText('Aucun rejet à traiter.')).toBeInTheDocument()
+    expect(screen.getByText('Régularisés (1)')).toBeInTheDocument()
+  })
+
   test('a rejection detected while the screen is open joins the tab without a reload', async () => {
     let incidents: unknown[] = []
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({ ok: true, json: async () => ({ incidents }) })),
+      vi.fn(async (url: string) => ({
+        ok: true,
+        json: async () => ({ incidents: String(url).endsWith('?settled=true') ? [] : incidents }),
+      })),
     )
 
     renderView()
