@@ -556,6 +556,20 @@ class BudgetViewModelTest {
     }
 
     @Test
+    fun `starting the ruler again drops an unsaved move and restarts from the stored amounts`() = runTest {
+        loadLoisirs()
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSplit("env-loisirs")
+        viewModel.moveSplitBoundary(0, 2000)
+        viewModel.startSplit("env-loisirs")
+
+        assertEquals(SplitShares(listOf(10000, 5000), 15000), viewModel.uiState.value.splitEditor?.shares)
+        coVerify(exactly = 0) { budgetRepository.splitEnvelope(any(), any()) }
+    }
+
+    @Test
     fun `a refused split says nothing was changed and closes the editor`() = runTest {
         loadLoisirs()
         coEvery { budgetRepository.splitEnvelope(any(), any()) } returns

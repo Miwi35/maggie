@@ -206,6 +206,15 @@ export class FinanceBudgetPage extends AdminShell {
     return ruler
   }
 
+  /** The edit form of an envelope, where a mother carries her ruler already open. */
+  async openEnvelopeForm(envelopeId: string): Promise<Locator> {
+    await this.goto(`${ROUTES.envelopes}/${encodeURIComponent(`/api/envelopes/${envelopeId}`)}`)
+    const ruler = this.content.getByTestId('envelope-split')
+    await expect(ruler).toBeVisible()
+
+    return ruler
+  }
+
   /** What the ruler says a segment holds: a daughter, or « libre ». */
   rulerAmount(ruler: Locator, segment: string): Locator {
     return ruler.locator(`[data-testid="split-amount"][data-category="${segment}"]`)

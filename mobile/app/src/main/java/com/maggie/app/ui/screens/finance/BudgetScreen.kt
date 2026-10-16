@@ -440,7 +440,10 @@ private fun BudgetCard(
     }
 }
 
-/** The mother's ruler: always readable, editable once the screen allows it and "Répartir" is tapped. */
+/**
+ * The mother's ruler: always readable, editable once the screen allows it and "Répartir" is tapped.
+ * With [autoStart] (inside the envelope form) the handles are live at once, no "Répartir" to tap.
+ */
 @Composable
 internal fun EnvelopeSplit(
     mother: EnvelopeConsumption,
@@ -451,8 +454,16 @@ internal fun EnvelopeSplit(
     onMoveBoundary: (index: Int, deltaCents: Int) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
+    autoStart: Boolean = false,
 ) {
     val shares = editor?.shares ?: splitSharesOf(daughters.map { it.amountCents }, mother.amountCents)
+
+    if (autoStart && canEdit) {
+        // Restart from what is stored when it changes (a save, a refresh), and after a save or a cancel.
+        val stored = daughters.map { it.amountCents } to mother.amountCents
+        LaunchedEffect(stored) { onStart() }
+        LaunchedEffect(editor == null) { if (editor == null) onStart() }
+    }
 
     EnvelopeSplitBar(
         names = daughters.map { it.categoryName },
@@ -466,7 +477,7 @@ internal fun EnvelopeSplit(
     if (canEdit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (editor == null) {
-                TextButton(onClick = onStart) { Text("Répartir") }
+                if (!autoStart) TextButton(onClick = onStart) { Text("Répartir") }
             } else {
                 TextButton(onClick = onSave, enabled = !editor.isSaving) { Text("Enregistrer") }
                 TextButton(onClick = onCancel, enabled = !editor.isSaving) { Text("Annuler") }

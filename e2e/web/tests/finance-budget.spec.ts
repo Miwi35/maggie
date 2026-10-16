@@ -503,6 +503,13 @@ test.describe('categories on three levels', () => {
     await expect(budget.gauge('Loisirs'), 'the mother itself did not move').toContainText(
       overBudget(0, 30000),
     )
+
+    // And Loisirs' own form carries the same ruler, with a handle, without tapping "Répartir".
+    const formRuler = await budget.openEnvelopeForm(treeEnvelopeIds[0])
+    await expect(budget.rulerAmount(formRuler, 'Bars')).toContainText(euros(12000))
+    await expect(budget.rulerAmount(formRuler, 'Cinéma')).toContainText(euros(3000))
+    await expect(budget.rulerAmount(formRuler, 'libre')).toContainText(euros(15000))
+    await expect(formRuler.getByRole('slider', { name: 'Frontière entre Bars et Cinéma' })).toBeVisible()
   })
 
   // MAG-419: the tree of envelopes. A category without an envelope gets one from its node, and

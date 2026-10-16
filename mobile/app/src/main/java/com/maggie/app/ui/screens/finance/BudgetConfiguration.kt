@@ -424,6 +424,7 @@ private fun EnvelopeForm(
                 daughters = daughters,
                 editor = uiState.splitEditor?.takeIf { it.motherId == line.id },
                 canEdit = true,
+                autoStart = true,
                 onStart = { viewModel.startSplit(line.id) },
                 onMoveBoundary = viewModel::moveSplitBoundary,
                 onSave = viewModel::saveSplit,
