@@ -87,6 +87,7 @@ framework:
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
             'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
             'Maggie\Grocery\Message\EndErrandCommand': sync
+            'Maggie\Grocery\Message\SnoozePurchaseSuggestionCommand': sync
             'Maggie\Grocery\Message\MoveToFallbackCommand': sync
             'Maggie\Grocery\Message\RemoveGroceryItemCommand': sync
             'Maggie\Grocery\Message\EditGroceryItemCommand': sync

@@ -2,6 +2,7 @@ package com.maggie.app.data.model
 
 import com.maggie.app.data.api.ApiCollection
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -213,6 +214,30 @@ class DtoContractTest {
         assertTrue("No recorded errand carries a line: the recording proves nothing about it.", itemKeys.isNotEmpty())
 
         assertDeclaredFieldsExist("PurchasedItem", serializer<PurchasedItem>(), itemKeys, "errands.collection")
+    }
+
+    @Test
+    fun `grocery suggestions deserialise from the recorded response`() {
+        // A plain JSON array, not a Hydra collection (MAG-495).
+        val file = File(repositoryRoot(), "api/contract/responses/grocery_suggestions.json")
+        assertTrue("The recording ${file.absolutePath} is missing. The API suite writes it: " +
+            "UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract", file.isFile)
+        val members = Json.parseToJsonElement(file.readText()).jsonArray
+        assertTrue("The recording grocery_suggestions is empty, so it proves nothing.", members.isNotEmpty())
+
+        val suggestions = json.decodeFromJsonElement(ListSerializer(serializer<PurchaseSuggestion>()), members)
+
+        assertDeclaredFieldsExist(
+            "PurchaseSuggestion", serializer<PurchaseSuggestion>(), members.flatMap { it.jsonObject.keys }.toSet(), "grocery_suggestions",
+        )
+        assertDeclaredFieldsExist(
+            "SuggestedProduct",
+            serializer<SuggestedProduct>(),
+            members.flatMap { it.jsonObject["product"]!!.jsonObject.keys }.toSet(),
+            "grocery_suggestions",
+        )
+        assertTrue("usualQuantity fell back to its default", suggestions.first().usualQuantity != null)
+        assertTrue("usualUnit fell back to its default", suggestions.first().usualUnit != null)
     }
 
     @Test

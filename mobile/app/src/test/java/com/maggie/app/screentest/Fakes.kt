@@ -32,6 +32,7 @@ import com.maggie.app.data.model.MealGroceryPackaging
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealGroceryToBuy
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PendingApproval
@@ -146,9 +147,15 @@ class FakeGrocery(
     private val products: List<Product> = emptyList(),
     /** The recurring items beside the list; the screen takes [FakeRecurring.viewModel]. */
     val recurring: FakeRecurring = FakeRecurring(),
+    /** « Souvent pris » (MAG-495): what the server suggests until it is added or snoozed. */
+    suggestions: List<PurchaseSuggestion> = emptyList(),
 ) {
     private val listId = list?.id
     private val current = list?.items.orEmpty().toMutableList()
+    private val currentSuggestions = suggestions.toMutableList()
+
+    /** The products « Pas besoin » was sent for — the database half of a snooze. */
+    val snoozed = mutableListOf<String>()
 
     /** The list as the fake server now holds it — the database half of an assertion. */
     val items: List<GroceryItem> get() = current.toList()
@@ -166,6 +173,30 @@ class FakeGrocery(
         coEvery { productRepository.getProducts() } returns Result.success(products)
         coEvery { storeRepository.getStores() } returns Result.success(stores)
         coEvery { storeRepository.getAisles(any()) } returns Result.success(emptyList())
+
+        // The server's rule: a product already on the list, or snoozed, is not suggested.
+        coEvery { groceryListRepository.getSuggestions() } answers {
+            Result.success(
+                currentSuggestions.filter { s ->
+                    s.product.id !in snoozed && current.none { it.label == s.product.name }
+                },
+            )
+        }
+        coEvery { groceryListRepository.snoozeSuggestion(any()) } answers {
+            snoozed += firstArg<String>()
+            Result.success(Unit)
+        }
+        coEvery {
+            groceryListRepository.addItem(any(), any(), any(), any(), any(), any())
+        } answers {
+            current += GroceryItem(
+                id = "added-${current.size + 1}",
+                label = firstArg(),
+                customLabel = firstArg(),
+                quantity = secondArg(),
+            )
+            Result.success(Unit)
+        }
 
         coEvery { groceryListRepository.checkItem(any(), any()) } answers {
             val itemId = firstArg<String>()

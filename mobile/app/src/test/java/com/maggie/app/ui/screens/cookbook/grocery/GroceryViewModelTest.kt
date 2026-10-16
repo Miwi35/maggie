@@ -82,6 +82,7 @@ class GroceryViewModelTest {
         coEvery { groceryListRepository.checkItem(any(), any()) } returns Result.success(Unit)
         coEvery { groceryListRepository.deleteItem(any()) } returns Result.success(Unit)
         coEvery { groceryListRepository.reorderItems(any()) } returns Result.success(Unit)
+        coEvery { groceryListRepository.getSuggestions() } returns Result.success(emptyList())
     }
 
     private fun createViewModel(): GroceryViewModel {

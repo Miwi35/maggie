@@ -90,6 +90,17 @@ Maggie\Grocery\Entity\Product:
     user: '@e2e_user'
     preferredStore: '@e2e_store_supermarket'
 
+  # « Tu en prends souvent » (MAG-495): bought in the three past errands
+  # below, 14 days apart, the last one 14 days before the anchor — so it is
+  # due on the seed's day. Kept off the owner's list and off the recurring
+  # items on purpose: either would take it out of the suggestions.
+  e2e_product_coffee:
+    name: Café
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Beverage)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_supermarket'
+
   # What the neighbour's weekly recurring item puts on their list. No fallback
   # shop, on purpose: the closed-shop journey needs a line that must *not* move.
   e2e_other_product_rice:
@@ -239,3 +250,32 @@ Maggie\Grocery\Entity\RecurringGroceryItem:
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
     frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
     user: '@e2e_other_user'
+
+# The owner's past errands (MAG-495): the coffee bought every 14 days, the
+# rhythm « Souvent pris » reads. The owner's and not the shopper's: the past
+# errands journey (`grocery-errand.spec.ts`) ends errands on the shopper's list
+# and finds them by what they bought.
+Maggie\Grocery\Entity\PurchasedItem:
+  e2e_purchased_coffee_{1..3}:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@e2e_product_coffee']
+
+Maggie\Grocery\Entity\Errand:
+  e2e_errand_coffee_1:
+    user: '@e2e_user'
+    store: '@e2e_store_supermarket'
+    endedAt: '<e2eDate("-42 days 18:00")>'
+    __calls:
+      - addItem: ['@e2e_purchased_coffee_1']
+  e2e_errand_coffee_2:
+    user: '@e2e_user'
+    store: '@e2e_store_supermarket'
+    endedAt: '<e2eDate("-28 days 18:00")>'
+    __calls:
+      - addItem: ['@e2e_purchased_coffee_2']
+  e2e_errand_coffee_3:
+    user: '@e2e_user'
+    store: '@e2e_store_supermarket'
+    endedAt: '<e2eDate("-14 days 18:00")>'
+    __calls:
+      - addItem: ['@e2e_purchased_coffee_3']

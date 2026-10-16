@@ -13,6 +13,7 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
+import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -101,6 +102,10 @@ data class GroceryUiState(
     val aislesByStore: Map<String, List<Aisle>> = emptyMap(),
     /** Why an item's aisle was not changed; shown once, then dismissed. */
     val aisleMessage: String? = null,
+    /** « Souvent pris » (MAG-495): products due again by their purchase rhythm; the banner shows only when there are some. */
+    val suggestions: List<PurchaseSuggestion> = emptyList(),
+    /** Why adding a suggestion or « Pas besoin » did not go through; shown once, then dismissed. */
+    val suggestionMessage: String? = null,
 ) {
     // Deferred items count in neither figure: they are not on today's list.
     val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
@@ -113,6 +118,9 @@ fun restockedProductsMessage(count: Int): String? = when {
     count == 1 -> "1 produit repassé en stock"
     else -> "$count produits repassés en stock"
 }
+
+// A burst of list updates (an errand ends, every line leaves) is one fetch of the suggestions.
+internal const val SUGGESTIONS_REFRESH_DELAY_MS = 300L
 
 // Taps on − / + made within this delay are one request carrying the last quantity.
 internal const val QUANTITY_SAVE_DELAY_MS = 400L
@@ -139,6 +147,7 @@ class GroceryViewModel(
     val uiState: StateFlow<GroceryUiState> = _uiState
 
     private var mercureJob: Job? = null
+    private var suggestionsJob: Job? = null
 
     // Quantities shown but not yet confirmed by the API, by item id. They hide the
     // older value a Mercure echo or a refresh would bring back mid-burst.
@@ -179,6 +188,12 @@ class GroceryViewModel(
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { event ->
+                    // Any change to the list can take a product out of the suggestions, or put it back; an
+                    // errand's end empties it. The suggestions open no stream of their own: each holds one of
+                    // the app's connections to the hub for good, and past MercureService's per-host limit a
+                    // recipe sheet's subscription never connects. A snooze or a recurring item made on another
+                    // device shows at the next refresh.
+                    refreshSuggestions(SUGGESTIONS_REFRESH_DELAY_MS)
                     try {
                         val payload = json.parseToJsonElement(event.data).jsonObject
                         val action = payload["action"]?.jsonPrimitive?.contentOrNull
@@ -231,6 +246,60 @@ class GroceryViewModel(
         }
     }
 
+    /** Refetches « Souvent pris »; the latest call wins. A failure keeps what is shown: the banner is a help, not the list. */
+    private fun refreshSuggestions(delayMs: Long = 0L) {
+        suggestionsJob?.cancel()
+        suggestionsJob = viewModelScope.launch {
+            if (delayMs > 0) delay(delayMs)
+            groceryListRepository.getSuggestions().onSuccess { suggestions ->
+                _uiState.value = _uiState.value.copy(suggestions = suggestions)
+            }
+        }
+    }
+
+    /** One gesture: the product goes on the list as an ordinary manual line, with its usual quantity. */
+    fun addSuggestion(suggestion: PurchaseSuggestion) {
+        withoutSuggestion(suggestion)
+        viewModelScope.launch {
+            groceryListRepository.addItem(
+                label = suggestion.product.name,
+                quantity = suggestion.usualQuantity?.toFloat(),
+                unit = suggestion.usualUnit,
+            ).onSuccess {
+                refresh()
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    suggestionMessage = "Erreur : « ${suggestion.product.name} » n'a pas été ajouté",
+                )
+                refreshSuggestions()
+            }
+        }
+    }
+
+    /** « Pas besoin »: the product leaves the suggestions until it is due again. */
+    fun snoozeSuggestion(suggestion: PurchaseSuggestion) {
+        withoutSuggestion(suggestion)
+        viewModelScope.launch {
+            groceryListRepository.snoozeSuggestion(suggestion.product.id).onFailure {
+                _uiState.value = _uiState.value.copy(
+                    suggestionMessage = "Erreur : « ${suggestion.product.name} » n'a pas été écarté",
+                )
+            }
+            refreshSuggestions()
+        }
+    }
+
+    fun dismissSuggestionMessage() {
+        _uiState.value = _uiState.value.copy(suggestionMessage = null)
+    }
+
+    // The row leaves at once; the refetch that follows puts it back if the API refused.
+    private fun withoutSuggestion(suggestion: PurchaseSuggestion) {
+        _uiState.value = _uiState.value.copy(
+            suggestions = _uiState.value.suggestions.filterNot { it.product.id == suggestion.product.id },
+        )
+    }
+
     private fun applyItemUpdate(transform: (GroceryItem) -> GroceryItem) {
         val currentList = _uiState.value.groceryList ?: return
         val updatedList = currentList.copy(items = currentList.items.map(transform))
@@ -241,7 +310,9 @@ class GroceryViewModel(
         )
     }
 
+    /** The list, and « Souvent pris » with it (a pull refreshes both). */
     fun refresh() {
+        refreshSuggestions()
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {

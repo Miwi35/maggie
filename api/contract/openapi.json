@@ -14139,6 +14139,13 @@
                             "null"
                         ]
                     },
+                    "suggestionSnoozedUntil": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -14343,6 +14350,13 @@
                             "boolean",
                             "null"
                         ]
+                    },
+                    "suggestionSnoozedUntil": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -14549,6 +14563,13 @@
                             "null"
                         ]
                     },
+                    "suggestionSnoozedUntil": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -14754,6 +14775,13 @@
                                     "boolean",
                                     "null"
                                 ]
+                            },
+                            "suggestionSnoozedUntil": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "aisles": {
                                 "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -16701,6 +16729,13 @@
                             "null"
                         ]
                     },
+                    "suggestionSnoozedUntil": {
+                        "readOnly": true,
+                        "description": "« Pas besoin » on its « tu en prends souvent » suggestion: not offered\nagain before this day (MAG-495). Read-only from the API: it is written\nby `POST /api/grocery-suggestions/{productId}/snooze` alone.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-27"
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -16909,6 +16944,13 @@
                             "boolean",
                             "null"
                         ]
+                    },
+                    "suggestionSnoozedUntil": {
+                        "readOnly": true,
+                        "description": "« Pas besoin » on its « tu en prends souvent » suggestion: not offered\nagain before this day (MAG-495). Read-only from the API: it is written\nby `POST /api/grocery-suggestions/{productId}/snooze` alone.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-27"
                     },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -17119,6 +17161,13 @@
                             "null"
                         ]
                     },
+                    "suggestionSnoozedUntil": {
+                        "readOnly": true,
+                        "description": "« Pas besoin » on its « tu en prends souvent » suggestion: not offered\nagain before this day (MAG-495). Read-only from the API: it is written\nby `POST /api/grocery-suggestions/{productId}/snooze` alone.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-27"
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -17328,6 +17377,13 @@
                                     "boolean",
                                     "null"
                                 ]
+                            },
+                            "suggestionSnoozedUntil": {
+                                "readOnly": true,
+                                "description": "« Pas besoin » on its « tu en prends souvent » suggestion: not offered\nagain before this day (MAG-495). Read-only from the API: it is written\nby `POST /api/grocery-suggestions/{productId}/snooze` alone.",
+                                "type": "string",
+                                "format": "date",
+                                "example": "2026-10-27"
                             },
                             "aisles": {
                                 "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",

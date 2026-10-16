@@ -1,0 +1,15 @@
+# « Il me manque quelque chose ? » — what the past errands say is due again
+# (MAG-495). The seed has the owner buy « Café » every 14 days, the last time
+# 14 days before the anchor, so the tool really returns it; the fake does not
+# read the result, so a journey asserts the tool ran, not the sentence.
+name: grocery-purchase-suggestions
+description: Read the products due again through get_purchase_suggestions.
+
+match:
+  user_contains: "il me manque quelque chose"
+
+turns:
+  - tools:
+      - name: get_purchase_suggestions
+        input: {}
+  - text: "Le café : tu en prends toutes les 2 semaines, il est dû. Je l'ajoute ?"

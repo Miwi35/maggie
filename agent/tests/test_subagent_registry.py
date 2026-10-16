@@ -25,6 +25,7 @@ MCP_TOOL_NAMES = (
     "get_events_by_date",
     "get_finance_dashboard",
     "get_grocery_list",
+    "get_purchase_suggestions",
     "get_recipe",
     "get_tasks",
     "get_upcoming_events",

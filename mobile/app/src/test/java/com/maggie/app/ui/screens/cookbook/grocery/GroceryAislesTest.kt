@@ -75,6 +75,7 @@ class GroceryAislesTest {
         coEvery { productRepository.getProducts() } returns Result.success(emptyList())
         coEvery { storeRepository.getStores() } returns Result.success(listOf(carrefour, biocoop))
         coEvery { groceryListRepository.reorderItems(any()) } returns Result.success(Unit)
+        coEvery { groceryListRepository.getSuggestions() } returns Result.success(emptyList())
     }
 
     @After

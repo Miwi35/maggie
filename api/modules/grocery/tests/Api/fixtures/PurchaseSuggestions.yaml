@@ -1,0 +1,150 @@
+# « Tu en prends souvent » (MAG-495): three errands two weeks apart, read on 13 Oct. 2026.
+#   café — bought 1, 15 and 29 Sept.: due on 13 Oct.
+#   thé  — bought twice only: no rhythm.
+#   lait — same rhythm as the café, but already on the list (ticked).
+#   pain — same rhythm, but a recurring grocery item brings it back.
+Maggie\Core\Entity\User:
+  test_user:
+    email: purchase-suggestions-test@example.com
+    googleId: google-purchase-suggestions-test
+    name: Purchase Suggestions Test User
+  other_user:
+    email: purchase-suggestions-other@example.com
+    googleId: google-purchase-suggestions-other
+    name: Purchase Suggestions Other User
+
+Maggie\Grocery\Entity\Store:
+  store_lidl:
+    name: Lidl
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  product_coffee:
+    name: Café
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  product_tea:
+    name: Thé
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  product_milk:
+    name: Lait
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  product_bread:
+    name: Pain
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  other_coffee:
+    name: Café
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@other_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_milk:
+    groceryList: '@grocery_list'
+    product: '@product_milk'
+    quantity: 1
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  recurring_bread:
+    product: '@product_bread'
+    quantity: 1
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable("2099-01-01"))>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\PurchasedItem:
+  bought_coffee_sep01:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_coffee']
+  bought_tea_sep01:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Thé', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_tea']
+  bought_milk_sep01:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Lait', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_milk']
+  bought_bread_sep01:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Pain', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_bread']
+  bought_coffee_sep15:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 2, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_coffee']
+  bought_tea_sep15:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Thé', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_tea']
+  bought_milk_sep15:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Lait', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_milk']
+  bought_bread_sep15:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Pain', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_bread']
+  bought_coffee_sep29:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_coffee']
+  bought_milk_sep29:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Lait', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_milk']
+  bought_bread_sep29:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Pain', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@product_bread']
+  other_bought_sep01:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@other_coffee']
+  other_bought_sep15:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@other_coffee']
+  other_bought_sep29:
+    __factory:
+      'Maggie\Grocery\Entity\PurchasedItem::of': ['Café', 1, '<(Maggie\Grocery\Enum\Unit::Pack)>', '@other_coffee']
+
+Maggie\Grocery\Entity\Errand:
+  errand_sep01:
+    user: '@test_user'
+    store: '@store_lidl'
+    endedAt: '<(new \DateTimeImmutable("2026-09-01 10:00:00+02:00"))>'
+    __calls:
+      - addItem: ['@bought_coffee_sep01']
+      - addItem: ['@bought_tea_sep01']
+      - addItem: ['@bought_milk_sep01']
+      - addItem: ['@bought_bread_sep01']
+  errand_sep15:
+    user: '@test_user'
+    store: '@store_lidl'
+    endedAt: '<(new \DateTimeImmutable("2026-09-15 18:30:00+02:00"))>'
+    __calls:
+      - addItem: ['@bought_coffee_sep15']
+      - addItem: ['@bought_tea_sep15']
+      - addItem: ['@bought_milk_sep15']
+      - addItem: ['@bought_bread_sep15']
+  errand_sep29:
+    user: '@test_user'
+    store: '@store_lidl'
+    endedAt: '<(new \DateTimeImmutable("2026-09-29 09:15:00+02:00"))>'
+    __calls:
+      - addItem: ['@bought_coffee_sep29']
+      - addItem: ['@bought_milk_sep29']
+      - addItem: ['@bought_bread_sep29']
+  other_errand_sep01:
+    user: '@other_user'
+    endedAt: '<(new \DateTimeImmutable("2026-09-01 10:00:00+02:00"))>'
+    __calls:
+      - addItem: ['@other_bought_sep01']
+  other_errand_sep15:
+    user: '@other_user'
+    endedAt: '<(new \DateTimeImmutable("2026-09-15 18:30:00+02:00"))>'
+    __calls:
+      - addItem: ['@other_bought_sep15']
+  other_errand_sep29:
+    user: '@other_user'
+    endedAt: '<(new \DateTimeImmutable("2026-09-29 09:15:00+02:00"))>'
+    __calls:
+      - addItem: ['@other_bought_sep29']
