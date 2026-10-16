@@ -100,6 +100,8 @@ const RulesBlock = () => <ResourceCountBlock resource="categorization_rules" one
 
 const CategoriesBlock = () => <ResourceCountBlock resource="categories" one="catégorie" />
 
+const ContactsBlock = () => <ResourceCountBlock resource="contacts" one="contact" />
+
 const LoansBlock = () => <ResourceCountBlock resource="loans" one="prêt" />
 
 const RecurringBlock = () => {
@@ -228,6 +230,7 @@ const BanksBlock = () => {
 export const SUMMARY_BLOCKS: Record<string, ComponentType> = {
   accounts: AccountsBlock,
   import: ImportBlock,
+  contacts: ContactsBlock,
   'to-sort': ToSortBlock,
   'monthly-review': MonthlyReviewBlock,
   rules: RulesBlock,
