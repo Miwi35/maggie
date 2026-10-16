@@ -13,12 +13,37 @@ export interface NavPart {
   path: string
   /** The API Platform resource behind the part: it has `create`, `:id` and `:id/show` routes. */
   resource?: string
+  /** The menu the part is reached from, when the module has menus: one more level in the trail. */
+  menu?: { label: string; path: string }
+}
+
+/**
+ * One aspect of a menu (MAG-427): a block of the menu's summary page, opening
+ * on its detailed screen. No `path` when no screen holds the detail yet — the
+ * block then only says where things stand.
+ */
+export interface NavAspect {
+  id: string
+  label: string
+  path?: string
+  /** The API Platform resource behind the screen, when it is one. */
+  resource?: string
+}
+
+/** A menu of the sidebar: it opens a summary page, never a list of links. */
+export interface NavMenu {
+  key: string
+  label: string
+  path: string
+  aspects: NavAspect[]
 }
 
 export interface NavModule {
   label: string
   /** The module's dashboard, when it has one: its page is the module itself. */
   dashboard?: string
+  /** The sidebar's entries under the module, when it has more than a flat list of parts. */
+  menus?: NavMenu[]
   parts: NavPart[]
 }
 
@@ -30,6 +55,87 @@ const resourcePart = (label: string, resource: string): NavPart => ({
   path: `/${resource}`,
   resource,
 })
+
+export const FINANCE_DASHBOARD_PATH = '/finance/dashboard'
+
+export const financeSummaryPath = (key: string): string => `/finance/summary/${key}`
+
+/**
+ * The seven Finance menus (owner, 15 Oct.), in the sidebar's order. The
+ * Dashboard is the module's home and has no aspects; each of the others opens
+ * the summary page at `/finance/summary/<key>`. Every Finance screen sits under
+ * exactly one aspect — transactions are reached through their account.
+ */
+export const FINANCE_MENUS: NavMenu[] = [
+  { key: 'dashboard', label: 'Dashboard', path: FINANCE_DASHBOARD_PATH, aspects: [] },
+  {
+    key: 'accounts',
+    label: 'Comptes',
+    path: financeSummaryPath('accounts'),
+    aspects: [
+      { id: 'accounts', label: 'Comptes et transactions', path: '/accounts', resource: 'accounts' },
+      { id: 'import', label: 'Import de relevés', path: '/finance/import' },
+      { id: 'contacts', label: 'Contacts', path: '/contacts', resource: 'contacts' },
+    ],
+  },
+  {
+    key: 'review',
+    label: 'Revue',
+    path: financeSummaryPath('review'),
+    aspects: [
+      { id: 'to-sort', label: 'À trier', path: '/finance/to-sort' },
+      { id: 'monthly-review', label: 'Revue mensuelle', path: '/finance/monthly-review' },
+      { id: 'rules', label: 'Règles de catégorisation', path: '/categorization_rules', resource: 'categorization_rules' },
+      { id: 'recurring', label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
+    ],
+  },
+  {
+    key: 'budget',
+    label: 'Budget',
+    path: financeSummaryPath('budget'),
+    aspects: [{ id: 'envelopes', label: 'Enveloppes', path: '/envelopes', resource: 'envelopes' }],
+  },
+  {
+    key: 'treasury',
+    label: 'Trésorerie',
+    path: financeSummaryPath('treasury'),
+    aspects: [
+      { id: 'cushion', label: 'Matelas', path: '/finance/cushion' },
+      { id: 'advances', label: "Avances d'épargne", path: '/finance/savings-advances' },
+      { id: 'peer-debts', label: 'Créances et dettes', path: '/finance/peer-debts' },
+      { id: 'outlook', label: 'Solde projeté', path: '/finance/treasury' },
+    ],
+  },
+  {
+    key: 'planning',
+    label: 'Planification',
+    path: financeSummaryPath('planning'),
+    aspects: [
+      { id: 'loans', label: 'Prêts', path: '/loans', resource: 'loans' },
+      { id: 'independence', label: 'Indépendance' },
+    ],
+  },
+  {
+    key: 'settings',
+    label: 'Configuration',
+    path: financeSummaryPath('settings'),
+    aspects: [
+      { id: 'banks', label: 'Banques', path: '/finance/banks' },
+      { id: 'categories', label: 'Catégories', path: '/categories', resource: 'categories' },
+    ],
+  },
+]
+
+const financeParts = (): NavPart[] => [
+  ...FINANCE_MENUS.flatMap((menu) =>
+    menu.aspects.flatMap((aspect): NavPart[] =>
+      aspect.path
+        ? [{ label: aspect.label, path: aspect.path, resource: aspect.resource, menu: { label: menu.label, path: menu.path } }]
+        : [],
+    ),
+  ),
+  resourcePart('Transactions', 'transactions'),
+]
 
 export const NAVIGATION: NavModule[] = [
   {
@@ -61,26 +167,9 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Finance',
-    dashboard: '/finance/dashboard',
-    parts: [
-      { label: 'Banques', path: '/finance/banks' },
-      { label: 'Import de relevé', path: '/finance/import' },
-      resourcePart('Comptes', 'accounts'),
-      resourcePart('Contacts', 'contacts'),
-      { label: 'Créances et dettes', path: '/finance/peer-debts' },
-      resourcePart('Transactions', 'transactions'),
-      { label: 'À qualifier', path: '/finance/to-sort' },
-      { label: 'Reconnues à contrôler', path: '/finance/to-control' },
-      resourcePart('Catégories', 'categories'),
-      resourcePart('Budgets', 'envelopes'),
-      { label: 'Trésorerie', path: '/finance/treasury' },
-      { label: 'Matelas', path: '/finance/cushion' },
-      { label: "Avances d'épargne", path: '/finance/savings-advances' },
-      resourcePart('Prêts', 'loans'),
-      { label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
-      { label: 'Revue mensuelle', path: '/finance/monthly-review' },
-      resourcePart('Règles de catégorisation', 'categorization_rules'),
-    ],
+    dashboard: FINANCE_DASHBOARD_PATH,
+    menus: FINANCE_MENUS,
+    parts: financeParts(),
   },
   {
     label: 'Paramètres',
@@ -132,6 +221,26 @@ const moduleCrumb = (module: NavModule): TrailCrumb => ({
 
 const partCrumb = (part: NavPart): TrailCrumb => ({ label: part.label, to: part.path })
 
+/** A part's crumbs after the module: its menu, when it has one, then itself. */
+const partHead = (module: NavModule, part: NavPart): TrailCrumb[] => [
+  moduleCrumb(module),
+  ...(part.menu ? [{ label: part.menu.label, to: part.menu.path }] : []),
+  partCrumb(part),
+]
+
+/** The Finance menu a page belongs to, so the sidebar can highlight it. */
+export function financeMenuOf(pathname: string): string | undefined {
+  const trail = resolveTrail(pathname)
+  if (trail[0]?.label !== 'Finance') {
+    return undefined
+  }
+  if (trail.length === 1) {
+    return 'dashboard'
+  }
+
+  return FINANCE_MENUS.find((menu) => menu.path === trail[1].to)?.key
+}
+
 const decode = (segment: string): string => {
   try {
     return decodeURIComponent(segment)
@@ -162,8 +271,7 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
     const module = finance()
     const accounts = module.parts.find((p) => p.resource === 'accounts') as NavPart
     return [
-      moduleCrumb(module),
-      partCrumb(accounts),
+      ...partHead(module, accounts),
       { to: path, record: { resource: 'accounts', id: `/api/accounts/${accountTransactions[1]}` } },
     ]
   }
@@ -176,8 +284,13 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
       return [moduleCrumb(module), { label: CURRENT_STATE_LABEL, to: path }]
     }
 
+    const menu = module.menus?.find((candidate) => candidate.path === path)
+    if (menu) {
+      return [moduleCrumb(module), { label: menu.label, to: menu.path }]
+    }
+
     for (const part of module.parts) {
-      const head = [moduleCrumb(module), partCrumb(part)]
+      const head = partHead(module, part)
 
       if (part.path === path) {
         return head

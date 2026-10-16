@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedAnchorDate, seedDate } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
+import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
@@ -391,4 +392,27 @@ test.describe('what is to do', () => {
     }
     await expect(toSort.pile.getByRole('button')).toHaveCount(3)
   })
+})
+
+/**
+ * The seven Finance menus (MAG-427, extends MAG-102).
+ *
+ * Finance › Configuration opens a summary page — a block for the banks, one for
+ * the categories — and the banks block opens the banks page. The menu is never
+ * a list of links to screens.
+ */
+test('Finance › Configuration › Banques: the menu opens a summary, its block opens the banks page', async ({
+  page,
+}) => {
+  const overview = new FinanceOverviewPage(page)
+  await overview.open()
+
+  await overview.navigateTo('Configuration', 'Finance')
+
+  await expect(overview.content.getByTestId('summary-block')).toHaveCount(2)
+  await expect(overview.content.getByRole('link', { name: 'Catégories' })).toBeVisible()
+
+  await overview.content.getByRole('link', { name: 'Banques' }).click()
+
+  await expect(new FinanceBanksPage(page).connectionsCard).toBeVisible()
 })
