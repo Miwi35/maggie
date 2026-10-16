@@ -14,6 +14,7 @@ use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Exception\SatisfactionException;
+use Maggie\Finance\Exception\SharedSpendException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -81,6 +82,8 @@ class UpdateTransactionHandler
         $this->applyQualification($transaction, $command);
 
         $this->applyTransfer($transaction, $command);
+        // After the marking and the amount: a shared spend stays one whose part is below it.
+        $this->assertShareStillFits($transaction);
         // After the marking and the amount: what is judged is what the line has become.
         if (null !== $verdict && RetrospectVerdict::Unrated !== $verdict && !$transaction->canBeJudged()) {
             throw new SatisfactionException('A satisfaction goes to a spend only: an income or a transfer between your own accounts has nothing to judge.');
@@ -99,6 +102,18 @@ class UpdateTransactionHandler
         }
 
         return $this->updateTransaction->execute($transaction);
+    }
+
+    /**
+     * A shared spend made an income, a transfer, or smaller than the part kept
+     * would leave a créance for money nobody advanced: the share goes first.
+     */
+    private function assertShareStillFits(Transaction $transaction): void
+    {
+        $myShare = $transaction->getMyShareCents();
+        if (null !== $myShare && (!$transaction->canBeShared() || $myShare >= abs($transaction->getAmountCents()))) {
+            throw new SharedSpendException('This spend is shared: remove the share (DELETE /api/finance/transactions/{id}/my-share) before making it an income, a transfer, or smaller than your part.');
+        }
     }
 
     /**

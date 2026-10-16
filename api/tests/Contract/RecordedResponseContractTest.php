@@ -95,6 +95,8 @@ final class RecordedResponseContractTest extends WebTestCase
         'finance_budget_status.read' => '/api/finance/budget-status?year=2026&month=3',
         'contacts.collection' => '/api/contacts',
         'contact_counterparties.collection' => '/api/contact_counterparties',
+        'peer_debts.collection' => '/api/peer_debts',
+        'finance_peer_debts_summary.read' => '/api/finance/peer-debts/summary',
     ];
 
     private KernelBrowser $client;
@@ -291,6 +293,28 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/finance_contact_counterparty_suggestions.read.json',
             self::stabilise($body),
             'GET /api/finance/contacts/{id}/counterparty-suggestions no longer returns what it used to. The mobile DTOs (Contact.kt) are written against this response.',
+        );
+    }
+
+    /** « Partage » on the transaction sheet (MAG-451): the part kept and the créance, as the controller sends them. */
+    public function testTheMyShareRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/transactions/'.$this->getFixture('recorded_one_off_spend')->getId().'/my-share', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotNull($body['peerDebt'] ?? null, 'The recorded spend is not shared, so the recording proves nothing about a créance.');
+
+        $this->assertMatchesContract(
+            'responses/finance_transaction_my_share.read.json',
+            self::stabilise($body),
+            'GET /api/finance/transactions/{id}/my-share no longer returns what it used to. The mobile DTOs (PeerDebt.kt) and the admin read this response.',
         );
     }
 

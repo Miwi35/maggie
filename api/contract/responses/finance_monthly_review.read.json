@@ -1,10 +1,10 @@
 {
     "year": 2026,
     "month": 3,
-    "reviewableCents": 134499,
+    "reviewableCents": 128499,
     "keptCents": 0,
     "avoidableCents": 0,
-    "unratedCents": 134499,
+    "unratedCents": 128499,
     "ratedCount": 0,
     "pendingCount": 4,
     "optimisationScore": null,
@@ -14,6 +14,7 @@
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "label": "LOYER SCI VERDA",
             "amountCents": -120000,
+            "myShareCents": null,
             "currency": "EUR",
             "bookedAt": "2026-03-05",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -24,6 +25,7 @@
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "label": "Recorded ticket",
             "amountCents": -8900,
+            "myShareCents": 2900,
             "currency": "EUR",
             "bookedAt": "2026-03-20",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -34,6 +36,7 @@
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "label": "Recorded transaction",
             "amountCents": -4250,
+            "myShareCents": null,
             "currency": "EUR",
             "bookedAt": "2026-03-17",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -44,6 +47,7 @@
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "label": "NETFLIX.COM",
             "amountCents": -1349,
+            "myShareCents": null,
             "currency": "EUR",
             "bookedAt": "2026-03-14",
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -52,7 +56,7 @@
         }
     ],
     "comparison": {
-        "thisMonthCents": 130249,
+        "thisMonthCents": 124249,
         "previousMonthCents": 91349,
         "recentAverageCents": 60899,
         "sameMonthLastYearCents": 0
@@ -62,8 +66,8 @@
         "source": "expected"
     },
     "consumedVsReference": {
-        "consumedCents": 130249,
-        "differenceCents": -364751,
-        "percentOfReference": 26
+        "consumedCents": 124249,
+        "differenceCents": -370751,
+        "percentOfReference": 25
     }
 }

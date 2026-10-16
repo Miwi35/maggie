@@ -1,0 +1,126 @@
+# My part of a shared spend (MAG-451), shared by the API and MCP suites: a gîte
+# of 800 € filed under Voyages, whose July envelope is 300 €; Julie, Tom and
+# Inès to share it with; an income and an internal transfer, which cannot be
+# shared; a dinner whose créance Tom already started to give back.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-peer-debts-test@example.com
+    googleId: google-finance-peer-debts-test
+    name: Finance Peer Debts Test User
+  other_user:
+    email: finance-peer-debts-other@example.com
+    googleId: google-finance-peer-debts-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  travel_july:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+
+Maggie\Finance\Entity\Contact:
+  julie:
+    name: Julie
+    user: '@test_user'
+  tom:
+    name: Tom
+    user: '@test_user'
+  ines:
+    name: Inès
+    user: '@test_user'
+  others_contact:
+    name: Paul
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  gite:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -80000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-10"))>'
+    label: GITE DES FALAISES
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  small_spend:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -10000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: PEAGE A84
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  salary:
+    account: '@checking'
+    amountCents: 250000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: SALAIRE JUILLET
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  to_savings:
+    account: '@checking'
+    amountCents: -50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-02"))>'
+    label: VIR. VERS LIVRET A
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    isExceptional: false
+    user: '@test_user'
+  dinner:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -9000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-14"))>'
+    label: RESTAURANT LE PHARE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    myShareCents: 3000
+    user: '@test_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  dinner_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Dîner au Phare
+    originTransaction: '@dinner'
+    user: '@test_user'
+  others_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Pas le mien
+    user: '@other_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  dinner_tom:
+    peerDebt: '@dinner_debt'
+    contact: '@tom'
+    amountCents: 6000
+    repaidCents: 1000
+  others_share:
+    peerDebt: '@others_debt'
+    contact: '@others_contact'
+    amountCents: 4000

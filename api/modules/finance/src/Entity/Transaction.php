@@ -293,6 +293,20 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[IndexedRelation(targetEntity: Contact::class, sourceField: 'contactId')]
     private ?Contact $contact = null;
 
+    /**
+     * The owner's own part of a shared spend, as positive cents (MAG-451):
+     * the gîte cost 800 €, my part is 200 €. Only it counts in the envelopes,
+     * the score, the review and the lifestyle (`getOwnAmountCents`); the rest
+     * is a créance (`PeerDebt`). Null when the spend is not shared.
+     *
+     * Read-only over REST: it goes with its créance, through
+     * `PUT /api/finance/transactions/{id}/my-share`.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'long')]
+    private ?int $myShareCents = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
@@ -838,6 +852,46 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getMyShareCents(): ?int
+    {
+        return $this->myShareCents;
+    }
+
+    /** @throws \DomainException when the line is not a spend, or the part not below its amount */
+    public function setMyShareCents(?int $myShareCents): static
+    {
+        if (null !== $myShareCents) {
+            if (!$this->canBeShared()) {
+                throw new \DomainException('Only a spend can be shared: not an income, an internal transfer or a rejection.');
+            }
+            if ($myShareCents < 0 || $myShareCents >= abs($this->amountCents)) {
+                throw new \DomainException(sprintf('myShareCents must be between 0 and %d.', abs($this->amountCents) - 1));
+            }
+        }
+
+        $this->myShareCents = $myShareCents;
+
+        return $this;
+    }
+
+    /** A spend that is neither a transfer between the owner's accounts nor a rejection. Not serialized. */
+    #[ApiProperty(readable: false)]
+    public function canBeShared(): bool
+    {
+        return $this->amountCents < 0 && TransferKind::None === $this->transferKind;
+    }
+
+    /**
+     * The signed amount that is the owner's own: the part they kept of a
+     * shared spend, the whole amount otherwise. What every budget figure
+     * reads; `TransactionRepository::OWN_AMOUNT` is its DQL twin.
+     */
+    #[ApiProperty(readable: false)]
+    public function getOwnAmountCents(): int
+    {
+        return null === $this->myShareCents ? $this->amountCents : -$this->myShareCents;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -881,6 +935,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'note' => $this->note,
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
             'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
+            'myShareCents' => $this->myShareCents,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -916,6 +971,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'note' => $this->note,
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
             'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
+            'myShareCents' => $this->myShareCents,
         ], self::withDerivedProperties($changedProperties), [
             ...Qualification::changedPropertyMap(),
             'qualifiedBySeries' => 'qualifiedBySeriesId',

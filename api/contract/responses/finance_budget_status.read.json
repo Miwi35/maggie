@@ -72,13 +72,13 @@
                 "mode": "one_off",
                 "currency": "EUR",
                 "amountCents": 40000,
-                "spentCents": 8900,
+                "spentCents": 2900,
                 "committedCents": 0,
                 "plannedCents": 0,
                 "toArbitrateCents": 0,
-                "consumedCents": 8900,
-                "remainingCents": 31100,
-                "availableCents": 31100,
+                "consumedCents": 2900,
+                "remainingCents": 37100,
+                "availableCents": 37100,
                 "isOverspent": false,
                 "isOvercommitted": false
             }

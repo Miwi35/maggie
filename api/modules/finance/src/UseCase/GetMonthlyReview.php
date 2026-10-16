@@ -41,7 +41,8 @@ class GetMonthlyReview
         $pending = [];
 
         foreach ($reviewable as $transaction) {
-            $amount = abs($transaction->getAmountCents());
+            // A shared spend weighs only the part the owner kept (MAG-451).
+            $amount = abs($transaction->getOwnAmountCents());
 
             match ($transaction->getRetrospect()) {
                 RetrospectVerdict::Keep => $keptCents += $amount,
@@ -131,6 +132,7 @@ class GetMonthlyReview
             'id' => (string) $transaction->getId(),
             'label' => $transaction->getLabel(),
             'amountCents' => $transaction->getAmountCents(),
+            'myShareCents' => $transaction->getMyShareCents(),
             'currency' => $transaction->getCurrency(),
             'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
             'categoryId' => null !== $transaction->getCategory()

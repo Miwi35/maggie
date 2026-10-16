@@ -26,6 +26,7 @@
             "transferSource": "auto",
             "recurringSource": "auto",
             "oneOffEnvelope": "/api/envelopes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "myShareCents": 2900,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },

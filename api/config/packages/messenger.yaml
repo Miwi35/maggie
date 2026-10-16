@@ -151,6 +151,8 @@ framework:
             'Maggie\Finance\Message\LinkContactCounterpartyCommand': sync
             'Maggie\Finance\Message\UnlinkContactCounterpartyCommand': sync
             'Maggie\Finance\Message\RelinkContactTransactionsCommand': sync
+            'Maggie\Finance\Message\SetMyShareCommand': sync
+            'Maggie\Finance\Message\RemoveMyShareCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': sync
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': sync
 

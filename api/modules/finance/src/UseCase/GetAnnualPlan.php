@@ -107,7 +107,7 @@ class GetAnnualPlan
             $id = $this->openFor($rows, $this->categoryOf($transaction));
             $rows[$id]['plannedEvents'][] = $this->serialize($transaction, withId: true);
 
-            $amount = abs($transaction->getAmountCents());
+            $amount = abs($transaction->getOwnAmountCents());
 
             $rows[$id][match ($transaction->getStatus()) {
                 TransactionStatus::Committed => 'committedCents',
