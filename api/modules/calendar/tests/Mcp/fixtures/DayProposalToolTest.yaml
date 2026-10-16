@@ -1,0 +1,100 @@
+# The morning proposal (MAG-498). The tests pin the clock at Wednesday 2026-10-14 08:30 Paris (06:30 UTC).
+# Agenda of the day: 9:00-18:30 taken (two overlapping events) and a whole-day event that takes no time:
+# 8:30-9:00 and 18:30-21:00 are free, 3 h.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Agenda:
+  agenda:
+    name: Défaut
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  morning:
+    summary: Atelier
+    startAt: '<(new \DateTimeImmutable("2026-10-14T09:00:00+02:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-14T13:00:00+02:00"))>'
+    agenda: '@agenda'
+  afternoon:
+    summary: Rendez-vous client
+    startAt: '<(new \DateTimeImmutable("2026-10-14T12:00:00+02:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-14T18:30:00+02:00"))>'
+    agenda: '@agenda'
+  whole_day:
+    summary: Anniversaire de Paul
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2026-10-14"))>'
+    endDate: '<(new \DateTimeImmutable("2026-10-15"))>'
+    agenda: '@agenda'
+
+Maggie\Calendar\Entity\Task:
+  # Due Monday, not done: « reportée ».
+  postponed:
+    title: Rappeler le garage
+    dueDate: '<(new \DateTimeImmutable("2026-10-12"))>'
+    estimatedMinutes: 40
+    position: '00000000000000000001'
+    user: '@test_user'
+  due_long:
+    title: Envoyer le devis
+    dueDate: '<(new \DateTimeImmutable("2026-10-14"))>'
+    estimatedMinutes: 20
+    position: '00000000000000000002'
+    user: '@test_user'
+  due_short:
+    title: Signer la décharge
+    dueDate: '<(new \DateTimeImmutable("2026-10-14"))>'
+    estimatedMinutes: 5
+    position: '00000000000000000003'
+    user: '@test_user'
+  critical:
+    title: Déclarer les impôts
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Critical)>'
+    estimatedMinutes: 60
+    position: '00000000000000000004'
+    user: '@test_user'
+  # No date: by score, the high priority first.
+  free_high:
+    title: Écrire à Léa
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    position: '00000000000000000005'
+    user: '@test_user'
+  free_1:
+    title: Trier le courrier
+    position: '00000000000000000006'
+    user: '@test_user'
+  free_2:
+    title: Arroser les plantes
+    position: '00000000000000000007'
+    user: '@test_user'
+  free_3:
+    title: Ranger le garage
+    position: '00000000000000000008'
+    user: '@test_user'
+  # Never proposed: a subtask, a done task, another user's task.
+  sub:
+    title: Noter les horaires
+    parent: '@postponed'
+    position: '00000000000000000001'
+    user: '@test_user'
+  done:
+    title: Faite hier
+    completedAt: '<(new \DateTimeImmutable("2026-10-13 18:00"))>'
+    position: '00000000000000000009'
+    user: '@test_user'
+  others:
+    title: Someone else's
+    user: '@other_user'

@@ -96,3 +96,117 @@ export function placeOnDay(slots: string[], taskId: string, target: DayTarget): 
 
   return next
 }
+
+/** Why a task is proposed, in the order of the rule's tiers (MAG-498). */
+export type ProposalReason = 'postponed' | 'dueToday' | 'urgent' | 'dueTomorrow' | 'quick' | 'whenever'
+
+export const REASON_LABELS: Record<ProposalReason, string> = {
+  postponed: 'reportée',
+  dueToday: 'à faire aujourd’hui',
+  urgent: 'urgent',
+  dueTomorrow: 'pour demain',
+  quick: 'rapide',
+  whenever: 'quand tu veux',
+}
+
+/** A task the morning proposes, with why and the minutes it counts for (15 when unknown). */
+export interface ProposalEntry {
+  reason: ProposalReason
+  minutes: number
+  task: DayTask
+}
+
+export interface ProposalSlot extends ProposalEntry {
+  position: number
+  type: 'task'
+}
+
+/** `GET /api/day-plans/{date}/proposal`: five tasks at most and the rest by rank; it writes nothing. */
+export interface DayProposal {
+  date: string
+  slots: ProposalSlot[]
+  reserveRanked: ProposalEntry[]
+  totalMinutes: number
+  /** The agenda's free time of the day, from the morning to 21:00. */
+  freeMinutes: number
+}
+
+/** The morning's proposal for `date` (`YYYY-MM-DD`). */
+export async function fetchDayProposal(date: string): Promise<DayProposal> {
+  const response = await fetch(`${apiUrl}/day-plans/${date}/proposal`, { headers: headers({ Accept: 'application/json' }) })
+  if (!response.ok) {
+    throw await dayError(response)
+  }
+  const body = (await response.json()) as Partial<DayProposal>
+
+  return {
+    date: body.date ?? date,
+    slots: body.slots ?? [],
+    reserveRanked: body.reserveRanked ?? [],
+    totalMinutes: body.totalMinutes ?? 0,
+    freeMinutes: body.freeMinutes ?? 0,
+  }
+}
+
+const countedMinutes = (slots: ProposalSlot[]): number =>
+  slots.reduce((sum, slot) => sum + (slot.task.completedAt == null ? slot.minutes : 0), 0)
+
+/**
+ * The proposal once slot `index` is swapped: the first of the reserve takes
+ * its place (the position does not change) and the task it replaces goes to
+ * the end of the reserve. Nothing changes without a reserve.
+ */
+export function swapProposal(proposal: DayProposal, index: number): DayProposal {
+  const [next, ...rest] = proposal.reserveRanked
+  const out = proposal.slots[index]
+  if (!next || !out) return proposal
+
+  const slots = proposal.slots.map((slot, i) => (i === index ? { ...slot, ...next } : slot))
+
+  return {
+    ...proposal,
+    slots,
+    reserveRanked: [...rest, { reason: out.reason, minutes: out.minutes, task: out.task }],
+    totalMinutes: countedMinutes(slots),
+  }
+}
+
+/** `55 min`, `2 h 30`, `1 h`. */
+export function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
+}
+
+/** The user's morning time (`HH:MM`), or null when it cannot be read. */
+export async function fetchMorningTime(): Promise<string | null> {
+  const response = await fetch(`${apiUrl}/task-settings/me`, { headers: headers({ Accept: 'application/json' }) })
+  if (!response.ok) return null
+  const body = (await response.json().catch(() => ({}))) as { morningTime?: string }
+
+  return typeof body.morningTime === 'string' && /^\d{2}:\d{2}$/.test(body.morningTime) ? body.morningTime : null
+}
+
+/** The morning proposal is due once the morning time has come and the day is not confirmed yet. */
+export function morningDue(now: Date, morningTime: string | null, confirmedAt: string | null): boolean {
+  if (!morningTime || confirmedAt != null) return false
+  const [hours, minutes] = morningTime.split(':').map(Number)
+
+  return now.getHours() * 60 + now.getMinutes() >= hours * 60 + minutes
+}
+
+let morningOffered = false
+
+/** True the first time only: the morning opens once per load of the app, so leaving it unconfirmed does not loop. */
+export function claimMorning(): boolean {
+  if (morningOffered) return false
+  morningOffered = true
+
+  return true
+}
+
+export function resetMorningOffer(): void {
+  morningOffered = false
+}

@@ -154,7 +154,10 @@ fun TasksScreen(
                 }
                 else -> {
                     val day = state.day
-                    if (state.view == TaskView.TODAY && day != null) {
+                    val morning = state.morning
+                    if (state.view == TaskView.TODAY && morning != null) {
+                        MorningContent(morning = morning, viewModel = viewModel)
+                    } else if (state.view == TaskView.TODAY && day != null) {
                         DayContent(day = day, state = state, viewModel = viewModel)
                     } else {
                         TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)

@@ -6,6 +6,7 @@ namespace Maggie\Calendar\Controller;
 
 use Maggie\Calendar\Message\SetDayPlanCommand;
 use Maggie\Calendar\Service\DayPlans;
+use Maggie\Calendar\Service\DayProposal;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,12 +20,16 @@ use Symfony\Component\Routing\Attribute\Route;
  * The day (MAG-497), by local date: created empty on first read; the PUT
  * replaces the whole list of slots — five at most. A future day can already
  * be written. `confirm: false` writes a proposal without settling the day.
+ *
+ * `/proposal` (MAG-498) reads the morning's five without writing anything:
+ * « C'est parti » is the PUT of the day with those five.
  */
 final class DayPlanController
 {
     public function __construct(
         private readonly Security $security,
         private readonly DayPlans $dayPlans,
+        private readonly DayProposal $proposal,
         private readonly MessageBusInterface $bus,
     ) {
     }
@@ -44,6 +49,23 @@ final class DayPlanController
         }
 
         return new JsonResponse($this->dayPlans->describe($this->dayPlans->forDate($user, $day)));
+    }
+
+    #[Route('/api/day-plans/{date}/proposal', name: 'api_day_plan_proposal', methods: ['GET'])]
+    public function propose(string $date): JsonResponse
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $day = DayPlans::day($date);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse($this->proposal->propose($user, $day));
     }
 
     #[Route('/api/day-plans/{date}', name: 'api_day_plan_update', methods: ['PUT'])]

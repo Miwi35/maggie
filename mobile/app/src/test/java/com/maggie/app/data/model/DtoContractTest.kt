@@ -104,6 +104,24 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the morning's proposal deserialises from the recorded response, its slots and its reserve`() {
+        val body = readRecording("day_plans.proposal")
+        val proposal = json.decodeFromJsonElement(serializer<DayProposal>(), body)
+
+        assertTrue("The recording day_plans.proposal has no slot, so it proves nothing.", proposal.slots.isNotEmpty())
+        assertTrue("The recording day_plans.proposal has an empty reserve, so it proves nothing.", proposal.reserveRanked.isNotEmpty())
+        assertDeclaredFieldsExist("DayProposal", serializer<DayProposal>(), body.keys, "day_plans.proposal")
+        assertDeclaredFieldsExist("ProposalSlot", serializer<ProposalSlot>(), keysOf(body, "slots"), "day_plans.proposal")
+        assertDeclaredFieldsExist("ProposalEntry", serializer<ProposalEntry>(), keysOf(body, "reserveRanked"), "day_plans.proposal")
+        val tasks = body["slots"]!!.jsonArray.flatMap { it.jsonObject["task"]!!.jsonObject.keys } +
+            body["reserveRanked"]!!.jsonArray.flatMap { it.jsonObject["task"]!!.jsonObject.keys }
+        assertDeclaredFieldsExist("DayTask", serializer<DayTask>(), tasks.toSet(), "day_plans.proposal")
+        assertEquals("postponed", proposal.slots.first().reason)
+        assertEquals(20, proposal.slots.first().minutes)
+        assertEquals(proposal.slots.sumOf { it.minutes }, proposal.totalMinutes)
+    }
+
+    @Test
     fun `a task carries its estimate, first step and the day it was put off under the names the API sends`() {
         val view = json.decodeFromJsonElement(serializer<TaskViewResponse>(), readRecording("tasks.view_today"))
         val open = view.member.first { it.title == "Recorded open task" }

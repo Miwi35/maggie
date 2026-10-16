@@ -1,0 +1,41 @@
+{
+    "date": "2026-04-22",
+    "slots": [
+        {
+            "position": 1,
+            "type": "task",
+            "reason": "postponed",
+            "minutes": 20,
+            "task": {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Recorded open task",
+                "estimatedMinutes": 20,
+                "firstStep": "Ouvrir le dossier",
+                "completedAt": null,
+                "dueDate": "2026-03-20",
+                "postponedSince": "2026-03-20",
+                "urgency": "critical",
+                "criticality": "high"
+            }
+        }
+    ],
+    "reserveRanked": [
+        {
+            "reason": "quick",
+            "minutes": 15,
+            "task": {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Recorded reserve task",
+                "estimatedMinutes": null,
+                "firstStep": null,
+                "completedAt": null,
+                "dueDate": null,
+                "postponedSince": null,
+                "urgency": "low",
+                "criticality": "low"
+            }
+        }
+    ],
+    "totalMinutes": 20,
+    "freeMinutes": 20
+}

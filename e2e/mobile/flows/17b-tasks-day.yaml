@@ -23,6 +23,11 @@ onFlowComplete:
 # and empties the day even when a step failed. The wording of « reportée » (hier, the
 # weekday, the date) is `TaskPostponedTest`'s; ticking, replacing a slot and putting a
 # task back in the reserve are `TasksViewModelTest`'s and `TasksDayScreenTest`'s.
+#
+# Then « Changer » (MAG-498): the day is confirmed (the setup PUT), so « Ta journée » does not
+# open by itself; asked for, it proposes the five with their minutes and the time against the free
+# time, a swap takes the next task of the reserve, and « C'est parti » writes the five and gives
+# way to the day. The rule and the auto-open are `DayProposalRuleTest`'s and `TasksViewModelTest`'s.
 
 - runScript:
     file: ../scripts/day-plan-api.js
@@ -102,3 +107,40 @@ onFlowComplete:
       below: ".*Passée MAG-497.*"
     timeout: 20000
 - assertNotVisible: ".*En retard.*"
+
+# « Changer »: the morning's proposal, on demand.
+- scrollUntilVisible:
+    element:
+      id: "tasks_change"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "tasks_change"
+- extendedWaitUntil:
+    visible:
+      id: "tasks_morning"
+    timeout: 30000
+- assertVisible:
+    id: "tasks_morning_time"
+- assertVisible:
+    id: "tasks_morning_slot_1"
+- assertVisible:
+    id: "tasks_morning_go"
+
+# A swap takes the next of the reserve (the put-off task heads it); nothing is written
+# before « C'est parti ».
+- tapOn:
+    id: "tasks_morning_swap_1"
+- extendedWaitUntil:
+    visible: ".*reportée.*"
+    timeout: 20000
+- tapOn:
+    id: "tasks_morning_go"
+- extendedWaitUntil:
+    notVisible:
+      id: "tasks_morning"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 30000

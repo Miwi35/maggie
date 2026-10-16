@@ -39,7 +39,13 @@ tags:
       id: "tasks"
     timeout: 20000
 
-# « Aujourd'hui » opens first, on the day: the seed plans none, so the late task waits in
+# The seed's day is not confirmed and the clock is past the morning time: « Ta journée »
+# opens first (MAG-498, `17b-tasks-day` plays it). « Plus tard » leaves it as it is.
+- tapOn:
+    id: "tasks_morning_later"
+    optional: true
+
+# « Aujourd'hui » then shows the day: the seed plans none, so the late task waits in
 # the reserve, folded, and reads « reportée » — never late in red (MAG-497).
 - extendedWaitUntil:
     visible:

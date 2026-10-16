@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,14 +81,22 @@ internal fun DayContent(
                 NowCard(task = now.task, onToggle = viewModel::toggleDayTask, onOpen = onOpen)
             }
         }
-        if (day.slots.isNotEmpty()) {
-            item(key = "slots") {
+        item(key = "slots") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = "Mes 5",
                     style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    modifier = Modifier.weight(1f),
                 )
+                TextButton(onClick = viewModel::openMorning, modifier = Modifier.testTag(UiTags.TASKS_CHANGE)) {
+                    Text("Changer")
+                }
             }
+        }
+        if (day.slots.isNotEmpty()) {
             items(day.slots, key = { "slot_" + it.task.id }) { slot ->
                 SlotRow(
                     slot = slot,

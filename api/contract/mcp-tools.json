@@ -2317,6 +2317,22 @@
         },
         "description": "Run the yearly planning session: what the year behind cost, and what the year ahead should therefore be budgeted. Lists every category the year behind cost something, biggest decision first, and reports for each what it was budgeted and really consumed, its big expenses one by one (the debits over thresholdCents, 10000 by default — the threshold decides which expenses are listed, never which categories are in the session), what the target year has already planned and committed, what its confirmed recurring series still debit (recurringCents per category: the occurrences with no line attached, each counted once — a rent already booked is the line's, never counted twice; decidedCents is planned + committed + recurring), what is only to arbitrate (reported, never counted), the annual envelope already set, and a suggested amount: what the target year has already decided on if anything, otherwise what the year behind consumed. year is between 2000 and 2100 and defaults to the one being prepared, which is next year in November and December and the current one the rest of the time. This only reads; it writes nothing: once the owner has decided, set the amounts with manage_envelopes (mode annual, the suggested amount) and the expenses with manage_transactions (status planned, committed or to_arbitrate). It never touches the calendar either: a planned expense is a transaction, not an appointment."
     },
+    "prepare_day": {
+        "name": "prepare_day",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Propose the user's day for the morning, writing nothing: up to 5 tasks chosen by a simple rule — slots already written for the day are kept, then the tasks put off (« reportée »), due that day, urgent, due the next day, the others by score — filled while their estimated minutes (15 when unknown) fit the free time of the agenda between the morning time and 21:00 (or now, when later), at least one, shortest first. date is YYYY-MM-DD, today (the user's timezone) when left out. Returns slots [{position, type, reason, minutes, task}], reserveRanked (the other open tasks, best first, to swap in: [{reason, minutes, task}]), totalMinutes and freeMinutes. reason is postponed, dueToday, urgent, dueTomorrow, quick or whenever. To settle the proposal call set_day_plan with the taskIds of the slots; nothing is written until then."
+    },
     "propose_advance_repayments": {
         "name": "propose_advance_repayments",
         "inputSchema": {

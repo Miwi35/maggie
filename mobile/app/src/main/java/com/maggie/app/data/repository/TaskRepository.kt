@@ -7,6 +7,7 @@ import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.local.entity.TaskEntity
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
+import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DaySlotRequest
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
@@ -106,6 +107,16 @@ class TaskRepository(
     /** The day of [date] (MAG-497), created empty on its first read. */
     suspend fun getDayPlan(date: LocalDate): Result<DayPlan> = runCatching {
         apiService.getDayPlan(date.toString())
+    }.rethrowCancellation()
+
+    /** The morning's five for [date] (MAG-498): nothing is written until [setDaySlots]. */
+    suspend fun getDayProposal(date: LocalDate): Result<DayProposal> = runCatching {
+        apiService.getDayProposal(date.toString())
+    }.rethrowCancellation()
+
+    /** The user's morning time, `HH:MM` (« Réglages › Tâches »). */
+    suspend fun getMorningTime(): Result<String> = runCatching {
+        apiService.getTaskSettings().morningTime
     }.rethrowCancellation()
 
     /** Replaces the day's slots by [taskIds], in order, five at most: what is left out goes back to the reserve. */
