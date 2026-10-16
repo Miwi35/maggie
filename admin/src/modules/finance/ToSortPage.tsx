@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Alert from '@mui/material/Alert'
-import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -12,18 +11,20 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
-import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
-import { Title, useGetList } from 'react-admin'
-import type { RaRecord } from 'react-admin'
+import { Link, Title, useCreatePath } from 'react-admin'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { formatCents } from './accountTypes'
-import { categoryLabel, orderedCategories } from './categoryTree'
-import type { CategoryNode } from './categoryTree'
+import { CreateFilterDialog } from './CreateFilterDialog'
 import { bareId } from './envelopeTree'
+import { Qualification } from './Qualification'
+import { NO_QUALIFICATION } from './qualificationKinds'
+import type { QualificationValue } from './qualificationKinds'
 import { formatDay } from './recurringOperations'
 import { useTransactionsToSort } from './useTransactionsToSort'
-import type { SortAnswer, SortResult, ToSortTransaction } from './useTransactionsToSort'
+import type { Satisfaction, SortAnswer, SortResult, ToSortTransaction } from './useTransactionsToSort'
 
 const plural = (n: number, one: string, many: string) => (n > 1 ? many : one)
 
@@ -40,43 +41,37 @@ const ruleNotice = (result: SortResult | null): string | null => {
   return `${head} · ${result.alsoSorted} ${plural(result.alsoSorted, 'autre ligne classée', 'autres lignes classées')}`
 }
 
-const CategoryPicker = ({ disabled, onPick }: { disabled: boolean; onPick: (categoryId: string) => void }) => {
-  const { data = [] } = useGetList<CategoryNode & RaRecord>('categories', {
-    pagination: { page: 1, perPage: 200 },
-    sort: { field: 'name', order: 'ASC' },
-  })
+export const KEEP_LABEL = 'À conserver'
+export const AVOIDABLE_LABEL = 'Superflue'
 
-  return (
-    <Autocomplete
-      fullWidth
-      size="small"
-      disabled={disabled}
-      options={orderedCategories(data)}
-      getOptionLabel={categoryLabel}
-      isOptionEqualToValue={(a, b) => a.id === b.id}
-      onChange={(_, category) => category && onPick(bareId(category.id))}
-      renderInput={(params) => <TextField {...params} autoFocus label="Catégorie" />}
-    />
-  )
-}
+const SATISFACTION_CHOICES: { value: Exclude<Satisfaction, 'unrated'>; label: string }[] = [
+  { value: 'keep', label: KEEP_LABEL },
+  { value: 'avoidable', label: AVOIDABLE_LABEL },
+]
 
 const SortCard = ({
   transaction,
   sorting,
-  error,
   onSort,
+  onJudge,
+  onOperationCreated,
 }: {
   transaction: ToSortTransaction
   sorting: boolean
-  error: string | null
-  onSort: (answer: SortAnswer) => void
+  onSort: (answer: SortAnswer, qualification?: QualificationValue) => void
+  onJudge: (verdict: Satisfaction) => void
+  onOperationCreated: () => void
 }) => {
+  const createPath = useCreatePath()
   const [always, setAlways] = useState(false)
   const [choosing, setChoosing] = useState(false)
+  const [category, setCategory] = useState<string | null>(null)
+  const [qualification, setQualification] = useState<QualificationValue>(NO_QUALIFICATION)
+  const [creating, setCreating] = useState(false)
   const { suggestion } = transaction
 
   return (
-    <Card component="section" aria-label="Transaction à trier">
+    <Card component="section" aria-label="Transaction à qualifier">
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
           <Box>
@@ -109,12 +104,6 @@ const SortCard = ({
           )}
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
         <FormControlLabel
           sx={{ mb: 1, display: 'flex' }}
           control={<Switch checked={always} disabled={sorting} onChange={(e) => setAlways(e.target.checked)} />}
@@ -122,12 +111,28 @@ const SortCard = ({
         />
 
         {choosing && (
-          <Box sx={{ mb: 2 }}>
-            <CategoryPicker
-              disabled={sorting}
-              onPick={(categoryId) => onSort({ categoryId, alwaysForMerchant: always })}
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            <Qualification
+              category={category}
+              qualification={qualification}
+              onChange={(next) => {
+                setCategory(next.category)
+                setQualification(next.qualification)
+              }}
+              sense={transaction.amountCents > 0 ? 'in' : 'out'}
             />
-          </Box>
+            <Box>
+              <Button
+                variant="contained"
+                disabled={sorting || category === null}
+                onClick={() =>
+                  category && onSort({ categoryId: bareId(category), alwaysForMerchant: always }, qualification)
+                }
+              >
+                Qualifier
+              </Button>
+            </Box>
+          </Stack>
         )}
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
@@ -140,13 +145,62 @@ const SortCard = ({
               Valider
             </Button>
           )}
-          <Button variant={suggestion ? 'outlined' : 'contained'} disabled={sorting} onClick={() => setChoosing(true)}>
+          <Button
+            variant={suggestion ? 'outlined' : 'contained'}
+            disabled={sorting}
+            onClick={() => setChoosing((open) => !open)}
+          >
             Autre catégorie
+          </Button>
+          <Button disabled={sorting} onClick={() => setCreating(true)}>
+            Créer une opération
           </Button>
           <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
             Virement interne
           </Button>
+          <Button
+            color="inherit"
+            component={Link}
+            to={createPath({ resource: 'transactions', type: 'edit', id: `/api/transactions/${transaction.id}` })}
+          >
+            Voir la fiche
+          </Button>
         </Stack>
+
+        {transaction.judgeable && (
+          <Box sx={{ mt: 2 }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              disabled={sorting}
+              value={transaction.retrospect === 'unrated' ? null : transaction.retrospect}
+              onChange={(_, next: Satisfaction | null) => onJudge(next ?? 'unrated')}
+              aria-label="Satisfaction"
+            >
+              {SATISFACTION_CHOICES.map((choice) => (
+                <ToggleButton key={choice.value} value={choice.value}>
+                  {choice.label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
+        )}
+
+        {creating && (
+          <CreateFilterDialog
+            record={{
+              id: transaction.id,
+              label: transaction.label,
+              amountCents: transaction.amountCents,
+              category: suggestion ? `/api/categories/${suggestion.categoryId}` : null,
+            }}
+            title="Créer une opération"
+            submitLabel="Créer l’opération"
+            applyToExistingByDefault
+            onCreated={onOperationCreated}
+            onClose={() => setCreating(false)}
+          />
+        )}
       </CardContent>
     </Card>
   )
@@ -181,13 +235,13 @@ const PileList = ({
 )
 
 export const ToSortPage = () => {
-  const { pile, loading, error, sortError, sorting, lastResult, retry, sort } = useTransactionsToSort()
+  const { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload } = useTransactionsToSort()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   if (loading && !pile) {
     return (
       <>
-        <Title title="À trier" />
+        <Title title="À qualifier" />
         <LinearProgress aria-label="Chargement" />
       </>
     )
@@ -196,7 +250,7 @@ export const ToSortPage = () => {
   if (!pile) {
     return (
       <>
-        <Title title="À trier" />
+        <Title title="À qualifier" />
         <Alert severity="error" action={<Button onClick={retry}>Réessayer</Button>}>
           {error}
         </Alert>
@@ -209,11 +263,17 @@ export const ToSortPage = () => {
 
   return (
     <>
-      <Title title="À trier" />
+      <Title title="À qualifier" />
 
       {notice && (
         <Alert severity="success" sx={{ mb: 2 }}>
           {notice}
+        </Alert>
+      )}
+
+      {sortError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {sortError}
         </Alert>
       )}
 
@@ -225,12 +285,12 @@ export const ToSortPage = () => {
 
       {!current ? (
         <Card>
-          <Placeholder title="Rien à trier" description="Toutes vos transactions ont une catégorie." />
+          <Placeholder title="Rien à qualifier" description="Toutes vos transactions ont une catégorie." />
         </Card>
       ) : (
         <>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            {pile.total} à trier
+            {pile.total} à qualifier · {formatCents(pile.totalCents, current.currency)}
           </Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -238,8 +298,9 @@ export const ToSortPage = () => {
                 key={current.id}
                 transaction={current}
                 sorting={sorting}
-                error={sortError}
-                onSort={(answer) => void sort(current.id, answer)}
+                onSort={(answer, qualification) => void sort(current.id, answer, qualification)}
+                onJudge={(verdict) => void judge(current.id, verdict)}
+                onOperationCreated={() => void reload()}
               />
             </Box>
             <PileList transactions={pile.transactions} currentId={current.id} onSelect={setSelectedId} />

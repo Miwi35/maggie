@@ -3,6 +3,7 @@ import { useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import { EnvelopeTreeScreen } from './EnvelopeTreeScreen'
+import { ToQualifyPill } from './ToQualifyPill'
 import { useBudgetStatus } from './useBudgetStatus'
 
 // Spends move the gauges, envelopes and categories move the tree itself.
@@ -49,6 +50,7 @@ export const EnvelopeList = () => {
         refresh={refresh}
         scoresToken={scoresToken}
       />
+      <ToQualifyPill />
       <EnvelopeTreeScreen year={year} month={month} status={status} loading={loading} refresh={refresh} />
     </>
   )

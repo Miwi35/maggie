@@ -40,7 +40,13 @@ describe('EnvelopeList — live updates from Mercure', () => {
     served = STATUS
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(served) })),
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(String(url).includes('/to-sort') ? { total: 3, totalCents: 5799, transactions: [] } : served),
+        }),
+      ),
     )
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -56,6 +62,12 @@ describe('EnvelopeList — live updates from Mercure', () => {
     expect(statusReads()[0][0]).toMatch(/year=\d{4}&month=\d{1,2}/)
     // One read feeds both: the panel and the tree.
     expect(statusReads()).toHaveLength(1)
+  })
+
+  test('the budget links to the lines still waiting for a qualification', async () => {
+    renderScreen()
+
+    expect(await screen.findByRole('link', { name: /À qualifier · 3 · 57,99/ })).toHaveAttribute('href', '/finance/to-sort')
   })
 
   test('an envelope created elsewhere appears in the tree and in the gauges', async () => {

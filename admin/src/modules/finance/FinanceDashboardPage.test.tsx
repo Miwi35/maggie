@@ -7,19 +7,24 @@ import { dashboardFixture } from './dashboardFixture'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
 import type { FinanceDashboard } from './useFinanceDashboard'
 
-const mercure = vi.hoisted(() => ({ onMessage: undefined as undefined | (() => void) }))
+const mercure = vi.hoisted(() => ({ handlers: new Map<string, () => void>() }))
 vi.mock('../../hooks/useMercure', () => ({
-  useMercure: (_topics: string[], onMessage: () => void) => {
-    mercure.onMessage = onMessage
+  useMercure: (topics: string[], onMessage: () => void) => {
+    mercure.handlers.set(topics.join(','), onMessage)
   },
 }))
+const publishMercure = () => mercure.handlers.forEach((handler) => handler())
 
 const answer = (body: unknown, ok = true) => Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) })
 
 const stubApi = (payload: FinanceDashboard | unknown, ok = true) => {
-  const fetchMock = vi.fn((url: string) =>
-    url.includes('/api/finance/dashboard') ? answer(payload, ok) : answer({}, false),
-  )
+  const fetchMock = vi.fn((url: string) => {
+    if (url.includes('/api/finance/transactions/to-sort')) {
+      return answer({ total: 2, totalCents: 4200, transactions: [] })
+    }
+
+    return url.includes('/api/finance/dashboard') ? answer(payload, ok) : answer({}, false)
+  })
   vi.stubGlobal('fetch', fetchMock)
 
   return fetchMock
@@ -62,8 +67,9 @@ describe('FinanceDashboardPage', () => {
 
     await screen.findAllByTestId('score-ring')
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/finance/dashboard')
+    const urls = fetchMock.mock.calls.map(([url]) => String(url))
+    expect(urls.filter((url) => url.includes('/api/finance/dashboard'))).toHaveLength(1)
+    expect(urls.some((url) => url.includes('/scores'))).toBe(false)
   })
 
   test('no longer draws the removed blocks', async () => {
@@ -104,12 +110,22 @@ describe('FinanceDashboardPage', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/recurring-operations')
   })
 
+  test('links to the page that qualifies the lines no envelope counts yet', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /À qualifier · 2 · 42,00/ })).toHaveAttribute('href', '/finance/to-sort')
+  })
+
   test('says the dashboard failed, keeps the page usable, and retries on demand', async () => {
     const user = userEvent.setup()
-    const fetchMock = vi
-      .fn()
-      .mockImplementationOnce(() => answer({ error: 'boom' }, false))
-      .mockImplementation(() => answer(dashboardFixture()))
+    let dashboardCalls = 0
+    const fetchMock = vi.fn((url: string) => {
+      if (!url.includes('/api/finance/dashboard')) return answer({ total: 0, totalCents: 0, transactions: [] })
+      dashboardCalls += 1
+
+      return dashboardCalls === 1 ? answer({ error: 'boom' }, false) : answer(dashboardFixture())
+    })
     vi.stubGlobal('fetch', fetchMock)
     renderPage()
 
@@ -130,10 +146,14 @@ describe('FinanceDashboardPage', () => {
 
     const updated = dashboardFixture()
     updated.tiles.accounts.totalCents = 999900
-    fetchMock.mockImplementation(() => answer(updated))
-    act(() => mercure.onMessage?.())
+    fetchMock.mockClear()
+    fetchMock.mockImplementation((url: string) =>
+      url.includes('/api/finance/dashboard') ? answer(updated) : answer({ total: 2, totalCents: 4200, transactions: [] }),
+    )
+    act(() => publishMercure())
 
     await waitFor(() => expect(screen.getByTestId('tile-accounts')).toHaveTextContent(/9\s999,00\s€/))
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const urls = fetchMock.mock.calls.map(([url]) => String(url))
+    expect(urls.filter((url) => url.includes('/api/finance/dashboard'))).toHaveLength(1)
   })
 })

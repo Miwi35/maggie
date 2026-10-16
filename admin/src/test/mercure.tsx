@@ -3,26 +3,46 @@ import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-a
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, test, expect, vi } from 'vitest'
+import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
 
 /**
  * Stand-in for `hooks/useMercure` in a screen test:
  * `vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)`.
  */
-const handlers = new Map<string, (data?: string) => void>()
+type Subscriber = { current: (data?: string) => void }
+
+const handlers = new Map<string, Set<Subscriber>>()
 
 export const mercureModule = {
   useMercure: (topics: string[], onMessage: (data?: string) => void) => {
-    for (const topic of topics) handlers.set(topic, onMessage)
+    const subscriber = useRef<Subscriber['current']>(onMessage)
+    const key = topics.join('|')
+
+    useEffect(() => {
+      subscriber.current = onMessage
+    })
+
+    useEffect(() => {
+      const entry: Subscriber = { current: (data) => subscriber.current(data) }
+      const subscribed = key.split('|')
+      for (const topic of subscribed) handlers.set(topic, (handlers.get(topic) ?? new Set()).add(entry))
+
+      return () => {
+        for (const topic of subscribed) handlers.get(topic)?.delete(entry)
+      }
+    }, [key])
   },
 }
 
 /** What the API publishes on `topic`: the payload leaves with the write, before the index holds it. */
 export const emitMercure = (topic: string, payload: Record<string, unknown>) =>
   act(() => {
-    const handler = handlers.get(topic)
-    if (!handler) throw new Error(`Nothing is subscribed to ${topic}: ${[...handlers.keys()].join(', ') || 'no topic'}`)
-    handler(JSON.stringify(payload))
+    const subscribed = handlers.get(topic)
+    if (!subscribed || subscribed.size === 0) {
+      throw new Error(`Nothing is subscribed to ${topic}: ${[...handlers.keys()].join(', ') || 'no topic'}`)
+    }
+    for (const entry of [...subscribed]) entry.current(JSON.stringify(payload))
   })
 
 /**

@@ -187,7 +187,7 @@ export const CustomMenu = () => {
               />
               <MenuItemLink
                 to="/finance/to-sort"
-                primaryText="À trier"
+                primaryText="À qualifier"
                 leftIcon={tinted('comptes', <RuleIcon />)}
                 sx={{ pl: 4 }}
               />
