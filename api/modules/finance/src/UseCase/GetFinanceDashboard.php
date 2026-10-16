@@ -10,12 +10,15 @@ use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 
 /**
- * Everything the month is made of, in one read: the day's signal, what is in
- * the accounts, twelve months of money in and out, the budget gauges, the
- * biggest spending posts against last month, and what is left to save.
+ * Everything the month is made of, in one read: the week and month scores
+ * with their rhythm, the three tiles of the home (accounts, budget, planning),
+ * and the older blocks the agent still reads in one call — what is in the
+ * accounts, twelve months of money in and out, the budget gauges, the biggest
+ * spending posts against last month, and what is left to save.
  *
  * It composes the use cases that already exist rather than recomputing
- * anything: one answer, one set of rules.
+ * anything: one answer, one set of rules. A pure read: it publishes nothing
+ * and indexes nothing.
  */
 class GetFinanceDashboard
 {
@@ -24,7 +27,11 @@ class GetFinanceDashboard
 
     public function __construct(
         private readonly GetDailyScore $getDailyScore,
+        private readonly GetFinanceScores $getFinanceScores,
         private readonly GetBudgetStatus $getBudgetStatus,
+        private readonly GetCushionStatus $getCushionStatus,
+        private readonly GetReferenceSalary $getReferenceSalary,
+        private readonly GetTreasuryOutlook $getTreasuryOutlook,
         private readonly GetDebtTimeline $getDebtTimeline,
         private readonly GetIndependenceCounter $getIndependenceCounter,
         private readonly AccountRepository $accountRepository,
@@ -37,19 +44,122 @@ class GetFinanceDashboard
     {
         $monthStart = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
         $accounts = $this->accountRepository->findByUser($user);
+        $balance = $this->balance($accounts);
+        $budgets = $this->getBudgetStatus->execute($user, $year, $month)['budgets'];
+        $savingCapacity = $this->getDebtTimeline->execute($user)['savingCapacity'];
+        // Not a figure of the month shown: the counter is measured over the
+        // last complete months, like the saving capacity beside it.
+        $independence = $this->getIndependenceCounter->execute($user);
 
         return [
             'year' => $year,
             'month' => $month,
+            'scores' => $this->getFinanceScores->execute($user, $this->scoresDate($user, $year, $month)),
+            'tiles' => [
+                'accounts' => $this->accountsTile($balance),
+                'budget' => $this->budgetTile($user, $budgets),
+                'planning' => [
+                    'independence' => $independence,
+                    'savingCapacity' => $savingCapacity,
+                ],
+            ],
             'score' => $this->getDailyScore->execute($user, $year, $month),
-            'balance' => $this->balance($accounts),
+            'balance' => $balance,
             'monthlyFlows' => $this->monthlyFlows($user, $monthStart),
-            'budgets' => $this->getBudgetStatus->execute($user, $year, $month)['budgets'],
+            'budgets' => $budgets,
             'topPosts' => $this->topPosts($user, $monthStart),
-            'savingCapacity' => $this->getDebtTimeline->execute($user)['savingCapacity'],
-            // Not a figure of the month shown: the counter is measured over the
-            // last complete months, like the saving capacity beside it.
-            'independence' => $this->getIndependenceCounter->execute($user),
+            'savingCapacity' => $savingCapacity,
+            'independence' => $independence,
+        ];
+    }
+
+    /**
+     * The day the scores are asked for: today on the current month, else the
+     * month's last day (past) or first day (future) — always a day inside the
+     * month shown, so the month score is that month's.
+     */
+    private function scoresDate(User $user, int $year, int $month): \DateTimeImmutable
+    {
+        $today = $this->getFinanceScores->resolveDate($user, null);
+        $shown = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
+        $current = $today->modify('first day of this month');
+
+        return match (true) {
+            $shown == $current => $today,
+            $shown < $current => $shown->modify('last day of this month'),
+            default => $shown,
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $balance
+     *
+     * @return array<string, mixed>
+     */
+    private function accountsTile(array $balance): array
+    {
+        return [
+            'totalCents' => $balance['totalCents'],
+            'cushionCents' => $balance['cushionCents'],
+            'availableCents' => $balance['availableCents'],
+            'accounts' => array_map(static fn (array $account): array => [
+                'id' => $account['id'],
+                'name' => $account['name'],
+                'bank' => $account['bank'],
+                'balanceCents' => $account['balanceCents'],
+                'currency' => $account['currency'],
+                'isCushion' => $account['isCushion'],
+            ], $balance['accounts']),
+        ];
+    }
+
+    /**
+     * The envelopes of the month (the roots: a daughter is inside her mother),
+     * the safety cushion, the reference salary and the balance the eve of the
+     * salary. The last two are null when nobody knows them — never a 0 €.
+     *
+     * @param list<array<string, mixed>> $budgets
+     *
+     * @return array<string, mixed>
+     */
+    private function budgetTile(User $user, array $budgets): array
+    {
+        $envelopes = [];
+        foreach ($budgets as $line) {
+            if (null !== $line['parentEnvelopeId']) {
+                continue;
+            }
+
+            $envelopes[] = [
+                'envelopeId' => $line['id'],
+                'name' => $line['categoryName'],
+                'budgetCents' => $line['amountCents'],
+                'consumedCents' => $line['consumedCents'],
+                'isOverspent' => $line['isOverspent'],
+                'isOvercommitted' => $line['isOvercommitted'],
+            ];
+        }
+
+        $cushion = $this->getCushionStatus->execute($user);
+        $reference = $this->getReferenceSalary->execute($user);
+        $outlook = $this->getTreasuryOutlook->execute($user);
+
+        return [
+            'envelopes' => $envelopes,
+            'cushion' => [
+                'state' => $cushion['state'],
+                'targetCents' => $cushion['targetCents'],
+                'currentCents' => $cushion['currentCents'],
+                'coveragePercent' => $cushion['coveragePercent'],
+                'monthsCovered' => $cushion['monthsCovered'],
+                'isConfigured' => $cushion['isConfigured'],
+            ],
+            'expectedSalary' => null === $reference['monthlyCents'] ? null : [
+                'monthlyCents' => $reference['monthlyCents'],
+                'source' => $reference['source'],
+                'expectedOn' => $outlook['salary']['expectedOn'],
+            ],
+            'balanceBeforeSalary' => $outlook['balanceBeforeSalary'],
         ];
     }
 

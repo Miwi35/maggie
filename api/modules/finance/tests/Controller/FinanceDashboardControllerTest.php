@@ -36,6 +36,42 @@ class FinanceDashboardControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
+    public function testOutOfRangeYearReturns400(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=1999&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testReturnsTheScoresAndTheThreeTilesOfTheHome(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=2026&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('2026-09-30', $data['scores']['date']);
+        self::assertSame(['week', 'month', 'global'], array_values(array_diff(array_keys($data['scores']), ['date'])));
+
+        self::assertSame(950000, $data['tiles']['accounts']['totalCents']);
+        self::assertSame(750000, $data['tiles']['accounts']['cushionCents']);
+        self::assertCount(2, $data['tiles']['accounts']['accounts']);
+
+        self::assertCount(2, $data['tiles']['budget']['envelopes']);
+        self::assertSame(250000, $data['tiles']['budget']['expectedSalary']['monthlyCents']);
+        self::assertSame('declared', $data['tiles']['budget']['expectedSalary']['source']);
+
+        self::assertArrayHasKey('independence', $data['tiles']['planning']);
+        self::assertArrayHasKey('netCapacityCents', $data['tiles']['planning']['savingCapacity']);
+    }
+
     public function testReturnsTheWholePictureInOneCall(): void
     {
         $this->loadFixtures('dashboard.yaml');
