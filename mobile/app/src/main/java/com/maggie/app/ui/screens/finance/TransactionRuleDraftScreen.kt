@@ -50,12 +50,15 @@ fun TransactionRuleDraftScreen(
     onQualificationChange: (Qualification) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
+    title: String = "Créer un filtre",
+    // True when saving also files the lines it catches in the history (the « À qualifier » card).
+    appliesToExisting: Boolean = false,
 ) {
     BackHandler(onBack = onBack)
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Créer un filtre") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -113,6 +116,13 @@ fun TransactionRuleDraftScreen(
                         searchTag = UiTags.TRANSACTION_CATEGORY_SEARCH,
                         enabled = !draft.isSaving,
                     )
+                    if (appliesToExisting) {
+                        Text(
+                            text = "Les autres transactions concernées seront classées aussi.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     draft.problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     draft.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
                     Button(

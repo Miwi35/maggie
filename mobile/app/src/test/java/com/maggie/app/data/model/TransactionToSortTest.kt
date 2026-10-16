@@ -8,9 +8,23 @@ class TransactionToSortTest {
 
     @Test
     fun `the counter speaks of the pile, singular and empty included`() {
-        assertEquals("Rien à trier", toSortCounter(0))
-        assertEquals("1 ligne à trier", toSortCounter(1))
-        assertEquals("12 lignes à trier", toSortCounter(12))
+        assertEquals("Rien à qualifier", toSortCounter(0))
+        assertEquals("1 à qualifier", toSortCounter(1))
+        assertEquals("12 à qualifier", toSortCounter(12))
+    }
+
+    @Test
+    fun `the pill says how many lines wait and what they weigh, and is absent on an empty pile`() {
+        assertEquals("À qualifier · 3 · ${formatCents(6520)}", toSortPillLabel(ToSortPile(total = 3, totalCents = 6520)))
+        assertNull(toSortPillLabel(ToSortPile(total = 0)))
+    }
+
+    @Test
+    fun `a line is not judgeable and not rated until the server says so`() {
+        val line = TransactionToSort(id = "tx-1", label = "X")
+
+        assertEquals(false, line.judgeable)
+        assertEquals(RETROSPECT_UNRATED, line.retrospect)
     }
 
     @Test

@@ -291,6 +291,9 @@ class DtoContractTest {
         assertEquals("rule", suggested.suggestion?.source)
         assertTrue("reason fell back to its default", suggested.suggestion?.reason.orEmpty().isNotEmpty())
         assertEquals(pile.total, pile.transactions.size)
+        assertEquals(6520, pile.totalCents)
+        assertTrue(pile.transactions.all { it.judgeable })
+        assertEquals(RETROSPECT_UNRATED, pile.transactions.first().retrospect)
     }
 
     @Test

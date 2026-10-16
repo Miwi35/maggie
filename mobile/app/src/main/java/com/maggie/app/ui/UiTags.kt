@@ -629,7 +629,7 @@ object UiTags {
     const val RULE_DRAFT_SAVE = "rule_draft_save"
 
     /**
-     * « À trier » (MAG-423): the card of the line open, the counter, the three answers, the switch, the full-screen
+     * « À qualifier » (MAG-423): the card of the line open, the counter, the three answers, the switch, the full-screen
      * category search, the transfer choice (« sans contrepartie »), a row of the tablet's list, the empty pile.
      */
     const val TO_SORT_CARD = "to_sort_card"
@@ -642,6 +642,16 @@ object UiTags {
     const val TO_SORT_TRANSFER_NONE = "to_sort_transfer_none"
     const val TO_SORT_ROW = "to_sort_row"
     const val TO_SORT_EMPTY = "to_sort_empty"
+
+    /** « À qualifier » (MAG-458): the Qualification block, « Créer un filtre », « Voir la fiche », the two satisfactions. */
+    const val TO_SORT_QUALIFICATION = "to_sort_qualification"
+    const val TO_SORT_RULE = "to_sort_rule"
+    const val TO_SORT_OPEN_SHEET = "to_sort_open_sheet"
+    const val TO_SORT_KEEP = "to_sort_keep"
+    const val TO_SORT_AVOIDABLE = "to_sort_avoidable"
+
+    /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
+    const val TO_QUALIFY_PILL = "to_qualify_pill"
 
     /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
     const val REJECTION_BADGE = "rejection_badge"

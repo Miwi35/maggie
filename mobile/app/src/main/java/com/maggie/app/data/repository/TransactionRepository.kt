@@ -97,8 +97,14 @@ class TransactionRepository(
         )
     }
 
-    suspend fun getToSort(): Result<ToSortPile> = runCatching {
-        apiService.getTransactionsToSort()
+    /** [oldestFirst] walks the pile from its oldest line; [limit] bounds the page, the totals still count the whole pile. */
+    suspend fun getToSort(limit: Int? = null, oldestFirst: Boolean = false): Result<ToSortPile> = runCatching {
+        apiService.getTransactionsToSort(limit, oldestFirst)
+    }.rethrowCancellation()
+
+    /** Gives a spend its satisfaction: "keep", "avoidable", or "unrated" to take it back. */
+    suspend fun setRetrospect(id: String, verdict: String): Result<Unit> = runCatching {
+        apiService.rateTransaction(id, verdict)
     }.rethrowCancellation()
 
     /** Files the line under [categoryId]; [alwaysForMerchant] also writes the rule that files the merchant's other lines. */

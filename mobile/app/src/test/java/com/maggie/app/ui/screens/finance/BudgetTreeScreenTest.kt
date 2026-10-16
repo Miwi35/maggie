@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,15 +13,19 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
+import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,7 +54,7 @@ class BudgetTreeScreenTest {
         remainingCents = 6000, availableCents = 6000,
     )
 
-    private fun open() {
+    private fun open(toQualify: ToSortPile? = null, onOpenToQualify: () -> Unit = {}) {
         val budgetRepository = mockk<BudgetRepository>()
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(
             BudgetStatus(
@@ -83,7 +88,9 @@ class BudgetTreeScreenTest {
             budgetRepository, categoryRepository, transactionRepository, mercureService, authRepository,
             LocalDate.of(2026, 10, 15),
         )
-        compose.setContent { BudgetScreen(viewModel = viewModel, onBack = {}) }
+        compose.setContent {
+            BudgetScreen(viewModel = viewModel, onBack = {}, toQualify = toQualify, onOpenToQualify = onOpenToQualify)
+        }
         compose.waitForIdle()
     }
 
@@ -99,6 +106,26 @@ class BudgetTreeScreenTest {
 
         compose.onNodeWithContentDescription("Replier Loisirs").performClick()
         compose.onNodeWithText("Bars › Obsydian").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the pill says how many lines wait to be qualified and opens them`() {
+        var opened = 0
+        open(toQualify = ToSortPile(total = 3, totalCents = 6520), onOpenToQualify = { opened++ })
+
+        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).assertIsDisplayed()
+        compose.onNodeWithText("À qualifier · 3 · ${formatCents(6520)}").assertExists()
+
+        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).performClick()
+
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `no pill when nothing waits to be qualified`() {
+        open(toQualify = ToSortPile(total = 0))
+
+        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).assertDoesNotExist()
     }
 
     @Test

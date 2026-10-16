@@ -522,6 +522,8 @@ data class CategorizationRuleCreateRequest(
     val maxAmountCents: Int? = null,
     val priority: Int = 0,
     val isActive: Boolean = true,
+    // Files the existing history under the rule too; written only when true.
+    val applyToExisting: Boolean = false,
 )
 
 /**
@@ -1599,9 +1601,12 @@ class MaggieApiService(
         }.body()
     }
 
-    // Finance — The « À trier » pile
-    suspend fun getTransactionsToSort(): ToSortPile {
-        return client.get("$baseUrl/api/finance/transactions/to-sort").body()
+    // Finance — The « À qualifier » pile
+    suspend fun getTransactionsToSort(limit: Int? = null, oldestFirst: Boolean = false): ToSortPile {
+        return client.get("$baseUrl/api/finance/transactions/to-sort") {
+            limit?.let { url.parameters.append("limit", it.toString()) }
+            if (oldestFirst) url.parameters.append("order", "oldest")
+        }.body()
     }
 
     suspend fun sortTransaction(id: String, request: SortRequest): SortResult {
@@ -1761,7 +1766,7 @@ class MaggieApiService(
         client.patch("$baseUrl/api/transactions/$id") {
             contentType(ContentType("application", "merge-patch+json"))
             setBody(RetrospectRequest(retrospect = verdict))
-        }
+        }.orRefusal()
     }
 
     // Finance — Categorization rules

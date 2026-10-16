@@ -41,7 +41,6 @@ import com.maggie.app.ui.components.CategorySearchNone
  * it is mandatory, and its type. Any category fits any line: the direction comes from the amount's sign.
  * The category is chosen in a full-screen search, never an inline dropdown.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QualificationSection(
     categories: List<Category>,
@@ -100,6 +99,20 @@ fun QualificationSection(
             )
         }
 
+        QualificationFlags(qualification, onQualificationChange, enabled)
+    }
+}
+
+/** « Obligatoire » and the type of a qualification: the part of [QualificationSection] that does not depend on a category. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun QualificationFlags(
+    qualification: Qualification,
+    onQualificationChange: (Qualification) -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

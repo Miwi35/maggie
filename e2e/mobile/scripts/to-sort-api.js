@@ -1,4 +1,4 @@
-// The data side of the « À trier » journey, played over HTTP (MAG-423).
+// The data side of the « À qualifier » journey, played over HTTP (MAG-423, MAG-458).
 //
 // The journey reads the pile on the phone; this script sets the table before: a category
 // « Courses MAG-423 » with the rule « contient CARREFOUR » that files under it, and two
@@ -8,7 +8,11 @@
 // data of its own: the pile is exactly these two lines.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create | remove
+//   ACTION  create | add-leisure | check-leisure | remove
+//
+// `add-leisure` then puts one more expense on the same account, without a rule to recognise it, and the
+// category « Loisirs MAG-458 » to file it under; `check-leisure` reads it back: judged « Superflue » and
+// filed under that category.
 //
 // Everything is the journey's own, named after the ticket, and gone after `remove`.
 
@@ -17,6 +21,8 @@ const base = E2E_BASE_URL
 const email = 'e2e-other@maggie.local'
 const accountName = 'Compte MAG-423'
 const categoryName = 'Courses MAG-423'
+const leisureName = 'Loisirs MAG-458'
+const leisureLabel = 'DUPONT MARTIN'
 
 function fail(message) {
   throw new Error('[to-sort-api] ' + ACTION + ': ' + message)
@@ -65,7 +71,7 @@ function removeLeftovers() {
     .filter(function (account) { return account.name === accountName })
     .forEach(function (account) { remove(account['@id']) })
   collection('/api/categories?itemsPerPage=200')
-    .filter(function (category) { return category.name === categoryName })
+    .filter(function (category) { return category.name === categoryName || category.name === leisureName })
     .forEach(function (category) { remove(category['@id']) })
 }
 
@@ -90,6 +96,32 @@ if (ACTION === 'create') {
     priority: 9,
     isActive: true,
   })
+} else if (ACTION === 'add-leisure') {
+  const account = collection('/api/accounts?itemsPerPage=200').filter(function (a) { return a.name === accountName })[0]
+  if (!account) {
+    fail('the account of the journey is missing')
+  }
+  post('/api/categories', { name: leisureName })
+  post('/api/transactions', {
+    account: account['@id'],
+    label: leisureLabel,
+    amountCents: -1200,
+    currency: 'EUR',
+    bookedAt: TODAY,
+    status: 'spent',
+  })
+} else if (ACTION === 'check-leisure') {
+  const category = collection('/api/categories?itemsPerPage=200').filter(function (c) { return c.name === leisureName })[0]
+  const line = collection('/api/transactions?itemsPerPage=200').filter(function (t) { return t.label === leisureLabel })[0]
+  if (!category || !line) {
+    fail('the expense or its category is missing')
+  }
+  if (line.retrospect !== 'avoidable') {
+    fail('expected the expense judged avoidable, got ' + line.retrospect)
+  }
+  if (line.category !== category['@id']) {
+    fail('expected the expense filed under ' + leisureName + ', got ' + line.category)
+  }
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {
