@@ -81,10 +81,10 @@ const ToSortBlock = () => {
   return pile.total > 0 ? (
     <>
       <Figure>{count(pile.total, 'transaction')}</Figure>
-      <Hint warn>à trier</Hint>
+      <Hint warn>à qualifier</Hint>
     </>
   ) : (
-    <Hint>Rien à trier.</Hint>
+    <Hint>Rien à qualifier.</Hint>
   )
 }
 
