@@ -74,7 +74,9 @@ class FocusViewModel(
             .onSuccess { steps ->
                 if (_uiState.value.taskId == taskId) _uiState.update { it.copy(steps = steps) }
             }
-            .onFailure { _uiState.update { it.copy(message = "Impossible de lire les petits pas.") } }
+            .onFailure {
+                if (_uiState.value.taskId == taskId) _uiState.update { it.copy(message = "Impossible de lire les petits pas.") }
+            }
     }
 
     /** The Focus ends: the timer stops and nothing is kept for the next one. */
@@ -178,8 +180,8 @@ class FocusViewModel(
         _uiState.update { it.copy(isBusy = true, message = null) }
         viewModelScope.launch {
             taskRepository.toggleDone(taskId, true)
-                .onSuccess { stopTicking(); _uiState.update { it.copy(isBusy = false, leaves = true) } }
-                .onFailure { _uiState.update { it.copy(isBusy = false, message = "Impossible de modifier la tâche.") } }
+                .onSuccess { leave(taskId) }
+                .onFailure { fail(taskId, "Impossible de modifier la tâche.") }
         }
     }
 
@@ -194,21 +196,32 @@ class FocusViewModel(
         if (state.task == null || state.isBusy) return
         _uiState.update { it.copy(isBusy = true, message = null) }
         viewModelScope.launch {
-            val failure = { _uiState.update { it.copy(isBusy = false, message = "Impossible de modifier la journée.") } }
+            val failure = { fail(taskId, "Impossible de modifier la journée.") }
             taskRepository.getDayPlan(today())
                 .onFailure { failure() }
                 .onSuccess { day ->
                     val ids = day.taskIdsPuttingOff(taskId)
                     if (ids == day.taskIds) {
-                        stopTicking()
-                        _uiState.update { it.copy(isBusy = false, leaves = true) }
+                        leave(taskId)
                         return@onSuccess
                     }
                     taskRepository.setDaySlots(day.day, ids)
-                        .onSuccess { stopTicking(); _uiState.update { it.copy(isBusy = false, leaves = true) } }
+                        .onSuccess { leave(taskId) }
                         .onFailure { failure() }
                 }
         }
+    }
+
+    // An answer that comes after the Focus was closed, or reopened on another task, is not this Focus's.
+    private fun leave(taskId: String) {
+        if (_uiState.value.taskId != taskId) return
+        stopTicking()
+        _uiState.update { it.copy(isBusy = false, leaves = true) }
+    }
+
+    private fun fail(taskId: String, message: String) {
+        if (_uiState.value.taskId != taskId) return
+        _uiState.update { it.copy(isBusy = false, message = message) }
     }
 
     fun dismissMessage() {

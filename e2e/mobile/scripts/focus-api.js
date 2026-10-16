@@ -3,7 +3,7 @@
 // `setup` gives today's day two tasks of its own: « Focus 1 » with a first step and two subtasks
 // (the petits pas), « Focus 2 » after it. `expect-done` reads the day back: « Focus 1 » is done, both
 // its petits pas are as the phone left them, and « Maintenant » is « Focus 2 ». `cleanup` deletes every
-// task of the journey (titles carry MAG-499, subtasks first) and empties the day; `setup` runs it first.
+// task of the journey (titles carry MAG-499; the petits pas go with their parent, by cascade) and empties the day; `setup` runs it first.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  setup | expect-done | cleanup

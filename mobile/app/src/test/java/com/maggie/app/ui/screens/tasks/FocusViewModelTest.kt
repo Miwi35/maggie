@@ -270,6 +270,19 @@ class FocusViewModelTest {
     }
 
     @Test
+    fun `an answer to « C'est fait » that comes after the Focus was closed does not leave the next one`() = runTest(testDispatcher) {
+        coEvery { repository.toggleDone("t1", true) } returns Result.success(focused.copy(completedAt = "2026-10-15T08:00:00Z"))
+        val viewModel = opened()
+
+        viewModel.complete()
+        viewModel.close()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.leaves)
+        assertNull(viewModel.uiState.value.taskId)
+    }
+
+    @Test
     fun `« C'est fait » that fails stays on the Focus with a message`() = runTest(testDispatcher) {
         coEvery { repository.toggleDone("t1", true) } returns Result.failure(RuntimeException("boom"))
         val viewModel = opened()

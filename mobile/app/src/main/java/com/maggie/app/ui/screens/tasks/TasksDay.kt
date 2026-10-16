@@ -255,14 +255,16 @@ private fun SlotRow(
                 Icon(Icons.Default.MoreVert, contentDescription = "Options de « ${task.title} »")
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, modifier = Modifier.uiTagRoot()) {
-                DropdownMenuItem(
-                    text = { Text("Focus") },
-                    onClick = {
-                        menu = false
-                        onFocus(task.id)
-                    },
-                    modifier = Modifier.testTag(UiTags.TASKS_SLOT_FOCUS),
-                )
+                if (!task.isDone) {
+                    DropdownMenuItem(
+                        text = { Text("Focus") },
+                        onClick = {
+                            menu = false
+                            onFocus(task.id)
+                        },
+                        modifier = Modifier.testTag(UiTags.TASKS_SLOT_FOCUS),
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Remettre dans la réserve") },
                     onClick = {
