@@ -126,14 +126,13 @@ onFlowComplete:
     id: "tasks_morning_slot_1"
 - assertVisible:
     id: "tasks_morning_go"
-- assertVisible: ".*reportée.*"
 
-# A swap takes the next of the reserve; nothing is written before « C'est parti ».
+# A swap takes the next of the reserve (the put-off task heads it); nothing is written
+# before « C'est parti ».
 - tapOn:
     id: "tasks_morning_swap_1"
 - extendedWaitUntil:
-    visible:
-      id: "tasks_morning_slot_1"
+    visible: ".*reportée.*"
     timeout: 20000
 - tapOn:
     id: "tasks_morning_go"
