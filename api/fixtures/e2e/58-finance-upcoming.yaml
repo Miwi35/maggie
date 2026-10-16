@@ -1,0 +1,96 @@
+# The « À venir » journey (MAG-463, extends MAG-102): the week and the month
+# after the current ones, on the Finance dashboard.
+#
+# One account for it (`e2e-upcoming@maggie.local`, declared in 10-core.yaml), read
+# and written by `finance-upcoming.spec.ts` only. Every date is an offset from
+# the anchor, so the figures hold whatever the day:
+#
+#  - a salary of 2 500 € on the 25th and a rent of 700 € on the 5th, both monthly
+#    (anchored three months back, as the scores account does), and a weekly
+#    market of 20 € that always lands in the week after;
+#  - envelopes for the month after: Logement 800 € — adjusted up from the 700 € of
+#    the current month, which is the point — and Courses 300 €;
+#
+# so the next month spends 800 € + 300 € and leaves 1 400 € (a rent left at the
+# 700 € it would roll over to would leave 1 500 €).
+
+Maggie\Finance\Entity\Account:
+  e2e_upcoming_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@e2e_upcoming_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_upcoming_housing:
+    name: Logement
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_food:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@e2e_upcoming_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  e2e_upcoming_rent:
+    label: Loyer
+    counterpartyName: PROPRIO
+    category: '@e2e_upcoming_housing'
+    account: '@e2e_upcoming_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<e2eDate("first day of next month", "+4 days", "-3 months")>'
+    referenceAmountCents: -70000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_salary_series:
+    label: Salaire ACME
+    counterpartyName: ACME
+    category: '@e2e_upcoming_salary'
+    account: '@e2e_upcoming_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<e2eDate("first day of next month", "+24 days", "-3 months")>'
+    referenceAmountCents: 250000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_market:
+    label: Marché
+    counterpartyName: MARCHE
+    category: '@e2e_upcoming_food'
+    account: '@e2e_upcoming_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Weekly)>'
+    anchorOn: '<e2eDate("monday next week", "+2 days", "-3 weeks")>'
+    referenceAmountCents: -2000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@e2e_upcoming_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_upcoming_housing_now:
+    category: '@e2e_upcoming_housing'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 70000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_housing_next:
+    category: '@e2e_upcoming_housing'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 80000
+    currency: EUR
+    year: '<e2eYear("first day of next month")>'
+    month: '<e2eMonth("first day of next month")>'
+    user: '@e2e_upcoming_user'
+  e2e_upcoming_food_next:
+    category: '@e2e_upcoming_food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: '<e2eYear("first day of next month")>'
+    month: '<e2eMonth("first day of next month")>'
+    user: '@e2e_upcoming_user'

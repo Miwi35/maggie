@@ -447,6 +447,9 @@ web:
     areas: [finance]
   e2e/web/tests/finance-treasury.spec.ts:
     areas: [finance, chat]
+  e2e/web/tests/finance-upcoming.spec.ts:
+    areas: [finance, realtime]
+    paths: [api/fixtures/e2e/58-finance-upcoming.yaml]
 
 mobile:
   # The critical core: sign in, read the dashboard, get an answer from Maggie.
