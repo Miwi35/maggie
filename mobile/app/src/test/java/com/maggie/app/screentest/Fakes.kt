@@ -31,6 +31,7 @@ import com.maggie.app.data.model.MealGroceryIngredient
 import com.maggie.app.data.model.MealGroceryPackaging
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealGroceryToBuy
+import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.ProductStockState
@@ -72,6 +73,7 @@ import com.maggie.app.data.repository.ErrandPage
 import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.MonthBalanceRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
@@ -91,6 +93,7 @@ import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
+import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -777,6 +780,21 @@ class FakeLoadedFinanceDashboard(
         coEvery { treasury.getOutlook() } returns Result.success(outlook)
         val (auth, mercure) = signedIn()
         FinanceDashboardViewModel(repository, treasury, mercure, auth)
+    }
+}
+
+/** The month balance over a fixed answer: [balance] when it is given, the failure [error] otherwise. */
+class FakeMonthBalance(
+    private val balance: MonthBalance? = null,
+    private val error: String = "Service indisponible",
+    private val today: java.time.LocalDate = java.time.LocalDate.of(2026, 9, 17),
+) {
+    val viewModel: MonthBalanceViewModel by lazy {
+        val repository = mockk<MonthBalanceRepository>()
+        coEvery { repository.getBalance(any(), any()) } returns
+            (balance?.let { Result.success(it) } ?: Result.failure(IllegalStateException(error)))
+        val (auth, mercure) = signedIn()
+        MonthBalanceViewModel(repository, mercure, auth, today)
     }
 }
 

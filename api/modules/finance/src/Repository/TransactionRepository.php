@@ -708,6 +708,56 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * What was put aside over a half-open period, as positive cents: the debits
+     * the transaction itself qualifies as saving or investment. A transfer to
+     * a savings account counts once (its debit leg); rejected payments and
+     * advances do not.
+     */
+    public function sumSavedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
+    {
+        $total = $this->createQueryBuilder('t')
+            ->select('SUM(t.amountCents)')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind IN (:kinds)')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.qualification.kind IN (:saved)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('kinds', [TransferKind::None->value, TransferKind::Internal->value])
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('saved', [QualificationKind::Saving->value, QualificationKind::Investment->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return abs((int) $total);
+    }
+
+    /**
+     * The lines of a half-open period nobody qualified yet — the « À qualifier »
+     * pile restricted to the month — with what they weigh, whatever their sign.
+     *
+     * @return array{count: int, cents: int}
+     */
+    public function summariseToSortBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        /** @var array{count: int|string, cents: int|string|null} $row */
+        $row = $this->toSortQuery($user)
+            ->select('COUNT(t.id) AS count', 'COALESCE(SUM(ABS(t.amountCents)), 0) AS cents')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getSingleResult();
+
+        return ['count' => (int) $row['count'], 'cents' => (int) $row['cents']];
+    }
+
+    /**
      * The big debits of a period: what an annual planning session reconsiders,
      * biggest first. Categorized only — the session budgets categories, so an
      * uncategorized debit has nowhere to go.

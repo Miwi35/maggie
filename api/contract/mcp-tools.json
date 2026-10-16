@@ -626,6 +626,22 @@
         },
         "description": "Read how far the rentes already cover the way the user lives. Both sides are measured over the last three complete months, never declared: passiveIncomeCents is the monthly average of the credits of the categories flagged as rentes (manage_categories, passiveIncome), lifestyleCents is what a month actually costs, loan payments and exceptional movements excluded. coveragePercent is the first over the second and is NOT capped — above 100 the rentes cover more than the month costs. gapCents is what is still missing each month, byCategory breaks the rentes down, and milestones gives 25/50/75/100 % with the monthly rente each one takes. isMeasurable is false when no month has been measured yet, so there is no percentage to give; hasPassiveIncomeCategories is false when the user has not declared any rente category yet — say that, rather than reporting 0 %. coverageWithDebtPercent is the same ratio against the month including loan payments. projectedCoveragePercent and projectedPassiveIncomeCents are a distinct projection, never to be confused with the measured coveragePercent: the same ratio once the rentes the confirmed recurring series still expect (credits of the rente categories, over the current and next two months, no line attached yet) are added to what already landed; give both and say which is which. The target date of independence and the progression curve are NOT available: they are Premium, so never estimate a date."
     },
+    "get_month_balance": {
+        "name": "get_month_balance",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read the balance of a month (YYYY-MM, defaults to the current one): `spending` (the month status with its budget, what was spent, the expected rhythm and the daily curve), `envelopes` (each root envelope with consumed against budgeted and its status held, close or over), `satisfaction` (what was judged worth keeping against avoidable, and the kept share in percent, null while nothing is judged), `savings` (what was put aside against the planned saving capacity, null when no income is known), `cushion`, and `toQualify` (the count and weight of the lines of the month nobody qualified yet — they belong to no envelope). All amounts are integer cents."
+    },
     "get_purchase_suggestions": {
         "name": "get_purchase_suggestions",
         "inputSchema": {

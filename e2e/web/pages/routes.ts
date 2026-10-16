@@ -42,6 +42,7 @@ export const ROUTES = {
   loans: '/loans',
   contacts: '/contacts',
   financeOverview: '/finance/dashboard',
+  financeMonthBalance: '/finance/dashboard/current',
   financeBanks: '/finance/banks',
   financeImport: '/finance/import',
   financeToSort: '/finance/to-sort',

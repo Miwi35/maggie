@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -72,6 +73,7 @@ class FinanceHubScreenTest {
         val opened = mutableListOf<String>()
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
@@ -94,6 +96,7 @@ class FinanceHubScreenTest {
     fun `a month the server could not compute says so instead of staying empty`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
                 onBack = {},
@@ -110,6 +113,7 @@ class FinanceHubScreenTest {
         var backs = 0
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = { backs++ },
@@ -127,6 +131,7 @@ class FinanceHubScreenTest {
         val opened = mutableListOf<String>()
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
@@ -145,6 +150,7 @@ class FinanceHubScreenTest {
     fun `the dashboard draws no pill on an empty pile, nor before the pile is known`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},

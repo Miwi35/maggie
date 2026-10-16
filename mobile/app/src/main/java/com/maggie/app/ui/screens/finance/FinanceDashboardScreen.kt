@@ -60,6 +60,7 @@ import com.maggie.app.ui.navigation.financeAccessesBy
 @Composable
 fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
+    monthBalanceViewModel: MonthBalanceViewModel,
     upcomingViewModel: UpcomingViewModel,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
@@ -69,7 +70,7 @@ fun FinanceDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val twoColumns = rememberAppLayout().detailPaneFits
-    var selectedTab by rememberSaveable { mutableIntStateOf(TAB_CURRENT) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(TAB_OVERVIEW) }
 
     // Back from the treasury screen, the banner follows what was prepared there.
     LaunchedEffect(Unit) { viewModel.refreshTreasury() }
@@ -97,6 +98,12 @@ fun FinanceDashboardScreen(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
+                    selected = selectedTab == TAB_OVERVIEW,
+                    onClick = { selectedTab = TAB_OVERVIEW },
+                    text = { Text("Vue d'ensemble") },
+                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_OVERVIEW),
+                )
+                Tab(
                     selected = selectedTab == TAB_CURRENT,
                     onClick = { selectedTab = TAB_CURRENT },
                     text = { Text("État courant") },
@@ -109,21 +116,22 @@ fun FinanceDashboardScreen(
                     modifier = Modifier.testTag(UiTags.FINANCE_TAB_UPCOMING),
                 )
             }
-            if (selectedTab == TAB_CURRENT) {
-                CurrentStateTab(viewModel, uiState, twoColumns, toQualify, onOpen)
-            } else {
-                UpcomingTab(upcomingViewModel, twoColumns)
+            when (selectedTab) {
+                TAB_OVERVIEW -> OverviewTab(viewModel, uiState, twoColumns, toQualify, onOpen)
+                TAB_CURRENT -> MonthBalanceTab(monthBalanceViewModel, onOpen)
+                else -> UpcomingTab(upcomingViewModel, twoColumns)
             }
         }
     }
 }
 
-private const val TAB_CURRENT = 0
-private const val TAB_UPCOMING = 1
+private const val TAB_OVERVIEW = 0
+private const val TAB_CURRENT = 1
+private const val TAB_UPCOMING = 2
 
-/** « État courant »: everything the dashboard showed before the tabs, unchanged. */
+/** « Vue d'ensemble »: everything the dashboard showed before the tabs, unchanged. */
 @Composable
-private fun CurrentStateTab(
+private fun OverviewTab(
     viewModel: FinanceDashboardViewModel,
     uiState: FinanceDashboardUiState,
     twoColumns: Boolean,

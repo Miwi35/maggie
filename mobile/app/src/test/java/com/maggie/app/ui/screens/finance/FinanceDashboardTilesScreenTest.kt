@@ -21,6 +21,7 @@ import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.TileCushion
 import com.maggie.app.data.model.TileEnvelope
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
@@ -89,6 +90,7 @@ class FinanceDashboardTilesScreenTest {
     ) {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10, tiles = tiles)).viewModel,
                 onBack = {},
@@ -212,6 +214,7 @@ class FinanceDashboardTilesScreenTest {
     fun `a month the server could not compute draws no tile and no example project`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
                 onBack = {},

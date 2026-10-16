@@ -46,8 +46,8 @@ test('À venir shows the recurring operations on their dates and the remainder a
   const overview = new FinanceOverviewPage(upcomingUser.page)
   await overview.open()
 
-  // « État courant » is the default and « À venir » is one click away.
-  await expect(overview.currentTab).toHaveAttribute('aria-selected', 'true')
+  // « Vue d'ensemble » is the default and « À venir » is one click away.
+  await expect(overview.overviewTab).toHaveAttribute('aria-selected', 'true')
   await overview.upcomingTab.click()
   await expect(overview.upcomingRemaining).toBeVisible()
   await expect(overview.accountsTile).toHaveCount(0)
@@ -96,8 +96,8 @@ test('À venir shows the recurring operations on their dates and the remainder a
     await upcomingUser.api.patch(envelope, { data: { amountCents: GROCERIES_NEXT_CENTS }, headers: MERGE_PATCH })
   }
 
-  // Back on « État courant », the home is as it was.
-  await overview.currentTab.click()
+  // Back on « Vue d'ensemble », the home is as it was.
+  await overview.overviewTab.click()
   await expect(overview.accountsTile).toBeVisible()
   await expect(overview.upcomingRemaining).toHaveCount(0)
 })

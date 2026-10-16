@@ -55,7 +55,7 @@ class GetFinanceDashboard
         return [
             'year' => $year,
             'month' => $month,
-            'scores' => $this->getFinanceScores->execute($user, $this->scoresDate($user, $year, $month)),
+            'scores' => $this->getFinanceScores->execute($user, $this->getFinanceScores->dateInMonth($user, $year, $month)),
             'tiles' => [
                 'accounts' => $this->accountsTile($balance),
                 'budget' => $this->budgetTile($user, $budgets),
@@ -72,24 +72,6 @@ class GetFinanceDashboard
             'savingCapacity' => $savingCapacity,
             'independence' => $independence,
         ];
-    }
-
-    /**
-     * The day the scores are asked for: today on the current month, else the
-     * month's last day (past) or first day (future) — always a day inside the
-     * month shown, so the month score is that month's.
-     */
-    private function scoresDate(User $user, int $year, int $month): \DateTimeImmutable
-    {
-        $today = $this->getFinanceScores->resolveDate($user, null);
-        $shown = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
-        $current = $today->modify('first day of this month');
-
-        return match (true) {
-            $shown == $current => $today,
-            $shown < $current => $shown->modify('last day of this month'),
-            default => $shown,
-        };
     }
 
     /**

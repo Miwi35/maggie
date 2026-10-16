@@ -19,7 +19,7 @@ interface ScoreRingProps {
   score: PeriodScore
 }
 
-const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
+export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
   const theme = useTheme()
   const [open, setOpen] = useState(false)
   const { rhythm } = score

@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
@@ -18,6 +19,7 @@ import com.maggie.app.data.model.UpcomingMonth
 import com.maggie.app.data.model.UpcomingWeek
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
+import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.upcomingFixture
@@ -43,6 +45,7 @@ class UpcomingScreenTest {
         compose.setContent {
             FinanceDashboardScreen(
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10)).viewModel,
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = upcoming.viewModel,
                 onBack = {},
                 onOpen = {},
@@ -61,22 +64,22 @@ class UpcomingScreenTest {
     }
 
     @Test
-    fun `the dashboard opens on the current state, the upcoming blocks are not drawn`() {
+    fun `the dashboard opens on the overview, the upcoming blocks are not drawn`() {
         open(FakeUpcoming(upcomingFixture()))
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_CURRENT).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).assertIsSelected()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.UPCOMING_WEEK).assertDoesNotExist()
     }
 
     @Test
-    fun `the tab switches to the upcoming blocks and back to the current state`() {
+    fun `the tab switches to the upcoming blocks and back to the overview`() {
         openUpcoming()
 
         compose.onNodeWithTag(UiTags.UPCOMING_WEEK).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertDoesNotExist()
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_CURRENT).performClick()
+        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).performClick()
 
         reveal(hasTestTag(UiTags.FINANCE_TILE_ACCOUNTS))
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertIsDisplayed()
