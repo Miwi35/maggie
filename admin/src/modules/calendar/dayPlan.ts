@@ -210,3 +210,22 @@ export function claimMorning(): boolean {
 export function resetMorningOffer(): void {
   morningOffered = false
 }
+
+/**
+ * The day's list once `taskId` goes « plus tard » (MAG-499): last of the slots
+ * not done. The done slots keep their place; only the not-done ones are
+ * reordered, among the places they already held. Null when nothing changes —
+ * the task is not in the day, is done, or is already the last one left.
+ */
+export function deferOnDay(slots: { id: string; done: boolean }[], taskId: string): string[] | null {
+  const task = slots.find((slot) => slot.id === taskId)
+  if (!task || task.done) return null
+
+  const open = slots.filter((slot) => !slot.done).map((slot) => slot.id)
+  if (open[open.length - 1] === taskId) return null
+
+  const reordered = [...open.filter((id) => id !== taskId), taskId]
+  let next = 0
+
+  return slots.map((slot) => (slot.done ? slot.id : reordered[next++]))
+}

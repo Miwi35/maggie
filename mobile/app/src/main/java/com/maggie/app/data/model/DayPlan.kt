@@ -39,6 +39,18 @@ data class DayPlan(
         )
     }
 
+    /**
+     * The slots' ids once [taskId] is put off (« Plus tard »): it takes the last place held by a slot
+     * still to do, the others to do moving up; the slots already done keep their place. Unchanged when
+     * [taskId] is not a slot to do or is already the last one left.
+     */
+    fun taskIdsPuttingOff(taskId: String): List<String> {
+        val toDo = slots.filter { !it.task.isDone }.map { it.task.id }
+        if (taskId !in toDo || toDo.last() == taskId) return taskIds
+        val reordered = (toDo - taskId + taskId).iterator()
+        return slots.map { if (it.task.isDone) it.task.id else reordered.next() }
+    }
+
     companion object {
         const val MAX_SLOTS = 5
     }

@@ -411,18 +411,129 @@ describe('TaskBoard', () => {
       expect(calls('POST')).toHaveLength(0)
     })
 
-    test('« Juste 10 minutes » opens the whole task in its form', async () => {
-      const user = setup()
-      render(<TaskBoard />)
-      await screen.findByRole('region', { name: 'Maintenant' })
+    describe('the Focus (MAG-499)', () => {
+      const focus = () => screen.getByRole('region', { name: 'Appeler la banque' })
 
-      await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+      test('« Juste 10 minutes » opens the Focus of « Maintenant »: first step, ring at 10:00, back to the day', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
 
-      const dialog = await screen.findByRole('dialog')
-      expect(calls()).toContain('http://localhost/api/tasks/01BANK')
-      expect(within(dialog).getByLabelText(/Titre/)).toHaveValue('Appeler la banque')
-      expect(within(dialog).getByLabelText('Notes')).toHaveValue('Le RIB est dans le tiroir')
-      expect(within(dialog).getByLabelText('Premier pas')).toHaveValue('Trouver le RIB')
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        expect(focus()).toHaveTextContent('Trouver le RIB')
+        expect(focus()).toHaveTextContent('2 min')
+        expect(screen.getByRole('timer', { name: 'Minuteur' })).toHaveTextContent('10:00')
+        expect(screen.queryByRole('list', { name: 'Mes 5' })).toBeNull()
+        expect(dataProvider.getList).toHaveBeenCalledWith('tasks', expect.objectContaining({ filter: { parent: '/api/tasks/01BANK' } }))
+
+        await user.click(screen.getByRole('button', { name: 'Retour à la journée' }))
+
+        expect(screen.getByRole('list', { name: 'Mes 5' })).toBeInTheDocument()
+        expect(calls('PUT')).toHaveLength(0)
+      })
+
+      test('a task of the day opens its Focus from its row, and a done one has no such button', async () => {
+        const user = setup()
+        state = { slots: [{ ...BANK, completedAt: '2026-10-15T07:00:00+00:00' }, CANTEEN, WATER], reserve: [] }
+        render(<TaskBoard />)
+        await screen.findByRole('list', { name: 'Mes 5' })
+        expect(screen.queryByRole('button', { name: 'Se concentrer sur Appeler la banque' })).toBeNull()
+
+        await user.click(screen.getByRole('button', { name: 'Se concentrer sur Arroser' }))
+
+        expect(screen.getByRole('region', { name: 'Arroser' })).toBeInTheDocument()
+        expect(screen.getByRole('timer', { name: 'Minuteur' })).toHaveTextContent('10:00')
+      })
+
+      test('« Plus tard, sans souci » puts the task after the slots not done, and « Maintenant » shows the next one', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(screen.getByRole('button', { name: 'Plus tard, sans souci' }))
+
+        await waitFor(() => expect(nowCard()).toHaveTextContent('Payer la cantine'))
+        expect(putBodies()).toEqual([['01CANTEEN', '01WATER', '01BANK']])
+        expect(slotTitles()[2]).toContain('Appeler la banque')
+        expect(screen.queryByRole('region', { name: 'Appeler la banque' })).toBeNull()
+        expect(document.body).not.toHaveTextContent(/retard|en retard|reproche/i)
+      })
+
+      test('« Plus tard » keeps the done slots where they are', async () => {
+        const user = setup()
+        state = { slots: [{ ...CANTEEN, completedAt: '2026-10-15T07:00:00+00:00' }, BANK, WATER], reserve: [] }
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(screen.getByRole('button', { name: 'Plus tard, sans souci' }))
+
+        await waitFor(() => expect(nowCard()).toHaveTextContent('Arroser'))
+        expect(putBodies()).toEqual([['01CANTEEN', '01WATER', '01BANK']])
+      })
+
+      test('« Plus tard » on the last task left writes nothing and returns to the day', async () => {
+        const user = setup()
+        state = { slots: [{ ...CANTEEN, completedAt: '2026-10-15T07:00:00+00:00' }, BANK], reserve: [] }
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(screen.getByRole('button', { name: 'Plus tard, sans souci' }))
+
+        await waitFor(() => expect(screen.getByRole('list', { name: 'Mes 5' })).toBeInTheDocument())
+        expect(calls('PUT')).toHaveLength(0)
+      })
+
+      test('a refused « Plus tard » says why, stays in the Focus and leaves the day as it was', async () => {
+        const user = setup()
+        mockFetch.mockImplementation((url, init) =>
+          Promise.resolve(init?.method === 'PUT' ? json({ error: 'Journée refusée' }, 400) : respond(String(url), init)),
+        )
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(screen.getByRole('button', { name: 'Plus tard, sans souci' }))
+
+        await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Journée refusée', { type: 'error' }))
+        expect(focus()).toBeInTheDocument()
+        expect(state.slots.map((t) => t.id)).toEqual(['01BANK', '01CANTEEN', '01WATER'])
+      })
+
+      test('« C\'est fait » ticks the task, then returns to the day on the next one', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(within(focus()).getByRole('button', { name: "C'est fait" }))
+
+        await waitFor(() => expect(nowCard()).toHaveTextContent('Payer la cantine'))
+        const [url, init] = mockFetch.mock.calls.find(([, i]) => i?.method === 'PATCH')!
+        expect(url).toBe('http://localhost/api/tasks/01BANK')
+        expect(JSON.parse(init!.body as string)).toEqual({ completedAt: '2026-10-15T08:00:00.000Z' })
+        expect(screen.getByRole('img', { name: '1 sur 3' })).toBeInTheDocument()
+        expect(screen.queryByRole('timer')).toBeNull()
+      })
+
+      test('a refused « C\'est fait » stays in the Focus, the task not done', async () => {
+        const user = setup()
+        mockFetch.mockImplementation((url, init) =>
+          Promise.resolve(init?.method === 'PATCH' ? json({}, 500) : respond(String(url), init)),
+        )
+        render(<TaskBoard />)
+        await screen.findByRole('region', { name: 'Maintenant' })
+        await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+
+        await user.click(within(focus()).getByRole('button', { name: "C'est fait" }))
+
+        await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Tâche : 500', { type: 'error' }))
+        expect(focus()).toBeInTheDocument()
+        expect(state.slots[0].completedAt).toBeNull()
+      })
     })
 
     test('an empty day shows no « Maintenant » and no ring, only the free places', async () => {

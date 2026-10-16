@@ -1,0 +1,106 @@
+appId: com.maggie.app.e2e
+name: 17c-task-focus
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/focus-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-other@maggie.local
+---
+# The Focus (MAG-499): one task of the day, its first step, a 10-minute ring and its petits pas.
+#
+# Given today's day whose first task has a first step and two subtasks (`scripts/focus-api.js`
+# PUTs /api/day-plans/{TODAY}), when « Juste 10 minutes » is tapped, a petit pas ticked, the ring
+# started and « C'est fait » tapped, then the Focus gives the day back, the task done, and
+# « Maintenant » shows the next task. The script reads the day back to check it in the database.
+#
+# It signs in as the seed's second user, like `17b-tasks-day`, and `onFlowComplete` deletes what
+# it made even when a step failed. The timer's arithmetic, « Je bloque » and « Plus tard » are
+# `FocusTimerTest`'s, `FocusViewModelTest`'s and `FocusScreenTest`'s.
+
+- runScript:
+    file: ../scripts/focus-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17c-task-focus.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 30000
+- assertVisible: ".*Focus 1 MAG-499.*"
+
+# « Juste 10 minutes »: the task, its first step marked « 2 min », the ring at 10:00, the petits pas.
+- tapOn:
+    id: "tasks_now_focus"
+- extendedWaitUntil:
+    visible:
+      id: "focus"
+    timeout: 20000
+- assertVisible: ".*Focus 1 MAG-499.*"
+- assertVisible:
+    id: "focus_first_step"
+- assertVisible: "Ouvrir le courrier"
+- assertVisible: "2 min"
+# The ring reads its time through its description, not through its text.
+- assertVisible: ".*Minuteur.*10:00.*"
+- assertVisible: ".*Pas A MAG-499.*"
+- assertVisible: ".*Pas B MAG-499.*"
+
+# The ring runs, and pauses.
+- tapOn:
+    id: "focus_start"
+- extendedWaitUntil:
+    visible:
+      id: "focus_pause"
+    timeout: 10000
+- tapOn:
+    id: "focus_pause"
+- extendedWaitUntil:
+    visible:
+      id: "focus_resume"
+    timeout: 10000
+
+# A petit pas ticked, then the task.
+- tapOn:
+    id: "focus_step_.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "focus_done"
+    timeout: 20000
+- tapOn:
+    id: "focus_done"
+
+# Back on the day: « Maintenant » follows.
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Focus 2 MAG-499.*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/focus-api.js
+    env:
+      ACTION: expect-done
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local

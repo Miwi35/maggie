@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { claimMorning, formatMinutes, morningDue, placeOnDay, resetMorningOffer, swapProposal } from './dayPlan'
+import { claimMorning, deferOnDay, formatMinutes, morningDue, placeOnDay, resetMorningOffer, swapProposal } from './dayPlan'
 import type { DayProposal, ProposalEntry } from './dayPlan'
 
 describe('placeOnDay — where a task lands in the day (MAG-497)', () => {
@@ -138,5 +138,26 @@ describe('morningDue — when the morning opens by itself (MAG-498)', () => {
     resetMorningOffer()
     expect(claimMorning()).toBe(true)
     resetMorningOffer()
+  })
+})
+
+describe('deferOnDay — « Plus tard, sans souci » (MAG-499)', () => {
+  const slot = (id: string, done = false) => ({ id, done })
+
+  test('the task goes last of the slots not done', () => {
+    expect(deferOnDay([slot('A'), slot('B'), slot('C')], 'A')).toEqual(['B', 'C', 'A'])
+    expect(deferOnDay([slot('A'), slot('B'), slot('C')], 'B')).toEqual(['A', 'C', 'B'])
+  })
+
+  test('the done slots keep their place', () => {
+    expect(deferOnDay([slot('A', true), slot('B'), slot('C', true), slot('D')], 'B')).toEqual(['A', 'D', 'C', 'B'])
+    expect(deferOnDay([slot('A'), slot('B', true), slot('C')], 'A')).toEqual(['C', 'B', 'A'])
+  })
+
+  test('nothing changes when it is already the last one left, done, or not in the day', () => {
+    expect(deferOnDay([slot('A', true), slot('B')], 'B')).toBeNull()
+    expect(deferOnDay([slot('A', true), slot('B')], 'A')).toBeNull()
+    expect(deferOnDay([slot('A')], 'A')).toBeNull()
+    expect(deferOnDay([slot('A'), slot('B')], 'Z')).toBeNull()
   })
 })

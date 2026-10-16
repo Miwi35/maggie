@@ -23,6 +23,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,7 +54,11 @@ class TasksDayScreenTest {
     private val bins = DayTask(id = "d3", title = "Sortir les poubelles", completedAt = "2026-10-15T07:00:00Z")
     private val photos = DayTask(id = "r1", title = "Trier les photos de vacances", postponedSince = "2026-10-14")
 
-    private fun show(slotted: List<DayTask>, reserve: List<DayTask> = listOf(photos)): TasksViewModel {
+    private fun show(
+        slotted: List<DayTask>,
+        reserve: List<DayTask> = listOf(photos),
+        onFocus: (String) -> Unit = {},
+    ): TasksViewModel {
         val slots = slotted.mapIndexed { i, task -> DaySlot(position = i + 1, task = task) }
         val day = DayPlan(
             id = "day",
@@ -74,7 +79,7 @@ class TasksDayScreenTest {
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
         val viewModel = TasksViewModel(repository, mercure, auth, today = { today })
-        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}) }
+        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}, onFocus = onFocus) }
         compose.waitForIdle()
         return viewModel
     }
@@ -125,5 +130,26 @@ class TasksDayScreenTest {
         compose.onNodeWithTag(UiTags.TASKS_RING).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASKS_DAY_ADD_INPUT).assertIsDisplayed()
         compose.onNodeWithText("Réserve (1)").assertIsDisplayed()
+    }
+
+    @Test
+    fun `« Juste 10 minutes » opens the Focus on the task of « Maintenant »`() {
+        val focused = mutableListOf<String>()
+        show(listOf(bins, form, tax), onFocus = { focused += it })
+
+        compose.onNodeWithTag(UiTags.TASKS_NOW_FOCUS).performClick()
+
+        assertEquals(listOf("d1"), focused)
+    }
+
+    @Test
+    fun `the menu of a slot offers the Focus on that slot's task`() {
+        val focused = mutableListOf<String>()
+        show(listOf(form, tax), onFocus = { focused += it })
+
+        compose.onNodeWithTag(UiTags.tasksSlotMenu("d2")).performClick()
+        compose.onNodeWithTag(UiTags.TASKS_SLOT_FOCUS).performClick()
+
+        assertEquals(listOf("d2"), focused)
     }
 }

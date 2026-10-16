@@ -433,6 +433,84 @@ test.describe('the day of five', () => {
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
     }
   })
+
+  /**
+   * The Focus (MAG-499, extends MAG-497): one task, its first step, ten minutes
+   * on a ring and its petits pas — the task's subtasks. « Plus tard, sans souci »
+   * sends the task after the others not done, without a word of reproach.
+   */
+  test('the Focus of « Maintenant », then « Plus tard, sans souci », moves the task last and « Maintenant » shows the next one', async ({ page, api }) => {
+    const today = parisDay()
+    const titles = ['Focus 1 — appeler la banque', 'Focus 2 — ranger le bureau', 'Focus 3 — arroser'].map(perAttempt)
+    const ids: string[] = []
+    const stepIds: string[] = []
+
+    try {
+      // Given three open tasks, the first with a first step and two petits pas (subtasks)…
+      ids.push(await createTask(api, { title: titles[0], firstStep: 'Trouver le RIB' }))
+      ids.push(await createTask(api, { title: titles[1] }))
+      ids.push(await createTask(api, { title: titles[2] }))
+      const steps = [perAttempt('Chercher le numéro'), perAttempt('Appeler le conseiller')]
+      for (const title of steps) stepIds.push(await createTask(api, { title, parent: `/api/tasks/${ids[0]}` }))
+      for (const title of steps) {
+        await waitForIndexed<StoredTask>(api, '/api/tasks?itemsPerPage=100', (task) => task.title === title, {
+          what: `The petit pas "${title}"`,
+        })
+      }
+      // …all three in today's day.
+      await setDayPlan(api, today, ids)
+
+      const board = new TasksPage(page)
+      await board.open()
+      await expect(board.now).toContainText(titles[0])
+
+      // When I open the Focus from « Maintenant »…
+      await board.now.getByRole('button', { name: 'Juste 10 minutes' }).click()
+
+      // …it holds the task, its first step marked « 2 min », the ring at 10:00 and the petits pas.
+      const focus = board.focus(titles[0])
+      await expect(focus).toBeVisible()
+      await expect(focus).toContainText('Trouver le RIB')
+      await expect(focus).toContainText('2 min')
+      await expect(board.timer).toHaveText('10:00')
+      await expect(focus.getByRole('button', { name: /Maggie/ })).toHaveCount(0)
+      for (const title of steps) await expect(focus.getByRole('checkbox', { name: title })).not.toBeChecked()
+
+      // Ticking a petit pas writes the subtask alone.
+      await focus.getByRole('checkbox', { name: steps[0] }).check()
+      await expect
+        .poll(async () => (await tasks(api)).find((task) => task.id === stepIds[0])?.completedAt != null, {
+          timeout: 30_000,
+          message: 'the ticked petit pas should be stored as completed',
+        })
+        .toBe(true)
+      expect((await tasks(api)).find((task) => task.id === ids[0])?.completedAt ?? null, 'the task was completed too').toBeNull()
+
+      // And the timer runs.
+      await focus.getByRole('button', { name: 'Démarrer' }).click()
+      await expect(focus.getByRole('button', { name: 'Pause' })).toBeVisible()
+
+      // When I say « Plus tard, sans souci »…
+      await focus.getByRole('button', { name: 'Plus tard, sans souci' }).click()
+
+      // …the day is back, « Maintenant » shows the next task and the first one is the last of the slots…
+      await expect(board.focus(titles[0])).toHaveCount(0)
+      await expect(board.now).toContainText(titles[1])
+      await expect(board.now).not.toContainText(/retard|reproche/i)
+      await expect(board.slots.getByRole('listitem')).toContainText([titles[1], titles[2], titles[0]])
+      // …and the data agrees.
+      await expect
+        .poll(async () => (await dayPlan(api, today)).slots.map((slot) => slot.task.id), {
+          timeout: 30_000,
+          message: 'the day should hold the task last',
+        })
+        .toEqual([ids[1], ids[2], ids[0]])
+      expect((await dayPlan(api, today)).now?.task.id).toBe(ids[1])
+    } finally {
+      await setDayPlan(api, today, [])
+      for (const id of [...stepIds, ...ids]) await api.delete(`/api/tasks/${id}`)
+    }
+  })
 })
 
 /**
@@ -679,7 +757,7 @@ async function completeTask(api: APIRequestContext, taskId: string): Promise<voi
 /** Creates a task through the API and returns its id. */
 async function createTask(
   api: APIRequestContext,
-  data: { title: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string },
+  data: { title: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string; parent?: string },
 ): Promise<string> {
   const response = await api.post('/api/tasks', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
