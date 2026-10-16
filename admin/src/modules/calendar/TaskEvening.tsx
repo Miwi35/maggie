@@ -91,6 +91,8 @@ export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveni
   const choose = async (task: DayTask, next: Outcome) => {
     const previous = outcomeOf(task)
     if (busy || next === previous) return
+    // Tomorrow is written whole: not before it was read, or its five would be lost.
+    if (tomorrowIds == null && (next === 'tomorrow' || previous === 'tomorrow')) return
     if (next === 'tomorrow' && tomorrowFull(task)) {
       notify(`Demain a déjà ${DAY_SLOTS} tâches`, { type: 'warning' })
       return
@@ -98,18 +100,18 @@ export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveni
 
     setBusy(true)
     let todayNow = todayIds
-    let tomorrowNow = tomorrowIds ?? []
+    let tomorrowNow = tomorrowIds
     try {
       // Undo the previous way out first: a task is in one place at a time.
       if (previous === 'tomorrow') {
-        tomorrowNow = ids(await saveDayPlan(tomorrow, tomorrowNow.filter((id) => id !== task.id), false))
+        tomorrowNow = ids(await saveDayPlan(tomorrow, (tomorrowNow ?? []).filter((id) => id !== task.id), false))
       }
       if (previous === 'aside') {
         await setTaskDueDate(task.id, task.dueDate)
         todayNow = ids(await saveDayPlan(today, restoreAt(todayNow, task.id, ids(opened))))
       }
       if (next === 'tomorrow') {
-        tomorrowNow = ids(await saveDayPlan(tomorrow, [...tomorrowNow.filter((id) => id !== task.id), task.id], false))
+        tomorrowNow = ids(await saveDayPlan(tomorrow, [...(tomorrowNow ?? []).filter((id) => id !== task.id), task.id], false))
       }
       if (next === 'aside') {
         await setTaskDueDate(task.id, null)
@@ -120,7 +122,7 @@ export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveni
       notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
     } finally {
       setTodayIds(todayNow)
-      setTomorrowIds(tomorrowNow)
+      if (tomorrowNow !== tomorrowIds) setTomorrowIds(tomorrowNow)
       setBusy(false)
     }
   }
@@ -196,7 +198,7 @@ export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveni
                         key={value}
                         value={value}
                         aria-label={`${task.title} : ${OUTCOME_LABELS[value]}`}
-                        disabled={busy || (value === 'tomorrow' && tomorrowFull(task))}
+                        disabled={busy || (value === 'tomorrow' && (tomorrowIds == null || tomorrowFull(task)))}
                       >
                         {OUTCOME_LABELS[value]}
                       </ToggleButton>
