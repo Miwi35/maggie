@@ -44,6 +44,7 @@ import com.maggie.app.data.api.PlannedMealRef
 import com.maggie.app.data.api.RecipeDeletionImpact
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.grocery.SeasonBadge
 import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.Dispatchers
@@ -270,7 +271,14 @@ fun RecipeDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(text = ing.ingredientName.orEmpty(), modifier = Modifier.weight(1f))
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(text = ing.ingredientName.orEmpty())
+                                    SeasonBadge(ing.inSeason)
+                                }
                                 Text(
                                     text = "${ing.quantity} ${ing.unit.name.lowercase()}",
                                     modifier = Modifier.testTag(UiTags.RECIPE_INGREDIENT_QUANTITY),

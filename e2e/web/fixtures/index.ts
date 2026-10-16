@@ -14,6 +14,7 @@ import {
   MEALS_USER_EMAIL,
   OTHER_USER_EMAIL,
   RECURRING_USER_EMAIL,
+  SEASON_USER_EMAIL,
   SEED_USER_EMAIL,
   STOCK_USER_EMAIL,
   TRANSFERS_USER_EMAIL,
@@ -38,6 +39,7 @@ export {
   TRANSFERS_USER_EMAIL,
   MEALS_USER_EMAIL,
   ENVELOPE_ALERT_USER_EMAIL,
+  SEASON_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -147,6 +149,8 @@ export interface MaggieFixtures {
   mealsUser: OtherUser
   /** The tenth seeded account, for the envelope alert after a bank sync (MAG-49). */
   envelopeAlertUser: OtherUser
+  /** The seasonality journey's (MAG-494): its grocery list and its chat are its own. */
+  seasonUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -363,6 +367,9 @@ export const test = base.extend<MaggieFixtures>({
 
   envelopeAlertUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(ENVELOPE_ALERT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+  seasonUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(SEASON_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

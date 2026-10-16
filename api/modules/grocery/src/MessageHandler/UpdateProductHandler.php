@@ -91,6 +91,12 @@ class UpdateProductHandler
         if (null !== $command->aisles) {
             $this->applyAisles($product, $command->aisles);
         }
+        if (null !== $command->seasonMonths) {
+            $product->setSeasonMonths($command->seasonMonths);
+        } elseif ($command->clears('seasonMonths')) {
+            $product->setSeasonMonths(null);
+        }
+        $product->assertSeasonMonthsAreValid();
 
         $product = $this->updateProduct->execute($product);
         if (null !== $command->aisles) {

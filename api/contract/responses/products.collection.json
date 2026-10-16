@@ -25,6 +25,12 @@
             "stockState": "in_stock",
             "restockQuantity": 2,
             "autoRestock": false,
+            "seasonMonths": [
+                4,
+                5,
+                6
+            ],
+            "inSeason": true,
             "aisles": [
                 {
                     "store": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -47,6 +53,11 @@
             "fatPer100g": 1.5,
             "stockState": "in_stock",
             "autoRestock": false,
+            "seasonMonths": [
+                9,
+                10
+            ],
+            "inSeason": false,
             "aisles": []
         }
     ],

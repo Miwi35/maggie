@@ -1,0 +1,1165 @@
+{
+  "source": "ADEME, Impact CO2 — « Fruits et légumes de saison » (https://impactco2.fr/outils/fruitsetlegumes), fichier src/data/categories/fruitsetlegumes.ts du dépôt https://github.com/incubateur-ademe/impactco2 (licence MIT), relevé le 2026-10-16.",
+  "licence": "MIT (code et données du dépôt incubateur-ademe/impactco2).",
+  "region": "France métropolitaine",
+  "notes": [
+    "Les mois de la source vont de 0 à 11 : ils sont ici de 1 (janvier) à 12 (décembre).",
+    "Écartés : les produits importés toute l'année (ananas, avocat, banane, fruit de la passion, mangue) et « champignon / morille », que la source donne sur douze mois et qui ne sont donc jamais « hors saison ».",
+    "Noms, synonymes et codes Ciqual (table Ciqual de l'Anses, ciqual/data) ajoutés pour Maggie (MAG-494) : un produit est reconnu par son nom normalisé (minuscules, sans accents, au singulier) ou par son code Ciqual."
+  ],
+  "produce": [
+    {
+      "name": "Abricot",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13000"
+      ],
+      "months": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "Ail",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [],
+      "months": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Artichaut",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20052"
+      ],
+      "months": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Asperge",
+      "kind": "légume",
+      "synonyms": [
+        "asperge verte",
+        "asperge blanche"
+      ],
+      "ciqualCodes": [
+        "20279",
+        "20282"
+      ],
+      "months": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Aubergine",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20053"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Betterave",
+      "kind": "légume",
+      "synonyms": [
+        "betterave rouge"
+      ],
+      "ciqualCodes": [
+        "20091"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Blette",
+      "kind": "légume",
+      "synonyms": [
+        "bette",
+        "blette",
+        "côte de blette"
+      ],
+      "ciqualCodes": [
+        "20004"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "name": "Brocoli",
+      "kind": "légume",
+      "synonyms": [
+        "brocolis"
+      ],
+      "ciqualCodes": [
+        "20057"
+      ],
+      "months": [
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "name": "Carambole",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13054"
+      ],
+      "months": [
+        1,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Carotte",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20009"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Cassis",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13007"
+      ],
+      "months": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "Cerise",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13008"
+      ],
+      "months": [
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Chou",
+      "kind": "légume",
+      "synonyms": [
+        "chou vert",
+        "chou blanc",
+        "chou rouge",
+        "chou frisé",
+        "chou kale",
+        "kale"
+      ],
+      "ciqualCodes": [
+        "20069",
+        "20116",
+        "20014",
+        "20218",
+        "20346"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Chou de Bruxelles",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20058"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Chou-fleur",
+      "kind": "légume",
+      "synonyms": [
+        "chou fleur"
+      ],
+      "ciqualCodes": [
+        "20016"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Châtaigne",
+      "kind": "fruit",
+      "synonyms": [
+        "marron"
+      ],
+      "ciqualCodes": [
+        "15024"
+      ],
+      "months": [
+        10,
+        11
+      ]
+    },
+    {
+      "name": "Citron",
+      "kind": "fruit",
+      "synonyms": [
+        "citron jaune"
+      ],
+      "ciqualCodes": [
+        "13009"
+      ],
+      "months": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "Clémentine",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13024"
+      ],
+      "months": [
+        1,
+        2,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Coing",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13010"
+      ],
+      "months": [
+        10
+      ]
+    },
+    {
+      "name": "Concombre",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20019",
+        "20210"
+      ],
+      "months": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Courge",
+      "kind": "légume",
+      "synonyms": [
+        "butternut",
+        "courge butternut",
+        "potimarron",
+        "courge musquée",
+        "courge spaghetti",
+        "courge hokkaïdo"
+      ],
+      "ciqualCodes": [
+        "20139",
+        "20128",
+        "20132",
+        "20134",
+        "20136",
+        "20138",
+        "20145"
+      ],
+      "months": [
+        1,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Courgette",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20020"
+      ],
+      "months": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Cresson",
+      "kind": "légume",
+      "synonyms": [
+        "cresson de fontaine"
+      ],
+      "ciqualCodes": [
+        "20022"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Céleri",
+      "kind": "légume",
+      "synonyms": [
+        "céleri branche",
+        "céleri-rave",
+        "celeri rave"
+      ],
+      "ciqualCodes": [
+        "20023",
+        "20055"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Datte",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13523"
+      ],
+      "months": [
+        1,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Endive",
+      "kind": "légume",
+      "synonyms": [
+        "chicon"
+      ],
+      "ciqualCodes": [
+        "20026"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        10
+      ]
+    },
+    {
+      "name": "Fenouil",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20028"
+      ],
+      "months": [
+        4,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "name": "Figue",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13012"
+      ],
+      "months": [
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Fraise",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13014"
+      ],
+      "months": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Framboise",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13015"
+      ],
+      "months": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "Grenade",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13018"
+      ],
+      "months": [
+        1,
+        2,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Groseille",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13019"
+      ],
+      "months": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "Haricot vert",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20061"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Kaki",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13066"
+      ],
+      "months": [
+        1,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Kiwi",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13021"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Laitue",
+      "kind": "légume",
+      "synonyms": [
+        "salade",
+        "salade verte",
+        "batavia",
+        "laitue romaine",
+        "romaine",
+        "sucrine",
+        "feuille de chêne"
+      ],
+      "ciqualCodes": [
+        "20031",
+        "20123",
+        "20171",
+        "20288",
+        "20295",
+        "25604"
+      ],
+      "months": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Mandarine",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [],
+      "months": [
+        1,
+        2,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Maïs",
+      "kind": "légume",
+      "synonyms": [
+        "maïs doux",
+        "épi de maïs"
+      ],
+      "ciqualCodes": [],
+      "months": [
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Melon",
+      "kind": "fruit",
+      "synonyms": [
+        "melon charentais"
+      ],
+      "ciqualCodes": [
+        "13026"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Myrtille",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13028"
+      ],
+      "months": [
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Mâche",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20099"
+      ],
+      "months": [
+        1,
+        2,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Mûre",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13029"
+      ],
+      "months": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Navet",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20064"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Nectarine",
+      "kind": "fruit",
+      "synonyms": [
+        "brugnon"
+      ],
+      "ciqualCodes": [
+        "13148",
+        "13149",
+        "13399"
+      ],
+      "months": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Noisette",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [],
+      "months": [
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "name": "Noix",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [],
+      "months": [
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Noix de coco",
+      "kind": "fruit",
+      "synonyms": [
+        "coco"
+      ],
+      "ciqualCodes": [],
+      "months": [
+        1,
+        2,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Oignon",
+      "kind": "légume",
+      "synonyms": [
+        "oignon jaune",
+        "oignon rouge",
+        "oignon blanc"
+      ],
+      "ciqualCodes": [
+        "20034",
+        "20238",
+        "20239"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Orange",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13034"
+      ],
+      "months": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "name": "Pamplemousse",
+      "kind": "fruit",
+      "synonyms": [
+        "pomelo"
+      ],
+      "ciqualCodes": [
+        "13040",
+        "13179",
+        "13180"
+      ],
+      "months": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Panais",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20181"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Pastèque",
+      "kind": "fruit",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13036"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Petits pois",
+      "kind": "légume",
+      "synonyms": [
+        "petit pois"
+      ],
+      "ciqualCodes": [
+        "20072"
+      ],
+      "months": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Poire",
+      "kind": "fruit",
+      "synonyms": [
+        "poire williams",
+        "poire conférence"
+      ],
+      "ciqualCodes": [
+        "13037",
+        "13188",
+        "13189",
+        "13397"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Poireau",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20039"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Poivron",
+      "kind": "légume",
+      "synonyms": [
+        "poivron rouge",
+        "poivron vert",
+        "poivron jaune"
+      ],
+      "ciqualCodes": [
+        "20041",
+        "20085",
+        "20087",
+        "20168"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Pomme",
+      "kind": "fruit",
+      "synonyms": [
+        "pomme golden",
+        "pomme gala",
+        "pomme granny smith",
+        "pomme pink lady",
+        "pomme canada"
+      ],
+      "ciqualCodes": [
+        "13039",
+        "13396",
+        "13085",
+        "13086",
+        "13620",
+        "13121",
+        "13122",
+        "13190",
+        "13191",
+        "13192"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Potiron",
+      "kind": "légume",
+      "synonyms": [
+        "citrouille"
+      ],
+      "ciqualCodes": [
+        "20044",
+        "20166"
+      ],
+      "months": [
+        1,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Prune",
+      "kind": "fruit",
+      "synonyms": [
+        "mirabelle",
+        "quetsche"
+      ],
+      "ciqualCodes": [
+        "13100",
+        "13027",
+        "13583"
+      ],
+      "months": [
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Pêche",
+      "kind": "fruit",
+      "synonyms": [
+        "pêche blanche",
+        "pêche jaune"
+      ],
+      "ciqualCodes": [
+        "13043",
+        "13193",
+        "13194",
+        "13195",
+        "13398"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Radis",
+      "kind": "légume",
+      "synonyms": [
+        "radis rose",
+        "radis rouge"
+      ],
+      "ciqualCodes": [
+        "20045"
+      ],
+      "months": [
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Raisin",
+      "kind": "fruit",
+      "synonyms": [
+        "raisin blanc",
+        "raisin noir",
+        "chasselas",
+        "muscat"
+      ],
+      "ciqualCodes": [
+        "13044",
+        "13045",
+        "13101",
+        "13395",
+        "13621"
+      ],
+      "months": [
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Reine-claude",
+      "kind": "fruit",
+      "synonyms": [
+        "reine claude"
+      ],
+      "ciqualCodes": [
+        "13041"
+      ],
+      "months": [
+        9
+      ]
+    },
+    {
+      "name": "Rhubarbe",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "13047"
+      ],
+      "months": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Salsifis",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20197"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Tomate",
+      "kind": "légume",
+      "synonyms": [
+        "tomate cerise",
+        "tomate grappe",
+        "tomate cœur de bœuf",
+        "tomate coeur de boeuf",
+        "tomate ronde",
+        "tomate allongée",
+        "tomate marmande"
+      ],
+      "ciqualCodes": [
+        "20385",
+        "20276",
+        "20172",
+        "20192",
+        "20343",
+        "20344",
+        "20345",
+        "20584"
+      ],
+      "months": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Topinambour",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20196"
+      ],
+      "months": [
+        1,
+        2,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Échalote",
+      "kind": "légume",
+      "synonyms": [],
+      "ciqualCodes": [
+        "20097"
+      ],
+      "months": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Épinard",
+      "kind": "légume",
+      "synonyms": [
+        "pousses d'épinard"
+      ],
+      "ciqualCodes": [
+        "20059",
+        "20270"
+      ],
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        9,
+        10,
+        11,
+        12
+      ]
+    }
+  ]
+}

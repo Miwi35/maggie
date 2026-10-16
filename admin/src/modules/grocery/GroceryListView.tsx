@@ -43,6 +43,7 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import { QuantityStepper } from './QuantityStepper'
 import { LineRecurrence } from './LineRecurrence'
+import { SeasonBadge } from './SeasonBadge'
 import { RecurringTab } from './RecurringTab'
 import { formatBuyAfter } from './groceryDates'
 import { RECURRING_TOPIC, bareId, isRecurringUpdate } from './recurring'
@@ -85,6 +86,8 @@ interface GroceryItem {
   position: number
   /** Its product's aisle in its store, null for « Sans rayon » (MAG-493). */
   aisle?: AisleSummary | null
+  /** Computed by the API for this month; null or absent: no season, no badge (MAG-494). */
+  inSeason?: boolean | null
 }
 
 interface GroceryListData {
@@ -238,6 +241,7 @@ function SortableGroceryItem({
           ...(compact && { flexBasis: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }),
         }}
       >
+        <SeasonBadge inSeason={item.inSeason} />
         <Chip
           label={
             item.source === 'recipe' ? 'Recette' : item.source === 'recurring' ? 'Récurrent' : 'Manuel'

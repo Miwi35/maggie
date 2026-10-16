@@ -1,9 +1,10 @@
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, Edit, ResourceContextProvider, testDataProvider } from 'react-admin'
+import { AdminContext, Edit, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProductForm } from './ProductForm'
+import { SEASON_MONTH_CHOICES } from './SeasonMonthsInput'
 
 const halles = { id: '/api/stores/01M3VA6TKHF1CB6GMPSRV8WE7P', name: 'Halles du voisin' }
 const primeur = { id: '/api/stores/01M3VA6TKHF1CB6GMPSRV8WE7Q', name: 'Primeur' }
@@ -41,6 +42,7 @@ const renderEdit = (update = vi.fn().mockResolvedValue({ data: product }), recor
             <Route path="/products" element={null} />
           </Routes>
         </ResourceContextProvider>
+        <Notification />
       </AdminContext>
     </MemoryRouter>,
   )
@@ -162,7 +164,7 @@ describe('ProductForm', () => {
   test('shows the stock the product already has', async () => {
     renderEdit(undefined, { ...product, stockState: 'low', restockQuantity: 3, autoRestock: true })
 
-    expect(await screen.findByDisplayValue('3')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Quantité de réapprovisionnement')).toHaveValue(3)
     expect(screen.getByRole('combobox', { name: 'État du stock' })).toHaveTextContent('Stock faible')
     expect(screen.getByLabelText('Réapprovisionnement automatique')).toBeChecked()
   })
@@ -171,7 +173,7 @@ describe('ProductForm', () => {
     const user = userEvent.setup()
     const update = renderEdit(undefined, { ...product, restockQuantity: 3 })
 
-    await user.clear(await screen.findByDisplayValue('3'))
+    await user.clear(await screen.findByLabelText('Quantité de réapprovisionnement'))
     await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
 
     await waitFor(() => expect(update).toHaveBeenCalled())
@@ -188,5 +190,58 @@ describe('ProductForm', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Quantité de réapprovisionnement')).toBeInvalid())
     expect(update).not.toHaveBeenCalled()
+  })
+})
+
+describe('ProductForm season months (MAG-494)', () => {
+  test('ticks the months the product is in season', async () => {
+    renderEdit(undefined, { ...product, name: 'Potiron', category: 'produce', seasonMonths: [1, 9, 10, 11, 12] })
+
+    expect(await screen.findByRole('checkbox', { name: 'Oct.' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Janv.' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Juil.' })).not.toBeChecked()
+  })
+
+  test('saves the months ticked, sorted', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit(undefined, { ...product, name: 'Potiron', category: 'produce', seasonMonths: [10] })
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Sept.' }))
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][1].data.seasonMonths).toEqual([9, 10])
+  })
+
+  test('unticking every month saves no season', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit(undefined, { ...product, name: 'Potiron', category: 'produce', seasonMonths: [10] })
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Oct.' }))
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][1].data.seasonMonths ?? []).toEqual([])
+  })
+
+  test('a product without a season has no month ticked', async () => {
+    renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    for (const month of SEASON_MONTH_CHOICES) {
+      expect(screen.getByRole('checkbox', { name: month.name })).not.toBeChecked()
+    }
+  })
+
+  test('says why the save failed when the API refuses the months', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn().mockRejectedValue(new Error('seasonMonths takes months from 1 (January) to 12 (December), not 13.'))
+    renderEdit(update, { ...product, seasonMonths: [10] })
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Nov.' }))
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(await screen.findByText(/seasonMonths takes months/)).toBeInTheDocument()
   })
 })

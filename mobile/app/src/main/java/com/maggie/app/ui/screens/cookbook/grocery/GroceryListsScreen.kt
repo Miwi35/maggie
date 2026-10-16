@@ -73,6 +73,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.grocery.SeasonBadge
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.uiTagRoot
 
@@ -660,6 +661,7 @@ private fun GroceryItemRow(
                 },
             )
             recurring?.let { RecurringIndicator(it) }
+            SeasonBadge(item.inSeason)
             item.neededReminder()?.let { reminder ->
                 Text(
                     text = reminder,

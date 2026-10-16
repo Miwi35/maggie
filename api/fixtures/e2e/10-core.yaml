@@ -140,6 +140,15 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-meals-google-id'
         name: 'Léa Repas'
 
+    # The seasonality journey (MAG-494). It puts a potiron and tomatoes on the
+    # list and asks Maggie what is in season, which adds to the chat history:
+    # on the owner's account that pushes `chat.spec.ts` off its page, and on the
+    # shopper's it lands inside the windows the errand journey reads.
+    e2e_season_user:
+        email: 'e2e-season@maggie.local'
+        googleId: 'e2e-season-google-id'
+        name: 'Max Primeur'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -211,6 +220,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_meals_user_preference:
         user: '@e2e_meals_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_season_user_preference:
+        user: '@e2e_season_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

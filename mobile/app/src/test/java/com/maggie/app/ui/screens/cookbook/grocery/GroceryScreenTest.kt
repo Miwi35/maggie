@@ -403,4 +403,32 @@ class GroceryScreenTest {
         compose.onNodeWithText("Timbres du voisin", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("Sans rayon").assertCountEquals(0)
     }
+
+    // --- MAG-494: « de saison » / « hors saison » on the line ---
+
+    private val seasonList = GroceryList(
+        id = "list-season",
+        items = listOf(
+            GroceryItem(id = "item-potiron", label = "Potiron", customLabel = "Potiron", inSeason = true, position = 0),
+            GroceryItem(id = "item-tomates", label = "Tomates", customLabel = "Tomates", inSeason = false, position = 1),
+            GroceryItem(id = "item-lessive", label = "Lessive", customLabel = "Lessive", inSeason = null, position = 2),
+        ),
+    )
+
+    @Test
+    fun `a line in season says de saison, one out of season hors saison, one without season nothing`() {
+        val fake = FakeGrocery(list = seasonList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
+
+        compose.onNodeWithText("Potiron").assertIsDisplayed()
+        compose.onAllNodesWithText("de saison").assertCountEquals(1)
+        compose.onAllNodesWithText("hors saison").assertCountEquals(1)
+        assertTopToBottom(
+            "Potiron" to compose.onNodeWithText("Potiron"),
+            "de saison" to compose.onNodeWithText("de saison"),
+            "Tomates" to compose.onNodeWithText("Tomates"),
+            "hors saison" to compose.onNodeWithText("hors saison"),
+            "Lessive" to compose.onNodeWithText("Lessive"),
+        )
+    }
 }

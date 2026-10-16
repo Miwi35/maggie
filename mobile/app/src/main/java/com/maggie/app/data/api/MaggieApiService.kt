@@ -1353,6 +1353,15 @@ class MaggieApiService(
         }.body()
     }
 
+    /** The months a product is in season (MAG-494); an empty list is no season. */
+    suspend fun updateProductSeasonMonths(id: String, months: List<Int>): Product {
+        return client.patch("$baseUrl/api/products/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("seasonMonths", buildJsonArray { months.forEach { add(JsonPrimitive(it)) } }) })
+        }.body()
+    }
+
     suspend fun deleteProduct(id: String) {
         client.delete("$baseUrl/api/products/$id")
     }

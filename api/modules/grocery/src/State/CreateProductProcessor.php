@@ -43,6 +43,7 @@ class CreateProductProcessor implements ProcessorInterface
             stockState: $data->getStockState()->value,
             restockQuantity: $data->getRestockQuantity(),
             autoRestock: $data->isAutoRestock(),
+            seasonMonths: $data->getSeasonMonths(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

@@ -13404,6 +13404,14 @@
                         "default": 0,
                         "type": "integer"
                     },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The product's: null for a free-text line or a product without a season (MAG-494).",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "label": {
                         "readOnly": true,
                         "type": "string"
@@ -13537,6 +13545,14 @@
                         "default": 0,
                         "type": "integer"
                     },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The product's: null for a free-text line or a product without a season (MAG-494).",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "label": {
                         "readOnly": true,
                         "type": "string"
@@ -13669,6 +13685,14 @@
                     "position": {
                         "default": 0,
                         "type": "integer"
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The product's: null for a free-text line or a product without a season (MAG-494).",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     },
                     "label": {
                         "readOnly": true,
@@ -14098,6 +14122,23 @@
                     "autoRestock": {
                         "type": "boolean"
                     },
+                    "seasonMonths": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "For the month marked by the read; unmarked (a Mercure payload, built\nfrom the entity alone), for the month of today in Paris — the timezone\nthe calendar is written for.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -14285,6 +14326,23 @@
                     },
                     "autoRestock": {
                         "type": "boolean"
+                    },
+                    "seasonMonths": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "For the month marked by the read; unmarked (a Mercure payload, built\nfrom the entity alone), for the month of today in Paris — the timezone\nthe calendar is written for.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -14474,6 +14532,23 @@
                     "autoRestock": {
                         "type": "boolean"
                     },
+                    "seasonMonths": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "For the month marked by the read; unmarked (a Mercure payload, built\nfrom the entity alone), for the month of today in Paris — the timezone\nthe calendar is written for.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -14662,6 +14737,23 @@
                             },
                             "autoRestock": {
                                 "type": "boolean"
+                            },
+                            "seasonMonths": {
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "inSeason": {
+                                "readOnly": true,
+                                "description": "For the month marked by the read; unmarked (a Mercure payload, built\nfrom the entity alone), for the month of today in Paris — the timezone\nthe calendar is written for.",
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
                             },
                             "aisles": {
                                 "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -16591,6 +16683,24 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "seasonMonths": {
+                        "description": "Months (1 = January … 12 = December) the product is in season in metropolitan France; null for a product without a season.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "Whether the product is in season this month, in the user's timezone; null for a product without a season.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -16781,6 +16891,24 @@
                         "description": "Whether running out puts it back on the list by itself.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "seasonMonths": {
+                        "description": "Months (1 = January … 12 = December) the product is in season in metropolitan France; null for a product without a season.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "Whether the product is in season this month, in the user's timezone; null for a product without a season.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -16973,6 +17101,24 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "seasonMonths": {
+                        "description": "Months (1 = January … 12 = December) the product is in season in metropolitan France; null for a product without a season.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "Whether the product is in season this month, in the user's timezone; null for a product without a season.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
                     "aisles": {
                         "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
                         "type": "array",
@@ -17164,6 +17310,24 @@
                                 "description": "Whether running out puts it back on the list by itself.",
                                 "default": false,
                                 "type": "boolean"
+                            },
+                            "seasonMonths": {
+                                "description": "Months (1 = January … 12 = December) the product is in season in metropolitan France; null for a product without a season.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "inSeason": {
+                                "readOnly": true,
+                                "description": "Whether the product is in season this month, in the user's timezone; null for a product without a season.",
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
                             },
                             "aisles": {
                                 "description": "Its aisle in each store, as bare ids: `[{store, aisle}]`.",
@@ -17878,6 +18042,14 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The ingredient's: null for an ingredient without a season (MAG-494).",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -17935,6 +18107,14 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The ingredient's: null for an ingredient without a season (MAG-494).",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -17990,6 +18170,14 @@
                         "readOnly": true,
                         "type": [
                             "string",
+                            "null"
+                        ]
+                    },
+                    "inSeason": {
+                        "readOnly": true,
+                        "description": "The ingredient's: null for an ingredient without a season (MAG-494).",
+                        "type": [
+                            "boolean",
                             "null"
                         ]
                     }

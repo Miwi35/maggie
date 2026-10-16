@@ -97,6 +97,13 @@ export const MEALS_USER_EMAIL = 'e2e-meals@maggie.local'
  */
 export const ENVELOPE_ALERT_USER_EMAIL = 'e2e-envelope-alert@maggie.local'
 
+/**
+ * The twelfth seeded account, for the seasonality journey (MAG-494): it puts a
+ * potiron and tomatoes on its list and asks Maggie what is in season — a list
+ * and a chat history no other file may share.
+ */
+export const SEASON_USER_EMAIL = 'e2e-season@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

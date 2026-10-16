@@ -16,8 +16,8 @@ final readonly class UpdateProductCommand
      * an id or a name, a name the store lacks is created last; null leaves
      * them as they are.
      *
-     * @param list<'defaultUnit'|'preferredStore'|'fallbackStore'|'shelfLifeDays'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'|'restockQuantity'> $clearFields
-     * @param list<array{store: string, aisle: ?string}>|null                                                                                            $aisles
+     * @param list<'defaultUnit'|'preferredStore'|'fallbackStore'|'shelfLifeDays'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'|'restockQuantity'|'seasonMonths'> $clearFields
+     * @param list<array{store: string, aisle: ?string}>|null                                                                                                           $aisles
      */
     public function __construct(
         public string $productId,
@@ -33,6 +33,8 @@ final readonly class UpdateProductCommand
         public ?string $stockState = null,
         public ?int $restockQuantity = null,
         public ?bool $autoRestock = null,
+        /** @var list<int>|null */
+        public ?array $seasonMonths = null,
         public array $clearFields = [],
         public ?array $aisles = null,
     ) {

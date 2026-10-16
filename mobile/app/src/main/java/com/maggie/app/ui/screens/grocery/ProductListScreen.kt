@@ -109,6 +109,7 @@ fun ProductListScreen(
                             onDelete = { viewModel.deleteProduct(product.id) },
                             recurring = recurringState.forProduct(product.id)?.frequency,
                             onRecurringChange = { recurringViewModel.setFrequency(product.id, it) },
+                            onSeasonMonthsChange = { viewModel.updateSeasonMonths(product.id, it) },
                         )
                     }
                 }
@@ -169,7 +170,10 @@ internal fun ProductCard(
     onDelete: () -> Unit,
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
+    onSeasonMonthsChange: ((List<Int>) -> Unit)? = null,
 ) {
+    var editingSeason by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -197,13 +201,19 @@ internal fun ProductCard(
                         )
                     }
                 }
-                StockStateChip(product.stockState)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    StockStateChip(product.stockState)
+                    SeasonBadge(product.inSeason)
+                }
                 product.packagingLabel()?.let {
                     Text(
                         text = "S'achète en : $it",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                onSeasonMonthsChange?.let {
+                    SeasonMonthsButton(product.seasonMonths, onClick = { editingSeason = true })
                 }
                 onRecurringChange?.let {
                     RecurringSetting(
@@ -221,6 +231,18 @@ internal fun ProductCard(
                 )
             }
         }
+    }
+
+    if (editingSeason && onSeasonMonthsChange != null) {
+        SeasonMonthsDialog(
+            productName = product.name,
+            months = product.seasonMonths,
+            onConfirm = {
+                onSeasonMonthsChange(it)
+                editingSeason = false
+            },
+            onDismiss = { editingSeason = false },
+        )
     }
 }
 

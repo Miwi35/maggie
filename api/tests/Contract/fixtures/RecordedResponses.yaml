@@ -204,6 +204,8 @@ Maggie\Grocery\Entity\Product:
     packagingSize: 500
     packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
     restockQuantity: 2
+    # The recording runs in April: in season, so inSeason is recorded too.
+    seasonMonths: [4, 5, 6]
     kcalPer100g: 52.0
     proteinPer100g: 0.3
     carbsPer100g: 14.0
@@ -216,6 +218,8 @@ Maggie\Cookbook\Entity\Ingredient:
     category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
     ciqualAlimCode: '9810'
+    # Out of season in April: inSeason is recorded as false.
+    seasonMonths: [9, 10]
     kcalPer100g: 340.0
     proteinPer100g: 12.5
     carbsPer100g: 71.0

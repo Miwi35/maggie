@@ -30,8 +30,10 @@ use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Exception\InvalidPackagingException;
+use Maggie\Grocery\Exception\InvalidSeasonMonthsException;
 use Maggie\Grocery\Exception\InvalidStockException;
 use Maggie\Grocery\Repository\ProductRepository;
+use Maggie\Grocery\Service\SeasonCalendar;
 use Maggie\Grocery\State\CreateProductProcessor;
 use Maggie\Grocery\State\DeleteProductProcessor;
 use Maggie\Grocery\State\UpdateProductProcessor;
@@ -166,6 +168,29 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[ApiProperty(readable: false, writable: false)]
     #[Ignore]
     private ?array $aislesInput = null;
+
+    /**
+     * The months (1 to 12) the product is in season in metropolitan France,
+     * sorted; null for a product without a season — anything that is not a
+     * fruit or a vegetable. Pre-filled from the seasonality calendar when the
+     * product is created (MAG-494), the user may correct it.
+     *
+     * @var list<int>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[IndexedField(type: 'integer')]
+    #[ApiProperty(description: 'Months (1 = January … 12 = December) the product is in season in metropolitan France; null for a product without a season.')]
+    private ?array $seasonMonths = null;
+
+    /**
+     * Computed on each read, never stored nor indexed: it depends on the month
+     * of the user's timezone. {@see \Maggie\Grocery\Serializer\SeasonNormalizer}
+     */
+    #[ApiProperty(writable: false, description: 'Whether the product is in season this month, in the user\'s timezone; null for a product without a season.')]
+    private ?bool $inSeason = null;
+
+    /** The month $inSeason was computed for; null until something marks it. */
+    private ?int $seasonMonth = null;
 
     public function __construct()
     {
@@ -491,6 +516,80 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return null;
     }
 
+    /** @return list<int>|null */
+    public function getSeasonMonths(): ?array
+    {
+        return $this->seasonMonths;
+    }
+
+    /**
+     * Kept as given: the handlers call assertSeasonMonthsAreValid(), which
+     * sorts it and refuses a month outside 1–12. An empty list is no season.
+     *
+     * @param list<int>|null $seasonMonths
+     */
+    public function setSeasonMonths(?array $seasonMonths): static
+    {
+        $this->seasonMonths = [] === $seasonMonths ? null : $seasonMonths;
+        $this->seasonMonth = null;
+
+        return $this;
+    }
+
+    /**
+     * Called by the handlers once every field is applied, like assertPackagingIsConsistent().
+     *
+     * @throws InvalidSeasonMonthsException
+     */
+    public function assertSeasonMonthsAreValid(): void
+    {
+        if (null === $this->seasonMonths) {
+            return;
+        }
+
+        // Typed list<int>, but a payload or a tool may send anything: checked here.
+        /** @var list<mixed> $given */
+        $given = $this->seasonMonths;
+        foreach ($given as $month) {
+            if (!\is_int($month) || $month < 1 || $month > 12) {
+                throw new InvalidSeasonMonthsException(sprintf('seasonMonths takes months from 1 (January) to 12 (December), not %s.', json_encode($month)));
+            }
+        }
+
+        $months = array_values(array_unique($this->seasonMonths));
+        sort($months);
+        $this->seasonMonths = $months;
+    }
+
+    /** Whether the product is in season that month; null for a product without a season. */
+    public function isInSeasonIn(int $month): ?bool
+    {
+        return null === $this->seasonMonths ? null : \in_array($month, $this->seasonMonths, true);
+    }
+
+    /** Fills inSeason for that month — the month of the user's timezone, {@see SeasonCalendar}. */
+    public function markSeason(int $month): static
+    {
+        $this->seasonMonth = $month;
+        $this->inSeason = $this->isInSeasonIn($month);
+
+        return $this;
+    }
+
+    /**
+     * For the month marked by the read; unmarked (a Mercure payload, built
+     * from the entity alone), for the month of today in Paris — the timezone
+     * the calendar is written for.
+     */
+    public function getInSeason(): ?bool
+    {
+        if (null !== $this->seasonMonth) {
+            return $this->inSeason;
+        }
+
+        return $this->isInSeasonIn(SeasonCalendar::monthInParis());
+    }
+
     /**
      * Called by the handlers next to assertPackagingIsConsistent().
      *
@@ -544,11 +643,17 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'stockState' => $this->stockState->value,
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
+            'seasonMonths' => $this->seasonMonths,
         ];
     }
 
     public function toMercurePayload(?array $changedProperties = null): array
     {
+        // inSeason follows seasonMonths: a differential update of the months carries both.
+        if (null !== $changedProperties && \in_array('seasonMonths', $changedProperties, true)) {
+            $changedProperties[] = 'inSeason';
+        }
+
         return self::filterPayload([
             'name' => $this->name,
             'category' => $this->category->value,
@@ -566,6 +671,8 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
             'aisles' => $this->getAisles(),
+            'seasonMonths' => $this->seasonMonths,
+            'inSeason' => $this->getInSeason(),
         ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId', 'aisleAssignments' => 'aisles']);
     }
 }

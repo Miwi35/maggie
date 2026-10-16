@@ -1,0 +1,52 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-season-test@example.com
+    googleId: google-grocery-season-test
+    name: Grocery Season Test User
+
+# No seasonMonths: pre-filled from the calendar when persisted.
+Maggie\Grocery\Entity\Product:
+  potiron:
+    name: Potiron
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+  tomates:
+    name: Tomates
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+  lessive:
+    name: Lessive
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Cleaning)>'
+    user: '@test_user'
+  # Corrected by hand: courgettes all year long.
+  courgette_corrigee:
+    name: Courgette
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  potiron_line:
+    groceryList: '@grocery_list'
+    product: '@potiron'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  tomates_line:
+    groceryList: '@grocery_list'
+    product: '@tomates'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+  lessive_line:
+    groceryList: '@grocery_list'
+    product: '@lessive'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 3
+  free_line:
+    groceryList: '@grocery_list'
+    customLabel: Bougies
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 4

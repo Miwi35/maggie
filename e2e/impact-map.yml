@@ -389,6 +389,8 @@ web:
     areas: [grocery, cookbook, realtime]
   e2e/web/tests/grocery-stock-chat.spec.ts:
     areas: [grocery, cookbook, chat, realtime]
+  e2e/web/tests/grocery-season.spec.ts:
+    areas: [grocery, chat]
 
   e2e/web/tests/recipes.spec.ts:
     areas: [cookbook, realtime]

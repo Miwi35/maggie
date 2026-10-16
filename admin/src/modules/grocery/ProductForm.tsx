@@ -14,6 +14,7 @@ import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productCh
 import { PackagingInputs } from './PackagingInputs'
 import { ProductRecurrence } from './ProductRecurrence'
 import { ProductAisleInputs } from './ProductAisleInputs'
+import { SeasonMonthsInput } from './SeasonMonthsInput'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -53,6 +54,13 @@ export const ProductForm = () => (
     </Box>
 
     <PackagingInputs />
+
+    <FormSection
+      title="Saison"
+      description="Les mois où il est de saison en France métropolitaine : la liste et les recettes le signalent."
+    />
+
+    <SeasonMonthsInput />
 
     <FormSection
       title="Où l'acheter"

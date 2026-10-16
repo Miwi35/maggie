@@ -115,4 +115,56 @@ class ProductCardScreenTest {
 
         compose.onNodeWithText("Récurrent").assertDoesNotExist()
     }
+
+    // MAG-494 — whether the product is in season, and its months.
+
+    private val potiron = Product(id = "2", name = "Potiron", category = ProductCategory.PRODUCE, seasonMonths = listOf(10, 11), inSeason = true)
+
+    @Test
+    fun `a product in season shows de saison`() {
+        compose.setContent { ProductCard(product = potiron, onDelete = {}) }
+
+        compose.onNodeWithTag(UiTags.SEASON_BADGE).assertIsDisplayed()
+        compose.onNodeWithText("de saison").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a product out of season shows hors saison`() {
+        compose.setContent { ProductCard(product = potiron.copy(inSeason = false), onDelete = {}) }
+
+        compose.onNodeWithText("hors saison").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a product without a season shows no badge`() {
+        compose.setContent { ProductCard(product = rice, onDelete = {}) }
+
+        compose.onNodeWithTag(UiTags.SEASON_BADGE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `ticking a month in the season dialog saves the months sorted`() {
+        val saved = mutableListOf<List<Int>>()
+        compose.setContent { ProductCard(product = potiron, onDelete = {}, onSeasonMonthsChange = { saved += it }) }
+
+        compose.onNodeWithText("Mois de saison : oct., nov.").performClick()
+        compose.onNodeWithText("Sept.").performClick()
+        compose.onNodeWithText("Nov.").performClick()
+        compose.onNodeWithText("Enregistrer").performClick()
+
+        assertEquals(listOf(listOf(9, 10)), saved)
+    }
+
+    @Test
+    fun `cancelling the season dialog saves nothing`() {
+        val saved = mutableListOf<List<Int>>()
+        compose.setContent { ProductCard(product = potiron, onDelete = {}, onSeasonMonthsChange = { saved += it }) }
+
+        compose.onNodeWithTag(UiTags.PRODUCT_SEASON_EDIT).performClick()
+        compose.onNodeWithText("Sept.").performClick()
+        compose.onNodeWithText("Annuler").performClick()
+
+        assertEquals(emptyList<List<Int>>(), saved)
+        compose.onNodeWithTag(UiTags.SEASON_MONTHS).assertDoesNotExist()
+    }
 }

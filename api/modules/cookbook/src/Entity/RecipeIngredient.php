@@ -6,13 +6,15 @@ namespace Maggie\Cookbook\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\AggregateRoot;
+use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\SeasonalLine;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity]
 #[AggregateRoot('recipe')]
-class RecipeIngredient
+class RecipeIngredient implements SeasonalLine
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -91,6 +93,17 @@ class RecipeIngredient
         return $this->ingredient->getCiqualAlimCode();
     }
 
+    /** The ingredient's: null for an ingredient without a season (MAG-494). */
+    public function getInSeason(): ?bool
+    {
+        return $this->ingredient->getInSeason();
+    }
+
+    public function seasonalProduct(): ?Product
+    {
+        return $this->ingredient;
+    }
+
     /**
      * The line as the API serves it, so a client can swap it in and send it back.
      *
@@ -107,11 +120,14 @@ class RecipeIngredient
                 'id' => $ingredient,
                 'name' => $this->ingredient->getName(),
                 'ciqualAlimCode' => $this->ingredient->getCiqualAlimCode(),
+                'seasonMonths' => $this->ingredient->getSeasonMonths(),
+                'inSeason' => $this->ingredient->getInSeason(),
             ],
             'ingredientName' => $this->ingredient->getName(),
             'ciqualAlimCode' => $this->ingredient->getCiqualAlimCode(),
             'quantity' => $this->quantity,
             'unit' => $this->unit->value,
+            'inSeason' => $this->getInSeason(),
         ];
     }
 
