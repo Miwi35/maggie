@@ -31,6 +31,26 @@ tags:
       ACTION: create
 
 - openLink: "maggie-e2e://finance/accounts"
+
+# Each detected rejection raises a notification, and the open app shows it over the screen
+# (MAG-314), one after the other: « Plus tard » puts both away. `14-interruption` plays them.
+- repeat:
+    times: 2
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "interruption"
+          timeout: 20000
+          optional: true
+      - tapOn:
+          id: "interruption_later"
+          optional: true
+      - extendedWaitUntil:
+          notVisible:
+            id: "interruption"
+          timeout: 10000
+          optional: true
+
 - extendedWaitUntil:
     visible: "Compte MAG-424"
     timeout: 30000

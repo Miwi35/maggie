@@ -14,11 +14,11 @@ use Maggie\Finance\Exception\InvalidQualificationException;
 use Maggie\Finance\Mcp\QualificationArguments;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Message\DeleteTransactionCommand;
+use Maggie\Finance\Message\SettleRejectionCommand;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\GetTransactionsToSort;
-use Maggie\Finance\UseCase\SettleRejection;
 use Maggie\Finance\UseCase\SortTransaction;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -39,7 +39,6 @@ class ManageTransactionsTool
         private readonly McpUserContext $userContext,
         private readonly GetTransactionsToSort $getTransactionsToSort,
         private readonly SortTransaction $sortTransaction,
-        private readonly SettleRejection $settleRejection,
     ) {
     }
 
@@ -346,11 +345,10 @@ class ManageTransactionsTool
             return json_encode(['error' => "Transaction not found: {$transactionId}"], JSON_THROW_ON_ERROR);
         }
 
-        try {
-            $settled ? $this->settleRejection->settle($transaction) : $this->settleRejection->unsettle($transaction);
-        } catch (\DomainException $e) {
-            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
-        }
+        // A line that is not a rejection is refused by the handler: HandlerFailedException, caught above.
+        $envelope = $this->bus->dispatch(new SettleRejectionCommand((string) $transaction->getId(), $settled));
+        /** @var Transaction $transaction */
+        $transaction = $envelope->last(HandledStamp::class)?->getResult();
 
         return json_encode(['success' => true, 'transaction' => $this->serialize($transaction)], JSON_THROW_ON_ERROR);
     }

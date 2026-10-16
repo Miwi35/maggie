@@ -6,11 +6,14 @@ namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Message\SettleRejectionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
-use Maggie\Finance\UseCase\SettleRejection;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Ulid;
 
@@ -24,24 +27,23 @@ final class RejectionSettlementController
     public function __construct(
         private readonly Security $security,
         private readonly TransactionRepository $transactionRepository,
-        private readonly SettleRejection $settleRejection,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
     #[Route('/api/finance/transactions/{id}/rejection-settlement', name: 'api_finance_transaction_settle_rejection', methods: ['POST'])]
     public function settle(string $id): JsonResponse
     {
-        return $this->answer($id, fn (Transaction $transaction) => $this->settleRejection->settle($transaction));
+        return $this->answer($id, true);
     }
 
     #[Route('/api/finance/transactions/{id}/rejection-settlement', name: 'api_finance_transaction_unsettle_rejection', methods: ['DELETE'])]
     public function unsettle(string $id): JsonResponse
     {
-        return $this->answer($id, fn (Transaction $transaction) => $this->settleRejection->unsettle($transaction));
+        return $this->answer($id, false);
     }
 
-    /** @param callable(Transaction): Transaction $change */
-    private function answer(string $id, callable $change): JsonResponse
+    private function answer(string $id, bool $settled): JsonResponse
     {
         $user = $this->security->getUser();
         if (!$user instanceof User) {
@@ -56,10 +58,18 @@ final class RejectionSettlementController
         }
 
         try {
-            $transaction = $change($transaction);
-        } catch (\DomainException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+            $envelope = $this->bus->dispatch(new SettleRejectionCommand((string) $transaction->getId(), $settled));
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious() ?? $e;
+            if (!$cause instanceof \DomainException) {
+                throw $e;
+            }
+
+            return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+
+        /** @var Transaction $transaction */
+        $transaction = $envelope->last(HandledStamp::class)?->getResult();
 
         return new JsonResponse([
             'success' => true,
