@@ -200,6 +200,18 @@ tags:
     timeout: 20000
 - tapOn: "Crédit Mutuel · EUR · Compte courant"
 
+# The accounts are a pager now (MAG-422): the dot moves to the account, whose page opens on its
+# days. The full list of lines (and its sheet) is one button away.
+- extendedWaitUntil:
+    visible:
+      id: "account_all_transactions"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Compte courant"
+    timeout: 20000
+- tapOn:
+    id: "account_all_transactions"
+
 - extendedWaitUntil:
     visible: "CINEMA GAUMONT"
     timeout: 30000

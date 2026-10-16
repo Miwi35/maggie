@@ -831,6 +831,34 @@ object UiTags {
     const val TRANSACTIONS_TAB = "transactions_tab"
     const val INCIDENTS_TAB = "incidents_tab"
 
+    /**
+     * The phone's accounts (MAG-422): the pager, its row of dots (one per account, suffixed by the
+     * account's position and described by its label), the page of an account and its balance, the
+     * two actions and the balance form, then the timeline's day titles (suffixed by the date), lines,
+     * status words, missed occurrences, « +33 % » mark, « Mois précédent » and « Réessayer ».
+     */
+    const val ACCOUNT_PAGER = "account_pager"
+    const val ACCOUNT_DOTS = "account_dots"
+    const val ACCOUNT_DOT_PREFIX = "account_dot_"
+    const val ACCOUNT_PAGE = "account_page"
+    const val ACCOUNT_BALANCE = "account_balance"
+    const val ACCOUNT_ADD_TRANSACTION = "account_add_transaction"
+    const val ACCOUNT_CORRECT_BALANCE = "account_correct_balance"
+    const val ACCOUNT_BALANCE_INPUT = "account_balance_input"
+    const val ACCOUNT_BALANCE_SAVE = "account_balance_save"
+    const val ACCOUNT_ALL_TRANSACTIONS = "account_all_transactions"
+    const val TIMELINE_DAY_PREFIX = "timeline_day_"
+    const val TIMELINE_LINE = "timeline_line"
+    const val TIMELINE_STATUS = "timeline_status"
+    const val TIMELINE_MISSED = "timeline_missed"
+    const val TIMELINE_INCREASE = "timeline_increase"
+    const val TIMELINE_PREVIOUS_MONTH = "timeline_previous_month"
+    const val TIMELINE_RETRY = "timeline_retry"
+
+    fun accountDot(index: Int) = ACCOUNT_DOT_PREFIX + index
+
+    fun timelineDay(date: String) = TIMELINE_DAY_PREFIX + date
+
     /** One rejection of the Incidents tab. */
     const val INCIDENT_ROW = "incident_row"
 
