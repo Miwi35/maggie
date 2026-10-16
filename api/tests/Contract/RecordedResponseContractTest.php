@@ -11,6 +11,11 @@ use Maggie\Finance\UseCase\GetAnnualPlan;
 use Maggie\Finance\UseCase\GetRecurringOperations;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
 use Maggie\Finance\UseCase\SuggestRecurringOperations;
+use Maggie\Grocery\Entity\Errand;
+use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\PurchasedItem;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -207,6 +212,41 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/recurring_operations.suggestions.json',
             self::stabilise($body),
             'GET /api/finance/recurring-operations/suggestions no longer returns what it used to. The mobile DTOs (RecurringOperation.kt) are written against this response.',
+        );
+    }
+
+    /**
+     * « Tu en prends souvent » (MAG-495), as `/api/grocery-suggestions` sends
+     * it: a product bought three times two weeks apart, due on the recorded day.
+     */
+    public function testTheGrocerySuggestionsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $coffee = (new Product())->setName('Recorded Coffee')->setCategory(ProductCategory::Other)->setUser($user);
+        $em->persist($coffee);
+        foreach (['2026-03-11', '2026-03-25', '2026-04-08'] as $day) {
+            $errand = (new Errand())->setUser($user)->setEndedAt(new \DateTimeImmutable($day.' 10:00:00+02:00'));
+            $errand->addItem(PurchasedItem::of('Recorded Coffee', 2, Unit::Pack, $coffee));
+            $em->persist($errand);
+        }
+        $em->flush();
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/grocery-suggestions', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotSame([], $body, 'The recorded world suggests nothing, so the recording proves nothing about a suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/grocery_suggestions.json',
+            self::stabilise($body),
+            'GET /api/grocery-suggestions no longer returns what it used to. The mobile DTOs are written against this response.',
         );
     }
 

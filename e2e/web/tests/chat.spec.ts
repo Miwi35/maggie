@@ -580,6 +580,36 @@ test('asking for an item writes it to the grocery list', async ({ page, api }) =
 })
 
 /**
+ * 45-grocery-purchase-suggestions.yaml — « Il me manque quelque chose ? » reads what the past
+ * errands say is due again (MAG-495). The fake does not read the result, so what is asserted is the
+ * tool that ran and that it succeeded; whether Café is in it is `grocery-list.spec.ts`'s, which may
+ * already have put it on the list when this runs — the call succeeds either way.
+ */
+const PURCHASE_SUGGESTIONS = {
+  question: 'Il me manque quelque chose ?',
+  answer: "Le café : tu en prends toutes les 2 semaines, il est dû. Je l'ajoute ?",
+}
+
+test('« il me manque quelque chose ? » reads the products due again through get_purchase_suggestions', async ({
+  page,
+}) => {
+  await new DashboardPage(page).open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(PURCHASE_SUGGESTIONS.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+  expect(calledTools(events)).toContain('get_purchase_suggestions')
+  expect(toolResults(events)).toContainEqual({ toolName: 'get_purchase_suggestions', status: 'success' })
+  await expect(chat.bubbles(PURCHASE_SUGGESTIONS.answer)).toHaveCount(1)
+
+  // And the call is shown where the owner sees what Maggie did.
+  await chat.openMind()
+  await expect(chat.toolCall('get_purchase_suggestions')).toHaveAttribute('data-status', 'success')
+  await chat.openChat()
+})
+
+/**
  * 38-weather.yaml, and the Open-Meteo stub it reads
  * (`.docker/e2e/wiremock/mappings/open-meteo.json`) — MAG-156. No place is given:
  * the tool takes the default city of the seeded preferences, Rennes.

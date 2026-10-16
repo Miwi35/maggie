@@ -13,15 +13,19 @@ export class GroceryListPage extends AdminShell {
   /** The dialog behind "Ajouter" and the one behind "Terminer les courses". */
   readonly addDialog: Locator
   readonly remainingDialog: Locator
+  /** « Souvent pris » (MAG-495): the products the past errands say are due again. */
+  readonly suggestions: Locator
 
   constructor(page: Page) {
     super(page)
     this.heading = this.content.getByText('Ma liste de courses')
-    this.addButton = this.content.getByRole('button', { name: 'Ajouter' })
+    // Exact: the « Souvent pris » rows carry « Ajouter Café » and the like.
+    this.addButton = this.content.getByRole('button', { name: 'Ajouter', exact: true })
     this.endErrandButton = this.content.getByRole('button', { name: 'Terminer les courses' })
     this.laterSection = this.content.getByTestId('grocery-later')
     this.addDialog = page.getByRole('dialog').filter({ hasText: 'Ajouter un article' })
     this.remainingDialog = page.getByRole('dialog').filter({ hasText: 'Articles restants' })
+    this.suggestions = this.content.getByTestId('grocery-suggestions').filter({ hasText: 'Souvent pris' })
   }
 
   async open(): Promise<void> {
@@ -79,6 +83,13 @@ export class GroceryListPage extends AdminShell {
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Supprimer' }).click()
     await expect(this.page.getByRole('dialog')).toBeHidden()
+  }
+
+  /** Clean-up after a journey that may have stopped before its line appeared. */
+  async deleteLineIfPresent(label: string): Promise<void> {
+    if ((await this.line(label).count()) > 0) {
+      await this.deleteLine(label)
+    }
   }
 
   /** The aisle headings, in the order the page draws them. */
@@ -149,6 +160,16 @@ export class GroceryListPage extends AdminShell {
   /** Removes an item from the « Récurrents » tab. */
   async removeRecurring(label: string): Promise<void> {
     await this.recurringRow(label).getByRole('button', { name: `Retirer ${label} des articles récurrents` }).click()
+  }
+
+  /** One row of « Souvent pris », addressed by the product's name. */
+  suggestion(name: string): Locator {
+    return this.suggestions.getByTestId('grocery-suggestion').filter({ hasText: name })
+  }
+
+  /** Puts a suggested product on the list, from its row — the cart button. */
+  async addSuggestion(name: string): Promise<void> {
+    await this.suggestion(name).getByRole('button', { name: `Ajouter ${name}`, exact: true }).click()
   }
 
   /** Ends the errand and waits for the dialog listing what is left. */

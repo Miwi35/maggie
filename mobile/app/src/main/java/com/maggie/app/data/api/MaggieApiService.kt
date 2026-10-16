@@ -82,6 +82,7 @@ import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.RecurringGroceryItem
+import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.apiValue
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
@@ -1921,6 +1922,23 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    /** The products due again by their purchase rhythm (MAG-495): a plain JSON array. */
+    suspend fun getGrocerySuggestions(): List<PurchaseSuggestion> {
+        return client.get("$baseUrl/api/grocery-suggestions") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /**
+     * « Pas besoin »: the product leaves the suggestions until its next due date.
+     * The client does not `expectSuccess`, so a refusal is checked here or it would look done.
+     */
+    suspend fun snoozeGrocerySuggestion(productId: String) {
+        client.post("$baseUrl/api/grocery-suggestions/$productId/snooze") {
+            accept(ContentType.Application.Json)
+        }.orRefusal()
     }
 
     // Grocery Reorder Items

@@ -8,6 +8,7 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.api.ReorderGroceryItemsRequest
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.PurchaseSuggestion
 
 class GroceryListRepository(
     private val apiService: MaggieApiService,
@@ -69,6 +70,16 @@ class GroceryListRepository(
                 category = category,
             ),
         )
+    }
+
+    /** The products due again by their purchase rhythm, « Souvent pris » (MAG-495). */
+    suspend fun getSuggestions(): Result<List<PurchaseSuggestion>> = runCatching {
+        apiService.getGrocerySuggestions()
+    }
+
+    /** « Pas besoin »: the product is no longer suggested until its next due date. */
+    suspend fun snoozeSuggestion(productId: String): Result<Unit> = runCatching {
+        apiService.snoozeGrocerySuggestion(productId)
     }
 
     suspend fun endErrand(storeId: String? = null): Result<EndErrandResponse> = runCatching {

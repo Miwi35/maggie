@@ -520,6 +520,19 @@ object UiTags {
     const val PAST_ERRANDS = "past_errands"
     const val PAST_ERRAND_SHEET = "past_errand_sheet"
 
+    /**
+     * « Souvent pris » at the top of the grocery list (MAG-495): the banner, its fold toggle,
+     * and per product its add and « Pas besoin » buttons, suffixed by the product id.
+     */
+    const val GROCERY_SUGGESTIONS = "grocery_suggestions"
+    const val GROCERY_SUGGESTIONS_TOGGLE = "grocery_suggestions_toggle"
+    const val GROCERY_SUGGESTION_ADD_PREFIX = "grocery_suggestion_add_"
+    const val GROCERY_SUGGESTION_SNOOZE_PREFIX = "grocery_suggestion_snooze_"
+
+    fun grocerySuggestionAdd(productId: String) = GROCERY_SUGGESTION_ADD_PREFIX + productId
+
+    fun grocerySuggestionSnooze(productId: String) = GROCERY_SUGGESTION_SNOOZE_PREFIX + productId
+
     /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
     const val TRANSFER_BADGE = "transfer_badge"
 

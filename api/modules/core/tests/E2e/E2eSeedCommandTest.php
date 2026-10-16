@@ -22,10 +22,12 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\UseCase\SuggestCategorizationRules;
+use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Entity\Store;
+use Maggie\Grocery\Service\PurchaseSuggestions;
 use Maggie\Notification\Entity\Notification;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Application;
@@ -132,6 +134,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // One list each, and pinned here rather than only per user: a third
         // appearing in the fixtures would otherwise go unnoticed.
         self::assertSame(2, $this->rowsOf(GroceryList::class));
+        // Three since MAG-495: the owner's coffee, bought every 14 days.
+        self::assertSame(3, $this->rowsOf(Errand::class));
         // Two more since MAG-49: each envelope alert account syncs a bank account of its own.
         self::assertSame(4, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
@@ -158,6 +162,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
         self::assertSame(10, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
+        self::assertSame(3, $this->rowsOf(Errand::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
         self::assertSame(16, $this->rowsOf(Transaction::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
@@ -204,7 +209,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
         // The modules no journey reaches as this account stay empty: data
         // nobody reads would only make the counts above harder to keep.
-        foreach ([Account::class, Transaction::class, Notification::class] as $entity) {
+        foreach ([Account::class, Transaction::class, Notification::class, Errand::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
     }
@@ -277,6 +282,26 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(3, $suggestions[0]['occurrences']);
         self::assertSame(-6700, $suggestions[0]['totalCents']);
         self::assertNull($suggestions[0]['categoryId']);
+    }
+
+    public function testTheOwnerIsToldCoffeeIsDueOnTheSeedDay(): void
+    {
+        // grocery-list.spec.ts reads « Café · toutes les 2 sem. » in « Souvent pris », and
+        // chat.spec.ts asks Maggie what is missing (MAG-495). Coffee alone: a second
+        // suggestion would be another row the journey does not expect.
+        $this->seed();
+
+        $user = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
+        self::assertNotNull($user);
+
+        $suggestions = self::getContainer()->get(PurchaseSuggestions::class);
+        $today = $suggestions->today()->format('Y-m-d');
+        $due = $suggestions->suggest($user);
+
+        self::assertCount(1, $due);
+        self::assertSame('Café', $due[0]['product']['name']);
+        self::assertSame(14, $due[0]['everyDays']);
+        self::assertSame($today, $due[0]['dueOn']);
     }
 
     public function testTheSeedStoresHistoryAsWrittenWithoutFilingIt(): void
@@ -401,6 +426,8 @@ final class E2eSeedCommandTest extends KernelTestCase
             'e2e_store_supermarket', 'e2e_store_greengrocer', 'e2e_ingredient_tomato', 'e2e_grocery_item_deferred',
             'e2e_recurring_milk', 'e2e_other_recipe_soup', 'e2e_other_ingredient_leek',
             'e2e_other_grocery_list', 'e2e_other_store_market', 'e2e_other_store_corner', 'e2e_other_item_leek',
+            // What « Souvent pris » suggests (MAG-495).
+            'e2e_product_coffee',
         ];
 
         foreach ($read as $reference) {
@@ -437,6 +464,7 @@ final class E2eSeedCommandTest extends KernelTestCase
             'tasks' => $this->rowsOf(Task::class),
             'recipes' => $this->rowsOf(Recipe::class),
             'groceryItems' => $this->rowsOf(GroceryItem::class),
+            'errands' => $this->rowsOf(Errand::class),
             'accounts' => $this->rowsOf(Account::class),
             'transactions' => $this->rowsOf(Transaction::class),
             'envelopes' => $this->rowsOf(Envelope::class),

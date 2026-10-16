@@ -131,6 +131,11 @@ fun GroceryScreen(
         snackbarHostState.showSnackbar(message)
         viewModel.dismissAisleMessage()
     }
+    LaunchedEffect(uiState.suggestionMessage) {
+        val message = uiState.suggestionMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissSuggestionMessage()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -220,6 +225,14 @@ fun GroceryScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
+                // « Souvent pris » (MAG-495), above the list and shown even when the list is empty.
+                if (!uiState.isSelecting) {
+                    PurchaseSuggestionsBanner(
+                        suggestions = uiState.suggestions,
+                        onAdd = { viewModel.addSuggestion(it) },
+                        onSnooze = { viewModel.snoozeSuggestion(it) },
+                    )
+                }
                 // Main content with pull-to-refresh
                 PullToRefreshBox(
                     isRefreshing = uiState.isLoading,

@@ -49,6 +49,10 @@ import { formatBuyAfter } from './groceryDates'
 import { RECURRING_TOPIC, bareId, isRecurringUpdate } from './recurring'
 import type { Frequency } from './recurring'
 import { useRecurringItems } from './useRecurringItems'
+import { usePurchaseSuggestions } from './usePurchaseSuggestions'
+import { SuggestionsBanner } from './SuggestionsBanner'
+import { ERRAND_TOPIC, PRODUCT_TOPIC, isSuggestionOnlyUpdate, suggestionItem } from './purchaseSuggestions'
+import type { PurchaseSuggestion } from './purchaseSuggestions'
 import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
@@ -124,9 +128,20 @@ const isDeferred = (item: GroceryItem, today: string) => !!item.buyAfter && item
 // Taps on − / + within this delay become one request.
 const QUANTITY_SAVE_DELAY_MS = 400
 
-// One stream for both: the page already holds five, and a browser allows six per origin.
-const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}', RECURRING_TOPIC]
+// One stream for all: the page already holds five, and a browser allows six per origin.
+// Products and errands are there for « Souvent pris » only (MAG-495).
+const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}', RECURRING_TOPIC, PRODUCT_TOPIC, ERRAND_TOPIC]
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
+
+const requestAddItem = (payload: Record<string, unknown>) =>
+  fetch(`${entrypoint}/grocery/add-item`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    },
+    body: JSON.stringify(payload),
+  })
 
 // The product behind a line, as the bare ULID the recurring items point at (REST sends an `@id`, Mercure an `id`).
 const productIdOf = (item: GroceryItem): string | null => {
@@ -402,14 +417,18 @@ export const GroceryListView = () => {
   )
   const recurring = useRecurringItems({ live: false })
   const reloadRecurring = recurring.reload
+  const suggestions = usePurchaseSuggestions()
+  const reloadSuggestions = suggestions.reload
   useMercure(
     GROCERY_LIST_TOPICS,
     useCallback(
       (data?: string) => {
+        // Whatever moved — the list, a recurring item, a product, an errand — may change what is due.
+        reloadSuggestions()
         if (isRecurringUpdate(data)) reloadRecurring()
-        else handleMercure(data)
+        else if (!isSuggestionOnlyUpdate(data)) handleMercure(data)
       },
-      [handleMercure, reloadRecurring],
+      [handleMercure, reloadRecurring, reloadSuggestions],
     ),
   )
   const [tab, setTab] = useState<'list' | 'recurring'>('list')
@@ -648,7 +667,6 @@ export const GroceryListView = () => {
   const handleAddItem = async () => {
     if (!groceryList || !newItemLabel) return
     try {
-      const token = localStorage.getItem('token')
       const payload: Record<string, unknown> = {
         label: newItemLabel,
         quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
@@ -662,14 +680,7 @@ export const GroceryListView = () => {
       } else if (storeInputValue.trim()) {
         payload.storeName = storeInputValue.trim()
       }
-      const response = await fetch(`${entrypoint}/grocery/add-item`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
+      const response = await requestAddItem(payload)
       if (!response.ok) {
         notify("Erreur : l'article n'a pas été ajouté", { type: 'error' })
         return
@@ -686,6 +697,30 @@ export const GroceryListView = () => {
       notify('Article ajouté', { type: 'success' })
     } catch {
       notify('Erreur', { type: 'error' })
+    }
+  }
+
+  // « Souvent pris »: one tap adds the product as an ordinary manual line, at its usual quantity.
+  const handleAddSuggestion = async (suggestion: PurchaseSuggestion) => {
+    const failed = () => notify(`Erreur : « ${suggestion.product.name} » n'a pas été ajouté`, { type: 'error' })
+    try {
+      const response = await requestAddItem(suggestionItem(suggestion))
+      if (!response.ok) {
+        failed()
+        return
+      }
+    } catch {
+      failed()
+      return
+    }
+    suggestions.forget(suggestion)
+    notify('Article ajouté', { type: 'success' })
+    if (!groceryList) return
+    try {
+      const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
+      setGroceryList(data as GroceryListData)
+    } catch {
+      // The list's own Mercure update brings the line anyway.
     }
   }
 
@@ -944,6 +979,12 @@ export const GroceryListView = () => {
                 </Button>
               </Box>
             </Box>
+
+            <SuggestionsBanner
+              suggestions={suggestions.suggestions}
+              onAdd={handleAddSuggestion}
+              onSnooze={suggestions.snooze}
+            />
 
             {storeGroups.map((group) => {
               const storeKey = group.storeId || '__unassigned__'

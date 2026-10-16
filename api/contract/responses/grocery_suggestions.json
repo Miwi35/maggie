@@ -1,0 +1,13 @@
+[
+    {
+        "product": {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Coffee"
+        },
+        "everyDays": 14,
+        "lastBoughtOn": "2026-04-08",
+        "dueOn": "2026-04-22",
+        "usualQuantity": 2,
+        "usualUnit": "pack"
+    }
+]

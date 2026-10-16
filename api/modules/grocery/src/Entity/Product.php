@@ -15,6 +15,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
@@ -37,7 +38,9 @@ use Maggie\Grocery\Service\SeasonCalendar;
 use Maggie\Grocery\State\CreateProductProcessor;
 use Maggie\Grocery\State\DeleteProductProcessor;
 use Maggie\Grocery\State\UpdateProductProcessor;
+use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Ignore;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -191,6 +194,17 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
 
     /** The month $inSeason was computed for; null until something marks it. */
     private ?int $seasonMonth = null;
+
+    /**
+     * « Pas besoin » on its « tu en prends souvent » suggestion: not offered
+     * again before this day (MAG-495). Read-only from the API: it is written
+     * by `POST /api/grocery-suggestions/{productId}/snooze` alone.
+     */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date', format: 'yyyy-MM-dd')]
+    #[ApiProperty(writable: false, openapiContext: ['type' => 'string', 'format' => 'date', 'example' => '2026-10-27'])]
+    #[Context(normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
+    private ?\DateTimeImmutable $suggestionSnoozedUntil = null;
 
     public function __construct()
     {
@@ -470,6 +484,18 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    public function getSuggestionSnoozedUntil(): ?\DateTimeImmutable
+    {
+        return $this->suggestionSnoozedUntil;
+    }
+
+    public function setSuggestionSnoozedUntil(?\DateTimeImmutable $suggestionSnoozedUntil): static
+    {
+        $this->suggestionSnoozedUntil = $suggestionSnoozedUntil;
+
+        return $this;
+    }
+
     /** @return list<array{store: string, aisle: ?string}>|null */
     public function getAislesInput(): ?array
     {
@@ -644,6 +670,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
             'seasonMonths' => $this->seasonMonths,
+            'suggestionSnoozedUntil' => $this->suggestionSnoozedUntil?->format('Y-m-d'),
         ];
     }
 
@@ -673,6 +700,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'aisles' => $this->getAisles(),
             'seasonMonths' => $this->seasonMonths,
             'inSeason' => $this->getInSeason(),
+            'suggestionSnoozedUntil' => $this->suggestionSnoozedUntil?->format('Y-m-d'),
         ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId', 'aisleAssignments' => 'aisles']);
     }
 }
