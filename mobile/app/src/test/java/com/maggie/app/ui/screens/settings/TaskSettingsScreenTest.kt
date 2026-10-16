@@ -43,6 +43,7 @@ class TaskSettingsScreenTest {
             "normal" to AlertRule(daysBefore = emptyList(), dueDay = true, overdueEveryDays = null),
         ),
         morningTime = "08:00",
+        eveningTime = "21:00",
     )
 
     private val settings = TaskSettings(
@@ -50,6 +51,7 @@ class TaskSettingsScreenTest {
         orderLevels = values.orderLevels,
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
+        eveningTime = values.eveningTime,
         defaults = values,
     )
 
@@ -72,6 +74,7 @@ class TaskSettingsScreenTest {
         open(loaded)
 
         compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).assertTextContains("Heure du matin").assertTextContains("08:00")
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_EVENING).assertTextContains("Heure du soir").assertTextContains("21:00")
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 3)).assertIsSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).assertIsNotSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", null)).assertIsSelected()
@@ -116,6 +119,16 @@ class TaskSettingsScreenTest {
         compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
 
         verify(exactly = 1) { viewModel.setMorningTime(8, 0) }
+    }
+
+    @Test
+    fun `the evening opens the time picker and OK sends the time (MAG-500)`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_EVENING).performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+
+        verify(exactly = 1) { viewModel.setEveningTime(21, 0) }
     }
 
     @Test

@@ -6,6 +6,7 @@
     "CategorizationRule": "/users/{userId}/api/categorization_rules/{id}",
     "Category": "/users/{userId}/api/categories/{id}",
     "DayPlan": "/users/{userId}/api/day_plans/{id}",
+    "DayReview": "/users/{userId}/api/day_reviews/{id}",
     "Envelope": "/users/{userId}/api/envelopes/{id}",
     "Errand": "/users/{userId}/api/errands/{id}",
     "Event": "/users/{userId}/api/events/{id}",

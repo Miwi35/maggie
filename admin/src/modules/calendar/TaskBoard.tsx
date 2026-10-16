@@ -18,15 +18,17 @@ import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
+import { TaskEvening } from './TaskEvening'
 import { TaskMorning } from './TaskMorning'
 import { UrgencyBadge } from './UrgencyBadge'
-import { claimMorning, fetchDayPlan, fetchMorningTime, morningDue } from './dayPlan'
+import { claimEvening, claimMorning, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
+import { fetchDayReview } from './dayReview'
 import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 
-// The day is published apart from its tasks (MAG-497): a tick moves both.
-const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}']
+// The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
+const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}']
 const PAGE_SIZE = 30
 
 const TABS: Record<TaskView, { label: string; empty: string }> = {
@@ -68,7 +70,8 @@ export const TaskBoard = () => {
   const [day, setDay] = useState<DayPlan | null>(null)
   const [dayFailed, setDayFailed] = useState(false)
   const [preparing, setPreparing] = useState(false)
-  const [morningChecked, setMorningChecked] = useState(false)
+  const [reviewing, setReviewing] = useState<DayPlan | null>(null)
+  const [opening, setOpening] = useState(true)
 
   const today = localDay(new Date())
 
@@ -139,25 +142,30 @@ export const TaskBoard = () => {
     loadDay()
   }, [loadDay])
 
-  // The morning opens once, at the first visit after the morning time while the day is not confirmed (MAG-498).
-  // The day waits for that answer, so it does not flash before the morning replaces it.
-  const confirmedAt = day ? day.confirmedAt : undefined
+  // At the first visit of the day, the evening opens after the evening time on a day that holds tasks
+  // until « Bonne nuit » (MAG-500); else the morning, after the morning time while the day is not
+  // confirmed (MAG-498). Each opens once per load. The day waits for that answer, so it does not
+  // flash before the morning or the evening replaces it.
+  const decided = useRef(false)
   useEffect(() => {
-    if (confirmedAt === undefined || confirmedAt !== null) return
-    let current = true
-    fetchMorningTime()
-      .then((morningTime) => {
-        if (current && morningDue(new Date(), morningTime, confirmedAt) && claimMorning()) setPreparing(true)
+    if (!day || decided.current) return
+    decided.current = true
+    const opened = day
+    const now = new Date()
+    fetchDayTimes()
+      .then(async ({ morningTime, eveningTime }) => {
+        if (eveningDue(now, eveningTime, opened.total, null)) {
+          const review = await fetchDayReview(opened.date).catch(() => null)
+          if (review && eveningDue(now, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
+            setReviewing(opened)
+            return
+          }
+        }
+        if (morningDue(now, morningTime, opened.confirmedAt) && claimMorning()) setPreparing(true)
       })
       .catch(() => undefined)
-      .finally(() => {
-        if (current) setMorningChecked(true)
-      })
-
-    return () => {
-      current = false
-    }
-  }, [confirmedAt])
+      .finally(() => setOpening(false))
+  }, [day])
 
   const reload = useCallback(() => {
     loadRef.current()
@@ -172,6 +180,11 @@ export const TaskBoard = () => {
     },
     [showDay, reload],
   )
+
+  const closeEvening = useCallback(() => {
+    setReviewing(null)
+    reload()
+  }, [reload])
 
   // The day only carries what it draws: the form wants the whole task.
   const edit = (taskId: string) => {
@@ -258,15 +271,25 @@ export const TaskBoard = () => {
         />
       )}
 
-      {view === 'today' && preparing ? (
+      {view === 'today' && reviewing ? (
+        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} />
+      ) : view === 'today' && preparing ? (
         <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
       ) : view === 'today' ? (
         dayFailed ? (
           <Alert severity="error">Tâches indisponibles</Alert>
-        ) : !day || (day.confirmedAt === null && !morningChecked) ? (
+        ) : !day || opening ? (
           [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
         ) : (
-          <TaskDay day={day} today={today} onDay={showDay} onReload={reload} onEdit={edit} onChange={() => setPreparing(true)} />
+          <TaskDay
+            day={day}
+            today={today}
+            onDay={showDay}
+            onReload={reload}
+            onEdit={edit}
+            onChange={() => setPreparing(true)}
+            onEvening={() => setReviewing(day)}
+          />
         )
       ) : failed ? (
         <Alert severity="error">Tâches indisponibles</Alert>

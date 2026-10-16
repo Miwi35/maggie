@@ -80,7 +80,17 @@ const DayChip = ({
  * way to 07:30), so saving on change would send every step. A value that is
  * not a time goes back to the saved one.
  */
-const MorningTime = ({ saved, onSave }: { saved: string; onSave: (time: string) => void }) => {
+const TimeField = ({
+  id,
+  label,
+  saved,
+  onSave,
+}: {
+  id: string
+  label: string
+  saved: string
+  onSave: (time: string) => void
+}) => {
   const [value, setValue] = useState(saved)
 
   const commit = () => {
@@ -90,11 +100,11 @@ const MorningTime = ({ saved, onSave }: { saved: string; onSave: (time: string) 
 
   return (
     <Stack direction="row" alignItems="center" spacing={2}>
-      <Typography component="label" htmlFor="task-settings-morning-time" variant="subtitle1">
-        Heure du matin
+      <Typography component="label" htmlFor={id} variant="subtitle1" sx={{ minWidth: 130 }}>
+        {label}
       </Typography>
       <TextField
-        id="task-settings-morning-time"
+        id={id}
         type="time"
         size="small"
         value={value}
@@ -201,10 +211,19 @@ export const TaskSettings = () => {
     <TaskSettingsFrame title="Tâches" loadFailed={loadFailed} ready={settings !== null} saved={saved}>
       {settings && (
         <Stack spacing={3}>
-          <MorningTime
-            key={settings.morningTime}
+          <TimeField
+            key={`morning-${settings.morningTime}`}
+            id="task-settings-morning-time"
+            label="Heure du matin"
             saved={settings.morningTime}
             onSave={(morningTime) => save({ morningTime }, (s) => ({ ...s, morningTime }))}
+          />
+          <TimeField
+            key={`evening-${settings.eveningTime}`}
+            id="task-settings-evening-time"
+            label="Heure du soir"
+            saved={settings.eveningTime}
+            onSave={(eveningTime) => save({ eveningTime }, (s) => ({ ...s, eveningTime }))}
           />
 
           {URGENCIES.map((urgency) => (
@@ -218,8 +237,8 @@ export const TaskSettings = () => {
 
           <DefaultsButton
             onConfirm={() => {
-              const { alertSchedule, morningTime } = settings.defaults
-              save({ alertSchedule, morningTime }, (s) => ({ ...s, alertSchedule, morningTime }))
+              const { alertSchedule, morningTime, eveningTime } = settings.defaults
+              save({ alertSchedule, morningTime, eveningTime }, (s) => ({ ...s, alertSchedule, morningTime, eveningTime }))
             }}
           />
         </Stack>

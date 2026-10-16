@@ -98,9 +98,10 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame([3, 1], $data['alertSchedule']['critical']['daysBefore']);
         self::assertSame(2, $data['alertSchedule']['normal']['overdueEveryDays']);
         self::assertSame('08:00', $data['morningTime']);
+        self::assertSame('21:00', $data['eveningTime']);
         $levels = ['timePressure' => 2, 'criticality' => 2, 'priority' => 2];
         self::assertSame($levels, $data['orderLevels'], 'the spec\'s weights read at the middle level, ×1');
-        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'orderLevels' => $levels, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00'], $data['defaults']);
+        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'orderLevels' => $levels, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00', 'eveningTime' => '21:00'], $data['defaults']);
         $this->assertMercurePublishedOnce('/api/task_settings/'.$created->getId());
     }
 
@@ -152,9 +153,29 @@ class TaskSettingsApiTest extends WebTestCase
         $this->assertNoElasticsearchIndexDispatched(TaskSettings::class);
     }
 
+    public function testPutChangesTheEveningAndPublishes(): void
+    {
+        $data = $this->put('{"eveningTime": "22:15"}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('22:15', $data['eveningTime']);
+        self::assertSame('08:00', $data['morningTime'], 'a field not sent keeps its value');
+
+        $stored = $this->settingsOf('test_user');
+        self::assertNotNull($stored);
+        self::assertSame('22:15', $stored->getEveningTime());
+        self::assertSame('21:00', $this->settingsOf('other_user')?->getEveningTime());
+
+        $topic = '/api/task_settings/'.$stored->getId();
+        $this->assertMercureUpdatePublished($topic);
+        $payloads = $this->mercurePayloadsOn($topic);
+        self::assertSame('22:15', end($payloads)['eveningTime']);
+        $this->assertNoElasticsearchIndexDispatched(TaskSettings::class);
+    }
+
     public function testTheDefaultsSentBackRestoreTheSettings(): void
     {
-        $this->put('{"morningTime": "06:15", "alertSchedule": {"high": {"dueDay": false}}, "orderWeights": {"priority": {"high": 9}}}');
+        $this->put('{"morningTime": "06:15", "eveningTime": "22:30", "alertSchedule": {"high": {"dueDay": false}}, "orderWeights": {"priority": {"high": 9}}}');
         self::assertResponseIsSuccessful();
         $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
         $defaults = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['defaults'];
@@ -162,8 +183,9 @@ class TaskSettingsApiTest extends WebTestCase
         $data = $this->put(json_encode($defaults, JSON_THROW_ON_ERROR));
 
         self::assertResponseIsSuccessful();
-        self::assertSame($defaults, ['orderWeights' => $data['orderWeights'], 'orderLevels' => $data['orderLevels'], 'alertSchedule' => $data['alertSchedule'], 'morningTime' => $data['morningTime']]);
+        self::assertSame($defaults, ['orderWeights' => $data['orderWeights'], 'orderLevels' => $data['orderLevels'], 'alertSchedule' => $data['alertSchedule'], 'morningTime' => $data['morningTime'], 'eveningTime' => $data['eveningTime']]);
         self::assertSame('08:00', $this->settingsOf('test_user')?->getMorningTime());
+        self::assertSame('21:00', $this->settingsOf('test_user')?->getEveningTime());
     }
 
     /** @return iterable<string, array{string, string}> */
@@ -172,6 +194,9 @@ class TaskSettingsApiTest extends WebTestCase
         yield 'an invalid morning time' => ['{"morningTime": "25:00"}', 'morningTime'];
         yield 'a morning time without minutes' => ['{"morningTime": "8"}', 'morningTime'];
         yield 'a morning time that is not a string' => ['{"morningTime": 8}', 'morningTime'];
+        yield 'an invalid evening time' => ['{"eveningTime": "21:60"}', 'eveningTime'];
+        yield 'an evening time that is not a string' => ['{"eveningTime": 21}', 'eveningTime'];
+        yield 'a good evening with a bad morning changes neither' => ['{"eveningTime": "22:00", "morningTime": "7h"}', 'morningTime'];
         yield 'an unknown urgency' => ['{"alertSchedule": {"urgent": {"dueDay": true}}}', 'urgent'];
         yield 'the low urgency' => ['{"alertSchedule": {"low": {"dueDay": true}}}', 'low'];
         yield 'negative days before' => ['{"alertSchedule": {"critical": {"daysBefore": [-3]}}}', 'alertSchedule.critical.daysBefore'];
@@ -209,6 +234,7 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame(TaskOrderWeights::DEFAULTS, $stored?->getOrderWeights());
         self::assertSame(TaskAlertSchedule::DEFAULTS, $stored->getAlertSchedule());
         self::assertSame('08:00', $stored->getMorningTime());
+        self::assertSame('21:00', $stored->getEveningTime());
         $this->assertMercureUpdateCount(0);
     }
 

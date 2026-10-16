@@ -26,7 +26,7 @@ const SCHEDULE = {
   normal: { daysBefore: [], dueDay: true, overdueEveryDays: 2 },
 }
 
-const DEFAULTS = { orderWeights: {}, orderLevels: LEVELS, alertSchedule: SCHEDULE, morningTime: '08:00' }
+const DEFAULTS = { orderWeights: {}, orderLevels: LEVELS, alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }
 
 /** A user who already changed a few things — J-5 on Haute came through the API. */
 const SAVED = {
@@ -39,6 +39,7 @@ const SAVED = {
     normal: { daysBefore: [2], dueDay: false, overdueEveryDays: null },
   },
   morningTime: '07:00',
+  eveningTime: '22:00',
   defaults: DEFAULTS,
 }
 
@@ -54,6 +55,7 @@ function merge(stored: Saved, body: Record<string, unknown>): Saved {
   return {
     ...stored,
     ...(body.morningTime ? { morningTime: body.morningTime as string } : {}),
+    ...(body.eveningTime ? { eveningTime: body.eveningTime as string } : {}),
     alertSchedule: schedule as Saved['alertSchedule'],
   }
 }
@@ -220,6 +222,20 @@ describe('TaskSettings — alerts', () => {
     await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('07:30'))
   })
 
+  test('the evening time is saved when left (MAG-500)', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    const time = await screen.findByLabelText('Heure du soir')
+    expect(time).toHaveValue('22:00')
+    fireEvent.change(time, { target: { value: '21:30' } })
+    fireEvent.blur(time)
+
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ eveningTime: '21:30' }]))
+    await waitFor(() => expect(screen.getByLabelText('Heure du soir')).toHaveValue('21:30'))
+    expect(screen.getByLabelText('Heure du matin')).toHaveValue('07:00')
+  })
+
   test('a half-typed time is not sent and goes back to the saved one', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
@@ -245,8 +261,9 @@ describe('TaskSettings — alerts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Valeurs par défaut' }))
     await userEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
-    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00' }]))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }]))
     await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('08:00'))
+    await waitFor(() => expect(screen.getByLabelText('Heure du soir')).toHaveValue('21:00'))
     await waitFor(() => expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'false'))
   })
 

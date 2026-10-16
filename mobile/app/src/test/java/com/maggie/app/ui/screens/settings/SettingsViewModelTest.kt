@@ -67,6 +67,7 @@ class SettingsViewModelTest {
             "normal" to AlertRule(daysBefore = emptyList(), dueDay = true, overdueEveryDays = 2),
         ),
         morningTime = "08:00",
+        eveningTime = "21:00",
     )
 
     private fun taskSettings(values: TaskSettingsValues = defaultValues) = TaskSettings(
@@ -74,12 +75,14 @@ class SettingsViewModelTest {
         orderLevels = values.orderLevels,
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
+        eveningTime = values.eveningTime,
         defaults = defaultValues,
     )
 
-    /** The user's own settings: morning at 07:30, a critical task alerted the day before only, never when late. */
+    /** The user's own settings: morning at 07:30, evening at 22:00, a critical task alerted the day before only, never when late. */
     private val ownValues = defaultValues.copy(
         morningTime = "07:30",
+        eveningTime = "22:00",
         alertSchedule = defaultValues.alertSchedule +
             ("critical" to AlertRule(daysBefore = listOf(1), dueDay = false, overdueEveryDays = null)),
     )
@@ -370,6 +373,20 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `the time picked becomes the evening, as HH MM (MAG-500)`() = runTest {
+        answersWith(ownValues.copy(eveningTime = "21:45"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setEveningTime(21, 45)
+        advanceUntilIdle()
+
+        assertEquals("""{"eveningTime":"21:45"}""", bodies.single().toString())
+        assertEquals("21:45", viewModel.uiState.value.tasks.settings?.eveningTime)
+        assertEquals("07:30", viewModel.uiState.value.tasks.settings?.morningTime)
+    }
+
+    @Test
     fun `a refused save shows the server's reason and goes back to the server's values`() = runTest {
         coEvery { apiService.updateTaskSettings(any()) } throws
             ApiRefusalException(400, "alertSchedule.critical.daysBefore must be a list of whole numbers from 1 to 30.")
@@ -401,8 +418,8 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `the alerts' defaults save the schedule and the morning, not the order`() = runTest {
-        answersWith(ownValues.copy(alertSchedule = defaultValues.alertSchedule, morningTime = defaultValues.morningTime))
+    fun `the alerts' defaults save the schedule, the morning and the evening, not the order`() = runTest {
+        answersWith(ownValues.copy(alertSchedule = defaultValues.alertSchedule, morningTime = defaultValues.morningTime, eveningTime = defaultValues.eveningTime))
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -412,12 +429,13 @@ class SettingsViewModelTest {
         assertEquals(
             """{"alertSchedule":{"critical":{"daysBefore":[3,1],"dueDay":true,"overdueEveryDays":1},""" +
                 """"high":{"daysBefore":[1],"dueDay":true,"overdueEveryDays":1},""" +
-                """"normal":{"daysBefore":[],"dueDay":true,"overdueEveryDays":2}},"morningTime":"08:00"}""",
+                """"normal":{"daysBefore":[],"dueDay":true,"overdueEveryDays":2}},"morningTime":"08:00","eveningTime":"21:00"}""",
             bodies.single().toString(),
         )
         val tasks = viewModel.uiState.value.tasks
         assertEquals(defaultValues.alertSchedule, tasks.settings?.alertSchedule)
         assertEquals("08:00", tasks.settings?.morningTime)
+        assertEquals("21:00", tasks.settings?.eveningTime)
         assertTrue(tasks.saved)
     }
 

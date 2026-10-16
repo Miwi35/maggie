@@ -75,7 +75,9 @@ const PHOTOS = dayTask('01PHOTOS', 'Trier les photos')
 /** The day the mocked API holds; the PUT and the PATCH write it as the real one would. */
 let state: { slots: DayTask[]; reserve: DayTask[] }
 let morningTime: string | null = null
+let eveningTime: string | null = null
 let confirmedAt: string | null = null
+let reviewedAt: string | null = null
 
 const describeDay = () => {
   const slots = state.slots.map((t, i) => ({ position: i + 1, type: 'task', task: t }))
@@ -107,7 +109,13 @@ const respond = (url: string, init?: RequestInit): Response => {
   const view = /\/tasks\/view\/(\w+)/.exec(url)
   if (view) return viewResponse(view[1])
 
-  if (url.endsWith('/task-settings/me')) return json(morningTime ? { morningTime } : {})
+  if (url.endsWith('/task-settings/me')) return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}) })
+
+  if (url.endsWith('/day-reviews/2026-10-15')) {
+    if (method === 'PUT') reviewedAt = '2026-10-15T19:10:00+00:00'
+
+    return json({ id: '01REVIEW', date: '2026-10-15', helped: [], reviewedAt })
+  }
 
   if (url.endsWith('/day-plans/2026-10-15/proposal')) {
     const entry = (t: DayTask, reason: string) => ({ reason, minutes: t.estimatedMinutes ?? 15, task: t })
@@ -184,7 +192,9 @@ describe('TaskBoard', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
     morningTime = null
+    eveningTime = null
     confirmedAt = null
+    reviewedAt = null
     resetMorningOffer()
     vi.stubGlobal('fetch', mockFetch)
     vi.stubGlobal('EventSource', MockEventSource)
@@ -864,6 +874,84 @@ describe('TaskBoard', () => {
       await user.click(await screen.findByRole('button', { name: 'Changer' }))
 
       expect(await screen.findByRole('region', { name: 'Ta journée' })).toBeInTheDocument()
+    })
+  })
+
+  describe('« Le soir » — the review (MAG-500)', () => {
+    beforeEach(() => {
+      vi.setSystemTime(new Date(2026, 9, 15, 21, 5))
+      morningTime = '08:00'
+      eveningTime = '21:00'
+      confirmedAt = '2026-10-15T06:40:00+00:00'
+      state = { slots: [{ ...BANK, completedAt: '2026-10-15T09:00:00+00:00' }, CANTEEN, WATER], reserve: [BOOK, PHOTOS] }
+    })
+
+    test('opens at the first visit after the evening time, done first', async () => {
+      render(<TaskBoard />)
+
+      const evening = await screen.findByRole('region', { name: 'Le soir' })
+      expect(within(evening).getByRole('heading', { name: '1 sur 3' })).toBeInTheDocument()
+      expect(within(evening).getByRole('list', { name: 'Fait' })).toHaveTextContent('Appeler la banque')
+      expect(screen.queryByRole('region', { name: 'Maintenant' })).toBeNull()
+    })
+
+    test('wins over the morning of a day never confirmed', async () => {
+      confirmedAt = null
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('does not open before the evening time', async () => {
+      vi.setSystemTime(new Date(2026, 9, 15, 20, 59))
+      render(<TaskBoard />)
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
+    })
+
+    test('does not open once « Bonne nuit » was said', async () => {
+      reviewedAt = '2026-10-15T19:10:00+00:00'
+      render(<TaskBoard />)
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
+    })
+
+    test('does not open on an empty day', async () => {
+      state = { slots: [], reserve: [BOOK, PHOTOS] }
+      render(<TaskBoard />)
+
+      await screen.findByRole('list', { name: 'Mes 5' })
+      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
+    })
+
+    test('« Bonne nuit » records the review and shows the day; it does not open again', async () => {
+      const user = setup()
+      const first = render(<TaskBoard />)
+      await user.click(await screen.findByRole('button', { name: 'Bonne nuit' }))
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(calls('PUT')).toEqual([expect.stringContaining('/day-reviews/2026-10-15')])
+      first.unmount()
+      resetMorningOffer()
+
+      render(<TaskBoard />)
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
+    })
+
+    test('« Plus tard » shows the day, writes nothing, and « Le soir » opens it on demand', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
+
+      await screen.findByRole('region', { name: 'Maintenant' })
+      expect(calls('PUT')).toEqual([])
+
+      await user.click(screen.getByRole('button', { name: 'Le soir' }))
+      expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
     })
   })
 })

@@ -17,6 +17,7 @@ final readonly class UpdateTaskSettingsCommand
         public ?array $orderWeights = null,
         public mixed $alertSchedule = null,
         public mixed $morningTime = null,
+        public mixed $eveningTime = null,
     ) {
     }
 }

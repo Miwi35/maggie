@@ -514,14 +514,14 @@ test.describe('the day of five', () => {
 })
 
 /**
- * « Ta journée » (MAG-498, extends MAG-100): at 8:30 the first visit to « Tâches » opens the
+ * « Ta journée » (MAG-498) and « Le soir » (MAG-500), extending MAG-100: at 8:30 the first visit to « Tâches » opens the
  * morning's proposal — five tasks at most with why and minutes, the time against the free time,
  * the rest in a line — and nothing is written until « C'est parti ».
  *
  * Signed in as the neighbour, whose day nobody else writes. A day cannot be unconfirmed, so a
  * retry meets a day already confirmed and asks for the proposal with « Changer » instead.
  */
-test.describe('the morning', () => {
+test.describe('the morning and the evening', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('opens at 8:30, swaps one task for the next of the reserve, and « C\'est parti » writes the five', async ({ otherUser }) => {
@@ -604,6 +604,80 @@ test.describe('the morning', () => {
       await expect(board.dayCreate).toBeVisible()
     } finally {
       await setDayPlan(api, today, [])
+      for (const id of ids) await api.delete(`/api/tasks/${id}`)
+    }
+  })
+
+  /**
+   * At 21:05, a day of five with three done: the first visit opens the review on what is done,
+   * then the two left; one goes in tomorrow's five, the other is set aside into « Un jour ».
+   * « Plus tard » closes without recording the review, so a retry meets the evening again.
+   */
+  test('at 21:05 the review lists the three done then the two left; « Demain » and « Mettre de côté » write tomorrow and « Un jour »', async ({ otherUser }) => {
+    const { page, api } = otherUser
+    const today = parisDay()
+    const tomorrow = daysFrom(today, 1)
+    await page.context().clock.setFixedTime(new Date(parisTime(today, '21:05:00')))
+
+    const done = [1, 2, 3].map((i) => perAttempt(`Soir — faite ${i}`))
+    const forTomorrow = perAttempt('Soir — pour demain')
+    const letGo = perAttempt('Soir — à lâcher')
+    const ids: string[] = []
+
+    try {
+      // Given a day of five, three of them done…
+      for (const title of done) ids.push(await createTask(api, { title }))
+      ids.push(await createTask(api, { title: forTomorrow }))
+      ids.push(await createTask(api, { title: letGo, dueDate: daysFrom(today, 2) }))
+      await setDayPlan(api, today, ids)
+      for (const id of ids.slice(0, 3)) {
+        const ticked = await api.patch(`/api/tasks/${id}`, {
+          headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+          data: { completedAt: new Date(parisTime(today, '10:00:00')).toISOString() },
+        })
+        expect(ticked.ok(), `PATCH /api/tasks/${id} answered ${ticked.status()}`).toBe(true)
+      }
+      await setDayPlan(api, tomorrow, [], false)
+
+      // …when I open « Tâches », the review comes before the day: the three done, then the two left.
+      const board = new TasksPage(page)
+      await board.openMorning()
+      await expect(board.evening).toBeVisible()
+      await expect(board.evening.getByRole('heading', { name: '3 sur 5' })).toBeVisible()
+      await expect(board.eveningDone.getByRole('listitem')).toHaveText(done)
+      await expect(board.eveningLeft.getByRole('listitem')).toHaveCount(2)
+      await expect(board.leftRow(forTomorrow)).toBeVisible()
+      await expect(board.leftRow(letGo)).toBeVisible()
+
+      // When I put one in tomorrow's five and let the other go…
+      await board.outcome(forTomorrow, 'Demain').click()
+      await expect(board.outcome(forTomorrow, 'Demain')).toHaveAttribute('aria-pressed', 'true')
+      await board.outcome(letGo, 'Mettre de côté').click()
+      await expect(board.leftRow(letGo).getByText('Un jour', { exact: true })).toBeVisible()
+
+      // …then tomorrow holds the first, not settled, and the second waits in « Un jour » without a due day.
+      await expect
+        .poll(
+          async () => {
+            const next = await dayPlan(api, tomorrow)
+
+            return [next.confirmedAt, next.slots.map((slot) => slot.task.title)]
+          },
+          { timeout: 30_000, message: "tomorrow's day should hold the task, unsettled" },
+        )
+        .toEqual([null, [forTomorrow]])
+      await expect.poll(() => viewTitles(api, 'someday'), { timeout: 30_000 }).toContain(letGo)
+      expect((await dayPlan(api, today)).slots.map((slot) => slot.task.title)).not.toContain(letGo)
+
+      // « Plus tard » closes the review without recording it; the day is shown.
+      await board.eveningLater.click()
+      await expect(board.evening).toBeHidden()
+      await expect(board.dayCreate).toBeVisible()
+      const review = await api.get(`/api/day-reviews/${today}`, { headers: { Accept: 'application/json' } })
+      expect(((await review.json()) as { reviewedAt: string | null }).reviewedAt).toBeNull()
+    } finally {
+      await setDayPlan(api, today, [])
+      await setDayPlan(api, tomorrow, [], false)
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
     }
   })
@@ -776,11 +850,14 @@ async function dayPlan(api: APIRequestContext, date = parisDay()): Promise<DayPl
   return (await response.json()) as DayPlan
 }
 
-/** Replaces the whole list of the day's tasks, in order; answers the day as it stands. */
-async function setDayPlan(api: APIRequestContext, date: string, taskIds: string[]): Promise<DayPlan> {
+/**
+ * Replaces the whole list of the day's tasks, in order; answers the day as it stands.
+ * `confirm: false` writes without settling the day, as the evening's « Demain » does (MAG-500).
+ */
+async function setDayPlan(api: APIRequestContext, date: string, taskIds: string[], confirm = true): Promise<DayPlan> {
   const response = await api.put(`/api/day-plans/${date}`, {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    data: { slots: taskIds.map((taskId) => ({ type: 'task', taskId })) },
+    data: { slots: taskIds.map((taskId) => ({ type: 'task', taskId })), ...(confirm ? {} : { confirm }) },
   })
   expect(response.ok(), `PUT /api/day-plans/${date} answered ${response.status()}`).toBe(true)
 

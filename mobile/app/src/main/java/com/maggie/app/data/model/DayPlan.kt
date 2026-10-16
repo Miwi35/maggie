@@ -84,9 +84,13 @@ data class DayTask(
     val isCritical: Boolean get() = urgency == "critical"
 }
 
-/** `PUT /api/day-plans/{date}`: the whole list of slots, in order. No default: an omitted `type` is refused. */
+/**
+ * `PUT /api/day-plans/{date}`: the whole list of slots, in order. No default: an omitted `type` is refused.
+ * `confirm: false` writes without settling the day — the evening's « Demain » (MAG-500), so the morning
+ * still opens and keeps it. The default is not encoded, and the API settles when it is left out.
+ */
 @Serializable
-data class DayPlanUpdateRequest(val slots: List<DaySlotRequest>)
+data class DayPlanUpdateRequest(val slots: List<DaySlotRequest>, val confirm: Boolean = true)
 
 @Serializable
 data class DaySlotRequest(val type: String, val taskId: String) {
