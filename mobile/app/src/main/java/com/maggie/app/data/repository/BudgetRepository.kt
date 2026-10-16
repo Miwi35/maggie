@@ -8,6 +8,9 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.EnvelopeAdjustments
+import com.maggie.app.data.model.EnvelopeAdjustmentsRequest
+import com.maggie.app.data.model.EnvelopeAdjustmentsResult
 import com.maggie.app.data.model.RollOverResult
 
 class BudgetRepository(
@@ -51,5 +54,13 @@ class BudgetRepository(
 
     suspend fun rollOverEnvelopes(request: RollOverRequest): Result<RollOverResult> = runCatching {
         apiService.rollOverEnvelopes(request)
+    }
+
+    suspend fun getEnvelopeAdjustments(month: String): Result<EnvelopeAdjustments> = runCatching {
+        apiService.getEnvelopeAdjustments(month)
+    }
+
+    suspend fun applyEnvelopeAdjustments(request: EnvelopeAdjustmentsRequest): Result<EnvelopeAdjustmentsResult> = runCatching {
+        apiService.applyEnvelopeAdjustments(request)
     }
 }

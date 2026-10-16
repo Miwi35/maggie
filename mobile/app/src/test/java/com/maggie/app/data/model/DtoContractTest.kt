@@ -415,6 +415,27 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the envelope adjustments deserialise from the recorded response, with a suggestion and its season`() {
+        val body = readRecording("finance_envelope_adjustments.read")
+        val source = "finance_envelope_adjustments.read"
+
+        val adjustments = json.decodeFromJsonElement(serializer<EnvelopeAdjustments>(), body)
+
+        val suggestions = body["envelopes"]!!.jsonArray.mapNotNull { it.jsonObject["suggestion"] as? JsonObject }
+        assertDeclaredFieldsExist("EnvelopeAdjustments", serializer<EnvelopeAdjustments>(), body.keys, source)
+        assertDeclaredFieldsExist("EnvelopeAdjustment", serializer<EnvelopeAdjustment>(), keysOf(body, "envelopes"), source)
+        assertDeclaredFieldsExist("AdjustmentSuggestion", serializer<AdjustmentSuggestion>(), suggestions.flatMap { it.keys }.toSet(), source)
+        assertDeclaredFieldsExist(
+            "AdjustmentSeason", serializer<AdjustmentSeason>(),
+            suggestions.mapNotNull { it["seasonal"] as? JsonObject }.flatMap { it.keys }.toSet(), source,
+        )
+        val suggested = adjustments.envelopes.filter { it.suggestion != null }
+        assertEquals(adjustments.suggestionCount, suggested.size)
+        assertTrue("reason fell back to its default", suggested.all { it.suggestion?.reason.orEmpty().isNotEmpty() })
+        assertTrue("No recorded suggestion is seasonal.", suggested.any { it.suggestion?.seasonal != null })
+    }
+
+    @Test
     fun `the finance scores deserialise from the recorded response, with the rhythm, its curve and its debits`() {
         val body = readRecording("finance_scores.read")
 

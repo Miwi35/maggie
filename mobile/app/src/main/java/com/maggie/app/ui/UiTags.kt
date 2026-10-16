@@ -177,6 +177,24 @@ object UiTags {
 
     fun budgetNode(name: String) = BUDGET_NODE_PREFIX + name
 
+    /**
+     * Budgets — « Ajuster » (MAG-461): the entry in the top bar, the panel, one row per envelope
+     * (suffixed by the category name), its suggestion and « Appliquer », « Tout appliquer » and « Enregistrer ».
+     */
+    const val BUDGET_ADJUST_OPEN = "budget_adjust_open"
+    const val BUDGET_ADJUST = "budget_adjust"
+    const val BUDGET_ADJUST_ROW_PREFIX = "budget_adjust_row_"
+    const val BUDGET_ADJUST_SUGGESTION_PREFIX = "budget_adjust_suggestion_"
+    const val BUDGET_ADJUST_APPLY_PREFIX = "budget_adjust_apply_"
+    const val BUDGET_ADJUST_PLUS_PREFIX = "budget_adjust_plus_"
+    const val BUDGET_ADJUST_MINUS_PREFIX = "budget_adjust_minus_"
+    const val BUDGET_ADJUST_SLIDER_PREFIX = "budget_adjust_slider_"
+    const val BUDGET_ADJUST_APPLY_ALL = "budget_adjust_apply_all"
+    const val BUDGET_ADJUST_SAVE = "budget_adjust_save"
+
+    fun budgetAdjustRow(name: String) = BUDGET_ADJUST_ROW_PREFIX + name
+    fun budgetAdjustApply(name: String) = BUDGET_ADJUST_APPLY_PREFIX + name
+
     /** A transaction's one-off envelope on its detail screen, and the full-screen choice it opens (MAG-414). */
     const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
     const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"

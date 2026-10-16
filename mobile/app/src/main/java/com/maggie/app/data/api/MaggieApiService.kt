@@ -44,6 +44,9 @@ import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.BankConnectionsResponse
 import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
+import com.maggie.app.data.model.EnvelopeAdjustments
+import com.maggie.app.data.model.EnvelopeAdjustmentsRequest
+import com.maggie.app.data.model.EnvelopeAdjustmentsResult
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Season
 import com.maggie.app.data.model.ONE_OFF_MODE
@@ -1754,6 +1757,21 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    /** The monthly envelopes of [month] (YYYY-MM) against their actuals, and the amounts proposed for the next one (MAG-461). */
+    suspend fun getEnvelopeAdjustments(month: String): EnvelopeAdjustments {
+        return client.get("$baseUrl/api/finance/envelope-adjustments") {
+            url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /** Sets the amounts of the month after [EnvelopeAdjustmentsRequest.month]; a 400 means nothing was written. */
+    suspend fun applyEnvelopeAdjustments(request: EnvelopeAdjustmentsRequest): EnvelopeAdjustmentsResult {
+        return client.post("$baseUrl/api/finance/envelope-adjustments") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     // Finance — Loans

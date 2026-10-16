@@ -21,6 +21,7 @@ use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\QualificationKind;
 use Maggie\Finance\Enum\RecurringLinkSource;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -245,6 +246,53 @@ class TransactionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return abs((int) $total);
+    }
+
+    /**
+     * What the owner thinks of the spent and committed debits of a set of
+     * categories over a half-open period, as positive cents per verdict
+     * (`keep`, `avoidable`; the lines not judged are left out). Same scope as
+     * {@see sumByStatusForCategoriesBetween}.
+     *
+     * @param list<Ulid> $categoryIds
+     *
+     * @return array{keep: int, avoidable: int}
+     */
+    public function sumJudgedConsumedForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        $totals = ['keep' => 0, 'avoidable' => 0];
+        if ([] === $categoryIds) {
+            return $totals;
+        }
+
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.retrospect AS verdict, SUM(t.amountCents) AS total')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
+            ->andWhere('t.category IN (:categories)')
+            ->andWhere('t.oneOffEnvelope IS NULL')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.retrospect IN (:judged)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
+            ->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('judged', [RetrospectVerdict::Keep->value, RetrospectVerdict::Avoidable->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->groupBy('t.retrospect')
+            ->getQuery()
+            ->getResult();
+
+        foreach ($rows as $row) {
+            $verdict = $row['verdict'] instanceof RetrospectVerdict ? $row['verdict']->value : (string) $row['verdict'];
+            $totals[$verdict] = abs((int) $row['total']);
+        }
+
+        return $totals;
     }
 
     /**

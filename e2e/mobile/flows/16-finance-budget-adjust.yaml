@@ -1,0 +1,66 @@
+appId: com.maggie.app.e2e
+name: 16-finance-budget-adjust
+tags:
+  - finance
+---
+# Adjusting the envelopes to what was really spent, from the phone (MAG-461, extends MAG-102).
+#
+# Given Loisirs at 100 € and 140 € spent in the month under way and in the two before it,
+# when Budgets > Ajuster is opened, then Loisirs shows its actual (140 € against 100 €), next
+# month at 100 € and a suggestion with its reason; applying the suggestion sets next month's
+# Loisirs to the proposed 140 € (the 140 € spent, already a multiple of 5 €), and the suggestion is gone once the list is read again.
+# Nothing is written before the tap on « Appliquer ».
+#
+# What is not here: the ± and the slider, « Tout appliquer », the seasons and the refused
+# write — `EnvelopeAdjustmentsViewModelTest` and `EnvelopeAdjustmentsScreenTest` check them
+# with figures; the API's suggestion rules have their own tests.
+#
+# It signs in as the seed's second user and the script removes what it made. Amounts are
+# matched with either decimal separator.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/16-finance-budget-adjust.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: create-adjust
+      TODAY: ${TODAY}
+
+- openLink: "maggie-e2e://finance/budgets"
+- extendedWaitUntil:
+    visible: "Loisirs"
+    timeout: 30000
+
+- tapOn:
+    id: "budget_adjust_open"
+- extendedWaitUntil:
+    visible:
+      id: "budget_adjust_suggestion_Loisirs"
+    timeout: 30000
+- assertVisible: ".*140[.,]00 EUR sur 100[.,]00 EUR.*"
+- assertVisible: ".* : 100[.,]00 EUR"
+
+- tapOn:
+    id: "budget_adjust_apply_Loisirs"
+- extendedWaitUntil:
+    visible: ".* : 140[.,]00 EUR"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: "budget_adjust_suggestion_Loisirs"
+    timeout: 30000
+
+# Left as found.
+- runScript:
+    file: ../scripts/finance-budget-api.js
+    env:
+      ACTION: remove
+      TODAY: ${TODAY}

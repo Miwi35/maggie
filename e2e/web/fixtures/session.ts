@@ -112,6 +112,13 @@ export const SEASON_USER_EMAIL = 'e2e-season@maggie.local'
  */
 export const SCORES_USER_EMAIL = 'e2e-scores@maggie.local'
 
+/**
+ * The fourteenth seeded account, for the envelope adjustments journey (MAG-461):
+ * it spends in the three months up to the clock's day, so on the neighbour two
+ * complete months would move the lifestyle the independence counter reads.
+ */
+export const ADJUST_USER_EMAIL = 'e2e-adjust@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

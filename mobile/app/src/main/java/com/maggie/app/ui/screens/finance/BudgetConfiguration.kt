@@ -84,11 +84,12 @@ internal fun BudgetConfigurationScreen(
     onBack: () -> Unit,
     toQualify: ToSortPile? = null,
     onOpenToQualify: () -> Unit = {},
+    onAdjust: (() -> Unit)? = null,
 ) {
     val editor = uiState.editor
     ListDetailPane(
         showsDetailPane = true,
-        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify) },
+        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify, onAdjust) },
         detail = editor?.let { open -> { EnvelopeEditorPane(viewModel, uiState, open) } },
         placeholder = "Touchez une catégorie pour régler son enveloppe.",
     )
@@ -103,6 +104,7 @@ private fun BudgetTreePane(
     onBack: () -> Unit,
     toQualify: ToSortPile?,
     onOpenToQualify: () -> Unit,
+    onAdjust: (() -> Unit)?,
 ) {
     val rows = remember(uiState.categories, uiState.status) { uiState.treeRows }
     val outside = uiState.status?.outsideMonthlyBudget
@@ -118,6 +120,7 @@ private fun BudgetTreePane(
                     }
                 },
                 actions = {
+                    AdjustAction(onAdjust)
                     IconButton(
                         onClick = { viewModel.rollOverPreviousPeriod() },
                         enabled = !uiState.isRollingOver,

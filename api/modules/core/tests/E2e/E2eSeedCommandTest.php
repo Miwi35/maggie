@@ -100,7 +100,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // thirteenth is the scores journeys' (MAG-417): a rent series and a
         // month of spending no other journey may move. A fourteenth would mean
         // somebody added an account without saying why.
-        self::assertSame(13, $this->rowsOf(User::class));
+        self::assertSame(14, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -114,6 +114,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert-mobile@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-season@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-scores@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-adjust@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -343,11 +344,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(14, $this->rowsOf(User::class));
+        self::assertSame(15, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(13, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(14, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

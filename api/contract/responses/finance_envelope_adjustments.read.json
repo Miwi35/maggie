@@ -1,0 +1,85 @@
+{
+    "month": "2026-09",
+    "targetMonth": "2026-10",
+    "envelopes": [
+        {
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Cadeaux",
+            "categoryPath": "Cadeaux",
+            "currency": "EUR",
+            "amountCents": 7000,
+            "actualCents": 4000,
+            "targetEnvelopeId": null,
+            "targetAmountCents": 7000,
+            "suggestion": {
+                "proposedCents": 10000,
+                "direction": "raise",
+                "reason": "En octobre, 100 € dépensés en moyenne ces 2 dernières années pour 70 € prévus.",
+                "seasonal": {
+                    "fromMonth": 10,
+                    "toMonth": 10
+                }
+            }
+        },
+        {
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Cinéma",
+            "categoryPath": "Cinéma",
+            "currency": "EUR",
+            "amountCents": 4000,
+            "actualCents": 2000,
+            "targetEnvelopeId": null,
+            "targetAmountCents": 4000,
+            "suggestion": {
+                "proposedCents": 2000,
+                "direction": "lower",
+                "reason": "Tenue avec de la marge 3 mois sur 3 : 20 € au plus dépensés pour 40 € prévus.",
+                "seasonal": null
+            }
+        },
+        {
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Courses",
+            "categoryPath": "Courses",
+            "currency": "EUR",
+            "amountCents": 40000,
+            "actualCents": 39000,
+            "targetEnvelopeId": null,
+            "targetAmountCents": 40000,
+            "suggestion": null
+        },
+        {
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Loisirs",
+            "categoryPath": "Loisirs",
+            "currency": "EUR",
+            "amountCents": 20000,
+            "actualCents": 24000,
+            "targetEnvelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "targetAmountCents": 20000,
+            "suggestion": {
+                "proposedCents": 25000,
+                "direction": "raise",
+                "reason": "Dépassée 3 mois sur 3 (de 25 % en moyenne), dépenses surtout jugées à conserver : 250 € dépensés par mois en moyenne.",
+                "seasonal": null
+            }
+        },
+        {
+            "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Sorties",
+            "categoryPath": "Sorties",
+            "currency": "EUR",
+            "amountCents": 15000,
+            "actualCents": 20000,
+            "targetEnvelopeId": null,
+            "targetAmountCents": 15000,
+            "suggestion": null
+        }
+    ],
+    "suggestionCount": 3
+}

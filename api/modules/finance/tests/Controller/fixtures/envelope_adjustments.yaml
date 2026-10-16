@@ -1,0 +1,250 @@
+# The world of the envelope adjustments, read on September 2026 (next month: October).
+#
+#  - Loisirs: exceeded three months running by spending judged worth keeping, October already set at 200 €.
+#  - Courses: held.
+#  - Sorties: exceeded three months running, but judged avoidable.
+#  - Cinéma: under three quarters of its amount three months running, no October envelope yet.
+#  - Cadeaux: nothing out of the ordinary in September, but 120 € and 80 € the last two Octobers; its
+#    September envelope has a season September to November at 70 €.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-test@example.com
+    googleId: google-finance-controller-test
+    name: Finance Controller Test User
+  other_user:
+    email: finance-other@example.com
+    googleId: google-finance-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  dining:
+    name: Sorties
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  cinema:
+    name: Cinéma
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  gifts:
+    name: Cadeaux
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  foreign:
+    name: Autre
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  envelope (template):
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    currency: EUR
+    user: '@test_user'
+
+  leisure_jul (extends envelope):
+    category: '@leisure'
+    amountCents: 20000
+    year: 2026
+    month: 7
+
+  groceries_jul (extends envelope):
+    category: '@groceries'
+    amountCents: 40000
+    year: 2026
+    month: 7
+
+  dining_jul (extends envelope):
+    category: '@dining'
+    amountCents: 15000
+    year: 2026
+    month: 7
+
+  cinema_jul (extends envelope):
+    category: '@cinema'
+    amountCents: 4000
+    year: 2026
+    month: 7
+
+  leisure_aug (extends envelope):
+    category: '@leisure'
+    amountCents: 20000
+    year: 2026
+    month: 8
+
+  groceries_aug (extends envelope):
+    category: '@groceries'
+    amountCents: 40000
+    year: 2026
+    month: 8
+
+  dining_aug (extends envelope):
+    category: '@dining'
+    amountCents: 15000
+    year: 2026
+    month: 8
+
+  cinema_aug (extends envelope):
+    category: '@cinema'
+    amountCents: 4000
+    year: 2026
+    month: 8
+
+  leisure_sep (extends envelope):
+    category: '@leisure'
+    amountCents: 20000
+    year: 2026
+    month: 9
+
+  groceries_sep (extends envelope):
+    category: '@groceries'
+    amountCents: 40000
+    year: 2026
+    month: 9
+
+  dining_sep (extends envelope):
+    category: '@dining'
+    amountCents: 15000
+    year: 2026
+    month: 9
+
+  cinema_sep (extends envelope):
+    category: '@cinema'
+    amountCents: 4000
+    year: 2026
+    month: 9
+
+  leisure_oct (extends envelope):
+    category: '@leisure'
+    amountCents: 20000
+    year: 2026
+    month: 10
+
+  gifts_sep (extends envelope):
+    category: '@gifts'
+    amountCents: 5000
+    year: 2026
+    month: 9
+    seasonalAmounts:
+      - { fromMonth: 9, toMonth: 11, amountCents: 7000 }
+
+
+Maggie\Finance\Entity\Transaction:
+  spend (template):
+    account: '@checking'
+    currency: EUR
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+  leisure_jul_spend (extends spend):
+    category: '@leisure'
+    amountCents: -25000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Loisirs juillet
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+
+  leisure_aug_spend (extends spend):
+    category: '@leisure'
+    amountCents: -26000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    label: Loisirs août
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+
+  leisure_sep_spend (extends spend):
+    category: '@leisure'
+    amountCents: -24000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Loisirs septembre
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+
+  groceries_jul_spend (extends spend):
+    category: '@groceries'
+    amountCents: -38000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Courses juillet
+
+  groceries_aug_spend (extends spend):
+    category: '@groceries'
+    amountCents: -41000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    label: Courses août
+
+  groceries_sep_spend (extends spend):
+    category: '@groceries'
+    amountCents: -39000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Courses septembre
+
+  dining_jul_spend (extends spend):
+    category: '@dining'
+    amountCents: -20000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Sorties juillet
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+
+  dining_aug_spend (extends spend):
+    category: '@dining'
+    amountCents: -20000
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    label: Sorties août
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+
+  dining_sep_spend (extends spend):
+    category: '@dining'
+    amountCents: -20000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Sorties septembre
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+
+  cinema_jul_spend (extends spend):
+    category: '@cinema'
+    amountCents: -1000
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Cinéma juillet
+
+  cinema_aug_spend (extends spend):
+    category: '@cinema'
+    amountCents: -1500
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    label: Cinéma août
+
+  cinema_sep_spend (extends spend):
+    category: '@cinema'
+    amountCents: -2000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Cinéma septembre
+
+  gifts_sep_spend (extends spend):
+    category: '@gifts'
+    amountCents: -4000
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Cadeaux septembre
+
+  gifts_oct_2025 (extends spend):
+    category: '@gifts'
+    amountCents: -12000
+    bookedAt: '<(new \DateTimeImmutable("2025-10-14"))>'
+    label: Cadeaux octobre 2025
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+
+  gifts_oct_2024 (extends spend):
+    category: '@gifts'
+    amountCents: -8000
+    bookedAt: '<(new \DateTimeImmutable("2024-10-14"))>'
+    label: Cadeaux octobre 2024
