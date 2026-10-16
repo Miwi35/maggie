@@ -52,12 +52,16 @@ export async function fetchDayPlan(date: string): Promise<DayPlan> {
   return (await response.json()) as DayPlan
 }
 
-/** Replaces the whole list of the day's tasks, in order; the API answers the day as it stands. */
-export async function saveDayPlan(date: string, taskIds: string[]): Promise<DayPlan> {
+/**
+ * Replaces the whole list of the day's tasks, in order; the API answers the day as it stands.
+ * `confirm: false` writes without settling the day — the evening's « Demain » (MAG-500),
+ * so the morning still opens and keeps it.
+ */
+export async function saveDayPlan(date: string, taskIds: string[], confirm = true): Promise<DayPlan> {
   const response = await fetch(`${apiUrl}/day-plans/${date}`, {
     method: 'PUT',
     headers: headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ slots: taskIds.map((taskId) => ({ type: 'task', taskId })) }),
+    body: JSON.stringify({ slots: taskIds.map((taskId) => ({ type: 'task', taskId })), ...(confirm ? {} : { confirm }) }),
   })
   if (!response.ok) {
     throw await dayError(response)
@@ -180,21 +184,41 @@ export function formatMinutes(minutes: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
 }
 
-/** The user's morning time (`HH:MM`), or null when it cannot be read. */
-export async function fetchMorningTime(): Promise<string | null> {
-  const response = await fetch(`${apiUrl}/task-settings/me`, { headers: headers({ Accept: 'application/json' }) })
-  if (!response.ok) return null
-  const body = (await response.json().catch(() => ({}))) as { morningTime?: string }
+/** The user's morning and evening times (`HH:MM`), each null when it cannot be read. */
+export interface DayTimes {
+  morningTime: string | null
+  eveningTime: string | null
+}
 
-  return typeof body.morningTime === 'string' && /^\d{2}:\d{2}$/.test(body.morningTime) ? body.morningTime : null
+const time = (value: unknown): string | null =>
+  typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : null
+
+export async function fetchDayTimes(): Promise<DayTimes> {
+  const response = await fetch(`${apiUrl}/task-settings/me`, { headers: headers({ Accept: 'application/json' }) })
+  if (!response.ok) return { morningTime: null, eveningTime: null }
+  const body = (await response.json().catch(() => ({}))) as { morningTime?: unknown; eveningTime?: unknown }
+
+  return { morningTime: time(body.morningTime), eveningTime: time(body.eveningTime) }
+}
+
+const reached = (now: Date, at: string): boolean => {
+  const [hours, minutes] = at.split(':').map(Number)
+
+  return now.getHours() * 60 + now.getMinutes() >= hours * 60 + minutes
 }
 
 /** The morning proposal is due once the morning time has come and the day is not confirmed yet. */
 export function morningDue(now: Date, morningTime: string | null, confirmedAt: string | null): boolean {
   if (!morningTime || confirmedAt != null) return false
-  const [hours, minutes] = morningTime.split(':').map(Number)
 
-  return now.getHours() * 60 + now.getMinutes() >= hours * 60 + minutes
+  return reached(now, morningTime)
+}
+
+/** The evening review is due once the evening time has come, on a day that holds tasks, until « Bonne nuit » (MAG-500). */
+export function eveningDue(now: Date, eveningTime: string | null, total: number, reviewedAt: string | null): boolean {
+  if (!eveningTime || total === 0 || reviewedAt != null) return false
+
+  return reached(now, eveningTime)
 }
 
 let morningOffered = false
@@ -209,6 +233,17 @@ export function claimMorning(): boolean {
 
 export function resetMorningOffer(): void {
   morningOffered = false
+  eveningOffered = false
+}
+
+let eveningOffered = false
+
+/** True the first time only: « Plus tard » closes the evening for this load of the app. */
+export function claimEvening(): boolean {
+  if (eveningOffered) return false
+  eveningOffered = true
+
+  return true
 }
 
 /**

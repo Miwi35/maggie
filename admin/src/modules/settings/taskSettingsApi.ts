@@ -29,6 +29,8 @@ export interface SettingsValues {
   orderLevels: Record<LevelGroup, number>
   alertSchedule: Record<Urgency, UrgencySchedule>
   morningTime: string
+  /** After it, the first visit of Tâches opens the evening's review (MAG-500). */
+  eveningTime: string
 }
 
 export interface TaskSettingsResponse extends SettingsValues {
@@ -41,6 +43,7 @@ export interface SettingsPatch {
   orderLevels?: Partial<Record<LevelGroup, number>>
   alertSchedule?: Partial<Record<Urgency, Partial<UrgencySchedule>>>
   morningTime?: string
+  eveningTime?: string
 }
 
 export const SAVE_ERROR = "Impossible d'enregistrer les réglages des tâches"

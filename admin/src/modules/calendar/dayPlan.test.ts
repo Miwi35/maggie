@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { claimMorning, deferOnDay, formatMinutes, morningDue, placeOnDay, resetMorningOffer, swapProposal } from './dayPlan'
+import { claimEvening, claimMorning, deferOnDay, eveningDue, formatMinutes, morningDue, placeOnDay, resetMorningOffer, swapProposal } from './dayPlan'
 import type { DayProposal, ProposalEntry } from './dayPlan'
 
 describe('placeOnDay — where a task lands in the day (MAG-497)', () => {
@@ -159,5 +159,38 @@ describe('deferOnDay — « Plus tard, sans souci » (MAG-499)', () => {
     expect(deferOnDay([slot('A', true), slot('B')], 'A')).toBeNull()
     expect(deferOnDay([slot('A')], 'A')).toBeNull()
     expect(deferOnDay([slot('A'), slot('B')], 'Z')).toBeNull()
+  })
+})
+
+describe('eveningDue — when the evening opens by itself (MAG-500)', () => {
+  const at = (h: number, m: number) => new Date(2026, 9, 16, h, m)
+
+  test('after the evening time on a day that holds tasks, until « Bonne nuit »', () => {
+    expect(eveningDue(at(21, 5), '21:00', 5, null)).toBe(true)
+    expect(eveningDue(at(21, 0), '21:00', 1, null)).toBe(true)
+  })
+
+  test('not before the evening time', () => {
+    expect(eveningDue(at(20, 59), '21:00', 5, null)).toBe(false)
+  })
+
+  test('not once the review is done', () => {
+    expect(eveningDue(at(22, 0), '21:00', 5, '2026-10-16T19:10:00+00:00')).toBe(false)
+  })
+
+  test('not on an empty day, nor when the evening time is unknown', () => {
+    expect(eveningDue(at(22, 0), '21:00', 0, null)).toBe(false)
+    expect(eveningDue(at(22, 0), null, 5, null)).toBe(false)
+  })
+
+  test('it is claimed once until reset', () => {
+    resetMorningOffer()
+
+    expect(claimEvening()).toBe(true)
+    expect(claimEvening()).toBe(false)
+
+    resetMorningOffer()
+    expect(claimEvening()).toBe(true)
+    resetMorningOffer()
   })
 })

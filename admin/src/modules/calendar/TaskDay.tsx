@@ -58,6 +58,8 @@ interface TaskDayProps {
   onEdit: (taskId: string) => void
   /** Opens the morning's proposal again (MAG-498). */
   onChange?: () => void
+  /** Opens the evening's review on demand (MAG-500). */
+  onEvening?: () => void
 }
 
 const FREE = 'place:free'
@@ -370,7 +372,7 @@ const ReserveRow = ({ task, today, slots, busy, onEdit, onPlace }: ReserveRowPro
  * first not done — on top, and the reserve folded away below. Every change
  * sends the whole list to the API, which answers the day as it stands.
  */
-export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskDayProps) => {
+export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange, onEvening }: TaskDayProps) => {
   const notify = useNotify()
   const [busy, setBusy] = useState(false)
   const [reserveOpen, setReserveOpen] = useState(false)
@@ -508,6 +510,11 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange }: TaskD
           {onChange && (
             <Button size="small" color="inherit" onClick={onChange} disabled={busy}>
               Changer
+            </Button>
+          )}
+          {onEvening && day.total > 0 && (
+            <Button size="small" color="inherit" onClick={onEvening} disabled={busy}>
+              Le soir
             </Button>
           )}
           <DayRing done={day.done} total={day.total} />
