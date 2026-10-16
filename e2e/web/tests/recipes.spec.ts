@@ -526,6 +526,62 @@ test.describe('Recipes and meals', () => {
     expect(catalogue.filter((u) => utensils.includes(u.name)).map((u) => u.name).sort()).toEqual(utensils)
   })
 
+  test('the reference recipe created with its five steps reads them back in order, with their durations and what they wait for — MAG-490', async ({
+    api,
+  }) => {
+    // Given the reference example of the steps spec, created through the API
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const ingredientIds: Record<string, string> = {}
+    for (const [key, category] of [['Pâtes', 'grain'], ['Courgette', 'produce'], ['Poivron', 'produce']] as const) {
+      const created = await api.post('/api/ingredients', { headers, data: { name: `${key} MAG-490 ${stamp}`, category } })
+      expect(created.status()).toBe(201)
+      ingredientIds[key] = ((await created.json()) as { id: string }).id
+    }
+    const ingredient = (key: string, quantity: number, unit: string) => ({ ingredient: `/api/ingredients/${ingredientIds[key]}`, quantity, unit })
+    const steps = [
+      { text: "Mettre l'eau à bouillir", durationMinutes: 10, background: true, utensils: [`Casserole MAG-490 ${stamp}`] },
+      { text: 'Couper les légumes', ingredientIds: [ingredientIds.Courgette, ingredientIds.Poivron] },
+      { text: 'Cuire les pâtes', durationMinutes: 12, background: true, ingredientIds: [ingredientIds['Pâtes']], waitsFor: [1] },
+      { text: 'Faire revenir les légumes', durationMinutes: 8, ingredientIds: [ingredientIds.Courgette, ingredientIds.Poivron] },
+      { text: 'Égoutter, mélanger', waitsFor: [3, 4] },
+    ]
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: {
+        name: `Pâtes aux légumes MAG-490 ${stamp}`,
+        ingredients: [ingredient('Pâtes', 200, 'g'), ingredient('Courgette', 1, 'piece'), ingredient('Poivron', 1, 'piece')],
+        steps,
+      },
+    })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    const { '@id': iri, name } = (await created.json()) as { '@id': string; name: string }
+
+    interface Step {
+      position: number
+      text: string
+      durationMinutes: number | null
+      background: boolean
+      waitsFor: number[]
+    }
+
+    // When it is read back — served from Elasticsearch, whose hydrated recipe
+    // reads its steps from the database
+    await waitForIndexed<{ name: string }>(api, '/api/recipes?pagination=false', (r) => r.name === name, { what: 'The recipe with its steps' })
+    const read = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+    expect(read.ok()).toBeTruthy()
+    const record = (await read.json()) as { steps: Step[] }
+
+    // Then the five steps come back in order, with their durations and their dependencies
+    expect(record.steps.map(({ position, text, durationMinutes, background, waitsFor }) => ({ position, text, durationMinutes, background, waitsFor }))).toEqual([
+      { position: 1, text: "Mettre l'eau à bouillir", durationMinutes: 10, background: true, waitsFor: [] },
+      { position: 2, text: 'Couper les légumes', durationMinutes: null, background: false, waitsFor: [] },
+      { position: 3, text: 'Cuire les pâtes', durationMinutes: 12, background: true, waitsFor: [1] },
+      { position: 4, text: 'Faire revenir les légumes', durationMinutes: 8, background: false, waitsFor: [] },
+      { position: 5, text: 'Égoutter, mélanger', durationMinutes: null, background: false, waitsFor: [3, 4] },
+    ])
+  })
+
   test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({
     page,
     api,

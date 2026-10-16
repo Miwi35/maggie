@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Mcp\StepsArgument;
 use Maggie\Cookbook\Mcp\UtensilsArgument;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Core\Mcp\McpUserContext;
@@ -15,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_recipe', description: 'Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it.')]
+#[McpTool(name: 'create_recipe', description: 'Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it. '.StepsArgument::DESCRIPTION)]
 class CreateRecipeTool
 {
     public function __construct(
@@ -31,6 +32,7 @@ class CreateRecipeTool
         ?string $notes = null,
         ?string $ingredients = null,
         ?string $utensils = null,
+        ?string $steps = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -40,6 +42,7 @@ class CreateRecipeTool
                 ? json_decode($ingredients, true, 512, JSON_THROW_ON_ERROR)
                 : null;
             $utensilList = UtensilsArgument::parse($utensils);
+            $stepList = StepsArgument::parse($steps);
 
             $envelope = $this->bus->dispatch(new CreateRecipeCommand(
                 userId: (string) $user->getId(),
@@ -49,6 +52,7 @@ class CreateRecipeTool
                 notes: $notes,
                 ingredients: $ingredientList,
                 utensils: $utensilList,
+                steps: $stepList,
             ));
 
             /** @var Recipe $recipe */
@@ -62,6 +66,7 @@ class CreateRecipeTool
                     'servings' => $recipe->getServings(),
                     'tags' => $recipe->getTags(),
                     'utensils' => UtensilsArgument::describe($recipe),
+                    'steps' => $recipe->stepsPayload(),
                 ],
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|BadRequestHttpException $e) {

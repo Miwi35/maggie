@@ -53,6 +53,44 @@
                     "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                 }
             ],
+            "steps": [
+                {
+                    "@type": "RecipeStep",
+                    "@id": "/api/.well-known/genid/blank",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 1,
+                    "text": "The first step the client renders",
+                    "durationMinutes": null,
+                    "background": false,
+                    "ingredients": [],
+                    "utensils": [
+                        {
+                            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                            "name": "Recorded Utensil"
+                        }
+                    ],
+                    "waitsFor": []
+                },
+                {
+                    "@type": "RecipeStep",
+                    "@id": "/api/.well-known/genid/blank",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 2,
+                    "text": "The second step, run in the background",
+                    "durationMinutes": 12,
+                    "background": true,
+                    "ingredients": [
+                        {
+                            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                            "name": "Recorded Ingredient"
+                        }
+                    ],
+                    "utensils": [],
+                    "waitsFor": [
+                        1
+                    ]
+                }
+            ],
             "createdAt": "2026-01-01T00:00:00+00:00",
             "updatedAt": "2026-01-01T00:00:00+00:00"
         }

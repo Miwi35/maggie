@@ -13,6 +13,7 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\Service\MealTitle;
+use Maggie\Cookbook\Service\RecipeSteps;
 use Maggie\Cookbook\Service\RecipeUtensils;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
@@ -29,6 +30,7 @@ class UpdateRecipeHandler
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
         private readonly RecipeUtensils $recipeUtensils,
+        private readonly RecipeSteps $recipeSteps,
     ) {
     }
 
@@ -69,6 +71,12 @@ class UpdateRecipeHandler
         if (null !== $command->utensils) {
             $recipe->replaceUtensils($this->recipeUtensils->resolve($command->utensils, $recipe->getUser()));
         }
+
+        // After the ingredients and the utensils: a step reads what the recipe has.
+        if (null !== $command->steps) {
+            $this->recipeSteps->replace($recipe, $command->steps);
+        }
+        $this->recipeSteps->assertConsistent($recipe);
 
         $recipe->setUpdatedAt(new \DateTimeImmutable());
 

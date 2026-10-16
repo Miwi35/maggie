@@ -294,13 +294,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "steps": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "name"
             ]
         },
-        "description": "Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it."
+        "description": "Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it. The method goes in steps, notes keep the tips. Steps is a JSON array of the steps, in order (the first is step 1), each {text, durationMinutes?, background?, ingredientIds?, utensils?, waitsFor?}: ingredientIds names ingredients of the recipe by ingredientId or by name (only a link: a partial quantity goes in the text); utensils are utensil ids or names, added to the recipe's utensils; background (needs a duration) means the timer runs while the cook moves on; waitsFor lists the positions of earlier steps that must be finished first."
     },
     "create_task": {
         "name": "create_task",
@@ -596,7 +603,7 @@
                 "recipeId"
             ]
         },
-        "description": "Get a recipe by ID with its ingredients and the utensils it is made with. guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor."
+        "description": "Get a recipe by ID with its ingredients, the utensils it is made with and its steps (in order: text, durationMinutes, background, ingredients, utensils, waitsFor — the positions of the steps it waits for). guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor."
     },
     "get_recurring_operations": {
         "name": "get_recurring_operations",
@@ -2696,13 +2703,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "steps": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "recipeId"
             ]
         },
-        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it; it replaces the full list if provided, and [] empties it."
+        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it; it replaces the full list if provided, and [] empties it. The method goes in steps, notes keep the tips. Steps is a JSON array of the steps, in order (the first is step 1), each {text, durationMinutes?, background?, ingredientIds?, utensils?, waitsFor?}: ingredientIds names ingredients of the recipe by ingredientId or by name (only a link: a partial quantity goes in the text); utensils are utensil ids or names, added to the recipe's utensils; background (needs a duration) means the timer runs while the cook moves on; waitsFor lists the positions of earlier steps that must be finished first. Steps replaces the full list if provided, and [] empties it."
     },
     "update_stock": {
         "name": "update_stock",

@@ -1,0 +1,100 @@
+# The steps of a recipe (MAG-490), shared by the API and MCP suites.
+# `pasta` has the reference example's ingredients and no step yet;
+# `cooked` already has its first steps.
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-steps-test@example.com
+    googleId: google-cookbook-steps-test
+    name: Cookbook Steps Test User
+  other_user:
+    email: cookbook-steps-other@example.com
+    googleId: google-cookbook-steps-other
+    name: Cookbook Steps Other User
+
+Maggie\Cookbook\Entity\Ingredient:
+  pasta_food:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@test_user'
+  zucchini_food:
+    name: Courgette
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@test_user'
+  pepper_food:
+    name: Poivron
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@test_user'
+  other_food:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Utensil:
+  pot:
+    name: Casserole
+    user: '@test_user'
+  pan:
+    name: Poêle
+    user: '@test_user'
+  other_oven:
+    name: Four
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes aux légumes
+    servings: 4
+    user: '@test_user'
+  cooked:
+    name: Pâtes au beurre
+    servings: 2
+    user: '@test_user'
+    utensils: ['@pot']
+  other_recipe:
+    name: Tarte de l'autre
+    servings: 4
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  pasta_line:
+    recipe: '@pasta'
+    ingredient: '@pasta_food'
+    quantity: 200.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  zucchini_line:
+    recipe: '@pasta'
+    ingredient: '@zucchini_food'
+    quantity: 1.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  pepper_line:
+    recipe: '@pasta'
+    ingredient: '@pepper_food'
+    quantity: 1.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  cooked_pasta_line:
+    recipe: '@cooked'
+    ingredient: '@pasta_food'
+    quantity: 250.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\RecipeStep:
+  cooked_boil:
+    recipe: '@cooked'
+    position: 1
+    text: Mettre l'eau à bouillir
+    durationMinutes: 10
+    background: true
+    utensils: ['@pot']
+  cooked_cook:
+    recipe: '@cooked'
+    position: 2
+    text: Cuire les pâtes
+    durationMinutes: 12
+    background: true
+    ingredients: ['@pasta_food']
+    utensils: ['@pot']
+    waitsFor: ['@cooked_boil']

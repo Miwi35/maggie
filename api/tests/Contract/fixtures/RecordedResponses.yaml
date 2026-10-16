@@ -134,6 +134,21 @@ Maggie\Cookbook\Entity\Recipe:
     user: '@recorded_user'
     utensils: ['@recorded_utensil']
 
+Maggie\Cookbook\Entity\RecipeStep:
+  recorded_step_first:
+    recipe: '@recorded_recipe'
+    position: 1
+    text: The first step the client renders
+    utensils: ['@recorded_utensil']
+  recorded_step_second:
+    recipe: '@recorded_recipe'
+    position: 2
+    text: The second step, run in the background
+    durationMinutes: 12
+    background: true
+    ingredients: ['@recorded_ingredient']
+    waitsFor: ['@recorded_step_first']
+
 Maggie\Calendar\Entity\Proaction:
   recorded_proaction:
     prompt: Recorded proaction prompt
