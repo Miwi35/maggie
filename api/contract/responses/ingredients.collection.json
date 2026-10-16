@@ -19,6 +19,11 @@
             "fatPer100g": 1.5,
             "stockState": "in_stock",
             "autoRestock": false,
+            "seasonMonths": [
+                9,
+                10
+            ],
+            "inSeason": false,
             "aisles": []
         }
     ],

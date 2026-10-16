@@ -37,11 +37,17 @@
                         "fatPer100g": 1.5,
                         "stockState": "in_stock",
                         "autoRestock": false,
+                        "seasonMonths": [
+                            9,
+                            10
+                        ],
+                        "inSeason": false,
                         "aisles": []
                     },
                     "quantity": 200,
                     "ingredientName": "Recorded Ingredient",
                     "ciqualAlimCode": "9810",
+                    "inSeason": false,
                     "unit": "g"
                 }
             ],

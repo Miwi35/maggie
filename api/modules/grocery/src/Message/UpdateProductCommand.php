@@ -17,7 +17,7 @@ final readonly class UpdateProductCommand
      * them as they are.
      *
      * @param list<'defaultUnit'|'preferredStore'|'fallbackStore'|'shelfLifeDays'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'|'restockQuantity'|'seasonMonths'> $clearFields
-     * @param list<array{store: string, aisle: ?string}>|null                                                                                            $aisles
+     * @param list<array{store: string, aisle: ?string}>|null                                                                                                           $aisles
      */
     public function __construct(
         public string $productId,

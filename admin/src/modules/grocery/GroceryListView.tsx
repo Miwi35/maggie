@@ -84,13 +84,10 @@ interface GroceryItem {
   store?: { id: string; name: string; visitOrder: number }
   buyAfter?: string
   position: number
-<<<<<<< HEAD
   /** Its product's aisle in its store, null for « Sans rayon » (MAG-493). */
   aisle?: AisleSummary | null
-=======
   /** Computed by the API for this month; null or absent: no season, no badge (MAG-494). */
   inSeason?: boolean | null
->>>>>>> 09bb86552 (Show the season months on the product form and the season badges in the admin (MAG-494))
 }
 
 interface GroceryListData {
