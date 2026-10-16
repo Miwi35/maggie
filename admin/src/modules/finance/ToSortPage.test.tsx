@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { AdminContext, testDataProvider } from 'react-admin'
+import { AdminContext, Notification, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { ToSortPage } from './ToSortPage'
 
@@ -28,6 +28,9 @@ const CARREFOUR = {
     source: 'rule',
     reason: 'La règle « contient CARREFOUR » classe ce marchand en Courses.',
   },
+  contact: null,
+  asksForContact: false,
+  counterpartyLabel: 'CARREFOUR MARKET 1234',
 }
 
 const MYSTERY = {
@@ -42,6 +45,9 @@ const MYSTERY = {
   suggestion: null,
   judgeable: true,
   retrospect: 'unrated',
+  contact: null,
+  asksForContact: false,
+  counterpartyLabel: 'PAIEMENT PAR CARTE X',
 }
 
 const SALARY = {
@@ -51,6 +57,25 @@ const SALARY = {
   amountCents: 250000,
   judgeable: false,
 }
+
+const FROM_TOM = {
+  id: 'T3',
+  label: 'VIR. DE TOM MARTIN 12/10',
+  counterpartyName: null,
+  amountCents: 40000,
+  currency: 'EUR',
+  bookedAt: '2026-10-12',
+  accountId: 'A1',
+  accountName: 'Courant',
+  suggestion: null,
+  judgeable: false,
+  retrospect: 'unrated',
+  contact: null,
+  asksForContact: true,
+  counterpartyLabel: 'VIR. DE TOM MARTIN',
+}
+
+const CONTACTS = [{ id: '01ANNA', name: 'Anna', notes: null }]
 
 const pileOf = (...transactions: unknown[]) => ({ total: transactions.length, totalCents: 5799, transactions })
 
@@ -68,6 +93,7 @@ const renderPage = () =>
     <MemoryRouter>
       <AdminContext dataProvider={dataProvider}>
         <ToSortPage />
+        <Notification />
       </AdminContext>
     </MemoryRouter>,
   )
@@ -316,5 +342,96 @@ describe('ToSortPage', () => {
     expect(within(dialog).getByLabelText('…ce texte')).toHaveValue('CARREFOUR MARKET')
     expect(within(dialog).getByRole('checkbox', { name: 'Appliquer aux transactions existantes' })).toBeChecked()
     expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeInTheDocument()
+  })
+
+  describe('« Associer à un contact ? »', () => {
+    /** The pile, the contacts, and the two writes of an association; `linkRefusal` makes the link fail. */
+    const withContacts = (linkRefusal: string | null = null) => {
+      let linkedTo: string | null = null
+      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+        if (url.startsWith('/api/contacts?')) return answer(true, { member: CONTACTS })
+        if (url === '/api/contacts' && init?.method === 'POST') {
+          return answer(true, { '@id': '/api/contacts/01TOM', id: '01TOM', name: 'Tom', notes: null })
+        }
+        if (url === '/api/contact_counterparties') {
+          if (linkRefusal) return answer(false, { detail: linkRefusal })
+          linkedTo = JSON.parse(init?.body as string).contact === '/api/contacts/01TOM' ? 'Tom' : 'Anna'
+
+          return answer(true, {})
+        }
+
+        return answer(
+          true,
+          pileOf(linkedTo ? { ...FROM_TOM, asksForContact: false, contact: { id: '01X', name: linkedTo } } : FROM_TOM),
+        )
+      })
+    }
+
+    test('is only asked on a transfer nobody claims', async () => {
+      renderPage()
+
+      await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(screen.queryByRole('button', { name: 'Associer à un contact ?' })).not.toBeInTheDocument()
+    })
+
+    test('a line already attached shows its contact instead', async () => {
+      fetchMock.mockImplementation(() =>
+        answer(true, pileOf({ ...FROM_TOM, asksForContact: false, contact: { id: '01TOM', name: 'Tom' } })),
+      )
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(within(card).getByText('Tom')).toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Associer à un contact ?' })).not.toBeInTheDocument()
+    })
+
+    test('« + Créer « Tom » » creates the contact, links the label to it, and the line shows Tom', async () => {
+      withContacts()
+      renderPage()
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Associer à un contact' })
+      await screen.findByRole('button', { name: /Anna/ })
+      await userEvent.type(within(dialog).getByLabelText('Rechercher un contact'), 'Tom')
+      await userEvent.click(within(dialog).getByRole('button', { name: '+ Créer « Tom »' }))
+
+      await waitFor(() =>
+        expect(posts()).toEqual([
+          { url: '/api/contacts', body: { name: 'Tom' } },
+          { url: '/api/contact_counterparties', body: { contact: '/api/contacts/01TOM', label: 'VIR. DE TOM MARTIN' } },
+        ]),
+      )
+      const card = screen.getByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Tom')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(within(card).queryByRole('button', { name: 'Associer à un contact ?' })).not.toBeInTheDocument()
+    })
+
+    test('picking an existing contact links the label to them', async () => {
+      withContacts()
+      renderPage()
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
+      await userEvent.click(await screen.findByRole('button', { name: /Anna/ }))
+
+      await waitFor(() =>
+        expect(posts()).toEqual([
+          { url: '/api/contact_counterparties', body: { contact: '/api/contacts/01ANNA', label: 'VIR. DE TOM MARTIN' } },
+        ]),
+      )
+      const card = screen.getByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Anna')).toBeInTheDocument()
+    })
+
+    test('a refused link shows the API\'s message and leaves the picker open', async () => {
+      withContacts('« VIR. DE TOM MARTIN » is already linked to Anna.')
+      renderPage()
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
+      await userEvent.click(await screen.findByRole('button', { name: /Anna/ }))
+
+      expect(await screen.findByText('« VIR. DE TOM MARTIN » is already linked to Anna.')).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Associer à un contact' })).toBeInTheDocument()
+    })
   })
 })

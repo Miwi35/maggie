@@ -66,6 +66,7 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Banques', path: '/finance/banks' },
       { label: 'Import de relevé', path: '/finance/import' },
       resourcePart('Comptes', 'accounts'),
+      resourcePart('Contacts', 'contacts'),
       resourcePart('Transactions', 'transactions'),
       { label: 'À qualifier', path: '/finance/to-sort' },
       resourcePart('Catégories', 'categories'),

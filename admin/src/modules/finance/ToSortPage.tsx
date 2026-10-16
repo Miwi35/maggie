@@ -14,10 +14,13 @@ import Switch from '@mui/material/Switch'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
-import { Link, Title, useCreatePath } from 'react-admin'
+import { Link, Title, useCreatePath, useNotify } from 'react-admin'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { formatCents } from './accountTypes'
 import { CreateFilterDialog } from './CreateFilterDialog'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import { ContactPicker } from './ContactPicker'
+import type { Contact } from './contactsApi'
 import { bareId } from './envelopeTree'
 import { Qualification } from './Qualification'
 import { NO_QUALIFICATION } from './qualificationKinds'
@@ -49,11 +52,58 @@ const SATISFACTION_CHOICES: { value: Exclude<Satisfaction, 'unrated'>; label: st
   { value: 'avoidable', label: AVOIDABLE_LABEL },
 ]
 
+/** Who the transfer is with (MAG-450): their name, or the question when nobody claims it yet. */
+const ContactLine = ({
+  transaction,
+  disabled,
+  onLink,
+}: {
+  transaction: ToSortTransaction
+  disabled: boolean
+  onLink: (contact: Contact) => Promise<boolean>
+}) => {
+  const [picking, setPicking] = useState(false)
+
+  if (transaction.contact) {
+    return (
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1 }}>
+        <PersonOutlineIcon fontSize="small" color="action" />
+        <Typography variant="body2">{transaction.contact.name}</Typography>
+      </Stack>
+    )
+  }
+  if (!transaction.asksForContact) {
+    return null
+  }
+
+  return (
+    <>
+      <Button
+        size="small"
+        startIcon={<PersonOutlineIcon />}
+        disabled={disabled}
+        onClick={() => setPicking(true)}
+        sx={{ mt: 1, ml: -0.5 }}
+      >
+        Associer à un contact ?
+      </Button>
+      <ContactPicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        onPick={(contact) => {
+          void onLink(contact).then((linked) => linked && setPicking(false))
+        }}
+      />
+    </>
+  )
+}
+
 const SortCard = ({
   transaction,
   sorting,
   onSort,
   onJudge,
+  onLinkContact,
   onOperationCreated,
 }: {
   transaction: ToSortTransaction
@@ -61,6 +111,7 @@ const SortCard = ({
   onSort: (answer: SortAnswer, qualification?: QualificationValue) => void
   onJudge: (verdict: Satisfaction) => void
   onOperationCreated: () => void
+  onLinkContact: (contact: Contact) => Promise<boolean>
 }) => {
   const createPath = useCreatePath()
   const [always, setAlways] = useState(false)
@@ -79,6 +130,7 @@ const SortCard = ({
             <Typography variant="body2" color="text.secondary">
               {formatDay(transaction.bookedAt)} · {transaction.accountName}
             </Typography>
+            <ContactLine transaction={transaction} disabled={sorting} onLink={onLinkContact} />
           </Box>
           <Typography
             variant="h5"
@@ -233,8 +285,22 @@ const PileList = ({
 )
 
 export const ToSortPage = () => {
-  const { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload } = useTransactionsToSort()
+  const { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload, linkContact } = useTransactionsToSort()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const notify = useNotify()
+
+  const link = async (transaction: ToSortTransaction, contact: Contact): Promise<boolean> => {
+    try {
+      await linkContact(transaction, contact.id)
+      notify(`« ${transaction.counterpartyLabel} » est lié à ${contact.name}.`, { type: 'success' })
+
+      return true
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Impossible de lier ce libellé.', { type: 'error' })
+
+      return false
+    }
+  }
 
   if (loading && !pile) {
     return (
@@ -299,6 +365,7 @@ export const ToSortPage = () => {
                 onSort={(answer, qualification) => void sort(current.id, answer, qualification)}
                 onJudge={(verdict) => void judge(current.id, verdict)}
                 onOperationCreated={() => void reload()}
+                onLinkContact={(contact) => link(current, contact)}
               />
             </Box>
             <PileList transactions={pile.transactions} currentId={current.id} onSelect={setSelectedId} />

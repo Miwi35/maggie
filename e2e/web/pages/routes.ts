@@ -40,6 +40,7 @@ export const ROUTES = {
   categories: '/categories',
   envelopes: '/envelopes',
   loans: '/loans',
+  contacts: '/contacts',
   financeOverview: '/finance/dashboard',
   financeBanks: '/finance/banks',
   financeImport: '/finance/import',
@@ -59,4 +60,14 @@ export const ROUTES = {
  */
 export function accountTransactionsRoute(accountId: string): string {
   return `/accounts/${accountId}/transactions`
+}
+
+/**
+ * A contact's page, the « fiche contact » (MAG-450). React-admin addresses the
+ * record by its IRI, encoded into one path segment.
+ */
+export function contactRoute(contactId: string): string {
+  const iri = contactId.startsWith('/') ? contactId : `/api/contacts/${contactId}`
+
+  return `${ROUTES.contacts}/${encodeURIComponent(iri)}`
 }

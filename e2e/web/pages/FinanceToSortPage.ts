@@ -15,6 +15,8 @@ export class FinanceToSortPage extends AdminShell {
   readonly validate: Locator
   readonly qualify: Locator
   readonly satisfaction: Locator
+  readonly associateContact: Locator
+  readonly contactPicker: Locator
 
   constructor(page: Page) {
     super(page)
@@ -25,6 +27,9 @@ export class FinanceToSortPage extends AdminShell {
     this.validate = this.card.getByRole('button', { name: 'Valider' })
     this.qualify = this.card.getByRole('button', { name: 'Qualifier' })
     this.satisfaction = this.card.getByRole('group', { name: 'Satisfaction' })
+    this.associateContact = this.card.getByRole('button', { name: 'Associer à un contact ?' })
+    // A dialog, portalled out of the page content.
+    this.contactPicker = page.getByRole('dialog', { name: 'Associer à un contact' })
   }
 
   async open(): Promise<void> {
@@ -49,5 +54,17 @@ export class FinanceToSortPage extends AdminShell {
   async judge(verdict: 'À conserver' | 'Superflue'): Promise<void> {
     await this.satisfaction.getByRole('button', { name: verdict }).click()
     await expect(this.satisfaction.getByRole('button', { name: verdict, pressed: true })).toBeVisible()
+  }
+
+  /**
+   * « Associer à un contact ? » → a contact created from its name (MAG-450).
+   * Waits for the picker to close: the link is made and the pile read again.
+   */
+  async associateWithNewContact(name: string): Promise<void> {
+    await this.associateContact.click()
+    await expect(this.contactPicker).toBeVisible()
+    await this.contactPicker.getByLabel('Rechercher un contact').fill(name)
+    await this.contactPicker.getByRole('button', { name: `+ Créer « ${name} »`, exact: true }).click()
+    await expect(this.contactPicker).toBeHidden()
   }
 }

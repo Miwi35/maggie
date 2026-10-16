@@ -12,6 +12,8 @@ const resources = {
   envelopes: { name: 'Enveloppe |||| Enveloppes' },
   categorization_rules: { name: 'Règle |||| Règles' },
   loans: { name: 'Prêt |||| Prêts' },
+  contacts: { name: 'Contact |||| Contacts' },
+  contact_counterparties: { name: 'Libellé |||| Libellés' },
   products: { name: 'Produit |||| Produits' },
   stores: { name: 'Magasin |||| Magasins' },
   grocery_items: { name: 'Article |||| Articles' },

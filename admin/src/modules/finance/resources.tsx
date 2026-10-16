@@ -8,6 +8,9 @@ import { AccountTransactionsView } from './AccountTransactionsView'
 import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
 import { CategorizationRuleCreate } from './CategorizationRuleCreate'
+import { ContactCreate } from './ContactCreate'
+import { ContactEdit } from './ContactEdit'
+import { ContactList } from './ContactList'
 import { BankConnectionsPage } from './BankConnectionsPage'
 import { CushionPage } from './CushionPage'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
@@ -49,6 +52,13 @@ export const financeResources = (
       list={AccountList}
       create={AccountCreate}
       edit={AccountEdit}
+    />
+    {/* The people behind the transfers (MAG-450), reached from the Comptes area. */}
+    <ResourceGuesser
+      name="contacts"
+      list={ContactList}
+      create={ContactCreate}
+      edit={ContactEdit}
     />
     <ResourceGuesser
       name="categories"
