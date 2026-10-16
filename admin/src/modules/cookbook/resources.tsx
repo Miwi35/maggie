@@ -9,6 +9,7 @@ import { IngredientList } from './IngredientList'
 import { RecipeCreate } from './RecipeCreate'
 import { RecipeEdit } from './RecipeEdit'
 import { RecipeList } from './RecipeList'
+import { RecipeShow } from './RecipeShow'
 
 export const cookbookResources = (
   <>
@@ -22,6 +23,6 @@ export const cookbookResources = (
       create={IngredientCreate}
       edit={IngredientEdit}
     />
-    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} />
+    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} show={RecipeShow} />
   </>
 )

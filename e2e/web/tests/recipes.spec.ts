@@ -582,6 +582,107 @@ test.describe('Recipes and meals', () => {
     ])
   })
 
+  test('the reference recipe is entered step by step in the form, with two utensils, and read back on the sheet — MAG-491', async ({ page, api }) => {
+    // Given a recipe with its ingredients, and a utensil already in the catalogue
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const names = { pasta: `Pâtes MAG-491 ${stamp}`, courgette: `Courgette MAG-491 ${stamp}` }
+    const ingredientIris: Record<string, string> = {}
+    for (const [key, category] of [['pasta', 'grain'], ['courgette', 'produce']] as const) {
+      const created = await api.post('/api/ingredients', { headers, data: { name: names[key], category } })
+      expect(created.status()).toBe(201)
+      ingredientIris[key] = ((await created.json()) as { '@id': string })['@id']
+    }
+    const existing = `Casserole MAG-491 ${stamp}`
+    const fresh = `Thermomix MAG-491 ${stamp}`
+    const catalogued = await api.post('/api/utensils', { headers, data: { name: existing } })
+    expect(catalogued.status()).toBe(201)
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: {
+        name: `Pâtes aux légumes MAG-491 ${stamp}`,
+        servings: 2,
+        ingredients: [
+          { ingredient: ingredientIris.pasta, quantity: 200, unit: 'g' },
+          { ingredient: ingredientIris.courgette, quantity: 1, unit: 'piece' },
+        ],
+      },
+    })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    const { '@id': iri, name } = (await created.json()) as { '@id': string; name: string }
+
+    // When I enter the five steps of the reference example, and two utensils one of which is new
+    const shell = new AdminShell(page)
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
+    await expect(shell.content.getByLabel(/^Nom/)).toHaveValue(name)
+
+    await shell.content.getByRole('combobox', { name: 'Matériel' }).click()
+    await page.getByRole('option', { name: existing, exact: true }).click()
+    await shell.content.getByRole('combobox', { name: 'Matériel' }).fill(fresh)
+    await page.getByRole('option', { name: `Ajouter « ${fresh} »` }).click()
+
+    const steps = [
+      { text: "Mettre l'eau à bouillir", duration: '10', background: true },
+      { text: 'Couper les légumes', duration: '' },
+      { text: 'Cuire les pâtes', duration: '12', background: true },
+      { text: 'Faire revenir les légumes', duration: '8' },
+      { text: 'Égoutter, mélanger', duration: '' },
+    ]
+    const group = (position: number) => shell.content.getByRole('group', { name: `Étape ${position}` })
+    const choose = async (position: number, field: string, option: string) => {
+      await group(position).getByRole('combobox', { name: field }).click()
+      await page.getByRole('option', { name: option, exact: true }).click()
+    }
+    for (const [index, step] of steps.entries()) {
+      await shell.content.getByRole('button', { name: 'Ajouter une étape' }).click()
+      await group(index + 1).getByLabel('Texte').fill(step.text)
+      if (step.duration) await group(index + 1).getByLabel('Durée (min)').fill(step.duration)
+      if (step.background) await group(index + 1).getByRole('checkbox', { name: 'En fond' }).check()
+    }
+    await choose(3, 'Attend', 'Étape 1')
+    await choose(5, 'Attend', 'Étape 3')
+    await choose(5, 'Attend', 'Étape 4')
+    await choose(2, 'Ingrédients', names.courgette)
+    await choose(3, 'Ingrédients', names.pasta)
+    await choose(1, 'Ustensiles', existing)
+    await choose(4, 'Ustensiles', fresh)
+    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+
+    // Then the API holds the five steps as entered
+    interface StoredStep {
+      position: number
+      text: string
+      durationMinutes: number | null
+      background: boolean
+      waitsFor: number[]
+    }
+    await expect
+      .poll(
+        async () => {
+          const read = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+          const record = (await read.json()) as { steps?: StoredStep[] }
+          return (record.steps ?? []).map(({ position, text, durationMinutes, background, waitsFor }) => ({ position, text, durationMinutes, background, waitsFor }))
+        },
+        { timeout: 30_000, message: 'The steps entered in the form never reached the API' },
+      )
+      .toEqual([
+        { position: 1, text: "Mettre l'eau à bouillir", durationMinutes: 10, background: true, waitsFor: [] },
+        { position: 2, text: 'Couper les légumes', durationMinutes: null, background: false, waitsFor: [] },
+        { position: 3, text: 'Cuire les pâtes', durationMinutes: 12, background: true, waitsFor: [1] },
+        { position: 4, text: 'Faire revenir les légumes', durationMinutes: 8, background: false, waitsFor: [] },
+        { position: 5, text: 'Égoutter, mélanger', durationMinutes: null, background: false, waitsFor: [3, 4] },
+      ])
+
+    // And the sheet shows the equipment, and the fifth step waiting for 3 and 4
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+    await expect(shell.content.getByRole('heading', { name })).toBeVisible()
+    const equipment = shell.content.getByRole('list', { name: 'Matériel' })
+    await expect(equipment.getByText(existing)).toBeVisible()
+    await expect(equipment.getByText(fresh)).toBeVisible()
+    await expect(shell.content.getByText('attend 3, 4')).toBeVisible()
+    await expect(shell.content.getByText('⏱ 12 min')).toBeVisible()
+  })
+
   test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({
     page,
     api,

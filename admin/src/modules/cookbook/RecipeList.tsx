@@ -5,6 +5,7 @@ import {
   DateField,
   FunctionField,
   EditButton,
+  ShowButton,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import Chip from '@mui/material/Chip'
@@ -47,6 +48,7 @@ const RecipeDatagrid = () => {
         }
       />
       <DateField source="createdAt" label="Créé le" />
+      <ShowButton />
       <EditButton />
       <RecipeDeleteButton />
     </Datagrid>
