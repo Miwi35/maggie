@@ -307,14 +307,14 @@ describe('ToSortPage', () => {
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain('/api/transactions/T1')
   })
 
-  test('« Créer une opération » opens the rule brick filled from the line, applying to the existing lines', async () => {
+  test('« Créer un filtre » opens the rule brick filled from the line, applying to the existing lines', async () => {
     renderPage()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Créer une opération' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Créer un filtre' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Créer une opération' })
+    const dialog = await screen.findByRole('dialog', { name: 'Créer un filtre' })
     expect(within(dialog).getByLabelText('…ce texte')).toHaveValue('CARREFOUR MARKET')
     expect(within(dialog).getByRole('checkbox', { name: 'Appliquer aux transactions existantes' })).toBeChecked()
-    expect(within(dialog).getByRole('button', { name: 'Créer l’opération' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeInTheDocument()
   })
 })

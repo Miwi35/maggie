@@ -153,7 +153,7 @@ const SortCard = ({
             Autre catégorie
           </Button>
           <Button disabled={sorting} onClick={() => setCreating(true)}>
-            Créer une opération
+            Créer un filtre
           </Button>
           <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
             Virement interne
@@ -194,8 +194,6 @@ const SortCard = ({
               amountCents: transaction.amountCents,
               category: suggestion ? `/api/categories/${suggestion.categoryId}` : null,
             }}
-            title="Créer une opération"
-            submitLabel="Créer l’opération"
             applyToExistingByDefault
             onCreated={onOperationCreated}
             onClose={() => setCreating(false)}
