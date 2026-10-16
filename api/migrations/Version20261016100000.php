@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * aisle of each product in each store (MAG-493). Nothing to backfill: every
  * product starts « Sans rayon ».
  */
-final class Version20261016000000 extends AbstractMigration
+final class Version20261016100000 extends AbstractMigration
 {
     public function getDescription(): string
     {
