@@ -8,6 +8,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 
 data class TasksUiState(
     val view: TaskView = TaskView.TODAY,
@@ -57,6 +59,8 @@ data class TasksUiState(
     val isSavingDay: Boolean = false,
     /** A task asked for from the day, read whole: the screen hands it to the detail and clears it. */
     val opened: Task? = null,
+    /** « Ta journée » (MAG-498): the morning's proposal on screen instead of the day; `null` when closed. */
+    val morning: MorningState? = null,
 ) {
     /** What the open tab draws has arrived: the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean get() = if (view == TaskView.TODAY) day != null else tasks.isNotEmpty()
@@ -67,6 +71,13 @@ data class TasksUiState(
     /** Only « Faites » is paged: more is out there when the page held back some of the view. */
     val hasMore: Boolean get() = view == TaskView.DONE && tasks.size < totalItems
 }
+
+/** The morning's five being prepared: [proposal] is `null` while it is read. */
+data class MorningState(
+    val proposal: DayProposal? = null,
+    /** « C'est parti » is in flight. */
+    val isConfirming: Boolean = false,
+)
 
 /**
  * The tasks screen (MAG-408): one of four views at a time, read from `/api/tasks/view/{view}`.
@@ -83,6 +94,7 @@ class TasksViewModel(
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val today: () -> LocalDate = { DateRanges.todayDate() },
+    private val now: () -> LocalTime = { LocalTime.now() },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TasksUiState())
@@ -91,6 +103,10 @@ class TasksViewModel(
     private var loadJob: Job? = null
     private var moreJob: Job? = null
     private var listenJob: Job? = null
+    private var proposalJob: Job? = null
+
+    /** The morning opens once per run of the app: leaving it unconfirmed does not bring it back. */
+    private var morningOffered = false
 
     /**
      * The screen came on: the list is read again, without blanking what is already there, and a
@@ -239,6 +255,62 @@ class TasksViewModel(
         }
     }
 
+    /** « Changer » on the day: the morning's proposal, read now. */
+    fun openMorning() {
+        if (_uiState.value.morning != null) return
+        _uiState.update { it.copy(morning = MorningState(), message = null) }
+        proposalJob?.cancel()
+        proposalJob = viewModelScope.launch {
+            taskRepository.getDayProposal(today())
+                .onSuccess { proposal -> _uiState.update { s -> s.copy(morning = s.morning?.copy(proposal = proposal)) } }
+                .onFailure { _uiState.update { it.copy(morning = null, message = "Impossible de proposer la journée.") } }
+        }
+    }
+
+    /** Slot [index] of the proposal takes the next task of the reserve; nothing is written. */
+    fun swapMorning(index: Int) {
+        _uiState.update { s ->
+            val morning = s.morning ?: return@update s
+            val proposal = morning.proposal ?: return@update s
+            if (morning.isConfirming) s else s.copy(morning = morning.copy(proposal = proposal.swap(index)))
+        }
+    }
+
+    /** « C'est parti »: the day is written with the five kept, which confirms it. */
+    fun confirmMorning() {
+        val morning = _uiState.value.morning ?: return
+        val proposal = morning.proposal ?: return
+        if (morning.isConfirming || proposal.slots.isEmpty()) return
+        _uiState.update { it.copy(morning = morning.copy(isConfirming = true), message = null) }
+        viewModelScope.launch {
+            taskRepository.setDaySlots(proposal.day, proposal.taskIds)
+                .onSuccess { saved -> _uiState.update { it.copy(day = saved, morning = null) } }
+                .onFailure {
+                    _uiState.update { it.copy(morning = morning.copy(isConfirming = false), message = "Impossible d'enregistrer la journée.") }
+                }
+        }
+    }
+
+    /** « Plus tard »: the day stays as it is. */
+    fun dismissMorning() {
+        proposalJob?.cancel()
+        _uiState.update { it.copy(morning = null) }
+    }
+
+    /**
+     * Whether the morning opens by itself: the first time the day is read after the morning time while
+     * it has no `confirmedAt`. Nothing opens when the morning time cannot be read. Asked before the day
+     * is shown, so the day does not flash before the morning replaces it.
+     */
+    private suspend fun morningDue(day: DayPlan): Boolean {
+        if (morningOffered || day.confirmedAt != null || _uiState.value.morning != null) return false
+        val morningTime = taskRepository.getMorningTime().getOrNull()?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+            ?: return false
+        if (now() < morningTime) return false
+        morningOffered = true
+        return true
+    }
+
     /** The day lists a shorter task: its detail needs the whole one, read before it opens. */
     fun openTask(id: String) {
         viewModelScope.launch {
@@ -300,7 +372,11 @@ class TasksViewModel(
     private suspend fun loadDay(): Unit = coroutineScope {
         val counts = async { taskRepository.getTaskView(TaskView.TODAY) }
         taskRepository.getDayPlan(today())
-            .onSuccess { day -> _uiState.update { it.copy(day = day, isLoading = false) } }
+            .onSuccess { day ->
+                val morning = morningDue(day)
+                _uiState.update { it.copy(day = day, isLoading = false) }
+                if (morning) openMorning()
+            }
             .onFailure { e -> failed(e, "Impossible de charger la journée.") }
         counts.await().onSuccess { response -> _uiState.update { it.copy(counts = response.counts) } }
     }

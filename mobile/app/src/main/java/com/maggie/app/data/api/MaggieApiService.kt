@@ -62,6 +62,7 @@ import com.maggie.app.data.model.TreasurySettingsResult
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
+import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.Loan
@@ -773,6 +774,13 @@ class MaggieApiService(
     // The day (MAG-497): plain JSON; a refused list (400: six slots, a task twice) carries its reason in `error`.
     suspend fun getDayPlan(date: String): DayPlan {
         return client.get("$baseUrl/api/day-plans/$date") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** The morning's five for [date] (MAG-498), read without writing anything. */
+    suspend fun getDayProposal(date: String): DayProposal {
+        return client.get("$baseUrl/api/day-plans/$date/proposal") {
             accept(ContentType.Application.Json)
         }.orRefusal().body()
     }

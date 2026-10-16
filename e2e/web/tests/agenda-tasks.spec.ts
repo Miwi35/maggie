@@ -1,4 +1,4 @@
-import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, parisDay, parisTime, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -38,6 +38,7 @@ interface DayTask {
 }
 
 interface DayPlan {
+  confirmedAt: string | null
   slots: { position: number; task: DayTask }[]
   now: { position: number; task: DayTask } | null
   reserve: DayTask[]
@@ -49,6 +50,13 @@ const DAY = seedDate()
 
 async function tasks(api: APIRequestContext, query = ''): Promise<StoredTask[]> {
   return getCollection<StoredTask>(api, `/api/tasks?itemsPerPage=100${query}`)
+}
+
+/** `day` (YYYY-MM-DD) moved by `offset` days, by calendar arithmetic. */
+function daysFrom(day: string, offset: number): string {
+  const [year, month, date] = day.split('-').map(Number)
+
+  return new Date(Date.UTC(year, month - 1, date + offset)).toISOString().slice(0, 10)
 }
 
 /** A title the current attempt alone will write — CI retries once without reseeding. */
@@ -421,6 +429,102 @@ test.describe('the day of five', () => {
         .toEqual([1, 5, ids[1], true])
     } finally {
       // Leave the day as the other journeys expect it: empty, and none of these tasks around.
+      await setDayPlan(api, today, [])
+      for (const id of ids) await api.delete(`/api/tasks/${id}`)
+    }
+  })
+})
+
+/**
+ * « Ta journée » (MAG-498, extends MAG-100): at 8:30 the first visit to « Tâches » opens the
+ * morning's proposal — five tasks at most with why and minutes, the time against the free time,
+ * the rest in a line — and nothing is written until « C'est parti ».
+ *
+ * Signed in as the neighbour, whose day nobody else writes. A day cannot be unconfirmed, so a
+ * retry meets a day already confirmed and asks for the proposal with « Changer » instead.
+ */
+test.describe('the morning', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test('opens at 8:30, swaps one task for the next of the reserve, and « C\'est parti » writes the five', async ({ otherUser }) => {
+    const { page, api } = otherUser
+    const today = parisDay()
+    await page.context().clock.setFixedTime(new Date(parisTime(today, '08:30:00')))
+
+    const late = [perAttempt('Matin — déclaration en retard'), perAttempt('Matin — facture en retard')]
+    const others = Array.from({ length: 4 }, (_, i) => perAttempt(`Matin — au calme ${i + 1}`))
+    const ids: string[] = []
+
+    try {
+      // Given two tasks put off (due on a past day) and four with no day, besides the neighbour's own…
+      const past = daysFrom(today, -3)
+      for (const title of late) ids.push(await createTask(api, { title, dueDate: past, estimatedMinutes: 10 }))
+      for (const title of others) ids.push(await createTask(api, { title }))
+      const confirmed = (await dayPlan(api, today)).confirmedAt != null
+
+      const board = new TasksPage(page)
+      if (confirmed) {
+        await board.open()
+        await board.change.click()
+      } else {
+        // …when I open « Tâches » for the first time of the morning, the proposal comes before the day…
+        await board.openMorning()
+      }
+      await expect(board.morning).toBeVisible()
+      await expect(board.proposed.getByRole('listitem').first()).toBeVisible()
+      const count = await board.proposed.getByRole('listitem').count()
+      expect(count).toBeGreaterThanOrEqual(1)
+      expect(count).toBeLessThanOrEqual(5)
+
+      // …the put-off tasks first, each with why and minutes, the time against the free time, the rest in a line.
+      for (const title of late) {
+        await expect(board.proposedRow(title)).toContainText('reportée')
+        await expect(board.proposedRow(title)).toContainText('10 min')
+      }
+      await expect(board.morningTime).toBeVisible()
+      await expect(board.morning.getByRole('heading', { name: 'Ensuite' })).toBeVisible()
+
+      // Nothing is written yet: the day still holds none of them.
+      const untouched = (await dayPlan(api, today)).slots.map((slot) => slot.task.id)
+      for (const id of ids) expect(untouched).not.toContain(id)
+
+      // When I swap the last task, it takes the next of the reserve in the same place…
+      const last = board.proposed.getByRole('listitem').nth(count - 1)
+      const swap = last.getByRole('button', { name: /^Échanger / })
+      const leaving = ((await swap.getAttribute('aria-label')) ?? '').replace(/^Échanger /, '')
+      expect(leaving, 'the swap button names its task').not.toBe('')
+      await swap.click()
+      await expect(board.proposed.getByRole('listitem')).toHaveCount(count)
+      await expect(board.proposed.getByText(leaving, { exact: true })).toHaveCount(0)
+
+      // When I tap « C'est parti », the day holds the kept tasks and the proposal gives way to it.
+      const kept = await board.proposed.getByRole('listitem').getByText(/^Matin — /).allTextContents()
+      await board.go.click()
+      await expect(board.morning).toBeHidden()
+      await expect(board.dayCreate).toBeVisible()
+      await expect(board.slots.getByRole('listitem').first()).toBeVisible()
+
+      await expect
+        .poll(
+          async () => {
+            const day = await dayPlan(api, today)
+
+            return [day.confirmedAt != null, day.slots.map((slot) => slot.task.title).filter((title) => title.startsWith('Matin — '))]
+          },
+          { timeout: 30_000, message: 'the day should hold the kept tasks, confirmed' },
+        )
+        .toEqual([true, expect.arrayContaining(kept)])
+
+      // The morning does not come back by itself once the day is confirmed.
+      await board.open()
+      await expect(board.morning).toBeHidden()
+      // « Changer » asks for it again, and « Plus tard » leaves it without writing.
+      await board.change.click()
+      await expect(board.morning).toBeVisible()
+      await board.later.click()
+      await expect(board.morning).toBeHidden()
+      await expect(board.dayCreate).toBeVisible()
+    } finally {
       await setDayPlan(api, today, [])
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
     }

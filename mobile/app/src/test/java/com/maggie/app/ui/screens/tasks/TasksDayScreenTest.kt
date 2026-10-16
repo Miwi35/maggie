@@ -67,6 +67,7 @@ class TasksDayScreenTest {
         val repository = mockk<TaskRepository>()
         coEvery { repository.getDayPlan(today) } returns Result.success(day)
         coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(TaskViewResponse())
+        coEvery { repository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
         val auth = mockk<AuthRepository>()
         every { auth.token } returns flowOf("jwt")
         coEvery { auth.getUserId() } returns "u1"

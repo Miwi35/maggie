@@ -68,6 +68,7 @@ export const TaskBoard = () => {
   const [day, setDay] = useState<DayPlan | null>(null)
   const [dayFailed, setDayFailed] = useState(false)
   const [preparing, setPreparing] = useState(false)
+  const [morningChecked, setMorningChecked] = useState(false)
 
   const today = localDay(new Date())
 
@@ -139,6 +140,7 @@ export const TaskBoard = () => {
   }, [loadDay])
 
   // The morning opens once, at the first visit after the morning time while the day is not confirmed (MAG-498).
+  // The day waits for that answer, so it does not flash before the morning replaces it.
   const confirmedAt = day ? day.confirmedAt : undefined
   useEffect(() => {
     if (confirmedAt === undefined || confirmedAt !== null) return
@@ -148,6 +150,9 @@ export const TaskBoard = () => {
         if (current && morningDue(new Date(), morningTime, confirmedAt) && claimMorning()) setPreparing(true)
       })
       .catch(() => undefined)
+      .finally(() => {
+        if (current) setMorningChecked(true)
+      })
 
     return () => {
       current = false
@@ -258,7 +263,7 @@ export const TaskBoard = () => {
       ) : view === 'today' ? (
         dayFailed ? (
           <Alert severity="error">Tâches indisponibles</Alert>
-        ) : !day ? (
+        ) : !day || (day.confirmedAt === null && !morningChecked) ? (
           [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
         ) : (
           <TaskDay day={day} today={today} onDay={showDay} onReload={reload} onEdit={edit} onChange={() => setPreparing(true)} />

@@ -7,6 +7,9 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DayProposal
+import com.maggie.app.data.model.ProposalEntry
+import com.maggie.app.data.model.ProposalSlot
 import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Task
@@ -41,6 +44,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalTime
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksViewModelTest {
@@ -74,6 +78,8 @@ class TasksViewModelTest {
         coEvery { authRepository.getUserId() } returns "u1"
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
+        // Unreadable morning time: the morning never opens by itself unless a test says so.
+        coEvery { taskRepository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
         serve(TaskView.TODAY, late, canteen)
         serveDay(day(listOf(form, call), reserve = listOf(photos, books)))
     }
@@ -83,8 +89,8 @@ class TasksViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() =
-        TasksViewModel(taskRepository, mercureService, authRepository, today = { today })
+    private fun createViewModel(now: LocalTime = LocalTime.of(10, 0)) =
+        TasksViewModel(taskRepository, mercureService, authRepository, today = { today }, now = { now })
 
     private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
         DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
@@ -772,5 +778,181 @@ class TasksViewModelTest {
         viewModel.onClosed()
         advanceUntilIdle()
         assertEquals(0, pushes.subscriptionCount.value)
+    }
+
+    // « Ta journée » (MAG-498)
+
+    private fun proposalOf(slotted: List<DayTask>, reserve: List<DayTask>, minutes: Int = 15): DayProposal = DayProposal(
+        date = "2026-10-15",
+        slots = slotted.mapIndexed { i, t -> ProposalSlot(position = i + 1, reason = "postponed", minutes = minutes, task = t) },
+        reserveRanked = reserve.map { ProposalEntry(reason = "whenever", minutes = minutes, task = it) },
+        totalMinutes = slotted.size * minutes,
+        freeMinutes = 180,
+    )
+
+    private fun serveMorning(time: String = "08:00", proposal: DayProposal = proposalOf(listOf(form, call, bins), listOf(photos, books))) {
+        coEvery { taskRepository.getMorningTime() } returns Result.success(time)
+        coEvery { taskRepository.getDayProposal(today) } returns Result.success(proposal)
+    }
+
+    @Test
+    fun `the morning opens by itself at the first visit after the morning time while the day is not confirmed`() = runTest {
+        serveMorning()
+        val viewModel = createViewModel(now = LocalTime.of(8, 30))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        val morning = viewModel.uiState.value.morning
+        assertEquals(listOf("d1", "d2", "d3"), morning?.proposal?.taskIds)
+        // Reading the proposal writes nothing.
+        coVerify(exactly = 0) { taskRepository.setDaySlots(any(), any()) }
+    }
+
+    @Test
+    fun `the morning does not open before the morning time`() = runTest {
+        serveMorning(time = "08:00")
+        val viewModel = createViewModel(now = LocalTime.of(7, 59))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.morning)
+        coVerify(exactly = 0) { taskRepository.getDayProposal(any()) }
+    }
+
+    @Test
+    fun `the morning does not open once the day is confirmed`() = runTest {
+        serveMorning()
+        serveDay(day(listOf(form, call)).copy(confirmedAt = "2026-10-15T07:45:00Z"))
+        val viewModel = createViewModel(now = LocalTime.of(9, 0))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `the morning opens once - leaving it unconfirmed does not bring it back`() = runTest {
+        serveMorning()
+        val viewModel = createViewModel(now = LocalTime.of(9, 0))
+        viewModel.onOpened()
+        advanceUntilIdle()
+        viewModel.dismissMorning()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.morning)
+        coVerify(exactly = 1) { taskRepository.getDayProposal(today) }
+    }
+
+    @Test
+    fun `an unreadable morning time opens nothing`() = runTest {
+        val viewModel = createViewModel(now = LocalTime.of(9, 0))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `Changer opens the proposal on demand`() = runTest {
+        serveMorning()
+        val viewModel = createViewModel(now = LocalTime.of(7, 0))
+        viewModel.onOpened()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.morning)
+
+        viewModel.openMorning()
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.morning?.proposal?.slots?.size)
+    }
+
+    @Test
+    fun `a proposal that cannot be read closes the morning and says so`() = runTest {
+        coEvery { taskRepository.getDayProposal(today) } returns Result.failure(IllegalStateException("boom"))
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        viewModel.openMorning()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.morning)
+        assertEquals("Impossible de proposer la journée.", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `swapping the 2nd slot takes the first of the reserve and sends the old one to its end`() = runTest {
+        serveMorning()
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+        viewModel.openMorning()
+        advanceUntilIdle()
+
+        viewModel.swapMorning(1)
+
+        val proposal = viewModel.uiState.value.morning?.proposal
+        assertEquals(listOf("d1", "r1", "d3"), proposal?.taskIds)
+        assertEquals(listOf("r2", "d2"), proposal?.reserveRanked?.map { it.task.id })
+        coVerify(exactly = 0) { taskRepository.setDaySlots(any(), any()) }
+    }
+
+    @Test
+    fun `C'est parti writes the five kept, in order, and lands the confirmed day`() = runTest {
+        serveMorning()
+        val puts = mutableListOf<List<String>>()
+        coEvery { taskRepository.setDaySlots(today, capture(puts)) } answers {
+            Result.success(dayOf(puts.last()).copy(confirmedAt = "2026-10-15T08:40:00Z"))
+        }
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+        viewModel.openMorning()
+        advanceUntilIdle()
+        viewModel.swapMorning(1)
+
+        viewModel.confirmMorning()
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d1", "r1", "d3")), puts)
+        val state = viewModel.uiState.value
+        assertNull(state.morning)
+        assertEquals(listOf("d1", "r1", "d3"), state.day?.taskIds)
+        assertNotNull(state.day?.confirmedAt)
+    }
+
+    @Test
+    fun `a refused C'est parti keeps the proposal and says so`() = runTest {
+        serveMorning()
+        coEvery { taskRepository.setDaySlots(today, any()) } returns Result.failure(IllegalStateException("refused"))
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+        viewModel.openMorning()
+        advanceUntilIdle()
+
+        viewModel.confirmMorning()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(3, state.morning?.proposal?.slots?.size)
+        assertFalse(state.morning?.isConfirming ?: true)
+        assertEquals("Impossible d'enregistrer la journée.", state.message)
+    }
+
+    @Test
+    fun `Plus tard leaves the day as it is, without writing`() = runTest {
+        serveMorning()
+        val viewModel = createViewModel(now = LocalTime.of(9, 0))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        viewModel.dismissMorning()
+
+        assertNull(viewModel.uiState.value.morning)
+        assertEquals(listOf("d1", "d2"), viewModel.uiState.value.day?.taskIds)
+        coVerify(exactly = 0) { taskRepository.setDaySlots(any(), any()) }
     }
 }

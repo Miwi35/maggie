@@ -430,10 +430,10 @@ describe('TaskBoard', () => {
       render(<TaskBoard />)
 
       expect(await screen.findByRole('tab', { name: "Aujourd'hui (0)" })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'Réserve (1)' })).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Maintenant' })).toBeNull()
       expect(screen.queryByRole('img')).toBeNull()
       expect(screen.getByTestId('day-free').children).toHaveLength(5)
-      expect(screen.getByRole('button', { name: 'Réserve (1)' })).toBeInTheDocument()
     })
 
     test('shows an error, not a crash, when the day cannot be read', async () => {

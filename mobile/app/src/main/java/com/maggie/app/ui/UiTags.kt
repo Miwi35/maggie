@@ -380,6 +380,23 @@ object UiTags {
     const val TASKS_DAY_ADD_INPUT = "tasks_day_add_input"
     const val TASKS_DAY_ADD_SUBMIT = "tasks_day_add_submit"
 
+    /**
+     * « Ta journée » (MAG-498): the morning's proposal, its time bar, each row and its swap button by
+     * position (1 to 5), the reserve line, « C'est parti » and « Plus tard »; « Changer » on the day.
+     */
+    const val TASKS_MORNING = "tasks_morning"
+    const val TASKS_MORNING_TIME = "tasks_morning_time"
+    const val TASKS_MORNING_SLOT_PREFIX = "tasks_morning_slot_"
+    const val TASKS_MORNING_SWAP_PREFIX = "tasks_morning_swap_"
+    const val TASKS_MORNING_RESERVE = "tasks_morning_reserve"
+    const val TASKS_MORNING_GO = "tasks_morning_go"
+    const val TASKS_MORNING_LATER = "tasks_morning_later"
+    const val TASKS_CHANGE = "tasks_change"
+
+    fun tasksMorningSlot(position: Int) = TASKS_MORNING_SLOT_PREFIX + position
+
+    fun tasksMorningSwap(position: Int) = TASKS_MORNING_SWAP_PREFIX + position
+
     fun tasksSlot(position: Int) = TASKS_SLOT_PREFIX + position
 
     fun tasksSlotCheck(id: String) = TASKS_SLOT_CHECK_PREFIX + id
