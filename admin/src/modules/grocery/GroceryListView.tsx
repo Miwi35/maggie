@@ -51,6 +51,10 @@ import { useRecurringItems } from './useRecurringItems'
 import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
+import { NO_AISLE, groupByStoreAndAisle, hasAisles } from './groceryAisles'
+import type { AisleSection, AisleSummary, StoreGroup } from './groceryAisles'
+import { AisleError, createAisle, fetchAisles, setProductAisle } from './aislesApi'
+import type { Aisle } from './aislesApi'
 
 interface ProductOption {
   id: string
@@ -79,18 +83,13 @@ interface GroceryItem {
   store?: { id: string; name: string; visitOrder: number }
   buyAfter?: string
   position: number
+  /** Its product's aisle in its store, null for « Sans rayon » (MAG-493). */
+  aisle?: AisleSummary | null
 }
 
 interface GroceryListData {
   id: string
   '@id': string
-  items: GroceryItem[]
-}
-
-interface StoreGroup {
-  storeId: string | null
-  storeName: string
-  visitOrder: number
   items: GroceryItem[]
 }
 
@@ -320,6 +319,9 @@ export const GroceryListView = () => {
   const [editCategory, setEditCategory] = useState('')
   const [editSelectedStore, setEditSelectedStore] = useState<StoreOption | null>(null)
   const [editStoreInput, setEditStoreInput] = useState('')
+  // The aisles of the line's store, and the aisle typed or chosen for its product there.
+  const [editAisles, setEditAisles] = useState<Aisle[]>([])
+  const [editAisleInput, setEditAisleInput] = useState('')
 
   const fetchList = useCallback(async () => {
     setLoading(true)
@@ -432,6 +434,13 @@ export const GroceryListView = () => {
     setEditLabel(detailItem.label)
     setEditQuantity(detailItem.quantity != null ? String(detailItem.quantity) : '')
     setEditCategory('')
+    setEditAisleInput(detailItem.aisle?.name ?? '')
+    setEditAisles([])
+    if (detailItem.store && productIdOf(detailItem)) {
+      fetchAisles(detailItem.store.id)
+        .then(setEditAisles)
+        .catch(() => setEditAisles([]))
+    }
     const s = detailItem.store
     if (s) {
       setEditSelectedStore({ id: s.id, name: s.name })
@@ -571,6 +580,25 @@ export const GroceryListView = () => {
     notify('Quantité invalide : saisissez un nombre supérieur à 0', { type: 'warning' })
   }, [notify])
 
+  // A line chooses its aisle in its own store, and only through its product: not when the store is being changed.
+  const aisleStoreId =
+    detailItem?.store && productIdOf(detailItem) && editSelectedStore && bareId(editSelectedStore.id) === bareId(detailItem.store.id)
+      ? detailItem.store.id
+      : null
+
+  const saveItemAisle = async (item: GroceryItem, storeId: string) => {
+    const productId = productIdOf(item)
+    const typed = editAisleInput.trim()
+    if (!productId || typed.toLowerCase() === (item.aisle?.name ?? '').toLowerCase()) return
+    try {
+      const known = editAisles.find((a) => a.name.toLowerCase() === typed.toLowerCase())
+      const aisleId = !typed ? null : known ? known.id : (await createAisle(storeId, typed)).id
+      await setProductAisle(productId, storeId, aisleId)
+    } catch (error) {
+      notify(error instanceof AisleError ? error.message : "Erreur : le rayon n'a pas été enregistré", { type: 'error' })
+    }
+  }
+
   const handleEditItem = async () => {
     if (!groceryList || !detailItem || !editLabel) return
     try {
@@ -603,6 +631,7 @@ export const GroceryListView = () => {
         notify("Erreur : l'article n'a pas été modifié", { type: 'error' })
         return
       }
+      if (aisleStoreId) await saveItemAisle(detailItem, aisleStoreId)
       setDetailItem(null)
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
       setGroceryList(data as GroceryListData)
@@ -764,16 +793,19 @@ export const GroceryListView = () => {
   // dnd-kit sensors
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
+  // A line moves inside its aisle only: each aisle is its own drop zone. The
+  // store's lines are then renumbered in the order they are drawn.
   const handleDragEnd = useCallback(
-    async (event: DragEndEvent, groupItems: GroceryItem[]) => {
+    async (event: DragEndEvent, group: StoreGroup<GroceryItem>, section: AisleSection<GroceryItem>) => {
       const { active, over } = event
       if (!over || active.id === over.id || !groceryList) return
 
-      const oldIndex = groupItems.findIndex((i) => i.id === active.id)
-      const newIndex = groupItems.findIndex((i) => i.id === over.id)
+      const oldIndex = section.items.findIndex((i) => i.id === active.id)
+      const newIndex = section.items.findIndex((i) => i.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
 
-      const reordered = arrayMove(groupItems, oldIndex, newIndex)
+      const moved = arrayMove(section.items, oldIndex, newIndex)
+      const reordered = group.sections.flatMap((s) => (s === section ? moved : s.items))
       const items = reordered.map((item, idx) => ({ id: item.id, position: idx }))
 
       // Optimistic update
@@ -842,28 +874,8 @@ export const GroceryListView = () => {
     return [...todayItems, ...ghosts]
   }, [todayItems, removingItems])
 
-  // Group items by store, sorted by visitOrder
-  const storeGroups: StoreGroup[] = []
-  if (displayItems.length > 0) {
-    const groupMap: Record<string, StoreGroup> = {}
-    for (const item of displayItems) {
-      const storeKey = item.store?.id || '__unassigned__'
-      if (!groupMap[storeKey]) {
-        groupMap[storeKey] = {
-          storeId: item.store?.id || null,
-          storeName: item.store?.name || 'Non assigné',
-          visitOrder: item.store?.visitOrder ?? Number.MAX_SAFE_INTEGER,
-          items: [],
-        }
-      }
-      groupMap[storeKey].items.push(item)
-    }
-    // Sort items within each group by position
-    for (const group of Object.values(groupMap)) {
-      group.items.sort((a, b) => a.position - b.position)
-    }
-    storeGroups.push(...Object.values(groupMap).sort((a, b) => a.visitOrder - b.visitOrder))
-  }
+  // By store in visit order, then aisle by aisle along the way through it (MAG-493).
+  const storeGroups = useMemo(() => groupByStoreAndAisle(displayItems), [displayItems])
 
   // Counts exclude ghost (removing) items
   const checkedCount = todayItems.filter((i) => i.checked).length
@@ -961,32 +973,50 @@ export const GroceryListView = () => {
                     }
                   >
                     <Collapse in={!isCollapsed}>
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => handleDragEnd(event, group.items)}
-                      >
-                        <SortableContext
-                          items={group.items.map((i) => i.id)}
-                          strategy={verticalListSortingStrategy}
+                      {group.sections.map((section) => (
+                        <Box
+                          key={section.aisle?.id ?? '__no_aisle__'}
+                          data-testid="grocery-aisle"
+                          data-aisle={section.aisle?.name ?? NO_AISLE}
                         >
-                          {group.items.map((item) => (
-                            <SortableGroceryItem
-                              key={item.id}
-                              item={item}
-                              addedIds={addedIds}
-                              removingIds={removingIds}
-                              onCheck={handleCheck}
-                              onViewDetail={setDetailItem}
-                              onDelete={askDeleteItem}
-                              onQuantityChange={handleQuantityChange}
-                              onQuantityInvalid={handleQuantityInvalid}
-                              recurrence={recurrenceOf(item)}
-                              isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
-                            />
-                          ))}
-                        </SortableContext>
-                      </DndContext>
+                          {hasAisles(group) && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              data-testid="grocery-aisle-heading"
+                              sx={{ display: 'block', px: 2, pt: 1, fontWeight: 600, textTransform: 'uppercase' }}
+                            >
+                              {section.aisle?.name ?? NO_AISLE}
+                            </Typography>
+                          )}
+                          <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={(event) => handleDragEnd(event, group, section)}
+                          >
+                            <SortableContext
+                              items={section.items.map((i) => i.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {section.items.map((item) => (
+                                <SortableGroceryItem
+                                  key={item.id}
+                                  item={item}
+                                  addedIds={addedIds}
+                                  removingIds={removingIds}
+                                  onCheck={handleCheck}
+                                  onViewDetail={setDetailItem}
+                                  onDelete={askDeleteItem}
+                                  onQuantityChange={handleQuantityChange}
+                                  onQuantityInvalid={handleQuantityInvalid}
+                                  recurrence={recurrenceOf(item)}
+                                  isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
+                                />
+                              ))}
+                            </SortableContext>
+                          </DndContext>
+                        </Box>
+                      ))}
                     </Collapse>
                   </List>
                 </Box>
@@ -1245,6 +1275,16 @@ export const GroceryListView = () => {
               noOptionsText="Nouveau magasin"
               isOptionEqualToValue={(option, value) => option.id === value.id}
             />
+            {aisleStoreId && (
+              <Autocomplete
+                freeSolo
+                options={editAisles.map((a) => a.name)}
+                inputValue={editAisleInput}
+                onInputChange={(_e, value) => setEditAisleInput(value)}
+                renderInput={(params) => <TextField {...params} label="Rayon" placeholder={NO_AISLE} />}
+                noOptionsText="Nouveau rayon"
+              />
+            )}
             <TextField
               label="Source"
               value={

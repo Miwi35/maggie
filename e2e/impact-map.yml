@@ -232,7 +232,7 @@ areas:
     - admin/src/modules/grocery/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/**
     - mobile/app/src/main/java/com/maggie/app/data/repository/{Errand,GroceryList,Product,Store}Repository.kt
-    - mobile/app/src/main/java/com/maggie/app/data/model/{Errand,GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Aisle,Errand,GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
     - e2e/web/pages/GroceryListPage.ts
     - e2e/web/pages/PastErrandsPage.ts
     - e2e/mobile/scripts/grocery-api.js
@@ -381,6 +381,8 @@ web:
     areas: [grocery]
   e2e/web/tests/grocery-product-store.spec.ts:
     areas: [grocery]
+  e2e/web/tests/grocery-aisles.spec.ts:
+    areas: [grocery, realtime]
   e2e/web/tests/grocery-recurring.spec.ts:
     areas: [grocery, realtime]
   e2e/web/tests/grocery-stock.spec.ts:
@@ -481,6 +483,9 @@ mobile:
     areas: [grocery, realtime]
   e2e/mobile/flows/15-recurring-grocery.yaml:
     areas: [grocery, realtime]
+  e2e/mobile/flows/18-grocery-aisles.yaml:
+    areas: [grocery]
+    paths: ['mobile/app/src/main/java/com/maggie/app/ui/screens/grocery/StoreAisles*.kt']
   e2e/mobile/flows/09-finance-banks.yaml:
     areas: [finance]
   e2e/mobile/flows/10-finance-recurring.yaml:

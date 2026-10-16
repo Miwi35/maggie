@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\State;
 
+use Maggie\Grocery\Exception\InvalidAisleException;
 use Maggie\Grocery\Exception\InvalidPackagingException;
 use Maggie\Grocery\Exception\InvalidStockException;
 use Maggie\Grocery\Exception\ProductInUseException;
@@ -13,8 +14,8 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 /**
- * The product and ingredient processors answer a packaging or a stock the
- * handler refused with a 400, a product still in use with a 409, the same
+ * The product and ingredient processors answer a packaging, a stock or an
+ * aisle the handler refused with a 400, a product still in use with a 409, the same
  * answers the MCP tools give as an error.
  * The using class holds the bus as `$bus`.
  */
@@ -26,7 +27,7 @@ trait DispatchesProductCommandTrait
             return $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
-            if ($cause instanceof InvalidPackagingException || $cause instanceof InvalidStockException) {
+            if ($cause instanceof InvalidPackagingException || $cause instanceof InvalidStockException || $cause instanceof InvalidAisleException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
             }
 

@@ -77,13 +77,27 @@
                         "integer"
                     ],
                     "default": null
+                },
+                "aisle": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "aisleStoreId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "productId"
             ]
         },
-        "description": "Set the preferred/fallback store and shelf life for a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable)."
+        "description": "Set the preferred/fallback store, the shelf life and the aisle of a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable). aisle puts the product in an aisle of a store, by aisle id or by name — a name the store does not have yet creates the aisle, last on the way through the store (see manage_aisles); an empty string leaves the product without an aisle there. The aisle is in aisleStoreId, else in the preferred store (the one given here, or the product's). A product has one aisle per store: « Crèmerie » at one store and « Frais » at another are two calls."
     },
     "cancel_proaction": {
         "name": "cancel_proaction",
@@ -573,7 +587,7 @@
                 }
             }
         },
-        "description": "Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. A product has one line: the needs of every planned meal, of the restock and of manual additions add up on it. `needed` is that total need in base units (g, ml or the counted unit — « 800 g », or « 300 g + 2 pièces » when the units cannot be added); `quantity` and `unit` are what to buy: for a product bought in a packaging a whole number of packagings counted once on the total (800 g of pasta in 500 g packs is 2 paquets, shown with « 800 g pour les repas »); a product without packaging has no quantity to adjust, its quantity is the need itself. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out)."
+        "description": "Get the grocery list with items grouped by store in visit order, and within a store aisle by aisle in the order of the way through it (`aisle`: {id, name, position}, null for an item without an aisle in that store — those come last), then by position. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. A product has one line: the needs of every planned meal, of the restock and of manual additions add up on it. `needed` is that total need in base units (g, ml or the counted unit — « 800 g », or « 300 g + 2 pièces » when the units cannot be added); `quantity` and `unit` are what to buy: for a product bought in a packaging a whole number of packagings counted once on the total (800 g of pasta in 500 g packs is 2 paquets, shown with « 800 g pour les repas »); a product without packaging has no quantity to adjust, its quantity is the need itself. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out)."
     },
     "get_independence_counter": {
         "name": "get_independence_counter",
@@ -908,6 +922,56 @@
             }
         },
         "description": "List, create, update, or delete agendas (calendars). An agenda has a name, description, IANA time zone, colour, and a default flag. Events always belong to an agenda. On update, to empty an optional field, list its name in clear (description, color). An agenda connected to Google is renamed in Google too: if Google cannot take the new name, the update fails with an error and the agenda keeps its name."
+    },
+    "manage_aisles": {
+        "name": "manage_aisles",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "storeId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "aisleId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "position": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "aisleIds": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update (rename and/or move), reorder or delete the aisles of a store. Aisles are the shelves of one store in the order the user walks through it (position 1 = first); the grocery list shows each store's items aisle by aisle in that order, items without an aisle last. list/create/reorder need storeId; update/delete need aisleId. create puts the aisle last unless position says where. reorder takes aisleIds: every aisle of the store, first one first. Deleting an aisle leaves its products without an aisle in that store. To put a product in an aisle, use assign_product_store."
     },
     "manage_categories": {
         "name": "manage_categories",

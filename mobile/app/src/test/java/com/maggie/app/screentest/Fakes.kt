@@ -165,6 +165,7 @@ class FakeGrocery(
         }
         coEvery { productRepository.getProducts() } returns Result.success(products)
         coEvery { storeRepository.getStores() } returns Result.success(stores)
+        coEvery { storeRepository.getAisles(any()) } returns Result.success(emptyList())
 
         coEvery { groceryListRepository.checkItem(any(), any()) } answers {
             val itemId = firstArg<String>()

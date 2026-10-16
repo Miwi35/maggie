@@ -156,6 +156,21 @@ class DtoContractTest {
         assertCollectionContract("stores", serializer<Store>(), "Store")
 
     @Test
+    fun `aisles deserialise from the recorded response`() =
+        assertCollectionContract("aisles", serializer<Aisle>(), "Aisle")
+
+    @Test
+    fun `a product's aisles carry a store and an aisle under the names the API sends`() {
+        val keys = readRecording("products.collection")["member"]!!.jsonArray
+            .flatMap { it.jsonObject["aisles"]?.jsonArray.orEmpty() }
+            .flatMap { it.jsonObject.keys }
+            .toSet()
+        assertTrue("No recorded product has an aisle: the recording proves nothing about it.", keys.isNotEmpty())
+
+        assertDeclaredFieldsExist("ProductAisle", serializer<ProductAisle>(), keys, "products.collection")
+    }
+
+    @Test
     fun `grocery lists deserialise from the recorded response`() =
         assertCollectionContract("grocery_lists", serializer<GroceryList>(), "GroceryList")
 

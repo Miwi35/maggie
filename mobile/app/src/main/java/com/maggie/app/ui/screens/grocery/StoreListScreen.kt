@@ -38,12 +38,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.StoreCreateRequest
+import com.maggie.app.data.model.Store
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoreListScreen(
     viewModel: StoreViewModel,
     onBack: () -> Unit,
+    // A tap on a store opens its aisles, in the order of the way through it (MAG-493).
+    onOpenAisles: (Store) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -89,7 +92,7 @@ fun StoreListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.stores, key = { it.id }) { store ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(onClick = { onOpenAisles(store) }, modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

@@ -1,0 +1,142 @@
+# The owner's way through Carrefour (MAG-493): Fruits et légumes, Crèmerie,
+# Boulangerie; at Lidl the milk is in « Frais ». Another user has his own
+# store and aisle, which nobody else may see or use.
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+  other_user:
+    email: other-grocery@example.com
+    googleId: google-other-grocery
+    name: Other Grocery User
+
+Maggie\Grocery\Entity\Store:
+  carrefour:
+    name: Carrefour
+    visitOrder: 1
+    user: '@test_user'
+  lidl:
+    name: Lidl
+    visitOrder: 2
+    user: '@test_user'
+  other_store:
+    name: Magasin de l'autre
+    visitOrder: 1
+    user: '@other_user'
+
+Maggie\Grocery\Entity\Aisle:
+  fruits:
+    store: '@carrefour'
+    name: Fruits et légumes
+    position: 1
+    user: '@test_user'
+  cremerie:
+    store: '@carrefour'
+    name: Crèmerie
+    position: 2
+    user: '@test_user'
+  boulangerie:
+    store: '@carrefour'
+    name: Boulangerie
+    position: 3
+    user: '@test_user'
+  frais:
+    store: '@lidl'
+    name: Frais
+    position: 1
+    user: '@test_user'
+  other_aisle:
+    store: '@other_store'
+    name: Rayon de l'autre
+    position: 1
+    user: '@other_user'
+
+Maggie\Grocery\Entity\Product:
+  lait:
+    name: Lait
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+  pommes:
+    name: Pommes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+  pain:
+    name: Pain
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+  eponges:
+    name: Éponges
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Cleaning)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+  other_product:
+    name: Lait de l'autre
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@other_user'
+    preferredStore: '@other_store'
+
+# A recipe's ingredient is a product too, and lands on the list the same way.
+Maggie\Cookbook\Entity\Ingredient:
+  farine:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@carrefour'
+
+Maggie\Grocery\Entity\ProductAisle:
+  pommes_fruits:
+    __construct: ['@pommes', '@fruits']
+  lait_cremerie:
+    __construct: ['@lait', '@cremerie']
+  pain_boulangerie:
+    __construct: ['@pain', '@boulangerie']
+  lait_frais:
+    __construct: ['@lait', '@frais']
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+  other_list:
+    user: '@other_user'
+
+# Listed in the order they were added, not the order of the aisles.
+Maggie\Grocery\Entity\GroceryItem:
+  item_eponges:
+    groceryList: '@grocery_list'
+    product: '@eponges'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 1
+  item_lait:
+    groceryList: '@grocery_list'
+    product: '@lait'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 2
+  item_pommes:
+    groceryList: '@grocery_list'
+    product: '@pommes'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 3
+  item_pain:
+    groceryList: '@grocery_list'
+    product: '@pain'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@carrefour'
+    position: 4
+  item_lait_lidl:
+    groceryList: '@grocery_list'
+    product: '@lait'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@lidl'
+    position: 5

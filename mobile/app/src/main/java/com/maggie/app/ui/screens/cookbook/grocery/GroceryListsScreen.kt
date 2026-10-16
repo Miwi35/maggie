@@ -125,6 +125,11 @@ fun GroceryScreen(
         snackbarHostState.showSnackbar(message)
         viewModel.dismissQuantityMessage()
     }
+    LaunchedEffect(uiState.aisleMessage) {
+        val message = uiState.aisleMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissAisleMessage()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -254,7 +259,10 @@ fun GroceryScreen(
                                 val toId = toKey.substringAfter("|")
                                 val fromIdx = group.items.indexOfFirst { it.id == fromId }
                                 val toIdx = group.items.indexOfFirst { it.id == toId }
-                                if (fromIdx != -1 && toIdx != -1) {
+                                // Within one aisle only: the aisle is the product's, not the line's place.
+                                if (fromIdx != -1 && toIdx != -1 &&
+                                    group.items[fromIdx].aisle?.id == group.items[toIdx].aisle?.id
+                                ) {
                                     viewModel.moveItem(fromStoreKey, fromIdx, toIdx)
                                 }
                             }
@@ -298,51 +306,61 @@ fun GroceryScreen(
                                         }
                                         HorizontalDivider()
                                     }
-                                    items(
-                                        group.items,
-                                        key = { "$storeKey|${it.id ?: it.hashCode()}" },
-                                    ) { groceryItem ->
-                                        ReorderableItem(
-                                            reorderableLazyListState,
-                                            key = "$storeKey|${groceryItem.id ?: groceryItem.hashCode()}",
-                                        ) { isDragging ->
-                                            SwipeableGroceryItem(
-                                                item = groceryItem,
-                                                isSelecting = uiState.isSelecting,
-                                                isSelected = groceryItem.id in uiState.selectedIds,
-                                                isDragging = isDragging,
-                                                onSwipeRight = {
-                                                    if (!groceryItem.checked) {
-                                                        viewModel.toggleItemChecked(groceryItem)
-                                                    }
-                                                },
-                                                onSwipeLeft = {
-                                                    if (groceryItem.checked) {
-                                                        viewModel.toggleItemChecked(groceryItem)
+                                    // Aisle headers only when the store has at least one aisled item (MAG-493).
+                                    val showAisles = group.sections.isNotEmpty()
+                                    val sections = group.sections.ifEmpty { listOf(AisleSection(null, group.items)) }
+                                    sections.forEach { section ->
+                                        if (showAisles) {
+                                            item(key = "aisle-$storeKey-${section.aisle?.id ?: "none"}") {
+                                                AisleHeader(name = section.aisle?.name ?: "Sans rayon")
+                                            }
+                                        }
+                                        items(
+                                            section.items,
+                                            key = { "$storeKey|${it.id ?: it.hashCode()}" },
+                                        ) { groceryItem ->
+                                            ReorderableItem(
+                                                reorderableLazyListState,
+                                                key = "$storeKey|${groceryItem.id ?: groceryItem.hashCode()}",
+                                            ) { isDragging ->
+                                                SwipeableGroceryItem(
+                                                    item = groceryItem,
+                                                    isSelecting = uiState.isSelecting,
+                                                    isSelected = groceryItem.id in uiState.selectedIds,
+                                                    isDragging = isDragging,
+                                                    onSwipeRight = {
+                                                        if (!groceryItem.checked) {
+                                                            viewModel.toggleItemChecked(groceryItem)
+                                                        }
+                                                    },
+                                                    onSwipeLeft = {
+                                                        if (groceryItem.checked) {
+                                                            viewModel.toggleItemChecked(groceryItem)
+                                                        } else {
+                                                            itemPendingDelete = groceryItem
+                                                        }
+                                                    },
+                                                    onLongPress = {
+                                                        groceryItem.id?.let { viewModel.startSelection(it) }
+                                                    },
+                                                    onTap = {
+                                                        if (uiState.isSelecting) {
+                                                            groceryItem.id?.let { viewModel.toggleSelection(it) }
+                                                        } else {
+                                                            openDetail(groceryItem)
+                                                        }
+                                                    },
+                                                        recurring = recurringState.forProduct(groceryItem.product?.id)?.frequency,
+                                                    onIncrement = { viewModel.incrementQuantity(groceryItem) },
+                                                    onDecrement = { viewModel.decrementQuantity(groceryItem) },
+                                                    onSetQuantity = { viewModel.setQuantity(groceryItem, it) },
+                                                    dragModifier = if (!uiState.isSelecting) {
+                                                        Modifier.draggableHandle()
                                                     } else {
-                                                        itemPendingDelete = groceryItem
-                                                    }
-                                                },
-                                                onLongPress = {
-                                                    groceryItem.id?.let { viewModel.startSelection(it) }
-                                                },
-                                                onTap = {
-                                                    if (uiState.isSelecting) {
-                                                        groceryItem.id?.let { viewModel.toggleSelection(it) }
-                                                    } else {
-                                                        openDetail(groceryItem)
-                                                    }
-                                                },
-                                                    recurring = recurringState.forProduct(groceryItem.product?.id)?.frequency,
-                                                onIncrement = { viewModel.incrementQuantity(groceryItem) },
-                                                onDecrement = { viewModel.decrementQuantity(groceryItem) },
-                                                onSetQuantity = { viewModel.setQuantity(groceryItem, it) },
-                                                dragModifier = if (!uiState.isSelecting) {
-                                                    Modifier.draggableHandle()
-                                                } else {
-                                                    Modifier
-                                                },
-                                            )
+                                                        Modifier
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -396,6 +414,9 @@ fun GroceryScreen(
                 detailItem = null
             },
             onDismiss = { detailItem = null },
+            aislesByStore = uiState.aislesByStore,
+            onLoadAisles = { viewModel.loadAisles(it) },
+            onSaveAisle = { storeId, aisle -> viewModel.setItemAisle(item, storeId, aisle) },
             recurring = recurringState.forProduct(item.product?.id)?.frequency,
             onRecurringChange = item.product?.id?.let { productId ->
                 { frequency -> recurringViewModel.setFrequency(productId, frequency) }
@@ -691,6 +712,19 @@ private fun SelectionBottomBar(
             Icon(Icons.Default.Delete, contentDescription = "Supprimer les articles")
         }
     }
+}
+
+/** The name of an aisle above its items, in the order of the way through the store (MAG-493). */
+@Composable
+private fun AisleHeader(name: String) {
+    Text(
+        text = name,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, top = 8.dp, bottom = 2.dp),
+    )
 }
 
 @Composable

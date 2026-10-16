@@ -162,6 +162,7 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                     'name' => $item->getStore()->getName(),
                     'visitOrder' => $item->getStore()->getVisitOrder(),
                 ] : null,
+                'aisle' => $item->getAisle(),
                 'product' => null !== $item->getProduct() ? [
                     'id' => (string) $item->getProduct()->getId(),
                     'name' => $item->getProduct()->getName(),

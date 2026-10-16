@@ -94,6 +94,10 @@ framework:
             'Maggie\Grocery\Message\CreateStoreCommand': sync
             'Maggie\Grocery\Message\UpdateStoreCommand': sync
             'Maggie\Grocery\Message\DeleteStoreCommand': sync
+            'Maggie\Grocery\Message\CreateAisleCommand': sync
+            'Maggie\Grocery\Message\UpdateAisleCommand': sync
+            'Maggie\Grocery\Message\ReorderAislesCommand': sync
+            'Maggie\Grocery\Message\DeleteAisleCommand': sync
             'Maggie\Grocery\Message\CreateRecurringGroceryItemCommand': sync
             'Maggie\Grocery\Message\UpdateRecurringGroceryItemCommand': sync
             'Maggie\Grocery\Message\DeleteRecurringGroceryItemCommand': sync

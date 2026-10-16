@@ -23,7 +23,9 @@ import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
+import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
@@ -611,6 +613,18 @@ data class EndErrandRemainingItem(
     val quantity: Float? = null,
     val unit: String? = null,
     val store: EndErrandRemainingStore? = null,
+)
+
+/** `store` is the store's IRI; `position` left out puts the aisle last. */
+@Serializable
+data class AisleCreateRequest(
+    val store: String,
+    val name: String,
+)
+
+@Serializable
+data class ProductAislesRequest(
+    val aisles: List<ProductAisle>,
 )
 
 @Serializable
@@ -1343,6 +1357,21 @@ class MaggieApiService(
         client.delete("$baseUrl/api/products/$id")
     }
 
+    suspend fun getProduct(id: String): Product {
+        return client.get("$baseUrl/api/products/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.orRefusal().body()
+    }
+
+    /** Replaces the product's whole aisle list: a store left out has no aisle any more (MAG-493). */
+    suspend fun updateProductAisles(id: String, aisles: List<ProductAisle>): Product {
+        return client.patch("$baseUrl/api/products/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(ProductAislesRequest(aisles))
+        }.orRefusal().body()
+    }
+
     // Stores
     suspend fun getStores(): List<Store> {
         return client.get("$baseUrl/api/stores") {
@@ -1361,6 +1390,35 @@ class MaggieApiService(
 
     suspend fun deleteStore(id: String) {
         client.delete("$baseUrl/api/stores/$id")
+    }
+
+    // Aisles of a store, in the order of the way through it (MAG-493). Not paginated.
+    suspend fun getAisles(storeId: String): List<Aisle> {
+        return client.get("$baseUrl/api/aisles") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("store", "/api/stores/$storeId")
+        }.orRefusal().body<ApiCollection<Aisle>>().member
+    }
+
+    suspend fun createAisle(request: AisleCreateRequest): Aisle {
+        return client.post("$baseUrl/api/aisles") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** `{name}` renames it; `{position: n}` moves it to place n (1 = first), the others renumbered around it. */
+    suspend fun updateAisle(id: String, data: JsonObject): Aisle {
+        return client.patch("$baseUrl/api/aisles/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.orRefusal().body()
+    }
+
+    suspend fun deleteAisle(id: String) {
+        client.delete("$baseUrl/api/aisles/$id").orRefusal()
     }
 
     // Finance — Accounts

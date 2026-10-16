@@ -1,0 +1,158 @@
+appId: com.maggie.app.e2e
+name: 18-grocery-aisles
+tags:
+  - grocery
+---
+# The list is read aisle by aisle, in the order of the way through the shop
+# (MAG-493): the owner walks « Fruits », « Crèmerie », « Boulangerie » and the
+# lines follow, whatever order they were added in; what has no aisle comes last,
+# under « Sans rayon ».
+#
+# The aisles and the lines' aisles are written through `scripts/grocery-api.js`
+# (the admin's requests, same user) before the app opens: what is proved here is
+# that the phone reads each line's aisle from the API and sorts by it. The JVM
+# tests (`GroceryAislesTest`, `StoreAislesViewModelTest`) own the cases — swapped
+# aisles, the same product in two shops, the aisle chosen from a line, the aisles
+# screen.
+#
+# Signed in as the neighbour, like `08`. « Timbres du voisin » is the seed's line
+# at « Épicerie du coin », with no aisle: it is the « Sans rayon » of the shop.
+# Every line and aisle this flow writes carries the ticket's number and is gone
+# at the end; a run that failed before its clean-up is taken as it was left.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: aisles
+      STORE: Épicerie du coin
+      AISLES: Fruits MAG-493|Crèmerie MAG-493|Boulangerie MAG-493
+
+# Added in another order than the shop's: the list must not keep it.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Lait MAG-493
+      STORE: Épicerie du coin
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Pain MAG-493
+      STORE: Épicerie du coin
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Pommes MAG-493
+      STORE: Épicerie du coin
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: assign
+      LABEL: Lait MAG-493
+      STORE: Épicerie du coin
+      AISLE: Crèmerie MAG-493
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: assign
+      LABEL: Pain MAG-493
+      STORE: Épicerie du coin
+      AISLE: Boulangerie MAG-493
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: assign
+      LABEL: Pommes MAG-493
+      STORE: Épicerie du coin
+      AISLE: Fruits MAG-493
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/18-grocery-aisles.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+# ---------------------------------------------------------------------------
+# The aisle headers, in the order of the way, each above its line.
+# ---------------------------------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      text: "Fruits MAG-493"
+      below: "Épicerie du coin"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Pommes MAG-493"
+      below: "Fruits MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Crèmerie MAG-493"
+      below: "Pommes MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Lait MAG-493"
+      below: "Crèmerie MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Boulangerie MAG-493"
+      below: "Lait MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Pain MAG-493"
+      below: "Boulangerie MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Sans rayon"
+      below: "Pain MAG-493"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Timbres du voisin"
+      below: "Sans rayon"
+    timeout: 10000
+
+# ---------------------------------------------------------------------------
+# Clean-up: the lines, then the aisles — the list is as the seed left it.
+# ---------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Lait MAG-493
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Pain MAG-493
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Pommes MAG-493
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-aisles
+      STORE: Épicerie du coin
+      AISLES: Fruits MAG-493|Crèmerie MAG-493|Boulangerie MAG-493

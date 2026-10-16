@@ -222,6 +222,17 @@ Maggie\Cookbook\Entity\Ingredient:
     fatPer100g: 1.5
     user: '@recorded_user'
 
+Maggie\Grocery\Entity\Aisle:
+  recorded_aisle:
+    store: '@recorded_store'
+    name: Recorded Aisle
+    position: 1
+    user: '@recorded_user'
+
+Maggie\Grocery\Entity\ProductAisle:
+  recorded_product_aisle:
+    __construct: ['@recorded_product', '@recorded_aisle']
+
 Maggie\Grocery\Entity\GroceryList:
   recorded_grocery_list:
     user: '@recorded_user'

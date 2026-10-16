@@ -187,6 +187,21 @@ class GroceryItem
         return $this;
     }
 
+    /**
+     * The aisle of the line's product in the line's store, null when either is
+     * missing or the product has no aisle there (« Sans rayon », MAG-493).
+     *
+     * @return array{id: string, name: string, position: int}|null
+     */
+    public function getAisle(): ?array
+    {
+        if (null === $this->store || null === $this->product) {
+            return null;
+        }
+
+        return $this->product->aisleIn($this->store)?->toSummary();
+    }
+
     public function getBuyAfter(): ?\DateTimeImmutable
     {
         return $this->buyAfter;
