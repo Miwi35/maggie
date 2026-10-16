@@ -13,6 +13,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { addDays } from '../../dates'
 import { DayRing } from './TaskDay'
 import { DAY_SLOTS, fetchDayPlan, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTask } from './dayPlan'
@@ -22,9 +23,6 @@ import type { Helped, Outcome } from './dayReview'
 interface TaskEveningProps {
   /** The day reviewed, as it stood when the evening opened. */
   day: DayPlan
-  /** `YYYY-MM-DD`, the day reviewed and the next one. */
-  today: string
-  tomorrow: string
   /** « Plus tard »: closes without recording the review. */
   onClose: () => void
   /** « Bonne nuit »: the review is recorded, it does not open again today. */
@@ -47,10 +45,13 @@ const ids = (plan: DayPlan): string[] => plan.slots.map((slot) => slot.task.id)
  * jour » and not « reportée »; « Annuler » puts it back. Each gesture writes
  * at once; « Bonne nuit » records what helped and closes the review.
  */
-export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveningProps) => {
+export const TaskEvening = ({ day, onClose, onDone }: TaskEveningProps) => {
   const notify = useNotify()
   // The review keeps the day as it opened on: a task set aside leaves today, not the review.
   const [opened] = useState(day)
+  // Every write goes to the day reviewed and the next one, even once past midnight.
+  const today = opened.date
+  const tomorrow = addDays(opened.date, 1)
   const [todayIds, setTodayIds] = useState(() => ids(day))
   const [tomorrowIds, setTomorrowIds] = useState<string[] | null>(null)
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({})
@@ -101,26 +102,33 @@ export const TaskEvening = ({ day, today, tomorrow, onClose, onDone }: TaskEveni
     setBusy(true)
     let todayNow = todayIds
     let tomorrowNow = tomorrowIds
+    // The way out as written so far: a write that fails halfway shows where the task really is.
+    let reached: Outcome = previous
     try {
       // Undo the previous way out first: a task is in one place at a time.
       if (previous === 'tomorrow') {
         tomorrowNow = ids(await saveDayPlan(tomorrow, (tomorrowNow ?? []).filter((id) => id !== task.id), false))
+        reached = 'later'
       }
       if (previous === 'aside') {
         await setTaskDueDate(task.id, task.dueDate)
+        reached = 'later'
         todayNow = ids(await saveDayPlan(today, restoreAt(todayNow, task.id, ids(opened))))
       }
       if (next === 'tomorrow') {
         tomorrowNow = ids(await saveDayPlan(tomorrow, [...(tomorrowNow ?? []).filter((id) => id !== task.id), task.id], false))
+        reached = 'tomorrow'
       }
       if (next === 'aside') {
         await setTaskDueDate(task.id, null)
+        reached = 'aside'
         todayNow = ids(await saveDayPlan(today, todayNow.filter((id) => id !== task.id)))
       }
-      setOutcomes((before) => ({ ...before, [task.id]: next }))
+      reached = next
     } catch (error) {
       notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
     } finally {
+      setOutcomes((before) => ({ ...before, [task.id]: reached }))
       setTodayIds(todayNow)
       if (tomorrowNow !== tomorrowIds) setTomorrowIds(tomorrowNow)
       setBusy(false)

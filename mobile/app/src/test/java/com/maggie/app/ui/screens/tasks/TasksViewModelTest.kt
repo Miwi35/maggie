@@ -92,8 +92,11 @@ class TasksViewModelTest {
         Dispatchers.resetMain()
     }
 
+    /** The clock's day, which a test may move past midnight. */
+    private var clockDay = LocalDate.of(2026, 10, 15)
+
     private fun createViewModel(now: LocalTime = LocalTime.of(10, 0)) =
-        TasksViewModel(taskRepository, mercureService, authRepository, today = { today }, now = { now })
+        TasksViewModel(taskRepository, mercureService, authRepository, today = { clockDay }, now = { now })
 
     private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
         DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
@@ -1034,6 +1037,57 @@ class TasksViewModelTest {
 
         assertNotNull(viewModel.uiState.value.evening)
         assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `closing the evening does not bring the morning at night, by Plus tard or by Bonne nuit`() = runTest {
+        coEvery { taskRepository.getMorningTime() } returns Result.success("08:00")
+        coEvery { taskRepository.saveDayReview(today, any()) } returns
+            Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = "2026-10-15T19:10:00Z"))
+        val viewModel = openEvening()
+
+        viewModel.dismissEvening()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.morning)
+
+        viewModel.openEvening()
+        advanceUntilIdle()
+        viewModel.goodNight()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.evening)
+        assertNull(viewModel.uiState.value.morning)
+    }
+
+    @Test
+    fun `past midnight, the gestures and Bonne nuit still write the day reviewed and the next one`() = runTest {
+        coEvery { taskRepository.saveDayReview(today, any()) } returns
+            Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = "2026-10-15T23:10:00Z"))
+        val viewModel = openEvening()
+        clockDay = today.plusDays(1)
+
+        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
+        advanceUntilIdle()
+        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
+        advanceUntilIdle()
+        viewModel.goodNight()
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("d4")), tomorrowPuts)
+        assertEquals(listOf(listOf("d1", "d4", "d2", "d3")), todayPuts)
+        coVerify(exactly = 1) { taskRepository.saveDayReview(today, emptyList()) }
+    }
+
+    @Test
+    fun `a set-aside that fails halfway shows the task in Un jour, Annuler brings its due day back`() = runTest {
+        val viewModel = openEvening()
+        coEvery { taskRepository.setDaySlots(today, any(), true) } returns Result.failure(IllegalStateException("offline"))
+
+        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(EveningOutcome.ASIDE, state.evening!!.outcomeOf("d5"))
+        assertEquals("Impossible de modifier la tâche.", state.message)
     }
 
     @Test

@@ -374,7 +374,7 @@ class TasksViewModel(
         _uiState.update { it.copy(evening = EveningState(day = day), message = null) }
         tomorrowJob?.cancel()
         tomorrowJob = viewModelScope.launch {
-            taskRepository.getDayPlan(today().plusDays(1)).onSuccess { tomorrow ->
+            taskRepository.getDayPlan(day.day.plusDays(1)).onSuccess { tomorrow ->
                 _uiState.update { s ->
                     val evening = s.evening ?: return@update s
                     // A task already in tomorrow's five comes out that way.
@@ -409,17 +409,22 @@ class TasksViewModel(
         }
         _uiState.update { it.copy(evening = evening.copy(isSaving = true), message = null) }
         viewModelScope.launch {
-            val today = today()
+            // The day reviewed and the next one, even once past midnight.
+            val today = evening.day.day
             val tomorrow = today.plusDays(1)
             var todayIds = evening.todayIds
             // Only what this gesture wrote: tomorrow as read stays as it is otherwise.
             var tomorrowIds: List<String>? = null
+            // The way out as written so far: a write that fails halfway shows where the task really is.
+            var reached = previous
             val written = runCatching {
                 if (previous == EveningOutcome.TOMORROW) {
                     tomorrowIds = taskRepository.setDaySlots(tomorrow, evening.tomorrowIds.orEmpty() - taskId, confirm = false).getOrThrow().taskIds
+                    reached = EveningOutcome.LATER
                 }
                 if (previous == EveningOutcome.ASIDE) {
                     taskRepository.setDueDate(taskId, task.dueDate).getOrThrow()
+                    reached = EveningOutcome.LATER
                     todayIds = taskRepository.setDaySlots(today, restoreAt(todayIds, taskId, evening.day.taskIds)).getOrThrow().taskIds
                 }
                 if (outcome == EveningOutcome.TOMORROW) {
@@ -428,17 +433,20 @@ class TasksViewModel(
                 }
                 if (outcome == EveningOutcome.ASIDE) {
                     taskRepository.setDueDate(taskId, null).getOrThrow()
+                    reached = EveningOutcome.ASIDE
                     todayIds = taskRepository.setDaySlots(today, todayIds - taskId).getOrThrow().taskIds
                 }
+                reached = outcome
             }.rethrowCancellation()
             _uiState.update { s ->
                 val current = s.evening ?: return@update s
-                val next = current.copy(todayIds = todayIds, tomorrowIds = tomorrowIds ?: current.tomorrowIds, isSaving = false)
-                if (written.isSuccess) {
-                    s.copy(evening = next.copy(outcomes = current.outcomes + (taskId to outcome)))
-                } else {
-                    s.copy(evening = next, message = "Impossible de modifier la tâche.")
-                }
+                val next = current.copy(
+                    todayIds = todayIds,
+                    tomorrowIds = tomorrowIds ?: current.tomorrowIds,
+                    outcomes = current.outcomes + (taskId to reached),
+                    isSaving = false,
+                )
+                if (written.isSuccess) s.copy(evening = next) else s.copy(evening = next, message = "Impossible de modifier la tâche.")
             }
         }
     }
@@ -459,7 +467,7 @@ class TasksViewModel(
         _uiState.update { it.copy(evening = evening.copy(isSaving = true), message = null) }
         val helped = DayReview.HELPED.map { it.first }.filter { it in evening.helped }
         viewModelScope.launch {
-            taskRepository.saveDayReview(today(), helped)
+            taskRepository.saveDayReview(evening.day.day, helped)
                 .onSuccess {
                     _uiState.update { it.copy(evening = null) }
                     reload()
@@ -488,8 +496,10 @@ class TasksViewModel(
         val eveningTime = taskRepository.getEveningTime().getOrNull()?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
             ?: return false
         if (now() < eveningTime) return false
-        if (taskRepository.getDayReview(today()).getOrNull()?.isDone != false) return false
+        if (taskRepository.getDayReview(day.day).getOrNull()?.isDone != false) return false
         eveningOffered = true
+        // Reviewed at night, the day is not prepared once the evening closes.
+        morningOffered = true
         return true
     }
 

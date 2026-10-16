@@ -74,7 +74,6 @@ export const TaskBoard = () => {
   const [opening, setOpening] = useState(true)
 
   const today = localDay(new Date())
-  const tomorrow = addDays(today, 1)
 
   // Only the answer to the last request is drawn: a slow one must not overwrite a newer tab.
   const request = useRef(0)
@@ -273,7 +272,7 @@ export const TaskBoard = () => {
       )}
 
       {view === 'today' && reviewing ? (
-        <TaskEvening day={reviewing} today={today} tomorrow={tomorrow} onClose={closeEvening} onDone={closeEvening} />
+        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} />
       ) : view === 'today' && preparing ? (
         <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
       ) : view === 'today' ? (

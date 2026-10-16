@@ -32,7 +32,7 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
 
     public const DEFAULT_MORNING_TIME = '08:00';
     public const DEFAULT_EVENING_TIME = '21:00';
-    public const MORNING_TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
+    public const TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -124,7 +124,7 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** @throws \InvalidArgumentException when it is not `HH:MM` */
     public function setMorningTime(string $morningTime): static
     {
-        if (1 !== preg_match(self::MORNING_TIME_PATTERN, $morningTime)) {
+        if (1 !== preg_match(self::TIME_PATTERN, $morningTime)) {
             throw new \InvalidArgumentException(\sprintf('morningTime must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $morningTime));
         }
         $this->morningTime = $morningTime;
@@ -140,7 +140,7 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** @throws \InvalidArgumentException when it is not `HH:MM` */
     public function setEveningTime(string $eveningTime): static
     {
-        if (1 !== preg_match(self::MORNING_TIME_PATTERN, $eveningTime)) {
+        if (1 !== preg_match(self::TIME_PATTERN, $eveningTime)) {
             throw new \InvalidArgumentException(\sprintf('eveningTime must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $eveningTime));
         }
         $this->eveningTime = $eveningTime;

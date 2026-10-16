@@ -58,6 +58,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const mockFetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>()
 let tomorrowTasks: DayTask[] = []
 let refuse = false
+let refuseToday = false
 
 const all = () => [...TASKS, ...OTHERS]
 
@@ -67,6 +68,7 @@ const respond = (url: string, init?: RequestInit): Response => {
   const day = /\/day-plans\/([\d-]+)$/.exec(url)
   if (day) {
     if (refuse && method === 'PUT') return json({ error: 'A day holds 5 slots at most' }, 400)
+    if (refuseToday && method === 'PUT' && day[1] === TODAY) return json({ error: 'Day plan not found' }, 400)
     const ids = method === 'PUT' ? (body.slots as { taskId: string }[]).map((s) => s.taskId) : null
     if (day[1] === TOMORROW) {
       if (ids) tomorrowTasks = ids.map((id) => all().find((t) => t.id === id)!)
@@ -94,7 +96,7 @@ const slotsOf = (body: { slots: { taskId: string }[] }) => body.slots.map((s) =>
 const setup = () => {
   const onClose = vi.fn()
   const onDone = vi.fn()
-  render(<TaskEvening day={DAY} today={TODAY} tomorrow={TOMORROW} onClose={onClose} onDone={onDone} />)
+  render(<TaskEvening day={DAY} onClose={onClose} onDone={onDone} />)
 
   return { user: userEvent.setup(), onClose, onDone }
 }
@@ -113,6 +115,7 @@ describe('TaskEvening — « Le soir » (MAG-500)', () => {
     vi.clearAllMocks()
     tomorrowTasks = []
     refuse = false
+    refuseToday = false
     vi.stubGlobal('fetch', mockFetch)
     localStorage.setItem('user', JSON.stringify({ id: 'U1' }))
     mockFetch.mockImplementation((url, init) => Promise.resolve(respond(String(url), init)))
@@ -215,6 +218,37 @@ describe('TaskEvening — « Le soir » (MAG-500)', () => {
 
     await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: A day holds 5 slots at most', { type: 'error' }))
     expect(row('Réserver le train').getByRole('button', { name: 'Réserver le train : Plus tard' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('past midnight, the gestures and « Bonne nuit » still write the day reviewed and the next one', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 0, 5))
+    try {
+      const { user } = setup()
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining(`/day-plans/${TOMORROW}`), expect.anything()))
+
+      await user.click(row('Réserver le train').getByRole('button', { name: 'Réserver le train : Demain' }))
+      await waitFor(() => expect(writes()).toHaveLength(1))
+      await user.click(screen.getByRole('button', { name: 'Bonne nuit' }))
+
+      await waitFor(() => expect(writes()).toHaveLength(2))
+      expect(writes().map(([, url]) => url)).toEqual([`/day-plans/${TOMORROW}`, `/day-reviews/${TODAY}`])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a write that fails halfway shows where the task really is', async () => {
+    const { user } = setup()
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+    refuseToday = true
+
+    await user.click(row('Payer la cantine').getByRole('button', { name: 'Payer la cantine : Mettre de côté' }))
+
+    // The due day is gone, the slot is not: « Un jour », and « Annuler » to bring the due day back.
+    await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Day plan not found', { type: 'error' }))
+    expect(row('Payer la cantine').getByText('Un jour')).toBeInTheDocument()
+    expect(row('Payer la cantine').getByRole('button', { name: 'Annuler : Payer la cantine' })).toBeEnabled()
   })
 
   test('« Bonne nuit » records what helped and closes', async () => {
