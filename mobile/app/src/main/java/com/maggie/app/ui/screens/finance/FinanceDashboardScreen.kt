@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -31,7 +33,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -55,6 +60,7 @@ import com.maggie.app.ui.navigation.financeAccessesBy
 @Composable
 fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
+    upcomingViewModel: UpcomingViewModel,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
     // The pile of the lines to qualify: the pill shows when it is not empty.
@@ -62,8 +68,8 @@ fun FinanceDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val dashboard = uiState.dashboard
     val twoColumns = rememberAppLayout().detailPaneFits
+    var selectedTab by rememberSaveable { mutableIntStateOf(TAB_CURRENT) }
 
     // Back from the treasury screen, the banner follows what was prepared there.
     LaunchedEffect(Unit) { viewModel.refreshTreasury() }
@@ -89,97 +95,134 @@ fun FinanceDashboardScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { viewModel.shiftPeriod(-1) }) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
-                }
-                Text(
-                    text = "${monthLabel(uiState.month)} ${uiState.year}",
-                    style = MaterialTheme.typography.titleMedium,
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == TAB_CURRENT,
+                    onClick = { selectedTab = TAB_CURRENT },
+                    text = { Text("État courant") },
+                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_CURRENT),
                 )
-                IconButton(onClick = { viewModel.shiftPeriod(1) }) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
+                Tab(
+                    selected = selectedTab == TAB_UPCOMING,
+                    onClick = { selectedTab = TAB_UPCOMING },
+                    text = { Text("À venir") },
+                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_UPCOMING),
+                )
+            }
+            if (selectedTab == TAB_CURRENT) {
+                CurrentStateTab(viewModel, uiState, twoColumns, toQualify, onOpen)
+            } else {
+                UpcomingTab(upcomingViewModel, twoColumns)
+            }
+        }
+    }
+}
+
+private const val TAB_CURRENT = 0
+private const val TAB_UPCOMING = 1
+
+/** « État courant »: everything the dashboard showed before the tabs, unchanged. */
+@Composable
+private fun CurrentStateTab(
+    viewModel: FinanceDashboardViewModel,
+    uiState: FinanceDashboardUiState,
+    twoColumns: Boolean,
+    toQualify: ToSortPile?,
+    onOpen: (String) -> Unit,
+) {
+    val dashboard = uiState.dashboard
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { viewModel.shiftPeriod(-1) }) {
+                Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
+            }
+            Text(
+                text = "${monthLabel(uiState.month)} ${uiState.year}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            IconButton(onClick = { viewModel.shiftPeriod(1) }) {
+                Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
+            }
+        }
+
+        // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
+        val head: LazyListScope.() -> Unit = {
+            toQualify?.let(::toSortPillLabel)?.let { label ->
+                item { ToQualifyPill(label, onClick = { onOpen(Screen.TransactionsToSort.route) }) }
+            }
+            uiState.treasuryBanner?.let { banner ->
+                item {
+                    TreasuryBanner(
+                        overdraftOn = banner.overdraftOn,
+                        balanceBeforeSalaryCents = banner.balanceBeforeSalaryCents,
+                        balanceBeforeSalaryOn = banner.balanceBeforeSalaryOn,
+                        onClick = { onOpen(Screen.Treasury.route) },
+                    )
                 }
             }
-
-            // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
-            val head: LazyListScope.() -> Unit = {
-                toQualify?.let(::toSortPillLabel)?.let { label ->
-                    item { ToQualifyPill(label, onClick = { onOpen(Screen.TransactionsToSort.route) }) }
+            if (dashboard != null) {
+                dashboard.scores?.let { scores ->
+                    item { ScoreRings(week = scores.week, month = scores.month) }
+                    item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
                 }
-                uiState.treasuryBanner?.let { banner ->
-                    item {
-                        TreasuryBanner(
-                            overdraftOn = banner.overdraftOn,
-                            balanceBeforeSalaryCents = banner.balanceBeforeSalaryCents,
-                            balanceBeforeSalaryOn = banner.balanceBeforeSalaryOn,
-                            onClick = { onOpen(Screen.Treasury.route) },
-                        )
-                    }
-                }
-                if (dashboard != null) {
-                    dashboard.scores?.let { scores ->
-                        item { ScoreRings(week = scores.week, month = scores.month) }
-                        item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
-                    }
-                    item { NextProjectCard() }
-                } else {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                            if (uiState.isLoading) {
-                                CircularProgressIndicator()
-                            } else {
-                                Text(
-                                    uiState.error ?: "Vue indisponible",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                item { NextProjectCard() }
+            } else {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator()
+                        } else {
+                            Text(
+                                uiState.error ?: "Vue indisponible",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
             }
-            val body: LazyListScope.() -> Unit = {
-                if (dashboard != null) {
-                    item { AccountsTileCard(dashboard.tiles.accounts, onOpen) }
-                    item { BudgetTileCard(dashboard.tiles.budget, onOpen) }
-                    item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
-                }
-                item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
-                item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
-                item { AccessSection(FinanceFrequency.RARE, onOpen) }
+        }
+        val body: LazyListScope.() -> Unit = {
+            if (dashboard != null) {
+                item { AccountsTileCard(dashboard.tiles.accounts, onOpen) }
+                item { BudgetTileCard(dashboard.tiles.budget, onOpen) }
+                item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
             }
+            item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
+            item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
+            item { AccessSection(FinanceFrequency.RARE, onOpen) }
+        }
 
-            if (twoColumns) {
-                // Room for two panes: the scores and the next project on the left, the tiles and the accesses on the right.
-                Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        content = head,
-                    )
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        content = body,
-                    )
-                }
-            } else {
+        if (twoColumns) {
+            // Room for two panes: the scores and the next project on the left, the tiles and the accesses on the right.
+            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    head()
-                    body()
-                }
+                    content = head,
+                )
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    content = body,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                head()
+                body()
             }
         }
+
     }
 }
 

@@ -84,6 +84,7 @@ import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
@@ -1854,6 +1855,11 @@ class MaggieApiService(
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
         }.body()
+    }
+
+    // Finance — Upcoming (the week and the month after)
+    suspend fun getUpcomingProjection(): UpcomingProjection {
+        return client.get("$baseUrl/api/finance/upcoming").body()
     }
 
     // Finance — Monthly review

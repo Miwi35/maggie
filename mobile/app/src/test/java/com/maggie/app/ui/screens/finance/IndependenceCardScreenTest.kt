@@ -10,6 +10,7 @@ import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.IndependenceRente
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import org.junit.Rule
@@ -40,6 +41,7 @@ class IndependenceCardScreenTest {
     private fun open(counter: IndependenceCounter) {
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWith(counter)).viewModel,
                 onBack = {},
                 onOpen = {},

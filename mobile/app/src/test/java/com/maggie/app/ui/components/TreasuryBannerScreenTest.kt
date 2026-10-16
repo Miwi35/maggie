@@ -11,6 +11,7 @@ import com.maggie.app.data.model.TreasuryBannerState
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -68,6 +69,7 @@ class TreasuryBannerScreenTest {
     private fun dashboardWith(outlook: TreasuryOutlook) {
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10), outlook).viewModel,
                 onBack = {},
                 onOpen = { opened += it },

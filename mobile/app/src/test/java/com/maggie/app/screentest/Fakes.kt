@@ -54,6 +54,9 @@ import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TreasuryOutlook
+import com.maggie.app.data.model.UpcomingProjection
+import com.maggie.app.data.repository.UpcomingRepository
+import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.BankConnectionRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
@@ -732,6 +735,24 @@ class FakeLoadedFinanceDashboard(
         coEvery { treasury.getOutlook() } returns Result.success(outlook)
         val (auth, mercure) = signedIn()
         FinanceDashboardViewModel(repository, treasury, mercure, auth)
+    }
+}
+
+/**
+ * The « À venir » tab over a read that can be switched: set [projection] for a good answer, or leave it
+ * null for a failure with [error] — retrying then reads whatever is set at that moment (MAG-463).
+ */
+class FakeUpcoming(
+    var projection: UpcomingProjection? = null,
+    var error: String = "Service indisponible",
+) {
+    val viewModel: UpcomingViewModel by lazy {
+        val repository = mockk<UpcomingRepository>()
+        coEvery { repository.getUpcoming() } coAnswers {
+            projection?.let { Result.success(it) } ?: Result.failure(IllegalStateException(error))
+        }
+        val (auth, mercure) = signedIn()
+        UpcomingViewModel(repository, mercure, auth)
     }
 }
 

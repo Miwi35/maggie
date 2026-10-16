@@ -105,6 +105,7 @@ import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanListScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
+import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
@@ -1456,6 +1457,7 @@ fun NavGraph() {
                     val toQualify by koinViewModel<ToQualifyViewModel>().pile.collectAsState()
                     FinanceDashboardScreen(
                         viewModel = dashboardViewModel,
+                        upcomingViewModel = koinViewModel<UpcomingViewModel>(),
                         toQualify = toQualify,
                         onBack = { navController.popBackStack() },
                         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
