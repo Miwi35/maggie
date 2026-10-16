@@ -57,26 +57,23 @@ tags:
     visible: ".*matelas.*"
     timeout: 10000
 
+# The tile is taller than the screen: scroll to its lines, not to the card (50 % of it in view
+# says nothing about its bottom half).
 - scrollUntilVisible:
     element:
-      id: "finance_tile_budget"
-    visibilityPercentage: 50
+      text: ".*Salaire attendu.*"
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*Salaire attendu.*"
-    timeout: 10000
-- assertVisible: ".*Solde attendu avant le salaire.*"
+- scrollUntilVisible:
+    element:
+      text: ".*Solde attendu avant le salaire.*"
+    timeout: 30000
 # The salary is declared on the seeded matelas: never the « not declared » empty state.
 - assertNotVisible: ".*salaire non déclaré.*"
 
 - scrollUntilVisible:
     element:
-      id: "finance_tile_planning"
-    visibilityPercentage: 50
+      text: ".*Capacité d'épargne nette.*"
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*Capacité d'épargne nette.*"
-    timeout: 10000
 
 # A tile leads to its menu.
 - scrollUntilVisible:
