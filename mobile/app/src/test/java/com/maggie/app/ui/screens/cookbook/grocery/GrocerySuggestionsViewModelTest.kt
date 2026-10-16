@@ -192,8 +192,8 @@ class GrocerySuggestionsViewModelTest {
     }
 
     @Test
-    fun `the suggestions follow the products, errands, recurring items and the list over Mercure`() = runTest {
-        val topics = listOf("grocery_lists", "products", "errands", "recurring_grocery_items")
+    fun `the suggestions follow the products and the list over Mercure, on one stream of their own`() = runTest {
+        val topics = listOf("grocery_lists", "products")
         val flows = topics.associateWith { MutableSharedFlow<MercureEvent>() }
         topics.forEach { topic ->
             every { mercureService.subscribe("/users/user-1/api/$topic/{id}") } returns flows.getValue(topic)
@@ -212,6 +212,11 @@ class GrocerySuggestionsViewModelTest {
             assertEquals("after an update on $topic", next, viewModel.uiState.value.suggestions)
         }
         topics.forEach { topic -> verify(exactly = 1) { mercureService.subscribe("/users/user-1/api/$topic/{id}") } }
+        // Every stream holds one of the app's 32 connections to the hub for good: past them, a recipe
+        // sheet's subscription queues and never connects. An errand's end reaches the list's topic.
+        listOf("errands", "recurring_grocery_items").forEach { topic ->
+            verify(exactly = 0) { mercureService.subscribe("/users/user-1/api/$topic/{id}") }
+        }
     }
 
     @Test

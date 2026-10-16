@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -249,17 +248,16 @@ class GroceryViewModel(
 
     /**
      * The suggestions are computed by the API from the purchase history, the list, the
-     * recurring items and the snoozes: a change to any of them refetches them. The list's
-     * own topic is handled in [subscribeToGroceryUpdates], which already listens to it.
+     * recurring items and the snoozes. A snooze is a product update; an errand's end empties
+     * the list, whose topic [subscribeToGroceryUpdates] already listens to. One stream only:
+     * each holds one of the app's connections to the hub for good, and past
+     * [MercureService]'s per-host limit a recipe sheet's subscription never connects.
+     * A new recurring item shows at the next refresh.
      */
     private fun subscribeToSuggestionUpdates(): Job {
         return viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            merge(
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.PRODUCTS)),
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ERRANDS)),
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.RECURRING_GROCERY_ITEMS)),
-            )
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.PRODUCTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { refreshSuggestions(SUGGESTIONS_REFRESH_DELAY_MS) }
         }
