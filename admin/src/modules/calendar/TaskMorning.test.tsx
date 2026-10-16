@@ -56,7 +56,7 @@ describe('TaskMorning — « Ta journée » (MAG-498)', () => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     localStorage.setItem('user', JSON.stringify({ id: 'U1' }))
-    mockFetch.mockImplementation((url, init) => {
+    mockFetch.mockImplementation((_url, init) => {
       if (init?.method === 'PUT') return Promise.resolve(json({ id: '01DAY', confirmedAt: '2026-10-16T08:40:00+00:00', slots: [] }))
 
       return Promise.resolve(json(PROPOSAL))
@@ -116,7 +116,7 @@ describe('TaskMorning — « Ta journée » (MAG-498)', () => {
   test('a refused write shows the error and keeps the proposal', async () => {
     const user = userEvent.setup()
     const onConfirmed = vi.fn()
-    mockFetch.mockImplementation((url, init) =>
+    mockFetch.mockImplementation((_url, init) =>
       Promise.resolve(init?.method === 'PUT' ? json({ error: 'Trop de tâches' }, 400) : json(PROPOSAL)),
     )
     render(<TaskMorning date="2026-10-16" onClose={vi.fn()} onConfirmed={onConfirmed} />)
