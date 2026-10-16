@@ -27,11 +27,17 @@ class GetFinanceDashboardTool
         }
 
         $now = new \DateTimeImmutable();
+        $year ??= (int) $now->format('Y');
+        $month ??= (int) $now->format('n');
 
-        return json_encode($this->getFinanceDashboard->execute(
-            $user,
-            $year ?? (int) $now->format('Y'),
-            $month ?? (int) $now->format('n'),
-        ), JSON_THROW_ON_ERROR);
+        if ($month < 1 || $month > 12) {
+            return json_encode(['error' => 'month must be between 1 and 12'], JSON_THROW_ON_ERROR);
+        }
+
+        if ($year < 2000 || $year > 2100) {
+            return json_encode(['error' => 'year must be between 2000 and 2100'], JSON_THROW_ON_ERROR);
+        }
+
+        return json_encode($this->getFinanceDashboard->execute($user, $year, $month), JSON_THROW_ON_ERROR);
     }
 }

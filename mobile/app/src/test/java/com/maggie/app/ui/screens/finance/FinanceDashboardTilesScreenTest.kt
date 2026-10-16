@@ -51,7 +51,7 @@ class FinanceDashboardTilesScreenTest {
             cushionCents = 420000,
             availableCents = 184550,
             accounts = listOf(
-                TileAccount(id = "a", name = "Compte courant", balanceCents = 184550),
+                TileAccount(id = "a", name = "Compte courant", bank = "Boursorama", balanceCents = 184550),
                 TileAccount(id = "b", name = "Livret A", balanceCents = 420000, isCushion = true),
             ),
         ),
@@ -112,8 +112,8 @@ class FinanceDashboardTilesScreenTest {
         compose.onNodeWithText("dont ${formatCents(420000)} de matelas — ${formatCents(184550)} disponibles")
             .performScrollTo()
             .assertIsDisplayed()
-        compose.onNodeWithText("Compte courant").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Livret A · matelas").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Boursorama · EUR · Compte courant").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("EUR · Livret A · matelas").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -186,7 +186,7 @@ class FinanceDashboardTilesScreenTest {
         compose.onNodeWithTag(UiTags.FINANCE_TILE_BUDGET).performScrollTo().performClick()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_PLANNING).performScrollTo().performClick()
 
-        assertEquals(listOf(Screen.AccountList.route, Screen.BudgetList.route, Screen.LoanList.route), opened)
+        assertEquals(listOf(Screen.AccountList.route, Screen.BudgetList.route, Screen.Treasury.route), opened)
     }
 
     @Test

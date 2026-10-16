@@ -145,6 +145,16 @@ class FinanceDashboardToolTest extends KernelTestCase
         self::assertSame(['independence', 'savingCapacity'], array_keys($dashboard['tiles']['planning']));
     }
 
+    public function testAMonthOrAYearOutOfRangeIsAnError(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->loginFixtureUser();
+
+        foreach ([[2026, 0], [2026, 13], [1999, 9], [2101, 9]] as [$year, $month]) {
+            self::assertArrayHasKey('error', $this->dashboard($year, $month), "$year-$month");
+        }
+    }
+
     public function testWithoutAUserItAnswersAnError(): void
     {
         $tool = self::getContainer()->get(GetFinanceDashboardTool::class);

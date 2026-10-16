@@ -33,6 +33,7 @@ import com.maggie.app.data.model.AccountsTile
 import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.TileEnvelope
+import com.maggie.app.data.model.accountLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
@@ -89,7 +90,7 @@ internal fun AccountsTileCard(tile: AccountsTile, onOpen: (String) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = if (account.isCushion) "${account.name} · matelas" else account.name,
+                    text = accountLabel(account.name, account.bank, account.currency).let { if (account.isCushion) "$it · matelas" else it },
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
@@ -241,7 +242,7 @@ internal fun PlanningTileCard(tile: PlanningTile, onOpen: (String) -> Unit) {
     val counter = tile.independence
     val capacity = tile.savingCapacity
 
-    FinanceTile("Planification", UiTags.FINANCE_TILE_PLANNING, onClick = { onOpen(Screen.LoanList.route) }) {
+    FinanceTile("Planification", UiTags.FINANCE_TILE_PLANNING, onClick = { onOpen(Screen.Treasury.route) }) {
         Text("Indépendance financière", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
         Text(
             text = independenceSummary(counter),

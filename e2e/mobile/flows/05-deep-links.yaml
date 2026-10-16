@@ -34,7 +34,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "finance_tile_accounts"
+      id: "finance_score_ring_week"
     timeout: 20000
 
 # A screen *inside* a module, which is also the last live proof that the finance

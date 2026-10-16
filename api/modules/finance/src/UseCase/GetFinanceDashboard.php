@@ -18,7 +18,8 @@ use Maggie\Finance\Repository\TransactionRepository;
  *
  * It composes the use cases that already exist rather than recomputing
  * anything: one answer, one set of rules. A pure read: it publishes nothing
- * and indexes nothing.
+ * and indexes nothing (the one write is the default safety cushion row
+ * GetCushionStatus creates for a user who has none).
  */
 class GetFinanceDashboard
 {
