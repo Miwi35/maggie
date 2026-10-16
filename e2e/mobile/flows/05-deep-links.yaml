@@ -128,15 +128,18 @@ tags:
     visible: ".*Solde de tous les comptes.*"
     timeout: 20000
 
-# Revue: no « À qualifier » nor operations list on the phone yet (MAG-478) — the page
-# carries the rules and the recurring operations.
+# Revue: « À qualifier », the rules and the recurring operations (the merged operations
+# list comes with MAG-478).
 - tapOn:
     id: "finance_menu_review"
 
 - extendedWaitUntil:
     visible:
-      id: "finance_block_categorization_rules"
+      id: "finance_block_transactions_to_sort"
     timeout: 20000
+
+- assertVisible:
+    id: "finance_block_categorization_rules"
 
 - assertVisible:
     id: "finance_block_recurring_operations"
