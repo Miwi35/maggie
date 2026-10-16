@@ -1,0 +1,32 @@
+{
+    "total": 2,
+    "transactions": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "CARREFOUR MARKET 1234",
+            "counterpartyName": null,
+            "amountCents": -5320,
+            "currency": "EUR",
+            "bookedAt": "2026-03-18",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "suggestion": {
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryPath": "Recorded Food › Recorded Courses",
+                "source": "rule",
+                "reason": "Règle « contient CARREFOUR »"
+            }
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "DUPONT MARTIN",
+            "counterpartyName": null,
+            "amountCents": -1200,
+            "currency": "EUR",
+            "bookedAt": "2026-03-16",
+            "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "accountName": "Recorded Account",
+            "suggestion": null
+        }
+    ]
+}

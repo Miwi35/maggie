@@ -14,6 +14,7 @@ data class FinanceAccess(val screen: Screen, val label: String, val frequency: F
 val FINANCE_ACCESSES = listOf(
     FinanceAccess(Screen.BudgetList, "Budgets et enveloppes", FinanceFrequency.DAILY),
     FinanceAccess(Screen.AccountList, "Comptes et transactions", FinanceFrequency.DAILY),
+    FinanceAccess(Screen.TransactionsToSort, "Transactions à trier", FinanceFrequency.DAILY),
     FinanceAccess(Screen.Treasury, "Trésorerie", FinanceFrequency.MONTHLY),
     FinanceAccess(Screen.RecurringOperations, "Opérations récurrentes", FinanceFrequency.MONTHLY),
     FinanceAccess(Screen.MonthlyReview, "Revue mensuelle", FinanceFrequency.MONTHLY),

@@ -6,6 +6,7 @@ namespace Maggie\Finance\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\StandardCategories;
@@ -363,6 +364,48 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('manual', CategorySource::Manual->value)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * The lines waiting to be sorted by hand: no category and no transfer or
+     * rejection marking, whoever emptied the category — a line whose category
+     * was removed by hand still has none (the « À trier » pill says the same).
+     * Newest first.
+     *
+     * @return array{transactions: Transaction[], total: int}
+     */
+    public function findToSortForUser(User $user, int $limit): array
+    {
+        $total = $this->countToSortForUser($user);
+
+        /** @var Transaction[] $transactions */
+        $transactions = $this->toSortQuery($user)
+            ->orderBy('t.bookedAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return ['transactions' => $transactions, 'total' => $total];
+    }
+
+    /** How many lines {@see findToSortForUser} stands for, without loading them. */
+    public function countToSortForUser(User $user): int
+    {
+        return (int) $this->toSortQuery($user)
+            ->select('COUNT(t.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function toSortQuery(User $user): QueryBuilder
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category IS NULL')
+            ->andWhere('t.transferKind = :none')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value);
     }
 
     /**

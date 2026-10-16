@@ -116,6 +116,8 @@ import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategoryListScreen
 import com.maggie.app.ui.screens.finance.CategoryViewModel
+import com.maggie.app.ui.screens.finance.ToSortScreen
+import com.maggie.app.ui.screens.finance.ToSortViewModel
 import com.maggie.app.ui.screens.finance.TransactionListScreen
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.grocery.ProductListScreen
@@ -215,6 +217,7 @@ sealed class Screen(val route: String, val label: String) {
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object RuleSuggestions : Screen("rule_suggestions", "Suggestions")
+    data object TransactionsToSort : Screen("transactions_to_sort", "À trier")
     data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
@@ -1331,6 +1334,14 @@ fun NavGraph() {
                     RuleSuggestionListScreen(
                         viewModel = suggestionViewModel,
                         onBack = { navController.backInFinance() },
+                    )
+                }
+                composable(Screen.TransactionsToSort.route, deepLinks = DeepLinks.forRoute(Screen.TransactionsToSort.route)) {
+                    val toSortViewModel: ToSortViewModel = koinViewModel()
+                    ToSortScreen(
+                        viewModel = toSortViewModel,
+                        onBack = { navController.backInFinance() },
+                        showsDetailPane = paneShown,
                     )
                 }
                 composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {

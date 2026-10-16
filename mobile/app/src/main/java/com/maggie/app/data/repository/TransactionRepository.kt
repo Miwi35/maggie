@@ -5,7 +5,11 @@ import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.InternalTransferAnswer
 import com.maggie.app.data.model.Qualification
+import com.maggie.app.data.model.SortRequest
+import com.maggie.app.data.model.SortResult
+import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.TransferUpdateRequest
@@ -14,6 +18,7 @@ import com.maggie.app.data.model.bookedDate
 import com.maggie.app.data.model.envelopeIri
 import com.maggie.app.data.model.envelopeSpends
 import com.maggie.app.data.model.periodStart
+import com.maggie.app.util.rethrowCancellation
 
 class TransactionRepository(
     private val apiService: MaggieApiService,
@@ -91,6 +96,20 @@ class TransactionRepository(
             TransferUpdateRequest(transferKind = if (internal) "internal" else "none", counterpartId = counterpartId),
         )
     }
+
+    suspend fun getToSort(): Result<ToSortPile> = runCatching {
+        apiService.getTransactionsToSort()
+    }.rethrowCancellation()
+
+    /** Files the line under [categoryId]; [alwaysForMerchant] also writes the rule that files the merchant's other lines. */
+    suspend fun sortToCategory(id: String, categoryId: String, alwaysForMerchant: Boolean): Result<SortResult> = runCatching {
+        apiService.sortTransaction(id, SortRequest(categoryId = categoryId, alwaysForMerchant = alwaysForMerchant))
+    }.rethrowCancellation()
+
+    /** Answers « it is a move between my own accounts »; [counterpartId] null means the other leg is not imported. */
+    suspend fun sortAsInternalTransfer(id: String, counterpartId: String?): Result<SortResult> = runCatching {
+        apiService.sortTransaction(id, SortRequest(internalTransfer = InternalTransferAnswer(counterpartId)))
+    }.rethrowCancellation()
 }
 
 private const val TRANSACTION_PAGE_SIZE = 100

@@ -271,6 +271,27 @@ class DtoContractTest {
         assertCollectionContract("transactions", serializer<Transaction>(), "Transaction")
 
     @Test
+    fun `the to-sort pile deserialises from the recorded response`() {
+        val body = readRecording("finance_transactions_to_sort.read")
+
+        val pile = json.decodeFromJsonElement(serializer<ToSortPile>(), body)
+
+        assertDeclaredFieldsExist("ToSortPile", serializer<ToSortPile>(), body.keys, "finance_transactions_to_sort.read")
+        assertDeclaredFieldsExist(
+            "TransactionToSort", serializer<TransactionToSort>(), keysOf(body, "transactions"), "finance_transactions_to_sort.read",
+        )
+        val suggestionKeys = body["transactions"]!!.jsonArray
+            .mapNotNull { it.jsonObject["suggestion"] as? JsonObject }
+            .flatMap { it.keys }
+            .toSet()
+        assertDeclaredFieldsExist("SortSuggestion", serializer<SortSuggestion>(), suggestionKeys, "finance_transactions_to_sort.read")
+        val suggested = pile.transactions.first { it.suggestion != null }
+        assertEquals("rule", suggested.suggestion?.source)
+        assertTrue("reason fell back to its default", suggested.suggestion?.reason.orEmpty().isNotEmpty())
+        assertEquals(pile.total, pile.transactions.size)
+    }
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

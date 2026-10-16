@@ -34,6 +34,7 @@ executionOrder:
     - 13-chat-opens-on-latest
     - 13-meals-planning
     - 13-finance-category-edit
+    - 13-finance-to-sort
     - 13-finance-budget-nesting
     - 16-finance-budget-split
     - 14-rotation

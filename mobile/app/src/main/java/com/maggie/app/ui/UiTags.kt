@@ -615,6 +615,21 @@ object UiTags {
     const val RULE_DRAFT_MATCH = "rule_draft_match"
     const val RULE_DRAFT_SAVE = "rule_draft_save"
 
+    /**
+     * « À trier » (MAG-423): the card of the line open, the counter, the three answers, the switch, the full-screen
+     * category search, the transfer choice (« sans contrepartie »), a row of the tablet's list, the empty pile.
+     */
+    const val TO_SORT_CARD = "to_sort_card"
+    const val TO_SORT_REMAINING = "to_sort_remaining"
+    const val TO_SORT_VALIDATE = "to_sort_validate"
+    const val TO_SORT_OTHER = "to_sort_other"
+    const val TO_SORT_SEARCH = "to_sort_search"
+    const val TO_SORT_ALWAYS = "to_sort_always"
+    const val TO_SORT_TRANSFER = "to_sort_transfer"
+    const val TO_SORT_TRANSFER_NONE = "to_sort_transfer_none"
+    const val TO_SORT_ROW = "to_sort_row"
+    const val TO_SORT_EMPTY = "to_sort_empty"
+
     /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
     const val REJECTION_BADGE = "rejection_badge"
 

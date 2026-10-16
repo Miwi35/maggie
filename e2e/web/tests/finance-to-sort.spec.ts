@@ -1,0 +1,91 @@
+import { test, expect, seedDate, seedId } from '../fixtures/index.js'
+import { waitForIndexed } from '../helpers/api.js'
+import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
+
+/**
+ * The « À trier » pile: two lines of one merchant are filed with one gesture
+ * (MAG-423).
+ *
+ * The pile is the owner's whole list of uncategorised operations, and other
+ * files keep some of the seed's on purpose (DARTY, the suggestions' FROMAGERIE):
+ * the journey therefore never expects an empty pile, it checks that *its* two
+ * lines left it. Their merchant is made of letters only and unique per attempt,
+ * so the rule the switch writes (the leading words up to the first digit) claims
+ * these two lines and nothing else — and a retry does not meet the previous
+ * attempt's rule. It files them under a category of its own, never under
+ * « Courses »: that envelope is read by the budget and rules journeys.
+ */
+
+interface StoredTransaction {
+  id?: string
+  label?: string
+  category?: string | null
+  categorySource?: string
+}
+
+const letters = (length: number): string =>
+  Array.from({ length }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')
+
+test('« Toujours pour ce marchand » files the line and the other one of the same merchant', async ({
+  page,
+  api,
+}) => {
+  const merchant = `TRIAGE ${letters(8)}`
+  const labels = [`${merchant} 1234`, `${merchant} 5678`]
+  const categoryName = `Triage ${letters(8)}`
+
+  const created = await api.post('/api/categories', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: { name: categoryName, obligation: 'optional' },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const categoryId = ((await created.json()) as { id: string }).id
+  await waitForIndexed(
+    api,
+    '/api/categories',
+    (candidate: { name?: string }) => candidate.name === categoryName,
+    { what: `The category ${categoryName}` },
+  )
+
+  for (const label of labels) {
+    const response = await api.post('/api/transactions', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: {
+        account: `/api/accounts/${seedId('e2e_account_checking')}`,
+        label,
+        amountCents: -2350,
+        currency: 'EUR',
+        bookedAt: seedDate(0),
+        status: 'spent',
+      },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+  }
+
+  const toSort = new FinanceToSortPage(page)
+  await toSort.open()
+  await expect(toSort.pile.getByRole('button', { name: labels[0] })).toBeVisible()
+  await expect(toSort.pile.getByRole('button', { name: labels[1] })).toBeVisible()
+
+  await toSort.select(labels[0])
+  await toSort.always.check()
+  await toSort.chooseCategory(categoryName)
+
+  await expect(
+    toSort.content.getByText('Règle créée · 1 autre ligne classée'),
+    'the rule filed the second line of the merchant as well',
+  ).toBeVisible()
+  for (const label of labels) {
+    await expect(toSort.pile.getByRole('button', { name: label })).toHaveCount(0)
+  }
+
+  for (const label of labels) {
+    const filed = await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && Boolean(candidate.category),
+      { what: `The transaction ${label}, once filed` },
+    )
+    expect(filed.category).toBe(`/api/categories/${categoryId}`)
+  }
+})

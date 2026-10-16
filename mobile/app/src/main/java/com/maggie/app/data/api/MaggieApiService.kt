@@ -55,6 +55,9 @@ import com.maggie.app.data.model.RecurringSuggestion
 import com.maggie.app.data.model.RecurringSuggestionsResponse
 import com.maggie.app.data.model.recurringOperationIri
 import com.maggie.app.data.model.RuleSuggestion
+import com.maggie.app.data.model.SortRequest
+import com.maggie.app.data.model.SortResult
+import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.SalaryExpectedDayRequest
@@ -1592,6 +1595,18 @@ class MaggieApiService(
     /** Marks (counterpartId optional) or releases a line; the API answers with the new state. */
     suspend fun setTransactionTransfer(id: String, request: TransferUpdateRequest): TransferInfo {
         return client.put("$baseUrl/api/finance/transactions/$id/transfer") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    }
+
+    // Finance — The « À trier » pile
+    suspend fun getTransactionsToSort(): ToSortPile {
+        return client.get("$baseUrl/api/finance/transactions/to-sort").body()
+    }
+
+    suspend fun sortTransaction(id: String, request: SortRequest): SortResult {
+        return client.post("$baseUrl/api/finance/transactions/$id/sort") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()

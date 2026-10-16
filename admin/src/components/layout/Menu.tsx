@@ -39,6 +39,7 @@ import ShieldIcon from '@mui/icons-material/Shield'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
+import RuleIcon from '@mui/icons-material/Rule'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import EventRepeatIcon from '@mui/icons-material/EventRepeat'
@@ -182,6 +183,12 @@ export const CustomMenu = () => {
                 to="/accounts"
                 primaryText="Comptes"
                 leftIcon={tinted('comptes', <AccountBalanceIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/to-sort"
+                primaryText="À trier"
+                leftIcon={tinted('comptes', <RuleIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
