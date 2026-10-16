@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReferenceSalary } from './referenceSalary'
 import type { BudgetLine } from './useBudgetStatus'
+import type { FinanceScores } from './useFinanceScores'
 
 export interface MonthlyFlow {
   month: string
@@ -46,6 +47,77 @@ export interface IndependenceCounter {
   byCategory: IndependenceRente[]
 }
 
+export interface TileAccount {
+  id: string
+  name: string
+  bank: string | null
+  balanceCents: number
+  currency: string
+  isCushion: boolean
+}
+
+/** The « Comptes » tile: what the accounts hold, and the part set aside. */
+export interface AccountsTile {
+  totalCents: number
+  cushionCents: number
+  availableCents: number
+  accounts: TileAccount[]
+}
+
+export interface TileEnvelope {
+  envelopeId: string
+  name: string
+  budgetCents: number
+  consumedCents: number
+  isOverspent: boolean
+  isOvercommitted: boolean
+}
+
+export interface TileCushion {
+  state: 'building' | 'recharging' | 'complete'
+  targetCents: number
+  currentCents: number
+  coveragePercent: number
+  monthsCovered: number
+  isConfigured: boolean
+}
+
+export interface ExpectedSalary {
+  monthlyCents: number
+  source: 'declared' | 'expected' | 'measured'
+  /** The next pay day, `YYYY-MM-DD`, when the salary is a recurring operation. */
+  expectedOn: string | null
+}
+
+/** The « Budget » tile; a null salary or balance means « not known », never zero. */
+export interface BudgetTile {
+  /** Root envelopes of the month only. */
+  envelopes: TileEnvelope[]
+  cushion: TileCushion
+  expectedSalary: ExpectedSalary | null
+  balanceBeforeSalary: { onDate: string; balanceCents: number } | null
+}
+
+export interface SavingCapacity {
+  monthlyNetIncomeCents: number
+  loanPaymentsCents: number
+  estimatedLifestyleCents: number
+  netCapacityCents: number
+  isIncomeKnown: boolean
+}
+
+/** The « Planification » tile. */
+export interface PlanningTile {
+  independence: IndependenceCounter
+  savingCapacity: SavingCapacity
+}
+
+export interface DashboardTiles {
+  accounts: AccountsTile
+  budget: BudgetTile
+  planning: PlanningTile
+}
+
 export interface FinanceDashboard {
   year: number
   month: number
@@ -67,22 +139,25 @@ export interface FinanceDashboard {
   monthlyFlows: MonthlyFlow[]
   budgets: BudgetLine[]
   topPosts: TopPost[]
-  savingCapacity: {
-    monthlyNetIncomeCents: number
-    loanPaymentsCents: number
-    estimatedLifestyleCents: number
-    netCapacityCents: number
-    isIncomeKnown: boolean
-  }
+  savingCapacity: SavingCapacity
   independence: IndependenceCounter
+  /** The rings and the curve of the month shown: same payload as `/api/finance/scores`. */
+  scores: FinanceScores
+  tiles: DashboardTiles
 }
 
-/** The whole month in one read. */
+/** The whole month in one read: the rings, the curve and the three tiles. */
 export function useFinanceDashboard(year: number, month: number) {
   const [dashboard, setDashboard] = useState<FinanceDashboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  // Two reads can overlap (a Mercure refresh while the period changes): only
+  // the last one asked for may write.
+  const latest = useRef(0)
 
   const refresh = useCallback(async () => {
+    const request = ++latest.current
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
@@ -92,13 +167,23 @@ export function useFinanceDashboard(year: number, month: number) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       })
-      if (res.ok) {
-        setDashboard((await res.json()) as FinanceDashboard)
+      if (!res.ok) {
+        throw new Error(`dashboard answered ${res.status}`)
+      }
+      const body = (await res.json()) as FinanceDashboard
+      if (request === latest.current) {
+        setDashboard(body)
+        setError(false)
       }
     } catch {
-      // keep the previous dashboard
+      // keep the previous dashboard, and say the read failed
+      if (request === latest.current) {
+        setError(true)
+      }
     } finally {
-      setLoading(false)
+      if (request === latest.current) {
+        setLoading(false)
+      }
     }
   }, [year, month])
 
@@ -106,5 +191,5 @@ export function useFinanceDashboard(year: number, month: number) {
     refresh()
   }, [refresh])
 
-  return { dashboard, loading, refresh }
+  return { dashboard, loading, error, refresh }
 }

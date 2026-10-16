@@ -205,21 +205,32 @@ object UiTags {
 
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
-    const val REFERENCE_SALARY_CARD = "reference_salary_card"
     const val REFERENCE_SALARY_LINK = "reference_salary_link"
     const val REFERENCE_SHARE = "reference_share"
 
     /**
      * Finance dashboard — the two score rings (suffixed `week` / `month`), the reasons they open,
-     * the retry of a failed load, the rhythm curve, its Semaine/Mois choice and a debit marked on it
+     * the rhythm curve, its Semaine/Mois choice and a debit marked on it
      * (suffixed by its ISO date) (MAG-417).
      */
     const val FINANCE_SCORE_RING_PREFIX = "finance_score_ring_"
     const val FINANCE_SCORE_REASONS = "finance_score_reasons"
-    const val FINANCE_SCORES_RETRY = "finance_scores_retry"
     const val FINANCE_RHYTHM_CURVE = "finance_rhythm_curve"
     const val FINANCE_RHYTHM_PERIOD_PREFIX = "finance_rhythm_period_"
     const val FINANCE_RHYTHM_DEBIT_PREFIX = "finance_rhythm_debit_"
+
+    /**
+     * Finance dashboard — the three tiles (Comptes, Budget, Planification), each leading to its menu,
+     * the figures the Budget tile gives, one bar per envelope (suffixed by its id) and the example
+     * « Prochain projet » card (MAG-420).
+     */
+    const val FINANCE_TILE_ACCOUNTS = "finance_tile_accounts"
+    const val FINANCE_TILE_BUDGET = "finance_tile_budget"
+    const val FINANCE_TILE_PLANNING = "finance_tile_planning"
+    const val FINANCE_TILE_EXPECTED_SALARY = "finance_tile_expected_salary"
+    const val FINANCE_TILE_BALANCE_BEFORE_SALARY = "finance_tile_balance_before_salary"
+    const val FINANCE_TILE_ENVELOPE_PREFIX = "finance_tile_envelope_"
+    const val FINANCE_NEXT_PROJECT = "finance_next_project"
 
     /**
      * Banques — the fetch. Tagged rather than tapped by its label because the
@@ -506,6 +517,8 @@ object UiTags {
     fun financeRhythmPeriod(period: String) = FINANCE_RHYTHM_PERIOD_PREFIX + period
 
     fun financeRhythmDebit(date: String) = FINANCE_RHYTHM_DEBIT_PREFIX + date
+
+    fun financeTileEnvelope(envelopeId: String) = FINANCE_TILE_ENVELOPE_PREFIX + envelopeId
 
     fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
 

@@ -22,10 +22,10 @@ import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
  *
  *   Étant donné aucune opération « Salaire » (MAG-275)
  *   Quand j'ouvre la vue d'ensemble finance
- *   Alors le salaire de référence est « non renseigné », avec un lien — jamais 0 €
+ *   Alors la tuile Budget dit « salaire non déclaré », avec un lien — jamais 0 €
  *     et la revue mensuelle n'affiche aucune part du repère
  *   Quand l'opération « Salaire » attendue à 4 950 € existe
- *   Alors la vue d'ensemble affiche 4 950,00 €, « attendu (opération récurrente) »
+ *   Alors la tuile Budget affiche 4 950,00 €, « attendu (opération récurrente) »
  *     et la revue mensuelle affiche la part du repère consommée
  *
  * There is no « Salaire » tick box on a category: the owner decided the salary
@@ -167,7 +167,7 @@ test('the cushion and the month follow the reference salary, declared nothing', 
   expect(dashboard.savingCapacity.isIncomeKnown).toBe(true)
 })
 
-test('the overview and the review say « non renseigné » until a salary exists, then show it', async ({ stockUser }) => {
+test('the overview and the review say « salaire non déclaré » until a salary exists, then show it', async ({ stockUser }) => {
   const { api, page } = stockUser
   const overview = new FinanceOverviewPage(page)
   const review = new FinanceReviewPage(page)
@@ -176,9 +176,9 @@ test('the overview and the review say « non renseigné » until a salary exists
   // When I open the finance overview.
   await overview.open()
 
-  // Then the reference salary is « non renseigné », with a way to fix it, and no 0 €.
-  const card = overview.referenceSalary()
-  await expect(card).toContainText('non renseigné')
+  // Then the Budget tile says « salaire non déclaré », with a way to fix it, and no 0 €.
+  const card = overview.expectedSalary()
+  await expect(card).toContainText('salaire non déclaré')
   await expect(card).not.toContainText(/0,00\s€/)
   await expect(card.getByRole('link', { name: /opération récurrente « Salaire »/ })).toHaveAttribute(
     'href',
@@ -194,8 +194,8 @@ test('the overview and the review say « non renseigné » until a salary exists
 
   // Then the overview shows it and says it is expected.
   await overview.open()
-  await expect(overview.referenceSalary()).toContainText(/4\s950,00\s€/)
-  await expect(overview.referenceSalary()).toContainText('attendu (opération récurrente)')
+  await expect(overview.expectedSalary()).toContainText(/4\s950,00\s€/)
+  await expect(overview.expectedSalary()).toContainText('attendu (opération récurrente)')
 
   // And the review shows the share of that mark the month consumed.
   await review.open()

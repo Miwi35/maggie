@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { IndependenceCard } from './IndependenceCard'
+import { IndependenceSummary } from './IndependenceSummary'
 import type { IndependenceCounter } from './useFinanceDashboard'
 
 const counter = (overrides: Partial<IndependenceCounter> = {}): IndependenceCounter => ({
@@ -24,9 +24,9 @@ const counter = (overrides: Partial<IndependenceCounter> = {}): IndependenceCoun
   ...overrides,
 })
 
-describe('IndependenceCard', () => {
+describe('IndependenceSummary', () => {
   test('shows the coverage and both terms of the ratio', () => {
-    render(<IndependenceCard counter={counter()} />)
+    render(<IndependenceSummary counter={counter()} />)
 
     expect(screen.getByText('80 %')).toBeInTheDocument()
     expect(screen.getByText(/80,00 € de rentes sur 100,00 € de train de vie/)).toBeInTheDocument()
@@ -34,14 +34,14 @@ describe('IndependenceCard', () => {
   })
 
   test('says what is missing and which milestone comes next', () => {
-    render(<IndependenceCard counter={counter()} />)
+    render(<IndependenceSummary counter={counter()} />)
 
     expect(screen.getByText(/Il manque 20,00 € par mois/)).toBeInTheDocument()
     expect(screen.getByText(/prochain palier 100 %/)).toBeInTheDocument()
   })
 
   test('breaks the rentes down by category', () => {
-    render(<IndependenceCard counter={counter()} />)
+    render(<IndependenceSummary counter={counter()} />)
 
     const rentes = screen.getAllByTestId('rente')
     expect(rentes.map((r) => r.getAttribute('data-category'))).toEqual([
@@ -53,13 +53,13 @@ describe('IndependenceCard', () => {
   })
 
   test('reports the ratio against the month including loan payments', () => {
-    render(<IndependenceCard counter={counter()} />)
+    render(<IndependenceSummary counter={counter()} />)
 
     expect(screen.getByText(/Mensualités de prêt comprises : 27 %/)).toBeInTheDocument()
   })
 
   test('leaves the loan line out when nothing is being repaid', () => {
-    render(<IndependenceCard counter={counter({ loanPaymentsCents: 0 })} />)
+    render(<IndependenceSummary counter={counter({ loanPaymentsCents: 0 })} />)
 
     expect(screen.queryByText(/Mensualités de prêt comprises/)).not.toBeInTheDocument()
   })
@@ -67,7 +67,7 @@ describe('IndependenceCard', () => {
   /** Above 100 % the rentes cover more than the month costs. */
   test('says the rentes cover the train de vie once they do', () => {
     render(
-      <IndependenceCard
+      <IndependenceSummary
         counter={counter({
           coveragePercent: 200,
           passiveIncomeCents: 20000,
@@ -85,7 +85,7 @@ describe('IndependenceCard', () => {
   })
 
   test('sends the user to declare a rente when none is', () => {
-    render(<IndependenceCard counter={counter({ hasPassiveIncomeCategories: false })} />)
+    render(<IndependenceSummary counter={counter({ hasPassiveIncomeCategories: false })} />)
 
     expect(screen.getByText(/Aucune catégorie n'est déclarée comme rente/)).toBeInTheDocument()
     expect(screen.queryByText('80 %')).not.toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('IndependenceCard', () => {
   /** No denominator, no percentage — and 0 % would be a verdict. */
   test('says nothing is measured yet rather than showing zero percent', () => {
     render(
-      <IndependenceCard
+      <IndependenceSummary
         counter={counter({
           isMeasurable: false,
           coveragePercent: 0,

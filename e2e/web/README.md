@@ -196,8 +196,10 @@ to one test's data, so:
 - `finance-cushion.spec.ts` owns the **cushion target**, so
   `finance-budget.spec.ts` asserts that the score is held back by an incomplete
   net without naming the deficit.
-- `finance-budget.spec.ts` and `finance-overview.spec.ts` read the **annual**
-  "Loisirs" envelope instead of the monthly one: no active rule can reach it.
+- `finance-budget.spec.ts` reads the **annual** "Loisirs" envelope instead of
+  the monthly one: no active rule can reach it. `finance-overview.spec.ts`
+  reads only the *budget* of the monthly "Courses" envelope, never its
+  consumption.
 - Anything that would move the owner's **balances** is written as the
   neighbour — an account's balance is summed into the dashboard total *and*
   into the safety net, so a journey creating one would break two files.

@@ -21,7 +21,6 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -180,11 +179,13 @@ class FinanceScoresScreenTest {
         compose.onNodeWithText("Pas de courbe pour cette période.").assertIsDisplayed()
     }
 
+    private fun dashboardWithScores() = FinanceDashboard(year = 2026, month = 3, scores = scores)
+
     @Test
     fun `the dashboard draws the rings and the curve in place of the old daily score`() {
         compose.setContent {
             FinanceDashboardScreen(
-                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3), scores = scores).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
                 onBack = {},
                 onOpen = {},
             )
@@ -196,35 +197,32 @@ class FinanceScoresScreenTest {
     }
 
     @Test
-    fun `scores that cannot be loaded say so in their place and the rest of the dashboard goes on`() {
-        val opened = mutableListOf<String>()
+    fun `a payload without scores draws no ring and the rest of the dashboard goes on`() {
         compose.setContent {
             FinanceDashboardScreen(
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3)).viewModel,
                 onBack = {},
-                onOpen = { opened += it },
+                onOpen = {},
             )
         }
 
-        compose.onNodeWithText("Scores indisponibles").assertIsDisplayed()
-        compose.onNodeWithText("Scores en panne").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.FINANCE_SCORES_RETRY).assertIsDisplayed()
-        compose.onNodeWithText("Solde de tous les comptes").performScrollTo().assertIsDisplayed()
-        assertTrue(opened.isEmpty())
+        compose.onNodeWithTag(UiTags.financeScoreRing("week")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp-xhdpi")
-    fun `on a wide window the scores and the figures are both on screen`() {
+    fun `on a wide window the scores and the tiles are both on screen`() {
         compose.setContent {
             FinanceDashboardScreen(
-                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3), scores = scores).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
                 onBack = {},
                 onOpen = {},
             )
         }
 
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertIsDisplayed()
-        compose.onNodeWithText("Solde de tous les comptes").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).assertIsDisplayed()
     }
 }

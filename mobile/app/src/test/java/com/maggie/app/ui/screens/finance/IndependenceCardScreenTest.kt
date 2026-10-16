@@ -5,8 +5,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.IndependenceRente
+import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -15,7 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The independence counter on the dashboard (MAG-46).
+ * The independence counter, in the Planification tile of the dashboard (MAG-46, MAG-420).
  *
  * A percentage is right or wrong in `IndependenceCounterTest` next door; what
  * cannot be said there is that the card is drawn at all, and that it carries
@@ -29,7 +31,11 @@ class IndependenceCardScreenTest {
     val compose = ScreenRule()
 
     private fun dashboardWith(counter: IndependenceCounter) =
-        FinanceDashboard(year = 2026, month = 10, independence = counter)
+        FinanceDashboard(
+            year = 2026,
+            month = 10,
+            tiles = FinanceTiles(planning = PlanningTile(independence = counter)),
+        )
 
     private fun open(counter: IndependenceCounter) {
         compose.setContent {

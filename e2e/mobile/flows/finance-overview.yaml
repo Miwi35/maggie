@@ -1,0 +1,92 @@
+appId: com.maggie.app.e2e
+name: finance-overview
+tags:
+  - finance
+---
+# The finance home from the phone: the rings, the curve and the three tiles (MAG-420, extends MAG-102).
+#
+# Étant donné deux comptes dont un matelas, un salaire de référence déclaré et des enveloppes
+#   (le compte du propriétaire, `api/fixtures/e2e/50-finance.yaml`)
+# Quand j'ouvre les finances
+# Alors je vois l'anneau de la semaine, celui du mois et la courbe du rythme
+# Et la tuile Comptes, avec le matelas mis de côté
+# Et la tuile Budget, avec le salaire attendu et le solde attendu avant le salaire
+# Et la tuile Planification
+# Et l'exemple « Prochain projet », qui n'ouvre rien
+# Quand je touche la tuile Comptes
+# Alors la liste des comptes s'ouvre
+#
+# A tile is one tappable card: Compose merges what is inside it, so its figures are read through
+# the card's own text, not through ids of their own. The amounts are not asserted — they are drawn
+# with the phone's locale (`FinanceDashboardTilesScreenTest` reads them) and the owner's account
+# is shared with the other finance flows; only the labels and the absence of the empty states are.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/finance-overview.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance"
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- assertVisible:
+    id: "finance_score_ring_month"
+
+- scrollUntilVisible:
+    element:
+      id: "finance_rhythm_curve"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "finance_next_project"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "finance_tile_accounts"
+    visibilityPercentage: 50
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*matelas.*"
+    timeout: 10000
+
+- scrollUntilVisible:
+    element:
+      id: "finance_tile_budget"
+    visibilityPercentage: 50
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Salaire attendu.*"
+    timeout: 10000
+- assertVisible: ".*Solde attendu avant le salaire.*"
+# The salary is declared on the seeded matelas: never the « not declared » empty state.
+- assertNotVisible: ".*salaire non déclaré.*"
+
+- scrollUntilVisible:
+    element:
+      id: "finance_tile_planning"
+    visibilityPercentage: 50
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Capacité d'épargne nette.*"
+    timeout: 10000
+
+# A tile leads to its menu.
+- scrollUntilVisible:
+    element:
+      id: "finance_tile_accounts"
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "finance_tile_accounts"
+- extendedWaitUntil:
+    visible: "Comptes"
+    timeout: 20000

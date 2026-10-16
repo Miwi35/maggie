@@ -72,7 +72,6 @@ import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
-import com.maggie.app.data.model.FinanceScores
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
@@ -1717,12 +1716,6 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/dashboard") {
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
-        }.body()
-    }
-
-    suspend fun getFinanceScores(date: String? = null): FinanceScores {
-        return client.get("$baseUrl/api/finance/scores") {
-            if (date != null) url.parameters.append("date", date)
         }.body()
     }
 

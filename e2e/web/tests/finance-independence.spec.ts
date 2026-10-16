@@ -45,7 +45,7 @@ test('the counter says what share of the train de vie the rentes cover', async (
   const overview = new FinanceOverviewPage(page)
   await overview.open()
 
-  const counter = overview.card('Indépendance financière')
+  const counter = overview.independence()
 
   await expect(counter).toContainText('60 %')
   // Both terms, so a wrong percentage can be told from a wrong term.
@@ -59,7 +59,7 @@ test('what is still missing, and the next step, are named', async ({ page }) => 
   const overview = new FinanceOverviewPage(page)
   await overview.open()
 
-  const counter = overview.card('Indépendance financière')
+  const counter = overview.independence()
 
   await expect(counter).toContainText(`Il manque ${euros(LIFESTYLE_CENTS - RENTE_CENTS)} par mois`)
   // 75 % of 166,66 € is 125,00 €, so 25,00 € above today's rentes.
@@ -127,7 +127,7 @@ test('a rente is declared from the category form, and the counter picks it up', 
   const overview = new FinanceOverviewPage(otherUser.page)
   await overview.open()
 
-  const counter = overview.card('Indépendance financière')
+  const counter = overview.independence()
   await expect(counter).toContainText('Pas encore de train de vie mesuré')
   await expect(counter, 'no denominator, no percentage').not.toContainText('0 %')
 })

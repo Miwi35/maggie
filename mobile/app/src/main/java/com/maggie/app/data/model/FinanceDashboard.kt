@@ -3,46 +3,6 @@ package com.maggie.app.data.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class DashboardScore(
-    val referenceSalary: ReferenceSalary = ReferenceSalary(),
-)
-
-@Serializable
-data class DashboardAccount(
-    val id: String,
-    val name: String,
-    val type: String = "checking",
-    val balanceCents: Int = 0,
-    val currency: String = "EUR",
-    val isCushion: Boolean = false,
-)
-
-@Serializable
-data class DashboardBalance(
-    val totalCents: Int = 0,
-    val cushionCents: Int = 0,
-    val availableCents: Int = 0,
-    val accounts: List<DashboardAccount> = emptyList(),
-)
-
-@Serializable
-data class MonthlyFlow(
-    val month: String,
-    val incomeCents: Int = 0,
-    val expenseCents: Int = 0,
-    val netCents: Int = 0,
-)
-
-@Serializable
-data class TopPost(
-    val categoryId: String? = null,
-    val categoryName: String? = null,
-    val spentCents: Int = 0,
-    val previousMonthCents: Int = 0,
-    val changeCents: Int = 0,
-)
-
-@Serializable
 data class IndependenceRente(
     val categoryId: String,
     val categoryName: String,
@@ -86,23 +46,90 @@ fun independenceSummary(counter: IndependenceCounter): String = when {
         "${counter.coveragePercent} % du train de vie — il manque ${formatCents(counter.gapCents)} par mois"
 }
 
+/** One account of the Comptes tile; [isCushion] marks the safety net, which is not « disponible ». */
+@Serializable
+data class TileAccount(
+    val id: String,
+    val name: String,
+    val bank: String? = null,
+    val balanceCents: Int = 0,
+    val currency: String = "EUR",
+    val isCushion: Boolean = false,
+)
+
+/** The Comptes tile: the total, how much of it is the cushion, and each account. */
+@Serializable
+data class AccountsTile(
+    val totalCents: Int = 0,
+    val cushionCents: Int = 0,
+    val availableCents: Int = 0,
+    val accounts: List<TileAccount> = emptyList(),
+)
+
+/** One root envelope of the month, as a bar of the Budget tile. */
+@Serializable
+data class TileEnvelope(
+    val envelopeId: String,
+    val name: String,
+    val budgetCents: Int = 0,
+    val consumedCents: Int = 0,
+    val isOverspent: Boolean = false,
+    val isOvercommitted: Boolean = false,
+)
+
+/** The cushion line of the Budget tile; [state] is `building`, `recharging` or `complete`. */
+@Serializable
+data class TileCushion(
+    val state: String = "building",
+    val targetCents: Int = 0,
+    val currentCents: Int = 0,
+    val coveragePercent: Int = 0,
+    val monthsCovered: Double = 0.0,
+    val isConfigured: Boolean = false,
+)
+
+/** The salary expected this month; [source] is `declared`, `expected` or `measured`. */
+@Serializable
+data class ExpectedSalary(
+    val monthlyCents: Int = 0,
+    val source: String = "expected",
+    val expectedOn: String? = null,
+)
+
+/**
+ * The Budget tile. [expectedSalary] is null when no reference salary is known (never a 0 €
+ * salary), [balanceBeforeSalary] when the outlook cannot say.
+ */
+@Serializable
+data class BudgetTile(
+    val envelopes: List<TileEnvelope> = emptyList(),
+    val cushion: TileCushion = TileCushion(),
+    val expectedSalary: ExpectedSalary? = null,
+    val balanceBeforeSalary: BalanceBeforeSalary? = null,
+)
+
+/** The Planification tile: how far the rentes cover the lifestyle, and what is left to save. */
+@Serializable
+data class PlanningTile(
+    val independence: IndependenceCounter = IndependenceCounter(),
+    val savingCapacity: SavingCapacity = SavingCapacity(),
+)
+
+@Serializable
+data class FinanceTiles(
+    val accounts: AccountsTile = AccountsTile(),
+    val budget: BudgetTile = BudgetTile(),
+    val planning: PlanningTile = PlanningTile(),
+)
+
+/**
+ * `GET /api/finance/dashboard`: the scores behind the rings and the curve (null from a server that
+ * does not send them: the screen then draws neither) and the three tiles (MAG-420).
+ */
 @Serializable
 data class FinanceDashboard(
     val year: Int = 0,
     val month: Int = 0,
-    val score: DashboardScore = DashboardScore(),
-    val balance: DashboardBalance = DashboardBalance(),
-    val monthlyFlows: List<MonthlyFlow> = emptyList(),
-    val budgets: List<BudgetLine> = emptyList(),
-    val topPosts: List<TopPost> = emptyList(),
-    val savingCapacity: SavingCapacity = SavingCapacity(),
-    val independence: IndependenceCounter = IndependenceCounter(),
+    val scores: FinanceScores? = null,
+    val tiles: FinanceTiles = FinanceTiles(),
 )
-
-/** How a post moved against last month, said plainly. */
-fun postChangeLabel(post: TopPost): String = when {
-    post.previousMonthCents == 0 -> "nouveau ce mois-ci"
-    post.changeCents > 0 -> "+${formatCents(post.changeCents)} vs mois dernier"
-    post.changeCents < 0 -> "${formatCents(post.changeCents)} vs mois dernier"
-    else -> "stable"
-}

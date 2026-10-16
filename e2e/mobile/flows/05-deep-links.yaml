@@ -33,7 +33,8 @@ tags:
 - openLink: "maggie-e2e://finance"
 
 - extendedWaitUntil:
-    visible: ".*Solde de tous les comptes.*"
+    visible:
+      id: "finance_tile_accounts"
     timeout: 20000
 
 # A screen *inside* a module, which is also the last live proof that the finance

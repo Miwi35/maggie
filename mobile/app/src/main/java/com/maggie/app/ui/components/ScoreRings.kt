@@ -18,7 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -273,25 +272,6 @@ private fun ScoreReasons(title: String, score: PeriodScore) {
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 2.dp),
             )
-        }
-    }
-}
-
-/** The scores could not be loaded: it says so in the place of the rings, and offers to try again. */
-@Composable
-fun ScoresUnavailable(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Scores indisponibles", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            TextButton(onClick = onRetry, modifier = Modifier.testTag(UiTags.FINANCE_SCORES_RETRY)) {
-                Text("Réessayer")
-            }
         }
     }
 }

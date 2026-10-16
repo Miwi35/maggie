@@ -11,7 +11,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ConsumedVsReference
-import com.maggie.app.data.model.DashboardScore
+import com.maggie.app.data.model.BudgetTile
+import com.maggie.app.data.model.ExpectedSalary
+import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.ReferenceSalary
@@ -29,7 +31,7 @@ import org.junit.runner.RunWith
 import java.time.LocalDate
 
 /**
- * The reference salary on the dashboard and in the monthly review (MAG-275).
+ * The reference salary in the Budget tile of the dashboard and in the monthly review (MAG-275, MAG-420).
  *
  * The labels are right or wrong in `ReferenceSalaryTest`; what is checked here
  * is that the card is drawn, says where the figure comes from, and — unknown —
@@ -41,11 +43,11 @@ class ReferenceSalaryScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
-    private fun openDashboard(reference: ReferenceSalary, onOpen: (String) -> Unit = {}) {
+    private fun openDashboard(expected: ExpectedSalary?, onOpen: (String) -> Unit = {}) {
         val dashboard = FinanceDashboard(
             year = 2026,
             month = 10,
-            score = DashboardScore(referenceSalary = reference),
+            tiles = FinanceTiles(budget = BudgetTile(expectedSalary = expected)),
         )
         compose.setContent {
             FinanceDashboardScreen(
@@ -68,33 +70,34 @@ class ReferenceSalaryScreenTest {
     }
 
     @Test
-    fun `a declared salary is shown with its source`() {
-        openDashboard(ReferenceSalary(monthlyCents = 300000, source = "declared"))
+    fun `a declared salary is shown with its source and the day it is expected`() {
+        openDashboard(ExpectedSalary(monthlyCents = 300000, source = "declared", expectedOn = "2026-10-28"))
 
-        compose.onNodeWithText("Salaire de référence").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${formatCents(300000)} / mois").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Salaire attendu").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(300000)} · le 28 octobre").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("déclaré sur le matelas").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun `a measured salary is shown as measured over twelve months`() {
-        openDashboard(ReferenceSalary(monthlyCents = 495000, source = "measured"))
+        openDashboard(ExpectedSalary(monthlyCents = 495000, source = "measured"))
 
-        compose.onNodeWithText("${formatCents(495000)} / mois").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(formatCents(495000)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("mesuré sur 12 mois").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun `an unknown salary says non renseigné, links to the cushion and shows no amount`() {
+    fun `an undeclared salary says so, links to the cushion and shows no amount`() {
         var opened: String? = null
-        openDashboard(ReferenceSalary()) { opened = it }
+        openDashboard(null) { opened = it }
 
-        compose.onNodeWithTag(UiTags.REFERENCE_SALARY_CARD).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("non renseigné").performScrollTo().assertIsDisplayed()
-        // Other cards legitimately show 0 here (an empty balance): the card itself must not.
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_EXPECTED_SALARY, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("salaire non déclaré").performScrollTo().assertIsDisplayed()
+        // Other parts of the tile legitimately show 0 here (an empty balance): the salary itself must not.
         compose.onNode(
-            hasTestTag(UiTags.REFERENCE_SALARY_CARD) and
+            hasTestTag(UiTags.FINANCE_TILE_EXPECTED_SALARY) and
                 hasAnyDescendant(hasText(formatCents(0), substring = true)),
+            useUnmergedTree = true,
         ).assertDoesNotExist()
 
         compose.onNodeWithTag(UiTags.REFERENCE_SALARY_LINK).performScrollTo().performClick()
