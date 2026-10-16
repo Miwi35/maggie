@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
+import com.maggie.app.data.model.CiqualFood
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -168,5 +169,16 @@ class RecipeFormTest {
         val form = form().addUtensil(UtensilRef(name = "casserole ")).addUtensil(UtensilRef("u-pot", "Casserole"))
 
         assertEquals(1, form.utensils.size)
+    }
+
+    @Test
+    fun `another food on a line takes the line out of the steps that used the old one`() {
+        val form = form()
+        val pastaRow = form.ingredients.first { it.ciqualFoodName == "Pâtes" }
+        val changed = form.withIngredients(form.ingredients.map { if (it == pastaRow) it.withFood(CiqualFood("9999", "Riz")) else it })
+
+        assertEquals("", changed.ingredients.first { it.ciqualFoodName == "Riz" }.ingredientId)
+        assertEquals(emptyList<IngredientRef>(), changed.steps[2].ingredients)
+        assertEquals(1, changed.steps[1].ingredients.size)
     }
 }

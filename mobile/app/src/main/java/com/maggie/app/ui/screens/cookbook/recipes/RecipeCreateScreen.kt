@@ -56,6 +56,10 @@ data class IngredientRow(
     val unit: CookbookUnit = CookbookUnit.G,
 )
 
+/** Another food on the line is another ingredient: the id of the one it had no longer stands for it. */
+internal fun IngredientRow.withFood(food: CiqualFood) =
+    copy(ciqualAlimCode = food.alimCode, ciqualFoodName = food.alimNameFr, ingredientId = "")
+
 @Composable
 fun RecipeCreateScreen(
     viewModel: RecipeCreateViewModel,
@@ -103,7 +107,7 @@ internal fun IngredientRowInput(
     if (showSearchDialog) {
         IngredientSearchDialog(
             onSelect = { food ->
-                onUpdate(row.copy(ciqualAlimCode = food.alimCode, ciqualFoodName = food.alimNameFr))
+                onUpdate(row.withFood(food))
                 showSearchDialog = false
             },
             onDismiss = { showSearchDialog = false },

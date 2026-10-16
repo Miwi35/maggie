@@ -57,10 +57,9 @@ tags:
       id: "recipe_utensil"
     direction: UP
 - tapOn: "Modifier"
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: "recipe_utensil_add"
-    timeout: 20000
 - tapOn:
     id: "recipe_utensil_add"
 - extendedWaitUntil:
@@ -78,9 +77,8 @@ tags:
     id: "recipe_utensil_create"
 
 # Back on the form, the new utensil is among the recipe's; saved, it is on the sheet.
-- extendedWaitUntil:
-    visible: "Mixeur MAG-492"
-    timeout: 20000
+- scrollUntilVisible:
+    element: "Mixeur MAG-492"
 - scrollUntilVisible:
     element:
       id: "recipe_save"

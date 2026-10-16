@@ -81,6 +81,8 @@ internal fun RecipeFormScreen(
     banner: @Composable () -> Unit = {},
 ) {
     var target by remember { mutableStateOf<UtensilTarget?>(null) }
+    // Above the search's early return, so the form comes back where it was left.
+    val scroll = rememberScrollState()
 
     target?.let { searching ->
         UtensilSearchScreen(
@@ -117,7 +119,7 @@ internal fun RecipeFormScreen(
     ) { paddingValues ->
         Column(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
