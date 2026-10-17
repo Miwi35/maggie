@@ -153,6 +153,34 @@ class SettingsViewModel(
         saveTaskSettings(current.copy(eveningTime = time), buildJsonObject { put("eveningTime", time) })
     }
 
+    /** « Rappels et récompenses » (MAG-508): the reward's animation on or off. */
+    fun setRewardAnimation(on: Boolean) {
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.rewardAnimation == on) return
+        saveTaskSettings(current.copy(rewardAnimation = on), buildJsonObject { put("rewardAnimation", on) })
+    }
+
+    /** The short buzz of a task done. */
+    fun setRewardVibration(on: Boolean) {
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.rewardVibration == on) return
+        saveTaskSettings(current.copy(rewardVibration = on), buildJsonObject { put("rewardVibration", on) })
+    }
+
+    /** The little sound of a task done. */
+    fun setRewardSound(on: Boolean) {
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.rewardSound == on) return
+        saveTaskSettings(current.copy(rewardSound = on), buildJsonObject { put("rewardSound", on) })
+    }
+
+    /** The tone of the reward's message: `doux`, `direct` or `drole`. */
+    fun setTone(tone: String) {
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.tone == tone || tone !in TaskSettingsChoices.TONE_LABELS) return
+        saveTaskSettings(current.copy(tone = tone), buildJsonObject { put("tone", tone) })
+    }
+
     /** A « J-n » chip of [urgency]: the day on or off. */
     fun toggleAlertDay(urgency: String, days: Int) = changeAlertRule(urgency) { rule ->
         val next = TaskSettingsChoices.toggleDay(rule, days)

@@ -542,6 +542,20 @@ object UiTags {
 
     fun focusStep(id: String) = FOCUS_STEP_PREFIX + id
 
+    /**
+     * The Bravo (MAG-508): the screen, its green circle, « {titre} · faite », the reward's message,
+     * the day's bar, « Suivante », « Pause méritée » and the étoile filante; out of the day, the banner.
+     */
+    const val BRAVO = "bravo"
+    const val BRAVO_CIRCLE = "bravo_circle"
+    const val BRAVO_TITLE = "bravo_title"
+    const val BRAVO_MESSAGE = "bravo_message"
+    const val BRAVO_DAY_BAR = "bravo_day_bar"
+    const val BRAVO_NEXT = "bravo_next"
+    const val BRAVO_PAUSE = "bravo_pause"
+    const val BRAVO_SHOOTING_STAR = "bravo_shooting_star"
+    const val TASKS_REWARD_BANNER = "tasks_reward_banner"
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 
@@ -864,6 +878,15 @@ object UiTags {
     const val SETTINGS_TASKS_OVERDUE_PREFIX = "settings_tasks_overdue_"
     const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"
     const val SETTINGS_TASKS_SAVED = "settings_tasks_saved"
+
+    /** « Rappels et récompenses » (MAG-508): the three switches and the tone's choice ([settingsTasksTone]). */
+    const val SETTINGS_TASKS_REWARD_ANIMATION = "settings_tasks_reward_animation"
+    const val SETTINGS_TASKS_REWARD_VIBRATION = "settings_tasks_reward_vibration"
+    const val SETTINGS_TASKS_REWARD_SOUND = "settings_tasks_reward_sound"
+    const val SETTINGS_TASKS_TONE_PREFIX = "settings_tasks_tone_"
+
+    /** The tone's segment: `doux`, `direct` or `drole`. */
+    fun settingsTasksTone(tone: String): String = SETTINGS_TASKS_TONE_PREFIX + tone
 
     /** A chip of [urgency]: `d7`, `d3`, `d2`, `d1` for J-n ([days]), `due` for « Jour J » ([days] null). */
     fun settingsTasksChip(urgency: String, days: Int?): String =

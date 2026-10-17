@@ -151,6 +151,12 @@ class RotationNavGraphScreenTest {
                     viewModel { interruption }
                     viewModel { com.maggie.app.ui.screens.shared.SubtasksViewModel(get()) }
                     viewModel { com.maggie.app.ui.screens.tasks.FocusViewModel(get()) }
+                    viewModel {
+                        com.maggie.app.ui.screens.tasks.BravoViewModel(
+                            get(),
+                            com.maggie.app.data.reward.TaskRewards(get(), mockk(relaxed = true)),
+                        )
+                    }
                     viewModel { tasks }
                     single<InterruptionAlert> { InterruptionAlert {} }
                 },
