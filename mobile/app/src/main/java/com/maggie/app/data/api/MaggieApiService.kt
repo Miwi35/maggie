@@ -28,6 +28,8 @@ import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.PeerDebtSummary
 import com.maggie.app.data.model.TransactionDebt
 import com.maggie.app.data.model.TransactionDebtRequest
+import com.maggie.app.data.model.PeerAllocationRequest
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealSettings
 import com.maggie.app.data.model.MealSettingsValues
@@ -1742,6 +1744,24 @@ class MaggieApiService(
     /** The transfer is a recette again; refused (400) once something was given back. */
     suspend fun removeTransactionDebt(transactionId: String): TransactionDebt {
         return client.delete("$baseUrl/api/finance/transactions/$transactionId/debt").orRefusal().body()
+    }
+
+    // Finance — What a transfer to or from someone close is, and the shares it covers (MAG-453)
+    suspend fun getTransactionAllocation(transactionId: String): TransactionAllocation {
+        return client.get("$baseUrl/api/finance/transactions/$transactionId/allocation").orRefusal().body()
+    }
+
+    /** A 400 carries the server's sentence (too much on a share, wrong kind…) in [ApiRefusalException]. */
+    suspend fun setTransactionAllocation(transactionId: String, request: PeerAllocationRequest): TransactionAllocation {
+        return client.put("$baseUrl/api/finance/transactions/$transactionId/allocation") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** Back to unanswered: the shares covered are freed, the dette or créance made goes. */
+    suspend fun removeTransactionAllocation(transactionId: String): TransactionAllocation {
+        return client.delete("$baseUrl/api/finance/transactions/$transactionId/allocation").orRefusal().body()
     }
 
     suspend fun getPeerDebts(): List<PeerDebt> {

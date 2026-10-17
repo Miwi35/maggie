@@ -55,9 +55,21 @@ private const val SHARE_STEP_CENTS = 100
  * the people who owe the rest, split equally until an amount is written by hand.
  */
 @Composable
-internal fun ShareSection(state: TransferDetailState, actions: ShareSheetActions?, debtActions: DebtSheetActions? = null) {
+internal fun ShareSection(
+    state: TransferDetailState,
+    actions: ShareSheetActions?,
+    debtActions: DebtSheetActions? = null,
+    peerActions: PeerTransferActions? = null,
+) {
     val share = state.share
     val transaction = state.transaction
+    // A transfer to or from a contact is first said what it is (MAG-453): its « À rembourser » supersedes
+    // MAG-452's, and money sent already shared keeps its « Partage ».
+    val peer = state.peer
+    if (peer != null && peer.isShown && peerActions != null && !(peer.isOutgoing && transaction.isShared)) {
+        PeerTransferQualifier(peer, peerActions, transaction.currency)
+        return
+    }
     // A received transfer is not shared: it is a recette, or it is given back (MAG-452).
     if (transaction.amountCents > 0 && state.debt != null && debtActions != null) {
         DebtSection(state, debtActions)

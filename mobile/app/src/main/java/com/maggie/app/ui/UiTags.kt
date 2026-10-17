@@ -776,6 +776,36 @@ object UiTags {
     const val TRANSACTION_DEBT_PROBLEM = "transaction_debt_problem"
     const val TRANSACTION_DEBT_SAVE = "transaction_debt_save"
 
+    /**
+     * « Ce virement est » of a transfer to or from a contact (MAG-453), on the sheet and the « À trier » card: one
+     * chip per kind; « Il couvre »'s créances (or dettes) — one row each, its amount — and « Non affecté »; the
+     * person and amount of « À rembourser » / « Nouvelle créance »; what blocks « Enregistrer », and « Enregistrer ».
+     */
+    const val PEER_KIND_INCOME = "peer_kind_income"
+    const val PEER_KIND_REPAYMENT = "peer_kind_repayment"
+    const val PEER_KIND_NEW_DEBT = "peer_kind_new_debt"
+    const val PEER_KIND_NEW_CLAIM = "peer_kind_new_claim"
+    const val PEER_KIND_OTHER = "peer_kind_other"
+    const val PEER_CANDIDATE = "peer_candidate"
+    const val PEER_CANDIDATE_AMOUNT = "peer_candidate_amount"
+    const val PEER_UNALLOCATED = "peer_unallocated"
+    const val PEER_PERSON = "peer_person"
+    const val PEER_AMOUNT = "peer_amount"
+    const val PEER_SUBJECT = "peer_subject"
+    const val PEER_NOTES = "peer_notes"
+    const val PEER_SUMMARY = "peer_summary"
+    const val PEER_PROBLEM = "peer_problem"
+    const val PEER_SAVE = "peer_save"
+
+    /** The chip of one « Ce virement est » choice. */
+    fun peerKind(kind: String): String = when (kind) {
+        "income" -> PEER_KIND_INCOME
+        "repayment" -> PEER_KIND_REPAYMENT
+        "new_debt" -> PEER_KIND_NEW_DEBT
+        "new_claim" -> PEER_KIND_NEW_CLAIM
+        else -> PEER_KIND_OTHER
+    }
+
     /** The full-screen contact picker — a window of its own: its field, one result, « + Créer « … » ». */
     const val CONTACT_PICKER_SEARCH = "contact_picker_search"
     const val CONTACT_PICKER_RESULT = "contact_picker_result"

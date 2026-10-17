@@ -14,6 +14,7 @@ import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.MyShareRequestShare
 import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.TransactionDebt
 import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.formatCents
@@ -70,6 +71,8 @@ data class TransactionUiState(
     val shareContacts: ContactChoice? = null,
     // « Envers qui »: the same full-screen picker, opened from a received transfer's « À rembourser » (MAG-452).
     val debtContacts: ContactChoice? = null,
+    // « Envers qui » / « Qui te doit » of « Ce virement est » (MAG-453): the same picker.
+    val peerContacts: ContactChoice? = null,
 ) {
     /** The name of the event the open line is attributed to, once the envelopes are read. */
     fun oneOffEnvelopeNameOf(transaction: Transaction): String? =
@@ -125,6 +128,8 @@ data class TransferDetailState(
     val share: ShareEditor? = null,
     // « Ce virement est » (MAG-452): read with a received line, null until then and for any other line.
     val debt: DebtEditor? = null,
+    // « Ce virement est » of a transfer to or from a contact (MAG-453): read with any ordinary line, null until then.
+    val peer: PeerTransferEditor? = null,
 )
 
 /** One person of « Qui te doit »: what they owe of the spend. */
@@ -544,6 +549,99 @@ class TransactionViewModel(
         // Only an ordinary line has a « Partage » section to fill: a spend is shared, a received transfer may be given back.
         if (transaction.transferKind == "none") {
             if (transaction.amountCents > 0) loadDebt(transaction) else loadShare(transaction)
+            loadAllocation(transaction)
+        }
+    }
+
+    // Only a transfer to or from a contact shows « Ce virement est »: a failed read leaves the sheet's
+    // other sections as they are, the line simply is not asked.
+    private fun loadAllocation(transaction: Transaction) {
+        viewModelScope.launch {
+            peerDebtRepository.getAllocation(transaction.id).onSuccess { allocation ->
+                updateDetail(transaction.id) { it.copy(peer = PeerTransferEditor.of(allocation, transaction.label)) }
+            }
+        }
+    }
+
+    private fun updatePeer(change: (PeerTransferEditor) -> PeerTransferEditor) {
+        val open = _uiState.value.detail ?: return
+        val peer = open.peer ?: return
+        _uiState.value = _uiState.value.copy(detail = open.copy(peer = change(peer)))
+    }
+
+    /** « Ce virement est »: a choice is a draft until « Enregistrer ». */
+    fun choosePeerKind(kind: String) = updatePeer { it.withKind(kind) }
+
+    /** « Il couvre »: a créance checked takes what it waits for, within what is left; unchecked, it is freed. */
+    fun togglePeerShare(shareId: String) = updatePeer { it.toggle(shareId) }
+
+    fun changePeerShareAmount(shareId: String, cents: Int) = updatePeer { it.withShareAmount(shareId, cents) }
+
+    fun changePeerDebtAmount(cents: Int) = updatePeer { it.withDebtAmount(cents) }
+
+    fun changePeerSubject(text: String) = updatePeer { it.withSubject(text) }
+
+    fun changePeerNotes(text: String) = updatePeer { it.withNotes(text) }
+
+    /** « Enregistrer »: `PUT …/allocation`; the server's answer becomes the editor. */
+    fun savePeer() {
+        val open = _uiState.value.detail ?: return
+        val peer = open.peer ?: return
+        if (!peer.canSave) return
+        val request = peer.toRequest() ?: return
+        val id = open.transaction.id
+        updatePeer { it.copy(isSaving = true, error = null, message = null) }
+        viewModelScope.launch {
+            peerDebtRepository.setAllocation(id, request)
+                .onSuccess { saved -> peerSaved(id, saved) }
+                .onFailure { e -> updateDetail(id) { it.copy(peer = it.peer?.copy(isSaving = false, error = e.message ?: "Enregistrement impossible.")) } }
+        }
+    }
+
+    private fun peerSaved(id: String, saved: TransactionAllocation) {
+        updateDetail(id) {
+            it.copy(
+                transaction = it.transaction.copy(peerKind = saved.peerKind),
+                peer = PeerTransferEditor.of(saved, it.transaction.label, peerSavedMessage(saved.peerKind)),
+            )
+        }
+        // The income of the month and the « À trier » pile follow the answer.
+        refresh()
+    }
+
+    fun clearPeerMessage() = updatePeer { it.copy(message = null) }
+
+    /** « Envers qui » / « Qui te doit »: the full-screen picker, on the owner's contacts. */
+    fun openPeerContactPicker() {
+        if (_uiState.value.detail?.peer == null) return
+        _uiState.value = _uiState.value.copy(peerContacts = ContactChoice())
+        viewModelScope.launch {
+            // No list is no reason to refuse: « + Créer » stays possible.
+            val contacts = contactRepository.getContacts().getOrDefault(emptyList())
+            _uiState.value.peerContacts?.let {
+                _uiState.value = _uiState.value.copy(peerContacts = ContactChoice(isLoading = false, contacts = contacts))
+            }
+        }
+    }
+
+    fun closePeerContactPicker() {
+        _uiState.value = _uiState.value.copy(peerContacts = null)
+    }
+
+    fun pickPeerContact(contact: Contact) {
+        closePeerContactPicker()
+        updatePeer { it.withPerson(contact) }
+    }
+
+    /** « + Créer « Inès » »: the contact is created, then becomes the person of the dette or créance. */
+    fun createPeerContact(name: String) {
+        if (name.isBlank()) return
+        closePeerContactPicker()
+        val id = _uiState.value.detail?.transaction?.id ?: return
+        viewModelScope.launch {
+            contactRepository.createContact(name.trim())
+                .onSuccess { contact -> if (_uiState.value.detail?.transaction?.id == id) pickPeerContact(contact) }
+                .onFailure { e -> updateDetail(id) { it.copy(peer = it.peer?.copy(error = e.message ?: "Création impossible.")) } }
         }
     }
 
@@ -859,7 +957,7 @@ class TransactionViewModel(
 
     fun closeDetail() {
         ruleDraftSession.close()
-        _uiState.value = _uiState.value.copy(detail = null, shareContacts = null, debtContacts = null)
+        _uiState.value = _uiState.value.copy(detail = null, shareContacts = null, debtContacts = null, peerContacts = null)
     }
 
     private fun loadDetailInfo(transactionId: String) {

@@ -16,6 +16,14 @@ import com.maggie.app.data.model.MyShareRequestShare
 import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.PeerDebtShare
+import com.maggie.app.data.model.ContactRef
+import com.maggie.app.data.model.PeerAllocationCandidate
+import com.maggie.app.data.model.PeerAllocationDebt
+import com.maggie.app.data.model.PeerAllocationLine
+import com.maggie.app.data.model.PeerAllocationRequest
+import com.maggie.app.data.model.PeerAllocationRequestLine
+import com.maggie.app.data.model.PeerKind
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.TransactionDebt
 import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.Envelope
@@ -107,6 +115,10 @@ class TransactionViewModelTest {
         coEvery { peerDebtRepository.getDebt(any()) } answers {
             val line = sampleTransactions.firstOrNull { it.id == firstArg() }
             Result.success(TransactionDebt(transactionId = firstArg(), amountCents = line?.amountCents ?: 0, canBeDebt = false))
+        }
+        // A line « Ce virement est » does not ask about, until a test says otherwise (MAG-453).
+        coEvery { peerDebtRepository.getAllocation(any()) } answers {
+            Result.success(TransactionAllocation(transactionId = firstArg(), canBeAllocated = false))
         }
         coEvery { recurringRepository.getRecords() } returns Result.success(emptyList())
         coEvery { authRepository.getUserId() } returns "user-1"
@@ -1932,5 +1944,213 @@ class TransactionViewModelTest {
         assertTrue(debt.isRecorded)
         assertEquals("Tom a déjà remboursé 100 €", debt.error)
         assertFalse(debt.isSaving)
+    }
+
+    // « Ce virement est » (MAG-453): 400 € received from Tom, who owes 200 € on the gîte and 50 € on a ticket.
+
+    private val tomTransfer = Transaction(id = "tx-tom", label = "VIR. DE TOM MARTIN", amountCents = 40000)
+
+    private val giteShare = PeerAllocationCandidate(
+        shareId = "share-gite", peerDebtId = "debt-gite", `object` = "Gîte de Crozon", contactId = "c-tom", contactName = "Tom",
+        amountCents = 20000, remainingCents = 20000, availableCents = 20000, fromContact = true,
+    )
+    private val ticketShare = PeerAllocationCandidate(
+        shareId = "share-ticket", peerDebtId = "debt-ticket", `object` = "Ciné", contactId = "c-julie", contactName = "Julie",
+        amountCents = 5000, remainingCents = 5000, availableCents = 5000,
+    )
+
+    private fun tomAllocation(kind: String? = null, giteCents: Int = 0) = TransactionAllocation(
+        transactionId = "tx-tom",
+        amountCents = 40000,
+        direction = PeerKind.INCOMING,
+        canBeAllocated = true,
+        peerKind = kind,
+        contact = ContactRef("c-tom", "Tom"),
+        allocatedCents = giteCents,
+        unallocatedCents = 40000 - giteCents,
+        allocations = if (giteCents > 0) listOf(PeerAllocationLine("share-gite", "debt-gite", giteCents)) else emptyList(),
+        candidates = listOf(giteShare.copy(allocatedCents = giteCents), ticketShare),
+    )
+
+    private fun kotlinx.coroutines.test.TestScope.openTomTransfer(allocation: TransactionAllocation = tomAllocation()) {
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(tomTransfer))
+        coEvery { transactionRepository.getTransfer("tx-tom") } returns Result.success(TransferInfo())
+        coEvery { peerDebtRepository.getDebt("tx-tom") } returns Result.success(TransactionDebt("tx-tom", 40000, canBeDebt = true))
+        coEvery { peerDebtRepository.getAllocation("tx-tom") } returns Result.success(allocation)
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-tom")
+        advanceUntilIdle()
+    }
+
+    private val peer get() = viewModel.uiState.value.detail!!.peer!!
+
+    @Test
+    fun `a transfer from a contact asks what it is, the contact's créances first and nothing checked`() = runTest {
+        openTomTransfer()
+
+        assertTrue(peer.isShown)
+        assertNull(peer.kind)
+        assertFalse(peer.canSave)
+        assertEquals(listOf("share-gite", "share-ticket"), peer.choices.map { it.candidate.shareId })
+        assertTrue(peer.choices.none { it.selected })
+        assertEquals(listOf(PeerKind.INCOME, PeerKind.REPAYMENT, PeerKind.NEW_DEBT), PeerKind.choicesFor(peer.direction))
+    }
+
+    @Test
+    fun `a transfer from nobody in particular is not asked`() = runTest {
+        openTomTransfer(tomAllocation().copy(contact = null))
+
+        assertFalse(peer.isShown)
+    }
+
+    @Test
+    fun `choosing Un remboursement waits for a créance to be checked`() = runTest {
+        openTomTransfer()
+
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+
+        assertEquals(PeerKind.REPAYMENT, peer.kind)
+        assertFalse(peer.canSave)
+        assertEquals("Coche au moins une créance qu'il couvre.", peer.problem)
+        assertEquals(40000, peer.unallocatedCents)
+    }
+
+    @Test
+    fun `checking the gîte covers Tom's 200 €, the other 200 € stay Non affecté`() = runTest {
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+
+        viewModel.togglePeerShare("share-gite")
+
+        assertEquals(20000, peer.choices.first { it.candidate.shareId == "share-gite" }.amountCents)
+        assertEquals(20000, peer.unallocatedCents)
+        assertTrue(peer.canSave)
+
+        viewModel.togglePeerShare("share-gite")
+
+        assertFalse(peer.choices.first().selected)
+        assertEquals(40000, peer.unallocatedCents)
+    }
+
+    @Test
+    fun `the amount on a créance stays within what it waits for`() = runTest {
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+        viewModel.togglePeerShare("share-gite")
+
+        viewModel.changePeerShareAmount("share-gite", 15000)
+        assertEquals(25000, peer.unallocatedCents)
+
+        viewModel.changePeerShareAmount("share-gite", 99999)
+        assertEquals(20000, peer.allocatedCents)
+
+        viewModel.changePeerShareAmount("share-gite", 0)
+        assertFalse(peer.canSave)
+        assertEquals("Chaque montant doit être positif.", peer.problem)
+    }
+
+    @Test
+    fun `saving a repayment sends the créances covered and reads the answer back`() = runTest {
+        val sent = slot<PeerAllocationRequest>()
+        coEvery { peerDebtRepository.setAllocation("tx-tom", capture(sent)) } returns
+            Result.success(tomAllocation(PeerKind.REPAYMENT, giteCents = 20000))
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+        viewModel.togglePeerShare("share-gite")
+
+        viewModel.savePeer()
+        assertTrue(peer.isSaving)
+        advanceUntilIdle()
+
+        assertEquals(PeerAllocationRequest(PeerKind.REPAYMENT, allocations = listOf(PeerAllocationRequestLine("share-gite", 20000))), sent.captured)
+        assertFalse(peer.isSaving)
+        assertEquals(PeerKind.REPAYMENT, peer.savedKind)
+        assertTrue(peer.choices.first().selected)
+        assertEquals(20000, peer.unallocatedCents)
+        assertEquals("Remboursement enregistré", peer.message)
+        // The list is read again: the month's income and the pill follow the answer.
+        coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    @Test
+    fun `A rembourser proposes the transfer's contact and sends a dette through the allocation`() = runTest {
+        val sent = slot<PeerAllocationRequest>()
+        coEvery { peerDebtRepository.setAllocation("tx-tom", capture(sent)) } returns Result.success(tomAllocation(PeerKind.NEW_DEBT))
+        openTomTransfer()
+
+        viewModel.choosePeerKind(PeerKind.NEW_DEBT)
+        assertEquals("Tom", peer.personName)
+        viewModel.changePeerDebtAmount(28000)
+        viewModel.changePeerSubject(" Avance ")
+        viewModel.savePeer()
+        advanceUntilIdle()
+
+        assertEquals(PeerAllocationRequest(PeerKind.NEW_DEBT, debt = PeerAllocationDebt("c-tom", 28000, "Avance")), sent.captured)
+        assertEquals("Dette enregistrée", peer.message)
+        coVerify(exactly = 0) { peerDebtRepository.recordDebt(any(), any()) }
+    }
+
+    @Test
+    fun `the person of a dette is picked in the full-screen picker`() = runTest {
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.NEW_DEBT)
+
+        viewModel.openPeerContactPicker()
+        assertTrue(viewModel.uiState.value.peerContacts!!.isLoading)
+        advanceUntilIdle()
+        viewModel.pickPeerContact(julie)
+
+        assertNull(viewModel.uiState.value.peerContacts)
+        assertEquals("c-julie", peer.personId)
+    }
+
+    @Test
+    fun `a refused answer says the server's words and keeps the draft`() = runTest {
+        coEvery { peerDebtRepository.setAllocation("tx-tom", any()) } returns Result.failure(RuntimeException("Trop sur cette créance"))
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+        viewModel.togglePeerShare("share-gite")
+
+        viewModel.savePeer()
+        advanceUntilIdle()
+
+        assertEquals("Trop sur cette créance", peer.error)
+        assertFalse(peer.isSaving)
+        assertNull(peer.savedKind)
+        assertTrue(peer.choices.first().selected)
+        assertTrue(peer.canSave)
+    }
+
+    @Test
+    fun `a transfer already allocated opens with its créance checked, and Une recette held has nothing new to send`() = runTest {
+        openTomTransfer(tomAllocation(PeerKind.REPAYMENT, giteCents = 20000))
+
+        assertEquals(PeerKind.REPAYMENT, peer.kind)
+        assertEquals(20000, peer.choices.first().amountCents)
+        assertEquals(20000, peer.unallocatedCents)
+
+        viewModel.choosePeerKind(PeerKind.INCOME)
+        assertTrue(peer.canSave)
+    }
+
+    @Test
+    fun `money sent offers to repay a dette, a new créance or something else`() = runTest {
+        val sent = slot<PeerAllocationRequest>()
+        coEvery { peerDebtRepository.setAllocation("tx-tom", capture(sent)) } answers {
+            Result.success(tomAllocation(PeerKind.NEW_CLAIM).copy(direction = PeerKind.OUTGOING, amountCents = -40000))
+        }
+        openTomTransfer(tomAllocation().copy(direction = PeerKind.OUTGOING, amountCents = -40000, candidates = emptyList()))
+
+        assertEquals(listOf(PeerKind.REPAYMENT, PeerKind.NEW_CLAIM, PeerKind.OTHER), PeerKind.choicesFor(peer.direction))
+        viewModel.choosePeerKind(PeerKind.NEW_CLAIM)
+        assertEquals("Crée une créance de ${formatCents(40000)} sur Tom, dans « On te doit »", peer.summary())
+        viewModel.savePeer()
+        advanceUntilIdle()
+
+        assertEquals(PeerKind.NEW_CLAIM, sent.captured.kind)
+        assertEquals("c-tom", sent.captured.claim?.contactId)
+        assertEquals("Créance enregistrée", peer.message)
     }
 }

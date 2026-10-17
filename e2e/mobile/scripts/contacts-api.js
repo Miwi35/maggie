@@ -15,8 +15,13 @@
 // MAG-452 reads the month's income back: `income` fails unless the dashboard counts exactly
 // EXPECTED_CENTS this month, which is how the journey knows the part to give back left it.
 //
+// MAG-453 allocates a received transfer: `allocation` writes the créance « Gîte de Crozon » (a spend of
+// 400 € in « Voyages », my part 200 €, Tom owing the other 200 €) and a third transfer from Tom of 400 €,
+// filed and dated the day before so it is the oldest card of « À trier »; `allocated` waits until Tom's
+// share of the gîte is settled and checks the transfer leaves 200 € « Non affecté ».
+//
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION          create | second | share | income | remove
+//   ACTION          create | second | share | income | allocation | allocated | remove
 //   EXPECTED_CENTS  income only: the month's income, in cents
 //
 // Everything is the journey's own — the account named after the ticket, the contacts « Tom »,
@@ -32,6 +37,9 @@ const label = 'VIR. DE TOM MARTIN'
 const sharingNames = ['Julie', 'Inès']
 const categoryName = 'Voyages'
 const giteLabel = 'GITE DES CIMES MAG-451'
+// MAG-453: the créance a transfer from Tom repays.
+const crozonLabel = 'GITE DE CROZON MAG-453'
+const crozonObject = 'Gîte de Crozon'
 
 function fail(message) {
   throw new Error('[contacts-api] ' + ACTION + ': ' + message)
@@ -68,6 +76,33 @@ function post(path, body) {
 
 function remove(iri) {
   http.request(base + iri, { method: 'DELETE', headers: authorized() })
+}
+
+function put(path, body) {
+  const response = http.request(base + path, {
+    method: 'PUT',
+    headers: authorized({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    fail('PUT ' + path + ' answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body)
+}
+
+function getJson(path) {
+  const response = http.get(base + path, { headers: authorized() })
+  if (!response.ok) {
+    fail('GET ' + path + ' answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body)
+}
+
+// The day before TODAY, so the transfer comes first in « À trier », oldest first.
+function dayBefore(day) {
+  const date = new Date(day + 'T12:00:00Z')
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().substring(0, 10)
 }
 
 function account() {
@@ -111,6 +146,16 @@ function awaitOne(path, name) {
 // go with them), the account with its lines, and « Voyages » with its envelope.
 function removeLeftovers() {
   const people = [contactName].concat(sharingNames)
+  // MAG-453: the allocations first, which free the shares they repaid and take the dettes they made.
+  collection('/api/accounts?itemsPerPage=200')
+    .filter(function (a) { return a.name === accountName })
+    .forEach(function (a) {
+      collection('/api/transactions?itemsPerPage=200&account=' + encodeURIComponent(a['@id']))
+        .filter(function (line) { return line.peerKind })
+        .forEach(function (line) {
+          http.request(base + '/api/finance/transactions/' + line.id + '/allocation', { method: 'DELETE', headers: authorized() })
+        })
+    })
   collection('/api/peer_debts')
     .filter(function (debt) {
       return debt.originTransactionId && debt.shares.some(function (share) { return people.indexOf(share.contactName) >= 0 })
@@ -190,6 +235,69 @@ if (ACTION === 'create') {
   const income = flow ? flow.incomeCents : 0
   if (income !== parseInt(EXPECTED_CENTS, 10)) {
     fail('the income of ' + month + ' is ' + income + ' cents, expected ' + EXPECTED_CENTS)
+  }
+} else if (ACTION === 'allocation') {
+  const existing = account()
+  if (!existing) {
+    fail('no account « ' + accountName + ' »: run create first')
+  }
+  const voyages = awaitOne('/api/categories?itemsPerPage=200', categoryName)
+  const tom = awaitOne('/api/contacts?pagination=false', contactName)
+  const crozon = post('/api/transactions', {
+    account: existing['@id'],
+    category: '/api/categories/' + voyages.id,
+    label: crozonLabel,
+    amountCents: -40000,
+    currency: 'EUR',
+    bookedAt: TODAY,
+    status: 'spent',
+  })
+  put('/api/finance/transactions/' + crozon.id + '/my-share', {
+    myShareCents: 20000,
+    object: crozonObject,
+    shares: [{ contactId: tom.id }],
+  })
+  const received = post('/api/transactions', {
+    account: existing['@id'],
+    category: '/api/categories/' + voyages.id,
+    label: label,
+    amountCents: 40000,
+    currency: 'EUR',
+    bookedAt: dayBefore(TODAY),
+    status: 'spent',
+  })
+  if (!received.contact) {
+    fail('the third transfer was not attached to ' + contactName + ': ' + JSON.stringify(received))
+  }
+  output.allocatedTransferId = received.id
+} else if (ACTION === 'allocated') {
+  // Handed over by `allocation`; else found again: the only filed transfer from Tom.
+  let transferId = output.allocatedTransferId
+  if (!transferId) {
+    const existing = account()
+    const filed = existing
+      ? collection('/api/transactions?itemsPerPage=200&account=' + encodeURIComponent(existing['@id']))
+        .filter(function (line) { return line.label === label && line.category && line.amountCents === 40000 })
+      : []
+    if (filed.length !== 1) {
+      fail('no single transfer to check (found ' + filed.length + '): run allocation first')
+    }
+    transferId = filed[0].id
+  }
+  const deadline = Date.now() + 30000
+  for (;;) {
+    const allocation = getJson('/api/finance/transactions/' + transferId + '/allocation')
+    const gite = allocation.candidates.filter(function (c) { return c.object === crozonObject })[0]
+    if (allocation.peerKind === 'repayment' && gite && gite.remainingCents === 0) {
+      if (allocation.unallocatedCents !== 20000) {
+        fail('the transfer leaves ' + allocation.unallocatedCents + ' cents « Non affecté », expected 20000')
+      }
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('Tom\'s share of the gîte was never settled: ' + JSON.stringify(allocation))
+    }
+    pause(300)
   }
 } else if (ACTION === 'remove') {
   removeLeftovers()

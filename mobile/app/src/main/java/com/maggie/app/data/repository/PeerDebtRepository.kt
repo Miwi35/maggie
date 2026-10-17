@@ -3,6 +3,8 @@ package com.maggie.app.data.repository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
+import com.maggie.app.data.model.PeerAllocationRequest
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.PeerDebtSummary
 import com.maggie.app.data.model.TransactionDebt
@@ -37,6 +39,19 @@ class PeerDebtRepository(
 
     suspend fun removeDebt(transactionId: String): Result<TransactionDebt> = runCatching {
         apiService.removeTransactionDebt(transactionId)
+    }.rethrowCancellation()
+
+    /** What a transfer to or from someone close is, and the shares it covers (MAG-453). */
+    suspend fun getAllocation(transactionId: String): Result<TransactionAllocation> = runCatching {
+        apiService.getTransactionAllocation(transactionId)
+    }.rethrowCancellation()
+
+    suspend fun setAllocation(transactionId: String, request: PeerAllocationRequest): Result<TransactionAllocation> = runCatching {
+        apiService.setTransactionAllocation(transactionId, request)
+    }.rethrowCancellation()
+
+    suspend fun removeAllocation(transactionId: String): Result<TransactionAllocation> = runCatching {
+        apiService.removeTransactionAllocation(transactionId)
     }.rethrowCancellation()
 
     suspend fun getPeerDebts(): Result<List<PeerDebt>> = runCatching {

@@ -20,6 +20,7 @@ import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -62,6 +63,7 @@ class ToSortScreenTest {
 
     private val transactions = mockk<TransactionRepository>()
     private val contactRepository = mockk<ContactRepository>()
+    private val peerDebts = mockk<PeerDebtRepository>()
 
     private fun viewModel(pile: List<TransactionToSort> = listOf(carrefour)): ToSortViewModel {
         coEvery { transactions.setRetrospect(any(), any()) } returns Result.success(Unit)
@@ -70,7 +72,7 @@ class ToSortScreenTest {
         coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(pile.size, pile))
         coEvery { transactions.sortToCategory(any(), any(), any()) } returns Result.success(SortResult(success = true))
 
-        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository)
+        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository, peerDebts)
     }
 
     @Test

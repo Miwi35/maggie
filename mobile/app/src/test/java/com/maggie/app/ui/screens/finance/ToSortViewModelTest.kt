@@ -20,9 +20,17 @@ import com.maggie.app.data.model.SortedRule
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.PeerAllocationCandidate
+import com.maggie.app.data.model.PeerAllocationRequest
+import com.maggie.app.data.model.PeerAllocationRequestLine
+import com.maggie.app.data.model.PeerKind
+import com.maggie.app.data.model.TO_SORT_REASON_CATEGORY
+import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -52,6 +60,7 @@ class ToSortViewModelTest {
     private lateinit var categories: CategoryRepository
     private lateinit var rules: CategorizationRuleRepository
     private lateinit var contacts: ContactRepository
+    private lateinit var peerDebts: PeerDebtRepository
 
     private val carrefour = TransactionToSort(
         id = "tx-1",
@@ -95,6 +104,7 @@ class ToSortViewModelTest {
         categories = mockk()
         rules = mockk()
         contacts = mockk()
+        peerDebts = mockk()
         coEvery { contacts.getContacts() } returns Result.success(listOf(tom))
         coEvery { categories.getCategories() } returns Result.success(categoryList)
         coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(2, listOf(carrefour, unknown)))
@@ -105,7 +115,7 @@ class ToSortViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun load() = ToSortViewModel(transactions, categories, rules, contacts)
+    private fun load() = ToSortViewModel(transactions, categories, rules, contacts, peerDebts)
 
     @Test
     fun `the pile is loading until the server has answered`() = runTest {
@@ -716,5 +726,130 @@ class ToSortViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { contacts.link("c-tom", "VIR. DE TOM MARTIN") }
+    }
+
+    // « Ce virement est » on the card (MAG-453): Tom's 400 €, filed already, Tom owing 200 € on the gîte.
+
+    private val tomRepayment = TransactionToSort(
+        id = "tx-4",
+        label = "VIR. DE TOM MARTIN",
+        amountCents = 40000,
+        bookedAt = "2026-10-09",
+        contact = ContactRef("c-tom", "Tom"),
+        reason = TO_SORT_REASON_PEER_TRANSFER,
+        asksForPeerKind = true,
+    )
+
+    private val tomAllocation = TransactionAllocation(
+        transactionId = "tx-4",
+        amountCents = 40000,
+        canBeAllocated = true,
+        contact = ContactRef("c-tom", "Tom"),
+        unallocatedCents = 40000,
+        candidates = listOf(
+            PeerAllocationCandidate(
+                shareId = "share-gite", `object` = "Gîte de Crozon", contactId = "c-tom", contactName = "Tom",
+                amountCents = 20000, remainingCents = 20000, availableCents = 20000, fromContact = true,
+            ),
+        ),
+    )
+
+    private fun kotlinx.coroutines.test.TestScope.loadTomFirst(line: TransactionToSort = tomRepayment): ToSortViewModel {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(2, listOf(line, carrefour)))
+        coEvery { peerDebts.getAllocation("tx-4") } returns Result.success(tomAllocation)
+        val viewModel = load()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `a transfer from a contact asks Ce virement est, with the créances it may cover`() = runTest {
+        val viewModel = loadTomFirst()
+
+        val peer = viewModel.uiState.value.currentPeer
+        assertNotNull(peer)
+        assertEquals("tx-4", peer!!.transactionId)
+        assertEquals(listOf("Gîte de Crozon"), peer.choices.map { it.candidate.`object` })
+        assertNull(peer.kind)
+    }
+
+    @Test
+    fun `a line that does not ask reads no allocation`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.currentPeer)
+        coVerify(exactly = 0) { peerDebts.getAllocation(any()) }
+    }
+
+    @Test
+    fun `allocating the transfer to the gîte saves it and brings the next card`() = runTest {
+        val sent = slot<PeerAllocationRequest>()
+        coEvery { peerDebts.setAllocation("tx-4", capture(sent)) } returns
+            Result.success(tomAllocation.copy(peerKind = PeerKind.REPAYMENT, allocatedCents = 20000, unallocatedCents = 20000))
+        val viewModel = loadTomFirst()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+        viewModel.togglePeerShare("share-gite")
+        assertEquals(20000, viewModel.uiState.value.currentPeer!!.unallocatedCents)
+        // The server's next read no longer has the line.
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(1, listOf(carrefour)))
+
+        viewModel.savePeer()
+        assertTrue(viewModel.uiState.value.currentPeer!!.isSaving)
+        advanceUntilIdle()
+
+        assertEquals(PeerAllocationRequest(PeerKind.REPAYMENT, allocations = listOf(PeerAllocationRequestLine("share-gite", 20000))), sent.captured)
+        assertEquals("tx-1", viewModel.uiState.value.current?.id)
+        assertNull(viewModel.uiState.value.currentPeer)
+        assertEquals("Remboursement enregistré", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a line still without a category stays once answered, without the question`() = runTest {
+        coEvery { peerDebts.setAllocation("tx-4", any()) } returns Result.success(tomAllocation.copy(peerKind = PeerKind.INCOME))
+        val viewModel = loadTomFirst(tomRepayment.copy(reason = TO_SORT_REASON_CATEGORY))
+        viewModel.choosePeerKind(PeerKind.INCOME)
+        // The server keeps it in the pile, the question answered.
+        coEvery { transactions.getToSort(oldestFirst = true) } returns
+            Result.success(ToSortPile(2, listOf(tomRepayment.copy(reason = TO_SORT_REASON_CATEGORY, asksForPeerKind = false), carrefour)))
+
+        viewModel.savePeer()
+        advanceUntilIdle()
+
+        assertEquals("tx-4", viewModel.uiState.value.current?.id)
+        assertFalse(viewModel.uiState.value.current!!.asksForPeerKind)
+        assertNull(viewModel.uiState.value.currentPeer)
+    }
+
+    @Test
+    fun `a refused answer keeps the card and its draft, with the server's words`() = runTest {
+        coEvery { peerDebts.setAllocation("tx-4", any()) } returns Result.failure(ApiRefusalException(400, "Trop sur cette créance"))
+        val viewModel = loadTomFirst()
+        viewModel.choosePeerKind(PeerKind.REPAYMENT)
+        viewModel.togglePeerShare("share-gite")
+
+        viewModel.savePeer()
+        advanceUntilIdle()
+
+        val peer = viewModel.uiState.value.currentPeer!!
+        assertEquals("tx-4", viewModel.uiState.value.current?.id)
+        assertEquals("Trop sur cette créance", peer.error)
+        assertFalse(peer.isSaving)
+        assertTrue(peer.choices.single().selected)
+    }
+
+    @Test
+    fun `the person of a new dette is picked in the full-screen picker`() = runTest {
+        val viewModel = loadTomFirst()
+        viewModel.choosePeerKind(PeerKind.NEW_DEBT)
+        assertEquals("Tom", viewModel.uiState.value.currentPeer!!.personName)
+
+        viewModel.openPeerContactPicker()
+        advanceUntilIdle()
+        assertEquals(listOf("Tom"), viewModel.uiState.value.peerContacts!!.contacts.map { it.name })
+        viewModel.pickPeerContact(Contact("c-julie", "Julie"))
+
+        assertNull(viewModel.uiState.value.peerContacts)
+        assertEquals("c-julie", viewModel.uiState.value.currentPeer!!.personId)
     }
 }

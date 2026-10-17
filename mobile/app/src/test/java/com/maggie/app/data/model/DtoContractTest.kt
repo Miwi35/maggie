@@ -300,6 +300,8 @@ class DtoContractTest {
         assertEquals(listOf("VIR INST DE RECORDED TOM"), pile.transactions.filter { it.asksForContact }.map { it.label })
         assertTrue("counterpartyLabel fell back to its default", pile.transactions.all { it.counterpartyLabel.isNotEmpty() })
         // ContactRef (id, name) is not proved here: no recorded line has a contact yet.
+        // MAG-453: every line says why it waits; reason and asksForPeerKind are proved by the declared fields above.
+        assertTrue("reason fell back to its default", pile.transactions.all { it.reason.isNotEmpty() })
     }
 
     @Test
@@ -382,6 +384,25 @@ class DtoContractTest {
         assertEquals(PeerDebt.DIRECTION_I_OWE, debt.peerDebt?.direction)
         assertEquals(28000, debt.peerDebt?.amountCents)
         assertEquals(debt.suggestedContactId, debt.peerDebt?.shares?.single()?.contactId)
+    }
+
+    @Test
+    fun `a transfer's allocation deserialises from the recorded response, with what it covers and what it may (MAG-453)`() {
+        val name = "finance_transaction_allocation.read"
+        assertItemContract(name, serializer<TransactionAllocation>(), "TransactionAllocation")
+        val body = readRecording(name)
+        assertDeclaredFieldsExist("PeerAllocationCandidate", serializer<PeerAllocationCandidate>(), keysOf(body, "candidates"), name)
+        assertDeclaredFieldsExist("PeerAllocationLine", serializer<PeerAllocationLine>(), keysOf(body, "allocations"), name)
+        assertDeclaredFieldsExist("ContactRef", serializer<ContactRef>(), body["contact"]!!.jsonObject.keys, name)
+
+        val allocation = json.decodeFromJsonElement(serializer<TransactionAllocation>(), body)
+        assertTrue("canBeAllocated fell back to its default", allocation.canBeAllocated)
+        assertTrue("no recorded candidate: the créances it may cover are not proved", allocation.candidates.isNotEmpty())
+        assertTrue("no recorded allocation: what it covers is not proved", allocation.allocations.isNotEmpty())
+        assertTrue("availableCents fell back to its default", allocation.candidates.all { it.availableCents > 0 })
+        if (allocation.direction == PeerKind.INCOMING) {
+            assertEquals(kotlin.math.abs(allocation.amountCents), allocation.allocatedCents + allocation.unallocatedCents)
+        }
     }
 
     @Test

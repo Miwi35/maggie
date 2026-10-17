@@ -75,6 +75,8 @@ class TransactionSheetActions(
     val share: ShareSheetActions? = null,
     // « Ce virement est » of a received transfer (MAG-452): a draft until its own « Enregistrer ».
     val debt: DebtSheetActions? = null,
+    // « Ce virement est » of a transfer to or from a contact (MAG-453): a draft until its own « Enregistrer ».
+    val peer: PeerTransferActions? = null,
 )
 
 /**
@@ -142,7 +144,7 @@ fun TransactionDetailScreen(
                         TransactionSheetSection.Nature -> NatureSection(state, actions)
                         TransactionSheetSection.Classement -> ClassementSection(state, actions, categories, provenance, oneOffEnvelopeName)
                         TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
-                        TransactionSheetSection.Partage -> ShareSection(state, actions.share, actions.debt)
+                        TransactionSheetSection.Partage -> ShareSection(state, actions.share, actions.debt, actions.peer)
                         TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
                         TransactionSheetSection.Note -> NoteSection(state, actions)
                     }

@@ -355,7 +355,7 @@ class MaggieApp : Application() {
             viewModel { EnvelopeAdjustmentsViewModel(get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
             viewModel { RuleSuggestionViewModel(get(), get()) }
-            viewModel { ToSortViewModel(get(), get(), get(), get()) }
+            viewModel { ToSortViewModel(get(), get(), get(), get(), get()) }
             viewModel { ToQualifyViewModel(get(), get(), get()) }
             viewModel { ContactViewModel(get(), get()) }
             viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
