@@ -53,6 +53,10 @@
     },
     "morningTime": "08:00",
     "eveningTime": "21:00",
+    "rewardAnimation": true,
+    "rewardVibration": true,
+    "rewardSound": true,
+    "tone": "doux",
     "defaults": {
         "orderWeights": {
             "timePressure": {
@@ -106,6 +110,10 @@
             }
         },
         "morningTime": "08:00",
-        "eveningTime": "21:00"
+        "eveningTime": "21:00",
+        "rewardAnimation": true,
+        "rewardVibration": true,
+        "rewardSound": true,
+        "tone": "doux"
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Contract;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Enum\RecurrencePeriod;
@@ -605,6 +606,40 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/day_reviews.read.json',
             self::stabilise($body),
             sprintf('GET %s no longer returns what it used to. The mobile DTOs (DayReview.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
+     * The bravo of a task done (MAG-508), as `/api/rewards/task/{id}` sends it
+     * once the task is ticked: a shooting star, the task having waited a month.
+     * The message is drawn by chance among three: the recording keeps the first.
+     */
+    public function testTheRewardRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+        $taskId = (string) $this->getFixture('recorded_open_task')->getId();
+
+        $this->client->request('PATCH', '/api/tasks/'.$taskId, [], [], array_merge(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()), json_encode(['completedAt' => '2026-04-22T12:00:00+00:00'], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $path = '/api/rewards/task/'.$taskId;
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame('waited', $body['surprise'], 'The recorded reward is no surprise, so it proves nothing about `surprise`.');
+        self::assertMatchesRegularExpression('/^waited\.[1-3]$/', $body['messageKey']);
+        $body['messageKey'] = 'waited.1';
+        $body['message'] = str_replace('{jours}', '33', RewardMessages::SURPRISES['waited'][0]);
+
+        $this->assertMatchesContract(
+            'responses/rewards.read.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (Reward.kt) are written against this response.', $path),
         );
     }
 
