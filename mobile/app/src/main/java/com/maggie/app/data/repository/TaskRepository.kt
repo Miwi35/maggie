@@ -11,7 +11,9 @@ import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DaySlotRequest
+import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.util.rethrowCancellation
@@ -124,6 +126,16 @@ class TaskRepository(
     /** The user's evening time, `HH:MM` (« Réglages › Tâches », MAG-500). */
     suspend fun getEveningTime(): Result<String> = runCatching {
         apiService.getTaskSettings().eveningTime
+    }.rethrowCancellation()
+
+    /** The user's task settings, for how a task done is rewarded (MAG-508). */
+    suspend fun getTaskSettings(): Result<TaskSettings> = runCatching {
+        apiService.getTaskSettings()
+    }.rethrowCancellation()
+
+    /** The reward ticking [taskId] earned (MAG-508); `null` when it earned none. */
+    suspend fun getTaskReward(taskId: String): Result<Reward?> = runCatching {
+        apiService.getReward(Reward.SUBJECT_TASK, taskId)
     }.rethrowCancellation()
 
     /** The evening's review of [date] (MAG-500), created empty on its first read. */

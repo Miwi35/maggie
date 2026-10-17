@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The task settings (MAG-406, MAG-407, MAG-500), created on first read. Written here and not
+ * The task settings (MAG-406, MAG-407, MAG-500, MAG-508), created on first read. Written here and not
  * through an API Platform `Patch` on an identifier-less path, which would
  * build a fresh entity (MeOperationContractTest). The PUT applies the fields
  * it is sent, and in `orderWeights` the weights it is sent: the others keep
@@ -29,7 +29,7 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 final class TaskSettingsController
 {
-    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime', 'eveningTime'];
+    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime', 'eveningTime', 'rewardAnimation', 'rewardVibration', 'rewardSound', 'tone'];
 
     public function __construct(
         private readonly Security $security,
@@ -127,6 +127,10 @@ final class TaskSettingsController
                 alertSchedule: $body['alertSchedule'] ?? null,
                 morningTime: $body['morningTime'] ?? null,
                 eveningTime: $body['eveningTime'] ?? null,
+                rewardAnimation: $body['rewardAnimation'] ?? null,
+                rewardVibration: $body['rewardVibration'] ?? null,
+                rewardSound: $body['rewardSound'] ?? null,
+                tone: $body['tone'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             // A refused value is the caller's; anything else is ours, and not theirs to read.

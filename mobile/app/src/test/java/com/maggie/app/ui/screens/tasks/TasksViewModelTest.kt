@@ -17,7 +17,11 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.model.TaskViewResponse
+import com.maggie.app.data.model.Reward
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.reward.Celebration
+import com.maggie.app.data.reward.RewardFeedback
+import com.maggie.app.data.reward.TaskRewards
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -53,6 +57,7 @@ class TasksViewModelTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
+    private lateinit var feedback: RewardFeedback
     private val pushes = MutableSharedFlow<MercureEvent>()
     private val dayPushes = MutableSharedFlow<MercureEvent>()
 
@@ -75,6 +80,10 @@ class TasksViewModelTest {
         taskRepository = mockk()
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
+        feedback = mockk(relaxed = true)
+        // No reward unless a test says so.
+        coEvery { taskRepository.getTaskReward(any()) } returns Result.success(null)
+        coEvery { taskRepository.getTaskSettings() } returns Result.failure(IllegalStateException("offline"))
         every { authRepository.token } returns flowOf("test-jwt")
         coEvery { authRepository.getUserId() } returns "u1"
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
@@ -96,7 +105,7 @@ class TasksViewModelTest {
     private var clockDay = LocalDate.of(2026, 10, 15)
 
     private fun createViewModel(now: LocalTime = LocalTime.of(10, 0)) =
-        TasksViewModel(taskRepository, mercureService, authRepository, today = { clockDay }, now = { now })
+        TasksViewModel(taskRepository, mercureService, authRepository, TaskRewards(taskRepository, feedback), today = { clockDay }, now = { now })
 
     private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
         DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
@@ -339,6 +348,52 @@ class TasksViewModelTest {
 
         coVerify { taskRepository.toggleDone("t1", true) }
         assertEquals(listOf("t2"), viewModel.uiState.value.tasks.map { it.id })
+    }
+
+    private val reward = Reward(
+        id = "rw1",
+        subjectType = "task",
+        subjectId = "t1",
+        level = "standard",
+        messageKey = "doux.2",
+        message = "Une de moins. Tu avances.",
+        star = true,
+        earnedAt = "2026-10-15T08:00:00+00:00",
+    )
+
+    @Test
+    fun `a task ticked out of the day shows its reward as a banner, which goes away (MAG-508)`() = runTest {
+        coEvery { taskRepository.toggleDone("t1", true) } returns Result.success(late.copy(completedAt = "2026-10-15T08:00:00Z"))
+        coEvery { taskRepository.getTaskReward("t1") } returns Result.success(reward)
+        serve(TaskView.UPCOMING, late, canteen)
+        val viewModel = createViewModel()
+        viewModel.selectView(TaskView.UPCOMING)
+        advanceUntilIdle()
+
+        viewModel.toggleDone(late)
+        advanceUntilIdle()
+
+        assertEquals(Celebration(reward, animate = true), viewModel.uiState.value.reward)
+        // Out of the day: a banner, never the Bravo.
+        assertNull(viewModel.uiState.value.bravo)
+        viewModel.dismissReward()
+        assertNull(viewModel.uiState.value.reward)
+    }
+
+    @Test
+    fun `unticking a task out of the day reads no reward (MAG-508)`() = runTest {
+        val done = task("t5", "Sortir les poubelles", completedAt = "2026-10-14T20:15:00Z")
+        serve(TaskView.DONE, done)
+        coEvery { taskRepository.toggleDone("t5", false) } returns Result.success(done.copy(completedAt = null))
+        val viewModel = createViewModel()
+        viewModel.selectView(TaskView.DONE)
+        advanceUntilIdle()
+
+        viewModel.toggleDone(done)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { taskRepository.getTaskReward(any()) }
+        assertNull(viewModel.uiState.value.reward)
     }
 
     @Test
@@ -587,6 +642,42 @@ class TasksViewModelTest {
         assertEquals("d2", viewModel.uiState.value.day?.now?.task?.id)
         assertEquals(1, viewModel.uiState.value.day?.done)
         assertEquals("Aujourd'hui (1)", tabLabelOf(TaskView.TODAY, viewModel.uiState.value))
+    }
+
+    @Test
+    fun `a task of the day ticked opens its Bravo once the server took it, not before (MAG-508)`() = runTest {
+        val answer = CompletableDeferred<Result<Task>>()
+        coEvery { taskRepository.toggleDone("d1", true) } coAnswers { answer.await() }
+        val viewModel = openDay()
+
+        viewModel.toggleDayTask(form)
+        runCurrent()
+        assertNull(viewModel.uiState.value.bravo)
+
+        answer.complete(Result.success(task("d1", "Renvoyer le formulaire")))
+        advanceUntilIdle()
+        assertEquals(BravoRequest("d1", "Renvoyer le formulaire"), viewModel.uiState.value.bravo)
+        // The Bravo reads its own reward: the day shows no banner.
+        assertNull(viewModel.uiState.value.reward)
+
+        viewModel.onBravoShown()
+        assertNull(viewModel.uiState.value.bravo)
+    }
+
+    @Test
+    fun `a task of the day unticked, or a tick refused, opens no Bravo (MAG-508)`() = runTest {
+        val doneForm = form.copy(completedAt = "2026-10-15T08:00:00Z")
+        serveDay(day(listOf(doneForm, call)))
+        coEvery { taskRepository.toggleDone("d1", false) } returns Result.success(task("d1", "Renvoyer le formulaire"))
+        coEvery { taskRepository.toggleDone("d2", true) } returns Result.failure(RuntimeException("boom"))
+        val viewModel = openDay()
+
+        viewModel.toggleDayTask(doneForm)
+        advanceUntilIdle()
+        viewModel.toggleDayTask(call)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.bravo)
     }
 
     @Test

@@ -42,6 +42,7 @@ import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
@@ -815,6 +816,15 @@ class MaggieApiService(
             accept(ContentType.Application.Json)
             setBody(request)
         }.orRefusal().body()
+    }
+
+    /** The reward [subjectId] earned (MAG-508); `null` on 404, a tick that earned none. */
+    suspend fun getReward(subjectType: String, subjectId: String): Reward? {
+        val response = client.get("$baseUrl/api/rewards/$subjectType/$subjectId") {
+            accept(ContentType.Application.Json)
+        }
+        if (response.status.value == 404) return null
+        return response.orRefusal().body()
     }
 
     /** The evening's review of [date] (MAG-500), created empty on its first read. */

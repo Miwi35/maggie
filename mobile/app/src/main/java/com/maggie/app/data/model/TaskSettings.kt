@@ -5,7 +5,8 @@ import kotlinx.serialization.Serializable
 /**
  * The user's task settings (MAG-407), `GET /api/task-settings/me`: the levels of the task
  * order (MAG-406) and the alert schedule per urgency, with the morning the alerts go out and
- * the evening the review opens after (MAG-500).
+ * the evening the review opens after (MAG-500), then how a task done is rewarded (MAG-508):
+ * the animation, the vibration and the sound, each on or off, and the [tone] of its message.
  *
  * - `orderLevels`: group (`timePressure`, `criticality`, `priority`) → level 0..4, what the
  *   sliders of « Ce qui passe en premier » set (the API turns them into weights);
@@ -22,9 +23,23 @@ data class TaskSettings(
     val alertSchedule: Map<String, AlertRule>,
     val morningTime: String,
     val eveningTime: String,
+    val rewardAnimation: Boolean,
+    val rewardVibration: Boolean,
+    val rewardSound: Boolean,
+    /** `doux`, `direct` or `drole`. */
+    val tone: String,
     val defaults: TaskSettingsValues,
 ) {
-    val values: TaskSettingsValues get() = TaskSettingsValues(orderLevels, alertSchedule, morningTime, eveningTime)
+    val values: TaskSettingsValues
+        get() = TaskSettingsValues(
+            orderLevels, alertSchedule, morningTime, eveningTime, rewardAnimation, rewardVibration, rewardSound, tone,
+        )
+
+    companion object {
+        const val TONE_DOUX = "doux"
+        const val TONE_DIRECT = "direct"
+        const val TONE_DROLE = "drole"
+    }
 }
 
 /** The editable part of [TaskSettings], as `defaults` holds it. */
@@ -34,6 +49,10 @@ data class TaskSettingsValues(
     val alertSchedule: Map<String, AlertRule>,
     val morningTime: String,
     val eveningTime: String,
+    val rewardAnimation: Boolean,
+    val rewardVibration: Boolean,
+    val rewardSound: Boolean,
+    val tone: String,
 )
 
 /** When a task of one urgency alerts: days before the due day (furthest first), the due day, every n days late (null: never). */

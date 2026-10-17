@@ -68,6 +68,10 @@ class SettingsViewModelTest {
         ),
         morningTime = "08:00",
         eveningTime = "21:00",
+        rewardAnimation = true,
+        rewardVibration = true,
+        rewardSound = true,
+        tone = "doux",
     )
 
     private fun taskSettings(values: TaskSettingsValues = defaultValues) = TaskSettings(
@@ -76,6 +80,10 @@ class SettingsViewModelTest {
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
         eveningTime = values.eveningTime,
+        rewardAnimation = values.rewardAnimation,
+        rewardVibration = values.rewardVibration,
+        rewardSound = values.rewardSound,
+        tone = values.tone,
         defaults = defaultValues,
     )
 
@@ -384,6 +392,54 @@ class SettingsViewModelTest {
         assertEquals("""{"eveningTime":"21:45"}""", bodies.single().toString())
         assertEquals("21:45", viewModel.uiState.value.tasks.settings?.eveningTime)
         assertEquals("07:30", viewModel.uiState.value.tasks.settings?.morningTime)
+    }
+
+    @Test
+    fun `each reward switch sends only its own key and shows it (MAG-508)`() = runTest {
+        answersWith(ownValues.copy(rewardAnimation = false, rewardVibration = false, rewardSound = false))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setRewardAnimation(false)
+        viewModel.setRewardVibration(false)
+        viewModel.setRewardSound(false)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("""{"rewardAnimation":false}""", """{"rewardVibration":false}""", """{"rewardSound":false}"""),
+            bodies.map { it.toString() },
+        )
+        val settings = viewModel.uiState.value.tasks.settings
+        assertFalse(settings!!.rewardAnimation)
+        assertFalse(settings.rewardVibration)
+        assertFalse(settings.rewardSound)
+        assertTrue(viewModel.uiState.value.tasks.saved)
+    }
+
+    @Test
+    fun `a switch already in place sends nothing (MAG-508)`() = runTest {
+        answersWith(ownValues)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setRewardSound(true)
+        advanceUntilIdle()
+
+        assertTrue(bodies.isEmpty())
+    }
+
+    @Test
+    fun `the tone picked is sent and shown, an unknown one is not (MAG-508)`() = runTest {
+        answersWith(ownValues.copy(tone = "drole"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setTone("sarcastique")
+        viewModel.setTone("drole")
+        advanceUntilIdle()
+
+        assertEquals("""{"tone":"drole"}""", bodies.single().toString())
+        assertEquals("drole", viewModel.uiState.value.tasks.settings?.tone)
     }
 
     @Test

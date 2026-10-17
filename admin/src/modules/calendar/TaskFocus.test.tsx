@@ -280,7 +280,8 @@ describe('TaskFocus (MAG-499)', () => {
       expect(url).toBe('http://localhost/api/tasks/01BANK')
       expect(init?.method).toBe('PATCH')
       expect(JSON.parse(init!.body as string)).toEqual({ completedAt: '2026-10-15T08:00:00.000Z' })
-      expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' })
+      // The day shows the bravo (MAG-508): no notice of its own.
+      expect(mockNotify).not.toHaveBeenCalled()
     })
 
     test('a refused « C\'est fait » says so and stays in the Focus', async () => {

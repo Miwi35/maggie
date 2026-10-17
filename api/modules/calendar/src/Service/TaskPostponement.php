@@ -33,6 +33,15 @@ final class TaskPostponement implements ResetInterface
             return null;
         }
 
+        return $this->putOffSince($task, $today);
+    }
+
+    /**
+     * The day the task was put off since, as if it were still open on $today:
+     * how long a task just ticked had waited (MAG-508).
+     */
+    public function putOffSince(Task $task, \DateTimeImmutable $today): ?\DateTimeImmutable
+    {
         $days = [];
         $dueDay = $task->getDueDate()?->format('Y-m-d');
         if (null !== $dueDay && $dueDay < $today->format('Y-m-d')) {

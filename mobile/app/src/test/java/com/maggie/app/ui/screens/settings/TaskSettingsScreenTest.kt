@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.settings
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
@@ -44,6 +46,10 @@ class TaskSettingsScreenTest {
         ),
         morningTime = "08:00",
         eveningTime = "21:00",
+        rewardAnimation = true,
+        rewardVibration = true,
+        rewardSound = true,
+        tone = "doux",
     )
 
     private val settings = TaskSettings(
@@ -52,6 +58,10 @@ class TaskSettingsScreenTest {
         alertSchedule = values.alertSchedule,
         morningTime = values.morningTime,
         eveningTime = values.eveningTime,
+        rewardAnimation = values.rewardAnimation,
+        rewardVibration = values.rewardVibration,
+        rewardSound = values.rewardSound,
+        tone = values.tone,
         defaults = values,
     )
 
@@ -129,6 +139,25 @@ class TaskSettingsScreenTest {
         compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
 
         verify(exactly = 1) { viewModel.setEveningTime(21, 0) }
+    }
+
+    @Test
+    fun `Rappels et récompenses shows the three switches and the tone, each sent through the ViewModel (MAG-508)`() {
+        val viewModel = open(loaded.copy(settings = settings.copy(rewardSound = false, tone = "direct")))
+
+        compose.onNodeWithText("Rappels et récompenses").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REWARD_ANIMATION).performScrollTo().assertIsOn()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REWARD_SOUND).performScrollTo().assertIsOff()
+        compose.onNodeWithTag(UiTags.settingsTasksTone("direct")).performScrollTo().assertIsSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksTone("drole")).assertIsNotSelected()
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REWARD_VIBRATION).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REWARD_SOUND).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.settingsTasksTone("drole")).performScrollTo().performClick()
+
+        verify(exactly = 1) { viewModel.setRewardVibration(false) }
+        verify(exactly = 1) { viewModel.setRewardSound(true) }
+        verify(exactly = 1) { viewModel.setTone("drole") }
     }
 
     @Test

@@ -590,6 +590,27 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the reward switches and the tone come with the task settings and their defaults (MAG-508)`() {
+        val settings = json.decodeFromJsonElement(serializer<TaskSettings>(), readRecording("task_settings.me"))
+
+        assertTrue(settings.rewardAnimation && settings.rewardVibration && settings.rewardSound)
+        assertEquals(TaskSettings.TONE_DOUX, settings.tone)
+        assertEquals(settings.values, settings.defaults)
+    }
+
+    @Test
+    fun `a reward deserialises from the recorded response under the names the API sends (MAG-508)`() {
+        assertItemContract("rewards.read", serializer<Reward>(), "Reward")
+        val reward = json.decodeFromJsonElement(serializer<Reward>(), readRecording("rewards.read"))
+
+        assertEquals(Reward.SUBJECT_TASK, reward.subjectType)
+        assertEquals("waited", reward.surprise)
+        assertTrue(reward.isShootingStar)
+        assertTrue(reward.star)
+        assertTrue(reward.message.isNotBlank())
+    }
+
+    @Test
     fun `the task order preview deserialises from the recorded response`() {
         val body = readRecording("task_settings.preview")
         val members = body["member"]!!.jsonArray
