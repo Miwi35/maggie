@@ -9,6 +9,8 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\PeerDebtStatus;
+use Maggie\Finance\Message\RecordDebtCommand;
+use Maggie\Finance\Message\RemoveDebtCommand;
 use Maggie\Finance\Message\RemoveMyShareCommand;
 use Maggie\Finance\Message\SetMyShareCommand;
 use Maggie\Finance\Repository\ContactRepository;
@@ -21,10 +23,10 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_peer_debts', description: 'Money between the owner and the people around them (créances: they owe the owner; dettes: the owner owes them). Not bank loans (manage_loans). Actions: list (every créance and dette, newest first, each with its shares per person — contactId, contactName, amountCents, repaidCents, remainingCents —, amountCents, remainingCents and status open or settled; optional contactId to keep those of one person, optional status open or settled), summary (owedToMeCents: what people still owe the owner, iOweCents: what the owner still owes), set_my_share (a spend paid for others too, e.g. a 800 € gîte for four: transactionId, myShareCents — the owner\'s own part, 0 ≤ part < the amount; only it counts in the envelopes, the score, the review and the lifestyle —, shares: [{contactId, amountCents}] — the people who owe the rest, contacts from manage_contacts; leave every amountCents out to split equally, or give them all adding up to the amount minus the part —, optional object (what it was for, the label by default) and notes; setting it again updates the same créance; myShareCents null removes the share and its créance, refused once someone gave money back on it). Only a spend can be shared, not an income nor an internal transfer.')]
+#[McpTool(name: 'manage_peer_debts', description: 'Money between the owner and the people around them (créances: they owe the owner; dettes: the owner owes them). Not bank loans (manage_loans). Actions: list (every créance and dette, newest first, each with its shares per person — contactId, contactName, amountCents, repaidCents, remainingCents —, amountCents, remainingCents and status open or settled; optional contactId to keep those of one person, optional status open or settled), summary (owedToMeCents: what people still owe the owner, iOweCents: what the owner still owes), set_my_share (a spend paid for others too, e.g. a 800 € gîte for four: transactionId, myShareCents — the owner\'s own part, 0 ≤ part < the amount; only it counts in the envelopes, the score, the review and the lifestyle —, shares: [{contactId, amountCents}] — the people who owe the rest, contacts from manage_contacts; leave every amountCents out to split equally, or give them all adding up to the amount minus the part —, optional object (what it was for, the label by default) and notes; setting it again updates the same créance; myShareCents null removes the share and its créance, refused once someone gave money back on it). Only a spend can be shared, not an income nor an internal transfer. record_debt (a transfer received that must be given back in part, e.g. Tom advances 400 € of which 280 € are his: transactionId — a received transfer, neither a spend nor an internal transfer —, contactId — the person it comes from, the transaction\'s contact is the natural one —, amountCents — what to give back, 0 < amount ≤ the transfer —, optional object and notes) records a dette (direction i_owe, one share) that is neither an income nor a saving: the rest of the transfer stays an income; declaring it again updates the same dette; amountCents null removes it, refused once part of it was given back.')]
 class ManagePeerDebtsTool
 {
-    private const ACTIONS = ['list', 'summary', 'set_my_share'];
+    private const ACTIONS = ['list', 'summary', 'set_my_share', 'record_debt'];
 
     public function __construct(
         private readonly MessageBusInterface $bus,
@@ -48,13 +50,15 @@ class ManagePeerDebtsTool
         ?array $shares = null,
         ?string $object = null,
         ?string $notes = null,
+        ?int $amountCents = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list($contactId, $status),
                 'summary' => self::json($this->summary->execute($this->userContext->requireUser())),
                 'set_my_share' => $this->setMyShare($transactionId, $myShareCents, $shares, $object, $notes),
-                default => self::error("Unknown action: {$action}. Use list, summary or set_my_share."),
+                'record_debt' => $this->recordDebt($transactionId, $contactId, $amountCents, $object, $notes),
+                default => self::error("Unknown action: {$action}. Use list, summary, set_my_share or record_debt."),
             };
         } catch (MissingMcpUserException|\DomainException $e) {
             return self::error($e->getMessage());
@@ -132,6 +136,36 @@ class ManagePeerDebtsTool
             'myShareCents' => $myShareCents,
             'peerDebt' => $debt->toArray(),
         ]);
+    }
+
+    private function recordDebt(?string $transactionId, ?string $contactId, ?int $amountCents, ?string $object, ?string $notes): string
+    {
+        if (null === $transactionId) {
+            return self::error('transactionId is required for record_debt.');
+        }
+        $userId = (string) $this->userContext->requireUser()->getId();
+
+        if (null === $amountCents) {
+            $this->bus->dispatch(new RemoveDebtCommand(userId: $userId, transactionId: $transactionId));
+
+            return self::json(['success' => true, 'transactionId' => $transactionId, 'peerDebt' => null]);
+        }
+        if (null === $contactId) {
+            return self::error('contactId is required for record_debt: who sent the transfer.');
+        }
+
+        $stamped = $this->bus->dispatch(new RecordDebtCommand(
+            userId: $userId,
+            transactionId: $transactionId,
+            contactId: $contactId,
+            amountCents: $amountCents,
+            object: $object,
+            notes: $notes,
+        ));
+        /** @var PeerDebt $debt */
+        $debt = $stamped->last(HandledStamp::class)->getResult();
+
+        return self::json(['success' => true, 'transactionId' => $transactionId, 'peerDebt' => $debt->toArray()]);
     }
 
     /** @param array<string, mixed> $data */

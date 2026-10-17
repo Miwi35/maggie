@@ -7,6 +7,7 @@ namespace Maggie\Finance\MessageHandler;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
@@ -17,6 +18,7 @@ use Maggie\Finance\Exception\SatisfactionException;
 use Maggie\Finance\Exception\SharedSpendException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
+use Maggie\Finance\Repository\PeerDebtRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\RecurringOperationGuard;
@@ -32,6 +34,7 @@ class UpdateTransactionHandler
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
         private readonly AttachRecurringTransactions $attachRecurring,
+        private readonly PeerDebtRepository $peerDebtRepository,
     ) {
     }
 
@@ -84,6 +87,7 @@ class UpdateTransactionHandler
         $this->applyTransfer($transaction, $command);
         // After the marking and the amount: a shared spend stays one whose part is below it.
         $this->assertShareStillFits($transaction);
+        $this->assertDebtStillFits($transaction);
         // After the marking and the amount: what is judged is what the line has become.
         if (null !== $verdict && RetrospectVerdict::Unrated !== $verdict && !$transaction->canBeJudged()) {
             throw new SatisfactionException('A satisfaction goes to a spend only: an income or a transfer between your own accounts has nothing to judge.');
@@ -113,6 +117,20 @@ class UpdateTransactionHandler
         $myShare = $transaction->getMyShareCents();
         if (null !== $myShare && (!$transaction->canBeShared() || $myShare >= abs($transaction->getAmountCents()))) {
             throw new SharedSpendException('This spend is shared: remove the share (DELETE /api/finance/transactions/{id}/my-share) before making it an income, a transfer, or smaller than your part.');
+        }
+    }
+
+    /**
+     * A received transfer declared « à rembourser » stays an income at least as
+     * big as the amount to give back: otherwise the dette would be money nobody
+     * advanced.
+     */
+    private function assertDebtStillFits(Transaction $transaction): void
+    {
+        $debt = $this->peerDebtRepository->findOneByOriginTransaction($transaction);
+        if (null !== $debt && PeerDebtDirection::IOwe === $debt->getDirection()
+            && (!$transaction->canBeDebt() || $debt->getAmountCents() > $transaction->getAmountCents())) {
+            throw new SharedSpendException('This transfer is declared as a dette: remove it (DELETE /api/finance/transactions/{id}/debt) before making it a spend, a transfer, or smaller than the amount to give back.');
         }
     }
 

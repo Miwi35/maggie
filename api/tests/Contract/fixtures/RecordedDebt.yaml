@@ -1,0 +1,31 @@
+# What the « À rembourser » recording adds to RecordedResponses.yaml (MAG-452): a transfer received from the contact and
+# the dette declared on it (a file of its own: the other recordings must not see them).
+Maggie\Finance\Entity\ContactCounterparty:
+  recorded_debt_counterparty:
+    contact: '@recorded_contact'
+    label: VIR RECORDED TOM
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Transaction:
+  recorded_debt_transfer:
+    account: '@recorded_account'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-21"))>'
+    label: VIR RECORDED TOM
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  recorded_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::IOwe)>'
+    object: Recorded advance
+    notes: Recorded notes
+    originTransaction: '@recorded_debt_transfer'
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  recorded_debt_share:
+    peerDebt: '@recorded_debt'
+    contact: '@recorded_contact'
+    amountCents: 28000
+    repaidCents: 0

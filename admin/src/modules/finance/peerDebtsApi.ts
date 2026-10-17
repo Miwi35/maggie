@@ -99,6 +99,50 @@ export async function removeMyShare(transactionId: string): Promise<MyShare> {
   return (await res.json()) as MyShare
 }
 
+/** `GET|POST|DELETE /api/finance/transactions/{id}/debt` (MAG-452): a received transfer to give back. */
+export interface TransactionDebt {
+  transactionId: string
+  amountCents: number
+  /** Only a received transfer — neither internal nor a rejection — can be a debt. */
+  canBeDebt: boolean
+  /** Bare id of the person whose label the transfer carries, when one is known. */
+  suggestedContactId: string | null
+  /** The `i_owe` créance the transfer declares, with one share. */
+  peerDebt: PeerDebt | null
+}
+
+export interface TransactionDebtInput {
+  /** Bare id, not the IRI. */
+  contactId: string
+  amountCents: number
+  /** Empty or omitted: the transaction's label. */
+  object?: string
+  notes?: string | null
+}
+
+const debtUrl = (transactionId: string) => `/api/finance/transactions/${bareId(transactionId)}/debt`
+
+export async function fetchTransactionDebt(transactionId: string): Promise<TransactionDebt> {
+  const res = await request(debtUrl(transactionId))
+  if (!res.ok) throw await failure(res, 'Impossible de lire la dette de ce virement.')
+
+  return (await res.json()) as TransactionDebt
+}
+
+export async function saveTransactionDebt(transactionId: string, input: TransactionDebtInput): Promise<TransactionDebt> {
+  const res = await request(debtUrl(transactionId), { method: 'POST', body: JSON.stringify(input) })
+  if (!res.ok) throw await failure(res, 'La dette n’a pas pu être enregistrée.')
+
+  return (await res.json()) as TransactionDebt
+}
+
+export async function removeTransactionDebt(transactionId: string): Promise<TransactionDebt> {
+  const res = await request(debtUrl(transactionId), { method: 'DELETE' })
+  if (!res.ok) throw await failure(res, 'La dette n’a pas pu être retirée.')
+
+  return (await res.json()) as TransactionDebt
+}
+
 /** Every créance of the owner, newest first, in one page. */
 export async function fetchPeerDebts(): Promise<PeerDebt[]> {
   const res = await request('/api/peer_debts', {}, 'application/ld+json')

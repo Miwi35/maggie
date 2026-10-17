@@ -46,6 +46,14 @@ class TransactionRepository extends ServiceEntityRepository
      */
     public const string OWN_AMOUNT = 'COALESCE(0 - t.myShareCents, t.amountCents)';
 
+    /**
+     * What a received transfer carries as a dette (MAG-452): the amount to give
+     * back to the person who sent it, 0 when the transfer is a plain income.
+     * Money that is owed back is no income. DQL cannot subtract a sub-select
+     * inside an aggregate: it is selected apart and taken off in PHP.
+     */
+    public const string DEBT_AMOUNT = '(SELECT COALESCE(SUM(debtShare.amountCents), 0) FROM Maggie\\Finance\\Entity\\PeerDebtShare debtShare INNER JOIN debtShare.peerDebt debt WHERE debt.originTransaction = t AND debt.direction = \'i_owe\')';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Transaction::class);
@@ -813,7 +821,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumPassiveIncomeByCategoryBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
+            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->innerJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
@@ -829,16 +837,16 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
-            ->groupBy('categoryId')
-            ->addGroupBy('c.name')
             ->getQuery()
             ->getResult();
 
-        $income = array_map(static fn (array $row) => [
-            'categoryId' => (string) $row['categoryId'],
-            'categoryName' => (string) $row['categoryName'],
-            'incomeCents' => (int) $row['total'],
-        ], $rows);
+        $byCategory = [];
+        foreach ($rows as $row) {
+            $categoryId = (string) $row['categoryId'];
+            $byCategory[$categoryId] ??= ['categoryId' => $categoryId, 'categoryName' => (string) $row['categoryName'], 'incomeCents' => 0];
+            $byCategory[$categoryId]['incomeCents'] += (int) $row['amountCents'] - (int) $row['debtCents'];
+        }
+        $income = array_values($byCategory);
 
         usort($income, static fn (array $a, array $b) => $b['incomeCents'] <=> $a['incomeCents']);
 
@@ -886,9 +894,9 @@ class TransactionRepository extends ServiceEntityRepository
      */
     public function sumMonthlyFlowsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
-        /** @var array<int, array{bookedAt: \DateTimeImmutable, amountCents: int}> $rows */
+        /** @var array<int, array{bookedAt: \DateTimeImmutable, amountCents: int, debtCents: int|string}> $rows */
         $rows = $this->createQueryBuilder('t')
-            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents')
+            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.status IN (:consumed)')
@@ -908,7 +916,8 @@ class TransactionRepository extends ServiceEntityRepository
             $flows[$month] ??= ['incomeCents' => 0, 'expenseCents' => 0];
 
             if ($row['amountCents'] >= 0) {
-                $flows[$month]['incomeCents'] += $row['amountCents'];
+                // What is owed back on a received transfer is no income.
+                $flows[$month]['incomeCents'] += $row['amountCents'] - (int) $row['debtCents'];
             } else {
                 $flows[$month]['expenseCents'] += abs($row['amountCents']);
             }
@@ -1233,7 +1242,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function findLastPaidAmounts(RecurringOperation $operation, int $limit): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('t.amountCents AS amountCents')
+            ->select('t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->andWhere('t.recurringOperation = :operation')
             ->andWhere('t.transferKind = :none')
             ->andWhere('t.isExceptional = false')
@@ -1246,7 +1255,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        return array_map(static fn (array $row) => (int) $row['amountCents'], $rows);
+        return array_map(static fn (array $row) => (int) $row['amountCents'] - (int) $row['debtCents'], $rows);
     }
 
     /** @return Transaction[] every line attached to a series */

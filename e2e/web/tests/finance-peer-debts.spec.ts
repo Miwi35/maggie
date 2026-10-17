@@ -177,4 +177,59 @@ test.describe('a shared spend', () => {
     await contact.open(contactIds[tom])
     await expect(contact.openDebt(`GITE DES CEVENNES ${suffix}`)).toContainText(`te doit ${euros(20000)}`)
   })
+
+  /**
+   * « Un virement reçu à rembourser » (MAG-452): Tom advances 400 € of which
+   * 280 € are his. Declared on the transfer's sheet, the 280 € leave the month's
+   * income — 120 € stay — and Tom's page says what is owed him.
+   */
+  test('a transfer of 400 € with 280 € to give back leaves 120 € of income, and I owe Tom 280 €', async ({
+    seasonUser,
+  }) => {
+    const { api, page } = seasonUser
+    const suffix = letters(6)
+    const month = seedDate().slice(0, 7)
+    const tom = `Tom ${suffix}`
+
+    const monthIncome = async (): Promise<number> => {
+      const response = await api.get('/api/finance/dashboard')
+      expect(response.status(), await response.text()).toBe(200)
+      const dashboard = (await response.json()) as { monthlyFlows: Array<{ month: string; incomeCents: number }> }
+
+      return dashboard.monthlyFlows.find((flow) => flow.month === month)?.incomeCents ?? 0
+    }
+
+    // Given a transfer received from Tom of +400 €, in the month's income
+    const accountId = await create(api, '/api/accounts', {
+      name: `Compte MAG-452 ${suffix}`,
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    const tomId = await create(api, '/api/contacts', { name: tom })
+    const before = await monthIncome()
+    const transfer = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: `VIR AVANCE GITE ${suffix}`,
+      amountCents: 40000,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+    expect(await monthIncome(), 'the transfer is an income').toBe(before + 40000)
+
+    // When I declare 280 € of it « À rembourser » to Tom on its sheet
+    const sheet = new FinanceTransactionSheetPage(page)
+    await sheet.openReceived(transfer)
+    await sheet.declareDebt(tom, 280)
+    await expect(sheet.debt).toContainText(`Crée une dette de ${euros(28000)} envers ${tom}`)
+
+    // Then only the 120 € left stay in the month's income
+    expect(await monthIncome(), 'the 280 € to give back are no income').toBe(before + 12000)
+
+    // And Tom's page says « tu lui dois 280,00 € » under « En cours »
+    const contact = new FinanceContactPage(page)
+    await contact.open(tomId)
+    await expect(contact.openDebt(`VIR AVANCE GITE ${suffix}`)).toContainText(`tu lui dois ${euros(28000)}`)
+  })
 })

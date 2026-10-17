@@ -10,11 +10,40 @@ import { transactionRoute } from './routes.js'
 export class FinanceTransactionSheetPage extends AdminShell {
   readonly share: Locator
   readonly sharedSwitch: Locator
+  /** « Ce virement est »: « Une recette » or « À rembourser », on a received transfer (MAG-452). */
+  readonly debt: Locator
+  readonly debtToRepay: Locator
 
   constructor(page: Page) {
     super(page)
     this.share = this.content.getByRole('region', { name: 'Partage' })
     this.sharedSwitch = this.share.getByRole('switch', { name: 'Dépense partagée' })
+    this.debt = this.share.getByTestId('transaction-debt')
+    this.debtToRepay = this.debt.getByRole('button', { name: 'À rembourser' })
+  }
+
+  /** The sheet of a received transfer, which offers « Ce virement est » instead of the switch. */
+  async openReceived(transactionId: string): Promise<void> {
+    await this.goto(transactionRoute(transactionId))
+    await expect(this.debtToRepay).toBeVisible()
+  }
+
+  /**
+   * Declares the part to give back to a person picked from the contacts, and
+   * saves, waiting for the POST itself: the section redraws from the API's answer.
+   */
+  async declareDebt(person: string, amountEuros: number): Promise<void> {
+    await this.debtToRepay.click()
+    await this.debt.getByRole('button', { name: 'Choisir la personne' }).click()
+    const picker = this.page.getByRole('dialog', { name: 'À qui le rendre ?' })
+    await picker.getByLabel('Rechercher un contact').fill(person)
+    await picker.getByRole('button', { name: person, exact: true }).click()
+    await expect(picker).toBeHidden()
+    await this.debt.getByLabel('Montant à rendre (€)').fill(String(amountEuros))
+    await Promise.all([
+      this.page.waitForResponse((response) => response.url().includes('/debt') && 'POST' === response.request().method()),
+      this.debt.getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
   }
 
   async open(transactionId: string): Promise<void> {

@@ -14,7 +14,10 @@ import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.MyShareRequestShare
 import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.PeerDebtShare
+import com.maggie.app.data.model.TransactionDebt
+import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
@@ -99,6 +102,11 @@ class TransactionViewModelTest {
         coEvery { peerDebtRepository.getMyShare(any()) } answers {
             val line = sampleTransactions.firstOrNull { it.id == firstArg() }
             Result.success(MyShare(transactionId = firstArg(), amountCents = line?.amountCents ?: 0, canBeShared = (line?.amountCents ?: 0) < 0))
+        }
+        // A received line that cannot be given back, until a test says otherwise.
+        coEvery { peerDebtRepository.getDebt(any()) } answers {
+            val line = sampleTransactions.firstOrNull { it.id == firstArg() }
+            Result.success(TransactionDebt(transactionId = firstArg(), amountCents = line?.amountCents ?: 0, canBeDebt = false))
         }
         coEvery { recurringRepository.getRecords() } returns Result.success(emptyList())
         coEvery { authRepository.getUserId() } returns "user-1"
@@ -1714,5 +1722,215 @@ class TransactionViewModelTest {
 
         assertNull(viewModel.uiState.value.shareContacts)
         assertEquals(listOf("Julie", "Inès"), share.people.map { it.name })
+    }
+
+    // « Ce virement est » (MAG-452): 280 € received from Tom, to be given back.
+
+    private val virement = Transaction(id = "tx-vir", label = "VIR TOM MARTIN", amountCents = 28000)
+
+    private fun receivedDebt(peerDebt: PeerDebt? = null, suggested: String? = "c-tom") = TransactionDebt(
+        transactionId = "tx-vir",
+        amountCents = 28000,
+        canBeDebt = true,
+        suggestedContactId = suggested,
+        peerDebt = peerDebt,
+    )
+
+    private fun recordedDebt(cents: Int) = PeerDebt(
+        id = "debt-vir",
+        direction = PeerDebt.DIRECTION_I_OWE,
+        `object` = "Avance restaurant",
+        notes = "À rendre",
+        originTransactionId = "tx-vir",
+        amountCents = cents,
+        remainingCents = cents,
+        shares = listOf(PeerDebtShare(id = "s-0", contactId = tom.id, contactName = tom.name, amountCents = cents, remainingCents = cents)),
+    )
+
+    private fun kotlinx.coroutines.test.TestScope.openVirement(debt: TransactionDebt = receivedDebt()) {
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(virement))
+        coEvery { transactionRepository.getTransfer("tx-vir") } returns Result.success(TransferInfo())
+        coEvery { peerDebtRepository.getDebt("tx-vir") } returns Result.success(debt)
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-vir")
+        advanceUntilIdle()
+    }
+
+    private val debt get() = viewModel.uiState.value.detail!!.debt!!
+
+    @Test
+    fun `opening a received transfer reads its debt, a recette with the suggested person ready`() = runTest {
+        openVirement()
+
+        assertFalse(debt.enabled)
+        assertTrue(debt.canBeDebt)
+        assertEquals(28000, debt.totalCents)
+        assertEquals(28000, debt.amountCents)
+        assertEquals("c-tom", debt.contactId)
+        assertEquals("Tom", debt.contactName)
+        assertNull(viewModel.uiState.value.detail!!.share)
+        coVerify { peerDebtRepository.getDebt("tx-vir") }
+        coVerify(exactly = 0) { peerDebtRepository.getMyShare("tx-vir") }
+    }
+
+    @Test
+    fun `a spend never reads a debt`() = runTest {
+        openGite()
+
+        assertNull(viewModel.uiState.value.detail!!.debt)
+        coVerify(exactly = 0) { peerDebtRepository.getDebt("tx-gite") }
+    }
+
+    @Test
+    fun `a transfer already given back opens on A rembourser with its person and amount`() = runTest {
+        openVirement(receivedDebt(recordedDebt(15000)))
+
+        assertTrue(debt.enabled)
+        assertTrue(debt.isRecorded)
+        assertEquals("Tom", debt.contactName)
+        assertEquals(15000, debt.amountCents)
+        assertEquals("Avance restaurant", debt.subject)
+    }
+
+    @Test
+    fun `choosing A rembourser opens the draft and Une recette folds it, nothing is sent`() = runTest {
+        openVirement()
+
+        viewModel.setDebtEnabled(true)
+        assertTrue(debt.enabled)
+        assertTrue(debt.canSave)
+        assertEquals("Crée une dette de ${formatCents(28000)} envers Tom, dans « Tu dois »", debt.summary("EUR"))
+
+        viewModel.setDebtEnabled(false)
+        advanceUntilIdle()
+
+        assertFalse(debt.enabled)
+        coVerify(exactly = 0) { peerDebtRepository.recordDebt(any(), any()) }
+        coVerify(exactly = 0) { peerDebtRepository.removeDebt(any()) }
+    }
+
+    @Test
+    fun `without a suggestion the person is left to choose and saving waits for them`() = runTest {
+        openVirement(receivedDebt(suggested = null))
+        viewModel.setDebtEnabled(true)
+
+        assertNull(debt.contactId)
+        assertFalse(debt.canSave)
+        assertNotNull(debt.problem)
+
+        viewModel.openDebtContactPicker()
+        assertTrue(viewModel.uiState.value.debtContacts!!.isLoading)
+        advanceUntilIdle()
+        assertEquals(listOf("Julie", "Tom"), viewModel.uiState.value.debtContacts!!.contacts.map { it.name })
+
+        viewModel.pickDebtContact(julie)
+
+        assertNull(viewModel.uiState.value.debtContacts)
+        assertEquals("c-julie", debt.contactId)
+        assertTrue(debt.canSave)
+    }
+
+    @Test
+    fun `a person created in the picker becomes the person owed`() = runTest {
+        coEvery { contactRepository.createContact("Inès") } returns Result.success(ines)
+        openVirement(receivedDebt(suggested = null))
+        viewModel.setDebtEnabled(true)
+
+        viewModel.openDebtContactPicker()
+        advanceUntilIdle()
+        viewModel.createDebtContact("Inès")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.debtContacts)
+        assertEquals("c-ines", debt.contactId)
+    }
+
+    @Test
+    fun `the amount to give back is kept above zero and within the transfer`() = runTest {
+        openVirement()
+        viewModel.setDebtEnabled(true)
+
+        viewModel.changeDebtAmount(10000)
+        assertEquals(10000, debt.amountCents)
+        assertTrue(debt.canSave)
+
+        viewModel.changeDebtAmount(99999)
+        assertEquals(28000, debt.amountCents)
+
+        viewModel.changeDebtAmount(-500)
+        assertEquals(0, debt.amountCents)
+        assertFalse(debt.canSave)
+        assertNotNull(debt.problem)
+    }
+
+    @Test
+    fun `saving records the debt with its person, amount, object and notes`() = runTest {
+        val saved = slot<TransactionDebtRequest>()
+        coEvery { peerDebtRepository.recordDebt("tx-vir", capture(saved)) } returns Result.success(receivedDebt(recordedDebt(15000)))
+        openVirement()
+        viewModel.setDebtEnabled(true)
+        viewModel.changeDebtAmount(15000)
+        viewModel.changeDebtSubject("  Avance restaurant ")
+        viewModel.changeDebtNotes("À rendre")
+
+        viewModel.saveDebt()
+        assertTrue(debt.isSaving)
+        advanceUntilIdle()
+
+        assertEquals(TransactionDebtRequest("c-tom", 15000, "Avance restaurant", "À rendre"), saved.captured)
+        assertFalse(debt.isSaving)
+        assertTrue(debt.isRecorded)
+        assertTrue(debt.enabled)
+        assertEquals("Dette enregistrée", debt.message)
+        assertNull(debt.error)
+    }
+
+    @Test
+    fun `a refused debt says the server's words and keeps the draft editable`() = runTest {
+        coEvery { peerDebtRepository.recordDebt("tx-vir", any()) } returns Result.failure(RuntimeException("Le montant dépasse le virement"))
+        openVirement()
+        viewModel.setDebtEnabled(true)
+        viewModel.changeDebtAmount(15000)
+
+        viewModel.saveDebt()
+        advanceUntilIdle()
+
+        assertEquals("Le montant dépasse le virement", debt.error)
+        assertFalse(debt.isSaving)
+        assertFalse(debt.isRecorded)
+        assertTrue(debt.enabled)
+        assertEquals(15000, debt.amountCents)
+        assertTrue(debt.canSave)
+    }
+
+    @Test
+    fun `going back to Une recette takes the recorded debt back`() = runTest {
+        coEvery { peerDebtRepository.removeDebt("tx-vir") } returns Result.success(receivedDebt())
+        openVirement(receivedDebt(recordedDebt(15000)))
+
+        viewModel.setDebtEnabled(false)
+        advanceUntilIdle()
+
+        coVerify { peerDebtRepository.removeDebt("tx-vir") }
+        assertFalse(debt.enabled)
+        assertFalse(debt.isRecorded)
+        assertEquals("Dette retirée", debt.message)
+        assertEquals("Tom", debt.contactName)
+    }
+
+    @Test
+    fun `a debt that cannot be taken back stays on, with the reason`() = runTest {
+        coEvery { peerDebtRepository.removeDebt("tx-vir") } returns Result.failure(RuntimeException("Tom a déjà remboursé 100 €"))
+        openVirement(receivedDebt(recordedDebt(15000)))
+
+        viewModel.setDebtEnabled(false)
+        advanceUntilIdle()
+
+        assertTrue(debt.enabled)
+        assertTrue(debt.isRecorded)
+        assertEquals("Tom a déjà remboursé 100 €", debt.error)
+        assertFalse(debt.isSaving)
     }
 }

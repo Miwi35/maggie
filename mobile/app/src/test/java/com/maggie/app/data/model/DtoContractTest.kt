@@ -369,6 +369,22 @@ class DtoContractTest {
     }
 
     @Test
+    fun `a received transfer's dette deserialises from the recorded response`() {
+        assertItemContract("finance_transaction_debt.read", serializer<TransactionDebt>(), "TransactionDebt")
+        val body = readRecording("finance_transaction_debt.read")
+        val debtBody = body["peerDebt"]!!.jsonObject
+        assertDeclaredFieldsExist("PeerDebt", serializer<PeerDebt>(), debtBody.keys, "finance_transaction_debt.read")
+        assertDeclaredFieldsExist("PeerDebtShare", serializer<PeerDebtShare>(), keysOf(debtBody, "shares"), "finance_transaction_debt.read")
+
+        val debt = json.decodeFromJsonElement(serializer<TransactionDebt>(), body)
+        assertTrue("canBeDebt fell back to its default", debt.canBeDebt)
+        assertEquals(40000, debt.amountCents)
+        assertEquals(PeerDebt.DIRECTION_I_OWE, debt.peerDebt?.direction)
+        assertEquals(28000, debt.peerDebt?.amountCents)
+        assertEquals(debt.suggestedContactId, debt.peerDebt?.shares?.single()?.contactId)
+    }
+
+    @Test
     fun `the créances' summary deserialises from the recorded response`() {
         assertItemContract("finance_peer_debts_summary.read", serializer<PeerDebtSummary>(), "PeerDebtSummary")
         val summary = json.decodeFromJsonElement(serializer<PeerDebtSummary>(), readRecording("finance_peer_debts_summary.read"))

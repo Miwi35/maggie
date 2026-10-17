@@ -50,7 +50,9 @@ import com.maggie.app.data.model.ContactDebt
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.debtDayLabel
 import com.maggie.app.data.model.lastSeenLabel
+import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.owesYouLabel
+import com.maggie.app.data.model.youOweLabel
 import com.maggie.app.data.model.transferCount
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
@@ -369,7 +371,7 @@ private fun DebtRow(debt: ContactDebt) {
             }
         }
         Text(
-            owesYouLabel(debt.remainingCents),
+            if (debt.direction == PeerDebt.DIRECTION_I_OWE) youOweLabel(debt.remainingCents) else owesYouLabel(debt.remainingCents),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(UiTags.CONTACT_DEBT_REMAINING),
         )

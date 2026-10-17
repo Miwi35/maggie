@@ -55,9 +55,14 @@ private const val SHARE_STEP_CENTS = 100
  * the people who owe the rest, split equally until an amount is written by hand.
  */
 @Composable
-internal fun ShareSection(state: TransferDetailState, actions: ShareSheetActions?) {
+internal fun ShareSection(state: TransferDetailState, actions: ShareSheetActions?, debtActions: DebtSheetActions? = null) {
     val share = state.share
     val transaction = state.transaction
+    // A received transfer is not shared: it is a recette, or it is given back (MAG-452).
+    if (transaction.amountCents > 0 && state.debt != null && debtActions != null) {
+        DebtSection(state, debtActions)
+        return
+    }
     when {
         share == null || actions == null -> if (transaction.amountCents >= 0) ShareHint("Seule une dépense se partage.")
         !share.canBeShared && !share.isShared -> ShareHint("Seule une dépense se partage.")
@@ -198,7 +203,7 @@ internal fun centsText(cents: Int): String =
  * changes from elsewhere (a step, a new split, a bound) the field shows the new one.
  */
 @Composable
-private fun CentsField(
+internal fun CentsField(
     cents: Int,
     onChange: (Int) -> Unit,
     label: String,

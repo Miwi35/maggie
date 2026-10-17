@@ -12,8 +12,12 @@
 // phone declares its part and the people who owe the rest. Collections are served from
 // Elasticsearch, which trails a write: what the phone reads next is polled for until findable.
 //
+// MAG-452 reads the month's income back: `income` fails unless the dashboard counts exactly
+// EXPECTED_CENTS this month, which is how the journey knows the part to give back left it.
+//
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  create | second | share | remove
+//   ACTION          create | second | share | income | remove
+//   EXPECTED_CENTS  income only: the month's income, in cents
 //
 // Everything is the journey's own — the account named after the ticket, the contacts « Tom »,
 // « Julie » and « Inès », the category « Voyages » and its envelope — and gone after `remove`.
@@ -112,7 +116,9 @@ function removeLeftovers() {
       return debt.originTransactionId && debt.shares.some(function (share) { return people.indexOf(share.contactName) >= 0 })
     })
     .forEach(function (debt) {
-      http.request(base + '/api/finance/transactions/' + debt.originTransactionId + '/my-share', { method: 'DELETE', headers: authorized() })
+      // A dette (MAG-452) hangs on a received transfer, a créance on a shared spend.
+      const endpoint = debt.direction === 'i_owe' ? '/debt' : '/my-share'
+      http.request(base + '/api/finance/transactions/' + debt.originTransactionId + endpoint, { method: 'DELETE', headers: authorized() })
     })
   collection('/api/contacts?pagination=false')
     .filter(function (contact) { return people.indexOf(contact.name) >= 0 })
@@ -174,6 +180,17 @@ if (ACTION === 'create') {
   // The picker and the budget read what the next steps need: leave only once it is findable.
   sharingNames.concat([contactName]).forEach(function (name) { awaitOne('/api/contacts?pagination=false', name) })
   awaitOne('/api/categories?itemsPerPage=200', categoryName)
+} else if (ACTION === 'income') {
+  const dashboard = http.get(base + '/api/finance/dashboard', { headers: authorized() })
+  if (!dashboard.ok) {
+    fail('GET /api/finance/dashboard answered ' + dashboard.status + ': ' + dashboard.body)
+  }
+  const month = TODAY.substring(0, 7)
+  const flow = JSON.parse(dashboard.body).monthlyFlows.filter(function (f) { return f.month === month })[0]
+  const income = flow ? flow.incomeCents : 0
+  if (income !== parseInt(EXPECTED_CENTS, 10)) {
+    fail('the income of ' + month + ' is ' + income + ' cents, expected ' + EXPECTED_CENTS)
+  }
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

@@ -25,6 +25,15 @@ tags:
 # The gîte, « Voyages », its envelope and the contacts Julie and Inès are written by the same
 # script (`ACTION: share`); Tom is the one this flow created.
 #
+# A transfer to give back in part (MAG-452):
+#
+# Étant donné les deux virements de 400 € de Tom (800 € de recettes ce mois-ci)
+# Quand je déclare sur la fiche de l'un d'eux « À rembourser » 280 €, envers Tom que son libellé propose
+# Alors les recettes du mois ne sont plus que de 520 € (400 € + les 120 € qui restent du virement)
+# Et la fiche de Tom dit « tu lui dois 280 € » sous « En cours »
+#
+# The month's income is read back by `contacts-api.js` (`ACTION: income`) from the dashboard.
+#
 # What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
 # `ContactScreenTest`), amounts edited by hand, the steppers, switching a share off and the
 # server's refusals (`TransactionViewModelTest`, `TransactionShareScreenTest`), the tablet's
@@ -234,6 +243,85 @@ tags:
     timeout: 30000
 - extendedWaitUntil:
     visible: "200[.,]00 EUR / 300[.,]00 EUR"
+    timeout: 30000
+
+# MAG-452: Tom's transfers are 800 € of income; 280 € of one are to be given back.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: income
+      EXPECTED_CENTS: "80000"
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: "EUR · Compte MAG-450"
+    timeout: 20000
+- tapOn: "EUR · Compte MAG-450"
+- extendedWaitUntil:
+    visible: ".*TOM MARTIN.*"
+    timeout: 30000
+- tapOn: ".*TOM MARTIN.*"
+
+# « Ce virement est » « À rembourser »: Tom, whom the label points to, is proposed.
+- scrollUntilVisible:
+    element:
+      id: "transaction_debt_toggle"
+    timeout: 20000
+- tapOn:
+    id: "transaction_debt_toggle"
+- extendedWaitUntil:
+    visible: "Envers : Tom"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "transaction_debt_amount"
+- tapOn:
+    id: "transaction_debt_amount"
+- eraseText
+- inputText: "280"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "transaction_debt_summary"
+- extendedWaitUntil:
+    visible: "Crée une dette de 280[.,]00 EUR envers Tom.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "transaction_debt_save"
+- tapOn:
+    id: "transaction_debt_save"
+- extendedWaitUntil:
+    visible: "Dette enregistrée"
+    timeout: 30000
+
+# The 280 € leave the income: 400 + 120 = 520 €.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: income
+      EXPECTED_CENTS: "52000"
+
+# Tom's page: « tu lui dois 280 € ».
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible:
+      id: "accounts_contacts"
+    timeout: 30000
+- tapOn:
+    id: "accounts_contacts"
+- extendedWaitUntil:
+    visible:
+      id: "contact_row"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Tom"
+    timeout: 30000
+- tapOn: "Tom"
+- extendedWaitUntil:
+    visible: "En cours"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "tu lui dois 280[.,]00 EUR"
     timeout: 30000
 
 # Left as found.

@@ -120,12 +120,39 @@ class TransactionShareScreenTest {
     }
 
     @Test
-    fun `an income cannot be shared`() {
+    fun `an income is not shared, it is a recette or to be given back`() {
         show(FakeTransactionTransfers(transactions = listOf(salary)))
         open("SALAIRE")
 
-        compose.onNodeWithText("Seule une dépense se partage.").performScrollTo()
+        compose.onNodeWithText("Ce virement est").performScrollTo()
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_RECEIPT).assertExists()
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_TOGGLE).assertExists()
         compose.onAllNodesWithTag(UiTags.SHARE_SWITCH).assertCountEquals(0)
+        // A recette until « À rembourser » is chosen: nothing more to fill in.
+        compose.onAllNodesWithTag(UiTags.TRANSACTION_DEBT_SAVE).assertCountEquals(0)
+    }
+
+    @Test
+    fun `an income given back to Tom for 100 € is saved from the full-screen picker`() {
+        show(FakeTransactionTransfers(transactions = listOf(salary), contacts = people))
+        open("SALAIRE")
+
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_TOGGLE).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_SAVE).performScrollTo().assertIsNotEnabled()
+
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_PERSON).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.CONTACT_PICKER_SEARCH).performTextInput("Tom")
+        compose.onNodeWithTag(UiTags.CONTACT_PICKER_RESULT).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_AMOUNT).performScrollTo().performTextReplacement("100")
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_SUMMARY).assertTextEquals(
+            "Crée une dette de ${formatCents(10000)} envers Tom, dans « Tu dois »",
+        )
+
+        compose.onNodeWithTag(UiTags.TRANSACTION_DEBT_SAVE).performScrollTo().assertIsEnabled().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Dette enregistrée").performScrollTo()
     }
 
     @Test

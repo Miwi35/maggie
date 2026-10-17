@@ -358,6 +358,29 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    /** « Ce virement est » on a received transfer (MAG-452): the dette declared on it, as the controller sends it. */
+    public function testTheTransactionDebtRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedDebt.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/transactions/'.$this->getFixture('recorded_debt_transfer')->getId().'/debt', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotNull($body['peerDebt'] ?? null, 'The recorded transfer is not a dette, so the recording proves nothing about it.');
+        self::assertNotNull($body['suggestedContactId'] ?? null, 'The recorded transfer has no contact, so the recording proves nothing about a suggestion.');
+
+        $this->assertMatchesContract(
+            'responses/finance_transaction_debt.read.json',
+            self::stabilise($body),
+            'GET /api/finance/transactions/{id}/debt no longer returns what it used to. The mobile DTOs (PeerDebt.kt) and the admin read this response.',
+        );
+    }
+
     /**
      * What the statement implies, read as the controller sends it: an offer, with no series behind it.
      */

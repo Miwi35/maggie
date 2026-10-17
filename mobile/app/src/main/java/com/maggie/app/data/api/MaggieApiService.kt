@@ -26,6 +26,8 @@ import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.PeerDebtSummary
+import com.maggie.app.data.model.TransactionDebt
+import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.MealSettings
 import com.maggie.app.data.model.MealSettingsValues
@@ -1721,6 +1723,24 @@ class MaggieApiService(
     /** The whole spend is the owner's again; refused (400) once someone gave something back. */
     suspend fun removeMyShare(transactionId: String): MyShare {
         return client.delete("$baseUrl/api/finance/transactions/$transactionId/my-share").orRefusal().body()
+    }
+
+    // Finance — A received transfer declared « À rembourser » (MAG-452)
+    suspend fun getTransactionDebt(transactionId: String): TransactionDebt {
+        return client.get("$baseUrl/api/finance/transactions/$transactionId/debt").orRefusal().body()
+    }
+
+    /** 201 or 200, the same body; a 400 carries the server's sentence in [ApiRefusalException]. */
+    suspend fun recordTransactionDebt(transactionId: String, request: TransactionDebtRequest): TransactionDebt {
+        return client.post("$baseUrl/api/finance/transactions/$transactionId/debt") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** The transfer is a recette again; refused (400) once something was given back. */
+    suspend fun removeTransactionDebt(transactionId: String): TransactionDebt {
+        return client.delete("$baseUrl/api/finance/transactions/$transactionId/debt").orRefusal().body()
     }
 
     suspend fun getPeerDebts(): List<PeerDebt> {
