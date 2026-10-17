@@ -13,6 +13,8 @@ use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Projection\Change;
+use Maggie\Core\Projection\WorkCollector;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -139,6 +141,14 @@ class RewardApiTest extends WebTestCase
         $this->request('GET', '/api/rewards/task/01JZ0THERS0000000000000000');
         self::assertResponseStatusCodeSame(404);
 
+        // The neighbour's task, rewarded: still not mine to read.
+        $other = $this->em()->find(User::class, $this->getFixture('other_user')->getId());
+        \assert($other instanceof User);
+        $this->em()->persist((new Reward())->setUser($other)->setSubjectId($this->id('others_task'))->setMessageKey('doux.2')->setMessage(RewardMessages::TONES['doux'][1])->setEarnedAt(new \DateTimeImmutable()));
+        $this->em()->flush();
+        $this->request('GET', '/api/rewards/task/'.$this->id('others_task'));
+        self::assertResponseStatusCodeSame(404);
+
         $this->request('GET', '/api/rewards/task/'.$this->id('t3'));
         self::assertResponseStatusCodeSame(404, 'a task not done has no reward');
     }
@@ -186,6 +196,32 @@ class RewardApiTest extends WebTestCase
         $this->assertMercureUpdatePublished('/api/tasks/'.$this->id('t3'));
         // The rewards are not searched: nothing is indexed.
         $this->assertNoElasticsearchIndexDispatched(Reward::class);
+    }
+
+    /**
+     * The reward is flushed while the flush that ticked the task is ending: the
+     * rows that flush carried must still be published and indexed — a sync
+     * ticking a task and renaming another in one flush.
+     */
+    public function testTheRewardsFlushKeepsWhatTheTickingFlushCarried(): void
+    {
+        $collector = self::getContainer()->get(WorkCollector::class);
+        $em = $this->em();
+        $ticked = $em->find(Task::class, $this->getFixture('t3')->getId());
+        $renamed = $em->find(Task::class, $this->getFixture('t4')->getId());
+        \assert($ticked instanceof Task && $renamed instanceof Task);
+
+        $collector->begin();
+        $ticked->setCompletedAt(Clock::get()->now());
+        $renamed->setTitle('Réserver le train de nuit');
+        $em->flush();
+        $work = $collector->finish();
+
+        \assert(null !== $work);
+        $projected = array_map(static fn (Change $change): string => $change->class.'#'.$change->id, $work->changes());
+        self::assertContains(Task::class.'#'.$ticked->getId(), $projected);
+        self::assertContains(Task::class.'#'.$renamed->getId(), $projected, 'the other row of the flush is still projected');
+        self::assertCount(1, array_filter($projected, static fn (string $key): bool => str_starts_with($key, Reward::class.'#')));
     }
 
     public function testReopeningKeepsTheStarAndTickingAgainLaysDownNoOther(): void
@@ -285,6 +321,21 @@ class RewardApiTest extends WebTestCase
         self::assertSame('monthRecord', $record['surprise']);
         self::assertStringContainsString('3', $record['message']);
         self::assertStringNotContainsString('{total}', $record['message']);
+    }
+
+    public function testARecordHeldBackByTheDaysOtherSurpriseComesWithTheNextStarOnce(): void
+    {
+        // September: 1, the best month before. October: none yet.
+        $this->pastStar('2026-09-03 10:00 UTC', 'past-1');
+        // Today's surprise is already gone: the record (2 > 1) waits.
+        $this->tick('waiting');
+        self::assertSame('waited', $this->rewardOf('waiting')['surprise']);
+
+        Clock::set(new MockClock('2026-10-15 09:00:00 UTC'));
+        $this->tick('spare1');
+        self::assertSame('monthRecord', $this->rewardOf('spare1')['surprise'], 'the next day, the record comes');
+        $this->tick('spare2');
+        self::assertNull($this->rewardOf('spare2')['surprise'], 'once a month');
     }
 
     public function testNoRecordTheFirstMonth(): void
