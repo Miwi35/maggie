@@ -32,6 +32,8 @@ data class FocusUiState(
     val message: String? = null,
     /** « C'est fait » or « Plus tard » went through: the screen goes back to the day. */
     val leaves: Boolean = false,
+    /** It left by « C'est fait »: the Bravo opens instead of the day (MAG-508). */
+    val completed: Boolean = false,
 )
 
 /**
@@ -172,7 +174,7 @@ class FocusViewModel(
         }
     }
 
-    /** « C'est fait »: the task is ticked, which the API announces as completed; back to the day. */
+    /** « C'est fait »: the task is ticked, which the API announces as completed; on to the Bravo. */
     fun complete() {
         val state = _uiState.value
         val taskId = state.taskId ?: return
@@ -180,7 +182,7 @@ class FocusViewModel(
         _uiState.update { it.copy(isBusy = true, message = null) }
         viewModelScope.launch {
             taskRepository.toggleDone(taskId, true)
-                .onSuccess { leave(taskId) }
+                .onSuccess { leave(taskId, completed = true) }
                 .onFailure { fail(taskId, "Impossible de modifier la tâche.") }
         }
     }
@@ -213,10 +215,10 @@ class FocusViewModel(
     }
 
     // An answer that comes after the Focus was closed, or reopened on another task, is not this Focus's.
-    private fun leave(taskId: String) {
+    private fun leave(taskId: String, completed: Boolean = false) {
         if (_uiState.value.taskId != taskId) return
         stopTicking()
-        _uiState.update { it.copy(isBusy = false, leaves = true) }
+        _uiState.update { it.copy(isBusy = false, leaves = true, completed = completed) }
     }
 
     private fun fail(taskId: String, message: String) {

@@ -76,7 +76,8 @@ internal fun timerDescriptionOf(remainingMs: Long, phase: FocusTimerPhase): Stri
 /**
  * The Focus (MAG-499): one task, its first step, the 10-minute ring and its petits pas. On a wide
  * window the timer takes the left and the petits pas the right; the same screen otherwise, in one column.
- * [onExit] is called once the Focus is over — « C'est fait », « Plus tard » or back.
+ * [onExit] is called once the Focus is over — « Plus tard » or back; « C'est fait » calls [onDone]
+ * with the task ticked, for its Bravo (MAG-508).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,13 +85,18 @@ fun FocusScreen(
     taskId: String,
     viewModel: FocusViewModel,
     onExit: () -> Unit,
+    onDone: (BravoRequest) -> Unit = { onExit() },
 ) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(taskId) { viewModel.open(taskId) }
     // The ticks may have been held back while the app was away: the time left is read again.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshTimer() }
-    LaunchedEffect(state.leaves) { if (state.leaves) onExit() }
+    LaunchedEffect(state.leaves) {
+        if (!state.leaves) return@LaunchedEffect
+        val task = state.task
+        if (state.completed && task != null) onDone(BravoRequest(task.id, task.title)) else onExit()
+    }
     BackHandler(onBack = onExit)
 
     Scaffold(

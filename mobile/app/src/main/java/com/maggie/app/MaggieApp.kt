@@ -26,6 +26,9 @@ import com.maggie.app.data.interruption.InterruptionAlert
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.interruption.InterruptionFeed
 import com.maggie.app.data.interruption.InterruptionPreferences
+import com.maggie.app.data.reward.AndroidRewardFeedback
+import com.maggie.app.data.reward.RewardFeedback
+import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
@@ -112,6 +115,7 @@ import com.maggie.app.ui.interruption.InterruptionViewModel
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
+import com.maggie.app.ui.screens.tasks.BravoViewModel
 import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
@@ -264,6 +268,8 @@ class MaggieApp : Application() {
             single { InterruptionCenter() }
             single { InterruptionPreferences(androidContext()) }
             single<InterruptionAlert> { AndroidInterruptionAlert(androidContext(), get()) }
+            single<RewardFeedback> { AndroidRewardFeedback(androidContext()) }
+            single { TaskRewards(get(), get()) }
             single { PushDelivery(get(), { PushNotifier(androidContext()) }) }
             single { InterruptionFeed(get(), get(), get(), get()) }
 
@@ -321,8 +327,9 @@ class MaggieApp : Application() {
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
-            viewModel { TasksViewModel(get(), get(), get()) }
+            viewModel { TasksViewModel(get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }
+            viewModel { BravoViewModel(get(), get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }

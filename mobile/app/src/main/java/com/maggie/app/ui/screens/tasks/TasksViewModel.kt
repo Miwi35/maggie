@@ -15,6 +15,8 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.reward.Celebration
+import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.Job
@@ -65,6 +67,10 @@ data class TasksUiState(
     val morning: MorningState? = null,
     /** « Le soir » (MAG-500): the review on screen instead of the day; `null` when closed. */
     val evening: EveningState? = null,
+    /** A task of the day just ticked (MAG-508): the screen opens its Bravo and clears it. */
+    val bravo: BravoRequest? = null,
+    /** A task ticked in another tab: its reward as a short banner instead of the Bravo. */
+    val reward: Celebration? = null,
 ) {
     /** What the open tab draws has arrived: the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean get() = if (view == TaskView.TODAY) day != null else tasks.isNotEmpty()
@@ -145,6 +151,7 @@ class TasksViewModel(
     private val taskRepository: TaskRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val rewards: TaskRewards,
     private val today: () -> LocalDate = { DateRanges.todayDate() },
     private val now: () -> LocalTime = { LocalTime.now() },
 ) : ViewModel() {
@@ -246,18 +253,36 @@ class TasksViewModel(
         }
     }
 
-    /** Ticks a task, or unticks it; the view is read again since the task changes view. */
+    /**
+     * Ticks a task, or unticks it; the view is read again since the task changes view. A task ticked
+     * here, out of the day, shows its reward as a banner (MAG-508).
+     */
     fun toggleDone(task: Task) {
+        val done = !task.isDone
         viewModelScope.launch {
-            taskRepository.toggleDone(task.id, !task.isDone)
-                .onSuccess { reload() }
+            taskRepository.toggleDone(task.id, done)
+                .onSuccess {
+                    reload()
+                    if (done) rewards.celebrate(task.id)?.let { reward -> _uiState.update { it.copy(reward = reward) } }
+                }
                 .onFailure { _uiState.update { it.copy(message = "Impossible de modifier la tâche.") } }
         }
+    }
+
+    /** The banner went away. */
+    fun dismissReward() {
+        _uiState.update { it.copy(reward = null) }
+    }
+
+    /** The screen opened the Bravo [toggleDayTask] asked for. */
+    fun onBravoShown() {
+        _uiState.update { it.copy(bravo = null) }
     }
 
     /**
      * Ticks a task of the day, or unticks it. The day moves at once — « Maintenant » goes to the next
      * slot, the ring fills — and is read again once the server took it; a refusal puts it back.
+     * A tick the server took opens the Bravo (MAG-508); an untick does not.
      */
     fun toggleDayTask(task: DayTask) {
         val before = _uiState.value.day ?: return
@@ -267,7 +292,10 @@ class TasksViewModel(
         }
         viewModelScope.launch {
             taskRepository.toggleDone(task.id, done)
-                .onSuccess { reload() }
+                .onSuccess {
+                    if (done) _uiState.update { it.copy(bravo = BravoRequest(task.id, task.title)) }
+                    reload()
+                }
                 .onFailure { _uiState.update { it.copy(day = before, message = "Impossible de modifier la tâche.") } }
         }
     }

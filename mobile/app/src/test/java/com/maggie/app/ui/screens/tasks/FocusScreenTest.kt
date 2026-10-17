@@ -37,6 +37,7 @@ class FocusScreenTest {
     private val stepOne = Task(id = "s1", title = "Chercher le numéro", parent = Task.iriOf("t1"), position = "1")
     private val stepTwo = Task(id = "s2", title = "Dire la plaque", parent = Task.iriOf("t1"), position = "2")
     private var exits = 0
+    private var bravo: BravoRequest? = null
     private var now = 0L
 
     private fun show(task: Task = focused) {
@@ -44,7 +45,7 @@ class FocusScreenTest {
         coEvery { repository.getSubtasks("t1") } returns Result.success(listOf(stepOne, stepTwo))
         // No tick during the test: the ring is read at the moment it is drawn.
         val viewModel = FocusViewModel(repository, today = { LocalDate.of(2026, 10, 15) }, clock = { now }, tickMs = 3_600_000)
-        compose.setContent { FocusScreen(taskId = "t1", viewModel = viewModel, onExit = { exits++ }) }
+        compose.setContent { FocusScreen(taskId = "t1", viewModel = viewModel, onExit = { exits++ }, onDone = { bravo = it }) }
         compose.waitForIdle()
     }
 
@@ -110,7 +111,7 @@ class FocusScreenTest {
     }
 
     @Test
-    fun `« C'est fait » ticks the task and leaves the Focus`() {
+    fun `« C'est fait » ticks the task and leaves the Focus for its Bravo (MAG-508)`() {
         coEvery { repository.toggleDone("t1", true) } returns Result.success(focused.copy(completedAt = "2026-10-15T08:00:00Z"))
         show()
 
@@ -118,7 +119,8 @@ class FocusScreenTest {
         compose.waitForIdle()
 
         coVerify(exactly = 1) { repository.toggleDone("t1", true) }
-        assertEquals(1, exits)
+        assertEquals(BravoRequest("t1", "Appeler le garage"), bravo)
+        assertEquals(0, exits)
     }
 
     @Test

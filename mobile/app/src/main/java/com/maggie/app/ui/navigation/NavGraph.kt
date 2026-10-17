@@ -57,6 +57,7 @@ import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.OPERATION_SERIES
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.RecipeRepository
@@ -190,6 +191,8 @@ import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
+import com.maggie.app.ui.screens.tasks.BravoScreen
+import com.maggie.app.ui.screens.tasks.BravoViewModel
 import com.maggie.app.ui.screens.tasks.FocusScreen
 import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.TasksScreen
@@ -222,6 +225,7 @@ sealed class Screen(val route: String, val label: String) {
     data object EventEdit : Screen("event/edit", "Modifier l'événement")
     data object TaskEdit : Screen("task/edit", "Modifier la tâche")
     data object TaskFocus : Screen("task/focus", "Focus")
+    data object TaskBravo : Screen("task/bravo", "Bravo")
     data object Chat : Screen("chat", "Chat")
     data object Settings : Screen("settings", "Paramètres")
     data object Notifications : Screen("notifications", "Notifications")
@@ -477,6 +481,7 @@ fun NavGraph() {
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
     val tasksViewModel: TasksViewModel = koinViewModel()
     val focusViewModel: FocusViewModel = koinViewModel()
+    val bravoViewModel: BravoViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
@@ -1087,6 +1092,10 @@ fun NavGraph() {
                                         focusTaskId = it
                                         navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
                                     },
+                                    onBravo = {
+                                        bravoViewModel.open(it)
+                                        navController.navigate(Screen.TaskBravo.route) { launchSingleTop = true }
+                                    },
                                 )
                             },
                             detail = task?.let { open ->
@@ -1128,6 +1137,39 @@ fun NavGraph() {
                                 onExit = {
                                     focusViewModel.close()
                                     focusTaskId = null
+                                    navController.popBackStack()
+                                },
+                                // « C'est fait »: the Bravo takes the Focus's place, so back from it is the day.
+                                onDone = {
+                                    focusViewModel.close()
+                                    focusTaskId = null
+                                    bravoViewModel.open(it)
+                                    navController.navigate(Screen.TaskBravo.route) {
+                                        popUpTo(Screen.TaskFocus.route) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    // The Bravo (MAG-508): « Suivante » opens the next task's Focus in its place, « Pause méritée » the day.
+                    composable(Screen.TaskBravo.route) { entry ->
+                        val bravo by bravoViewModel.uiState.collectAsState()
+                        PopWhenMissing(navController, entry, bravo.taskId != null)
+                        if (bravo.taskId != null) {
+                            BravoScreen(
+                                viewModel = bravoViewModel,
+                                onNext = { taskId ->
+                                    bravoViewModel.close()
+                                    focusTaskId = taskId
+                                    navController.navigate(Screen.TaskFocus.route) {
+                                        popUpTo(Screen.TaskBravo.route) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onPause = {
+                                    bravoViewModel.close()
+                                    tasksViewModel.selectView(TaskView.TODAY)
                                     navController.popBackStack()
                                 },
                             )

@@ -256,7 +256,7 @@ class FocusViewModelTest {
     }
 
     @Test
-    fun `« C'est fait » ticks the task and goes back to the day`() = runTest(testDispatcher) {
+    fun `« C'est fait » ticks the task and leaves for its Bravo (MAG-508)`() = runTest(testDispatcher) {
         coEvery { repository.toggleDone("t1", true) } returns Result.success(focused.copy(completedAt = "2026-10-15T08:00:00Z"))
         val viewModel = opened()
         viewModel.start()
@@ -265,6 +265,7 @@ class FocusViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.leaves)
+        assertTrue(viewModel.uiState.value.completed)
         assertFalse(viewModel.uiState.value.isBusy)
         coVerify(exactly = 1) { repository.toggleDone("t1", true) }
     }
@@ -309,6 +310,8 @@ class FocusViewModelTest {
 
         assertEquals(listOf(listOf("b", "d", "c", "t1")), sent)
         assertTrue(viewModel.uiState.value.leaves)
+        // Back to the day, no Bravo: nothing was done.
+        assertFalse(viewModel.uiState.value.completed)
     }
 
     @Test

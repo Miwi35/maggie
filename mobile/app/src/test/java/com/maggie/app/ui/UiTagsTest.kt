@@ -79,6 +79,7 @@ class UiTagsTest {
         assertEquals("settings_tasks_chip_normal_due", UiTags.settingsTasksChip("normal", null))
         assertEquals("settings_tasks_overdue_high", UiTags.settingsTasksOverdue("high"))
         assertEquals("settings_task_order_timePressure", UiTags.settingsTaskOrder("timePressure"))
+        assertEquals("settings_tasks_tone_drole", UiTags.settingsTasksTone("drole"))
     }
 
     /** `e2e/mobile/flows/17b-tasks-day.yaml` spells the day's slots and the reserve's rows by hand (MAG-497). */
