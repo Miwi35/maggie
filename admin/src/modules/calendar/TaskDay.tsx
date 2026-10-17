@@ -426,7 +426,11 @@ export const TaskDay = ({
         if (cheer.sound) playBravoSound()
         setBravo({ task, reward })
       })
-      .catch(() => notify('Tâche terminée', { type: 'success' }))
+      .catch(() => {
+        // No bravo to show: a Focus left open on the task done must not come back with it.
+        setFocusId(null)
+        notify('Tâche terminée', { type: 'success' })
+      })
   }
 
   const toggle = (task: DayTask) => {

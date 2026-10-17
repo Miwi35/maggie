@@ -17,7 +17,8 @@ use Maggie\Calendar\Repository\TaskRepository;
  *
  * 1. `fullDay` — this task makes every slot of the day done (3 slots at least);
  * 2. `monthRecord` — the stars of the month pass, for the first time this
- *    month, the best of the months before (no record the first month);
+ *    month, the best of the months before (no record the first month; one
+ *    held back by the day's other surprise comes with the next star);
  * 3. `waited` — the task had been put off for 3 days or more.
  */
 final class RewardSurprises
@@ -93,10 +94,19 @@ final class RewardSurprises
         return true;
     }
 
-    /** The month's stars, this one counted, when they just passed the best month before; null otherwise. */
+    /**
+     * The month's stars, this one counted, when they pass the best month before
+     * and no record was earned yet this month; null otherwise. A record a day's
+     * other surprise held back comes with the next star.
+     */
     private function monthRecord(Task $task, \DateTimeImmutable $local): ?int
     {
         $monthStart = $local->modify('first day of this month')->setTime(0, 0);
+        $monthEnd = $monthStart->modify('+1 month');
+        if ($this->rewards->hasSurpriseBetween($task->getUser(), $monthStart, $monthEnd, Reward::SURPRISE_MONTH_RECORD)) {
+            return null;
+        }
+
         $byMonth = [];
         foreach ($this->rewards->findStarDatesBefore($task->getUser(), $monthStart) as $earnedAt) {
             $month = $earnedAt->setTimezone($local->getTimezone())->format('Y-m');
@@ -106,8 +116,8 @@ final class RewardSurprises
             return null;
         }
 
-        $total = $this->rewards->countStarsBetween($task->getUser(), $monthStart, $monthStart->modify('+1 month')) + 1;
+        $total = $this->rewards->countStarsBetween($task->getUser(), $monthStart, $monthEnd) + 1;
 
-        return $total === max($byMonth) + 1 ? $total : null;
+        return $total > max($byMonth) ? $total : null;
     }
 }

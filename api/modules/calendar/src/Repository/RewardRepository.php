@@ -44,10 +44,10 @@ class RewardRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Whether a surprise was earned in [$from, $to[: one a day at most. */
-    public function hasSurpriseBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): bool
+    /** Whether a surprise — of that kind, when given — was earned in [$from, $to[: one a day at most. */
+    public function hasSurpriseBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to, ?string $surprise = null): bool
     {
-        return null !== $this->createQueryBuilder('r')
+        $query = $this->createQueryBuilder('r')
             ->select('r.id')
             ->where('r.user = :user')
             ->andWhere('r.surprise IS NOT NULL')
@@ -56,9 +56,12 @@ class RewardRepository extends ServiceEntityRepository
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setMaxResults(1);
+        if (null !== $surprise) {
+            $query->andWhere('r.surprise = :surprise')->setParameter('surprise', $surprise);
+        }
+
+        return null !== $query->getQuery()->getOneOrNullResult();
     }
 
     /**
