@@ -98,9 +98,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // period, so neither can share it. The twelfth is the seasonality
         // journey's: it writes to a grocery list and to the chat (MAG-494). The
         // thirteenth is the scores journeys' (MAG-417): a rent series and a
-        // month of spending no other journey may move. A fourteenth would mean
+        // month of spending no other journey may move. The fourteenth is the
+        // « À venir » journeys' (MAG-463): a next-month rent and an adjusted
+        // envelope that no other journey may read. A fifteenth would mean
         // somebody added an account without saying why.
-        self::assertSame(14, $this->rowsOf(User::class));
+        self::assertSame(15, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -141,8 +143,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Three since MAG-495: the owner's coffee, bought every 14 days.
         self::assertSame(3, $this->rowsOf(Errand::class));
         // Two more since MAG-49: each envelope alert account syncs a bank account of its own.
-        // Five since MAG-417: the scores account's current account.
-        self::assertSame(5, $this->rowsOf(Account::class));
+        // Five since MAG-417: the scores account's current account. Six since
+        // MAG-463: the « À venir » account's.
+        self::assertSame(6, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -151,8 +154,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty since MAG-417: the scores account's rent and groceries.
         self::assertSame(20, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
-        // MAG-417: the scores account's « Logement » and « Alimentation ».
-        self::assertSame(6, $this->rowsOf(Envelope::class));
+        // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
+        // since MAG-463: the « À venir » account's current and next month's.
+        self::assertSame(9, $this->rowsOf(Envelope::class));
         self::assertSame(2, $this->rowsOf(Notification::class));
     }
 
@@ -344,11 +348,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(15, $this->rowsOf(User::class));
+        self::assertSame(16, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(14, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(15, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

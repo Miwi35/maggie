@@ -575,6 +575,9 @@ mobile:
   e2e/mobile/flows/finance-overview.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
+  e2e/mobile/flows/20-finance-upcoming.yaml:
+    areas: [finance]
+    paths: [api/fixtures/e2e/58-finance-upcoming.yaml]
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
     paths:
