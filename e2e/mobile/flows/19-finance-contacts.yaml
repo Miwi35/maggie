@@ -45,6 +45,18 @@ tags:
 # The créance and the transfer — filed, dated the day before so it is the oldest card — are
 # written by `contacts-api.js` (`ACTION: allocation`).
 #
+# The safety cushion lowered by the créances (MAG-454):
+#
+# Étant donné un Livret A de 5 200 € compté dans le matelas, et le gîte des Cimes dont Julie, Tom et Inès
+#   me doivent chacun 200 € (Tom a remboursé le gîte de Crozon, qui ne compte plus)
+# Quand j'ouvre le matelas
+# Alors la ligne « Avancé à des proches » montre −600 €, et le matelas 4 600 €
+# Quand Julie rembourse ses 200 €
+# Alors la ligne montre −400 € et le matelas est remonté à 4 800 €
+#
+# The Livret and Julie's transfer are written by `contacts-api.js` (`ACTION: cushion`, `repay`).
+# The dette of 280 € owed to Tom is no créance: it never lowers the cushion.
+#
 # What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
 # `ContactScreenTest`), amounts edited by hand, the steppers, switching a share off and the
 # server's refusals (`TransactionViewModelTest`, `TransactionShareScreenTest`,
@@ -388,6 +400,33 @@ tags:
     file: ../scripts/contacts-api.js
     env:
       ACTION: allocated
+
+# MAG-454: the Livret A of 5 200 € counted in the cushion, the three shares of the gîte des Cimes open.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: cushion
+- openLink: "maggie-e2e://finance/cushion"
+- extendedWaitUntil:
+    visible:
+      id: "cushion_peer_claims"
+    timeout: 30000
+- assertVisible: "Avancé à des proches.*"
+- assertVisible: "revient au remboursement"
+- assertVisible: "−600[.,]00 EUR"
+- assertVisible: "4.{0,1}600[.,]00 EUR sur.*"
+- assertVisible: ".*dont 600[.,]00 EUR avancés à des proches.*"
+
+# Julie gives her 200 € back: the cushion refills.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: repay
+- openLink: "maggie-e2e://finance/cushion"
+- extendedWaitUntil:
+    visible: "−400[.,]00 EUR"
+    timeout: 30000
+- assertVisible: "4.{0,1}800[.,]00 EUR sur.*"
 
 # Left as found.
 - runScript:

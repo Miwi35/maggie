@@ -75,7 +75,7 @@
                 },
                 {
                     "code": "cushion_incomplete",
-                    "amountCents": 1361544
+                    "amountCents": 1366544
                 },
                 {
                     "code": "above_last_year",
@@ -278,7 +278,7 @@
                 },
                 {
                     "code": "cushion_incomplete",
-                    "amountCents": 1361544
+                    "amountCents": 1366544
                 },
                 {
                     "code": "above_last_year",
@@ -323,7 +323,7 @@
             "cushion": {
                 "state": "building",
                 "targetCents": 1485000,
-                "currentCents": 123456,
+                "currentCents": 118456,
                 "coveragePercent": 8,
                 "monthsCovered": 0.2,
                 "isConfigured": true
@@ -407,7 +407,7 @@
             },
             {
                 "code": "cushion_incomplete",
-                "amountCents": 1361544
+                "amountCents": 1366544
             },
             {
                 "code": "above_last_year",

@@ -7,16 +7,22 @@ namespace Maggie\Finance\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\SafetyCushion;
 use Maggie\Finance\Enum\CushionState;
+use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Repository\AccountRepository;
+use Maggie\Finance\Repository\PeerDebtRepository;
 use Maggie\Finance\Repository\SafetyCushionRepository;
 
 /**
  * Where the safety net stands, and what it would take to fill it back up.
  *
  * The current amount is never stored: it is the balance of the accounts
- * flagged as cushion, so the net follows the accounts without double entry.
+ * flagged as cushion, less what is lent to people and not yet given back
+ * (MAG-454), so the net follows the accounts without double entry and fills
+ * back up with every repayment. A treasury advance is not lent to a person: it
+ * already lowered the account's balance, and a dette never raises the net.
  * The target follows the reference salary — declared on the cushion, or
  * measured from the recurring « Salaire » — not the raw field alone.
  */
@@ -27,6 +33,7 @@ class GetCushionStatus
         private readonly AccountRepository $accountRepository,
         private readonly EntityManagerInterface $em,
         private readonly GetReferenceSalary $getReferenceSalary,
+        private readonly PeerDebtRepository $peerDebtRepository,
     ) {
     }
 
@@ -40,10 +47,16 @@ class GetCushionStatus
             static fn (Account $account) => $account->isCushion(),
         ));
 
+        $claims = array_values(array_filter(
+            $this->peerDebtRepository->findByUser($user),
+            static fn (PeerDebt $debt) => PeerDebtDirection::OwedToMe === $debt->getDirection() && $debt->getRemainingCents() > 0,
+        ));
+        $peerClaimsCents = array_sum(array_map(static fn (PeerDebt $debt) => $debt->getRemainingCents(), $claims));
+
         $currentCents = array_sum(array_map(
             static fn (Account $account) => $account->getBalanceCents(),
             $accounts,
-        ));
+        )) - $peerClaimsCents;
 
         $reference = $this->getReferenceSalary->execute($user);
         $monthlyIncomeCents = $reference['monthlyCents'] ?? 0;
@@ -74,12 +87,14 @@ class GetCushionStatus
             'referenceSalarySource' => $reference['source'],
             'targetCents' => $targetCents,
             'currentCents' => $currentCents,
+            'peerClaimsCents' => $peerClaimsCents,
+            'peerClaimObjects' => array_map(static fn (PeerDebt $debt) => $debt->getObject(), $claims),
             'deficitCents' => $deficitCents,
             'coveragePercent' => $targetCents > 0
-                ? (int) round(min(100, $currentCents / $targetCents * 100))
+                ? (int) round(max(0, min(100, $currentCents / $targetCents * 100)))
                 : 0,
             'monthsCovered' => $monthlyIncomeCents > 0
-                ? round($currentCents / $monthlyIncomeCents, 1)
+                ? round(max(0, $currentCents) / $monthlyIncomeCents, 1)
                 : 0.0,
             'rechargeCapCents' => $cushion->getRechargeCapCents(),
             'rechargeTargetMonths' => $cushion->getRechargeTargetMonths(),

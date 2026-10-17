@@ -7,11 +7,13 @@ import com.maggie.app.data.repository.CushionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -69,6 +71,70 @@ class CushionViewModelTest {
         assertTrue(state.status!!.blocksGreenScore)
         assertFalse(state.isLoading)
         assertNull(state.error)
+    }
+
+    @Test
+    fun `open créances lower the cushion and are exposed with what they are for`() = runTest {
+        val lent = buildingStatus.copy(
+            currentCents = 466500,
+            deficitCents = 283500,
+            peerClaimsCents = 53500,
+            peerClaimObjects = listOf("Gîte de Crozon", "Hellfest"),
+        )
+        coEvery { cushionRepository.getStatus() } returns Result.success(lent)
+
+        viewModel = CushionViewModel(cushionRepository)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(53500, state.status?.peerClaimsCents)
+        assertEquals(listOf("Gîte de Crozon", "Hellfest"), state.status?.peerClaimObjects)
+        assertEquals(466500, state.status?.currentCents)
+        assertFalse(state.isLoading)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `without a créance nothing is held back`() = runTest {
+        viewModel = CushionViewModel(cushionRepository)
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.status?.peerClaimsCents)
+        assertTrue(viewModel.uiState.value.status!!.peerClaimObjects.isEmpty())
+    }
+
+    @Test
+    fun `a repayment refills the cushion on the next refresh`() = runTest {
+        val lent = buildingStatus.copy(currentCents = 430000, peerClaimsCents = 20000, peerClaimObjects = listOf("Gîte"))
+        coEvery { cushionRepository.getStatus() } returnsMany listOf(Result.success(lent), Result.success(buildingStatus))
+
+        viewModel = CushionViewModel(cushionRepository)
+        advanceUntilIdle()
+        assertEquals(430000, viewModel.uiState.value.status?.currentCents)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(450000, viewModel.uiState.value.status?.currentCents)
+        assertEquals(0, viewModel.uiState.value.status?.peerClaimsCents)
+    }
+
+    @Test
+    fun `loading shows the spinner until the status arrives`() = runTest {
+        val answer = CompletableDeferred<Result<CushionStatus>>()
+        coEvery { cushionRepository.getStatus() } coAnswers { answer.await() }
+
+        viewModel = CushionViewModel(cushionRepository)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.status)
+
+        answer.complete(Result.success(buildingStatus))
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(buildingStatus, viewModel.uiState.value.status)
     }
 
     @Test

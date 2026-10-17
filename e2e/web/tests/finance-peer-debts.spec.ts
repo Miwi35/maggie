@@ -3,6 +3,7 @@ import { test, expect, seedAnchorDate, seedDate, seedId } from '../fixtures/inde
 import { waitForIndexed } from '../helpers/api.js'
 import { euros, overBudget } from '../helpers/money.js'
 import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
+import { FinanceCushionPage } from '../pages/FinanceCushionPage.js'
 import { FinanceContactPage } from '../pages/FinanceContactPage.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 import { FinanceTransactionSheetPage } from '../pages/FinanceTransactionSheetPage.js'
@@ -105,6 +106,9 @@ test('a transfer associated from « À trier » makes its label Tom\'s, and the 
  * cannot be deleted.
  */
 test.describe('a shared spend', () => {
+  // The cushion journey reads the season account's créances as a whole: no other test of this describe may write one beside it.
+  test.describe.configure({ mode: 'serial' })
+
   const created: { path: string }[] = []
 
   const create = async (api: APIRequestContext, path: string, data: Record<string, unknown>): Promise<string> => {
@@ -314,5 +318,93 @@ test.describe('a shared spend', () => {
     await contact.open(tomId)
     await expect(contact.openDebts.getByText('Rien en cours.')).toBeVisible()
     await expect(contact.openDebt(gite)).toHaveCount(0)
+  })
+  /**
+   * « Avancé à des proches » (MAG-454): Julie owes 200 € on a gîte, so a Livret A
+   * of 5 200 € held as cushion counts 5 000 €; her repayment gives the 200 € back.
+   */
+  test('a 200 € créance on Julie lowers the cushion to 5 000 €, and her repayment brings it back to 5 200 €', async ({
+    seasonUser,
+  }) => {
+    const { api, page } = seasonUser
+    const suffix = letters(6)
+    const julie = `Julie ${suffix}`
+    const gite = `Gîte de Crozon ${suffix}`
+    const label = `VIR. DE JULIE-${suffix}`
+
+    // Given a Livret A of 5 200 € counted in the cushion, and a target of 3 months of 2 500 €
+    await create(api, '/api/accounts', {
+      name: `Livret MAG-454 ${suffix}`,
+      type: 'savings',
+      currency: 'EUR',
+      balanceCents: 520000,
+      isCushion: true,
+    })
+    const config = await api.patch('/api/finance/cushion-config', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { targetMonths: 3, monthlyNetIncomeCents: 250000 },
+    })
+    expect(config.status(), await config.text()).toBe(200)
+
+    // And a créance of 200 € on Julie
+    const accountId = await create(api, '/api/accounts', {
+      name: `Compte MAG-454 ${suffix}`,
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    const julieId = await create(api, '/api/contacts', { name: julie })
+    const spend = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: `GITE DE CROZON ${suffix}`,
+      amountCents: -40000,
+      currency: 'EUR',
+      bookedAt: seedDate(-7),
+      status: 'spent',
+    })
+    const shared = await api.put(`/api/finance/transactions/${spend}/my-share`, {
+      data: { myShareCents: 20000, object: gite, shares: [{ contactId: julieId }] },
+    })
+    expect(shared.status(), await shared.text()).toBe(200)
+
+    // When I open the cushion
+    const cushion = new FinanceCushionPage(page)
+    await cushion.open()
+
+    // Then the Livret A counts 5 000 €, the 200 € being « Avancé à des proches »
+    await expect(cushion.summary).toContainText(`${euros(500000)} sur ${euros(750000)}`)
+    await expect(cushion.peerClaims).toContainText('Avancé à des proches')
+    await expect(cushion.peerClaims).toContainText(gite)
+    await expect(cushion.peerClaims).toContainText('revient au remboursement')
+    await expect(cushion.peerClaims).toContainText(`−${euros(20000)}`)
+    await expect(cushion.summary).toContainText(`Il manque ${euros(250000)}, dont ${euros(20000)} avancés à des proches`)
+
+    // When Julie repays her 200 €
+    await create(api, '/api/contact_counterparties', { contact: `/api/contacts/${julieId}`, label })
+    const transfer = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label,
+      amountCents: 20000,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+    // Removed first: a créance someone gave money back on outlives its spend, and holds Julie.
+    created.unshift({ path: `/api/finance/transactions/${transfer}/allocation` })
+    const candidates = await api.get(`/api/finance/transactions/${transfer}/allocation`)
+    expect(candidates.status(), await candidates.text()).toBe(200)
+    const share = ((await candidates.json()) as { candidates: Array<{ shareId: string; object: string }> }).candidates.find(
+      (candidate) => candidate.object === gite,
+    )
+    expect(share, 'the gîte is offered to the transfer').toBeDefined()
+    const repaid = await api.put(`/api/finance/transactions/${transfer}/allocation`, {
+      data: { kind: 'repayment', allocations: [{ shareId: share?.shareId, amountCents: 20000 }] },
+    })
+    expect(repaid.status(), await repaid.text()).toBe(200)
+
+    // Then the cushion is back to 5 200 € and the row is gone
+    await cushion.open()
+    await expect(cushion.summary).toContainText(`${euros(520000)} sur ${euros(750000)}`)
+    await expect(cushion.peerClaims).toHaveCount(0)
   })
 })

@@ -20,8 +20,12 @@
 // filed and dated the day before so it is the oldest card of « À trier »; `allocated` waits until Tom's
 // share of the gîte is settled and checks the transfer leaves 200 € « Non affecté ».
 //
+// MAG-454 lowers the safety cushion by the open créances: `cushion` writes a Livret A of 5 200 € counted
+// in the cushion and a target of 3 months of 2 500 €; `repay` writes a transfer of 200 € from Julie and
+// allocates it to her share of the gîte « GITE DES CIMES MAG-451 », which refills the cushion by 200 €.
+//
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION          create | second | share | income | allocation | allocated | remove
+//   ACTION          create | second | share | income | allocation | allocated | cushion | repay | remove
 //   EXPECTED_CENTS  income only: the month's income, in cents
 //
 // Everything is the journey's own — the account named after the ticket, the contacts « Tom »,
@@ -40,6 +44,9 @@ const giteLabel = 'GITE DES CIMES MAG-451'
 // MAG-453: the créance a transfer from Tom repays.
 const crozonLabel = 'GITE DE CROZON MAG-453'
 const crozonObject = 'Gîte de Crozon'
+// MAG-454: the account counted in the cushion, and the transfer Julie repays with.
+const livretName = 'Livret MAG-454'
+const repayLabel = 'VIR. DE JULIE MAG-454'
 
 function fail(message) {
   throw new Error('[contacts-api] ' + ACTION + ': ' + message)
@@ -165,6 +172,9 @@ function removeLeftovers() {
       const endpoint = debt.direction === 'i_owe' ? '/debt' : '/my-share'
       http.request(base + '/api/finance/transactions/' + debt.originTransactionId + endpoint, { method: 'DELETE', headers: authorized() })
     })
+  collection('/api/accounts?itemsPerPage=200')
+    .filter(function (a) { return a.name === livretName })
+    .forEach(function (a) { remove(a['@id']) })
   collection('/api/contacts?pagination=false')
     .filter(function (contact) { return people.indexOf(contact.name) >= 0 })
     .forEach(function (contact) { remove(contact['@id']) })
@@ -299,6 +309,40 @@ if (ACTION === 'create') {
     }
     pause(300)
   }
+} else if (ACTION === 'cushion') {
+  post('/api/accounts', { name: livretName, type: 'savings', currency: 'EUR', balanceCents: 520000, isCushion: true })
+  const config = http.request(base + '/api/finance/cushion-config', {
+    method: 'PATCH',
+    headers: authorized({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ targetMonths: 3, monthlyNetIncomeCents: 250000 }),
+  })
+  if (!config.ok) {
+    fail('PATCH /api/finance/cushion-config answered ' + config.status + ': ' + config.body)
+  }
+} else if (ACTION === 'repay') {
+  const existing = account()
+  if (!existing) {
+    fail('no account « ' + accountName + ' »: run create first')
+  }
+  const julie = awaitOne('/api/contacts?pagination=false', 'Julie')
+  post('/api/contact_counterparties', { contact: julie['@id'], label: repayLabel })
+  const received = post('/api/transactions', {
+    account: existing['@id'],
+    label: repayLabel,
+    amountCents: 20000,
+    currency: 'EUR',
+    bookedAt: TODAY,
+    status: 'spent',
+  })
+  const allocation = getJson('/api/finance/transactions/' + received.id + '/allocation')
+  const share = allocation.candidates.filter(function (c) { return c.object === giteLabel })[0]
+  if (!share) {
+    fail('Julie\'s share of the gîte is not offered to the transfer: ' + JSON.stringify(allocation))
+  }
+  put('/api/finance/transactions/' + received.id + '/allocation', {
+    kind: 'repayment',
+    allocations: [{ shareId: share.shareId, amountCents: 20000 }],
+  })
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

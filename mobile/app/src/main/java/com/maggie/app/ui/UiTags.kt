@@ -299,6 +299,9 @@ object UiTags {
      */
     const val BANK_SYNC = "bank_sync"
 
+    /** Matelas — the row « Avancé à des proches », which only exists while a créance is open. */
+    const val CUSHION_PEER_CLAIMS = "cushion_peer_claims"
+
     /**
      * Suggestions — the yes of a card, which is refused while no heading is
      * chosen. Tagged because that refusal is what the journey asserts, and a

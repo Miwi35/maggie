@@ -14,6 +14,9 @@ export interface CushionStatus {
   monthlyNetIncomeCents: number
   targetCents: number
   currentCents: number
+  /** What friends and family still owe: already taken off `currentCents`. */
+  peerClaimsCents: number
+  peerClaimObjects: string[]
   deficitCents: number
   coveragePercent: number
   monthsCovered: number
@@ -48,16 +51,21 @@ function authHeaders(extra: Record<string, string> = {}) {
 export function useCushionStatus() {
   const [status, setStatus] = useState<CushionStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const res = await fetch('/api/finance/cushion-status', { headers: authHeaders() })
       if (res.ok) {
         setStatus((await res.json()) as CushionStatus)
+      } else {
+        setError(true)
       }
     } catch {
       // keep whatever we had
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -85,7 +93,7 @@ export function useCushionStatus() {
     refresh()
   }, [refresh])
 
-  return { status, loading, refresh, configure }
+  return { status, loading, error, refresh, configure }
 }
 
 export const CUSHION_STATE_LABELS: Record<string, string> = {

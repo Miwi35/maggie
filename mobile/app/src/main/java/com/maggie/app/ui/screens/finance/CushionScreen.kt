@@ -38,14 +38,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CushionConfigRequest
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.cushionDeficitLabel
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
 import com.maggie.app.data.model.rechargePlanLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.navigation.Screen
@@ -163,7 +166,7 @@ internal fun CushionSummaryCard(status: CushionStatus) {
 
             if (status.deficitCents > 0) {
                 Text(
-                    text = "Il manque ${formatCents(status.deficitCents)} — " +
+                    text = "${cushionDeficitLabel(status)} — " +
                         rechargePlanLabel(status),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp),
@@ -195,6 +198,29 @@ internal fun CushionSummaryCard(status: CushionStatus) {
                         text = "${account.label()} — ${formatCents(account.balanceCents, account.currency)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (status.peerClaimsCents > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag(UiTags.CUSHION_PEER_CLAIMS),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Avancé à des proches (${status.peerClaimObjects.joinToString(", ")})",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            text = "revient au remboursement",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = "−${formatCents(status.peerClaimsCents)}",
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }

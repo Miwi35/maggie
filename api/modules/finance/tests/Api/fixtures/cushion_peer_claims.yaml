@@ -1,0 +1,208 @@
+# The cushion less what is lent to people (MAG-454), shared by the API, MCP and
+# use-case suites: a Livret A of 5 200 € flagged as cushion, a target of 3 months
+# of 2 500 €, and the créances of peer_allocations.yaml — the gîte de Crozon
+# (Julie 200 €, Tom 200 €), Tom's birthday present (45 €), Hellfest (Lucas
+# 90 €) — 535 € in all. Plus a créance Lucas gave back in full, a dette (the
+# petrol Tom paid, 280 €), a treasury advance of 800 € from the Livret A, and
+# another user's créance.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-cushion-claims-test@example.com
+    googleId: google-finance-cushion-claims-test
+    name: Finance Cushion Claims Test User
+  other_user:
+    email: finance-cushion-claims-other@example.com
+    googleId: google-finance-cushion-claims-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  livret:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 520000
+    isCushion: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 250000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  gifts:
+    name: Virements reçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  travel_july:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+
+Maggie\Finance\Entity\Contact:
+  julie:
+    name: Julie
+    user: '@test_user'
+  tom:
+    name: Tom
+    user: '@test_user'
+  lucas:
+    name: Lucas
+    user: '@test_user'
+  others_contact:
+    name: Paul
+    user: '@other_user'
+
+Maggie\Finance\Entity\ContactCounterparty:
+  julie_label:
+    contact: '@julie'
+    label: VIR DE JULIE ROUX
+    user: '@test_user'
+  tom_label:
+    contact: '@tom'
+    label: TOM MARTIN
+    user: '@test_user'
+  lucas_label:
+    contact: '@lucas'
+    label: VIR DE LUCAS
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  julie_in:
+    account: '@checking'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-08"))>'
+    label: VIR DE JULIE ROUX
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tom_in:
+    account: '@checking'
+    category: '@gifts'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-09"))>'
+    label: VIR DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  lucas_in:
+    account: '@checking'
+    amountCents: 5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-10"))>'
+    label: VIR DE LUCAS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  tom_out:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -28000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-11"))>'
+    label: VIR A TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  from_savings:
+    account: '@checking'
+    amountCents: 50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+    label: VIR. DU LIVRET A
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    isExceptional: false
+    user: '@test_user'
+
+  advance_in:
+    account: '@checking'
+    amountCents: 80000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-04"))>'
+    label: VIR. DU LIVRET A
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Advance)>'
+    isExceptional: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  gite_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Gîte de Crozon
+    user: '@test_user'
+  birthday_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Anniversaire de Léa
+    user: '@test_user'
+  hellfest_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Hellfest
+    user: '@test_user'
+  settled_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Cadeau de Noël
+    user: '@test_user'
+  petrol_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::IOwe)>'
+    object: Essence du road trip
+    user: '@test_user'
+  others_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Pas le mien
+    user: '@other_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  gite_julie:
+    peerDebt: '@gite_debt'
+    contact: '@julie'
+    amountCents: 20000
+  gite_tom:
+    peerDebt: '@gite_debt'
+    contact: '@tom'
+    amountCents: 20000
+    position: 1
+  birthday_tom:
+    peerDebt: '@birthday_debt'
+    contact: '@tom'
+    amountCents: 4500
+  hellfest_lucas:
+    peerDebt: '@hellfest_debt'
+    contact: '@lucas'
+    amountCents: 9000
+  settled_lucas:
+    peerDebt: '@settled_debt'
+    contact: '@lucas'
+    amountCents: 3000
+    repaidCents: 3000
+  petrol_tom:
+    peerDebt: '@petrol_debt'
+    contact: '@tom'
+    amountCents: 28000
+  others_share:
+    peerDebt: '@others_debt'
+    contact: '@others_contact'
+    amountCents: 4000

@@ -69,7 +69,10 @@ const CushionSummary = ({ status }: { status: CushionStatus }) => (
 
       {status.deficitCents > 0 && (
         <Typography variant="body2">
-          Il manque <strong>{formatCents(status.deficitCents)}</strong> — à{' '}
+          Il manque <strong>{formatCents(status.deficitCents)}</strong>
+          {status.peerClaimsCents > 0 &&
+            `, dont ${formatCents(Math.min(status.deficitCents, status.peerClaimsCents))} avancés à des proches`}{' '}
+          — à{' '}
           {formatCents(status.monthlyRechargeCents)} par mois, le matelas est reconstitué en{' '}
           {status.rechargeMonths} mois.
           {status.isCappedByRechargeCap && (
@@ -101,6 +104,21 @@ const CushionSummary = ({ status }: { status: CushionStatus }) => (
             {accountLabel(account)} — {formatCents(account.balanceCents, account.currency)}
           </Typography>
         ))
+      )}
+      {status.peerClaimsCents > 0 && (
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          spacing={2}
+          data-testid="cushion-peer-claims"
+        >
+          <Typography variant="body2" color="text.secondary">
+            Avancé à des proches ({status.peerClaimObjects.join(', ')}) — revient au remboursement
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            −{formatCents(status.peerClaimsCents)}
+          </Typography>
+        </Stack>
       )}
     </CardContent>
   </Card>
@@ -191,7 +209,7 @@ const CushionSettings = ({
 }
 
 export const CushionPage = () => {
-  const { status, loading, configure } = useCushionStatus()
+  const { status, loading, error, configure } = useCushionStatus()
   const notify = useNotify()
 
   const onSave = async (config: Parameters<typeof configure>[0]) => {
@@ -205,6 +223,9 @@ export const CushionPage = () => {
     <>
       <Title title="Matelas de sécurité" />
       {loading && !status && <LinearProgress />}
+      {error && !status && (
+        <Alert severity="error">Impossible de charger le matelas de sécurité.</Alert>
+      )}
       {status && (
         <>
           <CushionSummary status={status} />

@@ -8,6 +8,8 @@ const STATUS = {
   monthlyNetIncomeCents: 250000,
   targetCents: 750000,
   currentCents: 450000,
+  peerClaimsCents: 0,
+  peerClaimObjects: [],
   deficitCents: 300000,
   coveragePercent: 60,
   monthsCovered: 1.8,
