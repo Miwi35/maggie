@@ -20,7 +20,7 @@ tags:
 # Étant donné un gîte de 800 € classé Voyages, dont l'enveloppe du mois est de 300 €
 # Quand je déclare sur sa fiche ma part de 200 €, le reste partagé entre Julie, Tom et Inès
 # Alors l'enveloppe Voyages affiche 200 € consommés
-# Et la fiche de Tom, ouverte par « Voir tout ce qu'on te doit », dit « te doit 200 € » sous « En cours »
+# Et la fiche de Tom, ouverte par « Voir tout ce qu'on te doit » puis sa ligne dépliée, dit « te doit 200 € » sous « En cours »
 #
 # The gîte, « Voyages », its envelope and the contacts Julie and Inès are written by the same
 # script (`ACTION: share`); Tom is the one this flow created.
@@ -262,6 +262,9 @@ tags:
     visible: "Tom"
     timeout: 30000
 - tapOn: "Tom"
+# Since MAG-455 the link lands on « Créances et dettes »: Tom's row opens, its link leads to his page.
+- tapOn:
+    id: "peer_debts_contact_link"
 - extendedWaitUntil:
     visible: "En cours"
     timeout: 30000

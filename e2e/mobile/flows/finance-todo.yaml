@@ -61,6 +61,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "finance_pill_to_sort"
+    centerElement: true
     timeout: 30000
 - extendedWaitUntil:
     visible: "3 à trier"
