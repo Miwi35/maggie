@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The series are not touched. The Elasticsearch documents are rebuilt by the
  * reindex the deploy runs after the migrations.
  */
-final class Version20261016150100 extends AbstractMigration
+final class Version20261016190100 extends AbstractMigration
 {
     private const COLUMNS = 'id, user_id, category_id, label_pattern, match_type, direction, min_amount_cents, max_amount_cents, priority, is_active, qualification_mandatory, qualification_kind';
 
