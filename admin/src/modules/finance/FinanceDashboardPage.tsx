@@ -3,6 +3,7 @@ import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
 import { Title } from 'react-admin'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -61,7 +62,15 @@ export const FinanceDashboardPage = ({ initialTab = 'overview' }: { initialTab?:
 
       {tab === 'overview' && (
         <>
-          <Stack direction="row" sx={{ mb: 2, justifyContent: 'flex-end' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            sx={{ mb: 2 }}
+          >
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Vue d'ensemble
+            </Typography>
             <PeriodPicker
               year={year}
               month={month}

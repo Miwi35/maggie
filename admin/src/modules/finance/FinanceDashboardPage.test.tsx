@@ -157,7 +157,8 @@ describe('FinanceDashboardPage', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url))
     expect(urls.filter((url) => url.includes('/api/finance/dashboard'))).toHaveLength(1)
   })
-  test('opens on « Vue d'ensemble » and offers « État courant » and « À venir » without reading the projection until asked', async () => {
+
+  test("opens on « Vue d'ensemble » and offers « État courant » and « À venir » without reading the projection until asked", async () => {
     const fetchMock = stubApi(dashboardFixture())
     renderPage()
 
@@ -169,7 +170,7 @@ describe('FinanceDashboardPage', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/finance/upcoming'))).toBe(false)
   })
 
-  test('switches to « À venir », the period picker belonging to « Vue d'ensemble » only', async () => {
+  test("switches to « À venir », the period picker belonging to « Vue d'ensemble » only", async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn((url: string) => {
       if (url.includes('/api/finance/upcoming')) return answer(upcomingFixture())

@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, testDataProvider } from 'react-admin'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { monthBalanceFixture } from './monthBalanceFixture'
 import { MonthBalanceTab } from './MonthBalanceTab'
 import type { MonthBalance } from './useMonthBalance'
@@ -36,11 +36,14 @@ const stubApi = (payload: MonthBalance | unknown, ok = true) => {
 const monthRequests = (fetchMock: ReturnType<typeof stubApi>) =>
   fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/api/finance/month-balance'))
 
+const Where = () => <span data-testid="where">{useLocation().pathname}</span>
+
 const renderPage = () =>
   render(
     <MemoryRouter initialEntries={['/finance/dashboard/current']}>
       <AdminContext dataProvider={testDataProvider()}>
         <MonthBalanceTab />
+        <Where />
       </AdminContext>
     </MemoryRouter>,
   )
