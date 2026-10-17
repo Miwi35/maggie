@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
@@ -83,7 +82,7 @@ class GetRecognisedToControl
      * The operation behind the line; null once it was deleted, while the line
      * keeps the category it gave it.
      *
-     * @return array{string, RecurringOperation|CategorizationRule|null}
+     * @return array{string, RecurringOperation|null}
      */
     private function operationOf(Transaction $transaction): array
     {
@@ -93,12 +92,8 @@ class GetRecognisedToControl
         };
     }
 
-    private function labelOf(RecurringOperation|CategorizationRule $operation): string
+    private function labelOf(RecurringOperation $operation): string
     {
-        if ($operation instanceof RecurringOperation) {
-            return $operation->getLabel();
-        }
-
-        return $operation->getLabelPattern() ?? $operation->getCategory()->getPath();
+        return $operation->getLabel() ?? $operation->getLabelPattern() ?? $operation->getCategory()->getPath();
     }
 }

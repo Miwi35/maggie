@@ -161,12 +161,13 @@ test('« Tout à conserver » judges the lines a rule recognised and the group i
     { what: `The category ${categoryName}` },
   )
 
+  // On the savings account: the checking account's first page of lines is read by finance-rules' NETFLIX journey.
   const ids: string[] = []
   for (const label of labels) {
     const response = await api.post('/api/transactions', {
       headers: { 'Content-Type': 'application/ld+json' },
       data: {
-        account: `/api/accounts/${seedId('e2e_account_checking')}`,
+        account: `/api/accounts/${seedId('e2e_account_savings')}`,
         label,
         amountCents: -1800,
         currency: 'EUR',

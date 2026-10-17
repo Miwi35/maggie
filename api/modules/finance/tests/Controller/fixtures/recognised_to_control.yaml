@@ -47,7 +47,7 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@other_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_carrefour:
     labelPattern: CARREFOUR
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
@@ -64,8 +64,6 @@ Maggie\Finance\Entity\CategorizationRule:
     priority: 5
     isActive: true
     user: '@test_user'
-
-Maggie\Finance\Entity\RecurringOperation:
   gym:
     label: Salle de sport
     category: '@subscriptions'
