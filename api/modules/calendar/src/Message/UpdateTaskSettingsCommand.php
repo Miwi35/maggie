@@ -18,6 +18,10 @@ final readonly class UpdateTaskSettingsCommand
         public mixed $alertSchedule = null,
         public mixed $morningTime = null,
         public mixed $eveningTime = null,
+        public mixed $rewardAnimation = null,
+        public mixed $rewardVibration = null,
+        public mixed $rewardSound = null,
+        public mixed $tone = null,
     ) {
     }
 }
