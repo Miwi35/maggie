@@ -112,7 +112,7 @@ const RecurringBlock = () => {
 
   return (
     <>
-      <Figure>{count(totals.activeCount, 'opération active', 'opérations actives')}</Figure>
+      <Figure>{count(totals.activeCount, 'opération récurrente active', 'opérations récurrentes actives')}</Figure>
       <Hint warn={proposals.length > 0}>
         {proposals.length > 0
           ? `${count(proposals.length, 'rattachement')} en attente de réponse`
