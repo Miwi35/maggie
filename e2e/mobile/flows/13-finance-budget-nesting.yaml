@@ -115,6 +115,10 @@ tags:
     visible:
       id: "transaction_one_off_envelope"
     timeout: 10000
+# Maggie's bar now stays under the sheet (MAG-426): bring the field fully above it first.
+- scrollUntilVisible:
+    element:
+      id: "transaction_one_off_envelope"
 - tapOn:
     id: "transaction_one_off_envelope"
 - extendedWaitUntil:
