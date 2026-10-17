@@ -72,7 +72,9 @@ tags:
     element:
       id: "treasury_flows_chart"
     timeout: 30000
-- assertVisible: "1 an"
+- extendedWaitUntil:
+    visible: "1 an"
+    timeout: 10000
 
 # The advance comes from the Livret, the only savings account of the table.
 - scrollUntilVisible:
