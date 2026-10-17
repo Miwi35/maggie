@@ -10,6 +10,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.repository.TreasuryRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +69,8 @@ class TreasuryViewModel(
             try {
                 val outlook = treasuryRepository.getOutlook(_uiState.value.months).getOrThrow()
                 _uiState.value = _uiState.value.copy(outlook = outlook, isLoading = false)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "", isLoading = false)
             }
