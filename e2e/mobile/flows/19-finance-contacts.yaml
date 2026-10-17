@@ -150,12 +150,15 @@ tags:
 - scrollUntilVisible:
     element:
       id: "share_switch"
+    centerElement: true
     timeout: 20000
 - tapOn:
     id: "share_switch"
-- extendedWaitUntil:
-    visible:
+# Maggie's bar takes the bottom of the page: the field opened under the switch is below the fold.
+- scrollUntilVisible:
+    element:
       id: "share_mine"
+    centerElement: true
     timeout: 10000
 - tapOn:
     id: "share_mine"
@@ -167,6 +170,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "share_add_person"
+    centerElement: true
 - tapOn:
     id: "share_add_person"
 - extendedWaitUntil:
@@ -185,6 +189,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "share_add_person"
+    centerElement: true
 - tapOn:
     id: "share_add_person"
 - extendedWaitUntil:
@@ -203,6 +208,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "share_add_person"
+    centerElement: true
 - tapOn:
     id: "share_add_person"
 - extendedWaitUntil:
@@ -222,9 +228,11 @@ tags:
 # The rest, 600 €, owed 200 € each; « Enregistrer » writes the part and the créance together.
 - scrollUntilVisible:
     element: "On te doit 600[.,]00 EUR"
+    centerElement: true
 - scrollUntilVisible:
     element:
       id: "share_save"
+    centerElement: true
 - tapOn:
     id: "share_save"
 - extendedWaitUntil:
@@ -235,6 +243,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "share_all_owed"
+    centerElement: true
 - tapOn:
     id: "share_all_owed"
 - extendedWaitUntil:
@@ -277,6 +286,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "peer_kind_new_debt"
+    centerElement: true
     timeout: 20000
 - tapOn:
     id: "peer_kind_new_debt"
@@ -286,6 +296,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "peer_amount"
+    centerElement: true
 - tapOn:
     id: "peer_amount"
 - eraseText
@@ -294,12 +305,14 @@ tags:
 - scrollUntilVisible:
     element:
       id: "peer_summary"
+    centerElement: true
 - extendedWaitUntil:
     visible: "Crée une dette de 280[.,]00 EUR envers Tom.*"
     timeout: 10000
 - scrollUntilVisible:
     element:
       id: "peer_save"
+    centerElement: true
 - tapOn:
     id: "peer_save"
 - extendedWaitUntil:
