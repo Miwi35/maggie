@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -181,10 +182,12 @@ class TreasuryViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.selectHorizon(12)
+        runCurrent()
         viewModel.selectHorizon(3)
         advanceUntilIdle()
 
         assertEquals(3, viewModel.uiState.value.months)
+        assertNull(viewModel.uiState.value.error)
         assertEquals(quarter, viewModel.uiState.value.outlook)
         assertFalse(viewModel.uiState.value.isLoading)
     }
