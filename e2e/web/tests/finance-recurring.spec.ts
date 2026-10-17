@@ -433,7 +433,7 @@ test('a debit becomes a recurring operation from the account list, its history i
 
   // When, in the account list (latest first), I make a series of the oldest one: a series runs from its anchor on.
   const list = new FinanceAccountsPage(page)
-  await list.openTransactions(accountId)
+  await list.openTransactions(accountId, { back: 3 })
   const recurring = new FinanceRecurringPage(page)
   await list.openTransaction(label, 2)
   await list.content.getByRole('button', { name: 'En faire une opération récurrente' }).click()
@@ -460,7 +460,7 @@ test('a debit becomes a recurring operation from the account list, its history i
   // Then the three lines wear the badge of the series.
   await expect(recurring.historyPreview).toHaveCount(0)
   await expect.poll(async () => (await netflixLines()).filter((t) => t.recurringOperation).length).toBe(3)
-  await list.openTransactions(accountId)
+  await list.openTransactions(accountId, { back: 3 })
   await expect(list.content.getByText('Série · Netflix')).toHaveCount(3)
 
   // When I detach one, it loses its badge, and the others keep theirs.
@@ -469,7 +469,7 @@ test('a debit becomes a recurring operation from the account list, its history i
   await list.content.getByRole('button', { name: 'Détacher de la série' }).click()
   expect((await detaching).status()).toBe(200)
   await expect.poll(async () => (await netflixLines()).filter((t) => t.recurringOperation).length).toBe(2)
-  await list.openTransactions(accountId)
+  await list.openTransactions(accountId, { back: 3 })
   await expect(list.content.getByText('Série · Netflix')).toHaveCount(2)
 })
 
@@ -694,7 +694,7 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
 
   // When I make a series of it, mandatory, of type repayment (every category is offered).
   const list = new FinanceAccountsPage(page)
-  await list.openTransactions(accountId)
+  await list.openTransactions(accountId, { back: 1 })
   const recurring = new FinanceRecurringPage(page)
   await list.openTransaction(label)
   await list.content.getByRole('button', { name: 'En faire une opération récurrente' }).click()
@@ -710,7 +710,7 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
 
   // Then the sheet of the line says what the series made of it.
   const sheet = async (lineLabel: string) => {
-    await list.openTransactions(accountId)
+    await list.openTransactions(accountId, { back: 1 })
     await list.openTransaction(lineLabel)
 
     return list.content.getByTestId('qualification')

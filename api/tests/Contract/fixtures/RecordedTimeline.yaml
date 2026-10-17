@@ -1,0 +1,43 @@
+# What the account timeline recording adds to RecordedResponses.yaml (MAG-422):
+# a transfer to a second account and a planned line, so that `counterpartAccount`
+# and a status other than `spent` are both filled once. Its own file: the other
+# recordings must not see these lines.
+Maggie\Finance\Entity\Account:
+  recorded_timeline_savings:
+    name: Recorded Savings
+    bank: Recorded Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Transaction:
+  recorded_timeline_transfer_out:
+    account: '@recorded_account'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+    label: VIR LIVRET
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    counterpart: '@recorded_timeline_transfer_in'
+    user: '@recorded_user'
+
+  recorded_timeline_transfer_in:
+    account: '@recorded_timeline_savings'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+    label: VIR DEPUIS COURANT
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    counterpart: '@recorded_timeline_transfer_out'
+    user: '@recorded_user'
+
+  recorded_timeline_planned:
+    account: '@recorded_account'
+    amountCents: -4500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-28"))>'
+    label: ASSURANCE HABITATION
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    user: '@recorded_user'

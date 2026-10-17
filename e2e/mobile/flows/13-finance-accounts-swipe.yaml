@@ -1,0 +1,166 @@
+appId: com.maggie.app.e2e
+name: 13-finance-accounts-swipe
+tags:
+  - finance
+---
+# Accounts in a swipe, day by day, with their real statuses (MAG-422, extends MAG-102).
+#
+# The phone shows one account per page of a pager, its dots below. Each page lists the
+# month grouped by day (« Aujourd'hui »), every line with its status in words, and an
+# internal transfer names the account on its other side: « depuis X » on the credit,
+# « vers X » on the debit.
+#
+# Given a checking account and a savings account of its own (made here, through the app:
+# the seeded ones are read by the other flows and a transfer would move their figures),
+# a debit on the first and its credit on the second,
+# When I swipe from the checking account to the savings account,
+# Then the savings account shows its day's lines and the credit reads « depuis <checking> »;
+# swiping back, the debit reads « vers <savings> ».
+#
+# The names carry a random suffix so a re-run on the same server meets only its own pair, and
+# the savings name extends the checking one: accounts are sorted by name, so the two sit side
+# by side whatever else the server holds. The amount is not round, for the same reason: the
+# pairing looks for the opposite amount on another account of the same user.
+#
+# What is not here: the older month (« Mois précédent »), the late occurrence and the « +33 % »
+# of a series. They need history the seed does not hold; the API's `AccountTimelineControllerTest`
+# and the phone's `AccountViewModelTest` / `DtoContractTest` carry them.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-accounts-swipe.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- evalScript: ${output.n = Math.floor(Math.random() * 90000) + 10000}
+
+- openLink: "maggie-e2e://finance/accounts"
+
+- extendedWaitUntil:
+    visible:
+      id: "account_pager"
+    timeout: 30000
+
+# Given the two accounts.
+- tapOn: "Nouveau compte"
+- extendedWaitUntil:
+    visible: "Nom"
+    timeout: 10000
+- tapOn: "Nom"
+- inputText: "Compte courant MAG-422-${output.n}"
+- hideKeyboard
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "EUR · Compte courant MAG-422-${output.n}"
+    timeout: 30000
+
+- tapOn: "Nouveau compte"
+- extendedWaitUntil:
+    visible: "Nom"
+    timeout: 10000
+- tapOn: "Nom"
+- inputText: "Compte courant MAG-422-${output.n} livret"
+- hideKeyboard
+- tapOn: "Épargne"
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "EUR · Compte courant MAG-422-${output.n} livret"
+    timeout: 30000
+
+# The debit, booked on the checking account (the dot is named after the account's label).
+- tapOn: "EUR · Compte courant MAG-422-${output.n}"
+- extendedWaitUntil:
+    visible:
+      id: "account_add_transaction"
+    timeout: 20000
+- tapOn:
+    id: "account_add_transaction"
+- extendedWaitUntil:
+    visible: "Nouvelle transaction"
+    timeout: 10000
+- tapOn: "Libellé"
+- inputText: "VIREMENT VERS LIVRET MAG-422"
+- tapOn: "Montant (€)"
+- inputText: "451.37"
+- hideKeyboard
+- tapOn: "Créer"
+
+- extendedWaitUntil:
+    visible: "VIREMENT VERS LIVRET MAG-422"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Aujourd'hui"
+    timeout: 30000
+# The status is the word, not a colour.
+- assertVisible: "Dépensée"
+
+# When I swipe to the savings account.
+- swipe:
+    direction: LEFT
+- extendedWaitUntil:
+    visible: "Compte courant MAG-422-${output.n} livret"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "account_add_transaction"
+    timeout: 20000
+# The page is the other account's: the debit is not on it.
+- assertNotVisible: "VIREMENT VERS LIVRET MAG-422"
+
+# Its credit, and a line of its own the same day.
+- tapOn:
+    id: "account_add_transaction"
+- extendedWaitUntil:
+    visible: "Nouvelle transaction"
+    timeout: 10000
+- tapOn: "Recette"
+- tapOn: "Libellé"
+- inputText: "VIREMENT DEPUIS COURANT MAG-422"
+- tapOn: "Montant (€)"
+- inputText: "451.37"
+- hideKeyboard
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "VIREMENT DEPUIS COURANT MAG-422"
+    timeout: 30000
+
+- tapOn:
+    id: "account_add_transaction"
+- extendedWaitUntil:
+    visible: "Nouvelle transaction"
+    timeout: 10000
+- tapOn: "Recette"
+- tapOn: "Libellé"
+- inputText: "INTERETS LIVRET MAG-422"
+- tapOn: "Montant (€)"
+- inputText: "12.50"
+- hideKeyboard
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "INTERETS LIVRET MAG-422"
+    timeout: 30000
+
+# Then both lines sit under the day of today, the credit says where it came from, and its status is a word.
+- extendedWaitUntil:
+    visible:
+      id: "transfer_badge"
+    timeout: 60000
+- assertVisible: "depuis Compte courant MAG-422-${output.n}"
+- assertVisible: "Reçue"
+- assertVisible: "Aujourd'hui"
+
+# And back: the debit names the savings account it went to.
+- swipe:
+    direction: RIGHT
+- extendedWaitUntil:
+    visible: "VIREMENT VERS LIVRET MAG-422"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "transfer_badge"
+    timeout: 60000
+- assertVisible: "vers Compte courant MAG-422-${output.n} livret"
+- assertNotVisible: "INTERETS LIVRET MAG-422"

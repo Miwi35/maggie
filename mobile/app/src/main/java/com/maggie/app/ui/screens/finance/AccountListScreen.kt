@@ -200,7 +200,7 @@ fun AccountListScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountCreateDialog(
+internal fun AccountCreateDialog(
     onConfirm: (AccountCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
