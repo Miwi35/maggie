@@ -334,6 +334,9 @@ class RewardApiTest extends WebTestCase
         Clock::set(new MockClock('2026-10-15 09:00:00 UTC'));
         $this->tick('spare1');
         self::assertSame('monthRecord', $this->rewardOf('spare1')['surprise'], 'the next day, the record comes');
+
+        // Another day, the record still beaten: no second one this month.
+        Clock::set(new MockClock('2026-10-16 09:00:00 UTC'));
         $this->tick('spare2');
         self::assertNull($this->rewardOf('spare2')['surprise'], 'once a month');
     }
