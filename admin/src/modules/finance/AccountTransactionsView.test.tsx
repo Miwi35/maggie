@@ -366,9 +366,9 @@ describe('Incidents tab', () => {
       })) as unknown as DataProvider['getOne'],
   })
 
-  const renderView = () =>
+  const renderView = (entry = '/accounts/01ABC/transactions') =>
     render(
-      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
+      <MemoryRouter initialEntries={[entry]}>
         <AdminContext dataProvider={provider}>
           <Routes>
             <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
@@ -379,6 +379,15 @@ describe('Incidents tab', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  test('the home pill lands on the incidents tab with `?tab=incidents`', async () => {
+    stubFetch({}, [incident])
+
+    renderView('/accounts/01ABC/transactions?tab=incidents')
+
+    expect(await screen.findByRole('tab', { name: 'Incidents (1)', selected: true })).toBeInTheDocument()
+    expect(await screen.findByText('EDF')).toBeVisible()
   })
 
   test('the tab carries the number of rejections, and each one reads as a single line', async () => {

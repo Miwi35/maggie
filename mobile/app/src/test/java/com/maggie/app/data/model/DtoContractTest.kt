@@ -642,6 +642,7 @@ class DtoContractTest {
             source,
         )
         assertDeclaredFieldsExist("FinanceScores", serializer<FinanceScores>(), body["scores"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("FinanceTodo", serializer<FinanceTodo>(), body["todo"]!!.jsonObject.keys, source)
 
         assertEquals(ExpectedSalary(monthlyCents = 495000, source = "expected"), dashboard.tiles.budget.expectedSalary)
         // Null on the wire means « unknown », and stays null: never a 0 € balance.

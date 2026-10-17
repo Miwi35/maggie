@@ -44,8 +44,8 @@ export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): Fin
       cushionCents: 420000,
       availableCents: 184550,
       accounts: [
-        { id: 'a1', name: 'Compte courant', bank: 'Boursorama', balanceCents: 184550, currency: 'EUR', isCushion: false },
-        { id: 'a2', name: 'Livret A', bank: null, balanceCents: 420000, currency: 'EUR', isCushion: true },
+        { id: 'a1', name: 'Compte courant', bank: 'Boursorama', balanceCents: 184550, currency: 'EUR', isCushion: false, rejectionsToSettleCount: 1 },
+        { id: 'a2', name: 'Livret A', bank: null, balanceCents: 420000, currency: 'EUR', isCushion: true, rejectionsToSettleCount: 0 },
       ],
     },
     budget: {
@@ -63,5 +63,6 @@ export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): Fin
       savingCapacity,
     },
   },
+  todo: { toSortCount: 3, rejectionsToSettleCount: 1, reviewReady: false, advanceToRepayCents: 80000 },
   ...overrides,
 })

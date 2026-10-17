@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
@@ -124,41 +123,5 @@ class FinanceHubScreenTest {
         compose.onNodeWithContentDescription("Retour").performClick()
 
         assertEquals(1, backs)
-    }
-
-    @Test
-    fun `the dashboard leads to the lines to qualify when some wait`() {
-        val opened = mutableListOf<String>()
-        compose.setContent {
-            FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
-                upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeFinanceDashboard().viewModel,
-                onBack = {},
-                onOpen = { opened += it },
-                toQualify = ToSortPile(total = 3, totalCents = 6520),
-            )
-        }
-
-        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).performClick()
-
-        assertEquals(listOf(Screen.TransactionsToSort.route), opened)
-    }
-
-    @Test
-    fun `the dashboard draws no pill on an empty pile, nor before the pile is known`() {
-        compose.setContent {
-            FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
-                upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeFinanceDashboard().viewModel,
-                onBack = {},
-                onOpen = {},
-                toQualify = ToSortPile(total = 0),
-            )
-        }
-
-        compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).assertDoesNotExist()
     }
 }

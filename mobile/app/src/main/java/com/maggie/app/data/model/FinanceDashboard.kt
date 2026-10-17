@@ -55,6 +55,7 @@ data class TileAccount(
     val balanceCents: Int = 0,
     val currency: String = "EUR",
     val isCushion: Boolean = false,
+    val rejectionsToSettleCount: Int = 0,
 )
 
 /** The Comptes tile: the total, how much of it is the cushion, and each account. */
@@ -115,6 +116,35 @@ data class PlanningTile(
     val savingCapacity: SavingCapacity = SavingCapacity(),
 )
 
+/**
+ * What waits for the owner (MAG-421), each count the one the screen it opens shows. Zero or false
+ * means nothing to do: the pill or the shortcut is not drawn.
+ */
+@Serializable
+data class FinanceTodo(
+    val toSortCount: Int = 0,
+    val rejectionsToSettleCount: Int = 0,
+    val reviewReady: Boolean = false,
+    val advanceToRepayCents: Int = 0,
+)
+
+/** The account the « N rejets » pill opens: the one with the most rejections to settle, null when none. */
+fun AccountsTile.accountWithRejections(): TileAccount? =
+    accounts.filter { it.rejectionsToSettleCount > 0 }.maxByOrNull { it.rejectionsToSettleCount }
+
+fun toSortPillText(count: Int): String? = if (count > 0) "$count à trier" else null
+
+fun rejectionsPillText(count: Int): String? = when {
+    count <= 0 -> null
+    count == 1 -> "1 rejet"
+    else -> "$count rejets"
+}
+
+fun advancePillText(cents: Int): String? = if (cents > 0) "${formatCents(cents)} à remettre" else null
+
+/** The static example of what the receivables lot will bring: not a figure of the user's, not a link. */
+const val OWED_EXAMPLE_PILL = "On te doit 535 €"
+
 @Serializable
 data class FinanceTiles(
     val accounts: AccountsTile = AccountsTile(),
@@ -132,4 +162,5 @@ data class FinanceDashboard(
     val month: Int = 0,
     val scores: FinanceScores? = null,
     val tiles: FinanceTiles = FinanceTiles(),
+    val todo: FinanceTodo = FinanceTodo(),
 )

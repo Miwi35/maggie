@@ -1,0 +1,125 @@
+appId: com.maggie.app.e2e
+name: finance-todo
+tags:
+  - finance
+---
+# What is to do, in the tiles of the finance home, from the phone (MAG-421, extends MAG-102).
+#
+# Étant donné 3 lignes à trier et 1 rejet
+# Quand j'ouvre les finances
+# Alors la tuile Comptes affiche « 3 à trier » et « 1 rejet »
+# Et la pastille « On te doit 535 € » est là, sans rien ouvrir (un exemple)
+# Quand je touche « 3 à trier »
+# Alors l'écran À qualifier s'ouvre, sur la ligne la plus ancienne
+#
+# The data is set by `scripts/finance-todo-api.js` on the seed's second user, who holds no other
+# finance data: the pile is these three lines (the rejection pair is not one) and the rejection is
+# the one. It runs as that user, not as the owner of `finance-overview`, whose pile other flows
+# leave lines in.
+#
+# What is not here: « rien à faire, aucune pastille » (`FinanceDashboardTilesScreenTest`, and the
+# admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
+# are the API's, `GetFinanceDashboardTodoTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/finance-todo.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/finance-todo-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance"
+
+# The rejection raises a notification, and the open app shows it over the screen (MAG-314):
+# « Plus tard » puts it away. `14-interruption` plays them.
+- extendedWaitUntil:
+    visible:
+      id: "interruption"
+    timeout: 20000
+    optional: true
+- tapOn:
+    id: "interruption_later"
+    optional: true
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 10000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_to_sort"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "3 à trier"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_rejections"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "1 rejet"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_owed_example"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "On te doit 535 €"
+    timeout: 10000
+
+# The old « À qualifier · n · montant » pill left the home (it stays on the budget screen).
+- assertNotVisible:
+    id: "to_qualify_pill"
+
+# « 1 rejet » opens the account on its Incidents tab.
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_rejections"
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "finance_pill_rejections"
+- extendedWaitUntil:
+    visible:
+      id: "incident_row"
+    timeout: 30000
+- back
+# The list keeps its scroll position: the rings are above the screen, the pill just tapped is where it stopped.
+- extendedWaitUntil:
+    visible:
+      id: "finance_pill_rejections"
+    timeout: 30000
+
+# « 3 à trier » opens the pile, on its oldest line.
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_to_sort"
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "finance_pill_to_sort"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
+- assertVisible: "3 à qualifier"
+- assertVisible: "A TRIER MAG-421 A"
+
+# Left as found.
+- runScript:
+    file: ../scripts/finance-todo-api.js
+    env:
+      ACTION: remove

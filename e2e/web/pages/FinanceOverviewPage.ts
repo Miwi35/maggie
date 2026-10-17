@@ -56,6 +56,33 @@ export class FinanceOverviewPage extends AdminShell {
     return tile.getByRole('heading', { name }).getByRole('link')
   }
 
+  /**
+   * What waits for the owner (MAG-421), drawn as pills in the tiles. A pill with
+   * nothing to say is not drawn, so `toHaveCount(0)` is the « nothing to do » check.
+   */
+  get toSortPill(): Locator {
+    return this.accountsTile.getByTestId('pill-to-sort')
+  }
+
+  get rejectionsPill(): Locator {
+    return this.accountsTile.getByTestId('pill-rejections')
+  }
+
+  /** « On te doit 535 € »: an example until the receivables lot, shown and never a link. */
+  get owedExamplePill(): Locator {
+    return this.accountsTile.getByTestId('pill-owed-example')
+  }
+
+  /** « 800,00 € à remettre », in the Budget tile: the savings advances not given back. */
+  get advancePill(): Locator {
+    return this.budgetTile.getByTestId('pill-advance')
+  }
+
+  /** « Revue ce soir », above the tiles while the month just ended is not reviewed. */
+  get reviewShortcut(): Locator {
+    return this.content.getByTestId('review-shortcut')
+  }
+
   /** The « Prochain projet » card: a static example until MAG-425. */
   get nextProject(): Locator {
     return this.content.getByTestId('next-project-card')

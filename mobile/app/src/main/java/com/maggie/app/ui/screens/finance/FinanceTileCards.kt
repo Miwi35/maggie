@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +35,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.AccountsTile
 import com.maggie.app.data.model.BudgetTile
+import com.maggie.app.data.model.FinanceTodo
+import com.maggie.app.data.model.OWED_EXAMPLE_PILL
+import com.maggie.app.data.model.accountWithRejections
+import com.maggie.app.data.model.advancePillText
+import com.maggie.app.data.model.rejectionsPillText
+import com.maggie.app.data.model.toSortPillText
 import com.maggie.app.data.model.PlanningTile
+import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.TileEnvelope
 import com.maggie.app.data.model.accountLabel
 import com.maggie.app.data.model.consumedFraction
@@ -74,9 +85,30 @@ private fun Hint(text: String, modifier: Modifier = Modifier, color: Color = Mat
     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color, modifier = modifier)
 }
 
-/** Comptes: the total, how much of it is the cushion, and each account on its line. */
+/** A pill of a tile: its own tap target when [onClick] is given, a plain example otherwise. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AccountsTileCard(tile: AccountsTile, onOpen: (String) -> Unit) {
+private fun TodoPill(label: String, tag: String, onClick: (() -> Unit)? = null) {
+    AssistChip(
+        onClick = onClick ?: {},
+        enabled = onClick != null,
+        label = { Text(label) },
+        modifier = Modifier.testTag(tag),
+    )
+}
+
+/**
+ * Comptes: the total, how much of it is the cushion, and each account on its line, then what is to do.
+ * A pill that has nothing to say is not drawn, and the row not either.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun AccountsTileCard(
+    tile: AccountsTile,
+    todo: FinanceTodo,
+    onOpen: (String) -> Unit,
+    onOpenIncidents: (TileAccount) -> Unit,
+) {
     FinanceTile("Comptes", UiTags.FINANCE_TILE_ACCOUNTS, onClick = { onOpen(Screen.AccountList.route) }) {
         Text(
             text = formatCents(tile.totalCents),
@@ -100,13 +132,35 @@ internal fun AccountsTileCard(tile: AccountsTile, onOpen: (String) -> Unit) {
                 )
             }
         }
+
+        val toSort = toSortPillText(todo.toSortCount)
+        val rejections = rejectionsPillText(todo.rejectionsToSettleCount)
+        val rejectionsAccount = tile.accountWithRejections()
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (toSort != null) {
+                TodoPill(toSort, UiTags.FINANCE_PILL_TO_SORT) { onOpen(Screen.TransactionsToSort.route) }
+            }
+            if (rejections != null) {
+                TodoPill(rejections, UiTags.FINANCE_PILL_REJECTIONS) {
+                    rejectionsAccount?.let(onOpenIncidents) ?: onOpen(Screen.AccountList.route)
+                }
+            }
+            // Example of the receivables lot: not clickable, not a figure of the user's.
+            TodoPill(OWED_EXAMPLE_PILL, UiTags.FINANCE_PILL_OWED_EXAMPLE)
+        }
     }
 }
 
 /** Budget: one bar per envelope, the cushion, the salary expected and the balance expected before it. */
 @Composable
-internal fun BudgetTileCard(tile: BudgetTile, onOpen: (String) -> Unit) {
+internal fun BudgetTileCard(tile: BudgetTile, todo: FinanceTodo, onOpen: (String) -> Unit) {
     FinanceTile("Budget", UiTags.FINANCE_TILE_BUDGET, onClick = { onOpen(Screen.BudgetList.route) }) {
+        advancePillText(todo.advanceToRepayCents)?.let { label ->
+            TodoPill(label, UiTags.FINANCE_PILL_ADVANCE) { onOpen(Screen.SavingsAdvances.route) }
+        }
         EnvelopeBars(tile.envelopes)
         CushionLine(tile)
 

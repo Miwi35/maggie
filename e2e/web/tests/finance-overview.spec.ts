@@ -1,6 +1,10 @@
-import { test, expect, seedAnchorDate } from '../fixtures/index.js'
+import type { APIRequestContext } from '@playwright/test'
+import { test, expect, seedAnchorDate, seedDate } from '../fixtures/index.js'
+import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
+import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
+import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
 /**
  * The finance home (MAG-102, rebuilt by MAG-420).
@@ -24,7 +28,8 @@ import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
  * consumption alone: `finance-rules.spec.ts` moves that one by filing an
  * uncategorised operation into it, and the two files can share a shard.
  *
- * It only reads. The owner's balances are summed here *and* in
+ * It only reads as the owner (the « what is to do » pills are the exception,
+ * and run as an account of their own, see the last describe). The owner's balances are summed here *and* in
  * `finance-cushion.spec.ts`, so an account written from this file would break
  * both — which is why `finance-accounts.spec.ts` creates its account as the
  * neighbour.
@@ -247,4 +252,147 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(rent).toHaveCount(1)
   await expect(rent).toHaveAttribute('data-date', `${year}-${monthNumber}-05`)
   await expect(overview.rhythmCurve.getByTestId('spent-line')).toBeVisible()
+})
+
+/**
+ * What waits for the owner, in the tiles (MAG-421, extends MAG-102): « N à
+ * trier » and « N rejet(s) » in Comptes, each one tap from the screen that
+ * settles it, and an example « On te doit » that is shown and opens nothing.
+ *
+ * An exact count needs an account nobody else writes to. The owner's pile is
+ * shared (other files keep lines to sort on purpose) and the neighbour's is
+ * written by the recurring and independence journeys, so this runs as the
+ * seasonality account (`seasonUser`), which holds no finance data and whose own
+ * journey never reads any. Its two tests are serial, and the account the first
+ * one creates is deleted after each (that takes its lines with it).
+ *
+ * The lines are dated in the two days up to the anchor (the 13th in CI): a line
+ * of last month would raise « Revue ce soir », and the rejection pair is only
+ * detected inside a window of recent days. The pill opens the incidents of the
+ * account it counts for, whose id the test does not compare (the dashboard's
+ * spelling of an id is not the account list's, see MAG-261).
+ */
+test.describe('what is to do', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  const createdAccountIds: string[] = []
+
+  test.afterEach(async ({ seasonUser }) => {
+    for (const id of createdAccountIds.splice(0)) {
+      await seasonUser.api.delete(`/api/accounts/${id}`)
+    }
+  })
+
+  async function createAccount(api: APIRequestContext, name: string): Promise<string> {
+    const response = await api.post('/api/accounts', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: { name, type: 'checking', currency: 'EUR', balanceCents: 0 },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+
+    return ((await response.json()) as { id: string }).id
+  }
+
+  async function createTransaction(
+    api: APIRequestContext,
+    accountId: string,
+    label: string,
+    amountCents: number,
+    bookedAt: string,
+  ): Promise<void> {
+    const response = await api.post('/api/transactions', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: {
+        account: `/api/accounts/${accountId}`,
+        label,
+        amountCents,
+        currency: 'EUR',
+        bookedAt,
+        status: 'spent',
+      },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+  }
+
+  /**
+   * Given an account with nothing to sort, no rejection, no advance and no
+   * month to review, When I open the finance home, Then no pill and no
+   * shortcut is drawn, and the account's tile is not an empty block either.
+   */
+  test('nothing to do draws no pill and no shortcut', async ({ seasonUser }) => {
+    const overview = new FinanceOverviewPage(seasonUser.page)
+    await overview.open()
+
+    await expect(overview.toSortPill).toHaveCount(0)
+    await expect(overview.rejectionsPill).toHaveCount(0)
+    await expect(overview.advancePill).toHaveCount(0)
+    await expect(overview.reviewShortcut).toHaveCount(0)
+  })
+
+  /**
+   * Given 3 lines to sort and 1 rejected payment, When I open the finance
+   * home, Then Comptes says « 3 à trier » and « 1 rejet », and « On te doit
+   * 535 € » is there and opens nothing; When I touch « 3 à trier », Then À
+   * qualifier opens on the oldest line.
+   */
+  test('the Comptes tile says what is to sort and to settle, and opens the screen that does it', async ({
+    seasonUser,
+  }) => {
+    const { api, page } = seasonUser
+    const attempt = test.info().retry
+    const accountName = `Courant MAG-421, essai ${attempt}`
+    const sorted = [-2, -1, 0].map((offset, index) => ({
+      label: `A TRIER MAG-421 ESSAI ${attempt} LIGNE ${'ABC'[index]}`,
+      cents: -(1200 + 100 * index),
+      day: seedDate(offset),
+    }))
+    const debit = `PRELEVEMENT EDF MAG-421 ESSAI ${attempt}`
+    const credit = `REJET PRLV EDF MAG-421 ESSAI ${attempt}`
+
+    const accountId = await createAccount(api, accountName)
+    createdAccountIds.push(accountId)
+    for (const line of sorted) {
+      await createTransaction(api, accountId, line.label, line.cents, line.day)
+    }
+    // Created spent, the credit is paired as it lands: what a sync does.
+    await createTransaction(api, accountId, debit, -20_600, seedDate(0))
+    await createTransaction(api, accountId, credit, 20_600, seedDate(0))
+    for (const label of [debit, credit]) {
+      await waitForIndexed<{ label?: string; transferKind?: string }>(
+        api,
+        '/api/transactions?transferKind=rejected&itemsPerPage=100',
+        (candidate) => candidate.label === label && candidate.transferKind === 'rejected',
+        { what: `The line "${label}", recognised as a rejection` },
+      )
+    }
+
+    const overview = new FinanceOverviewPage(page)
+    await overview.open()
+
+    // The rejection pair is no line to sort: three, not five.
+    await expect(overview.toSortPill).toHaveText('3 à trier')
+    await expect(overview.rejectionsPill).toHaveText('1 rejet')
+    await expect(overview.advancePill).toHaveCount(0)
+    await expect(overview.reviewShortcut).toHaveCount(0)
+
+    // The example is shown and is no link (a tap on the card would open the accounts).
+    await expect(overview.owedExamplePill).toHaveText('On te doit 535 €')
+    await expect(overview.owedExamplePill.locator('xpath=ancestor-or-self::a')).toHaveCount(0)
+
+    // « 1 rejet » opens the incidents of the account that holds it.
+    await overview.rejectionsPill.click()
+    await expect(page).toHaveURL(/#\/accounts\/[^/]+\/transactions\?tab=incidents$/)
+    await expect(new FinanceTransfersPage(page).incidentsTab(1)).toHaveAttribute('aria-selected', 'true')
+
+    // « 3 à trier » opens the pile on its oldest line.
+    await overview.open()
+    await overview.toSortPill.click()
+    await expect(page).toHaveURL(/#\/finance\/to-sort$/)
+    const toSort = new FinanceToSortPage(page)
+    await expect(toSort.card.getByText(sorted[0].label, { exact: true })).toBeVisible()
+    for (const line of sorted) {
+      await expect(toSort.pile.getByRole('button', { name: line.label })).toBeVisible()
+    }
+    await expect(toSort.pile.getByRole('button')).toHaveCount(3)
+  })
 })

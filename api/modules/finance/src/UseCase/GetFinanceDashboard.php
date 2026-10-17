@@ -12,7 +12,8 @@ use Maggie\Finance\Repository\TransactionRepository;
 /**
  * Everything the month is made of, in one read: the week and month scores
  * with their rhythm, the three tiles of the home (accounts, budget, planning),
- * and the older blocks the agent still reads in one call — what is in the
+ * what is to do (lines to sort, rejections to settle, the review, the advance
+ * to give back), and the older blocks the agent still reads in one call — what is in the
  * accounts, twelve months of money in and out, the budget gauges, the biggest
  * spending posts against last month, and what is left to save.
  *
@@ -35,6 +36,9 @@ class GetFinanceDashboard
         private readonly GetTreasuryOutlook $getTreasuryOutlook,
         private readonly GetDebtTimeline $getDebtTimeline,
         private readonly GetIndependenceCounter $getIndependenceCounter,
+        private readonly GetAccountIncidents $getAccountIncidents,
+        private readonly GetSavingsAdvances $getSavingsAdvances,
+        private readonly GetMonthlyReview $getMonthlyReview,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
     ) {
@@ -51,19 +55,21 @@ class GetFinanceDashboard
         // Not a figure of the month shown: the counter is measured over the
         // last complete months, like the saving capacity beside it.
         $independence = $this->getIndependenceCounter->execute($user);
+        $rejections = $this->rejectionsToSettleByAccount($accounts);
 
         return [
             'year' => $year,
             'month' => $month,
             'scores' => $this->getFinanceScores->execute($user, $this->getFinanceScores->dateInMonth($user, $year, $month)),
             'tiles' => [
-                'accounts' => $this->accountsTile($balance),
+                'accounts' => $this->accountsTile($balance, $rejections),
                 'budget' => $this->budgetTile($user, $budgets),
                 'planning' => [
                     'independence' => $independence,
                     'savingCapacity' => $savingCapacity,
                 ],
             ],
+            'todo' => $this->todo($user, $rejections),
             'score' => $this->getDailyScore->execute($user, $year, $month),
             'balance' => $balance,
             'monthlyFlows' => $this->monthlyFlows($user, $monthStart),
@@ -75,11 +81,53 @@ class GetFinanceDashboard
     }
 
     /**
+     * What waits for the owner, each count the one the screen it opens shows:
+     * the pile of the lines to sort, the rejections not settled yet, the
+     * review of the month just ended (not done while a line of it is unrated)
+     * and what is still owed back to the savings. Never the month shown: it
+     * is what is to do today.
+     *
+     * @param array<string, int> $rejections the rejections to settle, by account id
+     *
+     * @return array{toSortCount: int, rejectionsToSettleCount: int, reviewReady: bool, advanceToRepayCents: int}
+     */
+    private function todo(User $user, array $rejections): array
+    {
+        $lastMonth = $this->getFinanceScores->resolveDate($user, null)->modify('first day of last month');
+        $review = $this->getMonthlyReview->execute($user, (int) $lastMonth->format('Y'), (int) $lastMonth->format('n'));
+
+        return [
+            'toSortCount' => $this->transactionRepository->countToSortForUser($user),
+            'rejectionsToSettleCount' => array_sum($rejections),
+            'reviewReady' => $review['pendingCount'] > 0,
+            'advanceToRepayCents' => $this->getSavingsAdvances->execute($user)['totalOutstandingCents'],
+        ];
+    }
+
+    /**
+     * The rejections still on the pile of each account's incidents.
+     *
+     * @param Account[] $accounts
+     *
+     * @return array<string, int>
+     */
+    private function rejectionsToSettleByAccount(array $accounts): array
+    {
+        $byAccount = [];
+        foreach ($accounts as $account) {
+            $byAccount[(string) $account->getId()] = \count($this->getAccountIncidents->execute($account));
+        }
+
+        return $byAccount;
+    }
+
+    /**
      * @param array<string, mixed> $balance
+     * @param array<string, int>   $rejections
      *
      * @return array<string, mixed>
      */
-    private function accountsTile(array $balance): array
+    private function accountsTile(array $balance, array $rejections): array
     {
         return [
             'totalCents' => $balance['totalCents'],
@@ -92,6 +140,8 @@ class GetFinanceDashboard
                 'balanceCents' => $account['balanceCents'],
                 'currency' => $account['currency'],
                 'isCushion' => $account['isCushion'],
+                // Where the « N rejets » pill goes: the account whose incidents are not empty.
+                'rejectionsToSettleCount' => $rejections[$account['id']] ?? 0,
             ], $balance['accounts']),
         ];
     }

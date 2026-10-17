@@ -5,13 +5,13 @@ import { BudgetTile, dayLabel } from './BudgetTile'
 import { dashboardFixture } from './dashboardFixture'
 import type { BudgetTile as BudgetTileData } from './useFinanceDashboard'
 
-const renderTile = (change: (tile: BudgetTileData) => void = () => undefined) => {
+const renderTile = (change: (tile: BudgetTileData) => void = () => undefined, advanceToRepayCents = 80000) => {
   const tile = dashboardFixture().tiles.budget
   change(tile)
 
   return render(
     <MemoryRouter>
-      <BudgetTile tile={tile} />
+      <BudgetTile tile={tile} todo={{ ...dashboardFixture().todo, advanceToRepayCents }} />
     </MemoryRouter>,
   )
 }
@@ -107,5 +107,17 @@ describe('dayLabel', () => {
   test('reads an ISO date as the same calendar day', () => {
     expect(dayLabel('2026-01-01')).toBe('1 janvier')
     expect(dayLabel('2026-12-31')).toBe('31 décembre')
+  })
+
+  test('says what is left to give back to the savings, one tap from the advances', () => {
+    renderTile()
+
+    expect(screen.getByRole('link', { name: /800,00\s€ à remettre/ })).toHaveAttribute('href', '/finance/savings-advances')
+  })
+
+  test('shows no pill when no advance is left to give back', () => {
+    renderTile(undefined, 0)
+
+    expect(screen.queryByTestId('pill-advance')).not.toBeInTheDocument()
   })
 })
