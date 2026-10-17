@@ -97,10 +97,10 @@ tags:
       id: "incident_row"
     timeout: 30000
 - back
-# The list keeps its scroll position: the rings are above the screen, the pills are where it stopped.
+# The list keeps its scroll position: the rings are above the screen, the pill just tapped is where it stopped.
 - extendedWaitUntil:
     visible:
-      id: "finance_pill_to_sort"
+      id: "finance_pill_rejections"
     timeout: 30000
 
 # « 3 à trier » opens the pile, on its oldest line.
