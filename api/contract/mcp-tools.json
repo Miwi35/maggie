@@ -2234,7 +2234,7 @@
                 "action"
             ]
         },
-        "description": "Read or configure the safety cushion — the emergency fund that must be full before any investment or project starts. The status action reports its state (building, complete, recharging), its target (targetMonths x monthly net income), what the cushion accounts currently hold, the deficit, and the monthly recharge plan. Its current amount is never set by hand: it is the balance of the accounts flagged as cushion. The configure action sets targetMonths, monthlyNetIncomeCents, rechargeCapCents (the most that may go back in per month) and rechargeTargetMonths (the wished-for recharge horizon; when the cap is lower, the recharge simply takes longer). All amounts are integer cents."
+        "description": "Read or configure the safety cushion — the emergency fund that must be full before any investment or project starts. The status action reports its state (building, complete, recharging), its target (targetMonths x monthly net income), what the cushion currently holds (the balance of the cushion accounts less peerClaimsCents, what friends and family still owe the owner — it fills back up with every repayment; a debt the owner owes never raises it), the deficit, and the monthly recharge plan. Its current amount is never set by hand: it is the balance of the accounts flagged as cushion. The configure action sets targetMonths, monthlyNetIncomeCents, rechargeCapCents (the most that may go back in per month) and rechargeTargetMonths (the wished-for recharge horizon; when the cap is lower, the recharge simply takes longer). All amounts are integer cents."
     },
     "manage_stores": {
         "name": "manage_stores",

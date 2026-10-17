@@ -191,4 +191,23 @@ class SafetyCushionApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(401);
     }
+
+    public function testStatusEndpointSubtractsTheOpenCreances(): void
+    {
+        $this->loadFixtures(__DIR__.'/fixtures/cushion_peer_claims.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/cushion-status', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        // Livret A 5 200 € - 535 € of créances; the dette and the treasury advance change nothing.
+        self::assertSame(53500, $data['peerClaimsCents']);
+        self::assertSame(466500, $data['currentCents']);
+        self::assertSame(283500, $data['deficitCents']);
+        self::assertCount(3, $data['peerClaimObjects']);
+    }
 }

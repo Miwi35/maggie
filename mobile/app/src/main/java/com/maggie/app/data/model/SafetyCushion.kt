@@ -20,6 +20,8 @@ data class CushionStatus(
     val monthlyNetIncomeCents: Int = 0,
     val targetCents: Int = 0,
     val currentCents: Int = 0,
+    val peerClaimsCents: Int = 0,
+    val peerClaimObjects: List<String> = emptyList(),
     val deficitCents: Int = 0,
     val coveragePercent: Int = 0,
     val monthsCovered: Double = 0.0,
@@ -47,4 +49,12 @@ fun rechargePlanLabel(status: CushionStatus): String = when {
     status.monthlyRechargeCents <= 0 -> "Aucun plan de recharge"
     else -> "${formatCents(status.monthlyRechargeCents)} par mois pendant " +
         "${status.rechargeMonths} mois"
+}
+
+/** The deficit sentence, saying how much of it is money lent to relatives. */
+fun cushionDeficitLabel(status: CushionStatus): String {
+    val base = "Il manque ${formatCents(status.deficitCents)}"
+    val lent = minOf(status.deficitCents, status.peerClaimsCents)
+
+    return if (lent > 0) "$base, dont ${formatCents(lent)} avancés à des proches" else base
 }

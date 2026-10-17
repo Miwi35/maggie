@@ -2,16 +2,20 @@
 
 namespace Maggie\Finance\Tests\Mcp;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\SafetyCushion;
+use Maggie\Finance\Mcp\Tool\ManagePeerDebtsTool;
 use Maggie\Finance\Mcp\Tool\ManageSafetyCushionTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class SafetyCushionToolsTest extends KernelTestCase
 {
+    use ElasticsearchAssertionTrait;
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use SecurityTokenTrait;
@@ -20,6 +24,7 @@ class SafetyCushionToolsTest extends KernelTestCase
     {
         self::bootKernel();
         $this->resetMercure();
+        $this->resetAsyncTransport();
     }
 
     private function tool(): ManageSafetyCushionTool
@@ -196,5 +201,75 @@ class SafetyCushionToolsTest extends KernelTestCase
         $data = json_decode($this->tool()('refill'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
+    }
+
+    public function testStatusWithoutAUserIsRefused(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/cushion_peer_claims.yaml');
+
+        self::assertArrayHasKey('error', $this->cushionStatus());
+    }
+
+    public function testStatusLowersTheCushionByTheOpenCreances(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/cushion_peer_claims.yaml');
+        $this->loginFixtureUser();
+
+        $status = $this->cushionStatus();
+
+        // Livret A 5 200 € - 535 €; the settled créance, the dette (280 €), the
+        // treasury advance (800 €) and another user's créance change nothing.
+        self::assertSame(53500, $status['peerClaimsCents']);
+        self::assertSame(466500, $status['currentCents']);
+        self::assertSame(283500, $status['deficitCents']);
+        self::assertEqualsCanonicalizing(['Gîte de Crozon', 'Anniversaire de Léa', 'Hellfest'], $status['peerClaimObjects']);
+    }
+
+    public function testARepaymentFillsTheCushionBackUpAndRepublishesIt(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/cushion_peer_claims.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $peerDebts = self::getContainer()->get(ManagePeerDebtsTool::class);
+        $allocation = json_decode($peerDebts(
+            'allocate',
+            transactionId: (string) $this->getFixture('julie_in')->getId(),
+            kind: 'repayment',
+            shareId: (string) $this->getFixture('gite_julie')->getId(),
+            amountCents: 20000,
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($allocation['success']);
+        $this->assertMercureUpdatePublished('/safety_cushions/'.$this->getFixture('cushion')->getId());
+        $this->assertMercureUpdatePublished('/peer_debts/'.$this->getFixture('gite_debt')->getId());
+        $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, (string) $this->getFixture('gite_debt')->getId());
+
+        $status = $this->cushionStatus();
+        self::assertSame(33500, $status['peerClaimsCents']);
+        self::assertSame(486500, $status['currentCents']);
+    }
+
+    public function testRepayingADetteDoesNotTouchTheCushion(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/cushion_peer_claims.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $peerDebts = self::getContainer()->get(ManagePeerDebtsTool::class);
+        $allocation = json_decode($peerDebts(
+            'allocate',
+            transactionId: (string) $this->getFixture('tom_out')->getId(),
+            kind: 'repayment',
+            shareId: (string) $this->getFixture('petrol_tom')->getId(),
+            amountCents: 28000,
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($allocation['success']);
+        $this->assertMercureUpdatePublished('/peer_debts/'.$this->getFixture('petrol_debt')->getId());
+        $this->assertNothingPublishedOn('/safety_cushions/'.$this->getFixture('cushion')->getId());
+        self::assertSame(466500, $this->cushionStatus()['currentCents']);
     }
 }

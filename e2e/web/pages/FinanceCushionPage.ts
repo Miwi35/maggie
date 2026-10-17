@@ -17,6 +17,8 @@ export class FinanceCushionPage extends AdminShell {
   readonly settings: Locator
   readonly stateChip: Locator
   readonly save: Locator
+  /** « Avancé à des proches »: what relatives still owe, held back from the net (MAG-454). */
+  readonly peerClaims: Locator
 
   constructor(page: Page) {
     super(page)
@@ -25,6 +27,7 @@ export class FinanceCushionPage extends AdminShell {
       .filter({ has: page.getByRole('heading', { name: 'Matelas de sécurité' }) })
     this.settings = this.content.locator('.MuiCard-root').filter({ hasText: 'Réglages' })
     this.stateChip = this.summary.locator('.MuiChip-label')
+    this.peerClaims = this.summary.getByTestId('cushion-peer-claims')
     this.save = this.settings.getByRole('button', { name: 'Enregistrer' })
   }
 
