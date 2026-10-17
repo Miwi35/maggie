@@ -651,6 +651,27 @@ class DtoContractTest {
         assertNotNull(dashboard.scores)
     }
 
+    @Test
+    fun `the month balance carries its parts under the names the API sends`() {
+        val body = readRecording("finance_month_balance.read")
+        val source = "finance_month_balance.read"
+
+        val balance = json.decodeFromJsonElement(serializer<MonthBalance>(), body)
+
+        assertDeclaredFieldsExist("MonthBalance", serializer<MonthBalance>(), body.keys, source)
+        assertDeclaredFieldsExist("PeriodScore", serializer<PeriodScore>(), body["spending"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("BalanceEnvelope", serializer<BalanceEnvelope>(), keysOf(body, "envelopes"), source)
+        assertDeclaredFieldsExist("BalanceSatisfaction", serializer<BalanceSatisfaction>(), body["satisfaction"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("BalanceSavings", serializer<BalanceSavings>(), body["savings"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("TileCushion", serializer<TileCushion>(), body["cushion"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("BalanceToQualify", serializer<BalanceToQualify>(), body["toQualify"]!!.jsonObject.keys, source)
+
+        assertEquals("over", balance.envelopes.single().status)
+        // Nothing judged is null on the wire, and stays null: never a 0 %.
+        assertNull(balance.satisfaction.keptPercent)
+        assertEquals(495000, balance.savings.plannedCents)
+    }
+
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {
         val body = readRecording("$name.collection")
         val members = body["member"]?.jsonArray

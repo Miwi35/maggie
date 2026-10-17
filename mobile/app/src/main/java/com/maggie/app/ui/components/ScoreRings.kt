@@ -168,6 +168,20 @@ fun ScoreRings(
     }
 }
 
+/** The ring of one month on its own — the hero of the month balance. A tap lists the reasons of its score. */
+@Composable
+fun MonthScoreRing(
+    score: PeriodScore,
+    modifier: Modifier = Modifier,
+) {
+    var isOpen by rememberSaveable { mutableStateOf(false) }
+
+    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        ScoreRing("Dépensé", MONTH, score, isOpen) { isOpen = !isOpen }
+        if (isOpen) ScoreReasons("Mois", score)
+    }
+}
+
 @Composable
 private fun ScoreRing(
     title: String,

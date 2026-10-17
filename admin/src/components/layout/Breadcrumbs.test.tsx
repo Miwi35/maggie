@@ -72,6 +72,14 @@ describe('Breadcrumbs', () => {
     expect(labels()).toEqual(['Cuisine', 'Recettes', 'Tarte aux poireaux'])
   })
 
+  test('the balance of the month is a page of the finance dashboard', () => {
+    renderAt('/finance/dashboard/current')
+
+    expect(labels()).toEqual(['Finance', 'État courant'])
+    expect(screen.getByRole('link', { name: 'Finance' })).toHaveAttribute('href', '/finance/dashboard')
+    expect(screen.getByText('État courant')).toHaveAttribute('aria-current', 'page')
+  })
+
   test('a creation ends on « Nouveau »', () => {
     renderAt('/events/create')
 

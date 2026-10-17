@@ -97,6 +97,7 @@ export const HOME_LABEL = 'Accueil'
 export const SEARCH_LABEL = 'Recherche'
 export const NEW_LABEL = 'Nouveau'
 export const EDIT_LABEL = 'Modifier'
+export const CURRENT_STATE_LABEL = 'État courant'
 export const FALLBACK_ITEM_LABEL = 'Détail'
 
 /** The fields a record is named by, first one filled wins. */
@@ -168,6 +169,9 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
   for (const module of NAVIGATION) {
     if (module.dashboard === path) {
       return [moduleCrumb(module)]
+    }
+    if (module.dashboard && path === `${module.dashboard}/current`) {
+      return [moduleCrumb(module), { label: CURRENT_STATE_LABEL, to: path }]
     }
 
     for (const part of module.parts) {

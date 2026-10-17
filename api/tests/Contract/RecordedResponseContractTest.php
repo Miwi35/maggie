@@ -382,6 +382,31 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The balance of a month (MAG-457), as the « État courant » dashboard of
+     * the phone and the admin reads it.
+     */
+    public function testTheMonthBalanceRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/month-balance?month=2026-03', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty($body['envelopes'], 'The recorded world budgets no envelope in March, so the recording proves nothing about one.');
+
+        $this->assertMatchesContract(
+            'responses/finance_month_balance.read.json',
+            self::stabilise($body),
+            'GET /api/finance/month-balance no longer returns what it used to. The mobile DTOs (MonthBalance.kt) and the admin hook read this response.',
+        );
+    }
+
+    /**
      * What the statement implies, read as the controller sends it: an offer, with no series behind it.
      */
     public function testTheSuggestionsRecordingIsCurrent(): void

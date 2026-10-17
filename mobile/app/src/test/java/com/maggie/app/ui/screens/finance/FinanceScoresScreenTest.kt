@@ -16,6 +16,7 @@ import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
 import com.maggie.app.data.model.ScoreReason
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -186,6 +187,7 @@ class FinanceScoresScreenTest {
     fun `the dashboard draws the rings and the curve in place of the old daily score`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
                 onBack = {},
@@ -202,6 +204,7 @@ class FinanceScoresScreenTest {
     fun `a payload without scores draws no ring and the rest of the dashboard goes on`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3)).viewModel,
                 onBack = {},
@@ -218,6 +221,7 @@ class FinanceScoresScreenTest {
     fun `on a wide window the scores and the tiles are both on screen`() {
         compose.setContent {
             FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
                 onBack = {},

@@ -126,6 +126,14 @@ export const ADJUST_USER_EMAIL = 'e2e-adjust@maggie.local'
  */
 export const UPCOMING_USER_EMAIL = 'e2e-upcoming@maggie.local'
 
+/**
+ * The sixteenth seeded account, for the month balance (MAG-457): one held
+ * envelope and one overrun, which only Dashboard › État courant reads. The
+ * owner's account has no overrun, and giving it one would move the other
+ * finance journeys.
+ */
+export const BALANCE_USER_EMAIL = 'e2e-balance@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

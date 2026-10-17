@@ -76,6 +76,24 @@ class GetFinanceScores
         return $parsed;
     }
 
+    /**
+     * The day to read a month's scores at: today on the current month, else the
+     * month's last day (past) or first day (future) — always a day inside the
+     * month, so the month score is that month's.
+     */
+    public function dateInMonth(User $user, int $year, int $month): \DateTimeImmutable
+    {
+        $today = $this->resolveDate($user, null);
+        $shown = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
+        $current = $today->modify('first day of this month');
+
+        return match (true) {
+            $shown == $current => $today,
+            $shown < $current => $shown->modify('last day of this month'),
+            default => $shown,
+        };
+    }
+
     /** @return array<string, mixed> */
     public function execute(User $user, \DateTimeImmutable $date): array
     {

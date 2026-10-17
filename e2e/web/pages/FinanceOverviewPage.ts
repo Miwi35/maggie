@@ -121,9 +121,9 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.getByRole('tab', { name: 'À venir' })
   }
 
-  /** The « État courant » tab: everything the home shows, and the default. */
-  get currentTab(): Locator {
-    return this.content.getByRole('tab', { name: 'État courant' })
+  /** The « Vue d'ensemble » tab: everything the home shows, and the default. */
+  get overviewTab(): Locator {
+    return this.content.getByRole('tab', { name: "Vue d'ensemble" })
   }
 
   /** Opens the home, then its « À venir » tab, and waits for the projection to have answered. */

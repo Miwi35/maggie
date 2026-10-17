@@ -11,7 +11,7 @@ tags:
 # Alors je vois la semaine suivante et le mois suivant, avec le loyer parmi les dépenses prévues
 # Et les enveloppes du mois suivant
 # Et « Reste vers les projets »
-# Quand je reviens sur « État courant »
+# Quand je reviens sur « Vue d'ensemble »
 # Alors les anneaux sont là, et les blocs « À venir » ne le sont plus
 #
 # The calendar moves, so only the labels and the tags are asserted, never a date or an amount: the
@@ -31,7 +31,7 @@ tags:
 
 - openLink: "maggie-e2e://finance"
 
-# « État courant » is the tab it opens on.
+# « Vue d'ensemble » is the tab it opens on.
 - extendedWaitUntil:
     visible:
       id: "finance_score_ring_week"
@@ -72,11 +72,11 @@ tags:
 # Back to the current state: the upcoming blocks leave the screen.
 - scrollUntilVisible:
     element:
-      id: "finance_tab_current"
+      id: "finance_tab_overview"
     direction: UP
     timeout: 30000
 - tapOn:
-    id: "finance_tab_current"
+    id: "finance_tab_overview"
 - extendedWaitUntil:
     visible:
       id: "finance_score_ring_week"

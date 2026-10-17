@@ -253,8 +253,8 @@ areas:
     - admin/src/modules/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/navigation/FinanceNavigation.kt
-    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthlyReview,PeerDebt,Transaction}Repository.kt
-    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthlyReview,PeerDebt,RuleSuggestion,SafetyCushion,Transaction}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthBalance,MonthlyReview,PeerDebt,Transaction}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,MonthlyReview,PeerDebt,RuleSuggestion,SafetyCushion,Transaction}.kt
     - 'e2e/web/pages/{Finance*,financeLabels}.ts'
     - e2e/web/helpers/money.ts
   notification:
@@ -431,6 +431,9 @@ web:
     areas: [finance, realtime]
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-month-balance.spec.ts:
+    areas: [finance]
+    paths: [api/fixtures/e2e/58-finance-month-balance.yaml]
   e2e/web/tests/finance-review.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-recurring-detection.spec.ts:

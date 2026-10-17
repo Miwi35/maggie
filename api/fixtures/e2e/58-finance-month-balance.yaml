@@ -1,0 +1,78 @@
+# The month balance journeys (MAG-457, extends MAG-102): Dashboard › État courant.
+#
+# One account that only the balance reads: two envelopes this month, one held
+# and one overrun, so the page can be told to draw both.
+#   Alimentation  300 € budget, 100 € spent  → held
+#   Transport     100 € budget, 150 € spent  → over
+# 400 € of budget, 250 € spent, 150 € left, whatever the month. Both spends are
+# booked on the 1st, so they are in the past whatever the stack's day is.
+#
+# No other journey signs in here: the owner's account carries no overrun, and
+# giving it one would move what the other finance journeys compute.
+
+Maggie\Core\Entity\User:
+  e2e_balance_user:
+    email: 'e2e-balance@maggie.local'
+    googleId: 'e2e-balance-google-id'
+    name: 'Sacha Bilan'
+
+Maggie\Finance\Entity\Account:
+  e2e_balance_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@e2e_balance_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_balance_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_balance_user'
+  e2e_balance_transport:
+    name: Transport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_balance_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_balance_food_envelope:
+    category: '@e2e_balance_food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 30000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_balance_user'
+  e2e_balance_transport_envelope:
+    category: '@e2e_balance_transport'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_balance_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_balance_groceries:
+    account: '@e2e_balance_checking'
+    category: '@e2e_balance_food'
+    amountCents: -10000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'SUPERMARCHE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_balance_user'
+  e2e_balance_train:
+    account: '@e2e_balance_checking'
+    category: '@e2e_balance_transport'
+    amountCents: -15000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'TRAIN'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_balance_user'

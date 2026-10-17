@@ -1,0 +1,137 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-test@example.com
+    googleId: google-finance-controller-test
+    name: Finance Controller Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  transport:
+    name: Transport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  savings:
+    name: Épargne
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Saving)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  food_september:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+  leisure_september:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+  transport_september:
+    category: '@transport'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # Held: half of the food envelope, mandatory so never judged.
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: Courses
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+  # Close: 85 % of the leisure envelope, one kept and one avoidable.
+  concert:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-10"))>'
+    label: Concert
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+  takeaway:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-14"))>'
+    label: Livraison sushi
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+  # Over: 150 % of the transport envelope, not judged yet.
+  taxi:
+    account: '@checking'
+    category: '@transport'
+    amountCents: -15000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+    label: Taxi
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # Put aside.
+  saved:
+    account: '@checking'
+    category: '@savings'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-06"))>'
+    label: Virement épargne
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Saving))>'
+  # Nobody qualified these two: only the September one is the month's.
+  unknown_september:
+    account: '@checking'
+    amountCents: -4000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-25"))>'
+    label: Achat divers
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  unknown_august:
+    account: '@checking'
+    amountCents: -9000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-25"))>'
+    label: Achat divers août
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

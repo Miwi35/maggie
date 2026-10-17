@@ -249,10 +249,19 @@ object UiTags {
     const val FINANCE_TILE_BALANCE_BEFORE_SALARY = "finance_tile_balance_before_salary"
     const val FINANCE_TILE_ENVELOPE_PREFIX = "finance_tile_envelope_"
     const val FINANCE_NEXT_PROJECT = "finance_next_project"
+    const val FINANCE_TAB_OVERVIEW = "finance_tab_overview"
+    const val MONTH_BALANCE_EMPTY = "month_balance_empty"
+    const val MONTH_BALANCE_ENVELOPES = "month_balance_envelopes"
+    const val MONTH_BALANCE_ENVELOPES_EMPTY = "month_balance_envelopes_empty"
+    const val MONTH_BALANCE_SATISFACTION = "month_balance_satisfaction"
+    const val MONTH_BALANCE_SATISFACTION_EMPTY = "month_balance_satisfaction_empty"
+    const val MONTH_BALANCE_SAVINGS = "month_balance_savings"
+    const val MONTH_BALANCE_CUSHION = "month_balance_cushion"
+    const val MONTH_BALANCE_ENVELOPE_PREFIX = "month_balance_envelope_"
 
     /**
-     * Finance dashboard — the two tabs, « État courant » and « À venir », and the blocks of the
-     * second: the week and the month after, the envelopes of the month after (one bar per category,
+     * Finance dashboard — the three tabs, « Vue d'ensemble », « État courant » (the balance of a
+     * month, MAG-457) and « À venir », and the blocks of the last: the week and the month after, the envelopes of the month after (one bar per category,
      * suffixed by its id), what is spent outside them, what is left toward the projects, and the
      * error with its retry (MAG-463).
      */
@@ -559,6 +568,8 @@ object UiTags {
     fun upcomingDays(period: String) = UPCOMING_DAYS_PREFIX + period
 
     fun upcomingEnvelope(categoryId: String) = UPCOMING_ENVELOPE_PREFIX + categoryId
+
+    fun monthBalanceEnvelope(envelopeId: String) = MONTH_BALANCE_ENVELOPE_PREFIX + envelopeId
 
     fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
 
