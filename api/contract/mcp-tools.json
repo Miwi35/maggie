@@ -662,7 +662,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Read what the recurring operations (subscriptions, rent, salary, any series the user expects to see again) cost and bring in, in one call, without arguments. totals: monthlyCostCents and yearlyCostCents are the expenses (negative cents), monthlyIncomeCents the incomes (positive), activeCount the series that have not ended; an ended series (endsOn past) is listed but left out of the totals. Amounts are signed integer cents, divide by 100 to speak them: say \"38,47 € par mois\", never the raw cents. operations[]: id, label, category, account, period, dayRule, referenceAmountCents, monthlyCostCents, yearlyCostCents, currency, nextOccurrenceOn (the next due date not yet settled by a transaction, null once ended), lastAttachedOn, attachmentCount, and lastOccurrence (the latest transaction attached, with its dateGapDays and the deviations it carried: late, early, amount_up, amount_down). missedOccurrence is set when the latest due date is past its date tolerance with no transaction attached (\"the rent did not come this month\"), with occurrenceOn and daysOverdue; it is a fact to report, never a reason to alarm. priceChange (previousCents, currentCents, percent, since) is set when the amount the series is paid at moved from the one before by more than the series' amount tolerance. proposals[] are the attachments still waiting for the user's yes, each with its reason (late, early, amount_up, amount_down, ambiguous): confirm one with manage_recurring_operations attach. To create, change or delete a series use manage_recurring_operations."
+        "description": "Read what the recurring operations (subscriptions, rent, salary, any series the user expects to see again) cost and bring in, in one call, without arguments. totals: monthlyCostCents and yearlyCostCents are the expenses (negative cents), monthlyIncomeCents the incomes (positive), activeCount the series that have not ended; an ended series (endsOn past) is listed but left out of the totals. Amounts are signed integer cents, divide by 100 to speak them: say \"38,47 € par mois\", never the raw cents. operations[]: id, label, category, account, period, dayRule, referenceAmountCents, monthlyCostCents, yearlyCostCents, currency, nextOccurrenceOn (the next due date not yet settled by a transaction, null once ended), lastAttachedOn, attachmentCount, and lastOccurrence (the latest transaction attached, with its dateGapDays and the deviations it carried: late, early, amount_up, amount_down). missedOccurrence is set when the latest due date is past its date tolerance with no transaction attached (\"the rent did not come this month\"), with occurrenceOn and daysOverdue; it is a fact to report, never a reason to alarm. priceChange (previousCents, currentCents, percent, since) is set when the amount the series is paid at moved from the one before by more than the series' amount tolerance. proposals[] are the attachments still waiting for the user's yes, each with its reason (late, early, amount_up, amount_down, ambiguous): confirm one with manage_operations attach. To create, change or delete a series use manage_operations."
     },
     "get_reference_salary": {
         "name": "get_reference_salary",
@@ -670,7 +670,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Read the reference salary: the stable monthly salary the user's month is judged on, bonuses excluded, rather than what actually came in this month (a salary can arrive late, or two at once). No arguments. monthlyCents is positive integer cents, divide by 100 to speak it (\"4 950 € par mois\"); it is null when nothing is known, and then never say 0 €: say no salary is set yet, and that declaring it on the safety cushion or creating the recurring income operation \"Salaire\" fixes that. source says where it comes from, always say it: declared (the net salary the user declared on the safety cushion, it wins), expected (the expected amount of the recurring income operations in the \"Salaire\" category), measured (the average of their last 12 attached payments, for a recurring operation whose amount is measured), unknown. operations[] lists the salary recurring operations (id, label, categoryName, period, referenceAmountCents, monthlyCents brought to a month, source, paymentCount); two employers are two recurring operations, added. To change the salary use manage_safety_cushion or manage_recurring_operations."
+        "description": "Read the reference salary: the stable monthly salary the user's month is judged on, bonuses excluded, rather than what actually came in this month (a salary can arrive late, or two at once). No arguments. monthlyCents is positive integer cents, divide by 100 to speak it (\"4 950 € par mois\"); it is null when nothing is known, and then never say 0 €: say no salary is set yet, and that declaring it on the safety cushion or creating the recurring income operation \"Salaire\" fixes that. source says where it comes from, always say it: declared (the net salary the user declared on the safety cushion, it wins), expected (the expected amount of the recurring income operations in the \"Salaire\" category), measured (the average of their last 12 attached payments, for a recurring operation whose amount is measured), unknown. operations[] lists the salary recurring operations (id, label, categoryName, period, referenceAmountCents, monthlyCents brought to a month, source, paymentCount); two employers are two recurring operations, added. To change the salary use manage_safety_cushion or manage_operations."
     },
     "get_savings_advances": {
         "name": "get_savings_advances",
@@ -1095,120 +1095,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete budget categories. Categories form a tree of at most three levels (Loisirs › Bars › Obsydian): a category may have a parentId, which may itself be a level-2 category; a level-3 category cannot have children, a category cannot move under its own descendants, and moving one never pushes its sub-categories past level 3. Each category is read with its depth (1 to 3) and its path (names from the top, joined by « › »). Each category has an obligation flag, deprecated: what a line is (mandatory, saving, repayment…) is now its own qualification, set on the transaction, the recurring operation or the rule (manage_transactions, manage_recurring_operations, manage_categorization_rules: mandatory and kind). No calculation reads it any more (the score, the envelopes, the review and the lifestyle read the qualification of each transaction); it only gives the qualification a new line takes from its category until it goes: mandatory, optional, saving, investment, debt (loan repayments) or income. An income category may also be flagged passiveIncome: a rente, money that comes in without being worked for (rent received, dividends, interest, royalties) — that flag is what the independence counter counts, and it is refused on anything but an income category. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
-    },
-    "manage_categorization_rules": {
-        "name": "manage_categorization_rules",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "categorizationRuleId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "labelPattern": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "categoryId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "matchType": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "direction": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "minAmountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "maxAmountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "priority": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "isActive": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                },
-                "transactionId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "clear": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
-                    "default": null
-                },
-                "applyToExisting": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                },
-                "mandatory": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                },
-                "kind": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount; the label is optional when direction is debit or credit AND an amount bound is given — then the rule recognises a transaction on its sign and amount alone, whatever its label or counterparty (« an income of 4 750 € ± 10 % is the salary »: direction credit, minAmountCents 427500, maxAmountCents 522500; compute the bounds yourself). A rule with no label and no directed amount bound is refused with the current state, nothing is deduced. Amounts: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins and gives the line its whole qualification (categoryId, mandatory, kind); a line qualified by hand is never overwritten. Updating the categoryId, mandatory or kind of a rule reaches every line it qualified, except those qualified by hand since. On update, only provided fields change; to remove the label or an amount bound, list labelPattern, minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern if any, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
+        "description": "List, create, update, or delete budget categories. Categories form a tree of at most three levels (Loisirs › Bars › Obsydian): a category may have a parentId, which may itself be a level-2 category; a level-3 category cannot have children, a category cannot move under its own descendants, and moving one never pushes its sub-categories past level 3. Each category is read with its depth (1 to 3) and its path (names from the top, joined by « › »). Each category has an obligation flag, deprecated: what a line is (mandatory, saving, repayment…) is now its own qualification, set on the transaction or the operation (manage_transactions, manage_operations: mandatory and kind). No calculation reads it any more (the score, the envelopes, the review and the lifestyle read the qualification of each transaction); it only gives the qualification a new line takes from its category until it goes: mandatory, optional, saving, investment, debt (loan repayments) or income. An income category may also be flagged passiveIncome: a rente, money that comes in without being worked for (rent received, dividends, interest, royalties) — that flag is what the independence counter counts, and it is refused on anything but an income category. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
     },
     "manage_contacts": {
         "name": "manage_contacts",
@@ -1789,6 +1676,210 @@
         },
         "description": "Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance; give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention."
     },
+    "manage_operations": {
+        "name": "manage_operations",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "recurring": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "label": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "counterpartyName": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "labelPattern": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "matchType": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "direction": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "minAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "maxAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "priority": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "isActive": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "period": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "anchorOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "referenceAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "accountId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dayRule": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "referenceSource": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountTolerancePercent": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "dateToleranceDays": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "endsOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "applyToExisting": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "transactionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "recurringOccurrenceOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "mandatory": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "kind": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update or delete the operations, preview what one would catch, apply them to the history, learn one from a transaction, and attach or detach the transactions of a series. An operation is what recognises the transactions (the real lines of the statement) and the qualification it copies onto each of them (categoryId, mandatory, kind), with an optional recurrence: with one it is a series the user expects to see again (rent on the 5th, a subscription on the 12th, a salary), without one it files lines like a categorization rule. Recognition: counterpartyName (who the bank names, the main way: copy the counterpartyName of a transaction as the bank spells it), labelPattern read in the label (matchType: contains, starts_with, equals — case-insensitive), and the amount. Without a counterparty or a label, the amount alone recognises: a series by its sign and referenceAmountCents within amountTolerancePercent, an operation without recurrence by direction (debit = expense, credit = income) with minAmountCents and/or maxAmountCents (ABSOLUTE cents: a 15,99 € expense matches 1000..2000; « an income of 4 750 € ± 10 % is the salary »: direction credit, minAmountCents 427500, maxAmountCents 522500, compute the bounds yourself); with nothing to recognise by, it is refused with the current state. The recurrence is period (weekly, monthly, quarterly, yearly), anchorOn (ISO date of the first occurrence; every other one is counted from it), referenceAmountCents (signed integer cents, never 0: negative = expense, positive = income) and accountId (its currency is the account's), all four together or none — a part of them is refused — with a label, and optionally dayRule (fixed_day: the anchor's day, clamped to short months; last_day_of_month), referenceSource (measured: follows the attached transactions, the default; declared: stays as typed), amountTolerancePercent (0-100, 20 by default), dateToleranceDays (0-31, 5 by default) and endsOn (ISO date, not before anchorOn). An operation keeps its recurrence or its lack of one: to change, create another. Order of a new line: internal transfers and rejected payments are set aside, then the series attach the lines of their occurrences, then the first active operation without recurrence by priority (highest first; isActive false pauses one) files what is left; a line the user qualified by hand is never overwritten. Any category fits any sign. List gives every operation (recurring true or false narrows it) with, for a series, monthlyCostCents, yearlyCostCents and nextOccurrenceOn (after today). On update, only provided fields change; to remove label, counterpartyName, labelPattern, minAmountCents, maxAmountCents or endsOn, list it in clear; a new categoryId, mandatory or kind reaches every transaction the operation qualified, except those the user qualified by hand. BEFORE creating an operation, call action preview with the same criteria: without referenceAmountCents it is an operation without recurrence's (total, changeCount: the lines it would re-file, the latest matches; pass operationId when editing a saved one), with it a series' (the lines it would recognise, optionally on accountId). Show the user what it found, then ask whether to apply it to the existing transactions: create and update take applyToExisting (default false: only the lines to come). apply with an operationId gives the history to that one; without, it runs the whole catch-up (the series attach, then the others file). learn turns transactionId into an operation without recurrence filing under categoryId what has the same label (labelPattern derived from it unless given), and files that line by hand. attach makes transactionId an occurrence of the series operationId, by hand: at recurringOccurrenceOn (ISO date, a due date of the series), or at the due date nearest its bookedAt; it is how the user confirms a proposed attachment (late, early, amount_up for a price rise, amount_down, ambiguous). It is refused when the occurrence is already settled by another transaction (detach that one first), or when the account, the currency or the sign differ. detach takes transactionId out of its series for good. Both are recorded as the user's own decision, which the automatic attachment never overwrites; a measured reference amount follows the latest attachments. Attaching gives the line the whole qualification of the series, unless the user qualified it by hand. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
+    },
     "manage_peer_debts": {
         "name": "manage_peer_debts",
         "inputSchema": {
@@ -2039,154 +2130,6 @@
             ]
         },
         "description": "List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel. To empty an optional field on update, list its name in clear (productId, customLabel, quantity, unit); an item must keep a productId or a customLabel."
-    },
-    "manage_recurring_operations": {
-        "name": "manage_recurring_operations",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "recurringOperationId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "label": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "categoryId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "accountId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "referenceAmountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "anchorOn": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "counterpartyName": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "labelPattern": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "period": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "dayRule": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "referenceSource": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "amountTolerancePercent": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "dateToleranceDays": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "endsOn": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "clear": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
-                    "default": null
-                },
-                "transactionId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "recurringOccurrenceOn": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "mandatory": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                },
-                "kind": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "List, create, update or delete the recurring operations, and attach or detach their transactions. A recurring operation is the series the user expects to see again (rent on the 5th, a subscription on the 12th, a salary), as opposed to the transactions, the real lines of the statement. Occurrences are computed, never stored. A series has a label, a categoryId and an accountId (its currency is the account's), the counterpartyName it is paid to or received from (the main way to recognise its transactions: copy the counterpartyName of one of them, as the bank spells it) and/or a labelPattern read in the label when there is no counterparty; both are optional: a series with neither is recognised by its sign and its amount alone (referenceAmountCents within amountTolerancePercent), whatever the label or the payer — a salary of 4750 EUR +-10%, a period (weekly, monthly, quarterly, yearly), anchorOn (ISO date of the first occurrence; every other one is counted from it), a dayRule (fixed_day: the anchor's day, clamped to short months; last_day_of_month), referenceAmountCents (signed integer cents, never 0: negative = expense, positive = income; any category fits any sign), referenceSource (measured: follows the attached transactions, the default; declared: stays as typed), amountTolerancePercent (0-100, 20 by default), dateToleranceDays (0-31, 5 by default) and endsOn (ISO date, optional, not before anchorOn). List gives each series with its monthlyCostCents, yearlyCostCents and nextOccurrenceOn (after today). On update, only provided fields change; to remove counterpartyName, labelPattern or endsOn, list it in clear; a new categoryId, mandatory or kind reaches every transaction the series qualified, except those the user qualified by hand. attach makes the transaction transactionId an occurrence of the series recurringOperationId, by hand: at recurringOccurrenceOn (ISO date, a due date of the series), or at the due date nearest its bookedAt; it is how the user confirms a proposed attachment (late, early, amount_up for a price rise, amount_down, ambiguous). It is refused when the occurrence is already settled by another transaction (detach that one first), or when the account, the currency or the sign differ. detach takes transactionId out of its series for good. Both are recorded as the user's own decision, which the automatic attachment never overwrites; a measured reference amount follows the latest attachments. Attaching gives the line the whole qualification of the series (categoryId, mandatory, kind), unless the user qualified it by hand. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
     },
     "manage_safety_cushion": {
         "name": "manage_safety_cushion",
@@ -2476,7 +2419,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, delete, or categorize transactions; to_sort and sort work through the pile of lines that still wait for a category. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with categoryId (the category and its sub-categories; with limit 1, the latest line of that category), direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those (advance, repayment and funding each list only their own). Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; any category may be used on either sign. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user's own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). transferKind advance is an internal transfer from a savings or investment account to a checking one made while the salary was late, which the detection marks (get_savings_advances says what is left to give back); repayment is the transfer that gives an advance back, from the checking account to the source: the detection marks it when its amount equals exactly what is left of an open advance of that source (a partial amount is never reconciled), and by hand it takes counterpartId plus repaysTransactionId, the id of the advance (the debit leg get_savings_advances lists), set on the debit leg, the one leaving the checking account. funding is the user's regular top-up of a savings account, which the detection never takes for a repayment whatever its amount: mark it with transferKind funding and counterpartId (or alone when only one account is known); it stays a neutral internal transfer. propose_advance_repayments says what to transfer to give the advances back. An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user's own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history. recurringOperationId names the recurring operation the line is an occurrence of, and recurringOccurrenceOn (ISO date) the due date it settles: a line is attached automatically when its counterparty, its date and its amount all match a free occurrence. On update, recurringOperationId attaches the line by hand (to recurringOccurrenceOn, or to the due date nearest its bookedAt), recurringOccurrenceOn alone moves it to another due date of its series, and recurringOperation in clear detaches it; a gesture made here is recorded as the user's own (recurringSource manual), which the automatic attachment never overwrites. Attaching gives the line the whole qualification of the recurring operation (categoryId, mandatory, kind), unless the user qualified it by hand. note is the user's free text about the line (2000 characters at most): set it on create or update, a blank note or note in clear removes it, and an update that omits it leaves it alone. oneOffEnvelopeId attributes a spend by hand to a one-off envelope (an event such as Hellfest 2026, created with manage_envelopes mode one_off): the line keeps its category but leaves the monthly and annual envelopes and counts in the one-off one only; an empty oneOffEnvelopeId or oneOffEnvelope in clear takes the attribution back. Action to_sort lists the lines to sort one by one (limit, 50 by default): no category and not a transfer or a rejection, newest first, with total and, on each, a suggestion {categoryId, categoryPath, source rule|merchant, reason} or null. Action sort answers one of them: transactionId plus categoryId (the category is set by hand; alwaysForMerchant true also writes a 'contains' rule on the first words of the label and files the other lines of the pile it claims) or transferKind internal (optional counterpartId) when the line moves money between the user's own accounts; a line that already has a category or a marking is refused. Action settle_rejection (transactionId: either leg of a rejected payment) records that the user dealt with it (paid again by other means), so it leaves the account incidents, the pile of rejections still to deal with; unsettle_rejection puts it back; any other line is refused. Each line carries rejectionSettledAt (ISO date-time, null while unsettled). qualifiedBy says who qualified a line: manual (the user, by hand: what is set here), series (qualifiedBySeriesId) or rule (qualifiedByRuleId); a change to that series or rule reaches the line, never once it is qualified by hand. retrospect is the owner's satisfaction with a spend, given once per line when it is reviewed: keep (« À conserver »), avoidable (« Superflue ») or unrated; set it on update, it is refused on an income or on a transfer between the user's own accounts. to_sort and sort also carry judgeable (true on a spend) and retrospect on each line, and to_sort totalCents, the sum of the amounts still to qualify. myShareCents is the owner's own part of a shared spend, null when it is not shared: only it counts in the envelopes — set it with manage_peer_debts set_my_share. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
+        "description": "List, create, update, delete, or categorize transactions; to_sort and sort work through the pile of lines that still wait for a category. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with categoryId (the category and its sub-categories; with limit 1, the latest line of that category), direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those (advance, repayment and funding each list only their own). Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; any category may be used on either sign. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user's own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). transferKind advance is an internal transfer from a savings or investment account to a checking one made while the salary was late, which the detection marks (get_savings_advances says what is left to give back); repayment is the transfer that gives an advance back, from the checking account to the source: the detection marks it when its amount equals exactly what is left of an open advance of that source (a partial amount is never reconciled), and by hand it takes counterpartId plus repaysTransactionId, the id of the advance (the debit leg get_savings_advances lists), set on the debit leg, the one leaving the checking account. funding is the user's regular top-up of a savings account, which the detection never takes for a repayment whatever its amount: mark it with transferKind funding and counterpartId (or alone when only one account is known); it stays a neutral internal transfer. propose_advance_repayments says what to transfer to give the advances back. An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user's own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history. recurringOperationId names the recurring operation the line is an occurrence of, and recurringOccurrenceOn (ISO date) the due date it settles: a line is attached automatically when its counterparty, its date and its amount all match a free occurrence. On update, recurringOperationId attaches the line by hand (to recurringOccurrenceOn, or to the due date nearest its bookedAt), recurringOccurrenceOn alone moves it to another due date of its series, and recurringOperation in clear detaches it; a gesture made here is recorded as the user's own (recurringSource manual), which the automatic attachment never overwrites. Attaching gives the line the whole qualification of the recurring operation (categoryId, mandatory, kind), unless the user qualified it by hand. note is the user's free text about the line (2000 characters at most): set it on create or update, a blank note or note in clear removes it, and an update that omits it leaves it alone. oneOffEnvelopeId attributes a spend by hand to a one-off envelope (an event such as Hellfest 2026, created with manage_envelopes mode one_off): the line keeps its category but leaves the monthly and annual envelopes and counts in the one-off one only; an empty oneOffEnvelopeId or oneOffEnvelope in clear takes the attribution back. Action to_sort lists the lines to sort one by one (limit, 50 by default): no category and not a transfer or a rejection, newest first, with total and, on each, a suggestion {categoryId, categoryPath, source rule|merchant, reason} or null. Action sort answers one of them: transactionId plus categoryId (the category is set by hand; alwaysForMerchant true also writes a 'contains' rule on the first words of the label and files the other lines of the pile it claims) or transferKind internal (optional counterpartId) when the line moves money between the user's own accounts; a line that already has a category or a marking is refused. Action settle_rejection (transactionId: either leg of a rejected payment) records that the user dealt with it (paid again by other means), so it leaves the account incidents, the pile of rejections still to deal with; unsettle_rejection puts it back; any other line is refused. Each line carries rejectionSettledAt (ISO date-time, null while unsettled). qualifiedBy says who qualified a line: manual (the user, by hand: what is set here), series (an operation with a recurrence, qualifiedBySeriesId) or rule (an operation without, qualifiedByRuleId); a change to that operation reaches the line, never once it is qualified by hand. retrospect is the owner's satisfaction with a spend, given once per line when it is reviewed: keep (« À conserver »), avoidable (« Superflue ») or unrated; set it on update, it is refused on an income or on a transfer between the user's own accounts. to_sort and sort also carry judgeable (true on a spend) and retrospect on each line, and to_sort totalCents, the sum of the amounts still to qualify. myShareCents is the owner's own part of a shared spend, null when it is not shared: only it counts in the envelopes — set it with manage_peer_debts set_my_share. mandatory (true or false: an obligation the user cannot cut) and kind (none, saving, investment, loan or repayment: the direction is the sign of the amount, a repayment is « I pay back » on a debit and « I am paid back » on a credit) qualify the lines, with the category: give them together, or neither — one without the other is refused with the current qualification. Without them, a new categoryId brings the qualification of the category."
     },
     "manage_treasury_settings": {
         "name": "manage_treasury_settings",
@@ -2888,7 +2831,7 @@
                 "action"
             ]
         },
-        "description": "Find the recurring operations the bank history implies (a subscription, the rent, a salary: the same payee coming back every week, month, quarter or year for a steady amount) and create the ones the user accepts. Action list reads and writes nothing: each suggestion has label, counterpartyName / counterpartyKey (who the bank names) or labelPattern (read in the label when there is no counterparty), accountId, accountName, period (weekly, monthly, quarterly, yearly), anchorOn (the first occurrence seen), dayRule (fixed_day or last_day_of_month), referenceAmountCents (signed integer cents, the median: negative is an expense; divide by 100 to speak it, say \"13,49 € par mois\", never the raw cents), amountSpreadPercent, occurrences, categoryId / categoryName (null when no heading is known: ask the user for one before accepting) and up to three samples. minOccurrences (default 3, at least 2) narrows the list. Present the suggestions in plain words (\"Flixo revient le 12 de chaque mois, 13,49 €\") and NEVER accept one without the user's explicit yes. Action accept takes suggestions: the chosen entries of the list, sent back as they were (categoryId filled in when null); an entry without a category, with a category or account that is not the user's, or whose payee already has a series is ignored. It creates the series and attaches the history they recognise, and answers created, labels, attached, proposed. Never suggest cancelling a subscription. Loan instalments and transfers between own accounts are never suggested. To change or delete a series afterwards use manage_recurring_operations."
+        "description": "Find the recurring operations the bank history implies (a subscription, the rent, a salary: the same payee coming back every week, month, quarter or year for a steady amount) and create the ones the user accepts. Action list reads and writes nothing: each suggestion has label, counterpartyName / counterpartyKey (who the bank names) or labelPattern (read in the label when there is no counterparty), accountId, accountName, period (weekly, monthly, quarterly, yearly), anchorOn (the first occurrence seen), dayRule (fixed_day or last_day_of_month), referenceAmountCents (signed integer cents, the median: negative is an expense; divide by 100 to speak it, say \"13,49 € par mois\", never the raw cents), amountSpreadPercent, occurrences, categoryId / categoryName (null when no heading is known: ask the user for one before accepting) and up to three samples. minOccurrences (default 3, at least 2) narrows the list. Present the suggestions in plain words (\"Flixo revient le 12 de chaque mois, 13,49 €\") and NEVER accept one without the user's explicit yes. Action accept takes suggestions: the chosen entries of the list, sent back as they were (categoryId filled in when null); an entry without a category, with a category or account that is not the user's, or whose payee already has a series is ignored. It creates the series and attaches the history they recognise, and answers created, labels, attached, proposed. Never suggest cancelling a subscription. Loan instalments and transfers between own accounts are never suggested. Each suggestion is an operation with a recurrence, in the shape manage_operations create takes; to change or delete it afterwards use manage_operations."
     },
     "update_event": {
         "name": "update_event",

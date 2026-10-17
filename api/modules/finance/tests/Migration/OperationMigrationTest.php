@@ -8,7 +8,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
-use DoctrineMigrations\Version20261016190100;
+use DoctrineMigrations\Version20261017100100;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\UseCase\CategorizeTransaction;
@@ -216,10 +216,10 @@ class OperationMigrationTest extends KernelTestCase
     {
         // api/migrations is not on the autoloader — the migrations runner loads
         // the files itself, and this test runs *that* file.
-        require_once \dirname(__DIR__, 4).'/migrations/Version20261016190100.php';
+        require_once \dirname(__DIR__, 4).'/migrations/Version20261017100100.php';
 
         $report = &$this->report;
-        $migration = new Version20261016190100($this->connection, new class($report) extends AbstractLogger {
+        $migration = new Version20261017100100($this->connection, new class($report) extends AbstractLogger {
             /** @param list<string> $lines */
             public function __construct(private array &$lines)
             {

@@ -12,9 +12,9 @@ use Doctrine\Migrations\AbstractMigration;
  * takes what a categorization rule recognised a line by — match type,
  * direction, amount bounds — its priority and its active state, and its
  * recurrence (period, anchor, reference amount, account) and label become
- * optional. The rules move in with Version20261016190100.
+ * optional. The rules move in with Version20261017100100.
  */
-final class Version20261016190000 extends AbstractMigration
+final class Version20261017100000 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -38,7 +38,7 @@ final class Version20261016190000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // Only once the operations without recurrence went back to their table (see Version20261016190100::down()).
+        // Only once the operations without recurrence went back to their table (see Version20261017100100::down()).
         $this->addSql('ALTER TABLE recurring_operation ALTER label SET NOT NULL');
         $this->addSql('ALTER TABLE recurring_operation ALTER period SET NOT NULL');
         $this->addSql('ALTER TABLE recurring_operation ALTER anchor_on SET NOT NULL');

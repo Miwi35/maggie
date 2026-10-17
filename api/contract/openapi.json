@@ -1447,6 +1447,18 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "exists[period]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -6291,6 +6303,447 @@
                 }
             }
         },
+        "/api/operations": {
+            "get": {
+                "operationId": "api_operations_get_collection",
+                "tags": [
+                    "Operation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Operation.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Operation.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Operation"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Operation.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Operation resources.",
+                "description": "Retrieves the collection of Operation resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "exists[period]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_operations_post",
+                "tags": [
+                    "Operation"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Operation resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Operation resource.",
+                "description": "Creates a Operation resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Operation resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Operation"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Operation"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Operation"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/operations/{id}": {
+            "get": {
+                "operationId": "api_operations_id_get",
+                "tags": [
+                    "Operation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Operation resource.",
+                "description": "Retrieves a Operation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Operation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_operations_id_delete",
+                "tags": [
+                    "Operation"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Operation resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Operation resource.",
+                "description": "Removes the Operation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Operation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_operations_id_patch",
+                "tags": [
+                    "Operation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Operation.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Operation resource.",
+                "description": "Updates the Operation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Operation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Operation resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Operation.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/peer_debts": {
             "get": {
                 "operationId": "api_peer_debts_get_collection",
@@ -8176,6 +8629,18 @@
                         "name": "pagination",
                         "in": "query",
                         "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "exists[period]",
+                        "in": "query",
+                        "description": "",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -12048,16 +12513,40 @@
             },
             "CategorizationRule": {
                 "type": "object",
-                "description": "\"When a transaction label matches X (and, optionally, its amount falls in a\n * range and goes in a direction), file it under category Y.\"",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
                         "type": "string",
                         "format": "ulid"
                     },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
@@ -12072,15 +12561,8 @@
                             "equals"
                         ]
                     },
-                    "category": {
-                        "type": "string",
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
-                    "qualification": {
-                        "$ref": "#/components/schemas/Qualification_noid"
-                    },
                     "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
                         "default": "any",
                         "type": "string",
                         "enum": [
@@ -12091,7 +12573,7 @@
                     },
                     "minAmountCents": {
                         "minimum": 0,
-                        "description": "Absolute amount bounds in cents: a debit of 15,99 € matches 1000..2000.",
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
                         "type": [
                             "integer",
                             "null"
@@ -12105,13 +12587,97 @@
                         ]
                     },
                     "priority": {
-                        "description": "Higher priority wins; ties are broken by creation order.",
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
                         "default": 0,
                         "type": "integer"
                     },
                     "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
                         "default": true,
                         "type": "boolean"
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "user": {
                         "type": "string",
@@ -12120,29 +12686,71 @@
                     },
                     "applyToExisting": {
                         "writeOnly": true,
-                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
                     "matchType",
+                    "direction",
                     "category",
-                    "direction"
+                    "dayRule",
+                    "referenceSource"
                 ]
             },
             "CategorizationRule.html": {
                 "type": "object",
-                "description": "\"When a transaction label matches X (and, optionally, its amount falls in a\n * range and goes in a direction), file it under category Y.\"",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
                         "type": "string",
                         "format": "ulid"
                     },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
@@ -12157,7 +12765,43 @@
                             "equals"
                         ]
                     },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "minimum": 0,
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
+                    },
                     "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
@@ -12165,38 +12809,79 @@
                     "qualification": {
                         "$ref": "#/components/schemas/Qualification.html_noid"
                     },
-                    "direction": {
-                        "default": "any",
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
                         "type": "string",
                         "enum": [
-                            "any",
-                            "debit",
-                            "credit"
+                            "fixed_day",
+                            "last_day_of_month"
                         ]
                     },
-                    "minAmountCents": {
-                        "minimum": 0,
-                        "description": "Absolute amount bounds in cents: a debit of 15,99 € matches 1000..2000.",
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
                         "type": [
                             "integer",
                             "null"
                         ]
                     },
-                    "maxAmountCents": {
-                        "minimum": 0,
-                        "type": [
-                            "integer",
-                            "null"
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
                         ]
                     },
-                    "priority": {
-                        "description": "Higher priority wins; ties are broken by creation order.",
-                        "default": 0,
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
                         "type": "integer"
                     },
-                    "isActive": {
-                        "default": true,
-                        "type": "boolean"
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "user": {
                         "type": "string",
@@ -12205,29 +12890,68 @@
                     },
                     "applyToExisting": {
                         "writeOnly": true,
-                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
                     "matchType",
+                    "direction",
                     "category",
-                    "direction"
+                    "dayRule",
+                    "referenceSource"
                 ]
             },
             "CategorizationRule.jsonMergePatch": {
                 "type": "object",
-                "description": "\"When a transaction label matches X (and, optionally, its amount falls in a\n * range and goes in a direction), file it under category Y.\"",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
                         "type": "string",
                         "format": "ulid"
                     },
+                    "label": {
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "labelPattern": {
-                        "maxLength": 255,
-                        "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
@@ -12242,15 +12966,8 @@
                             "equals"
                         ]
                     },
-                    "category": {
-                        "type": "string",
-                        "format": "iri-reference",
-                        "example": "https://example.com/"
-                    },
-                    "qualification": {
-                        "$ref": "#/components/schemas/Qualification_noid"
-                    },
                     "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
                         "default": "any",
                         "type": "string",
                         "enum": [
@@ -12260,28 +12977,106 @@
                         ]
                     },
                     "minAmountCents": {
-                        "minimum": 0,
-                        "description": "Absolute amount bounds in cents: a debit of 15,99 € matches 1000..2000.",
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
                         "type": [
                             "integer",
                             "null"
                         ]
                     },
                     "maxAmountCents": {
-                        "minimum": 0,
                         "type": [
                             "integer",
                             "null"
                         ]
                     },
                     "priority": {
-                        "description": "Higher priority wins; ties are broken by creation order.",
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
                         "default": 0,
                         "type": "integer"
                     },
                     "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
                         "default": true,
                         "type": "boolean"
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "user": {
                         "type": "string",
@@ -12290,9 +13085,25 @@
                     },
                     "applyToExisting": {
                         "writeOnly": true,
-                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
                         "default": false,
                         "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -12309,9 +13120,33 @@
                                 "type": "string",
                                 "format": "ulid"
                             },
+                            "label": {
+                                "maxLength": 255,
+                                "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyName": {
+                                "maxLength": 255,
+                                "description": "The payee of an expense, the payer of an income: who the bank names.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyKey": {
+                                "readOnly": true,
+                                "description": "Derived from the name, like a transaction's, so the two compare.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "labelPattern": {
                                 "maxLength": 255,
-                                "description": "Optional when a direction and an amount bound recognise the transaction alone.",
+                                "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                                 "type": [
                                     "string",
                                     "null"
@@ -12326,15 +13161,8 @@
                                     "equals"
                                 ]
                             },
-                            "category": {
-                                "type": "string",
-                                "format": "iri-reference",
-                                "example": "https://example.com/"
-                            },
-                            "qualification": {
-                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
-                            },
                             "direction": {
+                                "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
                                 "default": "any",
                                 "type": "string",
                                 "enum": [
@@ -12345,7 +13173,7 @@
                             },
                             "minAmountCents": {
                                 "minimum": 0,
-                                "description": "Absolute amount bounds in cents: a debit of 15,99 € matches 1000..2000.",
+                                "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
                                 "type": [
                                     "integer",
                                     "null"
@@ -12359,13 +13187,97 @@
                                 ]
                             },
                             "priority": {
-                                "description": "Higher priority wins; ties are broken by creation order.",
+                                "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "isActive": {
+                                "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
                                 "default": true,
                                 "type": "boolean"
+                            },
+                            "category": {
+                                "description": "The default category, inherited by the transactions attached to it.",
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "qualification": {
+                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
+                            },
+                            "account": {
+                                "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "period": {
+                                "description": "Null for an operation without recurrence: what tells the two apart.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "weekly",
+                                    "monthly",
+                                    "quarterly",
+                                    "yearly",
+                                    null
+                                ]
+                            },
+                            "anchorOn": {
+                                "description": "Where the series is counted from, never from the previous occurrence.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "dayRule": {
+                                "default": "fixed_day",
+                                "type": "string",
+                                "enum": [
+                                    "fixed_day",
+                                    "last_day_of_month"
+                                ]
+                            },
+                            "referenceAmountCents": {
+                                "description": "Signed cents: negative is an expense, positive an income.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "referenceSource": {
+                                "default": "measured",
+                                "type": "string",
+                                "enum": [
+                                    "declared",
+                                    "measured"
+                                ]
+                            },
+                            "amountTolerancePercent": {
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 20,
+                                "type": "integer"
+                            },
+                            "dateToleranceDays": {
+                                "minimum": 0,
+                                "maximum": 31,
+                                "default": 5,
+                                "type": "integer"
+                            },
+                            "endsOn": {
+                                "description": "The last day an occurrence may fall on; null while the series runs.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "user": {
                                 "type": "string",
@@ -12374,19 +13286,37 @@
                             },
                             "applyToExisting": {
                                 "writeOnly": true,
-                                "description": "Asked on save, never stored: file the existing history under this rule too.",
+                                "description": "Asked on save, never stored: give the existing history to this operation too.",
                                 "default": false,
                                 "type": "boolean"
+                            },
+                            "monthlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "yearlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             }
                         },
                         "required": [
                             "matchType",
+                            "direction",
                             "category",
-                            "direction"
+                            "dayRule",
+                            "referenceSource"
                         ]
                     }
                 ],
-                "description": "\"When a transaction label matches X (and, optionally, its amount falls in a\n * range and goes in a direction), file it under category Y.\""
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
             },
             "Category": {
                 "type": "object",
@@ -17174,6 +18104,813 @@
                     }
                 ]
             },
+            "Operation": {
+                "type": "object",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "maxLength": 255,
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "minimum": 0,
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "matchType",
+                    "direction",
+                    "category",
+                    "dayRule",
+                    "referenceSource"
+                ]
+            },
+            "Operation.html": {
+                "type": "object",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "maxLength": 255,
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "minimum": 0,
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification.html_noid"
+                    },
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "matchType",
+                    "direction",
+                    "category",
+                    "dayRule",
+                    "referenceSource"
+                ]
+            },
+            "Operation.jsonMergePatch": {
+                "type": "object",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyName": {
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "qualification": {
+                        "$ref": "#/components/schemas/Qualification_noid"
+                    },
+                    "account": {
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            null
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "Operation.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "label": {
+                                "maxLength": 255,
+                                "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyName": {
+                                "maxLength": 255,
+                                "description": "The payee of an expense, the payer of an income: who the bank names.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyKey": {
+                                "readOnly": true,
+                                "description": "Derived from the name, like a transaction's, so the two compare.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "labelPattern": {
+                                "maxLength": 255,
+                                "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "matchType": {
+                                "default": "contains",
+                                "type": "string",
+                                "enum": [
+                                    "contains",
+                                    "starts_with",
+                                    "equals"
+                                ]
+                            },
+                            "direction": {
+                                "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                                "default": "any",
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "debit",
+                                    "credit"
+                                ]
+                            },
+                            "minAmountCents": {
+                                "minimum": 0,
+                                "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "maxAmountCents": {
+                                "minimum": 0,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "priority": {
+                                "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "isActive": {
+                                "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                                "default": true,
+                                "type": "boolean"
+                            },
+                            "category": {
+                                "description": "The default category, inherited by the transactions attached to it.",
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "qualification": {
+                                "$ref": "#/components/schemas/Qualification.jsonld_noid"
+                            },
+                            "account": {
+                                "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "period": {
+                                "description": "Null for an operation without recurrence: what tells the two apart.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "weekly",
+                                    "monthly",
+                                    "quarterly",
+                                    "yearly",
+                                    null
+                                ]
+                            },
+                            "anchorOn": {
+                                "description": "Where the series is counted from, never from the previous occurrence.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "dayRule": {
+                                "default": "fixed_day",
+                                "type": "string",
+                                "enum": [
+                                    "fixed_day",
+                                    "last_day_of_month"
+                                ]
+                            },
+                            "referenceAmountCents": {
+                                "description": "Signed cents: negative is an expense, positive an income.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "referenceSource": {
+                                "default": "measured",
+                                "type": "string",
+                                "enum": [
+                                    "declared",
+                                    "measured"
+                                ]
+                            },
+                            "amountTolerancePercent": {
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 20,
+                                "type": "integer"
+                            },
+                            "dateToleranceDays": {
+                                "minimum": 0,
+                                "maximum": 31,
+                                "default": 5,
+                                "type": "integer"
+                            },
+                            "endsOn": {
+                                "description": "The last day an occurrence may fall on; null while the series runs.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "applyToExisting": {
+                                "writeOnly": true,
+                                "description": "Asked on save, never stored: give the existing history to this operation too.",
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "monthlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "yearlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "matchType",
+                            "direction",
+                            "category",
+                            "dayRule",
+                            "referenceSource"
+                        ]
+                    }
+                ],
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
+            },
             "PeerDebt": {
                 "type": "object",
                 "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same.",
@@ -20210,7 +21947,7 @@
             },
             "RecurringOperation": {
                 "type": "object",
-                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -20219,7 +21956,11 @@
                     },
                     "label": {
                         "maxLength": 255,
-                        "type": "string"
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "counterpartyName": {
                         "maxLength": 255,
@@ -20239,11 +21980,55 @@
                     },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "minimum": 0,
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
                     },
                     "category": {
                         "description": "The default category, inherited by the transactions attached to it.",
@@ -20255,24 +22040,34 @@
                         "$ref": "#/components/schemas/Qualification_noid"
                     },
                     "account": {
-                        "description": "Its currency is the operation's: there is no other.",
-                        "type": "string",
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
                     "period": {
-                        "default": "monthly",
-                        "type": "string",
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "enum": [
                             "weekly",
                             "monthly",
                             "quarterly",
-                            "yearly"
+                            "yearly",
+                            null
                         ]
                     },
                     "anchorOn": {
                         "description": "Where the series is counted from, never from the previous occurrence.",
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "dayRule": {
@@ -20285,8 +22080,10 @@
                     },
                     "referenceAmountCents": {
                         "description": "Signed cents: negative is an expense, positive an income.",
-                        "default": 0,
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "referenceSource": {
                         "default": "measured",
@@ -20321,30 +22118,40 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "monthlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "yearlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
-                    "label",
+                    "matchType",
+                    "direction",
                     "category",
-                    "account",
-                    "period",
-                    "anchorOn",
                     "dayRule",
                     "referenceSource"
                 ]
             },
             "RecurringOperation.html": {
                 "type": "object",
-                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -20353,7 +22160,11 @@
                     },
                     "label": {
                         "maxLength": 255,
-                        "type": "string"
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "counterpartyName": {
                         "maxLength": 255,
@@ -20373,11 +22184,55 @@
                     },
                     "labelPattern": {
                         "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "minimum": 0,
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
                     },
                     "category": {
                         "description": "The default category, inherited by the transactions attached to it.",
@@ -20389,24 +22244,34 @@
                         "$ref": "#/components/schemas/Qualification.html_noid"
                     },
                     "account": {
-                        "description": "Its currency is the operation's: there is no other.",
-                        "type": "string",
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
                     "period": {
-                        "default": "monthly",
-                        "type": "string",
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "enum": [
                             "weekly",
                             "monthly",
                             "quarterly",
-                            "yearly"
+                            "yearly",
+                            null
                         ]
                     },
                     "anchorOn": {
                         "description": "Where the series is counted from, never from the previous occurrence.",
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "dayRule": {
@@ -20419,8 +22284,10 @@
                     },
                     "referenceAmountCents": {
                         "description": "Signed cents: negative is an expense, positive an income.",
-                        "default": 0,
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "referenceSource": {
                         "default": "measured",
@@ -20455,30 +22322,40 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "monthlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "yearlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
-                    "label",
+                    "matchType",
+                    "direction",
                     "category",
-                    "account",
-                    "period",
-                    "anchorOn",
                     "dayRule",
                     "referenceSource"
                 ]
             },
             "RecurringOperation.jsonMergePatch": {
                 "type": "object",
-                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -20486,11 +22363,13 @@
                         "format": "ulid"
                     },
                     "label": {
-                        "maxLength": 255,
-                        "type": "string"
+                        "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "counterpartyName": {
-                        "maxLength": 255,
                         "description": "The payee of an expense, the payer of an income: who the bank names.",
                         "type": [
                             "string",
@@ -20506,12 +22385,53 @@
                         ]
                     },
                     "labelPattern": {
-                        "maxLength": 255,
-                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
+                        "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "matchType": {
+                        "default": "contains",
+                        "type": "string",
+                        "enum": [
+                            "contains",
+                            "starts_with",
+                            "equals"
+                        ]
+                    },
+                    "direction": {
+                        "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                        "default": "any",
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "debit",
+                            "credit"
+                        ]
+                    },
+                    "minAmountCents": {
+                        "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "maxAmountCents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "isActive": {
+                        "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                        "default": true,
+                        "type": "boolean"
                     },
                     "category": {
                         "description": "The default category, inherited by the transactions attached to it.",
@@ -20523,24 +22443,34 @@
                         "$ref": "#/components/schemas/Qualification_noid"
                     },
                     "account": {
-                        "description": "Its currency is the operation's: there is no other.",
-                        "type": "string",
+                        "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
                     "period": {
-                        "default": "monthly",
-                        "type": "string",
+                        "description": "Null for an operation without recurrence: what tells the two apart.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "enum": [
                             "weekly",
                             "monthly",
                             "quarterly",
-                            "yearly"
+                            "yearly",
+                            null
                         ]
                     },
                     "anchorOn": {
                         "description": "Where the series is counted from, never from the previous occurrence.",
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "dayRule": {
@@ -20553,8 +22483,10 @@
                     },
                     "referenceAmountCents": {
                         "description": "Signed cents: negative is an expense, positive an income.",
-                        "default": 0,
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "referenceSource": {
                         "default": "measured",
@@ -20565,14 +22497,10 @@
                         ]
                     },
                     "amountTolerancePercent": {
-                        "minimum": 0,
-                        "maximum": 100,
                         "default": 20,
                         "type": "integer"
                     },
                     "dateToleranceDays": {
-                        "minimum": 0,
-                        "maximum": 31,
                         "default": 5,
                         "type": "integer"
                     },
@@ -20589,15 +22517,27 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: give the existing history to this operation too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "monthlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "yearlyCostCents": {
                         "readOnly": true,
-                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
-                        "type": "integer"
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -20616,7 +22556,11 @@
                             },
                             "label": {
                                 "maxLength": 255,
-                                "type": "string"
+                                "description": "What the owner calls it; a series has one, an operation without recurrence may.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "counterpartyName": {
                                 "maxLength": 255,
@@ -20636,11 +22580,55 @@
                             },
                             "labelPattern": {
                                 "maxLength": 255,
-                                "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series.",
+                                "description": "Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation.",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "matchType": {
+                                "default": "contains",
+                                "type": "string",
+                                "enum": [
+                                    "contains",
+                                    "starts_with",
+                                    "equals"
+                                ]
+                            },
+                            "direction": {
+                                "description": "The sign an operation without recurrence expects; a series reads it off\nits reference amount.",
+                                "default": "any",
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "debit",
+                                    "credit"
+                                ]
+                            },
+                            "minAmountCents": {
+                                "minimum": 0,
+                                "description": "Absolute amount bounds in cents, for an operation without recurrence: a\ndebit of 15,99 € matches 1000..2000. A series is bounded by its\nreference amount and its tolerance instead.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "maxAmountCents": {
+                                "minimum": 0,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "priority": {
+                                "description": "Among the operations without recurrence, the higher priority files the\nline; ties are broken by creation order. A series never competes: it\nattaches its own lines first.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "isActive": {
+                                "description": "A paused operation recognises nothing; a series is never paused, it ends (`endsOn`).",
+                                "default": true,
+                                "type": "boolean"
                             },
                             "category": {
                                 "description": "The default category, inherited by the transactions attached to it.",
@@ -20652,24 +22640,34 @@
                                 "$ref": "#/components/schemas/Qualification.jsonld_noid"
                             },
                             "account": {
-                                "description": "Its currency is the operation's: there is no other.",
-                                "type": "string",
+                                "description": "A series' account: its currency is the series'. An operation without recurrence reads every account.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
                             },
                             "period": {
-                                "default": "monthly",
-                                "type": "string",
+                                "description": "Null for an operation without recurrence: what tells the two apart.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "enum": [
                                     "weekly",
                                     "monthly",
                                     "quarterly",
-                                    "yearly"
+                                    "yearly",
+                                    null
                                 ]
                             },
                             "anchorOn": {
                                 "description": "Where the series is counted from, never from the previous occurrence.",
-                                "type": "string",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             },
                             "dayRule": {
@@ -20682,8 +22680,10 @@
                             },
                             "referenceAmountCents": {
                                 "description": "Signed cents: negative is an expense, positive an income.",
-                                "default": 0,
-                                "type": "integer"
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "referenceSource": {
                                 "default": "measured",
@@ -20718,29 +22718,39 @@
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
                             },
+                            "applyToExisting": {
+                                "writeOnly": true,
+                                "description": "Asked on save, never stored: give the existing history to this operation too.",
+                                "default": false,
+                                "type": "boolean"
+                            },
                             "monthlyCostCents": {
                                 "readOnly": true,
-                                "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
-                                "type": "integer"
+                                "description": "What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "yearlyCostCents": {
                                 "readOnly": true,
-                                "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
-                                "type": "integer"
+                                "description": "What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             }
                         },
                         "required": [
-                            "label",
+                            "matchType",
+                            "direction",
                             "category",
-                            "account",
-                            "period",
-                            "anchorOn",
                             "dayRule",
                             "referenceSource"
                         ]
                     }
                 ],
-                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion."
+                "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
             },
             "SafetyCushion": {
                 "type": "object",
@@ -21846,7 +23856,7 @@
                     },
                     "qualifiedBySeries": {
                         "readOnly": true,
-                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "description": "The operation with a recurrence that qualified this line, while `categorySource` is `series`.",
                         "type": [
                             "string",
                             "null"
@@ -21856,7 +23866,7 @@
                     },
                     "qualifiedByRule": {
                         "readOnly": true,
-                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "description": "The operation without recurrence — what a categorization rule was — that\nqualified this line, while `categorySource` is `rule`.",
                         "type": [
                             "string",
                             "null"
@@ -22120,7 +24130,7 @@
                     },
                     "qualifiedBySeries": {
                         "readOnly": true,
-                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "description": "The operation with a recurrence that qualified this line, while `categorySource` is `series`.",
                         "type": [
                             "string",
                             "null"
@@ -22130,7 +24140,7 @@
                     },
                     "qualifiedByRule": {
                         "readOnly": true,
-                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "description": "The operation without recurrence — what a categorization rule was — that\nqualified this line, while `categorySource` is `rule`.",
                         "type": [
                             "string",
                             "null"
@@ -22394,7 +24404,7 @@
                     },
                     "qualifiedBySeries": {
                         "readOnly": true,
-                        "description": "The series that qualified this line, while `categorySource` is `series`.",
+                        "description": "The operation with a recurrence that qualified this line, while `categorySource` is `series`.",
                         "type": [
                             "string",
                             "null"
@@ -22404,7 +24414,7 @@
                     },
                     "qualifiedByRule": {
                         "readOnly": true,
-                        "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                        "description": "The operation without recurrence — what a categorization rule was — that\nqualified this line, while `categorySource` is `rule`.",
                         "type": [
                             "string",
                             "null"
@@ -22661,7 +24671,7 @@
                             },
                             "qualifiedBySeries": {
                                 "readOnly": true,
-                                "description": "The series that qualified this line, while `categorySource` is `series`.",
+                                "description": "The operation with a recurrence that qualified this line, while `categorySource` is `series`.",
                                 "type": [
                                     "string",
                                     "null"
@@ -22671,7 +24681,7 @@
                             },
                             "qualifiedByRule": {
                                 "readOnly": true,
-                                "description": "The rule that qualified this line, while `categorySource` is `rule`.",
+                                "description": "The operation without recurrence — what a categorization rule was — that\nqualified this line, while `categorySource` is `rule`.",
                                 "type": [
                                     "string",
                                     "null"
@@ -23276,10 +25286,6 @@
             "description": "Resource 'Account' operations."
         },
         {
-            "name": "CategorizationRule",
-            "description": "\"When a transaction label matches X (and, optionally, its amount falls in a\n * range and goes in a direction), file it under category Y.\""
-        },
-        {
             "name": "Category",
             "description": "Resource 'Category' operations."
         },
@@ -23305,7 +25311,15 @@
         },
         {
             "name": "RecurringOperation",
-            "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion."
+            "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
+        },
+        {
+            "name": "CategorizationRule",
+            "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
+        },
+        {
+            "name": "Operation",
+            "description": "An operation: what recognises transactions (counterparty, label, amount and\nits sign), the qualification it copies onto each of them, and an optional\nrecurrence (period, anchor, expected amount) — spec « Opération et\ntransaction ».\n\nWith a recurrence it is a series the owner expects to see again — rent on\nthe 5th, Netflix on the 12th: its occurrences are computed by\n`RecurrenceSchedule`, never written down, and the transactions that settle\nthem are attached to it. Without one it is what a categorization rule was:\nthe first active one by priority files the lines no series claimed.\n\nThe class keeps its historical name, its table and its IRI\n`/api/recurring_operations/{id}` — the one every view links to, and the one\nthe live updates name — while the clients read them (MAG-478):\n`/api/operations` lists them all, `/api/recurring_operations` the series and\n`/api/categorization_rules` the others, with the fields each view knew."
         },
         {
             "name": "SafetyCushion",
