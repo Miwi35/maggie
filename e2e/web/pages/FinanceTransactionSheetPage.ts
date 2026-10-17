@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
+import { PeerTransferQualifier } from './PeerTransferQualifier.js'
 import { transactionRoute } from './routes.js'
 
 /**
@@ -13,6 +14,8 @@ export class FinanceTransactionSheetPage extends AdminShell {
   /** « Ce virement est »: « Une recette » or « À rembourser », on a received transfer (MAG-452). */
   readonly debt: Locator
   readonly debtToRepay: Locator
+  /** « Ce virement est » on a transfer with a person (MAG-453), in place of the two above. */
+  readonly peerTransfer: PeerTransferQualifier
 
   constructor(page: Page) {
     super(page)
@@ -20,6 +23,13 @@ export class FinanceTransactionSheetPage extends AdminShell {
     this.sharedSwitch = this.share.getByRole('switch', { name: 'Dépense partagée' })
     this.debt = this.share.getByTestId('transaction-debt')
     this.debtToRepay = this.debt.getByRole('button', { name: 'À rembourser' })
+    this.peerTransfer = new PeerTransferQualifier(page, this.share)
+  }
+
+  /** The sheet of a transfer with a person, which asks « Ce virement est ». */
+  async openPeerTransfer(transactionId: string): Promise<void> {
+    await this.goto(transactionRoute(transactionId))
+    await expect(this.peerTransfer.root).toBeVisible()
   }
 
   /** The sheet of a received transfer, which offers « Ce virement est » instead of the switch. */

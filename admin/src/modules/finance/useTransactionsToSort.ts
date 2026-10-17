@@ -27,6 +27,10 @@ export interface ToSortTransaction {
   asksForContact: boolean
   /** The label linking the line to a contact gives them. */
   counterpartyLabel: string
+  /** Why the line waits (MAG-453): no category yet, or a transfer with a person not answered yet. */
+  reason: 'category' | 'peer_transfer'
+  /** « Ce virement est » is worth asking: a transfer with a person, not answered yet. */
+  asksForPeerKind: boolean
 }
 
 /** « À conserver », « Superflue », or not said yet. */

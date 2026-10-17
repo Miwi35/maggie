@@ -163,6 +163,39 @@ describe('TransactionSheet', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/transactions/01TX/debt')
   })
 
+  test('the Partage section of a transfer with a person asks « Ce virement est » (MAG-453)', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          url.endsWith('/allocation')
+            ? {
+                transactionId: '01TX',
+                amountCents: 40000,
+                direction: 'incoming',
+                canBeAllocated: true,
+                peerKind: null,
+                contact: { id: '01TOM', name: 'Tom' },
+                allocatedCents: 0,
+                unallocatedCents: 40000,
+                allocations: [],
+                candidates: [],
+                peerDebt: null,
+              }
+            : transferState,
+      } as Response),
+    )
+
+    renderSheet({ ...RECORD, label: 'VIR. DE TOM MARTIN', amountCents: 40000 })
+
+    const section = await screen.findByRole('region', { name: 'Partage' })
+    expect(await within(section).findByRole('button', { name: 'Un remboursement' })).toBeInTheDocument()
+    expect(within(section).getByText('Ce virement est')).toBeInTheDocument()
+    expect(within(section).queryByTestId('transaction-debt')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/finance/transactions/01TX/debt')
+  })
+
   test('a rejection says whether it is regularised', async () => {
     transferState = { transferKind: 'rejected', transferSource: 'manual', counterpart: null }
 

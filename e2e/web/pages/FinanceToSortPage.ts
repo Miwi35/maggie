@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
+import { PeerTransferQualifier } from './PeerTransferQualifier.js'
 import { ROUTES } from './routes.js'
 
 /**
@@ -17,6 +18,8 @@ export class FinanceToSortPage extends AdminShell {
   readonly satisfaction: Locator
   readonly associateContact: Locator
   readonly contactPicker: Locator
+  /** « Ce virement est », on a transfer with a person not answered yet (MAG-453). */
+  readonly peerTransfer: PeerTransferQualifier
 
   constructor(page: Page) {
     super(page)
@@ -30,6 +33,7 @@ export class FinanceToSortPage extends AdminShell {
     this.associateContact = this.card.getByRole('button', { name: 'Associer à un contact ?' })
     // A dialog, portalled out of the page content.
     this.contactPicker = page.getByRole('dialog', { name: 'Associer à un contact' })
+    this.peerTransfer = new PeerTransferQualifier(page, this.card)
   }
 
   async open(): Promise<void> {
