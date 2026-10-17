@@ -22,7 +22,7 @@ const OUTLOOK: TreasuryOutlook = {
   },
   balanceCents: -12000,
   projection: [
-    { date: '2026-10-13', balanceCents: -42000, movements: [{ id: 'm1', label: 'Loyer', amountCents: -30000, status: 'planned', accountId: 'a1', accountName: 'Courant' }] },
+    { date: '2026-10-13', balanceCents: -42000, movements: [{ id: 'm1', label: 'Loyer', amountCents: -30000, status: 'planned', accountId: 'a1', accountName: 'Courant', source: 'transaction' }] },
     { date: '2026-10-14', balanceCents: -42000, movements: [] },
   ],
   balanceBeforeSalary: { onDate: '2026-10-13', balanceCents: -42000 },
@@ -90,6 +90,35 @@ describe('TreasuryPage', () => {
     expect(screen.getByTestId('treasury-overdraft-zone')).toBeInTheDocument()
     expect(screen.getAllByTestId('treasury-day')).toHaveLength(2)
     expect(screen.getAllByTestId('treasury-day')[0]).toHaveAttribute('data-overdraft', 'true')
+  })
+
+  test('recurring expenses past the expected salary day are listed and weigh on the balance', async () => {
+    serve({
+      ...OUTLOOK,
+      salary: { ...OUTLOOK.salary, isLate: false, isReceived: true, delayDays: 0, shortfallCents: 0, expectedOn: '2026-10-25' },
+      projection: [
+        ...OUTLOOK.projection,
+        {
+          date: '2026-10-26',
+          balanceCents: -139700,
+          movements: [{ id: 'r1', label: 'Taxe foncière', amountCents: -97700, status: 'expected', accountId: 'a1', accountName: 'Courant', source: 'recurring' }],
+        },
+        {
+          date: '2026-10-28',
+          balanceCents: -157700,
+          movements: [{ id: 'r2', label: 'Claude', amountCents: -18000, status: 'expected', accountId: 'a1', accountName: 'Courant', source: 'recurring' }],
+        },
+      ],
+    })
+    renderPage()
+
+    const days = await screen.findAllByTestId('treasury-day')
+
+    expect(days).toHaveLength(4)
+    expect(days[2]).toHaveTextContent('Taxe foncière (récurrent) (-977,00')
+    expect(days[2]).toHaveTextContent('-1')
+    expect(days[3]).toHaveTextContent('Claude (récurrent)')
+    expect(days[0]).not.toHaveTextContent('récurrent')
   })
 
   test('a one-day delay is written in the singular', async () => {

@@ -155,6 +155,51 @@
             "date": "2026-05-24",
             "balanceCents": 30456,
             "movements": []
+        },
+        {
+            "date": "2026-05-25",
+            "balanceCents": 525456,
+            "movements": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded salary",
+                    "amountCents": 495000,
+                    "status": "expected",
+                    "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "accountName": "Recorded Account",
+                    "source": "recurring"
+                }
+            ]
+        },
+        {
+            "date": "2026-05-26",
+            "balanceCents": 525456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-27",
+            "balanceCents": 525456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-28",
+            "balanceCents": 525456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-29",
+            "balanceCents": 525456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-30",
+            "balanceCents": 525456,
+            "movements": []
+        },
+        {
+            "date": "2026-05-31",
+            "balanceCents": 525456,
+            "movements": []
         }
     ],
     "balanceBeforeSalary": {

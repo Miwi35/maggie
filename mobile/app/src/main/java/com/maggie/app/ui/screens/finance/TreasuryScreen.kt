@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -42,6 +43,7 @@ import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.TreasuryAdvice
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.movementRows
 import com.maggie.app.data.model.salaryDelayLabel
 import com.maggie.app.data.model.toPrefill
 import com.maggie.app.data.model.treasuryDate
@@ -207,6 +209,26 @@ private fun SalaryCard(outlook: TreasuryOutlook) {
 }
 
 @Composable
+private fun PlannedMovements(outlook: TreasuryOutlook) {
+    val rows = outlook.movementRows()
+    if (rows.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Mouvements prévus", style = MaterialTheme.typography.titleSmall)
+        rows.forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "${treasuryDate(row.date)} · ${row.label}" + if (row.isRecurring) " (récurrent)" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(formatCents(row.amountCents), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProjectionCard(outlook: TreasuryOutlook) {
     val overdraft = outlook.overdraft
     val onDate = overdraft.onDate
@@ -227,6 +249,8 @@ private fun ProjectionCard(outlook: TreasuryOutlook) {
             } else {
                 TreasuryChart(days = outlook.projection, limitCents = overdraft.limitCents)
             }
+
+            PlannedMovements(outlook)
 
             if (overdraft.isForecast && onDate != null) {
                 Text(

@@ -30,6 +30,31 @@ class TreasuryTest {
     }
 
     @Test
+    fun `the movement rows list every movement of the projection with its day, recurring ones marked`() {
+        val outlook = TreasuryOutlook(
+            projection = listOf(
+                TreasuryDay("2026-10-25", 90000),
+                TreasuryDay(
+                    "2026-10-26",
+                    -7700,
+                    listOf(
+                        TreasuryMovement("s1", "Taxe foncière", -97700, "expected", source = "recurring"),
+                        TreasuryMovement("t1", "Remboursement", 5000, "planned", source = "transaction"),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                TreasuryMovementRow("2026-10-26", "Taxe foncière", -97700, true),
+                TreasuryMovementRow("2026-10-26", "Remboursement", 5000, false),
+            ),
+            outlook.movementRows(),
+        )
+    }
+
+    @Test
     fun `the delay says jour for one and jours for more`() {
         assertEquals("Salaire en retard de 1 jour", salaryDelayLabel(1))
         assertEquals("Salaire en retard de 5 jours", salaryDelayLabel(5))

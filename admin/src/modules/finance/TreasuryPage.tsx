@@ -167,7 +167,9 @@ const ProjectionTable = ({ outlook }: { outlook: TreasuryOutlook }) => (
               <TableCell>
                 {day.movements.length === 0
                   ? '—'
-                  : day.movements.map((m) => `${m.label} (${formatCents(m.amountCents)})`).join(', ')}
+                  : day.movements
+                      .map((m) => `${m.label}${m.source === 'recurring' ? ' (récurrent)' : ''} (${formatCents(m.amountCents)})`)
+                      .join(', ')}
               </TableCell>
               <TableCell align="right">
                 {formatCents(day.balanceCents)}

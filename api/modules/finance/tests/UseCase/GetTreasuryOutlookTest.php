@@ -7,6 +7,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Entity\TreasurySettings;
+use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
@@ -25,6 +26,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GetTreasuryOutlookTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use RecurringProjectionsWorld;
     use SavingsAdvancesWorld;
 
     private GetTreasuryOutlook $outlook;
@@ -142,7 +144,8 @@ class GetTreasuryOutlookTest extends KernelTestCase
         self::assertSame(4000, $outlook['advice']['amountCents']);
     }
 
-    public function testTheProjectionStopsTheEveOfTheExpectedSalary(): void
+    /** The eve balance counts the debits of the salary's own day: they fall before the credit is counted on. */
+    public function testTheBalanceBeforeTheSalaryIsTheEveOneLessTheDebitsOfTheSalaryDay(): void
     {
         $this->salary(495000, '2026-09-25');
         $this->balance('checking', 100000);
@@ -153,24 +156,96 @@ class GetTreasuryOutlookTest extends KernelTestCase
 
         self::assertFalse($outlook['salary']['isLate']);
         self::assertSame('2026-10-25', $outlook['salary']['expectedOn']);
-        self::assertSame(['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24'], array_column($outlook['projection'], 'date'));
-        self::assertSame(['onDate' => '2026-10-24', 'balanceCents' => 80000], $outlook['balanceBeforeSalary']);
-        self::assertFalse($outlook['overdraft']['isForecast']);
-        self::assertNull($outlook['advice']);
+        self::assertSame(80000, $this->rowOn($outlook, '2026-10-24')['balanceCents']);
+        self::assertSame(-10000, $this->rowOn($outlook, '2026-10-25')['balanceCents']);
+        self::assertSame(['onDate' => '2026-10-24', 'balanceCents' => -10000], $outlook['balanceBeforeSalary']);
+        self::assertSame('2026-10-25', $outlook['overdraft']['onDate']);
+        self::assertSame(-10000, $outlook['overdraft']['worstBalanceCents']);
     }
 
-    public function testALateSalaryIsProjectedToTheNextExpectedDayAndNeverPastSixtyDays(): void
+    public function testTheProjectionRunsPastTheSalaryToTheEndOfTheNextMonth(): void
+    {
+        $this->salary(495000, '2026-09-25');
+        $this->balance('checking', 100000);
+        $this->planned('checking', -10000, '2026-10-26', label: 'Après le salaire');
+        $this->planned('checking', -90000, '2026-11-30', label: 'Dernier jour');
+        $this->planned('checking', -5000, '2026-12-01', label: 'Hors fenêtre');
+
+        $outlook = $this->readOn('2026-10-20');
+
+        self::assertSame('2026-10-20', $outlook['projection'][0]['date']);
+        self::assertSame('2026-11-30', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+        self::assertCount(42, $outlook['projection']);
+        self::assertSame(['Après le salaire'], array_column($this->rowOn($outlook, '2026-10-26')['movements'], 'label'));
+        self::assertSame(0, $outlook['projection'][array_key_last($outlook['projection'])]['balanceCents']);
+        // The warning stays about the time until the salary: what follows is not an overdraft to advance for.
+        self::assertFalse($outlook['overdraft']['isForecast']);
+        self::assertSame(['onDate' => '2026-10-24', 'balanceCents' => 100000], $outlook['balanceBeforeSalary']);
+    }
+
+    public function testAProjectionNeverRunsPastTheCap(): void
+    {
+        $outlook = $this->readOn('2026-07-01');
+
+        self::assertCount(GetTreasuryOutlook::MAX_DAYS, $outlook['projection']);
+        self::assertSame('2026-08-31', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+    }
+
+    /**
+     * The owner's treasury of 17 October (MAG-506): the September salary is in
+     * — 4 970,50 € on the 25th for 4 950 € expected on the 26th — and the
+     * charges of the series, the annual tax on the 26th and a subscription
+     * on the 28th, weigh on the projection.
+     */
+    public function testRecurringChargesAfterTheSalaryDayWeighOnTheProjectionOnceTheSalaryIsRecognised(): void
+    {
+        $settings = $this->getFixture('settings');
+        \assert($settings instanceof TreasurySettings);
+        $settings->setSalaryExpectedDay(26);
+        $this->em->flush();
+        $this->balance('checking', 500000);
+
+        $this->add('checking', 497050, '2026-09-25', label: 'Meven Cadare');
+        $this->series('Meven Cadare', 497050, '2026-07-23', categoryRef: 'salary');
+        $tax = $this->series('Taxe foncière', -97700, '2025-10-26', categoryRef: 'taxes', period: RecurrencePeriod::Yearly);
+        $claude = $this->series('Claude', -18000, '2026-07-28', categoryRef: 'leisure');
+
+        $outlook = $this->readOn('2026-10-17');
+
+        self::assertFalse($outlook['salary']['isLate']);
+        self::assertSame(0, $outlook['salary']['delayDays']);
+        self::assertSame('2026-10-26', $outlook['salary']['expectedOn']);
+
+        $taxDay = $this->rowOn($outlook, '2026-10-26');
+        self::assertSame([(string) $tax->getId()], array_column($taxDay['movements'], 'id'));
+        self::assertSame(-97700, $taxDay['movements'][0]['amountCents']);
+        self::assertSame('recurring', $taxDay['movements'][0]['source']);
+        self::assertSame([(string) $claude->getId()], array_column($this->rowOn($outlook, '2026-10-28')['movements'], 'id'));
+        self::assertSame('2026-11-30', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+
+        // The salary series of the 23rd comes in on its day, the charges weigh after it.
+        self::assertSame(['Meven Cadare'], array_column($this->rowOn($outlook, '2026-10-23')['movements'], 'label'));
+        self::assertSame(500000 + 497050, $this->rowOn($outlook, '2026-10-25')['balanceCents']);
+        self::assertSame(500000 + 497050 - 97700, $this->rowOn($outlook, '2026-10-26')['balanceCents']);
+        self::assertSame(500000 + 497050 - 97700 - 18000, $this->rowOn($outlook, '2026-10-28')['balanceCents']);
+
+        // The eve of the 26th, less the tax due that very day.
+        self::assertSame(['onDate' => '2026-10-25', 'balanceCents' => 500000 + 497050 - 97700], $outlook['balanceBeforeSalary']);
+    }
+
+    public function testALateSalaryIsAwaitedOnTheNextExpectedDayAndTheProjectionStopsWithTheNextMonth(): void
     {
         $this->planned('checking', -1000, '2026-11-24', label: 'Dernier jour');
         $this->planned('checking', -1000, '2026-11-25', label: 'Après');
 
         $outlook = $this->readOn('2026-10-25');
 
-        self::assertCount(31, $outlook['projection']);
+        self::assertCount(37, $outlook['projection']);
         self::assertLessThanOrEqual(GetTreasuryOutlook::MAX_DAYS, \count($outlook['projection']));
         self::assertSame('2026-10-25', $outlook['projection'][0]['date']);
-        self::assertSame('2026-11-24', $outlook['projection'][30]['date']);
-        self::assertSame(-13000, $outlook['projection'][30]['balanceCents']);
+        self::assertSame('2026-11-30', $outlook['projection'][36]['date']);
+        self::assertSame(-13000, $this->rowOn($outlook, '2026-11-24')['balanceCents']);
+        self::assertSame(-14000, $this->rowOn($outlook, '2026-11-25')['balanceCents']);
     }
 
     public function testAReceivedSalaryAnnouncesNoOverdraftAndAdvisesNothing(): void
@@ -189,7 +264,7 @@ class GetTreasuryOutlookTest extends KernelTestCase
         self::assertFalse($outlook['overdraft']['isForecast']);
         self::assertNull($outlook['overdraft']['onDate']);
         self::assertNull($outlook['advice']);
-        self::assertSame('2026-11-24', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+        self::assertSame('2026-11-30', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
         self::assertSame(['onDate' => '2026-11-24', 'balanceCents' => 250000], $outlook['balanceBeforeSalary']);
     }
 

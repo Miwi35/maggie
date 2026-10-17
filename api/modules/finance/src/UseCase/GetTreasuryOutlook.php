@@ -23,9 +23,16 @@ use Maggie\Finance\Repository\TreasurySettingsRepository;
  * — every balance of the projection is yesterday's plus the day's movements,
  * and an overdraft one cannot recompute by hand is one nobody believes.
  *
- * The projection runs from today to the day before the salary is expected,
- * {@see MAX_DAYS} days at most. A late salary has no date left: it runs to the
- * next expected day after today, the latest the schedule says it can come.
+ * The projection runs from today to the end of the next month, or to the day
+ * the salary is expected if that is later, {@see MAX_DAYS} days at most: a
+ * charge due the day of the salary, or just after it, weighs on the balance
+ * the owner reads. A late salary has no date left: it is awaited on the next
+ * expected day after today, the latest the schedule says it can come.
+ *
+ * What the owner is warned about — the overdraft and the advice — stays what
+ * happens until the salary: the balance on its eve, plus the debits of its own
+ * day, which fall before the credit is counted on. Past it a dip is a budget
+ * matter, and the series that bring the salary in are in the rows.
  *
  * The advice is given only while a salary is awaited: once it is in, a dip
  * is a budget matter, and a transfer from savings would not be an advance.
@@ -37,7 +44,7 @@ use Maggie\Finance\Repository\TreasurySettingsRepository;
  */
 class GetTreasuryOutlook
 {
-    public const int MAX_DAYS = 60;
+    public const int MAX_DAYS = 62;
 
     private const array SOURCE_TYPES = [AccountType::Savings, AccountType::Investment];
 
@@ -117,7 +124,12 @@ class GetTreasuryOutlook
         }
 
         $projection = $this->project($user, $today, $arrival, $balance, $accounts);
-        $overdraft = self::overdraft($today, $balance, $projection, $limit);
+        $beforeArrival = self::beforeArrival($balance, $projection, $arrival);
+        $untilSalary = array_values(array_filter(
+            $projection,
+            static fn (array $row): bool => $row['date'] < $arrival->format('Y-m-d'),
+        ));
+        $overdraft = self::overdraft($today, $balance, null === $beforeArrival ? $untilSalary : [...$untilSalary, $beforeArrival], $limit);
 
         return [
             'today' => $today->format('Y-m-d'),
@@ -132,7 +144,7 @@ class GetTreasuryOutlook
             ],
             'balanceCents' => $balance,
             'projection' => $projection,
-            'balanceBeforeSalary' => self::balanceBeforeSalary($today, $balance, $projection, $delay['isLate'] ? null : $expectedOn),
+            'balanceBeforeSalary' => self::balanceBeforeSalary($today, $balance, $projection, $beforeArrival, $delay['isLate'] ? null : $expectedOn),
             'overdraft' => $overdraft,
             'advice' => $overdraft['isForecast'] && !$isReceived
                 ? self::advise(-$limit - $overdraft['worstBalanceCents'], $accounts)
@@ -142,8 +154,8 @@ class GetTreasuryOutlook
     }
 
     /**
-     * One row per day from today to the day before $arrival, at most
-     * {@see MAX_DAYS}: the day's balance is the previous one plus the day's
+     * One row per day from today to the end of the next month — or to
+     * $arrival, if later — at most {@see MAX_DAYS}: the day's balance is the previous one plus the day's
      * movements — the entered lines first (`source` = `transaction`), then the
      * occurrences still expected (`source` = `recurring`, `status` = `expected`,
      * `id` = the series') on the open checking accounts, like the lines.
@@ -154,10 +166,10 @@ class GetTreasuryOutlook
      */
     private function project(User $user, \DateTimeImmutable $today, \DateTimeImmutable $arrival, int $balance, array $accounts): array
     {
-        $end = min($arrival, $today->modify(sprintf('+%d days', self::MAX_DAYS)));
-        if ($end <= $today) {
-            return [];
-        }
+        $end = min(
+            max($arrival->modify('+1 day'), $today->modify('first day of this month')->modify('+2 months')),
+            $today->modify(sprintf('+%d days', self::MAX_DAYS)),
+        );
 
         $checking = [];
         foreach ($accounts as $account) {
@@ -235,27 +247,58 @@ class GetTreasuryOutlook
     }
 
     /**
-     * The balance the eve of the expected salary, as the projection gives it;
-     * today's when the salary is late (null $expectedOn) or expected today.
+     * The balance the salary's day opens on, less the debits that very day —
+     * what is left before the credit is counted on — or null when the day is
+     * past the projection.
+     *
+     * @param list<array{date: string, balanceCents: int, movements: list<array{amountCents: int}>}> $projection
+     *
+     * @return array{date: string, balanceCents: int}|null
+     */
+    private static function beforeArrival(int $balance, array $projection, \DateTimeImmutable $arrival): ?array
+    {
+        $day = $arrival->format('Y-m-d');
+        $opening = $balance;
+
+        foreach ($projection as $row) {
+            if ($row['date'] === $day) {
+                $debits = array_sum(array_filter(array_column($row['movements'], 'amountCents'), static fn (int $cents): bool => $cents < 0));
+
+                return ['date' => $day, 'balanceCents' => $opening + $debits];
+            }
+            $opening = $row['balanceCents'];
+        }
+
+        return null;
+    }
+
+    /**
+     * The balance the eve of the expected salary, as the projection gives it,
+     * less the debits of the salary's own day ($beforeArrival); today's when
+     * the salary is late (null $expectedOn), or when it is expected today.
      *
      * @param list<array{date: string, balanceCents: int, movements: list<mixed>}> $projection
+     * @param array{date: string, balanceCents: int}|null                          $beforeArrival
      *
      * @return array{onDate: string, balanceCents: int}
      */
-    private static function balanceBeforeSalary(\DateTimeImmutable $today, int $balance, array $projection, ?\DateTimeImmutable $expectedOn): array
+    private static function balanceBeforeSalary(\DateTimeImmutable $today, int $balance, array $projection, ?array $beforeArrival, ?\DateTimeImmutable $expectedOn): array
     {
-        $eve = null === $expectedOn ? $today->format('Y-m-d') : $expectedOn->modify('-1 day')->format('Y-m-d');
+        $todayKey = $today->format('Y-m-d');
 
-        foreach ($projection as $row) {
-            if ($row['date'] === $eve) {
-                return ['onDate' => $row['date'], 'balanceCents' => $row['balanceCents']];
-            }
+        if (null === $expectedOn) {
+            return ['onDate' => $todayKey, 'balanceCents' => $projection[0]['balanceCents'] ?? $balance];
+        }
+
+        $eve = max($today, $expectedOn->modify('-1 day'))->format('Y-m-d');
+        if (null !== $beforeArrival) {
+            return ['onDate' => $eve, 'balanceCents' => $beforeArrival['balanceCents']];
         }
 
         $last = [] === $projection ? null : $projection[array_key_last($projection)];
 
-        return null === $last || $eve < $today->format('Y-m-d')
-            ? ['onDate' => $today->format('Y-m-d'), 'balanceCents' => $projection[0]['balanceCents'] ?? $balance]
+        return null === $last
+            ? ['onDate' => $todayKey, 'balanceCents' => $balance]
             : ['onDate' => $last['date'], 'balanceCents' => $last['balanceCents']];
     }
 
