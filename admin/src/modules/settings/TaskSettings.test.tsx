@@ -261,7 +261,7 @@ describe('TaskSettings — alerts', () => {
     expect(screen.getByRole('switch', { name: 'Animation' })).toBeChecked()
     expect(screen.getByRole('switch', { name: 'Vibration' })).not.toBeChecked()
     expect(screen.getByRole('switch', { name: 'Son' })).toBeChecked()
-    expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true'))
     expect(screen.getByRole('button', { name: 'Doux' })).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -307,10 +307,9 @@ describe('TaskSettings — alerts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Valeurs par défaut' }))
     await userEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
-    await waitFor(() =>
-      expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00', ...REWARD_DEFAULTS }]),
-    )
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Doux' })).toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }]))
+    // The rewards keep theirs (MAG-508), as on the phone.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true'))
     await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('08:00'))
     await waitFor(() => expect(screen.getByLabelText('Heure du soir')).toHaveValue('21:00'))
     await waitFor(() => expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'false'))
