@@ -69,6 +69,7 @@ export const NAVIGATION: NavModule[] = [
       resourcePart('Contacts', 'contacts'),
       resourcePart('Transactions', 'transactions'),
       { label: 'À qualifier', path: '/finance/to-sort' },
+      { label: 'Reconnues à contrôler', path: '/finance/to-control' },
       resourcePart('Catégories', 'categories'),
       resourcePart('Budgets', 'envelopes'),
       { label: 'Trésorerie', path: '/finance/treasury' },

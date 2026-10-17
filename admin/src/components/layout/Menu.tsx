@@ -39,6 +39,7 @@ import ShieldIcon from '@mui/icons-material/Shield'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import RuleIcon from '@mui/icons-material/Rule'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
@@ -196,6 +197,12 @@ export const CustomMenu = () => {
                 to="/finance/to-sort"
                 primaryText="À qualifier"
                 leftIcon={tinted('comptes', <RuleIcon />)}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/to-control"
+                primaryText="Reconnues à contrôler"
+                leftIcon={tinted('comptes', <PlaylistAddCheckIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

@@ -72,6 +72,9 @@ import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.SortRequest
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.data.model.ControlRequest
+import com.maggie.app.data.model.ControlResult
+import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.SalaryExpectedDayRequest
@@ -1640,6 +1643,22 @@ class MaggieApiService(
         }.body()
     }
 
+    // Finance — « Reconnues à contrôler » (MAG-460)
+    /** The lines an operation recognised in [month] (`YYYY-MM`) that the owner has not checked, by operation. */
+    suspend fun getRecognisedToControl(month: String): RecognisedToControl {
+        return client.get("$baseUrl/api/finance/review/recognised") {
+            url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /** Checks the lines; a [ControlRequest.satisfaction] of `keep` also judges their unrated spends « À conserver ». */
+    suspend fun controlRecognised(request: ControlRequest): ControlResult {
+        return client.post("$baseUrl/api/finance/review/controls") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
     suspend fun sortTransaction(id: String, request: SortRequest): SortResult {
         return client.post("$baseUrl/api/finance/transactions/$id/sort") {
             contentType(ContentType.Application.Json)
@@ -1907,6 +1926,13 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(qualificationPatch(categoryIri, qualification))
+        }.orRefusal().body()
+    }
+
+    /** One transaction, with the qualification a rule or a series set on it. */
+    suspend fun getTransaction(id: String): Transaction {
+        return client.get("$baseUrl/api/transactions/$id") {
+            accept(ContentType("application", "ld+json"))
         }.orRefusal().body()
     }
 

@@ -1,5 +1,6 @@
 package com.maggie.app.data.api
 
+import com.maggie.app.data.model.ControlRequest
 import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.alreadyPlannedLabel
 import com.maggie.app.data.model.packagesTotalLabel
@@ -1633,5 +1634,84 @@ class MaggieApiServiceTest {
         val failure = runCatching { MaggieApiService(refusing).rateTransaction("t1", "keep") }.exceptionOrNull()
 
         assertNotNull(failure)
+    }
+
+    @Test
+    fun `the recognised lines are read for a month, by operation`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"month":"2026-10","total":2,"groups":[{"operationType":"series","operationId":"s1","label":"Loyer",
+               "count":2,"totalCents":-90000,"unratedCount":1,"transactions":[
+               {"recognised":true,"id":"t1","label":"LOYER","amountCents":-45000,"judgeable":true,"retrospect":"keep",
+                "categoryId":"c1","categoryPath":"Logement › Loyer","qualifiedBy":"series","qualifiedBySeriesId":"s1"},
+               {"recognised":true,"id":"t2","label":"LOYER","amountCents":-45000,"judgeable":true,"retrospect":"unrated"}]}]}""",
+            seen,
+        )
+
+        val data = MaggieApiService(client).getRecognisedToControl("2026-10")
+
+        assertEquals(HttpMethod.Get, seen.single().method)
+        assertEquals("/api/finance/review/recognised", seen.single().url.encodedPath)
+        assertEquals("2026-10", seen.single().url.parameters["month"])
+        val group = data.groups.single()
+        assertEquals("series", group.operationType)
+        assertEquals("s1", group.operationId)
+        assertEquals(1, group.unratedCount)
+        assertEquals("Logement › Loyer", group.transactions.first().categoryPath)
+        assertEquals("s1", group.transactions.first().qualifiedBySeriesId)
+    }
+
+    @Test
+    fun `a check posts the ids, with the satisfaction only for Tout a conserver`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient("""{"controlledCount":2,"judgedCount":1}""", seen)
+        val service = MaggieApiService(client)
+
+        val validated = service.controlRecognised(ControlRequest(listOf("t1", "t2")))
+        service.controlRecognised(ControlRequest(listOf("t1", "t2"), satisfaction = "keep"))
+
+        assertEquals(HttpMethod.Post, seen[0].method)
+        assertEquals("/api/finance/review/controls", seen[0].url.encodedPath)
+        val plain = String((seen[0].body as TextContent).text.toByteArray())
+        assertTrue(plain, plain.contains(""""transactionIds":["t1","t2"]"""))
+        assertTrue(plain, !plain.contains("satisfaction"))
+        val keeping = String((seen[1].body as TextContent).text.toByteArray())
+        assertTrue(keeping, keeping.contains(""""satisfaction":"keep""""))
+        assertEquals(2, validated.controlledCount)
+        assertEquals(1, validated.judgedCount)
+    }
+
+    @Test
+    fun `a refused check is an error with the API's words, not an empty success`() = runBlocking {
+        val refusing = HttpClient(
+            MockEngine {
+                respond(
+                    content = ByteReadChannel("""{"error":"transactionIds must be a list of 1 to 200 transaction ids"}"""),
+                    status = HttpStatusCode.BadRequest,
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            },
+        ) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val failure = runCatching { MaggieApiService(refusing).controlRecognised(ControlRequest(listOf("t1"))) }.exceptionOrNull()
+
+        assertTrue(failure is ApiRefusalException)
+        assertEquals(400, (failure as ApiRefusalException).status)
+        assertEquals("transactionIds must be a list of 1 to 200 transaction ids", failure.message)
+    }
+
+    @Test
+    fun `one transaction is read by its id, with the qualification an operation set`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"id":"t1","label":"LOYER","qualification":{"mandatory":true,"kind":"loan"},"qualifiedBy":"series"}""",
+            seen,
+        )
+
+        val transaction = MaggieApiService(client).getTransaction("t1")
+
+        assertEquals("/api/transactions/t1", seen.single().url.encodedPath)
+        assertTrue(transaction.qualification.mandatory)
+        assertEquals("series", transaction.qualifiedBy)
     }
 }

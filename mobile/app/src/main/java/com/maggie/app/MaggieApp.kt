@@ -76,6 +76,7 @@ import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.RecurringOperationViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.EnvelopeAdjustmentsViewModel
+import com.maggie.app.ui.screens.finance.RecognisedToControlViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
 import com.maggie.app.ui.screens.finance.ToSortViewModel
 import com.maggie.app.ui.screens.finance.ContactViewModel
@@ -358,6 +359,7 @@ class MaggieApp : Application() {
             viewModel { ToSortViewModel(get(), get(), get(), get()) }
             viewModel { ToQualifyViewModel(get(), get(), get()) }
             viewModel { ContactViewModel(get(), get()) }
+            viewModel { RecognisedToControlViewModel(get(), get()) }
             viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }

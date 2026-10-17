@@ -193,6 +193,11 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $categorizedAt = null;
 
+    /** When the owner checked this line at the review, once an operation had qualified it: it does not come back to the next one. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    #[ApiProperty(readable: false, writable: false)]
+    private ?\DateTimeImmutable $controlledAt = null;
+
     /**
      * What kind of neutral movement this is — an internal transfer, a rejected
      * payment — if any. Anything but `None` is neither an expense nor an
@@ -511,6 +516,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     public function setCategorizedAt(?\DateTimeImmutable $categorizedAt): static
     {
         $this->categorizedAt = $categorizedAt;
+
+        return $this;
+    }
+
+    public function getControlledAt(): ?\DateTimeImmutable
+    {
+        return $this->controlledAt;
+    }
+
+    public function setControlledAt(?\DateTimeImmutable $controlledAt): static
+    {
+        $this->controlledAt = $controlledAt;
 
         return $this;
     }

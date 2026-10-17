@@ -49,6 +49,23 @@ class FinanceNavigationTest {
     }
 
     @Test
+    fun `the recognised lines to control come right after the lines to qualify, with a deep link`() {
+        assertEquals("recognised_to_control", Screen.RecognisedToControl.route)
+        assertEquals("Reconnues à contrôler", Screen.RecognisedToControl.label)
+        assertEquals(
+            "Reconnues à contrôler",
+            FINANCE_ACCESSES.first { it.route == Screen.RecognisedToControl.route }.label,
+        )
+        assertEquals(
+            listOf("${DeepLinks.SCHEME}://finance/to-control"),
+            DeepLinks.patternsFor(Screen.RecognisedToControl.route),
+        )
+
+        val routes = FINANCE_ACCESSES.map { it.route }
+        assertEquals(routes.indexOf(Screen.TransactionsToSort.route) + 1, routes.indexOf(Screen.RecognisedToControl.route))
+    }
+
+    @Test
     fun `accesses are ordered daily then monthly then rarely used`() {
         val order = FINANCE_ACCESSES.map { it.frequency.ordinal }
 
@@ -59,6 +76,7 @@ class FinanceNavigationTest {
         )
         assertEquals(
             listOf(
+                Screen.RecognisedToControl.route,
                 Screen.Treasury.route,
                 Screen.RecurringOperations.route,
                 Screen.MonthlyReview.route,

@@ -54,6 +54,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.OPERATION_SERIES
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.EventRepository
@@ -120,6 +121,8 @@ import com.maggie.app.ui.screens.finance.CategoryListScreen
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.ContactScreen
 import com.maggie.app.ui.screens.finance.ContactViewModel
+import com.maggie.app.ui.screens.finance.RecognisedToControlScreen
+import com.maggie.app.ui.screens.finance.RecognisedToControlViewModel
 import com.maggie.app.ui.screens.finance.ToSortScreen
 import com.maggie.app.ui.screens.finance.EnvelopeAdjustmentsViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
@@ -225,6 +228,7 @@ sealed class Screen(val route: String, val label: String) {
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object RuleSuggestions : Screen("rule_suggestions", "Suggestions")
     data object TransactionsToSort : Screen("transactions_to_sort", "À qualifier")
+    data object RecognisedToControl : Screen("recognised_to_control", "Reconnues à contrôler")
     data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
@@ -510,6 +514,8 @@ fun NavGraph() {
     var transactionPrefill by rememberSavedSelection<TransactionPrefill>()
     // The line « Voir la fiche » was tapped on in « À qualifier »: its account opens with the sheet of that line.
     var transactionToOpen by rememberSaveable { mutableStateOf<String?>(null) }
+    // The series « Voir l'opération récurrente » was tapped on in « Reconnues à contrôler »: its editor opens once the list has loaded.
+    var seriesToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1396,6 +1402,29 @@ fun NavGraph() {
                         },
                     )
                 }
+                composable(Screen.RecognisedToControl.route, deepLinks = DeepLinks.forRoute(Screen.RecognisedToControl.route)) {
+                    val controlViewModel: RecognisedToControlViewModel = koinViewModel()
+                    RecognisedToControlScreen(
+                        viewModel = controlViewModel,
+                        onBack = { navController.backInFinance() },
+                        onOpenOperation = { group ->
+                            // A series has its editor; a rule has no screen of its own, only the list of the rules.
+                            if (group.operationType == OPERATION_SERIES) {
+                                seriesToOpen = group.operationId
+                                navController.navigate(Screen.RecurringOperations.route) { launchSingleTop = true }
+                            } else {
+                                navController.navigate(Screen.CategorizationRuleList.route) { launchSingleTop = true }
+                            }
+                        },
+                        onOpenTransaction = { line ->
+                            line.accountId?.let { accountId ->
+                                selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
+                                transactionToOpen = line.id
+                                navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                            }
+                        },
+                    )
+                }
                 composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
                     val recurringViewModel: RecurringOperationViewModel = koinViewModel()
                     RecurringOperationListScreen(
@@ -1404,6 +1433,8 @@ fun NavGraph() {
                         seed = recurringSeed,
                         onSeedConsumed = { recurringSeed = null },
                         onBackToTransaction = { navController.popBackStack() },
+                        openSeriesId = seriesToOpen,
+                        onSeriesOpened = { seriesToOpen = null },
                     )
                 }
                 composable(Screen.BankConnectionList.route, deepLinks = DeepLinks.forRoute(Screen.BankConnectionList.route)) {
