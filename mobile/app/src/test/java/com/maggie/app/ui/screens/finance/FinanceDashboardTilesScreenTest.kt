@@ -43,7 +43,7 @@ import org.robolectric.annotation.Config
  * drawn, that the unknown ones say so instead of showing 0, and that a tap asks for the right route.
  */
 @RunWith(AndroidJUnit4::class)
-@Config(qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h1400dp-xxhdpi")
 class FinanceDashboardTilesScreenTest {
 
     @get:Rule
