@@ -84,10 +84,11 @@ onFlowComplete:
       TODAY: ${TODAY}
       EMAIL: e2e-other@maggie.local
 
-# « Suivante » opens the Focus of the next task.
+# « Suivante » opens the Focus of the next task. The button's label is a child of its node, so
+# the label and the button are asserted apart.
 - assertVisible:
     id: "bravo_next"
-    text: ".*Bravo 4 MAG-508.*15 min.*"
+- assertVisible: ".*Suivante : Bravo 4 MAG-508.*15 min.*"
 - tapOn:
     id: "bravo_next"
 - extendedWaitUntil:
