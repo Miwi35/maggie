@@ -277,15 +277,8 @@ private fun ProjectionCard(outlook: TreasuryOutlook, months: Int?, onSelectHoriz
 
             if (overdraft.isForecast && onDate != null) {
                 Text(
-                    text = "Découvert prévu le ${treasuryDate(onDate)} : ${formatCents(overdraft.worstBalanceCents)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            } else {
-                Text(
-                    text = "Aucun découvert prévu sur la période projetée.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "Découvert prévu le ${treasuryDate(onDate)}",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }

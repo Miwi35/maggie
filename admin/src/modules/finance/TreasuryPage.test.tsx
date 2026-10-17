@@ -83,7 +83,7 @@ describe('TreasuryPage', () => {
 
     expect(await screen.findByTestId('salary-delay')).toHaveTextContent('Salaire en retard de 30 jours')
     expect(screen.getByTestId('overdraft-forecast')).toHaveTextContent('Découvert prévu le 13 oct.')
-    expect(screen.getByTestId('overdraft-forecast')).toHaveTextContent('420,00')
+    expect(screen.getByTestId('overdraft-forecast')).not.toHaveTextContent('420,00')
     expect(screen.getByTestId('advice')).toHaveTextContent('Avancer 420,00')
     expect(screen.getByTestId('advice')).toHaveTextContent('Livret')
     expect(screen.getByTestId('treasury-chart')).toBeInTheDocument()
@@ -220,7 +220,8 @@ describe('TreasuryPage', () => {
     })
     renderPage()
 
-    expect(await screen.findByText('Aucun découvert prévu sur la période projetée.')).toBeInTheDocument()
+    expect(await screen.findByTestId('treasury-chart')).toBeInTheDocument()
+    expect(screen.queryByText(/Aucun découvert/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('overdraft-forecast')).not.toBeInTheDocument()
     expect(screen.queryByTestId('advice')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: "Préparer l'avance" })).not.toBeInTheDocument()

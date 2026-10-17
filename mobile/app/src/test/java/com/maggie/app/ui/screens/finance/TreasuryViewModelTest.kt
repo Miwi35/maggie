@@ -17,6 +17,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -165,6 +166,27 @@ class TreasuryViewModelTest {
 
         assertNull(viewModel.uiState.value.months)
         assertEquals(configured, viewModel.uiState.value.outlook)
+    }
+
+    @Test
+    fun `a slow answer for a horizon left behind never replaces the one asked for last`() = runTest {
+        val year = configured.copy(balanceCents = 1200)
+        val quarter = configured.copy(balanceCents = 300)
+        coEvery { treasuryRepository.getOutlook(12) } coAnswers {
+            delay(1_000)
+            Result.success(year)
+        }
+        coEvery { treasuryRepository.getOutlook(3) } returns Result.success(quarter)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectHorizon(12)
+        viewModel.selectHorizon(3)
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.months)
+        assertEquals(quarter, viewModel.uiState.value.outlook)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test

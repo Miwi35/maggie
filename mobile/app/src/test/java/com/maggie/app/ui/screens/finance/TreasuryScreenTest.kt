@@ -107,7 +107,7 @@ class TreasuryScreenTest {
         compose.onNodeWithText("Solde des comptes courants : ${formatCents(-12000)}").assertIsDisplayed()
         compose.onNodeWithText("Zone de découvert : solde sous ${formatCents(0)} (trait en pointillés, jours en carrés)")
             .performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Découvert prévu le 14 octobre : ${formatCents(-70000)}").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Découvert prévu le 14 octobre").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Avancer ${formatCents(90000)} depuis Livret A (${formatCents(50000)} sur ce compte)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Matelas — ${formatCents(30000)} (matelas)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("il manque encore ${formatCents(10000)}", substring = true).performScrollTo().assertIsDisplayed()
@@ -192,10 +192,12 @@ class TreasuryScreenTest {
     }
 
     @Test
-    fun `without a forecast overdraft the period is said clear in neutral words`() {
+    fun `without a forecast overdraft no verdict is written`() {
         open(late.copy(overdraft = TreasuryOverdraft(), advice = null))
 
-        compose.onNodeWithText("Aucun découvert prévu sur la période projetée.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Solde projeté").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Aucun découvert", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Découvert prévu", substring = true).assertDoesNotExist()
     }
 
     @Test

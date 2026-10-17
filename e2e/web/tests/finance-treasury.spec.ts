@@ -405,7 +405,6 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
 
   // And the overdraft is forecast with its date, drawn as a zone and spelled out day by day.
   await expect(treasury.overdraft).toContainText('Découvert prévu le')
-  await expect(treasury.overdraft).toContainText(euros(-42000))
   await expect(treasury.overdraftZone).toBeVisible()
   await expect(treasury.days.first()).toHaveAttribute('data-overdraft', 'true')
 
@@ -427,7 +426,7 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
   await treasury.setLimit('500')
   await expect(treasury.overdraft).toHaveCount(0)
   await expect(treasury.advice).toHaveCount(0)
-  await expect(treasury.content).toContainText('Aucun découvert prévu sur la période projetée.')
+  await expect(treasury.content).not.toContainText('Aucun découvert')
 
   // When I choose a year, the curves run that far and the cumulated flows are drawn under the balance.
   await treasury.chooseHorizon('1 an', 12)

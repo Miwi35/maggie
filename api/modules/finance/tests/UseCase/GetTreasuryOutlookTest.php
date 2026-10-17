@@ -209,6 +209,14 @@ class GetTreasuryOutlookTest extends KernelTestCase
         yield '1 year' => [12, '2027-06-30', 365];
     }
 
+    /** MAG-506: from the 31st, "1 month" ends before the 28 Feb, never spills into March. */
+    public function testAMonthHorizonFromTheThirtyFirstStopsAtTheEndOfAShorterMonth(): void
+    {
+        $outlook = $this->readOn('2026-01-31', months: 1);
+
+        self::assertSame('2026-02-27', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+    }
+
     public function testAYearNeverRunsPastTheCap(): void
     {
         $outlook = $this->readOn('2027-07-01', months: 12);

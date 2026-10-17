@@ -171,7 +171,7 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
         )}
       </svg>
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} aria-live="polite">
         {active
           ? `${shortDay(active.date)} : solde ${formatCents(active.balanceCents)}${active.balanceCents < -limitCents ? ' — en découvert' : ''}${dayMovements(active)}`
           : 'Survolez un jour pour le détail, ou lisez le tableau ci-dessous.'}
@@ -284,7 +284,7 @@ export const TreasuryFlowsChart = ({ projection }: { projection: TreasuryDay[] }
         )}
       </svg>
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} data-testid="treasury-flows-detail">
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} data-testid="treasury-flows-detail" aria-live="polite">
         {active
           ? `${shortDay(active.date)} : entrées cumulées ${formatCents(active.cumulativeInflowCents)}, sorties cumulées ${formatCents(active.cumulativeOutflowCents)}${dayMovements(active)}`
           : 'Survolez un jour pour le détail.'}

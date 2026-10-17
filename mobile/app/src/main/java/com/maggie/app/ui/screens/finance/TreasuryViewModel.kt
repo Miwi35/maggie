@@ -10,6 +10,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.repository.TreasuryRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -57,8 +58,12 @@ class TreasuryViewModel(
         }
     }
 
+    private var refreshJob: Job? = null
+
+    // A newer refresh (another horizon, a Mercure update) supersedes the one in flight.
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorIsMessage = false)
             try {
                 val outlook = treasuryRepository.getOutlook(_uiState.value.months).getOrThrow()
