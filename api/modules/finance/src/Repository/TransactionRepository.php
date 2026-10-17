@@ -1301,7 +1301,8 @@ class TransactionRepository extends ServiceEntityRepository
     public function findLastPaidAmounts(RecurringOperation $operation, int $limit): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('t.amountCents - t.peerAllocatedCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
+            // What gives back a debt between people was not paid by the series (MAG-453), whichever its direction.
+            ->select('CASE WHEN t.amountCents < 0 THEN t.amountCents + t.peerAllocatedCents ELSE t.amountCents - t.peerAllocatedCents END AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->andWhere('t.recurringOperation = :operation')
             ->andWhere('t.transferKind = :none')
             ->andWhere('t.isExceptional = false')

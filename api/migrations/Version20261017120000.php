@@ -29,6 +29,8 @@ final class Version20261017120000 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_peer_debt_allocation_transaction_share ON peer_debt_allocation (transaction_id, share_id)');
         $this->addSql('ALTER TABLE peer_debt_allocation ADD CONSTRAINT FK_BD4CF98A2FC0CB0F FOREIGN KEY (transaction_id) REFERENCES transaction (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE peer_debt_allocation ADD CONSTRAINT FK_BD4CF98A2AE63FDB FOREIGN KEY (share_id) REFERENCES peer_debt_share (id) ON DELETE CASCADE NOT DEFERRABLE');
+        // A transfer already declared « à rembourser » (MAG-452) is told apart: it stays out of « À trier ».
+        $this->addSql("UPDATE transaction SET peer_kind = 'new_debt' WHERE id IN (SELECT origin_transaction_id FROM peer_debt WHERE direction = 'i_owe' AND origin_transaction_id IS NOT NULL)");
     }
 
     public function down(Schema $schema): void

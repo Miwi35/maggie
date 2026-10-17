@@ -18,6 +18,7 @@ use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\ReferenceAmountSource;
 use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\GetReferenceSalary;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -203,6 +204,32 @@ class GetReferenceSalaryTest extends KernelTestCase
         $this->flushWithoutTransactionEffects($this->em);
 
         self::assertSame(495000, $this->read('measured_user')['monthlyCents']);
+    }
+
+    /** MAG-453: what a payment gives back of a créance is no salary. */
+    public function testWhatARepaymentGivesBackIsNotSalary(): void
+    {
+        $this->attach('measured_op', 'measured_checking', 495000, 2);
+        $this->attach('measured_op', 'measured_checking', 515000, 1)->setPeerAllocatedCents(20000);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        self::assertSame(495000, $this->read('measured_user')['monthlyCents']);
+    }
+
+    /** MAG-453: on a series of spends, what gives back a dette leaves the amount paid, never doubles it. */
+    public function testWhatASentPaymentGivesBackLeavesTheAmountPaid(): void
+    {
+        /** @var RecurringOperation $series */
+        $series = $this->getFixture('measured_op');
+        $series->setReferenceAmountCents(-28000);
+        $this->attach('measured_op', 'measured_checking', -28000, 2);
+        $this->attach('measured_op', 'measured_checking', -28000, 1)->setPeerAllocatedCents(8000);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        /** @var TransactionRepository $repository */
+        $repository = $this->em->getRepository(Transaction::class);
+
+        self::assertSame([-20000, -28000], $repository->findLastPaidAmounts($series, 5));
     }
 
     /** Measured but never paid yet: its reference is the only figure there is. */
