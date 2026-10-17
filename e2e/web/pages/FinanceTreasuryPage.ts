@@ -6,7 +6,7 @@ import { ROUTES } from './routes.js'
 /**
  * Finance → Trésorerie (`/finance/treasury`, MAG-280).
  *
- * The treasury until the salary comes: the delay, the projected balance with its
+ * The treasury over the horizon chosen (MAG-506): the delay, the projected balance with its
  * overdraft zone, the advance to make and the two settings that shape them.
  * Nothing here is stored; every figure is the outlook of the day.
  */
@@ -15,6 +15,8 @@ export class FinanceTreasuryPage extends AdminShell {
   readonly overdraft: Locator
   readonly chart: Locator
   readonly overdraftZone: Locator
+  readonly flowsChart: Locator
+  readonly flowsDetail: Locator
   readonly days: Locator
   readonly advice: Locator
   readonly prepareAdvance: Locator
@@ -27,6 +29,8 @@ export class FinanceTreasuryPage extends AdminShell {
     this.overdraft = this.content.getByTestId('overdraft-forecast')
     this.chart = this.content.getByTestId('treasury-chart')
     this.overdraftZone = this.content.getByTestId('treasury-overdraft-zone')
+    this.flowsChart = this.content.getByTestId('treasury-flows-chart')
+    this.flowsDetail = this.content.getByTestId('treasury-flows-detail')
     this.days = this.content.getByTestId('treasury-day')
     this.advice = this.content.getByTestId('advice')
     this.prepareAdvance = this.content.getByRole('link', { name: "Préparer l'avance" })
@@ -37,6 +41,14 @@ export class FinanceTreasuryPage extends AdminShell {
   async open(): Promise<void> {
     await this.goto(ROUTES.financeTreasury)
     await expect(this.chart).toBeVisible()
+  }
+
+  /** Picks a horizon (« 1 an »); resolves once the API has answered for it. */
+  async chooseHorizon(label: string, months: number): Promise<void> {
+    await Promise.all([
+      this.page.waitForResponse((response) => response.url().includes(`/api/finance/treasury-outlook?months=${months}`)),
+      this.content.getByRole('button', { name: label, exact: true }).click(),
+    ])
   }
 
   /** Types the limit in euros and saves; resolves once the API has answered. */

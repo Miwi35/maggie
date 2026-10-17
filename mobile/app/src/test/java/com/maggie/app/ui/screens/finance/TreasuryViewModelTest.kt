@@ -17,10 +17,12 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -142,6 +144,78 @@ class TreasuryViewModelTest {
         assertFalse(state.errorIsMessage)
         assertNull(state.outlook)
         assertFalse(state.isLoading)
+    }
+
+    @Test
+    fun `picking a horizon reads the outlook again for that many months, the default asks for none`() = runTest {
+        val year = configured.copy(balanceCents = 777)
+        coEvery { treasuryRepository.getOutlook(12) } returns Result.success(year)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.months)
+
+        viewModel.selectHorizon(12)
+        advanceUntilIdle()
+
+        assertEquals(12, viewModel.uiState.value.months)
+        assertEquals(year, viewModel.uiState.value.outlook)
+        coVerify(exactly = 1) { treasuryRepository.getOutlook(12) }
+
+        viewModel.selectHorizon(null)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.months)
+        assertEquals(configured, viewModel.uiState.value.outlook)
+    }
+
+    @Test
+    fun `a slow answer for a horizon left behind never replaces the one asked for last`() = runTest {
+        val year = configured.copy(balanceCents = 1200)
+        val quarter = configured.copy(balanceCents = 300)
+        coEvery { treasuryRepository.getOutlook(12) } coAnswers {
+            delay(1_000)
+            Result.success(year)
+        }
+        coEvery { treasuryRepository.getOutlook(3) } returns Result.success(quarter)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectHorizon(12)
+        runCurrent()
+        viewModel.selectHorizon(3)
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.months)
+        assertNull(viewModel.uiState.value.error)
+        assertEquals(quarter, viewModel.uiState.value.outlook)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `picking the horizon already shown reads nothing`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectHorizon(null)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { treasuryRepository.getOutlook(null) }
+    }
+
+    @Test
+    fun `a failed read of a new horizon keeps the horizon and the outlook already shown`() = runTest {
+        coEvery { treasuryRepository.getOutlook(6) } returns Result.failure(RuntimeException("boom"))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectHorizon(6)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(6, state.months)
+        assertEquals("boom", state.error)
+        assertEquals(configured, state.outlook)
     }
 
     @Test

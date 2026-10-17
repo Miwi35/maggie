@@ -22,8 +22,8 @@ const OUTLOOK: TreasuryOutlook = {
   },
   balanceCents: -12000,
   projection: [
-    { date: '2026-10-13', balanceCents: -42000, movements: [{ id: 'm1', label: 'Loyer', amountCents: -30000, status: 'planned', accountId: 'a1', accountName: 'Courant' }] },
-    { date: '2026-10-14', balanceCents: -42000, movements: [] },
+    { date: '2026-10-13', balanceCents: -42000, cumulativeInflowCents: 0, cumulativeOutflowCents: 30000, movements: [{ id: 'm1', label: 'Loyer', amountCents: -30000, status: 'planned', accountId: 'a1', accountName: 'Courant', source: 'transaction' }] },
+    { date: '2026-10-14', balanceCents: -42000, cumulativeInflowCents: 0, cumulativeOutflowCents: 30000, movements: [] },
   ],
   balanceBeforeSalary: { onDate: '2026-10-13', balanceCents: -42000 },
   overdraft: { isForecast: true, onDate: '2026-10-13', worstBalanceCents: -42000, limitCents: 0 },
@@ -48,7 +48,7 @@ const fetchMock = vi.fn()
 function serve(outlook: TreasuryOutlook | null, settings = { id: 's1', salaryExpectedDay: 13, overdraftLimitCents: 0 }) {
   fetchMock.mockImplementation((url: string, init?: RequestInit) => {
     if (init?.method === 'PATCH') return Promise.resolve(json({ success: true, ...settings }))
-    if (url === '/api/finance/treasury-outlook') {
+    if (url.startsWith('/api/finance/treasury-outlook')) {
       return Promise.resolve(outlook ? json(outlook) : json({ error: 'boom' }, false))
     }
 
@@ -83,13 +83,77 @@ describe('TreasuryPage', () => {
 
     expect(await screen.findByTestId('salary-delay')).toHaveTextContent('Salaire en retard de 30 jours')
     expect(screen.getByTestId('overdraft-forecast')).toHaveTextContent('Découvert prévu le 13 oct.')
-    expect(screen.getByTestId('overdraft-forecast')).toHaveTextContent('420,00')
+    expect(screen.getByTestId('overdraft-forecast')).not.toHaveTextContent('420,00')
     expect(screen.getByTestId('advice')).toHaveTextContent('Avancer 420,00')
     expect(screen.getByTestId('advice')).toHaveTextContent('Livret')
     expect(screen.getByTestId('treasury-chart')).toBeInTheDocument()
     expect(screen.getByTestId('treasury-overdraft-zone')).toBeInTheDocument()
     expect(screen.getAllByTestId('treasury-day')).toHaveLength(2)
     expect(screen.getAllByTestId('treasury-day')[0]).toHaveAttribute('data-overdraft', 'true')
+  })
+
+  test('recurring expenses past the expected salary day are listed and weigh on the balance', async () => {
+    serve({
+      ...OUTLOOK,
+      salary: { ...OUTLOOK.salary, isLate: false, isReceived: true, delayDays: 0, shortfallCents: 0, expectedOn: '2026-10-25' },
+      projection: [
+        ...OUTLOOK.projection,
+        {
+          date: '2026-10-26',
+          balanceCents: -139700,
+          cumulativeInflowCents: 0,
+          cumulativeOutflowCents: 127700,
+          movements: [{ id: 'r1', label: 'Taxe foncière', amountCents: -97700, status: 'expected', accountId: 'a1', accountName: 'Courant', source: 'recurring' }],
+        },
+        {
+          date: '2026-10-28',
+          balanceCents: -157700,
+          cumulativeInflowCents: 0,
+          cumulativeOutflowCents: 145700,
+          movements: [{ id: 'r2', label: 'Claude', amountCents: -18000, status: 'expected', accountId: 'a1', accountName: 'Courant', source: 'recurring' }],
+        },
+      ],
+    })
+    renderPage()
+
+    const days = await screen.findAllByTestId('treasury-day')
+
+    expect(days).toHaveLength(4)
+    expect(days[2]).toHaveTextContent('Taxe foncière (récurrent) (-977,00')
+    expect(days[2]).toHaveTextContent('-1')
+    expect(days[3]).toHaveTextContent('Claude (récurrent)')
+    expect(days[0]).not.toHaveTextContent('récurrent')
+  })
+
+  test('the cumulative inflow and outflow curves sit under the balance, with no verdict figure', async () => {
+    serve(OUTLOOK)
+    renderPage()
+
+    expect(await screen.findByTestId('treasury-flows-chart')).toBeInTheDocument()
+    expect(screen.getByText('Entrées cumulées')).toBeInTheDocument()
+    expect(screen.getByText('Sorties cumulées')).toBeInTheDocument()
+  })
+
+  test('the horizon choice asks the API for that many months and keeps the page', async () => {
+    serve(OUTLOOK)
+    renderPage()
+    await screen.findByTestId('salary-delay')
+
+    const user = userEvent.setup()
+    expect(screen.getByRole('button', { name: 'Fin du mois suivant' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: '1 an' }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === '/api/finance/treasury-outlook?months=12')).toBe(true),
+    )
+    expect(screen.getByRole('button', { name: '1 an' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('salary-delay')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Fin du mois suivant' }))
+    await waitFor(() => {
+      const reads = fetchMock.mock.calls.filter(([url]) => url === '/api/finance/treasury-outlook')
+      expect(reads.length).toBeGreaterThan(1)
+    })
   })
 
   test('a one-day delay is written in the singular', async () => {
@@ -156,7 +220,8 @@ describe('TreasuryPage', () => {
     })
     renderPage()
 
-    expect(await screen.findByText(/Aucun découvert prévu/)).toBeInTheDocument()
+    expect(await screen.findByTestId('treasury-chart')).toBeInTheDocument()
+    expect(screen.queryByText(/Aucun découvert/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('overdraft-forecast')).not.toBeInTheDocument()
     expect(screen.queryByTestId('advice')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: "Préparer l'avance" })).not.toBeInTheDocument()
@@ -266,7 +331,7 @@ describe('TreasuryPage', () => {
         return Promise.resolve(json({ error: 'overdraftLimitCents must be an integer of 0 or more cents' }, false))
       }
 
-      return Promise.resolve(url === '/api/finance/treasury-outlook' ? json(OUTLOOK) : json({ id: 's1', salaryExpectedDay: 13, overdraftLimitCents: 0 }))
+      return Promise.resolve(url.startsWith('/api/finance/treasury-outlook') ? json(OUTLOOK) : json({ id: 's1', salaryExpectedDay: 13, overdraftLimitCents: 0 }))
     })
     renderPage()
 
@@ -294,7 +359,7 @@ describe('TreasuryPage', () => {
     serve(OUTLOOK)
     renderPage()
     await screen.findByTestId('salary-delay')
-    const reads = () => fetchMock.mock.calls.filter(([url]) => url === '/api/finance/treasury-outlook').length
+    const reads = () => fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/finance/treasury-outlook')).length
     const before = reads()
 
     serve({ ...OUTLOOK, salary: { ...OUTLOOK.salary, isLate: false, isReceived: true, delayDays: 0 }, advice: null })

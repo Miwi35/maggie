@@ -30,6 +30,46 @@ describe('useTreasuryOutlook', () => {
     expect(fetch).toHaveBeenCalledWith('/api/finance/treasury-settings', { headers: HEADERS })
   })
 
+  test('a horizon in months is sent to the API, none leaves the default', async () => {
+    const fetchMock = vi.fn((url: string) => Promise.resolve(url.includes('outlook') ? json(OUTLOOK) : json(SETTINGS)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ months }) => useTreasuryOutlook(months), {
+      initialProps: { months: 6 as number | null },
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(fetchMock).toHaveBeenCalledWith('/api/finance/treasury-outlook?months=6', { headers: HEADERS })
+
+    rerender({ months: null })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/finance/treasury-outlook', { headers: HEADERS }))
+  })
+
+  test('a slow answer for a horizon left behind never overwrites the one asked for last', async () => {
+    const slow = { ...OUTLOOK, balanceCents: 1200 }
+    const fast = { ...OUTLOOK, balanceCents: 300 }
+    let releaseSlow: () => void = () => {}
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('months=12')) {
+        return new Promise((resolve) => {
+          releaseSlow = () => resolve(json(slow))
+        })
+      }
+      return Promise.resolve(url.includes('outlook') ? json(fast) : json(SETTINGS))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ months }) => useTreasuryOutlook(months), {
+      initialProps: { months: 12 as number | null },
+    })
+    rerender({ months: 3 })
+    await waitFor(() => expect(result.current.outlook?.balanceCents).toBe(300))
+
+    await act(async () => releaseSlow())
+
+    expect(result.current.outlook?.balanceCents).toBe(300)
+    expect(result.current.loading).toBe(false)
+  })
+
   test('an API error leaves a message and no outlook', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ error: 'x' }, false)))
 

@@ -8,8 +8,8 @@ import com.maggie.app.data.model.TreasurySettings
 class TreasuryRepository(
     private val apiService: MaggieApiService,
 ) {
-    suspend fun getOutlook(): Result<TreasuryOutlook> = runCatching {
-        apiService.getTreasuryOutlook()
+    suspend fun getOutlook(months: Int? = null): Result<TreasuryOutlook> = runCatching {
+        apiService.getTreasuryOutlook(months)
     }
 
     suspend fun updateSettings(request: TreasurySettingsRequest): Result<TreasurySettings> = runCatching {

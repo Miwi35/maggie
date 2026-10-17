@@ -98,6 +98,16 @@ function shiftDay(day: string, days: number): string {
   return date.toISOString().slice(0, 10)
 }
 
+/** `YYYY-MM-DD` of `day` plus whole months, then plus `days`, formatted as the table does (« 12 oct. »). */
+function addMonths(day: string, months: number, days = 0): string {
+  const date = new Date(`${day}T00:00:00Z`)
+  date.setUTCMonth(date.getUTCMonth() + months)
+  date.setUTCDate(date.getUTCDate() + days)
+  const names = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+
+  return `${date.getUTCDate()} ${names[date.getUTCMonth()]}`
+}
+
 function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 }
@@ -346,6 +356,10 @@ test('the treasury outlook announces the delay, the overdraft and the advance to
  *   Alors le formulaire d'une transaction s'ouvre prérempli, et rien n'est encore saisi
  *   Quand je déclare un découvert autorisé de 500,00 €
  *   Alors plus aucun découvert ni aucune avance n'est annoncé
+ *   Quand je choisis l'horizon « 1 an » (MAG-506)
+ *   Alors la courbe du solde court sur un an, avec les courbes cumulées des entrées et des sorties
+ *     et le survol d'un jour donne sa date, ses entrées et sorties cumulées et ses mouvements
+ *     et aucun verdict ni chiffre de synthèse n'est affiché
  */
 test('the treasury screen announces the delay, the overdraft and the advance, and prefills it without making it', async ({
   treasuryUser,
@@ -391,7 +405,6 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
 
   // And the overdraft is forecast with its date, drawn as a zone and spelled out day by day.
   await expect(treasury.overdraft).toContainText('Découvert prévu le')
-  await expect(treasury.overdraft).toContainText(euros(-42000))
   await expect(treasury.overdraftZone).toBeVisible()
   await expect(treasury.days.first()).toHaveAttribute('data-overdraft', 'true')
 
@@ -413,7 +426,17 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
   await treasury.setLimit('500')
   await expect(treasury.overdraft).toHaveCount(0)
   await expect(treasury.advice).toHaveCount(0)
-  await expect(treasury.content).toContainText("Aucun découvert prévu jusqu'au prochain salaire.")
+  await expect(treasury.content).not.toContainText('Aucun découvert')
+
+  // When I choose a year, the curves run that far and the cumulated flows are drawn under the balance.
+  await treasury.chooseHorizon('1 an', 12)
+  await expect(treasury.flowsChart).toBeVisible()
+  await expect(treasury.days.last()).toContainText(addMonths(today, 12, -1))
+
+  // And hovering a day spells out its date and cumulated flows.
+  await treasury.flowsChart.getByTestId('treasury-flows-day').first().hover()
+  await expect(treasury.flowsDetail).toContainText('entrées cumulées')
+  await expect(treasury.flowsDetail).toContainText('sorties cumulées')
 })
 
 test("the admin screen shows the advance and « Je l'ai fait » settles it", async ({ treasuryUser }) => {

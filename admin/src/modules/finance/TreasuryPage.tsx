@@ -14,13 +14,15 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { Title } from 'react-admin'
 import { Link } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
-import { shortDay, TreasuryChart } from './TreasuryChart'
-import { TREASURY_TOPICS, useTreasuryOutlook } from './useTreasuryOutlook'
+import { movementText, shortDay, TreasuryChart, TreasuryFlowsChart } from './TreasuryChart'
+import { TREASURY_HORIZONS, TREASURY_TOPICS, useTreasuryOutlook } from './useTreasuryOutlook'
 import type {
   TreasuryAdvice,
   TreasuryOutlook,
@@ -112,7 +114,34 @@ const SalaryCard = ({ outlook }: { outlook: TreasuryOutlook }) => {
   )
 }
 
-const OverdraftCard = ({ outlook }: { outlook: TreasuryOutlook }) => {
+const HorizonPicker = ({ months, onChange }: { months: number | null; onChange: (months: number | null) => void }) => (
+  <ToggleButtonGroup
+    exclusive
+    size="small"
+    value={months === null ? 'default' : String(months)}
+    onChange={(_, value: string | null) => {
+      if (value !== null) onChange(value === 'default' ? null : Number(value))
+    }}
+    aria-label="Horizon de la projection"
+    sx={{ mb: 2, flexWrap: 'wrap' }}
+  >
+    {TREASURY_HORIZONS.map((horizon) => (
+      <ToggleButton key={horizon.label} value={horizon.months === null ? 'default' : String(horizon.months)}>
+        {horizon.label}
+      </ToggleButton>
+    ))}
+  </ToggleButtonGroup>
+)
+
+const OverdraftCard = ({
+  outlook,
+  months,
+  onHorizon,
+}: {
+  outlook: TreasuryOutlook
+  months: number | null
+  onHorizon: (months: number | null) => void
+}) => {
   const { overdraft } = outlook
   const noProjection = outlook.projection.length === 0
 
@@ -122,14 +151,10 @@ const OverdraftCard = ({ outlook }: { outlook: TreasuryOutlook }) => {
         <Typography variant="h6" sx={{ mb: 1 }}>
           Solde projeté
         </Typography>
-        {overdraft.isForecast && overdraft.onDate ? (
-          <Alert severity="error" data-testid="overdraft-forecast" sx={{ mb: 2 }}>
-            Découvert prévu le {shortDay(overdraft.onDate)} — solde le plus bas :{' '}
-            <strong>{formatCents(overdraft.worstBalanceCents)}</strong>
-          </Alert>
-        ) : (
-          <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
-            Aucun découvert prévu jusqu'au prochain salaire.
+        <HorizonPicker months={months} onChange={onHorizon} />
+        {overdraft.isForecast && overdraft.onDate && (
+          <Alert severity="info" data-testid="overdraft-forecast" sx={{ mb: 2 }}>
+            Découvert prévu le {shortDay(overdraft.onDate)}
           </Alert>
         )}
         {noProjection ? (
@@ -139,6 +164,10 @@ const OverdraftCard = ({ outlook }: { outlook: TreasuryOutlook }) => {
         ) : (
           <>
             <TreasuryChart projection={outlook.projection} limitCents={overdraft.limitCents} />
+            <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>
+              Entrées et sorties prévues, cumulées
+            </Typography>
+            <TreasuryFlowsChart projection={outlook.projection} />
             <ProjectionTable outlook={outlook} />
           </>
         )}
@@ -167,7 +196,7 @@ const ProjectionTable = ({ outlook }: { outlook: TreasuryOutlook }) => (
               <TableCell>
                 {day.movements.length === 0
                   ? '—'
-                  : day.movements.map((m) => `${m.label} (${formatCents(m.amountCents)})`).join(', ')}
+                  : day.movements.map(movementText).join(', ')}
               </TableCell>
               <TableCell align="right">
                 {formatCents(day.balanceCents)}
@@ -348,7 +377,8 @@ const SettingsCard = ({
 )
 
 export const TreasuryPage = () => {
-  const { outlook, settings, loading, error, refresh, save } = useTreasuryOutlook()
+  const [months, setMonths] = useState<number | null>(null)
+  const { outlook, settings, loading, error, refresh, save } = useTreasuryOutlook(months)
 
   useMercure(TREASURY_TOPICS, refresh)
 
@@ -386,7 +416,7 @@ export const TreasuryPage = () => {
       {outlook && outlook.salary.isConfigured && (
         <>
           <SalaryCard outlook={outlook} />
-          <OverdraftCard outlook={outlook} />
+          <OverdraftCard outlook={outlook} months={months} onHorizon={setMonths} />
           <AdviceCard outlook={outlook} />
         </>
       )}

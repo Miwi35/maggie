@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\UseCase;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\TreasurySettings;
+use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\UseCase\GetSalaryDelay;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -18,6 +19,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GetSalaryDelayTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use RecurringProjectionsWorld;
     use SavingsAdvancesWorld;
 
     private const int REFERENCE = 495000;
@@ -194,6 +196,127 @@ class GetSalaryDelayTest extends KernelTestCase
     {
         // Even filed under this user's « Salaire »: the line is not his.
         $this->add('other_checking', self::REFERENCE, '2026-09-25', 'salary', 'Salaire de l\'autre');
+
+        self::assertTrue($this->readOn('2026-10-01')['isLate']);
+    }
+
+    private function expectedOnThe(int $day): void
+    {
+        $settings = $this->getFixture('settings');
+        \assert($settings instanceof TreasurySettings);
+        $settings->setSalaryExpectedDay($day);
+        $this->em->flush();
+    }
+
+    /** The owner's September (MAG-506): reference 4 950 € on the 26th, 4 970,50 € received on the 25th, filed nowhere. */
+    public function testACreditOfTheSizeOfTheReferenceTheDayBeforeTheExpectedDayIsTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 497050, '2026-09-25', label: 'VIR ACME SA');
+
+        $delay = $this->readOn('2026-10-17');
+
+        self::assertFalse($delay['isLate']);
+        self::assertSame(0, $delay['delayDays']);
+        self::assertSame(0, $delay['shortfallCents']);
+        self::assertTrue($delay['months'][0]['isReceived']);
+        self::assertSame('2026-09-25', $delay['months'][0]['receivedOn']);
+        self::assertFalse($delay['months'][1]['isReceived']);
+    }
+
+    public function testACreditOfTheSizeOfTheReferenceAFewDaysAfterTheExpectedDayIsTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 495000, '2026-10-01', label: 'Retard de virement');
+        $this->add('checking', 495000, '2026-09-30', label: 'VIR ACME SA');
+
+        self::assertFalse($this->readOn('2026-10-17')['isLate']);
+    }
+
+    /** The owner's real September: 4 950 € expected on the 26th, 5 292,27 € of a foreign payer on 15 October, filed nowhere. */
+    public function testALateCreditOfTheSizeOfTheReferenceClosesTheOldestOpenMonthWhenItLands(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 529227, '2026-10-15', label: 'VIR RECU DE L\'ETRANGER BESSER');
+
+        $beforeIt = $this->readOn('2026-10-14');
+        self::assertTrue($beforeIt['isLate']);
+        self::assertSame(18, $beforeIt['delayDays']);
+
+        $delay = $this->readOn('2026-10-17');
+        self::assertFalse($delay['isLate']);
+        self::assertSame(0, $delay['shortfallCents']);
+        self::assertTrue($delay['months'][0]['isReceived']);
+        self::assertSame('2026-10-15', $delay['months'][0]['receivedOn']);
+        self::assertFalse($delay['months'][1]['isReceived'], 'October is still to come');
+    }
+
+    public function testATransferFromOneselfOfTheSizeOfTheReferenceIsNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 497050, '2026-09-25', label: 'VIR SAVINGS ADVANCES USER');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testACreditFiledAsTheSalaryCountsEvenWithTheOwnersNameInItsLabel(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 497050, '2026-09-25', 'salary', 'Savings Advances User SASU');
+
+        self::assertFalse($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testACreditOfTheRightSizeMoreThanFiveDaysBeforeTheExpectedDayIsNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 495000, '2026-08-19', label: 'Remboursement');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testACreditOfAnotherSizeIsNotTheSalaryWithoutBeingFiledAsOne(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 120000, '2026-09-25', label: 'Remboursement');
+        $this->add('checking', 700000, '2026-09-26', label: 'Vente');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testABonusOfTheSizeOfTheReferenceIsStillNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 495000, '2026-09-26', 'bonus', 'VIR ACME PRIME');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testATransferOfTheSizeOfTheReferenceIsNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->transfer('livret', 'checking', 495000, '2026-09-26');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    /** Attached to the series that carries the salary, a credit takes its category: it counts whatever its size. */
+    public function testACreditAttachedToTheSalarySeriesTakesItsCategoryAndIsTheSalaryWhateverItsSize(): void
+    {
+        $series = $this->series('Meven Cadare', 495000, '2026-07-23', categoryRef: 'salary');
+        $credit = $this->add('checking', 560000, '2026-09-24', label: 'Meven Cadare');
+        $credit->attachToRecurring($series, new \DateTimeImmutable('2026-09-23'), RecurringLinkSource::Auto);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        self::assertFalse($this->readOn('2026-10-01')['isLate']);
+    }
+
+    public function testACreditAttachedToAnotherSeriesIsNotTheSalaryWhenItsSizeIsOff(): void
+    {
+        $series = $this->series('Remboursement', 560000, '2026-07-24', categoryRef: 'bonus');
+        $credit = $this->add('checking', 560000, '2026-09-24', label: 'Remboursement');
+        $credit->attachToRecurring($series, new \DateTimeImmutable('2026-09-24'), RecurringLinkSource::Auto);
+        $this->flushWithoutTransactionEffects($this->em);
 
         self::assertTrue($this->readOn('2026-10-01')['isLate']);
     }
