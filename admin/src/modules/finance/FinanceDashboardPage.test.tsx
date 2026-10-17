@@ -132,7 +132,7 @@ describe('FinanceDashboardPage', () => {
   })
 
   test('has no pill and no shortcut when there is nothing to do', async () => {
-    const payload = dashboardFixture({ todo: { toSortCount: 0, rejectionsToSettleCount: 0, reviewReady: false, advanceToRepayCents: 0 } })
+    const payload = dashboardFixture({ todo: { toSortCount: 0, rejectionsToSettleCount: 0, reviewReady: false, advanceToRepayCents: 0, owedToMeCents: 0, iOweCents: 0 } })
     stubApi(payload)
     renderPage()
     await screen.findByTestId('tile-accounts')
@@ -140,7 +140,23 @@ describe('FinanceDashboardPage', () => {
     expect(screen.queryByTestId('pill-to-sort')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pill-rejections')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pill-advance')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pill-owed')).not.toBeInTheDocument()
     expect(screen.queryByTestId('review-shortcut')).not.toBeInTheDocument()
+  })
+
+  test('the owed pill opens Créances et dettes', async () => {
+    const user = userEvent.setup()
+    const payload = dashboardFixture()
+    payload.todo.iOweCents = 28000
+    payload.todo.owedToMeCents = 20000
+    stubApi(payload)
+    renderPage()
+
+    const pill = await screen.findByTestId('pill-owed')
+    expect(pill).toHaveTextContent(/Tu dois 80,00\s€/)
+    await user.click(pill)
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/peer-debts')
   })
 
   test('« Revue ce soir » heads the page while the review is not done and opens it', async () => {

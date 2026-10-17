@@ -126,6 +126,8 @@ data class FinanceTodo(
     val rejectionsToSettleCount: Int = 0,
     val reviewReady: Boolean = false,
     val advanceToRepayCents: Int = 0,
+    val owedToMeCents: Int = 0,
+    val iOweCents: Int = 0,
 )
 
 /** The account the « N rejets » pill opens: the one with the most rejections to settle, null when none. */
@@ -141,9 +143,6 @@ fun rejectionsPillText(count: Int): String? = when {
 }
 
 fun advancePillText(cents: Int): String? = if (cents > 0) "${formatCents(cents)} à remettre" else null
-
-/** The static example of what the receivables lot will bring: not a figure of the user's, not a link. */
-const val OWED_EXAMPLE_PILL = "On te doit 535 €"
 
 @Serializable
 data class FinanceTiles(

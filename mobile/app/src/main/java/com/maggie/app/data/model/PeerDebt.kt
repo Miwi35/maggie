@@ -13,6 +13,18 @@ data class PeerDebtShare(
     val remainingCents: Int = 0,
 )
 
+/** One transfer that gave a share back (MAG-455): the line it was, what it covered, and from or to whom. */
+@Serializable
+data class PeerDebtHistoryEntry(
+    val transactionId: String,
+    // « 2026-03-17 ».
+    val bookedAt: String? = null,
+    val label: String = "",
+    val amountCents: Int = 0,
+    val contactId: String,
+    val contactName: String = "",
+)
+
 /**
  * Money owed between the owner and the people around them (MAG-451): the part of a shared spend
  * the others owe (« owed_to_me »), split in one share per person.
@@ -32,6 +44,8 @@ data class PeerDebt(
     val status: String = STATUS_OPEN,
     val createdAt: String? = null,
     val shares: List<PeerDebtShare> = emptyList(),
+    // Only `GET /api/finance/peer-debts` sends it: the transfers that gave shares back, latest first.
+    val history: List<PeerDebtHistoryEntry> = emptyList(),
 ) {
     val isOpen: Boolean get() = status == STATUS_OPEN
 
@@ -90,12 +104,58 @@ data class TransactionDebtRequest(
     val notes: String? = null,
 )
 
-/** `GET /api/finance/peer-debts/summary`: what is left to be given back, both ways. */
+/**
+ * One person's balance (MAG-455): [netCents] positive means they owe the owner, negative the owner owes them;
+ * [compensates] when créances and dettes with them cancel each other out in part, so one transfer settles both.
+ */
+@Serializable
+data class ContactBalance(
+    val contactId: String,
+    val name: String = "",
+    val netCents: Int = 0,
+    val compensates: Boolean = false,
+)
+
+/** `GET /api/finance/peer-debts/summary`: what is left to be given back, both ways, and per person. */
 @Serializable
 data class PeerDebtSummary(
     val owedToMeCents: Int = 0,
     val iOweCents: Int = 0,
+    val byContact: List<ContactBalance> = emptyList(),
 )
+
+/** `GET /api/finance/peer-debts`: the créances and dettes, filtered by the server, with their history. */
+@Serializable
+data class PeerDebtList(
+    val peerDebts: List<PeerDebt> = emptyList(),
+)
+
+/** The net of all créances and dettes: positive, the owner is owed; negative, the owner owes. */
+fun netOwedCents(owedToMeCents: Int, iOweCents: Int): Int = owedToMeCents - iOweCents
+
+/** « On te doit 535 € » or « Tu dois 80 € » — the net — and null when it is zero: the pill is not drawn. */
+fun owedPillText(owedToMeCents: Int, iOweCents: Int): String? {
+    val net = netOwedCents(owedToMeCents, iOweCents)
+    return when {
+        net > 0 -> "On te doit ${formatCents(net)}"
+        net < 0 -> "Tu dois ${formatCents(-net)}"
+        else -> null
+    }
+}
+
+/** What the contact's line says on « Par personne »: who owes whom, the amount being the net. */
+fun balanceLabel(netCents: Int, currency: String = "EUR"): String = when {
+    netCents > 0 -> "te doit ${formatCents(netCents, currency)}"
+    netCents < 0 -> "tu lui dois ${formatCents(-netCents, currency)}"
+    else -> "quitte"
+}
+
+/** « Les deux se compensent : un seul virement de 80 € à Tom solde tout » — null when nothing compensates. */
+fun compensationLabel(name: String, netCents: Int, currency: String = "EUR"): String? = when {
+    netCents > 0 -> "Les deux se compensent : un seul virement de ${formatCents(netCents, currency)} de $name solde tout"
+    netCents < 0 -> "Les deux se compensent : un seul virement de ${formatCents(-netCents, currency)} à $name solde tout"
+    else -> null
+}
 
 /**
  * [totalCents] split in [count] equal parts, the last cent(s) on the last one — as the API
@@ -141,6 +201,33 @@ fun openDebtsOf(debts: List<PeerDebt>, contactId: String): List<ContactDebt> =
             )
         }
         .sortedByDescending { it.createdOn.orEmpty() }
+
+/** One transfer of a contact's history: the line, and the créance or dette it gave back. */
+data class ContactHistoryLine(
+    val transactionId: String,
+    val subject: String,
+    val bookedAt: String?,
+    val label: String,
+    val amountCents: Int,
+    val direction: String,
+)
+
+/** The transfers that gave [contactId]'s shares back, the latest first. */
+fun historyOf(debts: List<PeerDebt>, contactId: String): List<ContactHistoryLine> =
+    debts
+        .flatMap { debt ->
+            debt.history.filter { it.contactId == contactId }.map { entry ->
+                ContactHistoryLine(
+                    transactionId = entry.transactionId,
+                    subject = debt.`object`.orEmpty().ifBlank { "Dépense partagée" },
+                    bookedAt = entry.bookedAt,
+                    label = entry.label,
+                    amountCents = entry.amountCents,
+                    direction = debt.direction,
+                )
+            }
+        }
+        .sortedByDescending { it.bookedAt.orEmpty() }
 
 private val DEBT_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.FRANCE)
 

@@ -257,7 +257,7 @@ object UiTags {
     /** What is to do, as pills of the Comptes and Budget tiles, and the « Revue ce soir » shortcut (MAG-421). */
     const val FINANCE_PILL_TO_SORT = "finance_pill_to_sort"
     const val FINANCE_PILL_REJECTIONS = "finance_pill_rejections"
-    const val FINANCE_PILL_OWED_EXAMPLE = "finance_pill_owed_example"
+    const val FINANCE_PILL_OWED = "finance_pill_owed"
     const val FINANCE_PILL_ADVANCE = "finance_pill_advance"
     const val FINANCE_REVIEW_SHORTCUT = "finance_review_shortcut"
     const val FINANCE_TILE_EXPECTED_SALARY = "finance_tile_expected_salary"
@@ -751,6 +751,28 @@ object UiTags {
     /** A contact's « En cours » (MAG-451): one open créance, and its « te doit … ». */
     const val CONTACT_DEBT = "contact_debt"
     const val CONTACT_DEBT_REMAINING = "contact_debt_remaining"
+
+    /** A contact's history (MAG-455): the section and one transfer that gave a share back. */
+    const val CONTACT_HISTORY = "contact_history"
+    const val CONTACT_HISTORY_LINE = "contact_history_line"
+
+    /**
+     * « Créances et dettes » (MAG-455): the screen and its retry, the two totals, the two tabs, a person with
+     * their lines per object, what compensates, the link to their page, an object, « + Personne », and the empty state.
+     */
+    const val PEER_DEBTS = "peer_debts"
+    const val PEER_DEBTS_RETRY = "peer_debts_retry"
+    const val PEER_DEBTS_TILE_OWED_TO_ME = "peer_debts_tile_owed_to_me"
+    const val PEER_DEBTS_TILE_I_OWE = "peer_debts_tile_i_owe"
+    const val PEER_DEBTS_TAB_PERSON = "peer_debts_tab_person"
+    const val PEER_DEBTS_TAB_OBJECT = "peer_debts_tab_object"
+    const val PEER_DEBTS_PERSON = "peer_debts_person"
+    const val PEER_DEBTS_PERSON_LINE = "peer_debts_person_line"
+    const val PEER_DEBTS_COMPENSATION = "peer_debts_compensation"
+    const val PEER_DEBTS_CONTACT_LINK = "peer_debts_contact_link"
+    const val PEER_DEBTS_OBJECT = "peer_debts_object"
+    const val PEER_DEBTS_ADD_PERSON = "peer_debts_add_person"
+    const val PEER_DEBTS_EMPTY = "peer_debts_empty"
 
     /**
      * The sheet's « Partage » (MAG-451): the switch « Dépense partagée », « Ta part » with its − / + and its field,

@@ -1,4 +1,12 @@
 {
     "owedToMeCents": 5000,
-    "iOweCents": 0
+    "iOweCents": 0,
+    "byContact": [
+        {
+            "contactId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Tom",
+            "netCents": 5000,
+            "compensates": false
+        }
+    ]
 }

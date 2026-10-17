@@ -54,8 +54,9 @@ class PeerDebtRepository(
         apiService.removeTransactionAllocation(transactionId)
     }.rethrowCancellation()
 
-    suspend fun getPeerDebts(): Result<List<PeerDebt>> = runCatching {
-        apiService.getPeerDebts()
+    /** The créances and dettes of the screen « Créances et dettes » and of a contact's page, history included (MAG-455). */
+    suspend fun getOverview(status: String? = null, direction: String? = null, contact: String? = null): Result<List<PeerDebt>> = runCatching {
+        apiService.getPeerDebtsOverview(status, direction, contact).peerDebts
     }.rethrowCancellation()
 
     suspend fun getSummary(): Result<PeerDebtSummary> = runCatching {

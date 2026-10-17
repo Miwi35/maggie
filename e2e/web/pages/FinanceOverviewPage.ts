@@ -68,9 +68,9 @@ export class FinanceOverviewPage extends AdminShell {
     return this.accountsTile.getByTestId('pill-rejections')
   }
 
-  /** « On te doit 535 € »: an example until the receivables lot, shown and never a link. */
-  get owedExamplePill(): Locator {
-    return this.accountsTile.getByTestId('pill-owed-example')
+  /** « On te doit 80 € » / « Tu dois 80 € » (MAG-455): the net of the créances and dettes, one tap from their screen. */
+  get owedPill(): Locator {
+    return this.accountsTile.getByTestId('pill-owed')
   }
 
   /** « 800,00 € à remettre », in the Budget tile: the savings advances not given back. */

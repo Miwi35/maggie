@@ -193,7 +193,13 @@ class PeerDebtApiTest extends WebTestCase
         $this->call('GET', '/api/finance/peer-debts/summary');
         self::assertResponseIsSuccessful();
         // 600 € for the gîte, 50 € still owed on the dinner.
-        self::assertSame(['owedToMeCents' => 60000 + 5000, 'iOweCents' => 0], $this->response());
+        $summary = $this->response();
+        self::assertSame([60000 + 5000, 0], [$summary['owedToMeCents'], $summary['iOweCents']]);
+        // Tom also owes the 50 € of the dinner: the biggest net first, then by name.
+        self::assertSame([['Tom', 25000], ['Inès', 20000], ['Julie', 20000]], array_map(
+            static fn (array $person): array => [$person['name'], $person['netCents']],
+            $summary['byContact'],
+        ));
     }
 
     public function testSharesMayBeGivenOneByOne(): void

@@ -1,0 +1,106 @@
+# Créances et dettes par personne et par objet (MAG-455), shared by the API,
+# MCP and use case suites. Créances: the gîte de Crozon (Julie 200 €, of which
+# she gave 50 € back through a transfer; Tom 200 €); a dette: the petrol Tom
+# paid (280 €) — so Tom and the owner owe each other, and 80 € to Tom settles
+# both; a lunch Lucas gave back in full (settled). Someone else's créance.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-peer-overview-test@example.com
+    googleId: google-finance-peer-overview-test
+    name: Finance Peer Overview Test User
+  other_user:
+    email: finance-peer-overview-other@example.com
+    googleId: google-finance-peer-overview-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Contact:
+  julie:
+    name: Julie
+    user: '@test_user'
+  tom:
+    name: Tom
+    user: '@test_user'
+  lucas:
+    name: Lucas
+    user: '@test_user'
+  others_contact:
+    name: Paul
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  julie_in:
+    account: '@checking'
+    amountCents: 5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-20"))>'
+    label: VIR DE JULIE ROUX
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  lucas_in:
+    account: '@checking'
+    amountCents: 3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-25"))>'
+    label: VIR DE LUCAS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  gite_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Gîte de Crozon
+    user: '@test_user'
+  petrol_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::IOwe)>'
+    object: Essence du road trip
+    user: '@test_user'
+  lunch_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Déjeuner
+    user: '@test_user'
+  others_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Pas le mien
+    user: '@other_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  gite_julie:
+    peerDebt: '@gite_debt'
+    contact: '@julie'
+    amountCents: 20000
+    repaidCents: 5000
+  gite_tom:
+    peerDebt: '@gite_debt'
+    contact: '@tom'
+    amountCents: 20000
+    position: 1
+  petrol_tom:
+    peerDebt: '@petrol_debt'
+    contact: '@tom'
+    amountCents: 28000
+  lunch_lucas:
+    peerDebt: '@lunch_debt'
+    contact: '@lucas'
+    amountCents: 3000
+    repaidCents: 3000
+  others_share:
+    peerDebt: '@others_debt'
+    contact: '@others_contact'
+    amountCents: 4000
+
+Maggie\Finance\Entity\PeerDebtAllocation:
+  julie_gave_back:
+    __construct: ['@julie_in', '@gite_julie', 5000]
+  lucas_gave_back:
+    __construct: ['@lucas_in', '@lunch_lucas', 3000]

@@ -331,9 +331,9 @@ test.describe('what is to do', () => {
 
   /**
    * Given 3 lines to sort and 1 rejected payment, When I open the finance
-   * home, Then Comptes says « 3 à trier » and « 1 rejet », and « On te doit
-   * 535 € » is there and opens nothing; When I touch « 3 à trier », Then À
-   * qualifier opens on the oldest line.
+   * home, Then Comptes says « 3 à trier » and « 1 rejet »; When I touch
+   * « 3 à trier », Then À qualifier opens on the oldest line. (« On te doit /
+   * Tu dois » has its journey in `finance-peer-debts.spec.ts`.)
    */
   test('the Comptes tile says what is to sort and to settle, and opens the screen that does it', async ({
     seasonUser,
@@ -374,10 +374,6 @@ test.describe('what is to do', () => {
     await expect(overview.rejectionsPill).toHaveText('1 rejet')
     await expect(overview.advancePill).toHaveCount(0)
     await expect(overview.reviewShortcut).toHaveCount(0)
-
-    // The example is shown and is no link (a tap on the card would open the accounts).
-    await expect(overview.owedExamplePill).toHaveText('On te doit 535 €')
-    await expect(overview.owedExamplePill.locator('xpath=ancestor-or-self::a')).toHaveCount(0)
 
     // « 1 rejet » opens the incidents of the account that holds it.
     await overview.rejectionsPill.click()

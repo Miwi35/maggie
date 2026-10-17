@@ -32,7 +32,12 @@ enum class FinanceMenu(
     ),
     ACCOUNTS(
         "accounts", "Comptes", Icons.Default.AccountBalance,
-        listOf(Screen.AccountList.route, Screen.AccountTransactions.route, Screen.Contacts.route),
+        listOf(
+            Screen.AccountList.route,
+            Screen.AccountTransactions.route,
+            Screen.Contacts.route,
+            Screen.PeerDebts.route,
+        ),
     ),
     REVIEW(
         "review", "Revue", Icons.AutoMirrored.Filled.FactCheck,

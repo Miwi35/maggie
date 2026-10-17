@@ -44,7 +44,7 @@ class ShareSheetActions(
     val onSubjectChange: (String) -> Unit,
     val onNotesChange: (String) -> Unit,
     val onSave: () -> Unit,
-    /** « Voir tout ce qu'on te doit »: the contacts, until the créances have a screen of their own (MAG-455). */
+    /** « Voir tout ce qu'on te doit »: the screen « Créances et dettes » (MAG-455). */
     val onSeeAllOwed: (() -> Unit)? = null,
 )
 

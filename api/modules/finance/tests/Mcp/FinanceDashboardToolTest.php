@@ -35,7 +35,7 @@ class FinanceDashboardToolTest extends KernelTestCase
         self::assertArrayHasKey('scores', $dashboard);
         self::assertArrayHasKey('tiles', $dashboard);
         self::assertSame(
-            ['toSortCount', 'rejectionsToSettleCount', 'reviewReady', 'advanceToRepayCents'],
+            ['toSortCount', 'rejectionsToSettleCount', 'reviewReady', 'advanceToRepayCents', 'owedToMeCents', 'iOweCents'],
             array_keys($dashboard['todo']),
         );
         self::assertArrayHasKey('score', $dashboard);

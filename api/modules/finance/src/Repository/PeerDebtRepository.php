@@ -27,13 +27,18 @@ class PeerDebtRepository extends ServiceEntityRepository
     }
 
     /** @return PeerDebt[] newest first */
-    public function findByUser(User $user, ?Contact $contact = null): array
+    public function findByUser(User $user, ?Contact $contact = null, ?PeerDebtDirection $direction = null): array
     {
         $qb = $this->createQueryBuilder('d')
             ->andWhere('d.user = :user')
             ->setParameter('user', $user->getId(), 'ulid')
             ->orderBy('d.createdAt', 'DESC')
             ->addOrderBy('d.id', 'DESC');
+
+        if (null !== $direction) {
+            $qb->andWhere('d.direction = :direction')
+                ->setParameter('direction', $direction->value);
+        }
 
         if (null !== $contact) {
             $qb->innerJoin('d.shares', 's')
@@ -57,6 +62,36 @@ class PeerDebtRepository extends ServiceEntityRepository
             ->setParameter('direction', $direction->value)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * What is left to give back, per person and per direction, for the people
+     * with something left: the two sums the net of a person is made of (MAG-455).
+     *
+     * @return list<array{contactId: string, name: string, direction: string, remainingCents: int}>
+     */
+    public function sumRemainingByContact(User $user): array
+    {
+        /** @var list<array{contactId: mixed, name: string, direction: string|PeerDebtDirection, remainingCents: mixed}> $rows */
+        $rows = $this->getEntityManager()->createQueryBuilder()
+            ->select('c.id AS contactId', 'c.name AS name', 'd.direction AS direction')
+            ->addSelect('SUM(s.amountCents - s.repaidCents) AS remainingCents')
+            ->from(PeerDebt::class, 'd')
+            ->innerJoin('d.shares', 's')
+            ->innerJoin('s.contact', 'c')
+            ->andWhere('d.user = :user')
+            ->andWhere('s.amountCents > s.repaidCents')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->groupBy('c.id', 'c.name', 'd.direction')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (array $row): array => [
+            'contactId' => (string) $row['contactId'],
+            'name' => $row['name'],
+            'direction' => $row['direction'] instanceof PeerDebtDirection ? $row['direction']->value : (string) $row['direction'],
+            'remainingCents' => (int) $row['remainingCents'],
+        ], $rows);
     }
 
     /**

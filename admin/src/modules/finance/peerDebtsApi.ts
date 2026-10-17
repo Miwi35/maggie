@@ -152,6 +152,65 @@ export async function fetchPeerDebts(): Promise<PeerDebt[]> {
   return body.member ?? []
 }
 
+/** One transfer that gave a créance back (or a dette): date, amount, label, and whose share it covered. */
+export interface PeerDebtHistoryEntry {
+  transactionId: string
+  bookedAt: string
+  label: string
+  amountCents: number
+  contactId: string
+  contactName: string
+}
+
+/** A créance as `GET /api/finance/peer-debts` sends it (MAG-455): with the transfers allocated to it. */
+export interface PeerDebtWithHistory extends PeerDebt {
+  history: PeerDebtHistoryEntry[]
+}
+
+export interface PeerDebtFilters {
+  status?: PeerDebt['status']
+  direction?: PeerDebt['direction']
+  /** Bare id or IRI. */
+  contact?: string
+}
+
+/** Créances and dettes with their history, filtered by status, direction and contact; newest first. */
+export async function fetchPeerDebtsOverview(filters: PeerDebtFilters = {}): Promise<PeerDebtWithHistory[]> {
+  const params = new URLSearchParams()
+  if (filters.status) params.set('status', filters.status)
+  if (filters.direction) params.set('direction', filters.direction)
+  if (filters.contact) params.set('contact', bareId(filters.contact))
+  const query = params.toString()
+
+  const res = await request(`/api/finance/peer-debts${query ? `?${query}` : ''}`)
+  if (!res.ok) throw await failure(res, 'Impossible de lire les créances et les dettes.')
+  const body = (await res.json()) as { peerDebts?: PeerDebtWithHistory[] }
+
+  return body.peerDebts ?? []
+}
+
+/** What stays open with one person: positive, they owe the owner; negative, the owner owes them. */
+export interface PeerDebtContactBalance {
+  contactId: string
+  name: string
+  netCents: number
+  /** They owe each other: one transfer of the net settles both. */
+  compensates: boolean
+}
+
+export interface PeerDebtSummary {
+  owedToMeCents: number
+  iOweCents: number
+  byContact: PeerDebtContactBalance[]
+}
+
+export async function fetchPeerDebtSummary(): Promise<PeerDebtSummary> {
+  const res = await request('/api/finance/peer-debts/summary')
+  if (!res.ok) throw await failure(res, 'Impossible de lire le total des créances et des dettes.')
+
+  return (await res.json()) as PeerDebtSummary
+}
+
 /**
  * `total` split between `count` people the way the API does it: equal parts
  * in cents, the remainder on the last one. 800 € − 200 € between three: 200 € each.

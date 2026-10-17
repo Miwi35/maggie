@@ -103,6 +103,8 @@ import com.maggie.app.ui.screens.finance.RuleSuggestionListScreen
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
 import com.maggie.app.ui.screens.finance.CushionScreen
+import com.maggie.app.ui.screens.finance.PeerDebtsScreen
+import com.maggie.app.ui.screens.finance.PeerDebtsViewModel
 import com.maggie.app.ui.screens.finance.SavingsAdvancesScreen
 import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanListScreen
@@ -237,6 +239,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Cushion : Screen("cushion", "Matelas")
     data object Treasury : Screen("treasury", "Trésorerie")
     data object SavingsAdvances : Screen("savings_advances", "Avances d'épargne")
+    data object PeerDebts : Screen("peer_debts", "Créances et dettes")
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
@@ -294,6 +297,7 @@ private val DETAIL_PANE_ROUTES = setOf(
     Screen.Grocery.route,
     Screen.AccountList.route,
     Screen.Contacts.route,
+    Screen.PeerDebts.route,
 )
 
 // A detail that is a route of its own on a narrow window, and the list route whose pane takes it over.
@@ -537,6 +541,7 @@ fun NavGraph() {
     var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     // The contact a link asked for, handed to the contacts screen once and cleared (MAG-450).
     var linkedContactId by rememberSaveable { mutableStateOf<String?>(null) }
+    var startContactCreation by rememberSaveable { mutableStateOf(false) }
     // The transaction « En faire une opération récurrente » was tapped on: the form opens filled from it (MAG-309).
     var recurringSeed by rememberSavedSelection<Transaction>()
     // The advance « Préparer l'avance » filled in: the new-transaction form opens with it, nothing saved (MAG-280).
@@ -1391,7 +1396,7 @@ fun NavGraph() {
                                         onPrefillConsumed = { transactionPrefill = null },
                                         openTransactionId = transactionToOpen,
                                         onTransactionOpened = { transactionToOpen = null },
-                                        onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                                        onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
                                         openIncidents = incidentsToOpen,
                                         onIncidentsOpened = { incidentsToOpen = false },
                                     )
@@ -1408,6 +1413,24 @@ fun NavGraph() {
                             showsDetailPane = paneShown,
                             openContactId = linkedContactId,
                             onOpenConsumed = { linkedContactId = null },
+                            startCreation = startContactCreation,
+                            onCreationStarted = { startContactCreation = false },
+                        )
+                    }
+                    composable(Screen.PeerDebts.route, deepLinks = DeepLinks.forRoute(Screen.PeerDebts.route)) {
+                        val peerDebtsViewModel: PeerDebtsViewModel = koinViewModel()
+                        PeerDebtsScreen(
+                            viewModel = peerDebtsViewModel,
+                            onBack = { navController.backInFinance() },
+                            showsDetailPane = paneShown,
+                            onOpenContact = { id ->
+                                linkedContactId = id
+                                navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
+                            },
+                            onAddPerson = {
+                                startContactCreation = true
+                                navController.navigate(Screen.Contacts.route) { launchSingleTop = true }
+                            },
                         )
                     }
                     composable(Screen.CategoryList.route, deepLinks = DeepLinks.forRoute(Screen.CategoryList.route)) {
@@ -1574,7 +1597,7 @@ fun NavGraph() {
                                 onPrefillConsumed = { transactionPrefill = null },
                                 openTransactionId = transactionToOpen,
                                 onTransactionOpened = { transactionToOpen = null },
-                                onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                                onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
                                 openIncidents = incidentsToOpen,
                                 onIncidentsOpened = { incidentsToOpen = false },
                             )

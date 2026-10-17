@@ -25,6 +25,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtList
 import com.maggie.app.data.model.PeerDebtSummary
 import com.maggie.app.data.model.TransactionDebt
 import com.maggie.app.data.model.TransactionDebtRequest
@@ -122,6 +123,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -1764,11 +1766,13 @@ class MaggieApiService(
         return client.delete("$baseUrl/api/finance/transactions/$transactionId/allocation").orRefusal().body()
     }
 
-    suspend fun getPeerDebts(): List<PeerDebt> {
-        return client.get("$baseUrl/api/peer_debts") {
-            accept(ContentType("application", "ld+json"))
-            withoutPagination()
-        }.orRefusal().body<ApiCollection<PeerDebt>>().member
+    /** The créances and dettes with their history, filtered by the server (MAG-455); a null filter is no filter. */
+    suspend fun getPeerDebtsOverview(status: String? = null, direction: String? = null, contact: String? = null): PeerDebtList {
+        return client.get("$baseUrl/api/finance/peer-debts") {
+            status?.let { parameter("status", it) }
+            direction?.let { parameter("direction", it) }
+            contact?.let { parameter("contact", it) }
+        }.orRefusal().body()
     }
 
     suspend fun getPeerDebtSummary(): PeerDebtSummary {

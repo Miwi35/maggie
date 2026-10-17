@@ -84,7 +84,7 @@ class FinanceDashboardControllerTest extends WebTestCase
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame(
-            ['toSortCount', 'rejectionsToSettleCount', 'reviewReady', 'advanceToRepayCents'],
+            ['toSortCount', 'rejectionsToSettleCount', 'reviewReady', 'advanceToRepayCents', 'owedToMeCents', 'iOweCents'],
             array_keys($data['todo']),
         );
         self::assertIsInt($data['todo']['toSortCount']);

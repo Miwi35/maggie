@@ -128,6 +128,10 @@ export interface DashboardTodo {
   reviewReady: boolean
   /** What is still to give back to the savings after an advance. */
   advanceToRepayCents: number
+  /** What people owe the owner, still open (MAG-455). */
+  owedToMeCents: number
+  /** What the owner owes people, still open. */
+  iOweCents: number
 }
 
 export interface FinanceDashboard {

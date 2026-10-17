@@ -68,12 +68,31 @@ describe('AccountsTile', () => {
     expect(screen.queryByTestId('pill-rejections')).not.toBeInTheDocument()
   })
 
-  test('shows the receivables example as a static pill, not a link and without « bientôt »', () => {
+  test('shows « On te doit N € » as a pill that opens Créances et dettes', () => {
+    renderTile(undefined, { ...dashboardFixture().todo, owedToMeCents: 53500, iOweCents: 0 })
+
+    const pill = screen.getByRole('link', { name: /On te doit 535,00\s€/ })
+    expect(pill).toHaveAttribute('href', '/finance/peer-debts')
+  })
+
+  test('shows « Tu dois N € » when the owner owes more than they are owed', () => {
+    renderTile(undefined, { ...dashboardFixture().todo, owedToMeCents: 20000, iOweCents: 28000 })
+
+    const pill = screen.getByTestId('pill-owed')
+    expect(pill).toHaveTextContent(/^Tu dois 80,00\s€$/)
+    expect(pill).toHaveAttribute('href', '/finance/peer-debts')
+  })
+
+  test('shows no pill when nobody owes anything', () => {
     renderTile()
 
-    const pill = screen.getByTestId('pill-owed-example')
-    expect(pill).toHaveTextContent('On te doit 535 €')
-    expect(pill.closest('a')).toBeNull()
-    expect(screen.getByTestId('tile-accounts')).not.toHaveTextContent(/bientôt/i)
+    expect(screen.queryByTestId('pill-owed')).not.toBeInTheDocument()
+    expect(screen.getByTestId('tile-accounts')).not.toHaveTextContent(/On te doit|Tu dois/)
+  })
+
+  test('shows no pill when what is owed and what is due even out', () => {
+    renderTile(undefined, { ...dashboardFixture().todo, owedToMeCents: 5000, iOweCents: 5000 })
+
+    expect(screen.queryByTestId('pill-owed')).not.toBeInTheDocument()
   })
 })

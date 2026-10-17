@@ -5,6 +5,7 @@ import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtHistoryEntry
 import com.maggie.app.data.model.PeerDebtShare
 import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.PeerDebtRepository
@@ -55,7 +56,7 @@ class ContactViewModelTest {
         coEvery { contacts.getCounterparties("c-tom") } returns Result.success(listOf(tomMartin))
         coEvery { contacts.getSuggestions("c-tom") } returns Result.success(listOf(lydia))
         peerDebts = mockk()
-        coEvery { peerDebts.getPeerDebts() } returns Result.success(emptyList())
+        coEvery { peerDebts.getOverview(contact = any()) } returns Result.success(emptyList())
     }
 
     @After
@@ -361,7 +362,7 @@ class ContactViewModelTest {
 
     @Test
     fun `a contact's page lists what they still owe, the latest first`() = runTest {
-        coEvery { peerDebts.getPeerDebts() } returns Result.success(
+        coEvery { peerDebts.getOverview(contact = "c-tom") } returns Result.success(
             listOf(
                 debt("d-1", "Resto", "2026-09-02T20:00:00+00:00", Triple("c-tom", "Tom", 3000)),
                 debt("d-2", "Gîte des Cimes", "2026-10-10T09:00:00+00:00", Triple("c-julie", "Julie", 20000), Triple("c-tom", "Tom", 20000)),
@@ -384,7 +385,7 @@ class ContactViewModelTest {
 
     @Test
     fun `a créance list that could not be read leaves the rest of the page`() = runTest {
-        coEvery { peerDebts.getPeerDebts() } returns Result.failure(RuntimeException("Hors ligne"))
+        coEvery { peerDebts.getOverview(contact = "c-tom") } returns Result.failure(RuntimeException("Hors ligne"))
         val viewModel = load()
         advanceUntilIdle()
 
@@ -395,5 +396,30 @@ class ContactViewModelTest {
         assertTrue(detail.openDebts.isEmpty())
         assertEquals(listOf("VIR. DE TOM MARTIN"), detail.counterparties.map { it.label })
         assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a contact's page lists the transfers that gave their shares back, the latest first (MAG-455)`() = runTest {
+        coEvery { peerDebts.getOverview(contact = "c-tom") } returns Result.success(
+            listOf(
+                debt("d-1", "Gîte des Cimes", "2026-10-10T09:00:00+00:00", Triple("c-tom", "Tom", 10000)).copy(
+                    history = listOf(
+                        PeerDebtHistoryEntry("t-1", "2026-10-15", "VIR DE TOM MARTIN", 10000, "c-tom", "Tom"),
+                        PeerDebtHistoryEntry("t-2", "2026-10-20", "VIR DE TOM MARTIN", 5000, "c-tom", "Tom"),
+                        PeerDebtHistoryEntry("t-3", "2026-10-18", "VIR DE JULIE", 7000, "c-julie", "Julie"),
+                    ),
+                ),
+            ),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.open("c-tom")
+        advanceUntilIdle()
+
+        val history = viewModel.uiState.value.detail!!.history
+        assertEquals(listOf("t-2", "t-1"), history.map { it.transactionId })
+        assertEquals(listOf(5000, 10000), history.map { it.amountCents })
+        assertEquals("Gîte des Cimes", history.first().subject)
     }
 }

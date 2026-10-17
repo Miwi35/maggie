@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.AccountsTile
 import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.FinanceTodo
-import com.maggie.app.data.model.OWED_EXAMPLE_PILL
 import com.maggie.app.data.model.accountWithRejections
 import com.maggie.app.data.model.advancePillText
 import com.maggie.app.data.model.rejectionsPillText
@@ -48,6 +47,7 @@ import com.maggie.app.data.model.accountLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.owedPillText
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.referenceSalarySourceLabel
 import com.maggie.app.data.model.treasuryDate
@@ -85,13 +85,12 @@ private fun Hint(text: String, modifier: Modifier = Modifier, color: Color = Mat
     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color, modifier = modifier)
 }
 
-/** A pill of a tile: its own tap target when [onClick] is given, a plain example otherwise. */
+/** A pill of a tile: its own tap target. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TodoPill(label: String, tag: String, onClick: (() -> Unit)? = null) {
+private fun TodoPill(label: String, tag: String, onClick: () -> Unit) {
     AssistChip(
-        onClick = onClick ?: {},
-        enabled = onClick != null,
+        onClick = onClick,
         label = { Text(label) },
         modifier = Modifier.testTag(tag),
     )
@@ -136,20 +135,24 @@ internal fun AccountsTileCard(
         val toSort = toSortPillText(todo.toSortCount)
         val rejections = rejectionsPillText(todo.rejectionsToSettleCount)
         val rejectionsAccount = tile.accountWithRejections()
-        FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (toSort != null) {
-                TodoPill(toSort, UiTags.FINANCE_PILL_TO_SORT) { onOpen(Screen.TransactionsToSort.route) }
-            }
-            if (rejections != null) {
-                TodoPill(rejections, UiTags.FINANCE_PILL_REJECTIONS) {
-                    rejectionsAccount?.let(onOpenIncidents) ?: onOpen(Screen.AccountList.route)
+        val owed = owedPillText(todo.owedToMeCents, todo.iOweCents)
+        if (toSort != null || rejections != null || owed != null) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (toSort != null) {
+                    TodoPill(toSort, UiTags.FINANCE_PILL_TO_SORT) { onOpen(Screen.TransactionsToSort.route) }
+                }
+                if (rejections != null) {
+                    TodoPill(rejections, UiTags.FINANCE_PILL_REJECTIONS) {
+                        rejectionsAccount?.let(onOpenIncidents) ?: onOpen(Screen.AccountList.route)
+                    }
+                }
+                if (owed != null) {
+                    TodoPill(owed, UiTags.FINANCE_PILL_OWED) { onOpen(Screen.PeerDebts.route) }
                 }
             }
-            // Example of the receivables lot: not clickable, not a figure of the user's.
-            TodoPill(OWED_EXAMPLE_PILL, UiTags.FINANCE_PILL_OWED_EXAMPLE)
         }
     }
 }

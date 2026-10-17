@@ -1,0 +1,90 @@
+appId: com.maggie.app.e2e
+name: 21-finance-peer-debts
+tags:
+  - finance
+---
+# Créances et dettes par personne, and the pill of the home, from the phone (MAG-455, extends MAG-102).
+#
+# Étant donné que Tom me doit 200 € (un gîte) et que je lui dois 280 € (de l'essence)
+# Quand j'ouvre les finances
+# Alors la tuile Comptes affiche « Tu dois 80 € »
+# Quand je touche la pastille
+# Alors « Créances et dettes » s'ouvre, avec « On te doit » 200 € et « Tu dois » 280 €
+# Et la ligne de Tom, dépliée, dit que les deux se compensent : un seul virement de 80 € à Tom solde tout
+# Quand je passe à « Par objet »
+# Alors le gîte et l'essence y sont, chacun avec son montant
+#
+# The data is set by `scripts/contacts-api.js` (`ACTION: peerdebts`) on the seed's second user, who holds
+# no other finance data. Amounts are matched loosely: the phone writes them « 80.00 EUR ».
+#
+# What is not here: the empty state, the error and its retry, the tablet's list beside its detail
+# (`PeerDebtsScreenTest`, `PeerDebtsViewModelTest`), the history of a contact (`ContactScreenTest`),
+# and the admin's side of the same API.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/21-finance-peer-debts.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: peerdebts
+
+- openLink: "maggie-e2e://finance"
+
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_owed"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Tu dois 80[.,]00 EUR"
+    timeout: 10000
+- tapOn:
+    id: "finance_pill_owed"
+
+- extendedWaitUntil:
+    visible:
+      id: "peer_debts"
+    timeout: 30000
+- assertVisible:
+    id: "peer_debts_tile_owed_to_me"
+- assertVisible:
+    id: "peer_debts_tile_i_owe"
+- assertVisible: ".*200[.,]00 EUR.*"
+- assertVisible: ".*280[.,]00 EUR.*"
+
+# « Par personne »: Tom, opened, says the two cancel out.
+- extendedWaitUntil:
+    visible:
+      id: "peer_debts_person"
+    timeout: 30000
+- assertVisible: ".*Tom.*"
+- tapOn:
+    id: "peer_debts_person"
+- extendedWaitUntil:
+    visible:
+      id: "peer_debts_compensation"
+    timeout: 10000
+- assertVisible: "Les deux se compensent : un seul virement de 80[.,]00 EUR à Tom solde tout"
+
+# « Par objet »: each object with its amount.
+- tapOn:
+    id: "peer_debts_tab_object"
+- extendedWaitUntil:
+    visible:
+      id: "peer_debts_object"
+    timeout: 10000
+- assertVisible: ".*Gîte de Crozon.*"
+- assertVisible: ".*Essence du road trip.*"
+
+# Left as found.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: remove

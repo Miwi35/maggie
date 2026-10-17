@@ -80,6 +80,7 @@ import com.maggie.app.ui.screens.finance.ToQualifyViewModel
 import com.maggie.app.ui.screens.finance.ToSortViewModel
 import com.maggie.app.ui.screens.finance.ContactViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
+import com.maggie.app.ui.screens.finance.PeerDebtsViewModel
 import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
@@ -363,6 +364,7 @@ class MaggieApp : Application() {
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }
             viewModel { SavingsAdvancesViewModel(get(), get()) }
+            viewModel { PeerDebtsViewModel(get()) }
             viewModel { LoanViewModel(get()) }
             viewModel { MonthlyReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get()) }

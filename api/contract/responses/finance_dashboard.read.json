@@ -389,7 +389,9 @@
         "toSortCount": 0,
         "rejectionsToSettleCount": 0,
         "reviewReady": false,
-        "advanceToRepayCents": 0
+        "advanceToRepayCents": 0,
+        "owedToMeCents": 5000,
+        "iOweCents": 0
     },
     "score": {
         "score": "red",
