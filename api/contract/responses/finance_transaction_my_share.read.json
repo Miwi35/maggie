@@ -1,0 +1,28 @@
+{
+    "transactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "amountCents": -8900,
+    "myShareCents": 2900,
+    "canBeShared": true,
+    "peerDebt": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "direction": "owed_to_me",
+        "object": "Recorded ticket",
+        "notes": "Recorded notes",
+        "originTransactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "amountCents": 6000,
+        "repaidCents": 1000,
+        "remainingCents": 5000,
+        "status": "open",
+        "createdAt": "2026-01-01T00:00:00+00:00",
+        "shares": [
+            {
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "contactId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "contactName": "Recorded Tom",
+                "amountCents": 6000,
+                "repaidCents": 1000,
+                "remainingCents": 5000
+            }
+        ]
+    }
+}

@@ -10,6 +10,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Exception\OneOffAttributionException;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Exception\SatisfactionException;
+use Maggie\Finance\Exception\SharedSpendException;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -118,7 +119,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             return $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
-            if ($cause instanceof OneOffAttributionException || $cause instanceof SatisfactionException) {
+            if ($cause instanceof OneOffAttributionException || $cause instanceof SatisfactionException || $cause instanceof SharedSpendException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
             }
             if ($cause instanceof RecurringAttachmentException) {

@@ -71,3 +71,13 @@ export function contactRoute(contactId: string): string {
 
   return `${ROUTES.contacts}/${encodeURIComponent(iri)}`
 }
+
+/**
+ * A transaction's sheet (MAG-464), where a spend is shared (MAG-451). Like a
+ * contact, react-admin addresses it by its IRI, encoded into one path segment.
+ */
+export function transactionRoute(transactionId: string): string {
+  const iri = transactionId.startsWith('/') ? transactionId : `/api/transactions/${transactionId}`
+
+  return `/transactions/${encodeURIComponent(iri)}`
+}

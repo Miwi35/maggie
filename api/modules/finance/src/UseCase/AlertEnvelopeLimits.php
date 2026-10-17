@@ -141,7 +141,7 @@ class AlertEnvelopeLimits
                 continue;
             }
             if ($this->isWithin($spend->getCategory(), $envelope->requireCategory())) {
-                $cents += abs($spend->getAmountCents());
+                $cents += abs($spend->getOwnAmountCents());
             }
         }
 

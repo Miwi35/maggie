@@ -340,6 +340,53 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the créances deserialise from the recorded response, with each person's share`() {
+        assertCollectionContract("peer_debts", serializer<PeerDebt>(), "PeerDebt")
+        val body = readRecording("peer_debts.collection")
+        val shareKeys = body["member"]!!.jsonArray.flatMap { keysOf(it.jsonObject, "shares") }.toSet()
+        assertDeclaredFieldsExist("PeerDebtShare", serializer<PeerDebtShare>(), shareKeys, "peer_debts.collection")
+
+        val debt = json.decodeFromJsonElement(ApiCollection.serializer(serializer<PeerDebt>()), body).member.first()
+        assertEquals(PeerDebt.DIRECTION_OWED_TO_ME, debt.direction)
+        assertTrue(debt.isOpen)
+        assertEquals(5000, debt.shares.single().remainingCents)
+        assertEquals("Recorded Tom", debt.shares.single().contactName)
+    }
+
+    @Test
+    fun `my part of a shared spend deserialises from the recorded response, with its créance`() {
+        assertItemContract("finance_transaction_my_share.read", serializer<MyShare>(), "MyShare")
+        val body = readRecording("finance_transaction_my_share.read")
+        val debtBody = body["peerDebt"]!!.jsonObject
+        assertDeclaredFieldsExist("PeerDebt", serializer<PeerDebt>(), debtBody.keys, "finance_transaction_my_share.read")
+        assertDeclaredFieldsExist("PeerDebtShare", serializer<PeerDebtShare>(), keysOf(debtBody, "shares"), "finance_transaction_my_share.read")
+
+        val share = json.decodeFromJsonElement(serializer<MyShare>(), body)
+        assertEquals(2900, share.myShareCents)
+        assertTrue("canBeShared fell back to its default", share.canBeShared)
+        assertEquals("Recorded ticket", share.peerDebt?.`object`)
+        assertEquals(6000, share.peerDebt?.amountCents)
+    }
+
+    @Test
+    fun `the créances' summary deserialises from the recorded response`() {
+        assertItemContract("finance_peer_debts_summary.read", serializer<PeerDebtSummary>(), "PeerDebtSummary")
+        val summary = json.decodeFromJsonElement(serializer<PeerDebtSummary>(), readRecording("finance_peer_debts_summary.read"))
+
+        assertEquals(5000, summary.owedToMeCents)
+    }
+
+    @Test
+    fun `a shared spend carries my part in the transactions list`() {
+        val transactions = json.decodeFromJsonElement(
+            ApiCollection.serializer(serializer<Transaction>()),
+            readRecording("transactions.collection"),
+        ).member
+
+        assertTrue("no recorded line carries myShareCents", transactions.any { it.myShareCents == 2900 })
+    }
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

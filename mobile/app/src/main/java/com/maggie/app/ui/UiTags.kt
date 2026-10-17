@@ -695,6 +695,30 @@ object UiTags {
     const val CONTACT_COUNTERPARTY_REMOVE = "contact_counterparty_remove"
     const val CONTACT_SUGGESTION_ADD = "contact_suggestion_add"
 
+    /** A contact's « En cours » (MAG-451): one open créance, and its « te doit … ». */
+    const val CONTACT_DEBT = "contact_debt"
+    const val CONTACT_DEBT_REMAINING = "contact_debt_remaining"
+
+    /**
+     * The sheet's « Partage » (MAG-451): the switch « Dépense partagée », « Ta part » with its − / + and its field,
+     * « On te doit », a person of « Qui te doit » with their amount and « Retirer », « Ajouter une personne »,
+     * « Objet », « Notes », « Enregistrer », what blocks it or what the server refused, and « Voir tout ce qu'on te doit ».
+     */
+    const val SHARE_SWITCH = "share_switch"
+    const val SHARE_MINE = "share_mine"
+    const val SHARE_MINE_LESS = "share_mine_less"
+    const val SHARE_MINE_MORE = "share_mine_more"
+    const val SHARE_OWED = "share_owed"
+    const val SHARE_PERSON = "share_person"
+    const val SHARE_PERSON_AMOUNT = "share_person_amount"
+    const val SHARE_PERSON_REMOVE = "share_person_remove"
+    const val SHARE_ADD_PERSON = "share_add_person"
+    const val SHARE_SUBJECT = "share_subject"
+    const val SHARE_NOTES = "share_notes"
+    const val SHARE_SAVE = "share_save"
+    const val SHARE_PROBLEM = "share_problem"
+    const val SHARE_ALL_OWED = "share_all_owed"
+
     /** The full-screen contact picker — a window of its own: its field, one result, « + Créer « … » ». */
     const val CONTACT_PICKER_SEARCH = "contact_picker_search"
     const val CONTACT_PICKER_RESULT = "contact_picker_result"

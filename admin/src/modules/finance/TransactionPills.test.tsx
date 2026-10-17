@@ -52,6 +52,15 @@ describe('transactionPills', () => {
     expect(transactionPills({ ...ORDINARY, category: null, transferKind: 'rejected' }).map((p) => p.kind)).toEqual(['rejected'])
   })
 
+  test('a shared spend is « Partagée » (MAG-451), after its series', () => {
+    expect(transactionPills({ ...ORDINARY, myShareCents: 20000 })).toEqual([{ kind: 'shared', label: 'Partagée' }])
+    expect(transactionPills({ ...ORDINARY, myShareCents: 0 }).map((p) => p.kind)).toEqual(['shared'])
+    expect(transactionPills({ ...ORDINARY, myShareCents: null })).toEqual([])
+    expect(
+      transactionPills({ ...ORDINARY, myShareCents: 500, recurringOperation: '/api/recurring_operations/01S' }).map((p) => p.kind),
+    ).toEqual(['series', 'shared'])
+  })
+
   test('a line of a series with no category is both, in the order of the row', () => {
     const record = { ...ORDINARY, category: null, recurringOperation: '/api/recurring_operations/01S' }
 

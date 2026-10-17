@@ -74,7 +74,18 @@ class TransactionSheetTest {
     }
 
     @Test
-    fun `nothing emits the shared pill yet`() {
+    fun `a shared spend wears « Partagée », after its series and before « À qualifier »`() {
+        val line = ordinary.copy(category = null, recurringOperation = "/api/recurring_operations/s1", myShareCents = 20000)
+
+        assertEquals(
+            listOf(TransactionPillKind.SERIES, TransactionPillKind.SHARED, TransactionPillKind.TO_SORT),
+            transactionPills(line).map { it.kind },
+        )
+        assertEquals("Partagée", transactionPills(line).single { it.kind == TransactionPillKind.SHARED }.label)
+    }
+
+    @Test
+    fun `a line not shared wears no « Partagée »`() {
         val everything = listOf(
             ordinary,
             ordinary.copy(category = null),

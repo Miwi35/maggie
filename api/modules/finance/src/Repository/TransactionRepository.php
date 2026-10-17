@@ -39,6 +39,13 @@ use Symfony\Component\Uid\Ulid;
  */
 class TransactionRepository extends ServiceEntityRepository
 {
+    /**
+     * `Transaction::getOwnAmountCents()` in DQL: the part the owner kept of a
+     * shared spend (MAG-451), the whole amount otherwise. Every budget sum
+     * reads it — envelopes, score, review, lifestyle.
+     */
+    public const string OWN_AMOUNT = 'COALESCE(0 - t.myShareCents, t.amountCents)';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Transaction::class);
@@ -185,7 +192,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumByStatusForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('t.status AS status, SUM(t.amountCents) AS total')
+            ->select('t.status AS status, SUM('.self::OWN_AMOUNT.') AS total')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IN (:categories)')
@@ -226,7 +233,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumMandatoryConsumedForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
         $total = $this->createQueryBuilder('t')
-            ->select('SUM(t.amountCents)')
+            ->select('SUM('.self::OWN_AMOUNT.')')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IN (:categories)')
@@ -313,7 +320,7 @@ class TransactionRepository extends ServiceEntityRepository
         }
 
         $rows = $this->createQueryBuilder('t')
-            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents')
+            ->select('t.bookedAt AS bookedAt, '.self::OWN_AMOUNT.' AS amountCents')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IN (:categories)')
@@ -350,7 +357,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumByStatusForOneOffEnvelopes(User $user): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('IDENTITY(t.oneOffEnvelope) AS envelope, t.status AS status, SUM(t.amountCents) AS total')
+            ->select('IDENTITY(t.oneOffEnvelope) AS envelope, t.status AS status, SUM('.self::OWN_AMOUNT.') AS total')
             ->andWhere('t.user = :user')
             ->andWhere('t.oneOffEnvelope IS NOT NULL')
             ->andWhere('t.transferKind = :noTransfer')
@@ -640,6 +647,8 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.counterpart IS NULL')
             ->andWhere('t.transferKind = :none')
+            // A shared spend was paid: its créance would be left for nothing (MAG-451).
+            ->andWhere('t.myShareCents IS NULL')
             ->setParameter('user', $credit->getUser()->getId(), 'ulid')
             ->setParameter('id', $credit->getId(), 'ulid')
             ->setParameter('account', $credit->getAccount()->getId(), 'ulid')
@@ -669,7 +678,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumConsumedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
         $total = $this->createQueryBuilder('t')
-            ->select('SUM(t.amountCents)')
+            ->select('SUM('.self::OWN_AMOUNT.')')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
@@ -917,7 +926,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumSpendingByCategoryBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
+            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM('.self::OWN_AMOUNT.') AS total')
             ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')

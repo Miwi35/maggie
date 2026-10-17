@@ -1317,6 +1317,7 @@ fun NavGraph() {
                                     onPrefillConsumed = { transactionPrefill = null },
                                     openTransactionId = transactionToOpen,
                                     onTransactionOpened = { transactionToOpen = null },
+                                    onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
                                 )
                             }
                         },
@@ -1479,6 +1480,7 @@ fun NavGraph() {
                             onPrefillConsumed = { transactionPrefill = null },
                             openTransactionId = transactionToOpen,
                             onTransactionOpened = { transactionToOpen = null },
+                            onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
                         )
                     }
                 }
@@ -1731,6 +1733,7 @@ private fun AccountTransactions(
     onPrefillConsumed: () -> Unit,
     openTransactionId: String?,
     onTransactionOpened: () -> Unit,
+    onOpenPeerDebts: () -> Unit,
 ) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
@@ -1743,5 +1746,6 @@ private fun AccountTransactions(
         onPrefillConsumed = onPrefillConsumed,
         openTransactionId = openTransactionId,
         onTransactionOpened = onTransactionOpened,
+        onOpenPeerDebts = onOpenPeerDebts,
     )
 }

@@ -9,6 +9,12 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.MyShare
+import com.maggie.app.data.model.MyShareRequest
+import com.maggie.app.data.model.MyShareRequestShare
+import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RulePreview
@@ -18,6 +24,8 @@ import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.Job
@@ -55,6 +63,8 @@ data class TransactionUiState(
     // The events a spend can be attributed to (MAG-414), read when the sheet needs them.
     val oneOffEnvelopes: List<Envelope> = emptyList(),
     val isLoadingOneOffEnvelopes: Boolean = false,
+    // « Ajouter une personne » of the sheet's « Partage » open: the owner's contacts, read when it opens.
+    val shareContacts: ContactChoice? = null,
 ) {
     /** The name of the event the open line is attributed to, once the envelopes are read. */
     fun oneOffEnvelopeNameOf(transaction: Transaction): String? =
@@ -106,7 +116,101 @@ data class TransferDetailState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
+    // « Partage » (MAG-451): read with the line, null until then and for a line that is not ordinary.
+    val share: ShareEditor? = null,
 )
+
+/** One person of « Qui te doit »: what they owe of the spend. */
+data class ShareLine(
+    val contactId: String,
+    val name: String,
+    val amountCents: Int,
+)
+
+/**
+ * « Partage » of the open spend (MAG-451): the part the owner keeps — only it counts in the
+ * envelopes — and the people who owe the rest. The rest is split equally, the last cent on the
+ * last person, each time the part or the people change, until an amount is edited by hand: from
+ * then on the amounts are the owner's, and all of them are sent.
+ */
+data class ShareEditor(
+    /** The spend, in absolute cents. */
+    val totalCents: Int,
+    val canBeShared: Boolean,
+    /** The part the server holds; null while the spend is not shared. */
+    val savedMyShareCents: Int? = null,
+    /** The switch « Dépense partagée ». */
+    val enabled: Boolean = false,
+    val myShareCents: Int = totalCents / 2,
+    val people: List<ShareLine> = emptyList(),
+    val editedByHand: Boolean = false,
+    /** « Objet »: the label unless the owner names it otherwise. */
+    val subject: String = "",
+    val notes: String = "",
+    val isSaving: Boolean = false,
+    val error: String? = null,
+    val message: String? = null,
+) {
+    val isShared: Boolean get() = savedMyShareCents != null
+
+    /** « On te doit »: what the others owe, the spend minus the owner's part. */
+    val owedCents: Int get() = totalCents - myShareCents
+
+    val allocatedCents: Int get() = people.sumOf { it.amountCents }
+
+    /** Why « Enregistrer » cannot be sent yet, null when it can. */
+    val problem: String? get() = when {
+        !enabled -> null
+        myShareCents < 0 || myShareCents >= totalCents -> "Ta part va de 0 au montant de la dépense, exclu."
+        people.isEmpty() -> "Ajoute au moins une personne qui te doit sa part."
+        owedCents < people.size -> "Il n'y a pas assez à partager entre ${people.size} personnes."
+        editedByHand && people.any { it.amountCents <= 0 } -> "Chaque personne doit un montant positif."
+        editedByHand && allocatedCents != owedCents ->
+            "Les parts font ${formatCents(allocatedCents)}, " +
+                "il en faut ${formatCents(owedCents)}."
+        else -> null
+    }
+
+    val canSave: Boolean get() = enabled && problem == null && !isSaving
+
+    /** The people's amounts recomputed equally, unless the owner wrote them by hand. */
+    fun resplit(): ShareEditor {
+        if (editedByHand) return this
+        val amounts = splitEqually(owedCents, people.size)
+        return copy(people = people.mapIndexed { index, line -> line.copy(amountCents = amounts[index]) })
+    }
+
+    fun toRequest(): MyShareRequest = MyShareRequest(
+        myShareCents = myShareCents,
+        `object` = subject.trim().ifEmpty { null },
+        notes = notes.trim().ifEmpty { null },
+        // No amount at all asks the server for the same equal split.
+        shares = people.map { MyShareRequestShare(it.contactId, it.amountCents.takeIf { editedByHand }) },
+    )
+
+    companion object {
+        /** The editor as the server's answer leaves it: switched on when the spend is shared. */
+        fun of(share: MyShare, label: String, message: String? = null): ShareEditor {
+            val total = kotlin.math.abs(share.amountCents)
+            val debt = share.peerDebt
+            val people = debt?.shares.orEmpty().map { ShareLine(it.contactId, it.contactName, it.amountCents) }
+            val part = share.myShareCents ?: (total / 2)
+            return ShareEditor(
+                totalCents = total,
+                canBeShared = share.canBeShared,
+                savedMyShareCents = share.myShareCents,
+                enabled = share.myShareCents != null,
+                myShareCents = part,
+                people = people,
+                // Amounts the server holds that an equal split would not give were set by hand.
+                editedByHand = people.isNotEmpty() && people.map { it.amountCents } != splitEqually(total - part, people.size),
+                subject = debt?.`object` ?: label,
+                notes = debt?.notes.orEmpty(),
+                message = message,
+            )
+        }
+    }
+}
 
 /**
  * Account-scoped transaction list. Transactions are accessed primarily through
@@ -120,6 +224,8 @@ class TransactionViewModel(
     private val authRepository: AuthRepository,
     private val recurringOperationRepository: RecurringOperationRepository,
     private val ruleRepository: CategorizationRuleRepository,
+    private val peerDebtRepository: PeerDebtRepository,
+    private val contactRepository: ContactRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionUiState())
@@ -354,6 +460,145 @@ class TransactionViewModel(
         if (transaction.qualifiedByRule != null && _uiState.value.ruleNames.isEmpty()) {
             loadRuleNames()
         }
+        // Only an ordinary line has a « Partage » section to fill.
+        if (transaction.transferKind == "none") {
+            loadShare(transaction)
+        }
+    }
+
+    private fun loadShare(transaction: Transaction) {
+        viewModelScope.launch {
+            peerDebtRepository.getMyShare(transaction.id)
+                .onSuccess { share -> updateDetail(transaction.id) { it.copy(share = ShareEditor.of(share, transaction.label)) } }
+                .onFailure { e -> updateDetail(transaction.id) { it.copy(error = e.message) } }
+        }
+    }
+
+    private fun updateShare(change: (ShareEditor) -> ShareEditor) {
+        val open = _uiState.value.detail ?: return
+        val share = open.share ?: return
+        _uiState.value = _uiState.value.copy(detail = open.copy(share = change(share)))
+    }
+
+    /**
+     * The switch « Dépense partagée ». Off on a spend the server holds as shared takes the share
+     * back (the whole amount is the owner's again); off on a draft only folds it.
+     */
+    fun setShareEnabled(enabled: Boolean) {
+        val share = _uiState.value.detail?.share ?: return
+        when {
+            enabled -> updateShare { it.copy(enabled = true, error = null, message = null).resplit() }
+            share.isShared -> removeShare()
+            else -> updateShare { it.copy(enabled = false, error = null) }
+        }
+    }
+
+    /** « Ta part », typed or stepped: kept between 0 and the spend, exclusive; the rest is split again. */
+    fun changeMyShare(cents: Int) {
+        updateShare { it.copy(myShareCents = cents.coerceIn(0, (it.totalCents - 1).coerceAtLeast(0)), error = null).resplit() }
+    }
+
+    /** A person picked (or created) in the full-screen picker joins « Qui te doit ». */
+    fun addSharePerson(contact: Contact) {
+        updateShare { share ->
+            if (share.people.any { it.contactId == contact.id }) return@updateShare share
+            // By hand, the newcomer gets what is not given yet; the split gives them their equal part.
+            val rest = (share.owedCents - share.allocatedCents).coerceAtLeast(0)
+            share.copy(people = share.people + ShareLine(contact.id, contact.name, rest), error = null).resplit()
+        }
+    }
+
+    fun removeSharePerson(contactId: String) {
+        updateShare { share -> share.copy(people = share.people.filter { it.contactId != contactId }, error = null).resplit() }
+    }
+
+    /** One person's amount written by hand: the split stops, every amount is sent as it is. */
+    fun editShareAmount(contactId: String, cents: Int) {
+        updateShare { share ->
+            share.copy(
+                editedByHand = true,
+                people = share.people.map { if (it.contactId == contactId) it.copy(amountCents = cents) else it },
+                error = null,
+            )
+        }
+    }
+
+    fun changeShareSubject(text: String) = updateShare { it.copy(subject = text) }
+
+    fun changeShareNotes(text: String) = updateShare { it.copy(notes = text) }
+
+    /** « Enregistrer »: the part and the créance, together. */
+    fun saveShare() {
+        val open = _uiState.value.detail ?: return
+        val share = open.share ?: return
+        if (!share.canSave) return
+        val id = open.transaction.id
+        updateShare { it.copy(isSaving = true, error = null, message = null) }
+        viewModelScope.launch {
+            peerDebtRepository.setMyShare(id, share.toRequest())
+                .onSuccess { saved -> shareSaved(id, saved, "Partage enregistré") }
+                .onFailure { e -> updateDetail(id) { it.copy(share = it.share?.copy(isSaving = false, error = e.message ?: "Enregistrement impossible.")) } }
+        }
+    }
+
+    /** The share taken back: the whole spend counts in the envelopes again. */
+    fun removeShare() {
+        val open = _uiState.value.detail ?: return
+        if (open.share?.isSaving == true) return
+        val id = open.transaction.id
+        updateShare { it.copy(isSaving = true, error = null, message = null) }
+        viewModelScope.launch {
+            peerDebtRepository.removeMyShare(id)
+                .onSuccess { saved -> shareSaved(id, saved, "Partage retiré") }
+                .onFailure { e -> updateDetail(id) { it.copy(share = it.share?.copy(isSaving = false, enabled = true, error = e.message ?: "Suppression impossible.")) } }
+        }
+    }
+
+    private fun shareSaved(id: String, saved: MyShare, message: String) {
+        updateDetail(id) {
+            it.copy(
+                transaction = it.transaction.copy(myShareCents = saved.myShareCents),
+                share = ShareEditor.of(saved, it.transaction.label, message),
+            )
+        }
+        // The list's pill and the envelopes follow the part kept.
+        refresh()
+    }
+
+    fun clearShareMessage() = updateShare { it.copy(message = null) }
+
+    /** « Ajouter une personne »: the full-screen picker, on the owner's contacts. */
+    fun openShareContactPicker() {
+        if (_uiState.value.detail?.share == null) return
+        _uiState.value = _uiState.value.copy(shareContacts = ContactChoice())
+        viewModelScope.launch {
+            // No list is no reason to refuse: « + Créer » stays possible.
+            val contacts = contactRepository.getContacts().getOrDefault(emptyList())
+            _uiState.value.shareContacts?.let {
+                _uiState.value = _uiState.value.copy(shareContacts = ContactChoice(isLoading = false, contacts = contacts))
+            }
+        }
+    }
+
+    fun closeShareContactPicker() {
+        _uiState.value = _uiState.value.copy(shareContacts = null)
+    }
+
+    fun pickShareContact(contact: Contact) {
+        closeShareContactPicker()
+        addSharePerson(contact)
+    }
+
+    /** « + Créer « Inès » »: the contact is created, then joins « Qui te doit ». */
+    fun createShareContact(name: String) {
+        if (name.isBlank()) return
+        closeShareContactPicker()
+        val id = _uiState.value.detail?.transaction?.id ?: return
+        viewModelScope.launch {
+            contactRepository.createContact(name.trim())
+                .onSuccess { contact -> if (_uiState.value.detail?.transaction?.id == id) addSharePerson(contact) }
+                .onFailure { e -> updateDetail(id) { it.copy(share = it.share?.copy(error = e.message ?: "Création impossible.")) } }
+        }
     }
 
     // The rule's name only completes « Posée par la règle … »: a failure leaves the sentence without it.
@@ -409,7 +654,7 @@ class TransactionViewModel(
 
     fun closeDetail() {
         ruleDraftSession.close()
-        _uiState.value = _uiState.value.copy(detail = null)
+        _uiState.value = _uiState.value.copy(detail = null, shareContacts = null)
     }
 
     private fun loadDetailInfo(transactionId: String) {

@@ -79,7 +79,7 @@
                 },
                 {
                     "code": "above_last_year",
-                    "amountCents": 130249
+                    "amountCents": 124249
                 }
             ],
             "rhythm": {
@@ -282,7 +282,7 @@
                 },
                 {
                     "code": "above_last_year",
-                    "amountCents": 130249
+                    "amountCents": 124249
                 },
                 {
                     "code": "annual_category_exceeded",
@@ -404,7 +404,7 @@
             },
             {
                 "code": "above_last_year",
-                "amountCents": 130249
+                "amountCents": 124249
             }
         ],
         "budget": {
@@ -421,9 +421,9 @@
             "blocksGreenScore": true
         },
         "comparison": {
-            "thisMonthCents": 130249,
+            "thisMonthCents": 124249,
             "sameMonthLastYearCents": 0,
-            "differenceCents": 130249,
+            "differenceCents": 124249,
             "isBetter": false
         },
         "referenceSalary": {
@@ -553,9 +553,9 @@
         {
             "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "categoryName": "Recorded Category",
-            "spentCents": 134499,
+            "spentCents": 128499,
             "previousMonthCents": 91349,
-            "changeCents": 43150
+            "changeCents": 37150
         }
     ],
     "savingCapacity": {

@@ -51,6 +51,7 @@ import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
@@ -289,6 +290,7 @@ class MaggieApp : Application() {
             single { FinanceDashboardRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }
+            single { PeerDebtRepository(get()) }
             single { NotificationRepository(get()) }
             single { SearchRepository(get()) }
             single { ContextRepository(get()) }
@@ -349,7 +351,7 @@ class MaggieApp : Application() {
             viewModel { RuleSuggestionViewModel(get(), get()) }
             viewModel { ToSortViewModel(get(), get(), get(), get()) }
             viewModel { ToQualifyViewModel(get(), get(), get()) }
-            viewModel { ContactViewModel(get()) }
+            viewModel { ContactViewModel(get(), get()) }
             viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }
@@ -358,7 +360,7 @@ class MaggieApp : Application() {
             viewModel { MonthlyReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get()) }
             viewModel { TreasuryViewModel(get(), get(), get()) }
-            viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get(), get(), get()) }
+            viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get(), get(), get(), get(), get()) }
         }
 
         startKoin {

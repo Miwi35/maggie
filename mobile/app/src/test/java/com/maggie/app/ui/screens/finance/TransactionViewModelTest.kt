@@ -9,6 +9,12 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.Contact
+import com.maggie.app.data.model.MyShare
+import com.maggie.app.data.model.MyShareRequest
+import com.maggie.app.data.model.MyShareRequestShare
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtShare
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
@@ -23,6 +29,8 @@ import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
@@ -61,6 +69,8 @@ class TransactionViewModelTest {
     private lateinit var authRepository: AuthRepository
     private lateinit var recurringRepository: RecurringOperationRepository
     private lateinit var ruleRepository: CategorizationRuleRepository
+    private lateinit var peerDebtRepository: PeerDebtRepository
+    private lateinit var contactRepository: ContactRepository
     private lateinit var viewModel: TransactionViewModel
 
     private val accountId = "acc-1"
@@ -83,6 +93,13 @@ class TransactionViewModelTest {
         authRepository = mockk()
         recurringRepository = mockk()
         ruleRepository = mockk()
+        peerDebtRepository = mockk()
+        contactRepository = mockk()
+        // A line not shared, until a test says otherwise.
+        coEvery { peerDebtRepository.getMyShare(any()) } answers {
+            val line = sampleTransactions.firstOrNull { it.id == firstArg() }
+            Result.success(MyShare(transactionId = firstArg(), amountCents = line?.amountCents ?: 0, canBeShared = (line?.amountCents ?: 0) < 0))
+        }
         coEvery { recurringRepository.getRecords() } returns Result.success(emptyList())
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
@@ -95,7 +112,7 @@ class TransactionViewModelTest {
     private fun newViewModel() =
         TransactionViewModel(
             transactionRepository, categoryRepository, accountId, mercureService, authRepository,
-            recurringRepository, ruleRepository,
+            recurringRepository, ruleRepository, peerDebtRepository, contactRepository,
         )
 
     @After
@@ -1375,5 +1392,327 @@ class TransactionViewModelTest {
 
         assertEquals("Réseau indisponible", viewModel.uiState.value.detail!!.error)
         assertFalse(viewModel.uiState.value.isLoadingOneOffEnvelopes)
+    }
+
+    // « Partage » (MAG-451): the gîte of 800 €, my part 200 €, Julie, Tom and Inès 200 € each.
+
+    private val gite = Transaction(id = "tx-gite", label = "GITE DES CIMES", amountCents = -80000)
+    private val julie = Contact(id = "c-julie", name = "Julie")
+    private val tom = Contact(id = "c-tom", name = "Tom")
+    private val ines = Contact(id = "c-ines", name = "Inès")
+
+    private fun sharedGite(myShareCents: Int, vararg people: Pair<Contact, Int>) = MyShare(
+        transactionId = "tx-gite",
+        amountCents = -80000,
+        myShareCents = myShareCents,
+        canBeShared = true,
+        peerDebt = PeerDebt(
+            id = "debt-1",
+            `object` = "Gîte des Cimes",
+            notes = "Week-end d'octobre",
+            originTransactionId = "tx-gite",
+            amountCents = 80000 - myShareCents,
+            remainingCents = 80000 - myShareCents,
+            shares = people.mapIndexed { i, (contact, cents) ->
+                PeerDebtShare(id = "s-$i", contactId = contact.id, contactName = contact.name, amountCents = cents, remainingCents = cents)
+            },
+        ),
+    )
+
+    /** The gîte's sheet open, not shared yet: the editor read from the server, switched off. */
+    private fun kotlinx.coroutines.test.TestScope.openGite(share: MyShare? = null) {
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite.copy(myShareCents = share?.myShareCents)))
+        coEvery { transactionRepository.getTransfer("tx-gite") } returns Result.success(TransferInfo())
+        coEvery { peerDebtRepository.getMyShare("tx-gite") } returns
+            Result.success(share ?: MyShare(transactionId = "tx-gite", amountCents = -80000, canBeShared = true))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-gite")
+        advanceUntilIdle()
+    }
+
+    private val share get() = viewModel.uiState.value.detail!!.share!!
+
+    @Test
+    fun `opening a spend reads its share, switched off while it is not shared`() = runTest {
+        openGite()
+
+        assertFalse(share.enabled)
+        assertTrue(share.canBeShared)
+        assertEquals(80000, share.totalCents)
+        assertEquals("GITE DES CIMES", share.subject)
+        coVerify { peerDebtRepository.getMyShare("tx-gite") }
+    }
+
+    @Test
+    fun `an internal transfer has no share to read`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns
+            Result.success(listOf(gite.copy(transferKind = "internal")))
+        coEvery { transactionRepository.getTransfer("tx-gite") } returns Result.success(TransferInfo(transferKind = "internal"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-gite")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail!!.share)
+        coVerify(exactly = 0) { peerDebtRepository.getMyShare(any()) }
+    }
+
+    @Test
+    fun `a shared spend opens switched on, with its people and its object`() = runTest {
+        openGite(sharedGite(20000, julie to 20000, tom to 20000, ines to 20000))
+
+        assertTrue(share.enabled)
+        assertTrue(share.isShared)
+        assertEquals(20000, share.myShareCents)
+        assertEquals(listOf("Julie", "Tom", "Inès"), share.people.map { it.name })
+        assertFalse("an equal split is not an edit by hand", share.editedByHand)
+        assertEquals("Gîte des Cimes", share.subject)
+        assertEquals("Week-end d'octobre", share.notes)
+    }
+
+    @Test
+    fun `switching the share on proposes half, owed by nobody yet`() = runTest {
+        openGite()
+
+        viewModel.setShareEnabled(true)
+
+        assertTrue(share.enabled)
+        assertEquals(40000, share.myShareCents)
+        assertEquals(40000, share.owedCents)
+        assertEquals("Ajoute au moins une personne qui te doit sa part.", share.problem)
+        assertFalse(share.canSave)
+    }
+
+    @Test
+    fun `adding people splits what is owed equally, the last cent on the last`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.changeMyShare(20000)
+
+        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(tom)
+        viewModel.addSharePerson(ines)
+
+        assertEquals(listOf(20000, 20000, 20000), share.people.map { it.amountCents })
+        assertEquals(60000, share.owedCents)
+        assertTrue(share.canSave)
+
+        viewModel.changeMyShare(20001)
+        assertEquals(listOf(19999, 19999, 20001), share.people.map { it.amountCents })
+    }
+
+    @Test
+    fun `the same person cannot be added twice`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+
+        viewModel.addSharePerson(tom)
+        viewModel.addSharePerson(tom)
+
+        assertEquals(listOf("Tom"), share.people.map { it.name })
+    }
+
+    @Test
+    fun `changing my part splits the rest again`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(tom)
+
+        viewModel.changeMyShare(20000)
+
+        assertEquals(60000, share.owedCents)
+        assertEquals(listOf(30000, 30000), share.people.map { it.amountCents })
+    }
+
+    @Test
+    fun `my part stays between zero and the spend, exclusive`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+
+        viewModel.changeMyShare(-100)
+        assertEquals(0, share.myShareCents)
+
+        viewModel.changeMyShare(80000)
+        assertEquals(79999, share.myShareCents)
+    }
+
+    @Test
+    fun `removing a person splits between those left`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.changeMyShare(20000)
+        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(tom)
+        viewModel.addSharePerson(ines)
+
+        viewModel.removeSharePerson("c-tom")
+
+        assertEquals(listOf("Julie", "Inès"), share.people.map { it.name })
+        assertEquals(listOf(30000, 30000), share.people.map { it.amountCents })
+    }
+
+    @Test
+    fun `an amount edited by hand stops the split and must add up`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.changeMyShare(20000)
+        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(tom)
+
+        viewModel.editShareAmount("c-julie", 40000)
+
+        assertTrue(share.editedByHand)
+        assertEquals(listOf(40000, 30000), share.people.map { it.amountCents })
+        assertNotNull(share.problem)
+        assertFalse(share.canSave)
+
+        // My part moving no longer touches their amounts.
+        viewModel.changeMyShare(10000)
+        assertEquals(listOf(40000, 30000), share.people.map { it.amountCents })
+
+        viewModel.editShareAmount("c-tom", 30000)
+        viewModel.changeMyShare(10000)
+        assertEquals(listOf(40000, 30000), share.people.map { it.amountCents })
+        assertTrue(share.canSave)
+    }
+
+    @Test
+    fun `saving an equal split sends no amount, and the line becomes shared`() = runTest {
+        val request = slot<MyShareRequest>()
+        coEvery { peerDebtRepository.setMyShare("tx-gite", capture(request)) } returns
+            Result.success(sharedGite(20000, julie to 20000, tom to 20000, ines to 20000))
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.changeMyShare(20000)
+        listOf(julie, tom, ines).forEach(viewModel::addSharePerson)
+        viewModel.changeShareNotes("Week-end d'octobre")
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite.copy(myShareCents = 20000)))
+
+        viewModel.saveShare()
+        advanceUntilIdle()
+
+        assertEquals(
+            MyShareRequest(
+                myShareCents = 20000,
+                `object` = "GITE DES CIMES",
+                notes = "Week-end d'octobre",
+                shares = listOf(MyShareRequestShare("c-julie"), MyShareRequestShare("c-tom"), MyShareRequestShare("c-ines")),
+            ),
+            request.captured,
+        )
+        assertTrue(share.isShared)
+        assertFalse(share.isSaving)
+        assertEquals("Partage enregistré", share.message)
+        assertEquals(20000, viewModel.uiState.value.detail!!.transaction.myShareCents)
+        assertEquals(20000, viewModel.uiState.value.transactions.single().myShareCents)
+    }
+
+    @Test
+    fun `saving amounts edited by hand sends every amount`() = runTest {
+        val request = slot<MyShareRequest>()
+        coEvery { peerDebtRepository.setMyShare("tx-gite", capture(request)) } returns
+            Result.success(sharedGite(20000, julie to 40000, tom to 20000))
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.changeMyShare(20000)
+        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(tom)
+        viewModel.editShareAmount("c-julie", 40000)
+        viewModel.editShareAmount("c-tom", 20000)
+
+        viewModel.saveShare()
+        advanceUntilIdle()
+
+        assertEquals(listOf(40000, 20000), request.captured.shares.map { it.amountCents })
+        assertTrue("uneven amounts read back stay the owner's", share.editedByHand)
+    }
+
+    @Test
+    fun `a refused share says the server's words and keeps the draft`() = runTest {
+        coEvery { peerDebtRepository.setMyShare("tx-gite", any()) } returns
+            Result.failure(RuntimeException("Contact not found: c-tom"))
+        openGite()
+        viewModel.setShareEnabled(true)
+        viewModel.addSharePerson(tom)
+
+        viewModel.saveShare()
+        advanceUntilIdle()
+
+        assertEquals("Contact not found: c-tom", share.error)
+        assertFalse(share.isSaving)
+        assertTrue(share.enabled)
+        assertEquals(listOf("Tom"), share.people.map { it.name })
+        assertNull(viewModel.uiState.value.detail!!.transaction.myShareCents)
+    }
+
+    @Test
+    fun `switching off a shared spend takes the share back`() = runTest {
+        coEvery { peerDebtRepository.removeMyShare("tx-gite") } returns
+            Result.success(MyShare(transactionId = "tx-gite", amountCents = -80000, canBeShared = true))
+        openGite(sharedGite(20000, tom to 60000))
+        // The list read again after the removal no longer carries a part.
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite))
+
+        viewModel.setShareEnabled(false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { peerDebtRepository.removeMyShare("tx-gite") }
+        assertFalse(share.enabled)
+        assertFalse(share.isShared)
+        assertEquals("Partage retiré", share.message)
+        assertNull(viewModel.uiState.value.detail!!.transaction.myShareCents)
+    }
+
+    @Test
+    fun `a share that cannot be taken back stays on, with the reason`() = runTest {
+        coEvery { peerDebtRepository.removeMyShare("tx-gite") } returns
+            Result.failure(RuntimeException("Tom already gave back 1000 cents of this"))
+        openGite(sharedGite(20000, tom to 60000))
+
+        viewModel.setShareEnabled(false)
+        advanceUntilIdle()
+
+        assertTrue(share.enabled)
+        assertTrue(share.isShared)
+        assertEquals("Tom already gave back 1000 cents of this", share.error)
+    }
+
+    @Test
+    fun `switching off a draft only folds it, nothing is sent`() = runTest {
+        openGite()
+        viewModel.setShareEnabled(true)
+
+        viewModel.setShareEnabled(false)
+        advanceUntilIdle()
+
+        assertFalse(share.enabled)
+        coVerify(exactly = 0) { peerDebtRepository.removeMyShare(any()) }
+    }
+
+    @Test
+    fun `the picker offers the owner's contacts and a person created there joins the share`() = runTest {
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        coEvery { contactRepository.createContact("Inès") } returns Result.success(ines)
+        openGite()
+        viewModel.setShareEnabled(true)
+
+        viewModel.openShareContactPicker()
+        assertTrue(viewModel.uiState.value.shareContacts!!.isLoading)
+        advanceUntilIdle()
+        assertEquals(listOf("Julie", "Tom"), viewModel.uiState.value.shareContacts!!.contacts.map { it.name })
+
+        viewModel.pickShareContact(julie)
+        assertNull(viewModel.uiState.value.shareContacts)
+
+        viewModel.openShareContactPicker()
+        advanceUntilIdle()
+        viewModel.createShareContact("Inès")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.shareContacts)
+        assertEquals(listOf("Julie", "Inès"), share.people.map { it.name })
     }
 }

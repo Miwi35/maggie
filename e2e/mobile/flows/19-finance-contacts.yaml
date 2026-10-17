@@ -15,9 +15,20 @@ tags:
 # transfer is written through the API, as an import would: the API attaches it to Tom while
 # writing it (the script checks), and the page says so once it is read again.
 #
+# My part of a shared spend (MAG-451):
+#
+# Étant donné un gîte de 800 € classé Voyages, dont l'enveloppe du mois est de 300 €
+# Quand je déclare sur sa fiche ma part de 200 €, le reste partagé entre Julie, Tom et Inès
+# Alors l'enveloppe Voyages affiche 200 € consommés
+# Et la fiche de Tom, ouverte par « Voir tout ce qu'on te doit », dit « te doit 200 € » sous « En cours »
+#
+# The gîte, « Voyages », its envelope and the contacts Julie and Inès are written by the same
+# script (`ACTION: share`); Tom is the one this flow created.
+#
 # What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
-# `ContactScreenTest`), the tablet's page beside the list, and the admin's side of the same
-# API.
+# `ContactScreenTest`), amounts edited by hand, the steppers, switching a share off and the
+# server's refusals (`TransactionViewModelTest`, `TransactionShareScreenTest`), the tablet's
+# page beside the list, and the admin's side of the same API.
 
 - launchApp:
     clearState: true
@@ -97,6 +108,132 @@ tags:
     id: "contact_row"
 - extendedWaitUntil:
     visible: "2 virements"
+    timeout: 30000
+
+# MAG-451: a gîte of 800 € in « Voyages » (300 € this month), Julie and Inès beside Tom.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: share
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: "EUR · Compte MAG-450"
+    timeout: 20000
+- tapOn: "EUR · Compte MAG-450"
+- extendedWaitUntil:
+    visible: "GITE DES CIMES MAG-451"
+    timeout: 30000
+- tapOn: "GITE DES CIMES MAG-451"
+
+# « Dépense partagée », my part of 200 €.
+- scrollUntilVisible:
+    element:
+      id: "share_switch"
+    timeout: 20000
+- tapOn:
+    id: "share_switch"
+- extendedWaitUntil:
+    visible:
+      id: "share_mine"
+    timeout: 10000
+- tapOn:
+    id: "share_mine"
+- eraseText
+- inputText: "200"
+- hideKeyboard
+
+# Julie, Tom and Inès, each picked in the full-screen picker (« In »: no accent typed on Android).
+- scrollUntilVisible:
+    element:
+      id: "share_add_person"
+- tapOn:
+    id: "share_add_person"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_search"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_search"
+- inputText: "Julie"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_result"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_result"
+- scrollUntilVisible:
+    element:
+      id: "share_add_person"
+- tapOn:
+    id: "share_add_person"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_search"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_search"
+- inputText: "Tom"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_result"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_result"
+- scrollUntilVisible:
+    element:
+      id: "share_add_person"
+- tapOn:
+    id: "share_add_person"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_search"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_search"
+- inputText: "In"
+- extendedWaitUntil:
+    visible:
+      id: "contact_picker_result"
+    timeout: 10000
+- tapOn:
+    id: "contact_picker_result"
+
+# The rest, 600 €, owed 200 € each; « Enregistrer » writes the part and the créance together.
+- scrollUntilVisible:
+    element: "On te doit 600[.,]00 EUR"
+- scrollUntilVisible:
+    element:
+      id: "share_save"
+- tapOn:
+    id: "share_save"
+- extendedWaitUntil:
+    visible: "Partage enregistré"
+    timeout: 30000
+
+# « Voir tout ce qu'on te doit »: the contacts, where Tom's page says what he owes.
+- scrollUntilVisible:
+    element:
+      id: "share_all_owed"
+- tapOn:
+    id: "share_all_owed"
+- extendedWaitUntil:
+    visible: "Tom"
+    timeout: 30000
+- tapOn: "Tom"
+- extendedWaitUntil:
+    visible: "En cours"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "te doit 200[.,]00 EUR"
+    timeout: 30000
+
+# Only my part counts in « Voyages »: 200 of 300 €, not 800.
+- openLink: "maggie-e2e://finance/budgets"
+- extendedWaitUntil:
+    visible: "Voyages"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "200[.,]00 EUR / 300[.,]00 EUR"
     timeout: 30000
 
 # Left as found.

@@ -18,6 +18,7 @@
     "Meal": "/users/{userId}/api/meals/{id}",
     "MealSettings": "/users/{userId}/api/meal_settings/{id}",
     "Notification": "/users/{userId}/api/notifications/{id}",
+    "PeerDebt": "/users/{userId}/api/peer_debts/{id}",
     "Proaction": "/users/{userId}/api/proactions/{id}",
     "Product": "/users/{userId}/api/products/{id}",
     "Recipe": "/users/{userId}/api/recipes/{id}",

@@ -6291,6 +6291,145 @@
                 }
             }
         },
+        "/api/peer_debts": {
+            "get": {
+                "operationId": "api_peer_debts_get_collection",
+                "tags": [
+                    "PeerDebt"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PeerDebt collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "PeerDebt.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchemaNoPagination"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/PeerDebt.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PeerDebt"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PeerDebt.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of PeerDebt resources.",
+                "description": "Retrieves the collection of PeerDebt resources.",
+                "parameters": [
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/peer_debts/{id}": {
+            "get": {
+                "operationId": "api_peer_debts_id_get",
+                "tags": [
+                    "PeerDebt"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PeerDebt resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeerDebt.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeerDebt"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeerDebt.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a PeerDebt resource.",
+                "description": "Retrieves a PeerDebt resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "PeerDebt identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/proactions": {
             "get": {
                 "operationId": "api_proactions_get_collection",
@@ -17035,6 +17174,316 @@
                     }
                 ]
             },
+            "PeerDebt": {
+                "type": "object",
+                "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "direction": {
+                        "default": "owed_to_me",
+                        "type": "string",
+                        "enum": [
+                            "owed_to_me",
+                            "i_owe"
+                        ]
+                    },
+                    "object": {
+                        "description": "What it was for: « Gîte Bretagne ». The spend's label by default.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "shares": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeerDebtShare_noid"
+                        },
+                        "readOnly": true
+                    },
+                    "createdAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "originTransactionId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "amountCents": {
+                        "readOnly": true,
+                        "description": "What the shares add up to.",
+                        "type": "integer"
+                    },
+                    "repaidCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "remainingCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "status": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "open",
+                            "settled"
+                        ]
+                    }
+                }
+            },
+            "PeerDebt.html": {
+                "type": "object",
+                "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "direction": {
+                        "default": "owed_to_me",
+                        "type": "string",
+                        "enum": [
+                            "owed_to_me",
+                            "i_owe"
+                        ]
+                    },
+                    "object": {
+                        "description": "What it was for: « Gîte Bretagne ». The spend's label by default.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "shares": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeerDebtShare.html_noid"
+                        },
+                        "readOnly": true
+                    },
+                    "createdAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "originTransactionId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "amountCents": {
+                        "readOnly": true,
+                        "description": "What the shares add up to.",
+                        "type": "integer"
+                    },
+                    "repaidCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "remainingCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "status": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "open",
+                            "settled"
+                        ]
+                    }
+                }
+            },
+            "PeerDebt.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "direction": {
+                                "default": "owed_to_me",
+                                "type": "string",
+                                "enum": [
+                                    "owed_to_me",
+                                    "i_owe"
+                                ]
+                            },
+                            "object": {
+                                "description": "What it was for: « Gîte Bretagne ». The spend's label by default.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "shares": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/PeerDebtShare.jsonld_noid"
+                                },
+                                "readOnly": true
+                            },
+                            "createdAt": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "originTransactionId": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "amountCents": {
+                                "readOnly": true,
+                                "description": "What the shares add up to.",
+                                "type": "integer"
+                            },
+                            "repaidCents": {
+                                "readOnly": true,
+                                "type": "integer"
+                            },
+                            "remainingCents": {
+                                "readOnly": true,
+                                "type": "integer"
+                            },
+                            "status": {
+                                "readOnly": true,
+                                "type": "string",
+                                "enum": [
+                                    "open",
+                                    "settled"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same."
+            },
+            "PeerDebtShare.html_noid": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "repaidCents": {
+                        "description": "What they already gave back on it (MAG-453 allocates the repayments).",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "contactId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "contactName": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "remainingCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    }
+                }
+            },
+            "PeerDebtShare.jsonld_noid": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "repaidCents": {
+                        "description": "What they already gave back on it (MAG-453 allocates the repayments).",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "contactId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "contactName": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "remainingCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    }
+                }
+            },
+            "PeerDebtShare_noid": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "repaidCents": {
+                        "description": "What they already gave back on it (MAG-453 allocates the repayments).",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "contactId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "contactName": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "remainingCents": {
+                        "readOnly": true,
+                        "type": "integer"
+                    }
+                }
+            },
             "Proaction": {
                 "type": "object",
                 "required": [
@@ -21529,6 +21978,14 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "myShareCents": {
+                        "readOnly": true,
+                        "description": "The owner's own part of a shared spend, as positive cents (MAG-451):\nthe gîte cost 800 €, my part is 200 €. Only it counts in the envelopes,\nthe score, the review and the lifestyle (`getOwnAmountCents`); the rest\nis a créance (`PeerDebt`). Null when the spend is not shared.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -21794,6 +22251,14 @@
                         ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "myShareCents": {
+                        "readOnly": true,
+                        "description": "The owner's own part of a shared spend, as positive cents (MAG-451):\nthe gîte cost 800 €, my part is 200 €. Only it counts in the envelopes,\nthe score, the review and the lifestyle (`getOwnAmountCents`); the rest\nis a créance (`PeerDebt`). Null when the spend is not shared.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -22061,6 +22526,14 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "myShareCents": {
+                        "readOnly": true,
+                        "description": "The owner's own part of a shared spend, as positive cents (MAG-451):\nthe gîte cost 800 €, my part is 200 €. Only it counts in the envelopes,\nthe score, the review and the lifestyle (`getOwnAmountCents`); the rest\nis a créance (`PeerDebt`). Null when the spend is not shared.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -22319,6 +22792,14 @@
                                 ],
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "myShareCents": {
+                                "readOnly": true,
+                                "description": "The owner's own part of a shared spend, as positive cents (MAG-451):\nthe gîte cost 800 €, my part is 200 €. Only it counts in the envelopes,\nthe score, the review and the lifestyle (`getOwnAmountCents`); the rest\nis a créance (`PeerDebt`). Null when the spend is not shared.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "user": {
                                 "type": "string",
@@ -22817,6 +23298,10 @@
         {
             "name": "Loan",
             "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment."
+        },
+        {
+            "name": "PeerDebt",
+            "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same."
         },
         {
             "name": "RecurringOperation",

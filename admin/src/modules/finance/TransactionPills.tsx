@@ -12,7 +12,7 @@ import type { RaRecord } from 'react-admin'
 import { transferLabel } from './TransferBadge'
 import { isBetweenAccounts } from './useTransactionTransfer'
 
-/** `shared` is typed and drawn but nothing emits it yet: the sharing lot (MAG-451) feeds it. */
+/** `shared`: a spend of which only the owner's part counts, the rest owed by others (MAG-451). */
 export type PillKind = 'internal' | 'rejected' | 'series' | 'shared' | 'to_sort'
 
 export interface TransactionPill {
@@ -22,11 +22,12 @@ export interface TransactionPill {
 
 export const SERIES_FALLBACK_NAME = 'Opération récurrente'
 export const TO_SORT_LABEL = 'À trier'
+export const SHARED_LABEL = 'Partagée'
 
 /**
  * The one line of pills a transaction wears in the lists: what the line is
- * (a transfer, a rejection), the series it belongs to, and whether it still
- * waits for a category. `seriesName` completes « Série · … » once it is read.
+ * (a transfer, a rejection), the series it belongs to, whether it is shared,
+ * and whether it still waits for a category. `seriesName` completes « Série · … » once it is read.
  */
 export function transactionPills(record: RaRecord, seriesName?: string): TransactionPill[] {
   const pills: TransactionPill[] = []
@@ -38,6 +39,9 @@ export function transactionPills(record: RaRecord, seriesName?: string): Transac
   }
   if (record.recurringOperation) {
     pills.push({ kind: 'series', label: seriesName ? `Série · ${seriesName}` : 'Série' })
+  }
+  if (record.myShareCents !== null && record.myShareCents !== undefined) {
+    pills.push({ kind: 'shared', label: SHARED_LABEL })
   }
   if (label === null && !record.category) {
     pills.push({ kind: 'to_sort', label: TO_SORT_LABEL })

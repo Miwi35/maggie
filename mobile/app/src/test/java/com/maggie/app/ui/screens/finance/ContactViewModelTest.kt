@@ -4,7 +4,10 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.CounterpartySuggestion
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.PeerDebtShare
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -29,6 +32,7 @@ class ContactViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var contacts: ContactRepository
+    private lateinit var peerDebts: PeerDebtRepository
 
     private val tom = Contact(id = "c-tom", name = "Tom", notes = "Mon frère")
     private val anna = Contact(id = "c-anna", name = "Anna")
@@ -50,6 +54,8 @@ class ContactViewModelTest {
         coEvery { contacts.getContacts() } returns Result.success(listOf(tom, anna))
         coEvery { contacts.getCounterparties("c-tom") } returns Result.success(listOf(tomMartin))
         coEvery { contacts.getSuggestions("c-tom") } returns Result.success(listOf(lydia))
+        peerDebts = mockk()
+        coEvery { peerDebts.getPeerDebts() } returns Result.success(emptyList())
     }
 
     @After
@@ -57,7 +63,7 @@ class ContactViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun load() = ContactViewModel(contacts)
+    private fun load() = ContactViewModel(contacts, peerDebts)
 
     @Test
     fun `the contacts are loading until the server has answered`() = runTest {
@@ -339,5 +345,55 @@ class ContactViewModelTest {
         assertNull(state.detail)
         assertEquals(listOf("Anna"), state.contacts.map { it.name })
         assertEquals("Contact supprimé", state.message)
+    }
+
+    // « En cours » (MAG-451): the créances Tom still owes something on.
+
+    private fun debt(id: String, subject: String, createdAt: String, vararg shares: Triple<String, String, Int>, status: String = "open") = PeerDebt(
+        id = id,
+        `object` = subject,
+        createdAt = createdAt,
+        status = status,
+        shares = shares.mapIndexed { i, (contactId, name, remaining) ->
+            PeerDebtShare(id = "$id-$i", contactId = contactId, contactName = name, amountCents = remaining, remainingCents = remaining)
+        },
+    )
+
+    @Test
+    fun `a contact's page lists what they still owe, the latest first`() = runTest {
+        coEvery { peerDebts.getPeerDebts() } returns Result.success(
+            listOf(
+                debt("d-1", "Resto", "2026-09-02T20:00:00+00:00", Triple("c-tom", "Tom", 3000)),
+                debt("d-2", "Gîte des Cimes", "2026-10-10T09:00:00+00:00", Triple("c-julie", "Julie", 20000), Triple("c-tom", "Tom", 20000)),
+                // Anna's alone, and one Tom already settled: not his to show.
+                debt("d-3", "Cinéma", "2026-10-11T09:00:00+00:00", Triple("c-anna", "Anna", 1200)),
+                debt("d-4", "Courses", "2026-10-12T09:00:00+00:00", Triple("c-tom", "Tom", 0), status = "settled"),
+            ),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.open("c-tom")
+        advanceUntilIdle()
+
+        val owed = viewModel.uiState.value.detail!!.openDebts
+        assertEquals(listOf("Gîte des Cimes", "Resto"), owed.map { it.subject })
+        assertEquals(listOf(20000, 3000), owed.map { it.remainingCents })
+        assertEquals("2026-10-10", owed.first().createdOn)
+    }
+
+    @Test
+    fun `a créance list that could not be read leaves the rest of the page`() = runTest {
+        coEvery { peerDebts.getPeerDebts() } returns Result.failure(RuntimeException("Hors ligne"))
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.open("c-tom")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertTrue(detail.openDebts.isEmpty())
+        assertEquals(listOf("VIR. DE TOM MARTIN"), detail.counterparties.map { it.label })
+        assertNull(viewModel.uiState.value.error)
     }
 }
