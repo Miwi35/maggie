@@ -31,6 +31,8 @@ class ChatNavigationTest {
         assertTrue(showsChatBottomBar(Screen.Dashboard.route))
         assertTrue(showsChatBottomBar(Screen.Calendar.route))
         assertFalse(showsChatBottomBar(Screen.EventEdit.route))
+        assertTrue("the bottom of Finance is Maggie's", showsChatBottomBar(Screen.FinanceDashboard.route))
+        assertTrue(showsChatBottomBar(Screen.Cushion.route))
         assertFalse(showsChatBottomBar(null))
     }
 }

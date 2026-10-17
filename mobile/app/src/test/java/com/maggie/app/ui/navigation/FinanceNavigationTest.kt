@@ -3,6 +3,7 @@ package com.maggie.app.ui.navigation
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DRAWER_DESTINATIONS
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -11,6 +12,8 @@ class FinanceNavigationTest {
         Screen.AccountList, Screen.CategoryList, Screen.BudgetList,
         Screen.Cushion, Screen.LoanList, Screen.MonthlyReview,
     ).map { it.route }
+
+    private val allRoutes = FinanceMenu.entries.flatMap { it.routes }
 
     @Test
     fun `the drawer has one finance entry and it opens the finance dashboard`() {
@@ -21,22 +24,69 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `every part of the finance module is one tap from the dashboard`() {
-        val routes = FINANCE_ACCESSES.map { it.route }
-
-        assertTrue(routes.containsAll(legacyDrawerRoutes))
-        assertTrue(Screen.CategorizationRuleList.route in routes)
-        assertTrue(Screen.BankConnectionList.route in routes)
-        assertTrue(Screen.RecurringOperations.route in routes)
-        assertTrue(Screen.Treasury.route in routes)
-        assertTrue(Screen.SavingsAdvances.route in routes)
-        assertEquals(routes.size, routes.toSet().size)
+    fun `there are seven menus, in the order of the admin`() {
+        assertEquals(
+            listOf("dashboard", "accounts", "review", "budget", "treasury", "planning", "settings"),
+            FinanceMenu.entries.map { it.key },
+        )
+        assertEquals(
+            listOf("Dashboard", "Comptes", "Revue", "Budget", "Trésorerie", "Planification", "Configuration"),
+            FinanceMenu.entries.map { it.label },
+        )
     }
 
     @Test
-    fun `every access can still be opened from outside`() {
-        FINANCE_ACCESSES.forEach {
-            assertTrue("${it.route} lost its deep link", DeepLinks.patternsFor(it.route).isNotEmpty())
+    fun `every part of the finance module belongs to exactly one menu`() {
+        assertTrue(allRoutes.containsAll(legacyDrawerRoutes))
+        assertTrue(Screen.CategorizationRuleList.route in allRoutes)
+        assertTrue(Screen.BankConnectionList.route in allRoutes)
+        assertTrue(Screen.RecurringOperations.route in allRoutes)
+        assertTrue(Screen.Treasury.route in allRoutes)
+        assertTrue(Screen.SavingsAdvances.route in allRoutes)
+        assertEquals(allRoutes.size, allRoutes.toSet().size)
+    }
+
+    @Test
+    fun `a menu opens on its own first route`() {
+        FinanceMenu.entries.forEach { assertEquals(it.routes.first(), it.home) }
+        assertEquals(Screen.FinanceDashboard.route, FinanceMenu.DASHBOARD.home)
+        assertEquals(Screen.AccountList.route, FinanceMenu.ACCOUNTS.home)
+        assertEquals(Screen.BudgetList.route, FinanceMenu.BUDGET.home)
+    }
+
+    @Test
+    fun `the menus without a screen of their own open a summary page`() {
+        assertEquals(Screen.FinanceReview.route, FinanceMenu.REVIEW.home)
+        assertEquals(Screen.FinanceTreasuryMenu.route, FinanceMenu.TREASURY.home)
+        assertEquals(Screen.FinancePlanning.route, FinanceMenu.PLANNING.home)
+        assertEquals(Screen.FinanceConfiguration.route, FinanceMenu.SETTINGS.home)
+    }
+
+    @Test
+    fun `a screen is found under the menu it belongs to`() {
+        assertEquals(FinanceMenu.TREASURY, FinanceMenu.of(Screen.Cushion.route))
+        assertEquals(FinanceMenu.TREASURY, FinanceMenu.of(Screen.SavingsAdvances.route))
+        assertEquals(FinanceMenu.REVIEW, FinanceMenu.of(Screen.RecurringOperations.route))
+        assertEquals(FinanceMenu.PLANNING, FinanceMenu.of(Screen.LoanList.route))
+        assertEquals(FinanceMenu.SETTINGS, FinanceMenu.of(Screen.CategoryList.route))
+        assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.AccountTransactions.route))
+        assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.Contacts.route))
+        assertNull(FinanceMenu.of(Screen.Dashboard.route))
+        assertNull(FinanceMenu.of(null))
+    }
+
+    @Test
+    fun `every part can still be opened from outside`() {
+        val withoutLink = setOf(
+            Screen.FinanceReview.route,
+            Screen.FinanceTreasuryMenu.route,
+            Screen.FinancePlanning.route,
+            Screen.FinanceConfiguration.route,
+            Screen.AccountTransactions.route,
+        )
+
+        allRoutes.filter { it !in withoutLink }.forEach {
+            assertTrue("$it lost its deep link", DeepLinks.patternsFor(it).isNotEmpty())
         }
     }
 
@@ -44,37 +94,21 @@ class FinanceNavigationTest {
     fun `the lines to qualify keep their route and deep link under their new name`() {
         assertEquals("transactions_to_sort", Screen.TransactionsToSort.route)
         assertEquals("À qualifier", Screen.TransactionsToSort.label)
-        assertEquals("À qualifier", FINANCE_ACCESSES.first { it.route == Screen.TransactionsToSort.route }.label)
         assertTrue(DeepLinks.patternsFor(Screen.TransactionsToSort.route).isNotEmpty())
     }
 
     @Test
-    fun `accesses are ordered daily then monthly then rarely used`() {
-        val order = FINANCE_ACCESSES.map { it.frequency.ordinal }
+    fun `a tap on a menu goes to its home and, with the dashboard underneath, back to it`() {
+        FinanceMenu.entries.forEach { menu ->
+            assertEquals(FinanceTabAction(menu.home, popToDashboard = true), financeTabAction(menu, dashboardInBackStack = true))
+        }
+    }
 
-        assertEquals(order.sorted(), order)
+    @Test
+    fun `a tap on a menu replaces the current screen when the dashboard is not underneath`() {
         assertEquals(
-            listOf(Screen.BudgetList.route, Screen.AccountList.route, Screen.TransactionsToSort.route),
-            financeAccessesBy(FinanceFrequency.DAILY).map { it.route },
-        )
-        assertEquals(
-            listOf(
-                Screen.Treasury.route,
-                Screen.RecurringOperations.route,
-                Screen.MonthlyReview.route,
-                Screen.Cushion.route,
-                Screen.SavingsAdvances.route,
-            ),
-            financeAccessesBy(FinanceFrequency.MONTHLY).map { it.route },
-        )
-        assertEquals(
-            listOf(
-                Screen.LoanList.route,
-                Screen.CategoryList.route,
-                Screen.CategorizationRuleList.route,
-                Screen.BankConnectionList.route,
-            ),
-            financeAccessesBy(FinanceFrequency.RARE).map { it.route },
+            FinanceTabAction(Screen.FinanceReview.route, popToDashboard = false),
+            financeTabAction(FinanceMenu.REVIEW, dashboardInBackStack = false),
         )
     }
 
@@ -84,9 +118,11 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `back goes to the finance list a screen belongs to`() {
+    fun `back goes to the finance list or summary page a screen belongs to`() {
         assertEquals(FinanceBack.POP, financeBackAction(Screen.AccountList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.CategoryList.route))
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.FinanceTreasuryMenu.route))
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.FinanceConfiguration.route))
         // Suggestions are opened from the rules screen, which is where back goes.
         assertEquals(FinanceBack.POP, financeBackAction(Screen.CategorizationRuleList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.RuleSuggestions.route))
@@ -107,7 +143,8 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `each access has its own tag`() {
-        assertEquals("finance_access_budgets", UiTags.financeAccess(Screen.BudgetList.route))
+    fun `each menu and each block has its own tag`() {
+        assertEquals("finance_menu_treasury", UiTags.financeMenu(FinanceMenu.TREASURY.key))
+        assertEquals("finance_block_cushion", UiTags.financeBlock(Screen.Cushion.route))
     }
 }

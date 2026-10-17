@@ -13,7 +13,7 @@ import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.AppDrawerContent
-import com.maggie.app.ui.navigation.FINANCE_ACCESSES
+import com.maggie.app.ui.navigation.FinanceMenu
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.screentest.tap
 import org.junit.Assert.assertEquals
@@ -22,15 +22,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * One « Finance » entry in the drawer, and the dashboard leads to the rest
- * (MAG-196) — what `06-finance-hub` walked on an emulator (MAG-242).
+ * One « Finance » entry in the drawer, and the dashboard as the module's front
+ * door (MAG-196, MAG-426) — what `06-finance-hub` walked on an emulator (MAG-242).
  *
  * `FinanceNavigationTest` beside this one already says what the module's
- * navigation *is*: one drawer entry, every part one tap from the dashboard, back
- * returning to it. What it cannot say is that any of it is drawn — a constant can
- * be right while the dashboard renders none of it — and that is the half the
- * journey was paying an emulator for. So this is deliberately thin: the entries
- * are on screen, and tapping one asks for the route it names.
+ * navigation *is*. What it cannot say is that any of it is drawn, and that is the
+ * half the journey was paying an emulator for. So this is deliberately thin: the
+ * drawer entry is on screen and asks for the dashboard; the menus themselves are
+ * `FinanceMenusScreenTest`'s.
  */
 @RunWith(AndroidJUnit4::class)
 class FinanceHubScreenTest {
@@ -63,32 +62,25 @@ class FinanceHubScreenTest {
     }
 
     /**
-     * Every access, and over a month the API could not serve: the figures are one
-     * card and the accesses are another, so a dashboard that failed to load must
-     * still be the door to the module.
+     * The dashboard is no longer a list of accesses: the menus are the tabs above it
+     * (`FinanceMenusScreenTest`), and what is below is the figures. Over a month the API
+     * could not serve, none of the former accesses is drawn — and the screen still answers.
      */
     @Test
-    fun `the dashboard draws an access to every part of the module, even when the figures failed`() {
-        val opened = mutableListOf<String>()
+    fun `the dashboard draws no list of accesses of its own`() {
         compose.setContent {
             FinanceDashboardScreen(
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
-                onOpen = { opened += it },
+                onOpen = {},
             )
         }
 
-        FINANCE_ACCESSES.forEach { access ->
-            compose.onNodeWithTag(UiTags.financeAccess(access.route))
-                .performScrollTo()
-                .assertIsDisplayed()
+        FinanceMenu.entries.flatMap { it.routes }.forEach {
+            compose.onNodeWithTag(UiTags.financeBlock(it)).assertDoesNotExist()
         }
-
-        compose.onNodeWithTag(UiTags.financeAccess(Screen.BudgetList.route)).performClick()
-
-        assertEquals(listOf(Screen.BudgetList.route), opened)
     }
 
     @Test

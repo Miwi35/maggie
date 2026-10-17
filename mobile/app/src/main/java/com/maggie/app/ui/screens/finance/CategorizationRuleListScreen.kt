@@ -55,6 +55,8 @@ import com.maggie.app.data.model.matchTypeLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 
 private val MATCH_TYPES = listOf("contains", "starts_with", "equals")
@@ -87,24 +89,26 @@ fun CategorizationRuleListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Règles") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    // The rules the statement already implies, rather than a blank
-                    // page: the shortest way to a first rule.
-                    IconButton(onClick = onOpenSuggestions) {
-                        Icon(Icons.Default.Lightbulb, contentDescription = "Suggestions")
-                    }
-                    IconButton(onClick = { viewModel.applyRules() }, enabled = !uiState.isApplying) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Appliquer les règles")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.CategorizationRuleList.route) {
+                TopAppBar(
+                    title = { Text("Règles") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                    actions = {
+                        // The rules the statement already implies, rather than a blank
+                        // page: the shortest way to a first rule.
+                        IconButton(onClick = onOpenSuggestions) {
+                            Icon(Icons.Default.Lightbulb, contentDescription = "Suggestions")
+                        }
+                        IconButton(onClick = { viewModel.applyRules() }, enabled = !uiState.isApplying) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Appliquer les règles")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

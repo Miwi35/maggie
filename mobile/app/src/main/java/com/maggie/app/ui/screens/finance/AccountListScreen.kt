@@ -49,8 +49,11 @@ import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
@@ -63,6 +66,7 @@ fun AccountListScreen(
     onBack: () -> Unit,
     onOpenAccount: (accountId: String, accountName: String) -> Unit = { _, _ -> },
     onOpenContacts: () -> Unit = {},
+    lastSync: String? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -76,21 +80,24 @@ fun AccountListScreen(
     )
 
     Scaffold(
+        modifier = Modifier.uiTagRoot(),
         topBar = {
-            TopAppBar(
-                title = { Text("Comptes") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    // The people behind the transfers live with the accounts (MAG-450).
-                    IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
-                        Icon(Icons.Default.Person, contentDescription = "Contacts")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.AccountList.route) {
+                TopAppBar(
+                    title = { Text("Comptes") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                    actions = {
+                        // The people behind the transfers live with the accounts (MAG-450).
+                        IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
+                            Icon(Icons.Default.Person, contentDescription = "Contacts")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
@@ -123,6 +130,16 @@ fun AccountListScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    lastSync?.let { label ->
+                        item(key = "last-sync") {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag(UiTags.ACCOUNT_LAST_SYNC),
+                            )
+                        }
+                    }
                     items(uiState.accounts, key = { it.id }) { account ->
                         Card(
                             modifier = Modifier

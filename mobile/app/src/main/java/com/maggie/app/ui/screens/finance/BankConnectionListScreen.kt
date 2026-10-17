@@ -52,6 +52,8 @@ import com.maggie.app.data.model.lastSyncLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
 
 /**
@@ -99,25 +101,27 @@ fun BankConnectionListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Banques") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    if (uiState.connections.isNotEmpty()) {
-                        TextButton(
-                            onClick = { viewModel.sync() },
-                            enabled = !uiState.isSyncing,
-                            modifier = Modifier.testTag(UiTags.BANK_SYNC),
-                        ) {
-                            Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
+            FinanceTopBar(Screen.BankConnectionList.route) {
+                TopAppBar(
+                    title = { Text("Banques") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
-                    }
-                },
-            )
+                    },
+                    actions = {
+                        if (uiState.connections.isNotEmpty()) {
+                            TextButton(
+                                onClick = { viewModel.sync() },
+                                enabled = !uiState.isSyncing,
+                                modifier = Modifier.testTag(UiTags.BANK_SYNC),
+                            ) {
+                                Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
+                            }
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

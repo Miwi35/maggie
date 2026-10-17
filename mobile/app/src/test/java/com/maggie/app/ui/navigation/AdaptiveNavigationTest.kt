@@ -97,14 +97,14 @@ class AdaptiveNavigationTest {
     }
 
     /**
-     * Paramètres and Finance are both rail entries that are not main screens, so
-     * both take the whole width and lose the rail. That is today's behaviour on a
-     * phone — each screen brings its own back arrow — and it is written down in
-     * `plan.md` rather than left to be discovered on a tablet.
+     * Paramètres is a rail entry that is not a main screen, so it takes the whole width
+     * and loses the rail. That is today's behaviour on a phone — the screen brings its
+     * own back arrow — and it is written down in `plan.md` rather than left to be
+     * discovered on a tablet. Finance has its own rail, below.
      */
     @Test
     fun `a rail entry that is not a main screen keeps the whole width`() {
-        listOf(Screen.Settings.route, Screen.FinanceDashboard.route).forEach { route ->
+        listOf(Screen.Settings.route).forEach { route ->
             val chrome = chromeFor(tabletLandscape, route)
 
             assertFalse("$route should not keep the rail", chrome.showsRail)
@@ -216,5 +216,43 @@ class AdaptiveNavigationTest {
         assertNull(reopensDetailRoute(Screen.AccountList.route, recipeOpen = true, accountOpen = false))
         assertNull(reopensDetailRoute(Screen.Calendar.route, recipeOpen = true, accountOpen = true))
         assertNull(reopensDetailRoute(null, recipeOpen = true, accountOpen = true))
+    }
+
+    @Test
+    fun `on a tablet every finance screen swaps the main rail for the seven menus`() {
+        FinanceMenu.entries.flatMap { it.routes }.forEach { route ->
+            val chrome = chromeFor(tabletLandscape, route)
+
+            assertTrue("$route should draw the finance rail", chrome.showsFinanceRail)
+            assertFalse("$route should not draw the main rail as well", chrome.showsRail)
+            assertTrue("$route keeps the conversation", chrome.showsChatPanel)
+        }
+    }
+
+    @Test
+    fun `on a phone the finance menus are tabs, never a rail, and the bottom stays Maggie's`() {
+        FinanceMenu.entries.flatMap { it.routes }.forEach { route ->
+            val chrome = chromeFor(phone, route)
+
+            assertFalse("$route should not draw a rail", chrome.showsFinanceRail)
+            assertFalse(chrome.showsRail)
+            assertTrue("$route keeps Maggie's bar at the bottom", chrome.showsChatBar)
+        }
+    }
+
+    @Test
+    fun `a short wide window keeps the conversation in the finance rail header`() {
+        val chrome = chromeFor(phoneLandscape, Screen.FinanceDashboard.route)
+
+        assertTrue(chrome.showsFinanceRail)
+        assertTrue(chrome.showsChatInRail)
+        assertFalse(chrome.showsChatBar)
+    }
+
+    @Test
+    fun `the finance rail is for the finance module only`() {
+        assertFalse(chromeFor(tabletLandscape, Screen.Dashboard.route).showsFinanceRail)
+        assertFalse(chromeFor(tabletLandscape, Screen.Settings.route).showsFinanceRail)
+        assertFalse(chromeFor(tabletLandscape, null).showsFinanceRail)
     }
 }

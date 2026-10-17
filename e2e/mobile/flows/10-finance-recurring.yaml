@@ -165,10 +165,13 @@ tags:
 - tapOn: "Loyer MAG-309"
 - scrollUntilVisible:
     element: "Transactions rattachées"
+    centerElement: true
     timeout: 30000
-- extendedWaitUntil:
-    visible:
+# Maggie's bar takes the bottom of the page: the line is below the fold until scrolled to.
+- scrollUntilVisible:
+    element:
       id: "recurring_line"
+    centerElement: true
     timeout: 20000
 - scrollUntilVisible:
     element: ".*échéance du.*"
@@ -215,6 +218,7 @@ tags:
 - tapOn: "EUR · Courant MAG-475"
 - scrollUntilVisible:
     element: "Recette"
+    centerElement: true
     timeout: 20000
 - tapOn: "Recette"
 - tapOn:
@@ -249,6 +253,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "recurring_preview_match"
+    centerElement: true
     timeout: 30000
 - extendedWaitUntil:
     visible: ".*VIR SEPA XYZ.*"

@@ -56,7 +56,9 @@ import com.maggie.app.data.model.youOweLabel
 import com.maggie.app.data.model.transferCount
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.layout.ListDetailPane
+import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -136,14 +138,16 @@ private fun ContactList(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Contacts") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.Contacts.route) {
+                TopAppBar(
+                    title = { Text("Contacts") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

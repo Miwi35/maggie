@@ -46,6 +46,8 @@ import com.maggie.app.data.model.suggestionWeight
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.Screen
 
 /**
  * The rules the statement already implies, one merchant per card.
@@ -79,14 +81,16 @@ fun RuleSuggestionListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Suggestions") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            FinanceTopBar(Screen.RuleSuggestions.route) {
+                TopAppBar(
+                    title = { Text("Suggestions") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
