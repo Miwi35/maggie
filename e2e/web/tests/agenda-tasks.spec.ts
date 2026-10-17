@@ -1,4 +1,4 @@
-import { test, expect, parisDay, parisTime, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, e2eNow, parisDay, parisTime, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -400,8 +400,11 @@ test.describe('the day of five', () => {
       await expect(board.reserveToggle).toHaveAttribute('aria-expanded', 'false')
       await expect(board.reserve).toBeHidden()
 
-      // When I tick the first in the admin…
+      // When I tick the first in the admin, and take the pause its bravo offers (MAG-508)…
       await board.slot(titles[0]).getByRole('checkbox', { name: `Terminer ${titles[0]}` }).click()
+      await expect(board.bravo).toHaveAccessibleName(`${titles[0]} · faite`)
+      await board.pause.click()
+      await expect(board.bravo).toBeHidden()
 
       // …then « Maintenant » shows the second, with its first step and its minutes…
       await expect(board.now).toContainText(titles[1])
@@ -681,6 +684,80 @@ test.describe('the morning and the evening', () => {
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
     }
   })
+})
+
+/**
+ * The bravo of a task done (MAG-508): a tick from « Mes 5 » opens it over the
+ * day, with « {titre} · faite », a message of the tone set and the day so far;
+ * the next message is never the same; the last of the five is a shooting star.
+ *
+ * On an account of its own (`e2e-bravo@maggie.local`): a shooting star comes
+ * once a local day per user, and the other journeys tick tasks too. A run again
+ * on the same stack and day finds that star gone — reseed first.
+ */
+test('ticking from « Mes 5 » opens the bravo; the next message differs; the last of the five is a shooting star', async ({ bravoUser }) => {
+  const { page, api } = bravoUser
+  const today = parisDay()
+  const titles = Array.from({ length: 5 }, (_, i) => perAttempt(`Bravo ${i + 1} — ranger le salon`))
+  const ids: string[] = []
+
+  try {
+    // Given the tone « direct » and a day of five, two of them done…
+    const tone = await api.put('/api/task-settings/me', {
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      data: { tone: 'direct' },
+    })
+    expect(tone.ok(), `PUT /api/task-settings/me answered ${tone.status()}`).toBe(true)
+    for (const [i, title] of titles.entries()) ids.push(await createTask(api, i === 3 ? { title, estimatedMinutes: 15 } : { title }))
+    await setDayPlan(api, today, ids)
+    for (const id of ids.slice(0, 2)) {
+      const ticked = await api.patch(`/api/tasks/${id}`, {
+        headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+        data: { completedAt: e2eNow().toISOString() },
+      })
+      expect(ticked.ok(), `PATCH /api/tasks/${id} answered ${ticked.status()}`).toBe(true)
+    }
+
+    const board = new TasksPage(page)
+    await board.open()
+    await expect(board.ring).toHaveAccessibleName('2 sur 5')
+
+    // When I tick the third from « Mes 5 »…
+    await board.slot(titles[2]).getByRole('checkbox', { name: `Terminer ${titles[2]}` }).click()
+
+    // …then the bravo says it is done, with a message of the « direct » bank and the day so far…
+    await expect(board.bravo).toHaveAccessibleName(`${titles[2]} · faite`)
+    await expect(board.bravoMessage).not.toBeEmpty()
+    const first = (await board.bravoMessage.textContent()) ?? ''
+    await expect(board.bravo).toContainText("3 sur 5 aujourd'hui")
+    await expect(board.next(titles[3])).toHaveAccessibleName(`Suivante : ${titles[3]} · 15 min`)
+    // …the one the API laid down, a star.
+    const reward = await api.get(`/api/rewards/task/${ids[2]}`, { headers: { Accept: 'application/json' } })
+    expect(reward.ok(), `GET /api/rewards/task/${ids[2]} answered ${reward.status()}`).toBe(true)
+    const stored = (await reward.json()) as { message: string; messageKey: string; star: boolean }
+    expect([stored.message, stored.messageKey.startsWith('direct.'), stored.star]).toEqual([first, true, true])
+
+    // When I take a pause, then tick the fourth, its message is not the same.
+    await board.pause.click()
+    await expect(board.bravo).toBeHidden()
+    await board.slot(titles[3]).getByRole('checkbox', { name: `Terminer ${titles[3]}` }).click()
+    await expect(board.bravo).toHaveAccessibleName(`${titles[3]} · faite`)
+    await expect(board.bravoMessage).not.toBeEmpty()
+    await expect(board.bravoMessage).not.toHaveText(first)
+    await expect(board.bravo).toContainText("4 sur 5 aujourd'hui")
+
+    // When I tick the fifth, the day is done: a shooting star.
+    await board.pause.click()
+    await expect(board.bravo).toBeHidden()
+    await board.slot(titles[4]).getByRole('checkbox', { name: `Terminer ${titles[4]}` }).click()
+    await expect(board.bravo).toHaveAccessibleName(`${titles[4]} · faite`)
+    await expect(board.bravo).toContainText("5 sur 5 aujourd'hui")
+    await expect(board.bravoMessage).toContainText('Étoile filante')
+    await expect(board.bravo.getByTestId('bravo-shooting-star')).toBeAttached()
+  } finally {
+    await setDayPlan(api, today, [])
+    for (const id of ids) await api.delete(`/api/tasks/${id}`)
+  }
 })
 
 /**

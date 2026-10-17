@@ -50,6 +50,12 @@ export class TasksPage extends AdminShell {
   readonly eveningLater: Locator
   /** « Le soir », on the day: the review on demand. */
   readonly openEveningButton: Locator
+  /** The bravo of a task done (MAG-508), over the day: named « {titre} · faite ». */
+  readonly bravo: Locator
+  /** The reward's message, from a written bank. */
+  readonly bravoMessage: Locator
+  /** « Pause méritée »: back to the day. */
+  readonly pause: Locator
 
   constructor(page: Page) {
     super(page)
@@ -73,6 +79,10 @@ export class TasksPage extends AdminShell {
     this.goodNight = this.evening.getByRole('button', { name: 'Bonne nuit', exact: true })
     this.eveningLater = this.evening.getByRole('button', { name: 'Plus tard', exact: true })
     this.openEveningButton = this.content.getByRole('button', { name: 'Le soir', exact: true })
+    // A dialog is drawn outside the page's content.
+    this.bravo = page.getByRole('dialog', { name: / · faite$/ })
+    this.bravoMessage = this.bravo.getByTestId('bravo-message')
+    this.pause = this.bravo.getByRole('button', { name: 'Pause méritée', exact: true })
   }
 
   /**
@@ -97,6 +107,11 @@ export class TasksPage extends AdminShell {
     // The counts come with the first answer: the tabs are not final before.
     await expect(this.tab("Aujourd'hui")).toHaveText(/\(\d+\)/)
     await expect(this.later.or(this.eveningLater).or(this.dayCreate)).toBeVisible()
+  }
+
+  /** « Suivante : {titre} … », the next task of the day from the bravo. */
+  next(title: string): Locator {
+    return this.bravo.getByRole('button', { name: new RegExp(`^Suivante : ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
   }
 
   /** The row of `title` among the tasks left in the evening. */

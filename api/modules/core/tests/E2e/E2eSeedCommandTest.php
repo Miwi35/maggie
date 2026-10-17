@@ -120,6 +120,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-scores@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-adjust@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-balance@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-bravo@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
