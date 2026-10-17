@@ -50,7 +50,7 @@ const PersonRow = ({
   return (
     <Box component="li" sx={{ listStyle: 'none' }} data-testid="peer-debt-person">
       <ListItemButton onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={balance.name}>
-        <ListItemText primary={balance.name} secondary={balance.compensates ? compensationSentence(balance.name, balance.netCents) : undefined} />
+        <ListItemText primary={balance.name} secondary={balance.compensates && balance.netCents !== 0 ? compensationSentence(balance.name, balance.netCents) : undefined} />
         <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
           {netSentence(balance.netCents)}
         </Typography>
