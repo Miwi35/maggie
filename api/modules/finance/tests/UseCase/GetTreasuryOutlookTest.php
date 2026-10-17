@@ -11,6 +11,7 @@ use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -43,9 +44,9 @@ class GetTreasuryOutlookTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function readOn(string $today, string $as = 'test_user'): array
+    private function readOn(string $today, string $as = 'test_user', ?int $months = null): array
     {
-        return $this->outlook->execute($this->user($as), new \DateTimeImmutable($today));
+        return $this->outlook->execute($this->user($as), new \DateTimeImmutable($today), $months);
     }
 
     private function planned(string $accountRef, int $amountCents, string $bookedAt, TransactionStatus $status = TransactionStatus::Planned, string $label = 'Prévu'): void
@@ -178,17 +179,102 @@ class GetTreasuryOutlookTest extends KernelTestCase
         self::assertCount(42, $outlook['projection']);
         self::assertSame(['Après le salaire'], array_column($this->rowOn($outlook, '2026-10-26')['movements'], 'label'));
         self::assertSame(0, $outlook['projection'][array_key_last($outlook['projection'])]['balanceCents']);
-        // The warning stays about the time until the salary: what follows is not an overdraft to advance for.
         self::assertFalse($outlook['overdraft']['isForecast']);
         self::assertSame(['onDate' => '2026-10-24', 'balanceCents' => 100000], $outlook['balanceBeforeSalary']);
     }
 
-    public function testAProjectionNeverRunsPastTheCap(): void
+    public function testTheDefaultProjectionStopsAtTheEndOfTheNextMonth(): void
     {
         $outlook = $this->readOn('2026-07-01');
 
-        self::assertCount(GetTreasuryOutlook::MAX_DAYS, $outlook['projection']);
+        self::assertCount(62, $outlook['projection']);
         self::assertSame('2026-08-31', $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+    }
+
+    #[DataProvider('horizons')]
+    public function testTheHorizonAskedForSetsHowFarTheProjectionRuns(int $months, string $lastDay, int $rows): void
+    {
+        $outlook = $this->readOn('2026-07-01', months: $months);
+
+        self::assertSame($lastDay, $outlook['projection'][array_key_last($outlook['projection'])]['date']);
+        self::assertCount($rows, $outlook['projection']);
+    }
+
+    /** @return iterable<string, array{int, string, int}> */
+    public static function horizons(): iterable
+    {
+        yield '1 month' => [1, '2026-07-31', 31];
+        yield '3 months' => [3, '2026-09-30', 92];
+        yield '6 months' => [6, '2026-12-31', 184];
+        yield '1 year' => [12, '2027-06-30', 365];
+    }
+
+    public function testAYearNeverRunsPastTheCap(): void
+    {
+        $outlook = $this->readOn('2027-07-01', months: 12);
+
+        self::assertCount(GetTreasuryOutlook::MAX_DAYS, $outlook['projection']);
+    }
+
+    #[DataProvider('invalidHorizons')]
+    public function testAHorizonOutOfRangeIsRefused(int $months): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->readOn('2026-07-01', months: $months);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function invalidHorizons(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-1];
+        yield 'over a year' => [13];
+    }
+
+    public function testTheCurvesOfWhatComesInAndGoesOutAreCumulativeFromToday(): void
+    {
+        $this->salary(495000, '2026-09-25');
+        $this->balance('checking', 100000);
+        $this->planned('checking', -20000, '2026-10-26', label: 'Dépense');
+        $this->planned('checking', 30000, '2026-10-27', label: 'Remboursement');
+        $this->planned('checking', -5000, '2026-10-28', label: 'Autre dépense');
+
+        $outlook = $this->readOn('2026-10-20', months: 3);
+
+        self::assertSame([0, 0], [$outlook['projection'][0]['cumulativeInflowCents'], $outlook['projection'][0]['cumulativeOutflowCents']]);
+        $curves = [];
+        foreach (['2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28', '2027-01-19'] as $date) {
+            $row = $this->rowOn($outlook, $date);
+            $curves[$date] = [$row['cumulativeInflowCents'], $row['cumulativeOutflowCents']];
+        }
+        self::assertSame([
+            '2026-10-25' => [0, 0],
+            '2026-10-26' => [0, 20000],
+            '2026-10-27' => [30000, 20000],
+            '2026-10-28' => [30000, 25000],
+            '2027-01-19' => [30000, 25000],
+        ], $curves);
+        // The balance is the starting one plus inflows less outflows, whatever the day.
+        foreach ($outlook['projection'] as $row) {
+            self::assertSame($outlook['balanceCents'] + $row['cumulativeInflowCents'] - $row['cumulativeOutflowCents'], $row['balanceCents'], $row['date']);
+        }
+    }
+
+    public function testADipPastTheSalaryIsForecastOverTheWholeWindow(): void
+    {
+        $this->salary(495000, '2026-09-25');
+        $this->balance('checking', 100000);
+        $this->planned('checking', -150000, '2026-12-10', label: 'Travaux');
+
+        $short = $this->readOn('2026-10-20');
+        $long = $this->readOn('2026-10-20', months: 3);
+
+        self::assertFalse($short['overdraft']['isForecast'], 'December is past the default window');
+        self::assertTrue($long['overdraft']['isForecast']);
+        self::assertSame('2026-12-10', $long['overdraft']['onDate']);
+        self::assertSame(-50000, $long['overdraft']['worstBalanceCents']);
+        self::assertSame(50000, $long['advice']['amountCents']);
     }
 
     /**
@@ -268,8 +354,8 @@ class GetTreasuryOutlookTest extends KernelTestCase
         self::assertSame(['onDate' => '2026-11-24', 'balanceCents' => 250000], $outlook['balanceBeforeSalary']);
     }
 
-    /** Once the salary is in, a dip is a budget matter: shown, but no advance from savings is advised. */
-    public function testAfterTheSalaryADipIsStillShownButNoAdvanceIsAdvised(): void
+    /** The overdraft and the advice look at the whole window, salary in or not. */
+    public function testAfterTheSalaryADipIsForecastAndAdvisedLikeAnyOther(): void
     {
         $this->salary(495000, '2026-09-25');
         $this->salary(495000, '2026-10-25');
@@ -280,7 +366,8 @@ class GetTreasuryOutlookTest extends KernelTestCase
 
         self::assertTrue($outlook['overdraft']['isForecast']);
         self::assertSame('2026-11-01', $outlook['overdraft']['onDate']);
-        self::assertNull($outlook['advice']);
+        self::assertSame(40000, $outlook['advice']['amountCents']);
+        self::assertSame('Livret A', $outlook['advice']['sourceAccountName']);
     }
 
     public function testWhenNoSourceSufficesAloneTheAlternativesMakeUpTheRestCushionLast(): void

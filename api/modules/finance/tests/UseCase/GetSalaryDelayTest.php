@@ -212,7 +212,7 @@ class GetSalaryDelayTest extends KernelTestCase
     public function testACreditOfTheSizeOfTheReferenceTheDayBeforeTheExpectedDayIsTheSalary(): void
     {
         $this->expectedOnThe(26);
-        $this->add('checking', 497050, '2026-09-25', label: 'Meven Cadare');
+        $this->add('checking', 497050, '2026-09-25', label: 'VIR ACME SA');
 
         $delay = $this->readOn('2026-10-17');
 
@@ -228,15 +228,49 @@ class GetSalaryDelayTest extends KernelTestCase
     {
         $this->expectedOnThe(26);
         $this->add('checking', 495000, '2026-10-01', label: 'Retard de virement');
-        $this->add('checking', 495000, '2026-09-30', label: 'Meven Cadare');
+        $this->add('checking', 495000, '2026-09-30', label: 'VIR ACME SA');
 
         self::assertFalse($this->readOn('2026-10-17')['isLate']);
     }
 
-    public function testACreditOfTheRightSizeFarFromTheExpectedDayIsNotTheSalary(): void
+    /** The owner's real September: 4 950 € expected on the 26th, 5 292,27 € of a foreign payer on 15 October, filed nowhere. */
+    public function testALateCreditOfTheSizeOfTheReferenceClosesTheOldestOpenMonthWhenItLands(): void
     {
         $this->expectedOnThe(26);
-        $this->add('checking', 495000, '2026-10-08', label: 'Remboursement');
+        $this->add('checking', 529227, '2026-10-15', label: 'VIR RECU DE L\'ETRANGER BESSER');
+
+        $beforeIt = $this->readOn('2026-10-14');
+        self::assertTrue($beforeIt['isLate']);
+        self::assertSame(18, $beforeIt['delayDays']);
+
+        $delay = $this->readOn('2026-10-17');
+        self::assertFalse($delay['isLate']);
+        self::assertSame(0, $delay['shortfallCents']);
+        self::assertTrue($delay['months'][0]['isReceived']);
+        self::assertSame('2026-10-15', $delay['months'][0]['receivedOn']);
+        self::assertFalse($delay['months'][1]['isReceived'], 'October is still to come');
+    }
+
+    public function testATransferFromOneselfOfTheSizeOfTheReferenceIsNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 497050, '2026-09-25', label: 'VIR SAVINGS ADVANCES USER');
+
+        self::assertTrue($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testACreditFiledAsTheSalaryCountsEvenWithTheOwnersNameInItsLabel(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 497050, '2026-09-25', 'salary', 'Savings Advances User SASU');
+
+        self::assertFalse($this->readOn('2026-10-17')['isLate']);
+    }
+
+    public function testACreditOfTheRightSizeMoreThanFiveDaysBeforeTheExpectedDayIsNotTheSalary(): void
+    {
+        $this->expectedOnThe(26);
+        $this->add('checking', 495000, '2026-08-19', label: 'Remboursement');
 
         self::assertTrue($this->readOn('2026-10-17')['isLate']);
     }

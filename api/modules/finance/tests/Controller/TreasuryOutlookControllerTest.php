@@ -7,14 +7,15 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
- * The treasury outlook over REST (MAG-279): a pure read with no parameter, so
- * no 400 here — the one input, the overdraft limit, is refused by the
- * treasury settings (TreasurySettingsControllerTest). Exemption: N/A — DB
- * state, Mercure and Elasticsearch, it writes nothing.
+ * The treasury outlook over REST (MAG-279): a pure read whose one parameter,
+ * the horizon in months (MAG-506), is refused out of 1 to 12; the overdraft
+ * limit is refused by the treasury settings (TreasurySettingsControllerTest).
+ * Exemption: N/A — DB state, Mercure and Elasticsearch, it writes nothing.
  */
 class TreasuryOutlookControllerTest extends WebTestCase
 {
@@ -96,5 +97,41 @@ class TreasuryOutlookControllerTest extends WebTestCase
         );
         self::assertGreaterThanOrEqual(5, \count($weekly));
         self::assertSame(-12000 - 2500 * \count($weekly), $last['balanceCents']);
+    }
+
+    public function testTheHorizonAskedForSetsHowFarTheProjectionRuns(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/treasury_outlook.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $today = new \DateTimeImmutable('today');
+
+        $this->client->request('GET', self::ENDPOINT, ['months' => 12], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $last = $data['projection'][array_key_last($data['projection'])];
+        self::assertSame($today->modify('+12 months')->modify('-1 day')->format('Y-m-d'), $last['date']);
+        self::assertArrayHasKey('cumulativeInflowCents', $last);
+        self::assertArrayHasKey('cumulativeOutflowCents', $last);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function badHorizons(): iterable
+    {
+        yield 'zero' => ['0'];
+        yield 'over a year' => ['13'];
+        yield 'not a number' => ['abc'];
+        yield 'empty' => [''];
+    }
+
+    #[DataProvider('badHorizons')]
+    public function testAHorizonOutOfRangeIsRefused(string $months): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/treasury_outlook.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', self::ENDPOINT, ['months' => $months], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(400);
     }
 }

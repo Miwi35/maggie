@@ -14,8 +14,9 @@ use Maggie\Finance\Tests\UseCase\SavingsAdvancesWorld;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * « Je vais être à découvert ? » (MAG-279). No argument: the user bound is all
- * that can be wrong. No salary ever came in, so the previous month is late
+ * « Je vais être à découvert ? » (MAG-279). The one argument, the horizon in
+ * months (MAG-506), is refused out of 1 to 12; the user bound is the other
+ * thing that can be wrong. No salary ever came in, so the previous month is late
  * whatever the day the suite runs, and the Courant at -120 € is overdrawn
  * today. A pure read — it publishes and indexes nothing.
  */
@@ -39,11 +40,11 @@ class GetTreasuryOutlookToolTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function read(): array
+    private function read(?int $months = null): array
     {
         $tool = self::getContainer()->get(GetTreasuryOutlookTool::class);
 
-        return json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($tool($months), true, 512, JSON_THROW_ON_ERROR);
     }
 
     public function testWithoutAUserBoundItReportsTheError(): void
@@ -101,5 +102,23 @@ class GetTreasuryOutlookToolTest extends KernelTestCase
         self::assertNull($data['balanceBeforeSalary']);
         self::assertFalse($data['overdraft']['isForecast']);
         self::assertNull($data['advice']);
+    }
+
+    public function testTheHorizonAskedForSetsHowFarItProjects(): void
+    {
+        $this->loginFixtureUser();
+
+        $year = $this->read(12);
+
+        self::assertGreaterThanOrEqual(365, \count($year['projection']));
+        self::assertLessThan(\count($year['projection']), \count($this->read()['projection']));
+    }
+
+    public function testAHorizonOutOfRangeIsReportedAsAnError(): void
+    {
+        $this->loginFixtureUser();
+
+        self::assertArrayHasKey('error', $this->read(0));
+        self::assertArrayHasKey('error', $this->read(13));
     }
 }

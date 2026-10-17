@@ -9,6 +9,7 @@ use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Repository\TreasurySettingsRepository;
+use Symfony\Component\String\UnicodeString;
 
 /**
  * Whether the salary is late, for the previous month and the current one.
@@ -27,8 +28,11 @@ use Maggie\Finance\Repository\TreasurySettingsRepository;
  * What counts as the salary: a credit filed under « Salaire » — which one
  * attached to the salary series is, it takes the series' category — or, a
  * payer's transfer being rarely filed, any other credit within 10 % of the
- * reference booked up to {@see NEAR_DAYS} days either side of the expected
- * day. A bonus, a rente or a transfer between accounts never are.
+ * reference booked from {@see NEAR_DAYS} days before the expected day on, so
+ * a salary that comes late closes its delay the day it lands, whatever its
+ * label. A bonus, a rente, a transfer between accounts, or a credit whose
+ * label carries the owner's own name (a transfer from oneself) are not
+ * recognised by their amount.
  *
  * Without an expected day, or without a reference salary, nothing is late:
  * `isConfigured` is false. A pure read — the settings are not created here.
@@ -42,7 +46,7 @@ class GetSalaryDelay
     /** How many days before its expected day a credit may still pay a month. */
     public const int EARLY_DAYS = 3;
 
-    /** How far from the expected day a credit counts for its amount alone. */
+    /** How many days before its expected day a credit known by its amount alone may pay a month. */
     public const int NEAR_DAYS = 5;
 
     public function __construct(
@@ -82,6 +86,7 @@ class GetSalaryDelay
             ];
         }
 
+        $ownName = self::fold($user->getName());
         $currentMonth = $today->modify('first day of this month');
         $expected = [
             self::expectedOn($currentMonth->modify('-1 month'), $day),
@@ -91,7 +96,7 @@ class GetSalaryDelay
         $from = $expected[0]->modify(sprintf('-%d days', max(self::EARLY_DAYS, self::NEAR_DAYS)));
         $credits = [];
         foreach ($this->transactionRepository->findCreditsBetween($user, $from, $today) as $credit) {
-            $kind = self::kindOf($credit, $reference);
+            $kind = self::kindOf($credit, $reference, $ownName);
             if (null !== $kind) {
                 $credits[] = ['transaction' => $credit, 'byAmount' => 'amount' === $kind];
             }
@@ -173,7 +178,7 @@ class GetSalaryDelay
      * `category` for a credit filed as the salary, `amount` for
      * one only its size recognises, null for what is not a salary.
      */
-    private static function kindOf(Transaction $credit, int $reference): ?string
+    private static function kindOf(Transaction $credit, int $reference, string $ownName): ?string
     {
         $category = $credit->getCategory();
         if ($category?->isPassiveIncome() ?? false) {
@@ -187,17 +192,36 @@ class GetSalaryDelay
         $isBonus = $category?->isStandard(StandardCategories::BONUS) ?? false;
         $withinTenPercent = abs($credit->getAmountCents() - $reference) * 100 <= $reference * (100 - self::CLOSING_PERCENT);
 
-        return !$isBonus && $withinTenPercent ? 'amount' : null;
+        return !$isBonus && $withinTenPercent && !self::isFromOneself($credit, $ownName) ? 'amount' : null;
     }
 
-    /** A filed credit pays a month from a few days before its expected day on; one known by its amount only, around it. */
-    private static function mayPay(Transaction $credit, bool $byAmount, \DateTimeImmutable $expectedOn): bool
+    /** Every word of the owner's name (two at least) is in the label: a transfer from oneself, not a payer's. */
+    private static function isFromOneself(Transaction $credit, string $ownName): bool
     {
-        if (!$byAmount) {
-            return $credit->getBookedAt() >= self::firstPayableDay($expectedOn);
+        $words = array_values(array_filter(explode(' ', $ownName), static fn (string $word): bool => mb_strlen($word) > 1));
+        if (\count($words) < 2) {
+            return false;
         }
 
-        return $credit->getBookedAt()->setTime(0, 0)->diff($expectedOn)->days <= self::NEAR_DAYS;
+        $label = self::fold($credit->getLabel());
+        foreach ($words as $word) {
+            if (!str_contains($label, $word)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function fold(string $text): string
+    {
+        return (new UnicodeString(trim($text)))->ascii()->lower()->collapseWhitespace()->toString();
+    }
+
+    /** A credit pays a month from a few days before its expected day on — a few more for one known by its amount only. */
+    private static function mayPay(Transaction $credit, bool $byAmount, \DateTimeImmutable $expectedOn): bool
+    {
+        return $credit->getBookedAt() >= self::firstPayableDay($expectedOn, $byAmount ? self::NEAR_DAYS : self::EARLY_DAYS);
     }
 
     private static function closes(int $received, int $reference): bool
@@ -213,8 +237,8 @@ class GetSalaryDelay
         return $first->modify(sprintf('+%d days', min($day, (int) $first->format('t')) - 1));
     }
 
-    private static function firstPayableDay(\DateTimeImmutable $expectedOn): \DateTimeImmutable
+    private static function firstPayableDay(\DateTimeImmutable $expectedOn, int $days): \DateTimeImmutable
     {
-        return $expectedOn->modify(sprintf('-%d days', self::EARLY_DAYS));
+        return $expectedOn->modify(sprintf('-%d days', $days));
     }
 }

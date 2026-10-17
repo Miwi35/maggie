@@ -30,6 +30,20 @@ describe('useTreasuryOutlook', () => {
     expect(fetch).toHaveBeenCalledWith('/api/finance/treasury-settings', { headers: HEADERS })
   })
 
+  test('a horizon in months is sent to the API, none leaves the default', async () => {
+    const fetchMock = vi.fn((url: string) => Promise.resolve(url.includes('outlook') ? json(OUTLOOK) : json(SETTINGS)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ months }) => useTreasuryOutlook(months), {
+      initialProps: { months: 6 as number | null },
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(fetchMock).toHaveBeenCalledWith('/api/finance/treasury-outlook?months=6', { headers: HEADERS })
+
+    rerender({ months: null })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/finance/treasury-outlook', { headers: HEADERS }))
+  })
+
   test('an API error leaves a message and no outlook', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ error: 'x' }, false)))
 

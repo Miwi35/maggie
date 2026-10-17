@@ -145,6 +145,55 @@ class TreasuryViewModelTest {
     }
 
     @Test
+    fun `picking a horizon reads the outlook again for that many months, the default asks for none`() = runTest {
+        val year = configured.copy(balanceCents = 777)
+        coEvery { treasuryRepository.getOutlook(12) } returns Result.success(year)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.months)
+
+        viewModel.selectHorizon(12)
+        advanceUntilIdle()
+
+        assertEquals(12, viewModel.uiState.value.months)
+        assertEquals(year, viewModel.uiState.value.outlook)
+        coVerify(exactly = 1) { treasuryRepository.getOutlook(12) }
+
+        viewModel.selectHorizon(null)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.months)
+        assertEquals(configured, viewModel.uiState.value.outlook)
+    }
+
+    @Test
+    fun `picking the horizon already shown reads nothing`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectHorizon(null)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { treasuryRepository.getOutlook(null) }
+    }
+
+    @Test
+    fun `a failed read of a new horizon keeps the horizon and the outlook already shown`() = runTest {
+        coEvery { treasuryRepository.getOutlook(6) } returns Result.failure(RuntimeException("boom"))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectHorizon(6)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(6, state.months)
+        assertEquals("boom", state.error)
+        assertEquals(configured, state.outlook)
+    }
+
+    @Test
     fun `saving the overdraft limit sends euros as cents, then reloads`() = runTest {
         coEvery { treasuryRepository.updateSettings(any()) } returns Result.success(TreasurySettings(overdraftLimitCents = 25050))
 
