@@ -35,7 +35,7 @@ class ManagePeerDebtsTool
     ) {
     }
 
-    /** @param list<mixed>|null $shares what the agent sent: checked one by one */
+    /** @param list<array<string, mixed>>|null $shares what the agent sent: checked one by one */
     public function __invoke(
         #[Schema(enum: self::ACTIONS)]
         string $action,
