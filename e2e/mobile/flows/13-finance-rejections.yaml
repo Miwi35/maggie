@@ -52,9 +52,9 @@ tags:
           optional: true
 
 - extendedWaitUntil:
-    visible: "Compte MAG-424"
+    visible: "EUR · Compte MAG-424"
     timeout: 30000
-- tapOn: "Compte MAG-424"
+- tapOn: "EUR · Compte MAG-424"
 
 # The two pairs are detected as their credits land.
 - extendedWaitUntil:
