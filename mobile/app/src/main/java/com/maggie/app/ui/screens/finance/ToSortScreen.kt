@@ -54,6 +54,8 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
 import com.maggie.app.data.model.RETROSPECT_KEEP
+import com.maggie.app.data.model.PeerKind
+import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.toSortCounter
@@ -131,6 +133,19 @@ fun ToSortScreen(
             onPick = viewModel::pickContact,
             onCreate = viewModel::createContact,
             onDismiss = viewModel::closeContactPicker,
+        )
+    }
+
+    // « Ce virement est »'s person (MAG-453): the same full-screen picker.
+    state.peerContacts?.let { choice ->
+        ContactPickerDialog(
+            contacts = choice.contacts,
+            isLoading = choice.isLoading,
+            title = if (state.currentPeer?.kind == PeerKind.NEW_CLAIM) "Qui te doit ?" else "À qui le rendre ?",
+            subtitle = state.current?.label,
+            onPick = viewModel::pickPeerContact,
+            onCreate = viewModel::createPeerContact,
+            onDismiss = viewModel::closePeerContactPicker,
         )
     }
 
@@ -230,6 +245,16 @@ private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel, onOpenTra
             onCreateRule = viewModel::openRuleDraft,
             onOpenSheet = { onOpenTransaction(line) },
             onContact = viewModel::openContactPicker,
+            peerActions = PeerTransferActions(
+                onKindChange = viewModel::choosePeerKind,
+                onToggleShare = viewModel::togglePeerShare,
+                onShareAmountChange = viewModel::changePeerShareAmount,
+                onPickPerson = viewModel::openPeerContactPicker,
+                onDebtAmountChange = viewModel::changePeerDebtAmount,
+                onSubjectChange = viewModel::changePeerSubject,
+                onNotesChange = viewModel::changePeerNotes,
+                onSave = viewModel::savePeer,
+            ),
         )
     }
 }
@@ -248,8 +273,11 @@ private fun SortCard(
     onCreateRule: () -> Unit,
     onOpenSheet: () -> Unit,
     onContact: () -> Unit,
+    peerActions: PeerTransferActions,
 ) {
     val suggestion = line.suggestion
+    // Filed already, only « Ce virement est » is missing (MAG-453): no category to ask for.
+    val asksForCategory = line.reason != TO_SORT_REASON_PEER_TRANSFER
     var qualifying by rememberSaveable(line.id) { mutableStateOf(false) }
 
     Card(
@@ -282,62 +310,74 @@ private fun SortCard(
                 ) { Text("Associer à un contact ?") }
             }
 
-            HorizontalDivider()
-
-            if (suggestion != null) {
-                Text("→ ${suggestion.categoryPath}", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    suggestion.reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    "Aucune suggestion pour cette ligne.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (line.asksForPeerKind) {
+                HorizontalDivider()
+                val peer = state.currentPeer
+                if (peer == null) {
+                    CircularProgressIndicator()
+                } else {
+                    PeerTransferQualifier(peer, peerActions, line.currency)
+                }
             }
 
-            if (suggestion != null) {
-                Button(
-                    onClick = onValidate,
-                    enabled = state.canValidate,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.TO_SORT_VALIDATE),
-                ) { Text("Valider") }
-            }
-            OutlinedButton(
-                onClick = onOther,
-                enabled = !state.isSorting,
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.TO_SORT_OTHER),
-            ) { Text("Autre catégorie") }
+            if (asksForCategory) {
+                HorizontalDivider()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(
-                        value = state.alwaysForMerchant,
-                        role = Role.Switch,
-                        onValueChange = onAlways,
+                if (suggestion != null) {
+                    Text("→ ${suggestion.categoryPath}", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        suggestion.reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    .testTag(UiTags.TO_SORT_ALWAYS),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Toujours pour ce marchand", style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = state.alwaysForMerchant, onCheckedChange = null)
-            }
+                } else {
+                    Text(
+                        "Aucune suggestion pour cette ligne.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
-            TextButton(
-                onClick = { qualifying = !qualifying },
-                modifier = Modifier.testTag(UiTags.TO_SORT_QUALIFICATION),
-            ) { Text(qualificationToggleLabel(state.qualification, qualifying)) }
-            if (qualifying) {
-                QualificationFlags(
-                    qualification = state.qualification,
-                    onQualificationChange = onQualify,
+                if (suggestion != null) {
+                    Button(
+                        onClick = onValidate,
+                        enabled = state.canValidate,
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.TO_SORT_VALIDATE),
+                    ) { Text("Valider") }
+                }
+                OutlinedButton(
+                    onClick = onOther,
                     enabled = !state.isSorting,
-                )
+                    modifier = Modifier.fillMaxWidth().testTag(UiTags.TO_SORT_OTHER),
+                ) { Text("Autre catégorie") }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = state.alwaysForMerchant,
+                            role = Role.Switch,
+                            onValueChange = onAlways,
+                        )
+                        .testTag(UiTags.TO_SORT_ALWAYS),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Toujours pour ce marchand", style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = state.alwaysForMerchant, onCheckedChange = null)
+                }
+
+                TextButton(
+                    onClick = { qualifying = !qualifying },
+                    modifier = Modifier.testTag(UiTags.TO_SORT_QUALIFICATION),
+                ) { Text(qualificationToggleLabel(state.qualification, qualifying)) }
+                if (qualifying) {
+                    QualificationFlags(
+                        qualification = state.qualification,
+                        onQualificationChange = onQualify,
+                        enabled = !state.isSorting,
+                    )
+                }
             }
 
             if (line.judgeable) {
@@ -361,16 +401,19 @@ private fun SortCard(
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    onClick = onTransfer,
-                    enabled = !state.isSorting,
-                    modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
-                ) { Text("Virement interne") }
-                TextButton(
-                    onClick = onCreateRule,
-                    enabled = !state.isSorting,
-                    modifier = Modifier.testTag(UiTags.TO_SORT_RULE),
-                ) { Text("Créer un filtre") }
+                // A filed transfer has a category: the API refuses an internal transfer, and a filter has nothing to file.
+                if (asksForCategory) {
+                    TextButton(
+                        onClick = onTransfer,
+                        enabled = !state.isSorting,
+                        modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
+                    ) { Text("Virement interne") }
+                    TextButton(
+                        onClick = onCreateRule,
+                        enabled = !state.isSorting,
+                        modifier = Modifier.testTag(UiTags.TO_SORT_RULE),
+                    ) { Text("Créer un filtre") }
+                }
                 TextButton(
                     onClick = onOpenSheet,
                     modifier = Modifier.testTag(UiTags.TO_SORT_OPEN_SHEET),

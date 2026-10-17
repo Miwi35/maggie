@@ -32,7 +32,14 @@ data class TransactionToSort(
     val asksForContact: Boolean = false,
     // The label to link when a contact is picked: the counterparty the bank named, or the label without its references.
     val counterpartyLabel: String = "",
+    // Why the line waits (MAG-453): "category" (none yet) or "peer_transfer" (a transfer to or from a contact not yet qualified).
+    val reason: String = TO_SORT_REASON_CATEGORY,
+    // Whether the card asks « Ce virement est », saved through `PUT …/allocation`.
+    val asksForPeerKind: Boolean = false,
 )
+
+const val TO_SORT_REASON_CATEGORY = "category"
+const val TO_SORT_REASON_PEER_TRANSFER = "peer_transfer"
 
 const val RETROSPECT_UNRATED = "unrated"
 const val RETROSPECT_KEEP = "keep"

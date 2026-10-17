@@ -40,10 +40,11 @@ class TransactionRepository extends ServiceEntityRepository
 {
     /**
      * `Transaction::getOwnAmountCents()` in DQL: the part the owner kept of a
-     * shared spend (MAG-451), the whole amount otherwise. Every budget sum
-     * reads it — envelopes, score, review, lifestyle.
+     * shared spend (MAG-451), the whole amount less what gives back a debt
+     * otherwise (MAG-453). Every budget sum reads it — envelopes, score,
+     * review, lifestyle.
      */
-    public const string OWN_AMOUNT = 'COALESCE(0 - t.myShareCents, t.amountCents)';
+    public const string OWN_AMOUNT = 'COALESCE(0 - t.myShareCents, CASE WHEN t.amountCents < 0 THEN t.amountCents + t.peerAllocatedCents ELSE t.amountCents - t.peerAllocatedCents END)';
 
     /**
      * What a received transfer carries as a dette (MAG-452): the amount to give
@@ -430,8 +431,9 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * The lines waiting to be sorted by hand: no category and no transfer or
-     * rejection marking, whoever emptied the category — a line whose category
+     * The lines waiting to be sorted by hand: no category — or a transfer with
+     * a contact not told apart yet (MAG-453) — and no transfer or rejection
+     * marking, whoever emptied the category — a line whose category
      * was removed by hand still has none (the « À trier » pill says the same).
      * Newest first, or oldest first when the review walks the pile.
      *
@@ -498,11 +500,16 @@ class TransactionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * No category, or — since MAG-453 — a transfer linked to a contact that
+     * the owner has not told apart yet (income, repayment, new debt…). A
+     * shared spend is told apart already: the owner said who owes what.
+     */
     private function toSortQuery(User $user): QueryBuilder
     {
         return $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
-            ->andWhere('t.category IS NULL')
+            ->andWhere('(t.category IS NULL OR (t.contact IS NOT NULL AND t.peerKind IS NULL AND t.myShareCents IS NULL AND t.amountCents != 0))')
             ->andWhere('t.transferKind = :none')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('none', TransferKind::None->value);
@@ -656,6 +663,8 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.transferKind = :none')
             // A shared spend was paid: its créance would be left for nothing (MAG-451).
             ->andWhere('t.myShareCents IS NULL')
+            // Nor one that gives back a dette: its allocations would repay nothing (MAG-453).
+            ->andWhere('t.peerAllocatedCents = 0')
             ->setParameter('user', $credit->getUser()->getId(), 'ulid')
             ->setParameter('id', $credit->getId(), 'ulid')
             ->setParameter('account', $credit->getAccount()->getId(), 'ulid')
@@ -870,7 +879,7 @@ class TransactionRepository extends ServiceEntityRepository
     public function sumPassiveIncomeByCategoryBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
+            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, t.amountCents - t.peerAllocatedCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->innerJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
@@ -943,9 +952,9 @@ class TransactionRepository extends ServiceEntityRepository
      */
     public function sumMonthlyFlowsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
-        /** @var array<int, array{bookedAt: \DateTimeImmutable, amountCents: int, debtCents: int|string}> $rows */
+        /** @var array<int, array{bookedAt: \DateTimeImmutable, amountCents: int, allocatedCents: int, debtCents: int|string}> $rows */
         $rows = $this->createQueryBuilder('t')
-            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
+            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents, t.peerAllocatedCents AS allocatedCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.status IN (:consumed)')
@@ -964,11 +973,12 @@ class TransactionRepository extends ServiceEntityRepository
             $month = $row['bookedAt']->format('Y-m');
             $flows[$month] ??= ['incomeCents' => 0, 'expenseCents' => 0];
 
+            // What gives back a debt between people is neither an income nor an expense (MAG-453).
             if ($row['amountCents'] >= 0) {
                 // What is owed back on a received transfer is no income.
-                $flows[$month]['incomeCents'] += $row['amountCents'] - (int) $row['debtCents'];
+                $flows[$month]['incomeCents'] += $row['amountCents'] - (int) $row['allocatedCents'] - (int) $row['debtCents'];
             } else {
-                $flows[$month]['expenseCents'] += abs($row['amountCents']);
+                $flows[$month]['expenseCents'] += abs($row['amountCents']) - (int) $row['allocatedCents'];
             }
         }
 
@@ -1291,7 +1301,8 @@ class TransactionRepository extends ServiceEntityRepository
     public function findLastPaidAmounts(RecurringOperation $operation, int $limit): array
     {
         $rows = $this->createQueryBuilder('t')
-            ->select('t.amountCents AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
+            // What gives back a debt between people was not paid by the series (MAG-453), whichever its direction.
+            ->select('CASE WHEN t.amountCents < 0 THEN t.amountCents + t.peerAllocatedCents ELSE t.amountCents - t.peerAllocatedCents END AS amountCents, '.self::DEBT_AMOUNT.' AS debtCents')
             ->andWhere('t.recurringOperation = :operation')
             ->andWhere('t.transferKind = :none')
             ->andWhere('t.isExceptional = false')

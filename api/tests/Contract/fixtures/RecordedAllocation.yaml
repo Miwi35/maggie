@@ -1,0 +1,35 @@
+# What the « Ce virement est » recording adds to RecordedResponses.yaml (MAG-453): a transfer received from the contact,
+# a créance it owes, and the part of the transfer that gives it back (a file of its own: the other recordings must not see them).
+Maggie\Finance\Entity\ContactCounterparty:
+  recorded_allocation_counterparty:
+    contact: '@recorded_contact'
+    label: VIR RECORDED JULIE
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Transaction:
+  recorded_allocation_transfer:
+    account: '@recorded_account'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-22"))>'
+    label: VIR RECORDED JULIE
+    peerKind: '<(Maggie\Finance\Enum\PeerKind::Repayment)>'
+    peerAllocatedCents: 20000
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  recorded_allocation_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::OwedToMe)>'
+    object: Recorded gîte
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  recorded_allocation_share:
+    peerDebt: '@recorded_allocation_debt'
+    contact: '@recorded_contact'
+    amountCents: 20000
+    repaidCents: 20000
+
+Maggie\Finance\Entity\PeerDebtAllocation:
+  recorded_allocation:
+    __construct: ['@recorded_allocation_transfer', '@recorded_allocation_share', 20000]

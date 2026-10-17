@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
+import LinearProgress from '@mui/material/LinearProgress'
 import Typography from '@mui/material/Typography'
 import {
   DeleteButton,
@@ -36,6 +37,8 @@ import {
   toTransactionPayload,
 } from './TransactionForm'
 import { natureOfAmount } from './transactionStatuses'
+import { PeerTransferQualifier } from './PeerTransferQualifier'
+import { fetchAllocation } from './peerDebtsApi'
 import { TransactionDebtSection } from './TransactionDebtSection'
 import { TransactionShareSection } from './TransactionShareSection'
 import { useTransactionTransfer } from './useTransactionTransfer'
@@ -162,6 +165,51 @@ const ClassementSection = ({ record }: { record: RaRecord }) => {
   )
 }
 
+/**
+ * « Partage »: a transfer with a person — it has a contact, or was already
+ * answered — asks « Ce virement est » (MAG-453); otherwise a received line can
+ * still be given back (MAG-452) and a spend shared (MAG-451). Money sent already
+ * shared keeps its « Partage » — unless the share is the 0 a « Nouvelle créance » sets.
+ */
+const PartageSection = ({
+  transactionId,
+  label,
+  amountCents,
+  shared,
+}: {
+  transactionId: string
+  label: string
+  amountCents: number
+  shared: boolean
+}) => {
+  const [peer, setPeer] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let live = true
+    fetchAllocation(transactionId)
+      .then((a) => {
+        const withPerson = a.canBeAllocated === true && (a.contact != null || a.peerKind != null)
+        const keepsShare = a.direction === 'outgoing' && shared && a.peerKind !== 'new_claim'
+        if (live) setPeer(withPerson && !keepsShare)
+      })
+      // Unreadable: the sections that do not need it still work.
+      .catch(() => live && setPeer(false))
+
+    return () => {
+      live = false
+    }
+  }, [transactionId, shared])
+
+  if (peer === null) return <LinearProgress aria-label="Chargement du partage" />
+  if (peer) return <PeerTransferQualifier transactionId={transactionId} label={label} />
+
+  return amountCents > 0 ? (
+    <TransactionDebtSection transactionId={transactionId} label={label} />
+  ) : (
+    <TransactionShareSection transactionId={transactionId} label={label} />
+  )
+}
+
 const SheetBody = ({ saveError }: { saveError: string | null }) => {
   const record = useRecordContext()
   const transferApi = useTransactionTransfer(record?.id as string | undefined)
@@ -181,12 +229,14 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
     nature: <NatureSection transferApi={transferApi} kind={kind} amountCents={amountCents} />,
     classement: <ClassementSection record={record} />,
     recurrence: <RecurrenceSection record={record} />,
-    partage:
-      amountCents > 0 ? (
-        <TransactionDebtSection transactionId={String(record.id)} label={String(record.label ?? '')} />
-      ) : (
-        <TransactionShareSection transactionId={String(record.id)} label={String(record.label ?? '')} />
-      ),
+    partage: (
+      <PartageSection
+        transactionId={String(record.id)}
+        label={String(record.label ?? '')}
+        amountCents={amountCents}
+        shared={record.myShareCents !== null && record.myShareCents !== undefined}
+      />
+    ),
     jugement: <ComingSoon>Bientôt : dire si cette dépense était un bon choix.</ComingSoon>,
     note: (
       <TextInput

@@ -179,3 +179,80 @@ export const debtSentence = (direction: PeerDebt['direction'], remainingCents: n
 export function centsToInput(cents: number): string {
   return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace('.', ',')
 }
+
+/**
+ * « Ce virement est » (MAG-453): what a transfer with a person is. Received:
+ * a recette, a repayment of créances, or money to give back. Sent: a repayment
+ * of dettes, a new créance, or something else.
+ */
+export type PeerKind = 'income' | 'repayment' | 'new_debt' | 'new_claim' | 'other'
+
+/** One open share the transfer may cover, of the right direction. */
+export interface AllocationCandidate {
+  shareId: string
+  peerDebtId: string
+  object: string
+  contactId: string
+  contactName: string
+  amountCents: number
+  repaidCents: number
+  remainingCents: number
+  /** What this transaction already covers on it. */
+  allocatedCents: number
+  /** The most this transaction may put on it: what is left plus what it already covers. */
+  availableCents: number
+  /** The share belongs to the transaction's contact: listed first. */
+  fromContact: boolean
+}
+
+/** `GET|PUT|DELETE /api/finance/transactions/{id}/allocation`. */
+export interface TransactionAllocation {
+  transactionId: string
+  amountCents: number
+  direction: 'incoming' | 'outgoing'
+  /** False for an internal transfer or a rejection. */
+  canBeAllocated: boolean
+  /** Null until answered. */
+  peerKind: PeerKind | null
+  contact: { id: string; name: string } | null
+  allocatedCents: number
+  /** For a received transfer, it stays an income: « Non affecté ». */
+  unallocatedCents: number
+  allocations: { shareId: string; peerDebtId: string; amountCents: number }[]
+  candidates: AllocationCandidate[]
+  /** The dette (new_debt) or créance (new_claim) this transaction created. */
+  peerDebt: PeerDebt | null
+}
+
+export interface AllocationInput {
+  kind: PeerKind
+  /** `repayment` only: at least one share. */
+  allocations?: { shareId: string; amountCents: number }[]
+  /** `new_debt` only (received). */
+  debt?: { contactId: string; amountCents: number; object?: string; notes?: string | null }
+  /** `new_claim` only (sent): a créance of the whole amount. */
+  claim?: { contactId: string; object?: string; notes?: string | null }
+}
+
+const allocationUrl = (transactionId: string) => `/api/finance/transactions/${bareId(transactionId)}/allocation`
+
+export async function fetchAllocation(transactionId: string): Promise<TransactionAllocation> {
+  const res = await request(allocationUrl(transactionId))
+  if (!res.ok) throw await failure(res, 'Impossible de lire ce virement.')
+
+  return (await res.json()) as TransactionAllocation
+}
+
+export async function saveAllocation(transactionId: string, input: AllocationInput): Promise<TransactionAllocation> {
+  const res = await request(allocationUrl(transactionId), { method: 'PUT', body: JSON.stringify(input) })
+  if (!res.ok) throw await failure(res, 'Ce virement n’a pas pu être enregistré.')
+
+  return (await res.json()) as TransactionAllocation
+}
+
+export async function removeAllocation(transactionId: string): Promise<TransactionAllocation> {
+  const res = await request(allocationUrl(transactionId), { method: 'DELETE' })
+  if (!res.ok) throw await failure(res, 'La réponse n’a pas pu être retirée.')
+
+  return (await res.json()) as TransactionAllocation
+}

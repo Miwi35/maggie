@@ -7,6 +7,7 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RETROSPECT_UNRATED
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.SortResult
+import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.TransferLeg
@@ -14,6 +15,7 @@ import com.maggie.app.data.model.sortedSummary
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +63,14 @@ data class ToSortUiState(
     val judgeError: String? = null,
     /** A link refused (the label is someone else's) or lost, in the server's words. */
     val contactError: String? = null,
+    /** « Ce virement est » of the open line, when it asks (MAG-453); null until its allocation is read. */
+    val peer: PeerTransferEditor? = null,
+    /** « Envers qui » / « Qui te doit »: the full-screen picker, for the dette or créance the answer makes. */
+    val peerContacts: ContactChoice? = null,
 ) {
+    /** The editor of the open line only: one read for another line never shows on this card. */
+    val currentPeer: PeerTransferEditor? get() = peer?.takeIf { it.transactionId == current?.id && current?.asksForPeerKind == true }
+
     val current: TransactionToSort? get() = pile.firstOrNull { it.id == selectedId } ?: pile.firstOrNull()
 
     val isEmpty: Boolean get() = loaded && pile.isEmpty()
@@ -82,12 +91,17 @@ data class ToSortUiState(
  * A transfer nobody claims yet asks « Associer à un contact ? » (MAG-450): the contact picked —
  * or created on the spot — gets the line's label, and with it every line that label recognises.
  * The line stays in the pile, which is read again to show whose it is: a contact is not a category.
+ *
+ * A transfer to or from a contact not yet qualified asks « Ce virement est » (MAG-453), with the same
+ * [PeerTransferQualifier] as the sheet; the answer goes through `PUT …/allocation`, then the next card
+ * comes — a line still without a category stays, without the question.
  */
 class ToSortViewModel(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     ruleRepository: CategorizationRuleRepository,
     private val contactRepository: ContactRepository,
+    private val peerDebtRepository: PeerDebtRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ToSortUiState())
@@ -147,10 +161,114 @@ class ToSortViewModel(
             total = pile.total,
             selectedId = state.selectedId?.takeIf { id -> pile.transactions.any { it.id == id } },
         )
+        loadPeerOfCurrent()
     }
 
     fun select(id: String) {
         _uiState.value = _uiState.value.copy(selectedId = id, alwaysForMerchant = false, qualification = Qualification.NONE)
+        loadPeerOfCurrent()
+    }
+
+    // The question needs the créances the transfer may cover: read once per line, when it becomes the card.
+    private fun loadPeerOfCurrent() {
+        val line = _uiState.value.current ?: return
+        if (!line.asksForPeerKind || _uiState.value.peer?.transactionId == line.id) return
+        _uiState.value = _uiState.value.copy(peer = null)
+        viewModelScope.launch {
+            peerDebtRepository.getAllocation(line.id).onSuccess { allocation ->
+                if (_uiState.value.current?.id == line.id) {
+                    _uiState.value = _uiState.value.copy(peer = PeerTransferEditor.of(allocation, line.label))
+                }
+            }
+        }
+    }
+
+    private fun updatePeer(change: (PeerTransferEditor) -> PeerTransferEditor) {
+        val peer = _uiState.value.currentPeer ?: return
+        _uiState.value = _uiState.value.copy(peer = change(peer))
+    }
+
+    fun choosePeerKind(kind: String) = updatePeer { it.withKind(kind) }
+
+    fun togglePeerShare(shareId: String) = updatePeer { it.toggle(shareId) }
+
+    fun changePeerShareAmount(shareId: String, cents: Int) = updatePeer { it.withShareAmount(shareId, cents) }
+
+    fun changePeerDebtAmount(cents: Int) = updatePeer { it.withDebtAmount(cents) }
+
+    fun changePeerSubject(text: String) = updatePeer { it.withSubject(text) }
+
+    fun changePeerNotes(text: String) = updatePeer { it.withNotes(text) }
+
+    /**
+     * « Enregistrer »: the answer is written, then the next card comes. A line that only waited for it
+     * leaves the pile at once; one still without a category stays, and the pile read again says so.
+     */
+    fun savePeer() {
+        val state = _uiState.value
+        val line = state.current ?: return
+        val peer = state.currentPeer ?: return
+        val request = peer.toRequest() ?: return
+        if (!peer.canSave) return
+        _uiState.value = state.copy(peer = peer.copy(isSaving = true, error = null, message = null))
+
+        viewModelScope.launch {
+            peerDebtRepository.setAllocation(line.id, request)
+                .onSuccess { saved ->
+                    val now = _uiState.value
+                    _uiState.value = now.copy(
+                        pile = if (line.reason == TO_SORT_REASON_PEER_TRANSFER) {
+                            now.pile.filter { it.id != line.id }
+                        } else {
+                            now.pile.map { if (it.id == line.id) it.copy(asksForPeerKind = false) else it }
+                        },
+                        total = if (line.reason == TO_SORT_REASON_PEER_TRANSFER) (now.total - 1).coerceAtLeast(0) else now.total,
+                        selectedId = null,
+                        peer = null,
+                        message = peerSavedMessage(saved.peerKind),
+                    )
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _uiState.value.peer?.let {
+                        _uiState.value = _uiState.value.copy(peer = it.copy(isSaving = false, error = failure.message ?: "Enregistrement impossible."))
+                    }
+                }
+        }
+    }
+
+    /** « Envers qui » / « Qui te doit »: the full-screen picker, on the owner's contacts. */
+    fun openPeerContactPicker() {
+        if (_uiState.value.currentPeer == null) return
+        _uiState.value = _uiState.value.copy(peerContacts = ContactChoice())
+        viewModelScope.launch {
+            // No list is no reason to refuse: « + Créer » stays possible.
+            val contacts = contactRepository.getContacts().getOrDefault(emptyList())
+            _uiState.value.peerContacts?.let {
+                _uiState.value = _uiState.value.copy(peerContacts = ContactChoice(isLoading = false, contacts = contacts))
+            }
+        }
+    }
+
+    fun closePeerContactPicker() {
+        _uiState.value = _uiState.value.copy(peerContacts = null)
+    }
+
+    fun pickPeerContact(contact: Contact) {
+        closePeerContactPicker()
+        updatePeer { it.withPerson(contact) }
+    }
+
+    /** « + Créer « Inès » »: the contact is created, then becomes the person of the dette or créance. */
+    fun createPeerContact(name: String) {
+        if (name.isBlank()) return
+        closePeerContactPicker()
+        val lineId = _uiState.value.current?.id ?: return
+        viewModelScope.launch {
+            contactRepository.createContact(name.trim())
+                .onSuccess { contact -> if (_uiState.value.current?.id == lineId) pickPeerContact(contact) }
+                .onFailure { e -> updatePeer { it.copy(error = e.message ?: "Création impossible.") } }
+        }
     }
 
     fun setQualification(qualification: Qualification) {

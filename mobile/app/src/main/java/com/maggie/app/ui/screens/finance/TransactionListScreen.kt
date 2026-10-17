@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionNature
 import com.maggie.app.data.model.TransactionPrefill
@@ -151,6 +152,18 @@ fun TransactionListScreen(
                 onDismiss = viewModel::closeDebtContactPicker,
             )
         }
+        // « Ce virement est »'s person: the same picker, for the dette or the créance it makes (MAG-453).
+        uiState.peerContacts?.let { choice ->
+            ContactPickerDialog(
+                contacts = choice.contacts,
+                isLoading = choice.isLoading,
+                title = if (detail.peer?.kind == PeerKind.NEW_CLAIM) "Qui te doit ?" else "À qui le rendre ?",
+                subtitle = detail.transaction.label,
+                onPick = viewModel::pickPeerContact,
+                onCreate = viewModel::createPeerContact,
+                onDismiss = viewModel::closePeerContactPicker,
+            )
+        }
         val ruleDraft = uiState.ruleDraft
         if (ruleDraft != null) {
             TransactionRuleDraftScreen(
@@ -217,6 +230,16 @@ fun TransactionListScreen(
                         onSubjectChange = viewModel::changeDebtSubject,
                         onNotesChange = viewModel::changeDebtNotes,
                         onSave = viewModel::saveDebt,
+                    ),
+                    peer = PeerTransferActions(
+                        onKindChange = viewModel::choosePeerKind,
+                        onToggleShare = viewModel::togglePeerShare,
+                        onShareAmountChange = viewModel::changePeerShareAmount,
+                        onPickPerson = viewModel::openPeerContactPicker,
+                        onDebtAmountChange = viewModel::changePeerDebtAmount,
+                        onSubjectChange = viewModel::changePeerSubject,
+                        onNotesChange = viewModel::changePeerNotes,
+                        onSave = viewModel::savePeer,
                     ),
                 ),
                 categories = uiState.categories,

@@ -31,6 +31,8 @@ const CARREFOUR = {
   contact: null,
   asksForContact: false,
   counterpartyLabel: 'CARREFOUR MARKET 1234',
+  reason: 'category',
+  asksForPeerKind: false,
 }
 
 const MYSTERY = {
@@ -48,6 +50,8 @@ const MYSTERY = {
   contact: null,
   asksForContact: false,
   counterpartyLabel: 'PAIEMENT PAR CARTE X',
+  reason: 'category',
+  asksForPeerKind: false,
 }
 
 const SALARY = {
@@ -73,6 +77,8 @@ const FROM_TOM = {
   contact: null,
   asksForContact: true,
   counterpartyLabel: 'VIR. DE TOM MARTIN',
+  reason: 'category',
+  asksForPeerKind: false,
 }
 
 const CONTACTS = [{ id: '01ANNA', name: 'Anna', notes: null }]
@@ -342,6 +348,123 @@ describe('ToSortPage', () => {
     expect(within(dialog).getByLabelText('…ce texte')).toHaveValue('CARREFOUR MARKET')
     expect(within(dialog).getByRole('checkbox', { name: 'Appliquer aux transactions existantes' })).toBeChecked()
     expect(within(dialog).getByRole('button', { name: 'Créer le filtre' })).toBeInTheDocument()
+  })
+
+  describe('« Ce virement est » (MAG-453)', () => {
+    const FILED_FROM_TOM = {
+      ...FROM_TOM,
+      contact: { id: '01TOM', name: 'Tom' },
+      asksForContact: false,
+      reason: 'peer_transfer',
+      asksForPeerKind: true,
+    }
+    const ALLOCATION = {
+      transactionId: 'T3',
+      amountCents: 40000,
+      direction: 'incoming',
+      canBeAllocated: true,
+      peerKind: null,
+      contact: { id: '01TOM', name: 'Tom' },
+      allocatedCents: 0,
+      unallocatedCents: 40000,
+      allocations: [],
+      candidates: [
+        {
+          shareId: 'S-GITE',
+          peerDebtId: 'D-GITE',
+          object: 'Gîte de Crozon',
+          contactId: '01TOM',
+          contactName: 'Tom',
+          amountCents: 20000,
+          repaidCents: 0,
+          remainingCents: 20000,
+          allocatedCents: 0,
+          availableCents: 20000,
+          fromContact: true,
+        },
+      ],
+      peerDebt: null,
+    }
+
+    /** The pile holds Tom's transfer until « Ce virement est » is saved, then Carrefour only. */
+    const withPeerTransfer = (row: Record<string, unknown> = FILED_FROM_TOM) => {
+      let answered = false
+      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+        if (url === '/api/finance/transactions/T3/allocation') {
+          if (init?.method === 'PUT') {
+            answered = true
+            return answer(true, { ...ALLOCATION, peerKind: 'repayment' })
+          }
+          return answer(true, ALLOCATION)
+        }
+
+        return answer(true, answered ? pileOf(CARREFOUR) : pileOf(row, CARREFOUR))
+      })
+    }
+
+    test('a filed transfer with a person asks only « Ce virement est », not its category', async () => {
+      withPeerTransfer()
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Un remboursement' })).toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Autre catégorie' })).not.toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Valider' })).not.toBeInTheDocument()
+      expect(within(card).queryByText('Aucune suggestion pour cette ligne.')).not.toBeInTheDocument()
+      expect(within(card).getByRole('link', { name: 'Voir la fiche' })).toBeInTheDocument()
+    })
+
+    test('a filed transfer offers neither « Virement interne » nor « Créer un filtre »', async () => {
+      // The API refuses an internal transfer on a line that already has a category.
+      withPeerTransfer()
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Virement interne' })).not.toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Créer un filtre' })).not.toBeInTheDocument()
+    })
+
+    test('a transfer still without category asks both', async () => {
+      withPeerTransfer({ ...FILED_FROM_TOM, reason: 'category' })
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Autre catégorie' })).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Virement interne' })).toBeInTheDocument()
+    })
+
+    test('a line that does not ask for it shows no « Ce virement est »', async () => {
+      renderPage()
+
+      await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(screen.queryByText('Ce virement est')).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.map(([url]) => url)).not.toContainEqual(expect.stringContaining('/allocation'))
+    })
+
+    test('once allocated, the pile is read again and the line leaves it', async () => {
+      withPeerTransfer()
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      await userEvent.click(await within(card).findByRole('button', { name: 'Un remboursement' }))
+      await userEvent.click(within(card).getByRole('checkbox', { name: 'Gîte de Crozon · Tom' }))
+      await userEvent.click(within(card).getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() =>
+        expect(writes('PUT')).toEqual([
+          {
+            url: '/api/finance/transactions/T3/allocation',
+            body: { kind: 'repayment', allocations: [{ shareId: 'S-GITE', amountCents: 20000 }] },
+            contentType: 'application/json',
+          },
+        ]),
+      )
+      expect(await screen.findByText('CARREFOUR MARKET 1234', { selector: 'h6' })).toBeInTheDocument()
+      expect(screen.queryByText('VIR. DE TOM MARTIN 12/10', { selector: 'h6' })).not.toBeInTheDocument()
+    })
   })
 
   describe('« Associer à un contact ? »', () => {

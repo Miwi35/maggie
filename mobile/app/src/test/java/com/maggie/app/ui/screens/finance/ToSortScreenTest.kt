@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -13,6 +15,8 @@ import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.ContactRef
 import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.SortSuggestion
+import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
@@ -20,6 +24,7 @@ import com.maggie.app.data.model.RETROSPECT_KEEP
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
+import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -62,6 +67,7 @@ class ToSortScreenTest {
 
     private val transactions = mockk<TransactionRepository>()
     private val contactRepository = mockk<ContactRepository>()
+    private val peerDebts = mockk<PeerDebtRepository>()
 
     private fun viewModel(pile: List<TransactionToSort> = listOf(carrefour)): ToSortViewModel {
         coEvery { transactions.setRetrospect(any(), any()) } returns Result.success(Unit)
@@ -70,7 +76,7 @@ class ToSortScreenTest {
         coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(pile.size, pile))
         coEvery { transactions.sortToCategory(any(), any(), any()) } returns Result.success(SortResult(success = true))
 
-        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository)
+        return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository, peerDebts)
     }
 
     @Test
@@ -216,5 +222,32 @@ class ToSortScreenTest {
         compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
 
         compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a filed transfer with a person offers neither Virement interne nor Créer un filtre`() {
+        // The line is filed already: the API refuses an internal transfer on it, and a filter has nothing to file.
+        val filed = tomTransfer.copy(
+            contact = ContactRef("c-tom", "Tom"),
+            asksForContact = false,
+            reason = TO_SORT_REASON_PEER_TRANSFER,
+            asksForPeerKind = true,
+        )
+        coEvery { peerDebts.getAllocation("tx-3") } returns
+            Result.success(TransactionAllocation(transactionId = "tx-3", amountCents = 40000, canBeAllocated = true))
+        val model = viewModel(pile = listOf(filed))
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onAllNodesWithTag(UiTags.TO_SORT_TRANSFER).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.TO_SORT_RULE).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.TO_SORT_OPEN_SHEET).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a line still to file offers Virement interne`() {
+        val model = viewModel()
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.TO_SORT_TRANSFER).performScrollTo().assertIsDisplayed()
     }
 }

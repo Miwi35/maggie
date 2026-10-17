@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Repository\PeerDebtRepository;
 
 /**
@@ -33,6 +34,10 @@ class RemoveMyShare
         }
 
         $transaction->setMyShareCents(null);
+        // A new créance (MAG-453) without its créance is a transfer to tell apart again.
+        if (PeerKind::NewClaim === $transaction->getPeerKind()) {
+            $transaction->setPeerKind(null);
+        }
         $this->em->flush();
 
         return $transaction;

@@ -163,6 +163,94 @@ describe('TransactionSheet', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/transactions/01TX/debt')
   })
 
+  test('the Partage section of a transfer with a person asks « Ce virement est » (MAG-453)', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          url.endsWith('/allocation')
+            ? {
+                transactionId: '01TX',
+                amountCents: 40000,
+                direction: 'incoming',
+                canBeAllocated: true,
+                peerKind: null,
+                contact: { id: '01TOM', name: 'Tom' },
+                allocatedCents: 0,
+                unallocatedCents: 40000,
+                allocations: [],
+                candidates: [],
+                peerDebt: null,
+              }
+            : transferState,
+      } as Response),
+    )
+
+    renderSheet({ ...RECORD, label: 'VIR. DE TOM MARTIN', amountCents: 40000 })
+
+    const section = await screen.findByRole('region', { name: 'Partage' })
+    expect(await within(section).findByRole('button', { name: 'Un remboursement' })).toBeInTheDocument()
+    expect(within(section).getByText('Ce virement est')).toBeInTheDocument()
+    expect(within(section).queryByTestId('transaction-debt')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/finance/transactions/01TX/debt')
+  })
+
+  describe('money sent to a person', () => {
+    const sentTo = (peerKind: string | null) =>
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () =>
+            url.endsWith('/allocation')
+              ? {
+                  transactionId: '01TX',
+                  amountCents: -6000,
+                  direction: 'outgoing',
+                  canBeAllocated: true,
+                  peerKind,
+                  contact: { id: '01TOM', name: 'Tom' },
+                  allocatedCents: 0,
+                  unallocatedCents: 0,
+                  allocations: [],
+                  candidates: [],
+                  peerDebt: null,
+                }
+              : url.endsWith('/my-share')
+                ? { transactionId: '01TX', amountCents: -6000, myShareCents: 2000, canBeShared: true, peerDebt: null }
+                : transferState,
+        } as Response),
+      )
+    const SENT = { ...RECORD, label: 'VIR. A TOM MARTIN', amountCents: -6000 }
+
+    test('already shared (MAG-451) keeps its « Partage », not « Ce virement est »', async () => {
+      sentTo(null)
+      renderSheet({ ...SENT, myShareCents: 2000 })
+
+      const section = await screen.findByRole('region', { name: 'Partage' })
+      expect(await within(section).findByRole('switch', { name: 'Dépense partagée' })).toBeChecked()
+      expect(within(section).queryByText('Ce virement est')).not.toBeInTheDocument()
+    })
+
+    test('a « Nouvelle créance » (its share set to 0 by the qualifier) still shows « Ce virement est »', async () => {
+      sentTo('new_claim')
+      renderSheet({ ...SENT, myShareCents: 0 })
+
+      const section = await screen.findByRole('region', { name: 'Partage' })
+      expect(await within(section).findByText('Ce virement est')).toBeInTheDocument()
+      expect(within(section).queryByRole('switch', { name: 'Dépense partagée' })).not.toBeInTheDocument()
+    })
+
+    test('not shared asks « Ce virement est »', async () => {
+      sentTo(null)
+      renderSheet({ ...SENT, myShareCents: null })
+
+      const section = await screen.findByRole('region', { name: 'Partage' })
+      expect(await within(section).findByText('Ce virement est')).toBeInTheDocument()
+    })
+  })
+
   test('a rejection says whether it is regularised', async () => {
     transferState = { transferKind: 'rejected', transferSource: 'manual', counterpart: null }
 

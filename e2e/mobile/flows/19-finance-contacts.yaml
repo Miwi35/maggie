@@ -33,10 +33,22 @@ tags:
 # Et la fiche de Tom dit « tu lui dois 280 € » sous « En cours »
 #
 # The month's income is read back by `contacts-api.js` (`ACTION: income`) from the dashboard.
+# Since MAG-453 « À rembourser » is one answer of « Ce virement est » (`peer_kind_new_debt`).
+#
+# A received transfer allocated to a créance (MAG-453):
+#
+# Étant donné la créance « Gîte de Crozon » (Tom me doit 200 €) et un virement reçu de Tom de 400 €
+# Quand je l'ouvre depuis « À trier » et réponds « Un remboursement » qui couvre le gîte
+# Alors « Non affecté » montre 200 €, la part de Tom sur le gîte est soldée
+# Et le virement garde 200 € non affectés (relu par `contacts-api.js`, `ACTION: allocated`)
+#
+# The créance and the transfer — filed, dated the day before so it is the oldest card — are
+# written by `contacts-api.js` (`ACTION: allocation`).
 #
 # What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
 # `ContactScreenTest`), amounts edited by hand, the steppers, switching a share off and the
-# server's refusals (`TransactionViewModelTest`, `TransactionShareScreenTest`), the tablet's
+# server's refusals (`TransactionViewModelTest`, `TransactionShareScreenTest`,
+# `PeerTransferQualifierScreenTest`), « Nouvelle créance » and money sent, the tablet's
 # page beside the list, and the admin's side of the same API.
 
 - launchApp:
@@ -261,35 +273,35 @@ tags:
     timeout: 30000
 - tapOn: ".*TOM MARTIN.*"
 
-# « Ce virement est » « À rembourser »: Tom, whom the label points to, is proposed.
+# « Ce virement est » « À rembourser »: Tom, the transfer's contact, is proposed.
 - scrollUntilVisible:
     element:
-      id: "transaction_debt_toggle"
+      id: "peer_kind_new_debt"
     timeout: 20000
 - tapOn:
-    id: "transaction_debt_toggle"
+    id: "peer_kind_new_debt"
 - extendedWaitUntil:
     visible: "Envers : Tom"
     timeout: 10000
 - scrollUntilVisible:
     element:
-      id: "transaction_debt_amount"
+      id: "peer_amount"
 - tapOn:
-    id: "transaction_debt_amount"
+    id: "peer_amount"
 - eraseText
 - inputText: "280"
 - hideKeyboard
 - scrollUntilVisible:
     element:
-      id: "transaction_debt_summary"
+      id: "peer_summary"
 - extendedWaitUntil:
     visible: "Crée une dette de 280[.,]00 EUR envers Tom.*"
     timeout: 10000
 - scrollUntilVisible:
     element:
-      id: "transaction_debt_save"
+      id: "peer_save"
 - tapOn:
-    id: "transaction_debt_save"
+    id: "peer_save"
 - extendedWaitUntil:
     visible: "Dette enregistrée"
     timeout: 30000
@@ -323,6 +335,46 @@ tags:
 - extendedWaitUntil:
     visible: "tu lui dois 280[.,]00 EUR"
     timeout: 30000
+
+# MAG-453: the créance « Gîte de Crozon » (Tom owes 200 €) and Tom's third transfer, of 400 €.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: allocation
+- openLink: "maggie-e2e://finance/to-sort"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
+
+# « Ce virement est » « Un remboursement », covering the gîte: the other 200 € stay « Non affecté ».
+- scrollUntilVisible:
+    element:
+      id: "peer_kind_repayment"
+    timeout: 20000
+- tapOn:
+    id: "peer_kind_repayment"
+- scrollUntilVisible:
+    element: "Gîte de Crozon"
+    timeout: 20000
+- tapOn: "Gîte de Crozon"
+- scrollUntilVisible:
+    element:
+      id: "peer_unallocated"
+- extendedWaitUntil:
+    visible: "Non affecté : 200[.,]00 EUR"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "peer_save"
+- tapOn:
+    id: "peer_save"
+
+# Tom's share of the gîte is settled; the transfer keeps 200 € not allocated.
+- runScript:
+    file: ../scripts/contacts-api.js
+    env:
+      ACTION: allocated
 
 # Left as found.
 - runScript:

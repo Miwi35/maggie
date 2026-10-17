@@ -59,6 +59,50 @@ class PeerDebtRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * The shares of one direction still owed, oldest debt first: what a
+     * transfer may give back (MAG-453).
+     *
+     * @return list<PeerDebtShare>
+     */
+    public function findOpenShares(User $user, PeerDebtDirection $direction): array
+    {
+        /** @var list<PeerDebtShare> $shares */
+        $shares = $this->getEntityManager()->createQueryBuilder()
+            ->select('s', 'd', 'c')
+            ->from(PeerDebtShare::class, 's')
+            ->innerJoin('s.peerDebt', 'd')
+            ->innerJoin('s.contact', 'c')
+            ->andWhere('d.user = :user')
+            ->andWhere('d.direction = :direction')
+            ->andWhere('s.amountCents > s.repaidCents')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('direction', $direction->value)
+            ->orderBy('d.createdAt', 'ASC')
+            ->addOrderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $shares;
+    }
+
+    public function findOneOwnedShare(string $shareId, User $user): ?PeerDebtShare
+    {
+        /** @var PeerDebtShare|null $share */
+        $share = $this->getEntityManager()->createQueryBuilder()
+            ->select('s', 'd')
+            ->from(PeerDebtShare::class, 's')
+            ->innerJoin('s.peerDebt', 'd')
+            ->andWhere('s.id = :id')
+            ->andWhere('d.user = :user')
+            ->setParameter('id', $shareId, 'ulid')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $share;
+    }
+
     public function contactHasShares(Contact $contact): bool
     {
         return null !== $this->getEntityManager()->createQueryBuilder()

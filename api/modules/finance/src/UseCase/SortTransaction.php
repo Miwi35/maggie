@@ -96,12 +96,14 @@ class SortTransaction
         }
 
         $remaining = $this->transactionRepository->countToSortForUser($user);
+        // A transfer with a contact stays in the pile once filed, until told apart (MAG-453).
+        $left = GetTransactionsToSort::asksForPeerKind($transaction) ? 0 : 1;
 
         return [
             'transaction' => $transaction,
             'rule' => $rule,
             'ruleCreated' => $ruleCreated,
-            'alsoSorted' => max(0, $pileBefore - 1 - $remaining),
+            'alsoSorted' => max(0, $pileBefore - $left - $remaining),
             'remaining' => $remaining,
         ];
     }

@@ -1,0 +1,49 @@
+{
+    "transactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "amountCents": 40000,
+    "direction": "incoming",
+    "canBeAllocated": true,
+    "peerKind": "repayment",
+    "contact": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "name": "Recorded Tom"
+    },
+    "allocatedCents": 20000,
+    "unallocatedCents": 20000,
+    "allocations": [
+        {
+            "shareId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "peerDebtId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "amountCents": 20000
+        }
+    ],
+    "candidates": [
+        {
+            "shareId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "peerDebtId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "object": "Recorded gîte",
+            "contactId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "contactName": "Recorded Tom",
+            "amountCents": 20000,
+            "repaidCents": 20000,
+            "remainingCents": 0,
+            "allocatedCents": 20000,
+            "availableCents": 20000,
+            "fromContact": true
+        },
+        {
+            "shareId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "peerDebtId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "object": "Recorded ticket",
+            "contactId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "contactName": "Recorded Tom",
+            "amountCents": 6000,
+            "repaidCents": 1000,
+            "remainingCents": 5000,
+            "allocatedCents": 0,
+            "availableCents": 5000,
+            "fromContact": true
+        }
+    ],
+    "peerDebt": null
+}

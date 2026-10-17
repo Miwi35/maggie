@@ -27,6 +27,7 @@
             "recurringSource": "auto",
             "oneOffEnvelope": "/api/envelopes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "myShareCents": 2900,
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -52,6 +53,8 @@
             "transferSource": "auto",
             "recurringSource": "auto",
             "contact": "/api/contacts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "peerKind": "other",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": true
         },
@@ -80,6 +83,7 @@
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "recurringOccurrenceOn": "2026-01-05T00:00:00+00:00",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -108,6 +112,7 @@
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "recurringOccurrenceOn": "2026-02-05T00:00:00+00:00",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -136,6 +141,7 @@
             "recurringOperation": "/api/recurring_operations/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "recurringOccurrenceOn": "2026-03-05T00:00:00+00:00",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -162,6 +168,7 @@
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -188,6 +195,7 @@
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -214,6 +222,7 @@
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         },
@@ -240,6 +249,7 @@
             "transferKind": "none",
             "transferSource": "auto",
             "recurringSource": "auto",
+            "peerAllocatedCents": 0,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": false
         }

@@ -7,6 +7,7 @@ namespace Maggie\Finance\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\PeerDebtDirection;
+use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Repository\PeerDebtRepository;
 
 /**
@@ -30,6 +31,9 @@ class RemoveDebt
                 throw new \DomainException('Part of this dette was already given back: it cannot be removed.');
             }
             $this->em->remove($debt);
+            if (PeerKind::NewDebt === $transaction->getPeerKind()) {
+                $transaction->setPeerKind(null);
+            }
             $this->em->flush();
         }
 

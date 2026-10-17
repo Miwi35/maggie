@@ -381,6 +381,8 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<(new \DateTimeImmutable("2026-03-17"))>'
     label: Recorded transaction
     isExceptional: true
+    # Told apart (MAG-453): the recordings carry a `peerKind`, and the line, linked to the contact, stays out of « À trier ».
+    peerKind: '<(Maggie\Finance\Enum\PeerKind::Other)>'
     user: '@recorded_user'
 
   # The rent of a flat, attached for three months — the last at a higher price,

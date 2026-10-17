@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 
@@ -55,9 +56,23 @@ private const val SHARE_STEP_CENTS = 100
  * the people who owe the rest, split equally until an amount is written by hand.
  */
 @Composable
-internal fun ShareSection(state: TransferDetailState, actions: ShareSheetActions?, debtActions: DebtSheetActions? = null) {
+internal fun ShareSection(
+    state: TransferDetailState,
+    actions: ShareSheetActions?,
+    debtActions: DebtSheetActions? = null,
+    peerActions: PeerTransferActions? = null,
+) {
     val share = state.share
     val transaction = state.transaction
+    // A transfer to or from a contact is first said what it is (MAG-453): its « À rembourser » supersedes
+    // MAG-452's, and money sent already shared keeps its « Partage » — unless the share is the 0 a « Nouvelle
+    // créance » sets.
+    val peer = state.peer
+    val keepsShare = peer != null && peer.isOutgoing && transaction.isShared && peer.savedKind != PeerKind.NEW_CLAIM
+    if (peer != null && peer.isShown && peerActions != null && !keepsShare) {
+        PeerTransferQualifier(peer, peerActions, transaction.currency)
+        return
+    }
     // A received transfer is not shared: it is a recette, or it is given back (MAG-452).
     if (transaction.amountCents > 0 && state.debt != null && debtActions != null) {
         DebtSection(state, debtActions)

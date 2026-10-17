@@ -67,6 +67,10 @@ import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.PeerDebtRepository
+import com.maggie.app.data.model.PeerAllocationLine
+import com.maggie.app.data.model.PeerAllocationRequest
+import com.maggie.app.data.model.PeerKind
+import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.ErrandPage
@@ -461,7 +465,13 @@ class FakeTransactionTransfers(
     private val counterpart: TransferLeg = Seed.transferIn,
     private val candidates: List<TransferLeg> = listOf(Seed.transferIn),
     contacts: List<Contact> = emptyList(),
+    /** « Ce virement est » of the transfers to or from a contact (MAG-453), by line id; any other line is not asked. */
+    allocations: Map<String, TransactionAllocation> = emptyMap(),
 ) {
+    private val allocationOf = allocations.toMutableMap()
+
+    /** The `PUT …/allocation` bodies the sheet sent, with the line. */
+    val allocationsSent = mutableListOf<Pair<String, PeerAllocationRequest>>()
     private val lines = transactions.toMutableList()
     private val people = contacts.toMutableList()
 
@@ -656,6 +666,37 @@ class FakeTransactionTransfers(
             val id = firstArg<String>()
             debtsOfReceived -= id
             Result.success(debtOf(id))
+        }
+        coEvery { peerDebtRepository.getAllocation(any()) } answers {
+            val id = firstArg<String>()
+            val line = lines.first { it.id == id }
+            Result.success(
+                allocationOf[id] ?: TransactionAllocation(
+                    transactionId = id,
+                    amountCents = line.amountCents,
+                    direction = if (line.amountCents > 0) PeerKind.INCOMING else PeerKind.OUTGOING,
+                    canBeAllocated = line.transferKind == "none",
+                ),
+            )
+        }
+        // The answer as the API keeps it: the créances covered take what was put on them, the rest stays an income.
+        coEvery { peerDebtRepository.setAllocation(any(), any()) } answers {
+            val id = firstArg<String>()
+            val request = secondArg<PeerAllocationRequest>()
+            allocationsSent += id to request
+            val before = allocationOf.getValue(id)
+            val put = request.allocations.orEmpty().associate { it.shareId to it.amountCents }
+            val allocated = put.values.sum()
+            val after = before.copy(
+                peerKind = request.kind,
+                allocatedCents = allocated,
+                unallocatedCents = kotlin.math.abs(before.amountCents) - allocated,
+                allocations = put.map { (shareId, cents) -> PeerAllocationLine(shareId, amountCents = cents) },
+                candidates = before.candidates.map { it.copy(allocatedCents = put[it.shareId] ?: 0) },
+            )
+            allocationOf[id] = after
+            lines.indexOfFirst { it.id == id }.takeIf { it >= 0 }?.let { lines[it] = lines[it].copy(peerKind = request.kind) }
+            Result.success(after)
         }
         val contactRepository = mockk<ContactRepository>()
         coEvery { contactRepository.getContacts() } answers { Result.success(people.toList()) }

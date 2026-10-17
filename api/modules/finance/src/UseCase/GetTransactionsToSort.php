@@ -26,7 +26,8 @@ use Maggie\Finance\Repository\TransactionRepository;
  * only when no rule claims the line.
  *
  * A transfer no contact claims also asks « Associer à un contact ? » (MAG-450),
- * with the label linking would give the contact.
+ * with the label linking would give the contact; one a contact claims asks
+ * « Ce virement est » until the owner tells it apart (MAG-453).
  */
 class GetTransactionsToSort
 {
@@ -53,7 +54,8 @@ class GetTransactionsToSort
      *         id: string, label: string, counterpartyName: ?string, amountCents: int, currency: string,
      *         bookedAt: string, accountId: string, accountName: string, judgeable: bool, retrospect: string,
      *         suggestion: array{categoryId: string, categoryPath: string, source: string, reason: string}|null,
-     *         contact: array{id: string, name: string}|null, asksForContact: bool, counterpartyLabel: string
+     *         contact: array{id: string, name: string}|null, asksForContact: bool, counterpartyLabel: string,
+     *         reason: string, asksForPeerKind: bool
      *     }>
      * }
      */
@@ -115,6 +117,9 @@ class GetTransactionsToSort
                 'name' => $transaction->getContact()->getName(),
             ],
             'asksForContact' => CounterpartyMatch::asksForContact($transaction),
+            // Why the line is in the pile: no category yet, or a transfer with a person to tell apart (MAG-453).
+            'reason' => null === $transaction->getCategory() ? 'category' : 'peer_transfer',
+            'asksForPeerKind' => self::asksForPeerKind($transaction),
             'counterpartyLabel' => CounterpartyMatch::labelFor($transaction),
         ];
     }
@@ -155,6 +160,18 @@ class GetTransactionsToSort
             'source' => $source,
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * Whether « Ce virement est » is worth asking (MAG-453): a transfer
+     * linked to a contact, not told apart yet, and not a shared spend.
+     */
+    public static function asksForPeerKind(Transaction $transaction): bool
+    {
+        return null !== $transaction->getContact()
+            && null === $transaction->getPeerKind()
+            && null === $transaction->getMyShareCents()
+            && $transaction->canBeAllocated();
     }
 
     private static function ruleReason(RecurringOperation $rule): string

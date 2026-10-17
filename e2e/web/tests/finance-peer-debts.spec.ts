@@ -232,4 +232,87 @@ test.describe('a shared spend', () => {
     await contact.open(tomId)
     await expect(contact.openDebt(`VIR AVANCE GITE ${suffix}`)).toContainText(`tu lui dois ${euros(28000)}`)
   })
+
+  /**
+   * « Affecter un virement reçu » (MAG-453): Tom owes 200 € on the Gîte de
+   * Crozon, then sends 400 €. Allocated from « À trier », the gîte takes 200 €,
+   * Tom's share is settled and the other 200 € stay « Non affecté », an income.
+   *
+   * The transfer is filed in a category, so « Ce virement est » is all its card
+   * asks and answering it takes the line out of the pile. Its label is linked
+   * to Tom first, which attaches the transfer to him when it is written.
+   */
+  test('a transfer of 400 € from Tom allocated to the gîte settles his 200 € and leaves 200 € « Non affecté »', async ({
+    seasonUser,
+  }) => {
+    const { api, page } = seasonUser
+    const suffix = letters(6)
+    const tom = `Tom ${suffix}`
+    const gite = `Gîte de Crozon ${suffix}`
+    const label = `VIR. DE TOM-${suffix}`
+
+    // Given the créance « Gîte de Crozon », of which Tom owes 200 €
+    const accountId = await create(api, '/api/accounts', {
+      name: `Compte MAG-453 ${suffix}`,
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    const tomId = await create(api, '/api/contacts', { name: tom })
+    const categoryId = await create(api, '/api/categories', { name: `Virements reçus ${suffix}`, obligation: 'income' })
+    const spend = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: `GITE DE CROZON ${suffix}`,
+      amountCents: -40000,
+      currency: 'EUR',
+      bookedAt: seedDate(-7),
+      status: 'spent',
+    })
+    const shared = await api.put(`/api/finance/transactions/${spend}/my-share`, {
+      data: { myShareCents: 20000, object: gite, shares: [{ contactId: tomId }] },
+    })
+    expect(shared.status(), await shared.text()).toBe(200)
+
+    // And a transfer received from Tom of +400 €, filed but not answered yet
+    await create(api, '/api/contact_counterparties', { contact: `/api/contacts/${tomId}`, label })
+    const transfer = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      category: `/api/categories/${categoryId}`,
+      label,
+      amountCents: 40000,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+    // Removed first: a créance someone gave money back on outlives its spend, and holds Tom.
+    created.unshift({ path: `/api/finance/transactions/${transfer}/allocation` })
+    const before = await api.get(`/api/finance/transactions/${transfer}/allocation`)
+    expect(before.status(), await before.text()).toBe(200)
+    expect(((await before.json()) as { contact?: { id?: string } }).contact?.id, 'the transfer is Tom\'s').toBe(tomId)
+
+    // When I open it from « À trier » and allocate it to the gîte
+    const toSort = new FinanceToSortPage(page)
+    await toSort.open()
+    await toSort.select(label)
+    await expect(toSort.otherCategory, 'a filed transfer asks no category').toHaveCount(0)
+    await toSort.peerTransfer.cover([gite])
+    await expect(toSort.peerTransfer.amountFor(gite), 'the gîte takes what Tom owes').toHaveValue('200')
+    await expect(toSort.peerTransfer.unallocated).toContainText(`Non affecté : ${euros(20000)}`)
+    await toSort.peerTransfer.save()
+
+    // Then the line leaves the pile
+    await expect(toSort.pile.getByRole('button', { name: label })).toHaveCount(0)
+
+    // And the transfer's sheet keeps the gîte covered, 200 € « Non affecté »
+    const sheet = new FinanceTransactionSheetPage(page)
+    await sheet.openPeerTransfer(transfer)
+    await expect(sheet.peerTransfer.share(gite)).toBeChecked()
+    await expect(sheet.peerTransfer.unallocated).toContainText(`Non affecté : ${euros(20000)}`)
+
+    // And Tom's share is settled: nothing left « En cours » on his page
+    const contact = new FinanceContactPage(page)
+    await contact.open(tomId)
+    await expect(contact.openDebts.getByText('Rien en cours.')).toBeVisible()
+    await expect(contact.openDebt(gite)).toHaveCount(0)
+  })
 })

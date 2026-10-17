@@ -42,6 +42,9 @@ data class Transaction(
     // The part of a shared spend the owner kept, in absolute cents: only it counts in the
     // envelopes, the rest is owed by others (MAG-451). Null while the spend is not shared.
     val myShareCents: Int? = null,
+    // What a transfer to or from someone close is (MAG-453): "income", "repayment", "new_debt"
+    // for money received, "repayment", "new_claim", "other" for money sent; null until answered.
+    val peerKind: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
 

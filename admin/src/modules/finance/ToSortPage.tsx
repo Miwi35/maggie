@@ -24,6 +24,7 @@ import type { Contact } from './contactsApi'
 import { bareId } from './envelopeTree'
 import { Qualification } from './Qualification'
 import { NO_QUALIFICATION } from './qualificationKinds'
+import { PeerTransferQualifier } from './PeerTransferQualifier'
 import type { QualificationValue } from './qualificationKinds'
 import { formatDay } from './recurringOperations'
 import { useTransactionsToSort } from './useTransactionsToSort'
@@ -105,6 +106,7 @@ const SortCard = ({
   onJudge,
   onLinkContact,
   onOperationCreated,
+  onPeerAnswered,
 }: {
   transaction: ToSortTransaction
   sorting: boolean
@@ -112,6 +114,8 @@ const SortCard = ({
   onJudge: (verdict: Satisfaction) => void
   onOperationCreated: () => void
   onLinkContact: (contact: Contact) => Promise<boolean>
+  /** « Ce virement est » was saved: the line may leave the pile. */
+  onPeerAnswered: () => void
 }) => {
   const createPath = useCreatePath()
   const [always, setAlways] = useState(false)
@@ -120,6 +124,9 @@ const SortCard = ({
   const [qualification, setQualification] = useState<QualificationValue>(NO_QUALIFICATION)
   const [creating, setCreating] = useState(false)
   const { suggestion } = transaction
+  // A filed transfer only waits for « Ce virement est »: no category to ask, and having one it can no
+  // longer be an internal transfer (the API refuses it).
+  const asksCategory = transaction.reason !== 'peer_transfer'
 
   return (
     <Card component="section" aria-label="Transaction à qualifier">
@@ -141,54 +148,64 @@ const SortCard = ({
           </Typography>
         </Stack>
 
-        <Box sx={{ my: 2 }}>
-          {suggestion ? (
-            <>
-              <Typography variant="subtitle1">→ {suggestion.categoryPath}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {suggestion.reason}
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Aucune suggestion pour cette ligne.
-            </Typography>
-          )}
-        </Box>
+        {transaction.asksForPeerKind && (
+          <Box sx={{ my: 2 }}>
+            <PeerTransferQualifier transactionId={transaction.id} label={transaction.label} onSaved={onPeerAnswered} />
+          </Box>
+        )}
 
-        <FormControlLabel
-          sx={{ mb: 1, display: 'flex' }}
-          control={<Switch checked={always} disabled={sorting} onChange={(e) => setAlways(e.target.checked)} />}
-          label="Toujours pour ce marchand"
-        />
-
-        {choosing && (
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            <Qualification
-              category={category}
-              qualification={qualification}
-              onChange={(next) => {
-                setCategory(next.category)
-                setQualification(next.qualification)
-              }}
-              sense={transaction.amountCents > 0 ? 'in' : 'out'}
-            />
-            <Box>
-              <Button
-                variant="contained"
-                disabled={sorting || category === null}
-                onClick={() =>
-                  category && onSort({ categoryId: bareId(category), alwaysForMerchant: always }, qualification)
-                }
-              >
-                Qualifier
-              </Button>
+        {asksCategory && (
+          <>
+            <Box sx={{ my: 2 }}>
+              {suggestion ? (
+                <>
+                  <Typography variant="subtitle1">→ {suggestion.categoryPath}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {suggestion.reason}
+                  </Typography>
+                </>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Aucune suggestion pour cette ligne.
+                </Typography>
+              )}
             </Box>
-          </Stack>
+
+            <FormControlLabel
+              sx={{ mb: 1, display: 'flex' }}
+              control={<Switch checked={always} disabled={sorting} onChange={(e) => setAlways(e.target.checked)} />}
+              label="Toujours pour ce marchand"
+            />
+
+            {choosing && (
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                <Qualification
+                  category={category}
+                  qualification={qualification}
+                  onChange={(next) => {
+                    setCategory(next.category)
+                    setQualification(next.qualification)
+                  }}
+                  sense={transaction.amountCents > 0 ? 'in' : 'out'}
+                />
+                <Box>
+                  <Button
+                    variant="contained"
+                    disabled={sorting || category === null}
+                    onClick={() =>
+                      category && onSort({ categoryId: bareId(category), alwaysForMerchant: always }, qualification)
+                    }
+                  >
+                    Qualifier
+                  </Button>
+                </Box>
+              </Stack>
+            )}
+          </>
         )}
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-          {suggestion && (
+          {asksCategory && suggestion && (
             <Button
               variant="contained"
               disabled={sorting}
@@ -197,19 +214,25 @@ const SortCard = ({
               Valider
             </Button>
           )}
-          <Button
-            variant={suggestion ? 'outlined' : 'contained'}
-            disabled={sorting}
-            onClick={() => setChoosing((open) => !open)}
-          >
-            Autre catégorie
-          </Button>
-          <Button disabled={sorting} onClick={() => setCreating(true)}>
-            Créer un filtre
-          </Button>
-          <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
-            Virement interne
-          </Button>
+          {asksCategory && (
+            <Button
+              variant={suggestion ? 'outlined' : 'contained'}
+              disabled={sorting}
+              onClick={() => setChoosing((open) => !open)}
+            >
+              Autre catégorie
+            </Button>
+          )}
+          {asksCategory && (
+            <Button disabled={sorting} onClick={() => setCreating(true)}>
+              Créer un filtre
+            </Button>
+          )}
+          {asksCategory && (
+            <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
+              Virement interne
+            </Button>
+          )}
           <Button
             color="inherit"
             component={Link}
@@ -366,6 +389,7 @@ export const ToSortPage = () => {
                 onJudge={(verdict) => void judge(current.id, verdict)}
                 onOperationCreated={() => void reload()}
                 onLinkContact={(contact) => link(current, contact)}
+                onPeerAnswered={() => void reload()}
               />
             </Box>
             <PileList transactions={pile.transactions} currentId={current.id} onSelect={setSelectedId} />

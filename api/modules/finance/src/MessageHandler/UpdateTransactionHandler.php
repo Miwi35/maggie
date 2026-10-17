@@ -88,6 +88,7 @@ class UpdateTransactionHandler
         // After the marking and the amount: a shared spend stays one whose part is below it.
         $this->assertShareStillFits($transaction);
         $this->assertDebtStillFits($transaction);
+        $this->assertAllocationStillFits($transaction);
         // After the marking and the amount: what is judged is what the line has become.
         if (null !== $verdict && RetrospectVerdict::Unrated !== $verdict && !$transaction->canBeJudged()) {
             throw new SatisfactionException('A satisfaction goes to a spend only: an income or a transfer between your own accounts has nothing to judge.');
@@ -131,6 +132,20 @@ class UpdateTransactionHandler
         if (null !== $debt && PeerDebtDirection::IOwe === $debt->getDirection()
             && (!$transaction->canBeDebt() || $debt->getAmountCents() > $transaction->getAmountCents())) {
             throw new SharedSpendException('This transfer is declared as a dette: remove it (DELETE /api/finance/transactions/{id}/debt) before making it a spend, a transfer, or smaller than the amount to give back.');
+        }
+    }
+
+    /**
+     * A transfer told apart (MAG-453) stays one of the same direction, with
+     * room for what it gives back: otherwise its allocations would repay
+     * money that never moved.
+     */
+    private function assertAllocationStillFits(Transaction $transaction): void
+    {
+        $kind = $transaction->getPeerKind();
+        if (null !== $kind && (!$transaction->canBeAllocated() || !$kind->fits($transaction->getAmountCents() > 0)
+            || $transaction->getPeerAllocatedCents() > abs($transaction->getAmountCents()))) {
+            throw new SharedSpendException('This transfer is told apart as money with a person: remove its allocation (DELETE /api/finance/transactions/{id}/allocation) before making it a transfer between your accounts, changing its direction, or making it smaller than what it gives back.');
         }
     }
 
