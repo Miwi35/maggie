@@ -14,6 +14,10 @@ import { ROUTES } from './routes.js'
  * capacity is income minus loan payments minus a measured lifestyle. So the
  * journeys read the tiles and check the arithmetic against the fixtures.
  *
+ * A second tab, « À venir » (MAG-463), reads `/api/finance/upcoming`: the week
+ * and the month after the current ones, the next month's adjusted envelopes and
+ * what is left toward the projects.
+ *
  * Tiles are reached by their test id (`tile-accounts`, `tile-budget`,
  * `tile-planning`); the cards inside them by their own.
  */
@@ -110,6 +114,53 @@ export class FinanceOverviewPage extends AdminShell {
 
   debitMarker(label: string): Locator {
     return this.rhythmCurve.locator(`[data-testid="debit-marker"][data-label="${label}"]`)
+  }
+
+  /** The « À venir » tab of the dashboard (MAG-463). */
+  get upcomingTab(): Locator {
+    return this.content.getByRole('tab', { name: 'À venir' })
+  }
+
+  /** The « État courant » tab: everything the home shows, and the default. */
+  get currentTab(): Locator {
+    return this.content.getByRole('tab', { name: 'État courant' })
+  }
+
+  /** Opens the home, then its « À venir » tab, and waits for the projection to have answered. */
+  async openUpcoming(): Promise<void> {
+    await this.open()
+    await this.upcomingTab.click()
+    await expect(this.upcomingRemaining).toBeVisible()
+  }
+
+  /** The week after the current one: totals, days and items. */
+  get upcomingWeek(): Locator {
+    return this.content.getByTestId('upcoming-week')
+  }
+
+  /** The month after the current one: totals, days and items. */
+  get upcomingMonth(): Locator {
+    return this.content.getByTestId('upcoming-month')
+  }
+
+  /** One line of a window (a recurring series' occurrence, a planned or committed movement), by its label. */
+  upcomingItem(window: Locator, label: string): Locator {
+    return window.locator(`[data-testid="upcoming-item"][data-label="${label}"]`)
+  }
+
+  /** An envelope of the month after, by the category it carries. */
+  upcomingEnvelope(name: string): Locator {
+    return this.content.getByTestId(`upcoming-envelope-${name}`)
+  }
+
+  /** What is outside every envelope in the month after. */
+  get upcomingUnbudgeted(): Locator {
+    return this.content.getByTestId('upcoming-unbudgeted')
+  }
+
+  /** « Reste vers les projets »: the headline figure and its split. */
+  get upcomingRemaining(): Locator {
+    return this.content.getByTestId('upcoming-remaining')
   }
 
   async selectPeriod(year: number, month: number): Promise<void> {

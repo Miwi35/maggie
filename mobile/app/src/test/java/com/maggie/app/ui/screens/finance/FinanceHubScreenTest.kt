@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -71,6 +72,7 @@ class FinanceHubScreenTest {
         val opened = mutableListOf<String>()
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
                 onOpen = { opened += it },
@@ -92,6 +94,7 @@ class FinanceHubScreenTest {
     fun `a month the server could not compute says so instead of staying empty`() {
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
                 onBack = {},
                 onOpen = {},
@@ -107,6 +110,7 @@ class FinanceHubScreenTest {
         var backs = 0
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = { backs++ },
                 onOpen = {},
@@ -123,6 +127,7 @@ class FinanceHubScreenTest {
         val opened = mutableListOf<String>()
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
                 onOpen = { opened += it },
@@ -140,6 +145,7 @@ class FinanceHubScreenTest {
     fun `the dashboard draws no pill on an empty pile, nor before the pile is known`() {
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onBack = {},
                 onOpen = {},

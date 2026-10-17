@@ -251,6 +251,24 @@ object UiTags {
     const val FINANCE_NEXT_PROJECT = "finance_next_project"
 
     /**
+     * Finance dashboard — the two tabs, « État courant » and « À venir », and the blocks of the
+     * second: the week and the month after, the envelopes of the month after (one bar per category,
+     * suffixed by its id), what is spent outside them, what is left toward the projects, and the
+     * error with its retry (MAG-463).
+     */
+    const val FINANCE_TAB_CURRENT = "finance_tab_current"
+    const val FINANCE_TAB_UPCOMING = "finance_tab_upcoming"
+    const val UPCOMING_WEEK = "upcoming_week"
+    const val UPCOMING_MONTH = "upcoming_month"
+    const val UPCOMING_DAYS_PREFIX = "upcoming_days_"
+    const val UPCOMING_ENVELOPES = "upcoming_envelopes"
+    const val UPCOMING_ENVELOPE_PREFIX = "upcoming_envelope_"
+    const val UPCOMING_UNBUDGETED = "upcoming_unbudgeted"
+    const val UPCOMING_REMAINING = "upcoming_remaining"
+    const val UPCOMING_ERROR = "upcoming_error"
+    const val UPCOMING_RETRY = "upcoming_retry"
+
+    /**
      * Banques — the fetch. Tagged rather than tapped by its label because the
      * label changes while the fetch runs (« Récupération… »), and a journey that
      * taps the text would hit a button that is no longer there.
@@ -537,6 +555,10 @@ object UiTags {
     fun financeRhythmDebit(date: String) = FINANCE_RHYTHM_DEBIT_PREFIX + date
 
     fun financeTileEnvelope(envelopeId: String) = FINANCE_TILE_ENVELOPE_PREFIX + envelopeId
+
+    fun upcomingDays(period: String) = UPCOMING_DAYS_PREFIX + period
+
+    fun upcomingEnvelope(categoryId: String) = UPCOMING_ENVELOPE_PREFIX + categoryId
 
     fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
 

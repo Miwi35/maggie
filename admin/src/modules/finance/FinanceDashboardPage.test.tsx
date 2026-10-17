@@ -5,6 +5,7 @@ import { AdminContext, testDataProvider } from 'react-admin'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { dashboardFixture } from './dashboardFixture'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
+import { upcomingFixture } from './upcomingFixture'
 import type { FinanceDashboard } from './useFinanceDashboard'
 
 const mercure = vi.hoisted(() => ({ handlers: new Map<string, () => void>() }))
@@ -155,5 +156,36 @@ describe('FinanceDashboardPage', () => {
     await waitFor(() => expect(screen.getByTestId('tile-accounts')).toHaveTextContent(/9\s999,00\s€/))
     const urls = fetchMock.mock.calls.map(([url]) => String(url))
     expect(urls.filter((url) => url.includes('/api/finance/dashboard'))).toHaveLength(1)
+  })
+  test('opens on « État courant » and offers « À venir » without reading the projection until asked', async () => {
+    const fetchMock = stubApi(dashboardFixture())
+    renderPage()
+
+    expect(await screen.findByTestId('tile-budget')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'État courant' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'À venir' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.queryByTestId('upcoming-tab')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/finance/upcoming'))).toBe(false)
+  })
+
+  test('switches to « À venir », the period picker belonging to « État courant » only', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/api/finance/upcoming')) return answer(upcomingFixture())
+      if (url.includes('/api/finance/transactions/to-sort')) return answer({ total: 0, totalCents: 0, transactions: [] })
+
+      return url.includes('/api/finance/dashboard') ? answer(dashboardFixture()) : answer({}, false)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage()
+    await screen.findByTestId('tile-budget')
+    expect(screen.getByLabelText('Année')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'À venir' }))
+
+    expect(await screen.findByTestId('upcoming-month')).toBeInTheDocument()
+    expect(screen.queryByTestId('tile-budget')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Année')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('next-project-card')).not.toBeInTheDocument()
   })
 })

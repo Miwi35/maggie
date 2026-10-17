@@ -157,6 +157,14 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-adjust-google-id'
         name: 'Alix Ajuste'
 
+    # The « À venir » journey (MAG-463): a series and envelopes of next month on
+    # an account of its own, because they move the neighbours' recurring
+    # operations and treasury projections.
+    e2e_upcoming_user:
+        email: 'e2e-upcoming@maggie.local'
+        googleId: 'e2e-upcoming-google-id'
+        name: 'Noa Avenir'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'

@@ -19,6 +19,7 @@ import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.ReferenceSalary
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.repository.MonthlyReviewRepository
+import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -51,6 +52,7 @@ class ReferenceSalaryScreenTest {
         )
         compose.setContent {
             FinanceDashboardScreen(
+                upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboard).viewModel,
                 onBack = {},
                 onOpen = onOpen,

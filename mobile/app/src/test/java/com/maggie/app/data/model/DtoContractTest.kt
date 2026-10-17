@@ -483,6 +483,30 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the upcoming projection deserialises from the recorded response, both windows and the envelopes of the month`() {
+        val body = readRecording("finance_upcoming.read")
+        val source = "finance_upcoming.read"
+
+        val upcoming = json.decodeFromJsonElement(serializer<UpcomingProjection>(), body)
+
+        val week = body["week"]!!.jsonObject
+        val month = body["month"]!!.jsonObject
+        assertDeclaredFieldsExist("UpcomingProjection", serializer<UpcomingProjection>(), body.keys, source)
+        assertDeclaredFieldsExist("UpcomingWeek", serializer<UpcomingWeek>(), week.keys, source)
+        assertDeclaredFieldsExist("UpcomingMonth", serializer<UpcomingMonth>(), month.keys, source)
+        assertDeclaredFieldsExist(
+            "UpcomingItem", serializer<UpcomingItem>(),
+            (keysOf(week, "incomes") + keysOf(week, "expenses") + keysOf(month, "incomes") + keysOf(month, "expenses")), source,
+        )
+        assertDeclaredFieldsExist("UpcomingDay", serializer<UpcomingDay>(), keysOf(month, "days"), source)
+        assertDeclaredFieldsExist("UpcomingEnvelope", serializer<UpcomingEnvelope>(), keysOf(month, "envelopes"), source)
+        assertTrue("The recording has no week income, so it proves nothing.", upcoming.week.incomes.isNotEmpty())
+        assertTrue("The recording has no envelope, so it proves nothing.", upcoming.month.envelopes.isNotEmpty())
+        assertTrue("isOvercommitted fell back to its default", upcoming.month.envelopes.any { it.isOvercommitted })
+        assertEquals(upcoming.month.incomeCents - upcoming.month.projectedExpenseCents, upcoming.month.remainingCents)
+    }
+
+    @Test
     fun `the finance scores deserialise from the recorded response, with the rhythm, its curve and its debits`() {
         val body = readRecording("finance_scores.read")
 

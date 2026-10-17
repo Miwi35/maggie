@@ -1,0 +1,85 @@
+appId: com.maggie.app.e2e
+name: 20-finance-upcoming
+tags:
+  - finance
+---
+# The « À venir » tab of the finance dashboard, from the phone (MAG-463, extends MAG-102).
+#
+# Étant donné une opération récurrente « Loyer » attendue le mois suivant et une enveloppe ajustée pour ce mois
+#   (`e2e-upcoming@maggie.local`, `api/fixtures/e2e/58-finance-upcoming.yaml`)
+# Quand j'ouvre les finances puis l'onglet « À venir »
+# Alors je vois la semaine suivante et le mois suivant, avec le loyer parmi les dépenses prévues
+# Et les enveloppes du mois suivant
+# Et « Reste vers les projets »
+# Quand je reviens sur « État courant »
+# Alors les anneaux sont là, et les blocs « À venir » ne le sont plus
+#
+# The calendar moves, so only the labels and the tags are asserted, never a date or an amount: the
+# figures are drawn with the phone's locale and `GetUpcomingProjectionTest` reads them on the API
+# side, `UpcomingScreenTest` on the JVM. What only a device proves is the tab, the request and the
+# shape of the real answer.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/20-finance-upcoming.yaml
+      e2e_email: e2e-upcoming@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance"
+
+# « État courant » is the tab it opens on.
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+
+- tapOn:
+    id: "finance_tab_upcoming"
+- extendedWaitUntil:
+    visible:
+      id: "upcoming_week"
+    timeout: 30000
+- assertNotVisible:
+    id: "finance_score_ring_week"
+- extendedWaitUntil:
+    visible: ".*La semaine suivante.*"
+    timeout: 10000
+
+- scrollUntilVisible:
+    element:
+      id: "upcoming_month"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Loyer"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "upcoming_envelopes"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "upcoming_remaining"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Reste vers les projets"
+    timeout: 10000
+
+# Back to the current state: the upcoming blocks leave the screen.
+- scrollUntilVisible:
+    element:
+      id: "finance_tab_current"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "finance_tab_current"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- assertNotVisible:
+    id: "upcoming_week"

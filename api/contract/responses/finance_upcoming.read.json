@@ -1,0 +1,323 @@
+{
+    "today": "2026-10-16",
+    "week": {
+        "from": "2026-10-19",
+        "until": "2026-10-26",
+        "incomeCents": 250000,
+        "expenseCents": 2000,
+        "netCents": 248000,
+        "incomes": [
+            {
+                "date": "2026-10-25",
+                "label": "Salaire ACME",
+                "amountCents": 250000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Salaire"
+            }
+        ],
+        "expenses": [
+            {
+                "date": "2026-10-24",
+                "label": "Marché",
+                "amountCents": -2000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses"
+            }
+        ],
+        "days": [
+            {
+                "date": "2026-10-19",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-10-20",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-10-21",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-10-22",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-10-23",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-10-24",
+                "incomeCents": 0,
+                "expenseCents": 2000
+            },
+            {
+                "date": "2026-10-25",
+                "incomeCents": 250000,
+                "expenseCents": 0
+            }
+        ]
+    },
+    "month": {
+        "from": "2026-11-01",
+        "until": "2026-12-01",
+        "incomeCents": 250000,
+        "expenseCents": 99200,
+        "netCents": 150800,
+        "incomes": [
+            {
+                "date": "2026-11-25",
+                "label": "Salaire ACME",
+                "amountCents": 250000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Salaire"
+            }
+        ],
+        "expenses": [
+            {
+                "date": "2026-11-05",
+                "label": "Loyer",
+                "amountCents": -90000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Logement"
+            },
+            {
+                "date": "2026-11-07",
+                "label": "Marché",
+                "amountCents": -2000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses"
+            },
+            {
+                "date": "2026-11-12",
+                "label": "Assurance auto",
+                "amountCents": -1200,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Assurance"
+            },
+            {
+                "date": "2026-11-14",
+                "label": "Marché",
+                "amountCents": -2000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses"
+            },
+            {
+                "date": "2026-11-21",
+                "label": "Marché",
+                "amountCents": -2000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses"
+            },
+            {
+                "date": "2026-11-28",
+                "label": "Marché",
+                "amountCents": -2000,
+                "source": "recurring",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses"
+            }
+        ],
+        "days": [
+            {
+                "date": "2026-11-01",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-02",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-03",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-04",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-05",
+                "incomeCents": 0,
+                "expenseCents": 90000
+            },
+            {
+                "date": "2026-11-06",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-07",
+                "incomeCents": 0,
+                "expenseCents": 2000
+            },
+            {
+                "date": "2026-11-08",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-09",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-10",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-11",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-12",
+                "incomeCents": 0,
+                "expenseCents": 1200
+            },
+            {
+                "date": "2026-11-13",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-14",
+                "incomeCents": 0,
+                "expenseCents": 2000
+            },
+            {
+                "date": "2026-11-15",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-16",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-17",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-18",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-19",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-20",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-21",
+                "incomeCents": 0,
+                "expenseCents": 2000
+            },
+            {
+                "date": "2026-11-22",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-23",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-24",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-25",
+                "incomeCents": 250000,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-26",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-27",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-28",
+                "incomeCents": 0,
+                "expenseCents": 2000
+            },
+            {
+                "date": "2026-11-29",
+                "incomeCents": 0,
+                "expenseCents": 0
+            },
+            {
+                "date": "2026-11-30",
+                "incomeCents": 0,
+                "expenseCents": 0
+            }
+        ],
+        "month": "2026-11",
+        "envelopes": [
+            {
+                "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Courses",
+                "categoryPath": "Courses",
+                "amountCents": 40000,
+                "committedCents": 8000,
+                "projectedCents": 40000,
+                "isOvercommitted": false
+            },
+            {
+                "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Logement",
+                "categoryPath": "Logement",
+                "amountCents": 80000,
+                "committedCents": 90000,
+                "projectedCents": 90000,
+                "isOvercommitted": true
+            },
+            {
+                "envelopeId": null,
+                "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "categoryName": "Loisirs",
+                "categoryPath": "Loisirs",
+                "amountCents": 20000,
+                "committedCents": 0,
+                "projectedCents": 20000,
+                "isOvercommitted": false
+            }
+        ],
+        "envelopesCents": 150000,
+        "unbudgetedCents": 1200,
+        "projectedExpenseCents": 151200,
+        "remainingCents": 98800
+    }
+}

@@ -119,6 +119,13 @@ export const SCORES_USER_EMAIL = 'e2e-scores@maggie.local'
  */
 export const ADJUST_USER_EMAIL = 'e2e-adjust@maggie.local'
 
+/**
+ * The fifteenth seeded account, for the « À venir » journey (MAG-463): a salary,
+ * a rent and a weekly market of next month, and the envelopes they sit in, which
+ * would otherwise move the neighbours' recurring operations and projections.
+ */
+export const UPCOMING_USER_EMAIL = 'e2e-upcoming@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

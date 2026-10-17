@@ -6,7 +6,10 @@ namespace App\Tests\Contract;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Enum\RecurrencePeriod;
+use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
 use Maggie\Finance\UseCase\GetAnnualPlan;
 use Maggie\Finance\UseCase\GetRecurringOperations;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
@@ -53,6 +56,9 @@ final class RecordedResponseContractTest extends WebTestCase
     use ContractSnapshotTrait;
     use FixtureLoaderTrait;
     use AuthenticatedTestTrait;
+    use RecurringProjectionsWorld;
+
+    private EntityManagerInterface $em;
 
     /**
      * Recording name => path. One per DTO the mobile app deserialises from a
@@ -268,6 +274,40 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/finance_envelope_adjustments.read.json',
             self::stabilise($body),
             'GET /api/finance/envelope-adjustments no longer returns what it used to. The mobile DTOs (EnvelopeAdjustment.kt) and the admin hook read this response.',
+        );
+    }
+
+    /**
+     * « À venir » (MAG-463), as the controller sends it, read on 2026-10-16:
+     * a weekly series in the week, a rent, a salary and an insurance in
+     * November, envelopes written, rolled over and overcommitted.
+     */
+    public function testTheUpcomingRecordingIsCurrent(): void
+    {
+        $this->em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/UseCase/fixtures/upcoming_projection.yaml');
+        $this->series('Marché', -2000, '2026-10-03', categoryRef: 'groceries', period: RecurrencePeriod::Weekly);
+        $this->series('Loyer', -90000, '2026-07-05');
+        $this->series('Salaire ACME', 250000, '2026-07-25', categoryRef: 'salary');
+        $this->series('Assurance auto', -1200, '2026-07-12', categoryRef: 'insurance');
+
+        $user = $this->getFixture('test_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/upcoming?date=2026-10-16', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty($body['week']['expenses'], 'The recorded week holds no expense.');
+        self::assertNotEmpty($body['month']['incomes'], 'The recorded month holds no income.');
+        self::assertNotEmpty(array_filter($body['month']['envelopes'], static fn (array $line): bool => null === $line['envelopeId']), 'The recorded month holds no rolled-over envelope.');
+        self::assertNotEmpty(array_filter($body['month']['envelopes'], static fn (array $line): bool => $line['isOvercommitted']), 'The recorded month holds no overcommitted envelope.');
+
+        $this->assertMatchesContract(
+            'responses/finance_upcoming.read.json',
+            self::stabilise($body),
+            'GET /api/finance/upcoming no longer returns what it used to. The mobile DTOs (UpcomingProjection.kt) and the admin hook read this response.',
         );
     }
 
