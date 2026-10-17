@@ -90,6 +90,9 @@ fun TransactionListScreen(
     onTransactionOpened: () -> Unit = {},
     // « Voir tout ce qu'on te doit » of a shared spend (MAG-451): the contacts, until MAG-455's screen.
     onOpenPeerDebts: (() -> Unit)? = null,
+    // Open on the Incidents tab (the « N rejets » pill of the finance home).
+    openIncidents: Boolean = false,
+    onIncidentsOpened: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -114,6 +117,12 @@ fun TransactionListScreen(
     var choosingOneOffEnvelope by remember { mutableStateOf(false) }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(openIncidents) {
+        if (openIncidents) {
+            selectedTab = 1
+            onIncidentsOpened()
+        }
+    }
 
     val detail = uiState.detail
     if (detail != null) {

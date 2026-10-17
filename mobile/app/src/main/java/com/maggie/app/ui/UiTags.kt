@@ -245,6 +245,13 @@ object UiTags {
     const val FINANCE_TILE_ACCOUNTS = "finance_tile_accounts"
     const val FINANCE_TILE_BUDGET = "finance_tile_budget"
     const val FINANCE_TILE_PLANNING = "finance_tile_planning"
+
+    /** What is to do, as pills of the Comptes and Budget tiles, and the « Revue ce soir » shortcut (MAG-421). */
+    const val FINANCE_PILL_TO_SORT = "finance_pill_to_sort"
+    const val FINANCE_PILL_REJECTIONS = "finance_pill_rejections"
+    const val FINANCE_PILL_OWED_EXAMPLE = "finance_pill_owed_example"
+    const val FINANCE_PILL_ADVANCE = "finance_pill_advance"
+    const val FINANCE_REVIEW_SHORTCUT = "finance_review_shortcut"
     const val FINANCE_TILE_EXPECTED_SALARY = "finance_tile_expected_salary"
     const val FINANCE_TILE_BALANCE_BEFORE_SALARY = "finance_tile_balance_before_salary"
     const val FINANCE_TILE_ENVELOPE_PREFIX = "finance_tile_envelope_"

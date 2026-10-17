@@ -304,7 +304,8 @@
                     "bank": "Recorded Bank",
                     "balanceCents": 123456,
                     "currency": "EUR",
-                    "isCushion": true
+                    "isCushion": true,
+                    "rejectionsToSettleCount": 0
                 }
             ]
         },
@@ -383,6 +384,12 @@
                 "isIncomeKnown": true
             }
         }
+    },
+    "todo": {
+        "toSortCount": 0,
+        "rejectionsToSettleCount": 0,
+        "reviewReady": false,
+        "advanceToRepayCents": 0
     },
     "score": {
         "score": "red",

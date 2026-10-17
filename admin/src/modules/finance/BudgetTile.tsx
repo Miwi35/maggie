@@ -6,7 +6,8 @@ import { Link as RouterLink } from 'react-router-dom'
 import { formatCents } from './accountTypes'
 import { DashboardTile, tileInnerLinkSx } from './DashboardTile'
 import { RECURRING_OPERATIONS_PATH, REFERENCE_SALARY_SOURCE_LABELS } from './referenceSalary'
-import type { BudgetTile as BudgetTileData, TileCushion, TileEnvelope } from './useFinanceDashboard'
+import { TodoPill } from './TodoPill'
+import type { BudgetTile as BudgetTileData, DashboardTodo, TileCushion, TileEnvelope } from './useFinanceDashboard'
 
 const BAR_AREA_HEIGHT = 72
 
@@ -106,11 +107,20 @@ const CushionLine = ({ cushion }: { cushion: TileCushion }) => {
 }
 
 /** « Budget » → the budgets: envelopes, matelas, salary to come and the balance before it. */
-export const BudgetTile = ({ tile }: { tile: BudgetTileData }) => {
+export const BudgetTile = ({ tile, todo }: { tile: BudgetTileData; todo: DashboardTodo }) => {
   const { expectedSalary, balanceBeforeSalary } = tile
 
   return (
     <DashboardTile title="Budget" to="/envelopes" testId="tile-budget">
+      {todo.advanceToRepayCents > 0 && (
+        <Box sx={{ mb: 1 }}>
+          <TodoPill
+            label={`${formatCents(todo.advanceToRepayCents)} à remettre`}
+            to="/finance/savings-advances"
+            testId="pill-advance"
+          />
+        </Box>
+      )}
       <EnvelopeHistogram envelopes={tile.envelopes} />
 
       <Box sx={{ mt: 1.5 }}>

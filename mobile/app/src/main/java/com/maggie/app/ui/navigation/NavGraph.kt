@@ -510,6 +510,8 @@ fun NavGraph() {
     var transactionPrefill by rememberSavedSelection<TransactionPrefill>()
     // The line « Voir la fiche » was tapped on in « À qualifier »: its account opens with the sheet of that line.
     var transactionToOpen by rememberSaveable { mutableStateOf<String?>(null) }
+    // Set by the « N rejets » pill: the account opens on its Incidents tab.
+    var incidentsToOpen by rememberSaveable { mutableStateOf(false) }
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1320,6 +1322,8 @@ fun NavGraph() {
                                     openTransactionId = transactionToOpen,
                                     onTransactionOpened = { transactionToOpen = null },
                                     onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                                    openIncidents = incidentsToOpen,
+                                    onIncidentsOpened = { incidentsToOpen = false },
                                 )
                             }
                         },
@@ -1455,14 +1459,17 @@ fun NavGraph() {
                 }
                 composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
                     val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
-                    val toQualify by koinViewModel<ToQualifyViewModel>().pile.collectAsState()
                     FinanceDashboardScreen(
                         viewModel = dashboardViewModel,
                         monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
                         upcomingViewModel = koinViewModel<UpcomingViewModel>(),
-                        toQualify = toQualify,
                         onBack = { navController.popBackStack() },
                         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
+                        onOpenIncidents = { account ->
+                            selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }
+                            incidentsToOpen = true
+                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                        },
                     )
                 }
                 composable(Screen.AccountTransactions.route) { entry ->
@@ -1472,6 +1479,7 @@ fun NavGraph() {
                     val leave = {
                         selectedAccount = null
                         transactionToOpen = null
+                        incidentsToOpen = false
                         navController.backInFinance()
                     }
                     BackHandler(onBack = leave)
@@ -1485,6 +1493,8 @@ fun NavGraph() {
                             openTransactionId = transactionToOpen,
                             onTransactionOpened = { transactionToOpen = null },
                             onOpenPeerDebts = { navController.navigate(Screen.Contacts.route) { launchSingleTop = true } },
+                            openIncidents = incidentsToOpen,
+                            onIncidentsOpened = { incidentsToOpen = false },
                         )
                     }
                 }
@@ -1738,6 +1748,8 @@ private fun AccountTransactions(
     openTransactionId: String?,
     onTransactionOpened: () -> Unit,
     onOpenPeerDebts: () -> Unit,
+    openIncidents: Boolean,
+    onIncidentsOpened: () -> Unit,
 ) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
@@ -1751,5 +1763,7 @@ private fun AccountTransactions(
         openTransactionId = openTransactionId,
         onTransactionOpened = onTransactionOpened,
         onOpenPeerDebts = onOpenPeerDebts,
+        openIncidents = openIncidents,
+        onIncidentsOpened = onIncidentsOpened,
     )
 }

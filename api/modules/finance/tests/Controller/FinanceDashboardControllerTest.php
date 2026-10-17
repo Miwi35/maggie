@@ -72,6 +72,27 @@ class FinanceDashboardControllerTest extends WebTestCase
         self::assertArrayHasKey('netCapacityCents', $data['tiles']['planning']['savingCapacity']);
     }
 
+    public function testReturnsWhatIsToDoForTheTilesPills(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=2026&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(
+            ['toSortCount', 'rejectionsToSettleCount', 'reviewReady', 'advanceToRepayCents'],
+            array_keys($data['todo']),
+        );
+        self::assertIsInt($data['todo']['toSortCount']);
+        self::assertSame(0, $data['todo']['rejectionsToSettleCount']);
+        self::assertIsBool($data['todo']['reviewReady']);
+        self::assertSame(0, $data['todo']['advanceToRepayCents']);
+    }
+
     public function testReturnsTheWholePictureInOneCall(): void
     {
         $this->loadFixtures('dashboard.yaml');

@@ -54,6 +54,8 @@ export interface TileAccount {
   balanceCents: number
   currency: string
   isCushion: boolean
+  /** The rejected payments of this account not settled yet. */
+  rejectionsToSettleCount: number
 }
 
 /** The « Comptes » tile: what the accounts hold, and the part set aside. */
@@ -118,6 +120,16 @@ export interface DashboardTiles {
   planning: PlanningTile
 }
 
+/** What waits for the owner: the pills of the tiles and the « Revue ce soir » shortcut. */
+export interface DashboardTodo {
+  toSortCount: number
+  rejectionsToSettleCount: number
+  /** The review of the month just ended is not done. */
+  reviewReady: boolean
+  /** What is still to give back to the savings after an advance. */
+  advanceToRepayCents: number
+}
+
 export interface FinanceDashboard {
   year: number
   month: number
@@ -144,6 +156,7 @@ export interface FinanceDashboard {
   /** The rings and the curve of the month shown: same payload as `/api/finance/scores`. */
   scores: FinanceScores
   tiles: DashboardTiles
+  todo: DashboardTodo
 }
 
 /** The whole month in one read: the rings, the curve and the three tiles. */

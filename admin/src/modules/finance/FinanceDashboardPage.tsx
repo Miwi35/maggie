@@ -15,7 +15,7 @@ import { MonthBalanceTab } from './MonthBalanceTab'
 import { NextProjectCard } from './NextProjectCard'
 import { PeriodPicker } from './PeriodPicker'
 import { PlanningTile } from './PlanningTile'
-import { ToQualifyPill } from './ToQualifyPill'
+import { ReviewShortcut } from './ReviewShortcut'
 import { UpcomingTab } from './UpcomingTab'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import { FINANCE_HOME_TOPICS } from './useUpcomingProjection'
@@ -23,12 +23,13 @@ import { FINANCE_HOME_TOPICS } from './useUpcomingProjection'
 export type DashboardTab = 'overview' | 'current' | 'upcoming'
 
 /**
- * The finance home, in three tabs. « Vue d'ensemble »: the two rings, the month's
- * curve against its rhythm, the next project, then three tiles — Comptes,
- * Budget, Planification — each opening its menu; one read
- * (`/api/finance/dashboard`) feeds all of it, and one Mercure refresh reloads
- * all of it. « État courant »: the balance of a month in charts, with its own
- * month picker. « À venir »: the week and the month after this one.
+ * The finance home, in three tabs. « Vue d'ensemble »: the review shortcut when
+ * the month just ended is not reviewed, the two rings, the month's curve
+ * against its rhythm, the next project, then three tiles — Comptes, Budget,
+ * Planification — each opening its menu; one read (`/api/finance/dashboard`)
+ * feeds all of it, and one Mercure refresh reloads all of it. « État courant »:
+ * the balance of a month in charts, with its own month picker. « À venir »: the
+ * week and the month after this one.
  */
 export const FinanceDashboardPage = ({ initialTab = 'overview' }: { initialTab?: DashboardTab }) => {
   const now = new Date()
@@ -93,19 +94,19 @@ export const FinanceDashboardPage = ({ initialTab = 'overview' }: { initialTab?:
             </Alert>
           )}
 
-          <ToQualifyPill />
-
           {loading && !dashboard && <LinearProgress />}
 
           {dashboard && (
             <>
+              {dashboard.todo.reviewReady && <ReviewShortcut />}
+
               <FinanceScoresCard scores={dashboard.scores} />
 
               <NextProjectCard />
 
               <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'stretch' }}>
-                <AccountsTile tile={dashboard.tiles.accounts} />
-                <BudgetTile tile={dashboard.tiles.budget} />
+                <AccountsTile tile={dashboard.tiles.accounts} todo={dashboard.todo} />
+                <BudgetTile tile={dashboard.tiles.budget} todo={dashboard.todo} />
                 <PlanningTile tile={dashboard.tiles.planning} />
               </Stack>
             </>

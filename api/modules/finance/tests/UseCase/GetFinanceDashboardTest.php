@@ -94,7 +94,7 @@ class GetFinanceDashboardTest extends KernelTestCase
         self::assertSame($data['balance']['availableCents'], $tiles['accounts']['availableCents']);
         self::assertCount(\count($data['balance']['accounts']), $tiles['accounts']['accounts']);
         self::assertSame(
-            ['id', 'name', 'bank', 'balanceCents', 'currency', 'isCushion'],
+            ['id', 'name', 'bank', 'balanceCents', 'currency', 'isCushion', 'rejectionsToSettleCount'],
             array_keys($tiles['accounts']['accounts'][0]),
         );
 

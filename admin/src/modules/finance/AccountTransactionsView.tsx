@@ -13,7 +13,7 @@ import {
   Title,
   useGetOne,
 } from 'react-admin'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { LiveList } from '../../components/list/LiveList'
@@ -122,7 +122,8 @@ export const AccountTransactionsView = () => {
   const accountName = account ? accountLabel(account) : 'Compte'
   const live = useMemo(() => transactionLive(accountIri), [accountIri])
 
-  const [tab, setTab] = useState(0)
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(searchParams.get('tab') === 'incidents' ? 1 : 0)
   const { incidents, settled, error, actionError, reload, settle, unsettle } = useAccountIncidents(id)
   // A rejection is detected when its credit lands: the pair leaves the list
   // and enters the incidents on the same message, so both are read again.

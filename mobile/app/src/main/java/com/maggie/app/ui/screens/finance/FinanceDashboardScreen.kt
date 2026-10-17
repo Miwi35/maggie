@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -42,8 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.model.ToSortPile
-import com.maggie.app.data.model.toSortPillLabel
+import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -64,8 +64,8 @@ fun FinanceDashboardScreen(
     upcomingViewModel: UpcomingViewModel,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
-    // The pile of the lines to qualify: the pill shows when it is not empty.
-    toQualify: ToSortPile? = null,
+    // The account whose rejections the « N rejets » pill opens, on its Incidents tab.
+    onOpenIncidents: (TileAccount) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -117,7 +117,7 @@ fun FinanceDashboardScreen(
                 )
             }
             when (selectedTab) {
-                TAB_OVERVIEW -> OverviewTab(viewModel, uiState, twoColumns, toQualify, onOpen)
+                TAB_OVERVIEW -> OverviewTab(viewModel, uiState, twoColumns, onOpen, onOpenIncidents)
                 TAB_CURRENT -> MonthBalanceTab(monthBalanceViewModel, onOpen)
                 else -> UpcomingTab(upcomingViewModel, twoColumns)
             }
@@ -135,8 +135,8 @@ private fun OverviewTab(
     viewModel: FinanceDashboardViewModel,
     uiState: FinanceDashboardUiState,
     twoColumns: Boolean,
-    toQualify: ToSortPile?,
     onOpen: (String) -> Unit,
+    onOpenIncidents: (TileAccount) -> Unit,
 ) {
     val dashboard = uiState.dashboard
     Column(modifier = Modifier.fillMaxSize()) {
@@ -159,8 +159,15 @@ private fun OverviewTab(
 
         // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
         val head: LazyListScope.() -> Unit = {
-            toQualify?.let(::toSortPillLabel)?.let { label ->
-                item { ToQualifyPill(label, onClick = { onOpen(Screen.TransactionsToSort.route) }) }
+            if (dashboard?.todo?.reviewReady == true) {
+                item {
+                    Button(
+                        onClick = { onOpen(Screen.MonthlyReview.route) },
+                        modifier = Modifier.fillMaxWidth().testTag(UiTags.FINANCE_REVIEW_SHORTCUT),
+                    ) {
+                        Text("Revue ce soir")
+                    }
+                }
             }
             uiState.treasuryBanner?.let { banner ->
                 item {
@@ -195,8 +202,8 @@ private fun OverviewTab(
         }
         val body: LazyListScope.() -> Unit = {
             if (dashboard != null) {
-                item { AccountsTileCard(dashboard.tiles.accounts, onOpen) }
-                item { BudgetTileCard(dashboard.tiles.budget, onOpen) }
+                item { AccountsTileCard(dashboard.tiles.accounts, dashboard.todo, onOpen, onOpenIncidents) }
+                item { BudgetTileCard(dashboard.tiles.budget, dashboard.todo, onOpen) }
                 item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
             }
             item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }

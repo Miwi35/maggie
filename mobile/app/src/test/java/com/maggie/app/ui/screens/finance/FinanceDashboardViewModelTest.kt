@@ -10,6 +10,7 @@ import com.maggie.app.data.model.PeriodScore
 import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceTiles
+import com.maggie.app.data.model.FinanceTodo
 import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
@@ -296,5 +297,28 @@ class FinanceDashboardViewModelTest {
 
         assertEquals(updated, viewModel.uiState.value.dashboard)
         coVerify(atLeast = 2) { dashboardRepository.getDashboard(2026, 9) }
+    }
+
+    @Test
+    fun `what is to do reaches the state, and a pushed change that settles it empties it`() = runTest {
+        val todo = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000)
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard.copy(todo = todo))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+        assertEquals(todo, viewModel.uiState.value.dashboard?.todo)
+
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard)
+        mercureEvents.tryEmit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(FinanceTodo(), viewModel.uiState.value.dashboard?.todo)
+    }
+
+    @Test
+    fun `a server that sends no todo block leaves nothing to do`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(FinanceTodo(), viewModel.uiState.value.dashboard?.todo)
     }
 }

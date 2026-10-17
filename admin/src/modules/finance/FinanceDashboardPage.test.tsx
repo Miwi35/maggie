@@ -20,10 +20,6 @@ const answer = (body: unknown, ok = true) => Promise.resolve({ ok, status: ok ? 
 
 const stubApi = (payload: FinanceDashboard | unknown, ok = true) => {
   const fetchMock = vi.fn((url: string) => {
-    if (url.includes('/api/finance/transactions/to-sort')) {
-      return answer({ total: 2, totalCents: 4200, transactions: [] })
-    }
-
     return url.includes('/api/finance/dashboard') ? answer(payload, ok) : answer({}, false)
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -111,18 +107,75 @@ describe('FinanceDashboardPage', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/recurring-operations')
   })
 
-  test('links to the page that qualifies the lines no envelope counts yet', async () => {
+  test.each([
+    ['pill-to-sort', '/finance/to-sort'],
+    ['pill-rejections', '/accounts/a1/transactions'],
+    ['pill-advance', '/finance/savings-advances'],
+  ])('the pill %s opens %s, not the tile', async (testId, path) => {
+    const user = userEvent.setup()
     stubApi(dashboardFixture())
     renderPage()
 
-    expect(await screen.findByRole('link', { name: /À qualifier · 2 · 42,00/ })).toHaveAttribute('href', '/finance/to-sort')
+    await user.click(await screen.findByTestId(testId))
+
+    expect(screen.getByTestId('where')).toHaveTextContent(path)
+  })
+
+  test('shows the counts of what is to do in the tiles', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+
+    expect(await screen.findByTestId('pill-to-sort')).toHaveTextContent('3 à trier')
+    expect(screen.getByTestId('pill-rejections')).toHaveTextContent('1 rejet')
+    expect(screen.getByTestId('pill-advance')).toHaveTextContent(/800,00\s€ à remettre/)
+    expect(screen.queryByTestId('review-shortcut')).not.toBeInTheDocument()
+  })
+
+  test('has no pill and no shortcut when there is nothing to do', async () => {
+    const payload = dashboardFixture({ todo: { toSortCount: 0, rejectionsToSettleCount: 0, reviewReady: false, advanceToRepayCents: 0 } })
+    stubApi(payload)
+    renderPage()
+    await screen.findByTestId('tile-accounts')
+
+    expect(screen.queryByTestId('pill-to-sort')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pill-rejections')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pill-advance')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('review-shortcut')).not.toBeInTheDocument()
+  })
+
+  test('« Revue ce soir » heads the page while the review is not done and opens it', async () => {
+    const user = userEvent.setup()
+    const payload = dashboardFixture()
+    payload.todo.reviewReady = true
+    stubApi(payload)
+    renderPage()
+
+    await user.click(await screen.findByRole('link', { name: 'Revue ce soir' }))
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/monthly-review')
+  })
+
+  test('the pill follows the next read: settling the last rejection drops it', async () => {
+    const fetchMock = stubApi(dashboardFixture())
+    renderPage()
+    expect(await screen.findByTestId('pill-rejections')).toBeInTheDocument()
+
+    const settled = dashboardFixture()
+    settled.todo.rejectionsToSettleCount = 0
+    settled.tiles.accounts.accounts[0].rejectionsToSettleCount = 0
+    fetchMock.mockImplementation((url: string) =>
+      url.includes('/api/finance/dashboard') ? answer(settled) : answer({}, false),
+    )
+    act(() => publishMercure())
+
+    await waitFor(() => expect(screen.queryByTestId('pill-rejections')).not.toBeInTheDocument())
   })
 
   test('says the dashboard failed, keeps the page usable, and retries on demand', async () => {
     const user = userEvent.setup()
     let dashboardCalls = 0
     const fetchMock = vi.fn((url: string) => {
-      if (!url.includes('/api/finance/dashboard')) return answer({ total: 0, totalCents: 0, transactions: [] })
+      if (!url.includes('/api/finance/dashboard')) return answer({}, false)
       dashboardCalls += 1
 
       return dashboardCalls === 1 ? answer({ error: 'boom' }, false) : answer(dashboardFixture())
@@ -149,7 +202,7 @@ describe('FinanceDashboardPage', () => {
     updated.tiles.accounts.totalCents = 999900
     fetchMock.mockClear()
     fetchMock.mockImplementation((url: string) =>
-      url.includes('/api/finance/dashboard') ? answer(updated) : answer({ total: 2, totalCents: 4200, transactions: [] }),
+      url.includes('/api/finance/dashboard') ? answer(updated) : answer({}, false),
     )
     act(() => publishMercure())
 

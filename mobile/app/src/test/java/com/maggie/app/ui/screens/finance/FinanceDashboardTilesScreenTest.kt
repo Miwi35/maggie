@@ -15,6 +15,8 @@ import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceTiles
+import com.maggie.app.data.model.FinanceTodo
+import com.maggie.app.data.model.OWED_EXAMPLE_PILL
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.SavingCapacity
 import com.maggie.app.data.model.TileAccount
@@ -86,18 +88,29 @@ class FinanceDashboardTilesScreenTest {
 
     private fun open(
         tiles: FinanceTiles = this.tiles,
+        todo: FinanceTodo = FinanceTodo(),
+        onOpenIncidents: (TileAccount) -> Unit = {},
         onOpen: (String) -> Unit = {},
     ) {
         compose.setContent {
             FinanceDashboardScreen(
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10, tiles = tiles)).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo)).viewModel,
                 onBack = {},
                 onOpen = onOpen,
+                onOpenIncidents = onOpenIncidents,
             )
         }
     }
+
+    private val busy = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000)
+
+    private val tilesWithRejection = tiles.copy(
+        accounts = tiles.accounts.copy(
+            accounts = tiles.accounts.accounts.map { if (it.id == "a") it.copy(rejectionsToSettleCount = 1) else it },
+        ),
+    )
 
     @Test
     fun `the three tiles are drawn`() {
@@ -237,5 +250,90 @@ class FinanceDashboardTilesScreenTest {
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).performClick()
 
         assertEquals(listOf(Screen.AccountList.route), opened)
+    }
+
+    @Test
+    fun `the accounts tile says what is to sort and what was rejected`() {
+        open(tilesWithRejection, busy)
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_TO_SORT).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("3 à trier").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_REJECTIONS).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("1 rejet").assertIsDisplayed()
+    }
+
+    @Test
+    fun `several rejections are said in the plural`() {
+        open(tilesWithRejection, busy.copy(rejectionsToSettleCount = 2))
+
+        compose.onNodeWithText("2 rejets").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the to-sort pill opens the to-sort screen and not the accounts menu`() {
+        val opened = mutableListOf<String>()
+        open(tilesWithRejection, busy) { opened += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_TO_SORT).performScrollTo().performClick()
+
+        assertEquals(listOf(Screen.TransactionsToSort.route), opened)
+    }
+
+    @Test
+    fun `the rejections pill opens the incidents of the account that has them`() {
+        val incidents = mutableListOf<String>()
+        val routes = mutableListOf<String>()
+        open(tilesWithRejection, busy, onOpenIncidents = { incidents += it.id }) { routes += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_REJECTIONS).performScrollTo().performClick()
+
+        assertEquals(listOf("a"), incidents)
+        assertEquals(emptyList<String>(), routes)
+    }
+
+    @Test
+    fun `the example of what is owed is drawn and not clickable`() {
+        val opened = mutableListOf<String>()
+        open(tilesWithRejection, busy) { opened += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(OWED_EXAMPLE_PILL).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performClick()
+
+        assertEquals(emptyList<String>(), opened)
+    }
+
+    @Test
+    fun `the budget tile says how much is to give back and leads to the advances`() {
+        val opened = mutableListOf<String>()
+        open(tilesWithRejection, busy) { opened += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_ADVANCE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(80000)} à remettre").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_ADVANCE).performClick()
+
+        assertEquals(listOf(Screen.SavingsAdvances.route), opened)
+    }
+
+    @Test
+    fun `the review shortcut leads to the monthly review when it is ready`() {
+        val opened = mutableListOf<String>()
+        open(tilesWithRejection, busy) { opened += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertIsDisplayed()
+        compose.onNodeWithText("Revue ce soir").performClick()
+
+        assertEquals(listOf(Screen.MonthlyReview.route), opened)
+    }
+
+    @Test
+    fun `with nothing to do there is no pill and no shortcut, only the example`() {
+        open(tiles, FinanceTodo())
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_TO_SORT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_REJECTIONS).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_ADVANCE).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performScrollTo().assertIsDisplayed()
     }
 }
