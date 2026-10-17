@@ -7,6 +7,8 @@ export interface TreasuryMovement {
   status: string
   accountId: string
   accountName: string
+  /** `transaction` for a planned or committed line, `recurring` for the occurrence of a series. */
+  source: 'transaction' | 'recurring'
 }
 
 export interface TreasuryDay {

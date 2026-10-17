@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Repository\TreasurySettingsRepository;
@@ -23,6 +24,12 @@ use Maggie\Finance\Repository\TreasurySettingsRepository;
  * the credits booked from a few days before its expected day, so a salary
  * paid early because the 25th is a Sunday still counts.
  *
+ * What counts as the salary: a credit filed under « Salaire » — which one
+ * attached to the salary series is, it takes the series' category — or, a
+ * payer's transfer being rarely filed, any other credit within 10 % of the
+ * reference booked up to {@see NEAR_DAYS} days either side of the expected
+ * day. A bonus, a rente or a transfer between accounts never are.
+ *
  * Without an expected day, or without a reference salary, nothing is late:
  * `isConfigured` is false. A pure read — the settings are not created here.
  * Its fields are read by the monthly review and the mobile home: keep them.
@@ -34,6 +41,9 @@ class GetSalaryDelay
 
     /** How many days before its expected day a credit may still pay a month. */
     public const int EARLY_DAYS = 3;
+
+    /** How far from the expected day a credit counts for its amount alone. */
+    public const int NEAR_DAYS = 5;
 
     public function __construct(
         private readonly TreasurySettingsRepository $settingsRepository,
@@ -78,10 +88,14 @@ class GetSalaryDelay
             self::expectedOn($currentMonth, $day),
         ];
 
-        $credits = array_values(array_filter(
-            $this->transactionRepository->findSalaryCreditsBetween($user, self::firstPayableDay($expected[0]), $today),
-            static fn (Transaction $credit) => !($credit->getCategory()?->isPassiveIncome() ?? false),
-        ));
+        $from = $expected[0]->modify(sprintf('-%d days', max(self::EARLY_DAYS, self::NEAR_DAYS)));
+        $credits = [];
+        foreach ($this->transactionRepository->findCreditsBetween($user, $from, $today) as $credit) {
+            $kind = self::kindOf($credit, $reference);
+            if (null !== $kind) {
+                $credits[] = ['transaction' => $credit, 'byAmount' => 'amount' === $kind];
+            }
+        }
 
         $months = $this->allocate($expected, $credits, $reference, $today);
         $open = array_filter($months, static fn (array $month) => $month['delayDays'] > 0);
@@ -102,14 +116,14 @@ class GetSalaryDelay
      * it closes and at most up to the reference; what a credit has left goes
      * to the next month, if that month may take it.
      *
-     * @param list<\DateTimeImmutable> $expected
-     * @param list<Transaction>        $credits
+     * @param list<\DateTimeImmutable>                              $expected
+     * @param list<array{transaction: Transaction, byAmount: bool}> $credits
      *
      * @return list<array{month: string, expectedOn: string, receivedCents: int, referenceCents: int, isReceived: bool, receivedOn: string|null, isDue: bool, delayDays: int, shortfallCents: int}>
      */
     private function allocate(array $expected, array $credits, int $reference, \DateTimeImmutable $today): array
     {
-        $left = array_map(static fn (Transaction $credit) => $credit->getAmountCents(), $credits);
+        $left = array_map(static fn (array $credit) => $credit['transaction']->getAmountCents(), $credits);
         $months = [];
 
         foreach ($expected as $expectedOn) {
@@ -122,7 +136,7 @@ class GetSalaryDelay
                 if (self::closes($received, $reference)) {
                     break;
                 }
-                if (0 === $left[$i] || $credit->getBookedAt() < self::firstPayableDay($expectedOn)) {
+                if (0 === $left[$i] || !self::mayPay($credit['transaction'], $credit['byAmount'], $expectedOn)) {
                     continue;
                 }
 
@@ -131,7 +145,7 @@ class GetSalaryDelay
                 $received += $taken;
 
                 if (null === $receivedOn && self::closes($received, $reference)) {
-                    $receivedOn = $credit->getBookedAt()->format('Y-m-d');
+                    $receivedOn = $credit['transaction']->getBookedAt()->format('Y-m-d');
                 }
             }
 
@@ -153,6 +167,37 @@ class GetSalaryDelay
         }
 
         return $months;
+    }
+
+    /**
+     * `category` for a credit filed as the salary, `amount` for
+     * one only its size recognises, null for what is not a salary.
+     */
+    private static function kindOf(Transaction $credit, int $reference): ?string
+    {
+        $category = $credit->getCategory();
+        if ($category?->isPassiveIncome() ?? false) {
+            return null;
+        }
+
+        if ($category?->isStandard(StandardCategories::SALARY) ?? false) {
+            return 'category';
+        }
+
+        $isBonus = $category?->isStandard(StandardCategories::BONUS) ?? false;
+        $withinTenPercent = abs($credit->getAmountCents() - $reference) * 100 <= $reference * (100 - self::CLOSING_PERCENT);
+
+        return !$isBonus && $withinTenPercent ? 'amount' : null;
+    }
+
+    /** A filed credit pays a month from a few days before its expected day on; one known by its amount only, around it. */
+    private static function mayPay(Transaction $credit, bool $byAmount, \DateTimeImmutable $expectedOn): bool
+    {
+        if (!$byAmount) {
+            return $credit->getBookedAt() >= self::firstPayableDay($expectedOn);
+        }
+
+        return $credit->getBookedAt()->setTime(0, 0)->diff($expectedOn)->days <= self::NEAR_DAYS;
     }
 
     private static function closes(int $received, int $reference): bool

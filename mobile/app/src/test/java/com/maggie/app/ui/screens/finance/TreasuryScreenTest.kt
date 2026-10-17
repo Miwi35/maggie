@@ -16,6 +16,7 @@ import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.TreasuryAdvice
 import com.maggie.app.data.model.TreasuryDay
+import com.maggie.app.data.model.TreasuryMovement
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
 import com.maggie.app.data.model.TreasurySalary
@@ -105,6 +106,23 @@ class TreasuryScreenTest {
         compose.onNodeWithText("il manque encore ${formatCents(10000)}", substring = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("entame le matelas, il se reconstituera quand tu rendras l'avance", substring = true)
             .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the recurring charges after the salary day are listed with their day and amount`() {
+        open(
+            late.copy(
+                projection = late.projection + TreasuryDay(
+                    "2026-10-26",
+                    -167700,
+                    listOf(TreasuryMovement("s1", "Taxe foncière", -97700, "expected", source = "recurring")),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Mouvements prévus").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("26 octobre · Taxe foncière (récurrent)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(formatCents(-97700)).performScrollTo().assertIsDisplayed()
     }
 
     @Test

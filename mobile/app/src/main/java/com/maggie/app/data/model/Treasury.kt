@@ -24,6 +24,7 @@ data class TreasuryMovement(
     val status: String = "",
     val accountId: String = "",
     val accountName: String = "",
+    val source: String = "",
 )
 
 @Serializable
@@ -86,6 +87,20 @@ data class TreasurySettings(
     val salaryExpectedDay: Int? = null,
     val overdraftLimitCents: Int = 0,
 )
+
+/** One movement of the projection with its day: what the list under the chart draws. */
+data class TreasuryMovementRow(
+    val date: String,
+    val label: String,
+    val amountCents: Int,
+    val isRecurring: Boolean,
+)
+
+/** Every movement of the projection, day by day, the days without any left out. */
+fun TreasuryOutlook.movementRows(): List<TreasuryMovementRow> =
+    projection.flatMap { day ->
+        day.movements.map { TreasuryMovementRow(day.date, it.label, it.amountCents, it.source == "recurring") }
+    }
 
 /** What the overdraft banner says: plain values, so any screen can draw it from its own state. */
 data class TreasuryBannerState(

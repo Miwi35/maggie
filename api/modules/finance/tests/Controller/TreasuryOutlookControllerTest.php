@@ -4,6 +4,9 @@ namespace Maggie\Finance\Tests\Controller;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Finance\Enum\RecurrencePeriod;
+use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -17,14 +20,17 @@ class TreasuryOutlookControllerTest extends WebTestCase
 {
     use FixtureLoaderTrait;
     use AuthenticatedTestTrait;
+    use RecurringProjectionsWorld;
 
     private const string ENDPOINT = '/api/finance/treasury-outlook';
 
     private KernelBrowser $client;
+    private EntityManagerInterface $em;
 
     protected function setUp(): void
     {
         $this->client = self::createClient();
+        $this->em = self::getContainer()->get('doctrine.orm.entity_manager');
     }
 
     public function testUnauthenticatedReturns401(): void
@@ -67,5 +73,28 @@ class TreasuryOutlookControllerTest extends WebTestCase
         self::assertSame(30000, $data['overdraft']['limitCents']);
         self::assertFalse($data['overdraft']['isForecast']);
         self::assertNull($data['advice']);
+    }
+
+    /** MAG-506: the series' charges weigh on the projection past the salary, to the end of the next month at least. */
+    public function testTheRecurringChargesWeighOnTheProjectionToTheEndOfTheNextMonth(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/treasury_outlook.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $today = new \DateTimeImmutable('today');
+        $this->series('Abonnement', -2500, $today->format('Y-m-d'), categoryRef: 'leisure', period: RecurrencePeriod::Weekly);
+
+        $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $last = $data['projection'][array_key_last($data['projection'])];
+        self::assertGreaterThanOrEqual($today->modify('last day of next month')->format('Y-m-d'), $last['date']);
+
+        $weekly = array_filter(
+            array_merge(...array_column($data['projection'], 'movements')),
+            static fn (array $movement): bool => 'recurring' === $movement['source'],
+        );
+        self::assertGreaterThanOrEqual(5, \count($weekly));
+        self::assertSame(-12000 - 2500 * \count($weekly), $last['balanceCents']);
     }
 }

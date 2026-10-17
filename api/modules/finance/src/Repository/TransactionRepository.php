@@ -9,7 +9,6 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Category\StandardCategories;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Contact;
@@ -1342,30 +1341,25 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * The credits filed under the standard « Salaire » (or a category under
-     * it) booked in a span, both days included, oldest first: what closes a
-     * salary delay. Neutral movements stay out; a bonus is in « Primes », not
-     * here, and a rente is left to the caller, which reads the category.
+     * The credits booked in a span, both days included, oldest first, that a
+     * salary may have come as: income that is neither a transfer nor still
+     * only planned. The caller decides which one is the salary — by its
+     * category, its series or its amount — and reads the category.
      *
      * @return Transaction[]
      */
-    public function findSalaryCreditsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    public function findCreditsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         return $this->createQueryBuilder('t')
-            ->innerJoin('t.category', 'c')
-            ->leftJoin('c.parent', 'p')
             ->andWhere('t.user = :user')
-            ->andWhere('c.user = :user')
             ->andWhere('t.amountCents > 0')
             ->andWhere('t.transferKind = :none')
             ->andWhere('t.status IN (:consumed)')
-            ->andWhere('c.standardKey = :salary OR p.standardKey = :salary')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt <= :until')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('none', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
-            ->setParameter('salary', StandardCategories::SALARY)
             ->setParameter('from', $from)
             ->setParameter('until', $until)
             ->orderBy('t.bookedAt', 'ASC')
