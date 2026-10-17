@@ -118,4 +118,52 @@ class TreasuryTest {
         assertTrue(form.isIncome)
         assertEquals(LocalDate.of(2026, 10, 14), form.date)
     }
+
+    @Test
+    fun `a touched day spells out its balance and its movements, a recurring one flagged`() {
+        val day = TreasuryDay(
+            "2026-10-26",
+            -167700,
+            cumulativeInflowCents = 0,
+            cumulativeOutflowCents = 167700,
+            movements = listOf(TreasuryMovement("r1", "Taxe foncière", -97700, "expected", source = "recurring")),
+        )
+
+        assertEquals(
+            "26 octobre : solde ${formatCents(-167700)} — Taxe foncière (récurrent) (${formatCents(-97700)})",
+            day.balanceDetail(),
+        )
+        assertEquals(
+            "26 octobre : entrées cumulées ${formatCents(0)}, sorties cumulées ${formatCents(167700)}" +
+                " — Taxe foncière (récurrent) (${formatCents(-97700)})",
+            day.flowsDetail(),
+        )
+        assertEquals("27 octobre : solde ${formatCents(5)}", TreasuryDay("2026-10-27", 5).balanceDetail())
+    }
+
+    @Test
+    fun `a touch picks the nearest day, clamped to the chart`() {
+        assertEquals(0, treasuryDayIndexAt(-20f, 100f, 11))
+        assertEquals(5, treasuryDayIndexAt(50f, 100f, 11))
+        assertEquals(10, treasuryDayIndexAt(400f, 100f, 11))
+        assertEquals(0, treasuryDayIndexAt(30f, 100f, 1))
+        assertNull(treasuryDayIndexAt(30f, 100f, 0))
+        assertNull(treasuryDayIndexAt(30f, 0f, 5))
+    }
+
+    @Test
+    fun `the horizons go from the default to a year`() {
+        assertEquals(listOf(null, 1, 3, 6, 12), TREASURY_HORIZONS.map { it.months })
+        assertEquals("1 an", TREASURY_HORIZONS.last().label)
+    }
+
+    @Test
+    fun `the cumulated flows read from the response, and default to zero when absent`() {
+        val json = """{"date":"2026-10-14","balanceCents":10,"cumulativeInflowCents":529227,"cumulativeOutflowCents":18000,"movements":[]}"""
+        val day = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<TreasuryDay>(json)
+
+        assertEquals(529227, day.cumulativeInflowCents)
+        assertEquals(18000, day.cumulativeOutflowCents)
+        assertEquals(0, TreasuryDay("2026-10-14", 10).cumulativeInflowCents)
+    }
 }

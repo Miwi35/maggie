@@ -32,6 +32,8 @@ data class TreasuryDay(
     val date: String,
     val balanceCents: Int,
     val movements: List<TreasuryMovement> = emptyList(),
+    val cumulativeInflowCents: Int = 0,
+    val cumulativeOutflowCents: Int = 0,
 )
 
 @Serializable
@@ -101,6 +103,41 @@ fun TreasuryOutlook.movementRows(): List<TreasuryMovementRow> =
     projection.flatMap { day ->
         day.movements.map { TreasuryMovementRow(day.date, it.label, it.amountCents, it.source == "recurring") }
     }
+
+/** A horizon the owner can pick: `months` null is the API's default, the end of next month. */
+data class TreasuryHorizon(val months: Int?, val label: String)
+
+val TREASURY_HORIZONS = listOf(
+    TreasuryHorizon(null, "Fin du mois suivant"),
+    TreasuryHorizon(1, "1 mois"),
+    TreasuryHorizon(3, "3 mois"),
+    TreasuryHorizon(6, "6 mois"),
+    TreasuryHorizon(12, "1 an"),
+)
+
+/** « Taxe foncière (récurrent) (-977,00 €) » — one movement of a day, as the list and the touch detail read it. */
+fun TreasuryMovement.text(): String =
+    "$label${if (source == "recurring") " (récurrent)" else ""} (${formatCents(amountCents)})"
+
+/** What a touch on a day of the balance curve says: the date, the balance and the day's movements. */
+fun TreasuryDay.balanceDetail(): String =
+    "${treasuryDate(date)} : solde ${formatCents(balanceCents)}" + movementsSuffix()
+
+/** What a touch on a day of the flows curves says: the date, both cumulated amounts and the day's movements. */
+fun TreasuryDay.flowsDetail(): String =
+    "${treasuryDate(date)} : entrées cumulées ${formatCents(cumulativeInflowCents)}, " +
+        "sorties cumulées ${formatCents(cumulativeOutflowCents)}" + movementsSuffix()
+
+private fun TreasuryDay.movementsSuffix(): String =
+    if (movements.isEmpty()) "" else " — " + movements.joinToString(", ") { it.text() }
+
+/** The day under a touch at `x` of a chart `width` wide, `count` days drawn edge to edge; null when there is none. */
+fun treasuryDayIndexAt(x: Float, width: Float, count: Int): Int? {
+    if (count <= 0 || width <= 0f) return null
+    if (count == 1) return 0
+
+    return Math.round(x.coerceIn(0f, width) / width * (count - 1))
+}
 
 /** What the overdraft banner says: plain values, so any screen can draw it from its own state. */
 data class TreasuryBannerState(

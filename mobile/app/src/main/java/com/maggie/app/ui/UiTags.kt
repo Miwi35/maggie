@@ -213,6 +213,11 @@ object UiTags {
     /** Trésorerie — the advice's « Préparer l'avance », and the field of the overdraft limit. */
     const val TREASURY_PREPARE_ADVANCE = "treasury_prepare_advance"
     const val TREASURY_OVERDRAFT_LIMIT = "treasury_overdraft_limit"
+    /** Trésorerie — the two curves (balance, cumulated flows) and the line that spells out the touched day. */
+    const val TREASURY_CHART = "treasury_chart"
+    const val TREASURY_CHART_DETAIL = "treasury_chart_detail"
+    const val TREASURY_FLOWS_CHART = "treasury_flows_chart"
+    const val TREASURY_FLOWS_DETAIL = "treasury_flows_detail"
     /** Savings advances — the screen root, the total, the retry of a failed load, the salary day and the « Je l'ai fait » of an advance. */
     const val SAVINGS_ADVANCES = "savings_advances"
     const val SAVINGS_ADVANCES_TOTAL = "savings_advances_total"

@@ -2177,9 +2177,11 @@ class MaggieApiService(
         }.body()
     }
 
-    // Finance — Treasury until the salary comes
-    suspend fun getTreasuryOutlook(): TreasuryOutlook {
-        return client.get("$baseUrl/api/finance/treasury-outlook").orRefusal().body()
+    // Finance — Treasury over a horizon in months (1 to 12), the end of next month when null
+    suspend fun getTreasuryOutlook(months: Int? = null): TreasuryOutlook {
+        return client.get("$baseUrl/api/finance/treasury-outlook") {
+            if (months != null) url.parameters.append("months", months.toString())
+        }.orRefusal().body()
     }
 
     suspend fun updateTreasurySettings(request: TreasurySettingsRequest): TreasurySettings {

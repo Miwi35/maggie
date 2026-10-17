@@ -22,6 +22,8 @@ const val INVALID_DAY_MESSAGE = "Le jour doit être compris entre 1 et 31"
 
 data class TreasuryUiState(
     val outlook: TreasuryOutlook? = null,
+    // The horizon asked for, in months; null is the API's default. Never stored.
+    val months: Int? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val savedMessage: String? = null,
@@ -59,12 +61,19 @@ class TreasuryViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorIsMessage = false)
             try {
-                val outlook = treasuryRepository.getOutlook().getOrThrow()
+                val outlook = treasuryRepository.getOutlook(_uiState.value.months).getOrThrow()
                 _uiState.value = _uiState.value.copy(outlook = outlook, isLoading = false)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "", isLoading = false)
             }
         }
+    }
+
+    fun selectHorizon(months: Int?) {
+        if (months == _uiState.value.months) return
+
+        _uiState.value = _uiState.value.copy(months = months)
+        refresh()
     }
 
     fun saveOverdraftLimit(euros: String) {

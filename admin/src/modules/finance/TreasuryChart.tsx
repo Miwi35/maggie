@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { chartColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
-import type { TreasuryDay } from './useTreasuryOutlook'
+import type { TreasuryDay, TreasuryMovement } from './useTreasuryOutlook'
 
 const WIDTH = 640
 const HEIGHT = 220
@@ -21,6 +21,13 @@ export const shortDay = (date: string): string => {
 
   return `${Number(day)} ${names[Number(month) - 1] ?? month}`
 }
+
+/** « Taxe foncière (récurrent) (-977,00 €) » — a movement of the day, as the table and the hover read it. */
+export const movementText = (movement: TreasuryMovement): string =>
+  `${movement.label}${movement.source === 'recurring' ? ' (récurrent)' : ''} (${formatCents(movement.amountCents)})`
+
+const dayMovements = (day: TreasuryDay): string =>
+  day.movements.length === 0 ? '' : ` — ${day.movements.map(movementText).join(', ')}`
 
 interface TreasuryChartProps {
   projection: TreasuryDay[]
@@ -166,8 +173,121 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
         {active
-          ? `${shortDay(active.date)} : solde ${formatCents(active.balanceCents)}${active.balanceCents < -limitCents ? ' — en découvert' : ''}`
+          ? `${shortDay(active.date)} : solde ${formatCents(active.balanceCents)}${active.balanceCents < -limitCents ? ' — en découvert' : ''}${dayMovements(active)}`
           : 'Survolez un jour pour le détail, ou lisez le tableau ci-dessous.'}
+      </Typography>
+    </Box>
+  )
+}
+
+/**
+ * What came in and what went out since today, both cumulated, on the same time
+ * scale as the balance: the gap between the two lines is the balance's drift.
+ * Two lines and no verdict — slots 1 and 2 of the palette, the outflows dashed
+ * so they read without the colour.
+ */
+export const TreasuryFlowsChart = ({ projection }: { projection: TreasuryDay[] }) => {
+  const theme = useTheme()
+  const [hovered, setHovered] = useState<number | null>(null)
+  const mode = theme.palette.mode === 'dark' ? 'dark' : 'light'
+  const inflowColor = chartColor(1, mode)
+  const outflowColor = chartColor(2, mode)
+
+  const high = Math.max(1, ...projection.map((day) => Math.max(day.cumulativeInflowCents, day.cumulativeOutflowCents)))
+  const plotWidth = WIDTH - PAD.left - PAD.right
+  const plotHeight = HEIGHT - PAD.top - PAD.bottom
+  const x = (index: number) =>
+    PAD.left + (projection.length <= 1 ? plotWidth / 2 : (index / (projection.length - 1)) * plotWidth)
+  const y = (cents: number) => PAD.top + (1 - cents / high) * plotHeight
+  const line = (pick: (day: TreasuryDay) => number) =>
+    projection.map((day, index) => `${x(index)},${y(pick(day))}`).join(' ')
+  const active = hovered === null ? null : projection[hovered]
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Box sx={{ width: 14, height: 3, backgroundColor: inflowColor }} />
+          <Typography variant="caption" color="text.secondary">
+            Entrées cumulées
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Box sx={{ width: 14, height: 0, borderTop: `3px dashed ${outflowColor}` }} />
+          <Typography variant="caption" color="text.secondary">
+            Sorties cumulées
+          </Typography>
+        </Stack>
+      </Stack>
+
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        width="100%"
+        role="img"
+        aria-label="Courbes cumulées des entrées et des sorties prévues, jour par jour"
+        data-testid="treasury-flows-chart"
+        onMouseLeave={() => setHovered(null)}
+      >
+        <line
+          x1={PAD.left}
+          x2={WIDTH - PAD.right}
+          y1={y(0)}
+          y2={y(0)}
+          stroke={theme.palette.text.secondary}
+          strokeWidth="1"
+        />
+        <polyline
+          points={line((day) => day.cumulativeInflowCents)}
+          fill="none"
+          stroke={inflowColor}
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={line((day) => day.cumulativeOutflowCents)}
+          fill="none"
+          stroke={outflowColor}
+          strokeWidth="2.5"
+          strokeDasharray="6 4"
+          strokeLinejoin="round"
+        />
+
+        {projection.map((day, index) => (
+          <rect
+            key={`hit-${day.date}`}
+            x={x(index) - plotWidth / Math.max(1, projection.length) / 2}
+            y={PAD.top}
+            width={plotWidth / Math.max(1, projection.length)}
+            height={plotHeight}
+            fill="transparent"
+            data-testid="treasury-flows-day"
+            onMouseEnter={() => setHovered(index)}
+          />
+        ))}
+
+        {active && (
+          <>
+            <circle cx={x(hovered as number)} cy={y(active.cumulativeInflowCents)} r={5} fill={inflowColor} />
+            <circle cx={x(hovered as number)} cy={y(active.cumulativeOutflowCents)} r={5} fill={outflowColor} />
+          </>
+        )}
+
+        {projection.length > 0 && (
+          <>
+            <text x={PAD.left} y={HEIGHT - 6} fontSize="11" fill={theme.palette.text.secondary}>
+              {shortDay(projection[0].date)}
+            </text>
+            <text x={WIDTH - PAD.right} y={HEIGHT - 6} fontSize="11" textAnchor="end" fill={theme.palette.text.secondary}>
+              {shortDay(projection[projection.length - 1].date)}
+            </text>
+          </>
+        )}
+      </svg>
+
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} data-testid="treasury-flows-detail">
+        {active
+          ? `${shortDay(active.date)} : entrées cumulées ${formatCents(active.cumulativeInflowCents)}, sorties cumulées ${formatCents(active.cumulativeOutflowCents)}${dayMovements(active)}`
+          : 'Survolez un jour pour le détail.'}
       </Typography>
     </Box>
   )

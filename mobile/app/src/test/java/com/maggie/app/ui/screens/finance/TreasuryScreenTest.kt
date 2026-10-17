@@ -1,10 +1,14 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.centerRight
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,6 +29,7 @@ import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -63,12 +68,14 @@ class TreasuryScreenTest {
         outstandingAdvancesCents = 0,
     )
 
+    private lateinit var repository: TreasuryRepository
+
     private fun open(
         outlook: TreasuryOutlook,
         onPrepare: (String, String, TransactionPrefill) -> Unit = { _, _, _ -> },
     ): TreasuryViewModel {
-        val repository = mockk<TreasuryRepository>()
-        coEvery { repository.getOutlook() } returns Result.success(outlook)
+        repository = mockk<TreasuryRepository>()
+        coEvery { repository.getOutlook(any()) } returns Result.success(outlook)
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns MutableSharedFlow<MercureEvent>()
         val auth = mockk<AuthRepository>()
@@ -123,6 +130,72 @@ class TreasuryScreenTest {
         compose.onNodeWithText("Mouvements prévus").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("26 octobre · Taxe foncière (récurrent)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(formatCents(-97700)).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the horizon choice asks for that many months and keeps the page`() {
+        open(late)
+        coEvery { repository.getOutlook(12) } returns Result.success(late.copy(balanceCents = -99000))
+
+        compose.onNodeWithText("Fin du mois suivant").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("1 an").performScrollTo().performClick()
+        compose.waitForIdle()
+
+        coVerify { repository.getOutlook(12) }
+        compose.onNodeWithText("Solde des comptes courants : ${formatCents(-99000)}").assertIsDisplayed()
+        compose.onNodeWithText("Salaire en retard de 3 jours").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the cumulated inflows and outflows are drawn under the balance, with no verdict figure`() {
+        open(
+            late.copy(
+                projection = late.projection.mapIndexed { i, day ->
+                    day.copy(cumulativeInflowCents = i * 1000, cumulativeOutflowCents = i * 5000)
+                },
+            ),
+        )
+
+        compose.onNodeWithText("Entrées et sorties prévues, cumulées").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TREASURY_FLOWS_CHART).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Entrées cumulées (trait plein) · Sorties cumulées (pointillés)").assertIsDisplayed()
+    }
+
+    @Test
+    fun `touching a day of the curves spells out its date, balance and movements`() {
+        open(
+            late.copy(
+                projection = listOf(
+                    TreasuryDay("2026-10-13", -12000),
+                    TreasuryDay(
+                        "2026-10-26",
+                        -167700,
+                        cumulativeInflowCents = 0,
+                        cumulativeOutflowCents = 97700,
+                        movements = listOf(TreasuryMovement("s1", "Taxe foncière", -97700, "expected", source = "recurring")),
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithTag(UiTags.TREASURY_CHART_DETAIL).performScrollTo().assertTextEquals("Touchez un jour pour le détail.")
+        compose.onNodeWithTag(UiTags.TREASURY_CHART).performScrollTo().performTouchInput { click(centerRight) }
+        compose.onNodeWithTag(UiTags.TREASURY_CHART_DETAIL).performScrollTo().assertTextEquals(
+            "26 octobre : solde ${formatCents(-167700)} — Taxe foncière (récurrent) (${formatCents(-97700)})",
+        )
+
+        compose.onNodeWithTag(UiTags.TREASURY_FLOWS_CHART).performScrollTo().performTouchInput { click(centerRight) }
+        compose.onNodeWithTag(UiTags.TREASURY_FLOWS_DETAIL).performScrollTo().assertTextEquals(
+            "26 octobre : entrées cumulées ${formatCents(0)}, sorties cumulées ${formatCents(97700)}" +
+                " — Taxe foncière (récurrent) (${formatCents(-97700)})",
+        )
+    }
+
+    @Test
+    fun `without a forecast overdraft the period is said clear in neutral words`() {
+        open(late.copy(overdraft = TreasuryOverdraft(), advice = null))
+
+        compose.onNodeWithText("Aucun découvert prévu sur la période projetée.").performScrollTo().assertIsDisplayed()
     }
 
     @Test

@@ -67,6 +67,13 @@ tags:
     element: ".*Découvert prévu le.*"
     timeout: 30000
 
+# MAG-506: the cumulated inflows and outflows are drawn under the balance, with a horizon choice.
+- scrollUntilVisible:
+    element:
+      id: "treasury_flows_chart"
+    timeout: 30000
+- assertVisible: "1 an"
+
 # The advance comes from the Livret, the only savings account of the table.
 - scrollUntilVisible:
     element: ".*depuis Livret MAG-280.*"
