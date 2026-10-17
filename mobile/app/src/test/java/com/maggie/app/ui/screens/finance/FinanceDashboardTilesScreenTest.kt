@@ -16,7 +16,6 @@ import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.FinanceTodo
-import com.maggie.app.data.model.OWED_EXAMPLE_PILL
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.SavingCapacity
 import com.maggie.app.data.model.TileAccount
@@ -104,7 +103,7 @@ class FinanceDashboardTilesScreenTest {
         }
     }
 
-    private val busy = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000)
+    private val busy = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000, owedToMeCents = 20000, iOweCents = 28000)
 
     private val tilesWithRejection = tiles.copy(
         accounts = tiles.accounts.copy(
@@ -292,15 +291,22 @@ class FinanceDashboardTilesScreenTest {
     }
 
     @Test
-    fun `the example of what is owed is drawn and not clickable`() {
+    fun `the pill says what is owed net and leads to the créances screen`() {
         val opened = mutableListOf<String>()
         open(tilesWithRejection, busy) { opened += it }
 
-        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(OWED_EXAMPLE_PILL).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performClick()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Tu dois ${formatCents(8000)}").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED).performClick()
 
-        assertEquals(emptyList<String>(), opened)
+        assertEquals(listOf(Screen.PeerDebts.route), opened)
+    }
+
+    @Test
+    fun `the pill says on te doit when the owner is the one owed`() {
+        open(tilesWithRejection, busy.copy(owedToMeCents = 53500, iOweCents = 0))
+
+        compose.onNodeWithText("On te doit ${formatCents(53500)}").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -327,13 +333,20 @@ class FinanceDashboardTilesScreenTest {
     }
 
     @Test
-    fun `with nothing to do there is no pill and no shortcut, only the example`() {
+    fun `with nothing to do there is no pill and no shortcut`() {
         open(tiles, FinanceTodo())
 
         compose.onNodeWithTag(UiTags.FINANCE_PILL_TO_SORT).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_PILL_REJECTIONS).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_PILL_ADVANCE).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED_EXAMPLE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED).assertDoesNotExist()
+    }
+
+    @Test
+    fun `créances and dettes that cancel out leave no pill`() {
+        open(tiles, FinanceTodo(owedToMeCents = 20000, iOweCents = 20000))
+
+        compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED).assertDoesNotExist()
     }
 }

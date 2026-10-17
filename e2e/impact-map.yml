@@ -583,6 +583,9 @@ mobile:
   e2e/mobile/flows/20-finance-upcoming.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/58-finance-upcoming.yaml]
+  e2e/mobile/flows/21-finance-peer-debts.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/contacts-api.js]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]

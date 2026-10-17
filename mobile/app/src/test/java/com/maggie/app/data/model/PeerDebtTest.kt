@@ -87,4 +87,56 @@ class PeerDebtTest {
         assertEquals("Tom", debt.peerDebt?.shares?.single()?.contactName)
         assertEquals(15000, debt.peerDebt?.shares?.single()?.amountCents)
     }
+
+    /** MAG-455: the pill and the lines of « Par personne » speak the net, in the owner's direction. */
+    @Test
+    fun `the pill says the net, in the direction it goes, and is absent at zero`() {
+        assertEquals("On te doit ${formatCents(53500)}", owedPillText(53500, 0))
+        assertEquals("Tu dois ${formatCents(8000)}", owedPillText(20000, 28000))
+        assertNull(owedPillText(20000, 20000))
+        assertNull(owedPillText(0, 0))
+    }
+
+    @Test
+    fun `a person's balance is worded by its sign, and a compensation names the one transfer that settles all`() {
+        assertEquals("te doit ${formatCents(20000)}", balanceLabel(20000))
+        assertEquals("tu lui dois ${formatCents(8000)}", balanceLabel(-8000))
+        assertEquals("quitte", balanceLabel(0))
+        assertEquals(
+            "Les deux se compensent : un seul virement de ${formatCents(8000)} à Tom solde tout",
+            compensationLabel("Tom", -8000),
+        )
+        assertEquals(
+            "Les deux se compensent : un seul virement de ${formatCents(8000)} de Tom solde tout",
+            compensationLabel("Tom", 8000),
+        )
+        assertNull(compensationLabel("Tom", 0))
+    }
+
+    @Test
+    fun `a contact's history keeps their transfers only, the latest first`() {
+        val debts = listOf(
+            PeerDebt(
+                id = "d-1",
+                `object` = "Gîte",
+                history = listOf(
+                    PeerDebtHistoryEntry("t-1", "2026-10-15", "VIR DE TOM", 10000, "c-tom", "Tom"),
+                    PeerDebtHistoryEntry("t-2", "2026-10-18", "VIR DE JULIE", 7000, "c-julie", "Julie"),
+                ),
+            ),
+            PeerDebt(
+                id = "d-2",
+                direction = PeerDebt.DIRECTION_I_OWE,
+                `object` = "",
+                history = listOf(PeerDebtHistoryEntry("t-3", "2026-10-20", "VIR A TOM", 28000, "c-tom", "Tom")),
+            ),
+        )
+
+        val history = historyOf(debts, "c-tom")
+
+        assertEquals(listOf("t-3", "t-1"), history.map { it.transactionId })
+        assertEquals(listOf("Dépense partagée", "Gîte"), history.map { it.subject })
+        assertEquals(PeerDebt.DIRECTION_I_OWE, history.first().direction)
+        assertEquals(emptyList<ContactHistoryLine>(), historyOf(debts, "c-anna"))
+    }
 }

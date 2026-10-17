@@ -57,6 +57,9 @@ class DtoContractTest {
         // The API omits an empty note and the recorded world writes none (MAG-464). It also omits
         // who qualified a line while nobody did, and the series or rule behind it (MAG-479).
         "Transaction" to setOf("note", "qualifiedBy", "qualifiedBySeries", "qualifiedByRule"),
+        // Only GET /api/finance/peer-debts (MAG-455) carries a créance's history; the API Platform resource
+        // and the my-share / debt endpoints do not. The test of that recording asserts the field itself.
+        "PeerDebt" to setOf("history"),
     )
 
     @Test
@@ -411,6 +414,33 @@ class DtoContractTest {
         val summary = json.decodeFromJsonElement(serializer<PeerDebtSummary>(), readRecording("finance_peer_debts_summary.read"))
 
         assertEquals(5000, summary.owedToMeCents)
+    }
+
+    @Test
+    fun `the summary carries each person's net and whether the two directions compensate (MAG-455)`() {
+        val name = "finance_peer_debts_summary.read"
+        val body = readRecording(name)
+        assertDeclaredFieldsExist("ContactBalance", serializer<ContactBalance>(), keysOf(body, "byContact"), name)
+
+        val balance = json.decodeFromJsonElement(serializer<PeerDebtSummary>(), body).byContact.single()
+        assertEquals(5000, balance.netCents)
+        assertEquals("Recorded Tom", balance.name)
+    }
+
+    @Test
+    fun `the créances and dettes list deserialises from the recorded response, with shares and history (MAG-455)`() {
+        val name = "finance_peer_debts.read"
+        val body = readRecording(name)
+        assertItemContract(name, serializer<PeerDebtList>(), "PeerDebtList")
+        val debtKeys = keysOf(body, "peerDebts")
+        assertTrue("the recording carries no history", "history" in debtKeys)
+        assertDeclaredFieldsExist("PeerDebt", serializer<PeerDebt>(), debtKeys, name)
+        val historyKeys = body["peerDebts"]!!.jsonArray.flatMap { keysOf(it.jsonObject, "history") }.toSet()
+        assertDeclaredFieldsExist("PeerDebtHistoryEntry", serializer<PeerDebtHistoryEntry>(), historyKeys, name)
+
+        val debt = json.decodeFromJsonElement(serializer<PeerDebtList>(), body).peerDebts.single()
+        assertEquals(1000, debt.history.single().amountCents)
+        assertEquals("Recorded Tom", debt.history.single().contactName)
     }
 
     @Test

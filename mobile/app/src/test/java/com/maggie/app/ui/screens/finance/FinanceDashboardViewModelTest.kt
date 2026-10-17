@@ -11,6 +11,7 @@ import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.FinanceTodo
+import com.maggie.app.data.model.owedPillText
 import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
@@ -301,17 +302,19 @@ class FinanceDashboardViewModelTest {
 
     @Test
     fun `what is to do reaches the state, and a pushed change that settles it empties it`() = runTest {
-        val todo = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000)
+        val todo = FinanceTodo(toSortCount = 3, rejectionsToSettleCount = 1, reviewReady = true, advanceToRepayCents = 80000, owedToMeCents = 20000, iOweCents = 28000)
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard.copy(todo = todo))
         viewModel = buildViewModel()
         advanceUntilIdle()
         assertEquals(todo, viewModel.uiState.value.dashboard?.todo)
+        assertEquals("Tu dois ${com.maggie.app.data.model.formatCents(8000)}", owedPillText(todo.owedToMeCents, todo.iOweCents))
 
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard)
         mercureEvents.tryEmit(MercureEvent(data = "{}"))
         advanceUntilIdle()
 
         assertEquals(FinanceTodo(), viewModel.uiState.value.dashboard?.todo)
+        assertNull(owedPillText(0, 0))
     }
 
     @Test

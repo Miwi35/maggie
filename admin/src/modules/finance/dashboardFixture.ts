@@ -63,6 +63,6 @@ export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): Fin
       savingCapacity,
     },
   },
-  todo: { toSortCount: 3, rejectionsToSettleCount: 1, reviewReady: false, advanceToRepayCents: 80000 },
+  todo: { toSortCount: 3, rejectionsToSettleCount: 1, reviewReady: false, advanceToRepayCents: 80000, owedToMeCents: 0, iOweCents: 0 },
   ...overrides,
 })

@@ -5,6 +5,8 @@ import { euros, overBudget } from '../helpers/money.js'
 import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
 import { FinanceCushionPage } from '../pages/FinanceCushionPage.js'
 import { FinanceContactPage } from '../pages/FinanceContactPage.js'
+import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
+import { FinancePeerDebtsPage } from '../pages/FinancePeerDebtsPage.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 import { FinanceTransactionSheetPage } from '../pages/FinanceTransactionSheetPage.js'
 
@@ -104,6 +106,10 @@ test('a transfer associated from « À trier » makes its label Tom\'s, and the 
  * Every name ends with letters unique per attempt, and what the journey
  * creates is removed after it, the transaction first — a contact with a share
  * cannot be deleted.
+ *
+ * Serial: the home's « On te doit / Tu dois » pill (MAG-455) is the net of
+ * every créance and dette of this account, so two of these journeys must
+ * not hold theirs at the same time.
  */
 test.describe('a shared spend', () => {
   // The cushion journey reads the season account's créances as a whole: no other test of this describe may write one beside it.
@@ -318,6 +324,89 @@ test.describe('a shared spend', () => {
     await contact.open(tomId)
     await expect(contact.openDebts.getByText('Rien en cours.')).toBeVisible()
     await expect(contact.openDebt(gite)).toHaveCount(0)
+
+    // And the transfer is in the history of Tom's page, with the 200 € it settled
+    await expect(contact.allocatedTransfer(label)).toContainText(euros(20000))
+    await expect(contact.allocatedTransfer(label)).toContainText(gite)
+  })
+
+  /**
+   * « Créances et dettes » (MAG-455): Tom owes 200 € on a gîte and I owe him
+   * 280 € of petrol. The Comptes tile of the home says « Tu dois 80 € », touching
+   * it opens the screen, and Tom's row says the two cancel out.
+   */
+  test('Tom owes 200 € and I owe him 280 €: the home says « Tu dois 80 € » and the screen shows the compensation', async ({
+    seasonUser,
+  }) => {
+    const { api, page } = seasonUser
+    const suffix = letters(6)
+    const tom = `Tom ${suffix}`
+    const gite = `Gîte de Crozon ${suffix}`
+    const petrol = `Essence du road trip ${suffix}`
+
+    // Given a gîte of which Tom owes 200 €
+    const accountId = await create(api, '/api/accounts', {
+      name: `Compte MAG-455 ${suffix}`,
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    })
+    const tomId = await create(api, '/api/contacts', { name: tom })
+    const spend = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: `GITE DE CROZON ${suffix}`,
+      amountCents: -40000,
+      currency: 'EUR',
+      bookedAt: seedDate(-7),
+      status: 'spent',
+    })
+    const shared = await api.put(`/api/finance/transactions/${spend}/my-share`, {
+      data: { myShareCents: 20000, object: gite, shares: [{ contactId: tomId }] },
+    })
+    expect(shared.status(), await shared.text()).toBe(200)
+
+    // And 280 € of petrol that I owe Tom
+    const transfer = await create(api, '/api/transactions', {
+      account: `/api/accounts/${accountId}`,
+      label: `VIR AVANCE ESSENCE ${suffix}`,
+      amountCents: 28000,
+      currency: 'EUR',
+      bookedAt: seedDate(),
+      status: 'spent',
+    })
+    const debt = await api.post(`/api/finance/transactions/${transfer}/debt`, {
+      data: { contactId: tomId, amountCents: 28000, object: petrol },
+    })
+    expect(debt.status(), await debt.text()).toBe(201)
+
+    // When I open the finance home
+    const overview = new FinanceOverviewPage(page)
+    await overview.open()
+
+    // Then the Comptes tile says « Tu dois 80 € »
+    await expect(overview.owedPill).toHaveText(`Tu dois ${euros(8000)}`)
+
+    // When I touch it, Then « Créances et dettes » opens with its two tiles
+    await overview.owedPill.click()
+    await expect(page).toHaveURL(/#\/finance\/peer-debts$/)
+    const screen = new FinancePeerDebtsPage(page)
+    await expect(screen.heading).toBeVisible()
+    await expect(screen.owedToMeTile).toContainText(euros(20000))
+    await expect(screen.iOweTile).toContainText(euros(28000))
+
+    // And Tom's row says the two cancel out, one transfer of 80 € settles all
+    await expect(screen.person(tom)).toContainText(`tu lui dois ${euros(8000)}`)
+    await expect(screen.person(tom)).toContainText(
+      `Les deux se compensent : un seul virement de ${euros(8000)} à ${tom} solde tout`,
+    )
+
+    // And opening Tom's row shows a line per object, and « Par objet » shows both
+    await screen.person(tom).getByRole('button', { name: tom }).click()
+    await expect(screen.person(tom)).toContainText(gite)
+    await expect(screen.person(tom)).toContainText(petrol)
+    await screen.byObjectTab.click()
+    await expect(screen.object(gite)).toContainText(`on te doit ${euros(20000)}`)
+    await expect(screen.object(petrol)).toContainText(`tu dois ${euros(28000)}`)
   })
   /**
    * « Avancé à des proches » (MAG-454): Julie owes 200 € on a gîte, so a Livret A

@@ -8,7 +8,7 @@ tags:
 # Étant donné 3 lignes à trier et 1 rejet
 # Quand j'ouvre les finances
 # Alors la tuile Comptes affiche « 3 à trier » et « 1 rejet »
-# Et la pastille « On te doit 535 € » est là, sans rien ouvrir (un exemple)
+# Et aucune pastille « On te doit / Tu dois » : ce compte n'a ni créance ni dette (MAG-455)
 # Quand je touche « 3 à trier »
 # Alors l'écran À qualifier s'ouvre, sur la ligne la plus ancienne
 #
@@ -17,8 +17,8 @@ tags:
 # the one. It runs as that user, not as the owner of `finance-overview`, whose pile other flows
 # leave lines in.
 #
-# What is not here: « rien à faire, aucune pastille » (`FinanceDashboardTilesScreenTest`, and the
-# admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
+# What is not here: « rien à faire, aucune pastille » on a home with no data at all
+# (`FinanceDashboardTilesScreenTest`, and the admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
 # are the API's, `GetFinanceDashboardTodoTest`).
 
 - launchApp:
@@ -61,6 +61,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "finance_pill_to_sort"
+    centerElement: true
     timeout: 30000
 - extendedWaitUntil:
     visible: "3 à trier"
@@ -72,13 +73,10 @@ tags:
 - extendedWaitUntil:
     visible: "1 rejet"
     timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: "finance_pill_owed_example"
-    timeout: 30000
-- extendedWaitUntil:
-    visible: "On te doit 535 €"
-    timeout: 10000
+# No créance nor dette: the « On te doit / Tu dois » pill is not drawn. Its presence, and where it
+# leads, is `22-finance-peer-debts`.
+- assertNotVisible:
+    id: "finance_pill_owed"
 
 # The old « À qualifier · n · montant » pill left the home (it stays on the budget screen).
 - assertNotVisible:

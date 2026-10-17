@@ -20,12 +20,16 @@
 // filed and dated the day before so it is the oldest card of « À trier »; `allocated` waits until Tom's
 // share of the gîte is settled and checks the transfer leaves 200 € « Non affecté ».
 //
+// MAG-455 reads the balance with Tom: `peerdebts` creates the account, Tom, a gîte of 400 € whose half
+// Tom owes (200 €) and a transfer of 280 € that is a dette towards him, so the home's pill says
+// « Tu dois 80 € » and Tom's row on « Créances et dettes » says the two cancel out.
+//
 // MAG-454 lowers the safety cushion by the open créances: `cushion` writes a Livret A of 5 200 € counted
 // in the cushion and a target of 3 months of 2 500 €; `repay` writes a transfer of 200 € from Julie and
 // allocates it to her share of the gîte « GITE DES CIMES MAG-451 », which refills the cushion by 200 €.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION          create | second | share | income | allocation | allocated | cushion | repay | remove
+//   ACTION          create | second | share | income | allocation | allocated | cushion | repay | peerdebts | remove
 //   EXPECTED_CENTS  income only: the month's income, in cents
 //
 // Everything is the journey's own — the account named after the ticket, the contacts « Tom »,
@@ -47,6 +51,9 @@ const crozonObject = 'Gîte de Crozon'
 // MAG-454: the account counted in the cushion, and the transfer Julie repays with.
 const livretName = 'Livret MAG-454'
 const repayLabel = 'VIR. DE JULIE MAG-454'
+// MAG-455: the dette towards Tom that cancels his créance.
+const petrolLabel = 'VIR AVANCE ESSENCE MAG-455'
+const petrolObject = 'Essence du road trip'
 
 function fail(message) {
   throw new Error('[contacts-api] ' + ACTION + ': ' + message)
@@ -343,6 +350,38 @@ if (ACTION === 'create') {
     kind: 'repayment',
     allocations: [{ shareId: share.shareId, amountCents: 20000 }],
   })
+} else if (ACTION === 'peerdebts') {
+  removeLeftovers() // a retried run starts from nothing
+  const created = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 100000 })
+  const tom = post('/api/contacts', { name: contactName })
+  const crozon = post('/api/transactions', {
+    account: created['@id'],
+    label: crozonLabel,
+    amountCents: -40000,
+    currency: 'EUR',
+    bookedAt: dayBefore(TODAY),
+    status: 'spent',
+  })
+  put('/api/finance/transactions/' + crozon.id + '/my-share', {
+    myShareCents: 20000,
+    object: crozonObject,
+    shares: [{ contactId: tom.id }],
+  })
+  const advance = post('/api/transactions', {
+    account: created['@id'],
+    label: petrolLabel,
+    amountCents: 28000,
+    currency: 'EUR',
+    bookedAt: TODAY,
+    status: 'spent',
+  })
+  const debt = http.post(base + '/api/finance/transactions/' + advance.id + '/debt', {
+    headers: authorized({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ contactId: tom.id, amountCents: 28000, object: petrolObject }),
+  })
+  if (!debt.ok) {
+    fail('POST the dette answered ' + debt.status + ': ' + debt.body)
+  }
 } else if (ACTION === 'remove') {
   removeLeftovers()
 } else {

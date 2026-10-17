@@ -41,7 +41,8 @@ class ContactScreenTest {
 
     private fun viewModel(list: List<Contact> = listOf(tom), debts: List<PeerDebt> = emptyList()): ContactViewModel {
         coEvery { contacts.getContacts() } returns Result.success(list)
-        coEvery { peerDebts.getPeerDebts() } returns Result.success(debts)
+        coEvery { peerDebts.getOverview(contact = any()) } returns Result.success(emptyList())
+        coEvery { peerDebts.getOverview(contact = "c-tom") } returns Result.success(debts)
         coEvery { contacts.getCounterparties("c-tom") } returns Result.success(
             listOf(
                 ContactCounterparty(

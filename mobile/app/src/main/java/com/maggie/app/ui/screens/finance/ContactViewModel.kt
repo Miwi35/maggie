@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.ContactDebt
+import com.maggie.app.data.model.ContactHistoryLine
 import com.maggie.app.data.model.ContactSearch
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.contactSearch
+import com.maggie.app.data.model.historyOf
 import com.maggie.app.data.model.openDebtsOf
 import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.PeerDebtRepository
@@ -24,6 +26,8 @@ data class ContactDetail(
     val suggestions: List<CounterpartySuggestion> = emptyList(),
     /** « En cours » (MAG-451): the open créances they still owe something on. */
     val openDebts: List<ContactDebt> = emptyList(),
+    /** The transfers that gave their shares back (MAG-455), the latest first. */
+    val history: List<ContactHistoryLine> = emptyList(),
 )
 
 data class ContactUiState(
@@ -117,18 +121,20 @@ class ContactViewModel(
         viewModelScope.launch {
             val counterparties = async { contactRepository.getCounterparties(contactId) }
             val suggestions = async { contactRepository.getSuggestions(contactId) }
-            val debts = async { peerDebtRepository.getPeerDebts() }
+            val debts = async { peerDebtRepository.getOverview(contact = contactId) }
             val linked = counterparties.await()
             // No suggestion is no reason to hide the page: « Ses comptes » is what it is for.
             val maybe = suggestions.await().getOrDefault(emptyList())
             // Nor is a créance list that could not be read.
-            val owed = openDebtsOf(debts.await().getOrDefault(emptyList()), contactId)
+            val allDebts = debts.await().getOrDefault(emptyList())
+            val owed = openDebtsOf(allDebts, contactId)
+            val given = historyOf(allDebts, contactId)
             val detail = _uiState.value.detail?.takeIf { it.contact.id == contactId } ?: return@launch
 
             linked
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
-                        detail = detail.copy(isLoading = false, counterparties = it, suggestions = maybe, openDebts = owed),
+                        detail = detail.copy(isLoading = false, counterparties = it, suggestions = maybe, openDebts = owed, history = given),
                     )
                 }
                 .onFailure { failure ->

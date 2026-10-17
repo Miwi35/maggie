@@ -8,6 +8,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Enum\PeerDebtStatus;
 use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Message\AllocateTransactionCommand;
@@ -18,10 +19,10 @@ use Maggie\Finance\Message\RemoveMyShareCommand;
 use Maggie\Finance\Message\SetMyShareCommand;
 use Maggie\Finance\Repository\ContactRepository;
 use Maggie\Finance\Repository\PeerDebtAllocationRepository;
-use Maggie\Finance\Repository\PeerDebtRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\GetPeerDebtSummary;
 use Maggie\Finance\UseCase\GetTransactionAllocation;
+use Maggie\Finance\UseCase\ListPeerDebts;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -29,14 +30,14 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_peer_debts', description: 'Money between the owner and the people around them (créances: they owe the owner; dettes: the owner owes them). Not bank loans (manage_loans). Actions: list (every créance and dette, newest first, each with its shares per person — contactId, contactName, amountCents, repaidCents, remainingCents —, amountCents, remainingCents and status open or settled; optional contactId to keep those of one person, optional status open or settled), summary (owedToMeCents: what people still owe the owner, iOweCents: what the owner still owes), set_my_share (a spend paid for others too, e.g. a 800 € gîte for four: transactionId, myShareCents — the owner\'s own part, 0 ≤ part < the amount; only it counts in the envelopes, the score, the review and the lifestyle —, shares: [{contactId, amountCents}] — the people who owe the rest, contacts from manage_contacts; leave every amountCents out to split equally, or give them all adding up to the amount minus the part —, optional object (what it was for, the label by default) and notes; setting it again updates the same créance; myShareCents null removes the share and its créance, refused once someone gave money back on it). Only a spend can be shared, not an income nor an internal transfer. record_debt (a transfer received that must be given back in part, e.g. Tom advances 400 € of which 280 € are his: transactionId — a received transfer, neither a spend nor an internal transfer —, contactId — the person it comes from, the transaction\'s contact is the natural one —, amountCents — what to give back, 0 < amount ≤ the transfer —, optional object and notes) records a dette (direction i_owe, one share) that is neither an income nor a saving: the rest of the transfer stays an income; declaring it again updates the same dette; amountCents null removes it, refused once part of it was given back. allocate (what a transfer with a person is — transactionId, kind: for a received transfer income (all of it stays an income), repayment (it gives back créances) or new_debt (money to give back: contactId, amountCents, optional object and notes, like record_debt); for a sent transfer repayment (it gives back dettes), new_claim (money lent: a créance of the whole amount to contactId, optional object and notes) or other (a plain spend). One allocation per call: for repayment give shareId — a share from list, of a créance for a received transfer, of a dette for a sent one, those of the transfer\'s contact first — and amountCents, at most what is left on that share; the transfer\'s other allocations are kept, amountCents 0 takes that share off, and all of them add up to at most the transfer. What is not allocated of a received transfer stays an income. An allocated part is neither an income nor a spend. kind null undoes the answer and gives back what it repaid. Never an internal transfer.) Returns the transfer\'s peerKind, allocations, unallocatedCents and the candidate shares.')]
+#[McpTool(name: 'manage_peer_debts', description: 'Money between the owner and the people around them (créances: they owe the owner; dettes: the owner owes them). Not bank loans (manage_loans). Actions: list (every créance and dette, newest first, each with its shares per person — contactId, contactName, amountCents, repaidCents, remainingCents —, amountCents, remainingCents and status open or settled; optional contactId to keep those of one person, optional status open or settled, optional direction owed_to_me or i_owe; each also carries history: the transfers that gave it back — transactionId, bookedAt, label, amountCents, contactId, contactName), summary (owedToMeCents: what people still owe the owner, iOweCents: what the owner still owes, byContact: per person with something left — contactId, name, netCents, positive when they owe the owner, negative when the owner owes them —, compensates: true when they owe each other, one transfer of the difference settles both), set_my_share (a spend paid for others too, e.g. a 800 € gîte for four: transactionId, myShareCents — the owner\'s own part, 0 ≤ part < the amount; only it counts in the envelopes, the score, the review and the lifestyle —, shares: [{contactId, amountCents}] — the people who owe the rest, contacts from manage_contacts; leave every amountCents out to split equally, or give them all adding up to the amount minus the part —, optional object (what it was for, the label by default) and notes; setting it again updates the same créance; myShareCents null removes the share and its créance, refused once someone gave money back on it). Only a spend can be shared, not an income nor an internal transfer. record_debt (a transfer received that must be given back in part, e.g. Tom advances 400 € of which 280 € are his: transactionId — a received transfer, neither a spend nor an internal transfer —, contactId — the person it comes from, the transaction\'s contact is the natural one —, amountCents — what to give back, 0 < amount ≤ the transfer —, optional object and notes) records a dette (direction i_owe, one share) that is neither an income nor a saving: the rest of the transfer stays an income; declaring it again updates the same dette; amountCents null removes it, refused once part of it was given back. allocate (what a transfer with a person is — transactionId, kind: for a received transfer income (all of it stays an income), repayment (it gives back créances) or new_debt (money to give back: contactId, amountCents, optional object and notes, like record_debt); for a sent transfer repayment (it gives back dettes), new_claim (money lent: a créance of the whole amount to contactId, optional object and notes) or other (a plain spend). One allocation per call: for repayment give shareId — a share from list, of a créance for a received transfer, of a dette for a sent one, those of the transfer\'s contact first — and amountCents, at most what is left on that share; the transfer\'s other allocations are kept, amountCents 0 takes that share off, and all of them add up to at most the transfer. What is not allocated of a received transfer stays an income. An allocated part is neither an income nor a spend. kind null undoes the answer and gives back what it repaid. Never an internal transfer.) Returns the transfer\'s peerKind, allocations, unallocatedCents and the candidate shares.')]
 class ManagePeerDebtsTool
 {
     private const ACTIONS = ['list', 'summary', 'set_my_share', 'record_debt', 'allocate'];
 
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly PeerDebtRepository $peerDebtRepository,
+        private readonly ListPeerDebts $listPeerDebts,
         private readonly ContactRepository $contactRepository,
         private readonly GetPeerDebtSummary $summary,
         private readonly McpUserContext $userContext,
@@ -53,6 +54,8 @@ class ManagePeerDebtsTool
         ?string $contactId = null,
         #[Schema(enum: ['open', 'settled'])]
         ?string $status = null,
+        #[Schema(enum: ['owed_to_me', 'i_owe'])]
+        ?string $direction = null,
         ?string $transactionId = null,
         ?int $myShareCents = null,
         #[Schema(items: ['type' => 'object', 'properties' => ['contactId' => ['type' => 'string'], 'amountCents' => ['type' => 'integer']], 'required' => ['contactId']])]
@@ -66,7 +69,7 @@ class ManagePeerDebtsTool
     ): string {
         try {
             return match ($action) {
-                'list' => $this->list($contactId, $status),
+                'list' => $this->list($contactId, $status, $direction),
                 'summary' => self::json($this->summary->execute($this->userContext->requireUser())),
                 'set_my_share' => $this->setMyShare($transactionId, $myShareCents, $shares, $object, $notes),
                 'record_debt' => $this->recordDebt($transactionId, $contactId, $amountCents, $object, $notes),
@@ -82,7 +85,7 @@ class ManagePeerDebtsTool
         }
     }
 
-    private function list(?string $contactId, ?string $status): string
+    private function list(?string $contactId, ?string $status, ?string $direction): string
     {
         $user = $this->userContext->requireUser();
 
@@ -98,12 +101,12 @@ class ManagePeerDebtsTool
             return self::error('status must be open or settled.');
         }
 
-        $debts = array_filter(
-            $this->peerDebtRepository->findByUser($user, $contact),
-            static fn (PeerDebt $debt): bool => null === $wanted || $debt->getStatus() === $wanted,
-        );
+        $wantedDirection = null === $direction ? null : PeerDebtDirection::tryFrom($direction);
+        if (null !== $direction && null === $wantedDirection) {
+            return self::error('direction must be owed_to_me or i_owe.');
+        }
 
-        return self::json(['peerDebts' => array_map(static fn (PeerDebt $debt): array => $debt->toArray(), array_values($debts))]);
+        return self::json(['peerDebts' => $this->listPeerDebts->execute($user, $wanted, $wantedDirection, $contact)]);
     }
 
     /** @param list<mixed>|null $shares what the agent sent: checked one by one */

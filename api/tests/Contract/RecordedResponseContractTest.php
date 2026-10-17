@@ -103,6 +103,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'contact_counterparties.collection' => '/api/contact_counterparties',
         'peer_debts.collection' => '/api/peer_debts',
         'finance_peer_debts_summary.read' => '/api/finance/peer-debts/summary',
+        'finance_peer_debts.read' => '/api/finance/peer-debts',
     ];
 
     private KernelBrowser $client;

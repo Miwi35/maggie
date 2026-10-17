@@ -6,8 +6,13 @@ import { DashboardTile } from './DashboardTile'
 import { TodoPill } from './TodoPill'
 import type { AccountsTile as AccountsTileData, DashboardTodo } from './useFinanceDashboard'
 
-// Example until the « Créances, dettes et contacts » lot wires the real figure.
-const OWED_EXAMPLE = 'On te doit 535 €'
+/** What the owner is owed net of what is owed to others: « On te doit 80 € » / « Tu dois 80 € »; null when even. */
+const owedPill = (todo: DashboardTodo): string | null => {
+  const net = todo.owedToMeCents - todo.iOweCents
+  if (net === 0) return null
+
+  return net > 0 ? `On te doit ${formatCents(net)}` : `Tu dois ${formatCents(-net)}`
+}
 
 /** The account the « rejets » pill opens: the one with the most rejections to settle. */
 const rejectionsAccount = (tile: AccountsTileData) =>
@@ -20,6 +25,7 @@ const rejectionsAccount = (tile: AccountsTileData) =>
 /** « Comptes » → the accounts list: the total, the part set aside, each account, what waits to be sorted or settled. */
 export const AccountsTile = ({ tile, todo }: { tile: AccountsTileData; todo: DashboardTodo }) => {
   const rejections = rejectionsAccount(tile)
+  const owed = owedPill(todo)
 
   return (
     <DashboardTile title="Comptes" to="/accounts" testId="tile-accounts">
@@ -34,7 +40,7 @@ export const AccountsTile = ({ tile, todo }: { tile: AccountsTileData; todo: Das
             testId="pill-rejections"
           />
         )}
-        <TodoPill label={OWED_EXAMPLE} testId="pill-owed-example" />
+        {owed && <TodoPill label={owed} to="/finance/peer-debts" testId="pill-owed" />}
       </Stack>
       <Typography variant="h5" sx={{ my: 0.5 }}>
         {formatCents(tile.totalCents)}

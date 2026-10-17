@@ -47,6 +47,7 @@ const GITE = {
     { id: '01S1', contactId: '01JULIE', contactName: 'Julie', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
     { id: '01S2', contactId: '01TOM', contactName: 'Tom', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
   ],
+  history: [],
 }
 const SETTLED = {
   ...GITE,
@@ -55,6 +56,18 @@ const SETTLED = {
   status: 'settled',
   remainingCents: 0,
   shares: [{ id: '01S3', contactId: '01TOM', contactName: 'Tom', amountCents: 3000, repaidCents: 3000, remainingCents: 0 }],
+  history: [
+    { transactionId: '01TXA', bookedAt: '2026-09-02', label: 'VIR DE TOM MARTIN', amountCents: 3000, contactId: '01TOM', contactName: 'Tom' },
+  ],
+}
+/** I owe Tom the petrol: a dette, 280 € left. */
+const PETROL = {
+  ...GITE,
+  id: '01PETROL',
+  direction: 'i_owe',
+  object: 'Essence du road trip',
+  createdAt: '2026-09-20T10:00:00+00:00',
+  shares: [{ id: '01S4', contactId: '01TOM', contactName: 'Tom', amountCents: 28000, repaidCents: 0, remainingCents: 28000 }],
 }
 const PAYPAL_SUGGESTION = { label: 'PAYPAL *TOMMARTIN', transactionCount: 2, lastSeenOn: '2026-02-10' }
 
@@ -66,11 +79,14 @@ let linked: unknown[] = []
 let suggested: unknown[] = []
 let refusal: string | null = null
 let debts: unknown[] = []
+let peerDebtsFailure: string | null = null
 
 /** A tiny API: the two reads, and the writes that move a label between them. */
 const api = (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
-  if (url === '/api/peer_debts') return answer(true, { member: debts })
+  if (url === '/api/finance/peer-debts?contact=01TOM') {
+    return peerDebtsFailure ? answer(false, { error: peerDebtsFailure }, 500) : answer(true, { peerDebts: debts })
+  }
   if (url.startsWith('/api/contact_counterparties?')) return answer(true, { member: linked })
   if (url === '/api/finance/contacts/01TOM/counterparty-suggestions') return answer(true, suggested)
   if (method === 'POST' && url === '/api/contact_counterparties') {
@@ -126,6 +142,7 @@ describe('ContactEdit — the « fiche contact »', () => {
     suggested = [PAYPAL_SUGGESTION]
     refusal = null
     debts = []
+    peerDebtsFailure = null
     fetchMock.mockImplementation(api)
     vi.stubGlobal('fetch', fetchMock)
   })
@@ -167,6 +184,44 @@ describe('ContactEdit — the « fiche contact »', () => {
     expect(items[0]).toHaveTextContent('14/08/2026')
     expect(items[0].textContent?.replace(/\s/gu, ' ')).toContain('te doit 200,00 €')
     expect(screen.queryByText('Restaurant')).not.toBeInTheDocument()
+  })
+
+  test('« En cours » lists the dettes too, and asks the API for this contact only', async () => {
+    debts = [GITE, PETROL]
+    renderEdit()
+
+    const open = await screen.findByRole('list', { name: 'Créances en cours' })
+    const items = within(open).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(items[1].textContent?.replace(/\s/gu, ' ')).toContain('tu lui dois 280,00 €')
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/peer-debts?contact=01TOM')
+  })
+
+  test('« Virements affectés » lists his transfers that settled a share, newest first', async () => {
+    debts = [GITE, SETTLED]
+    renderEdit()
+
+    const history = await screen.findByRole('list', { name: 'Historique des virements' })
+    const items = within(history).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('VIR DE TOM MARTIN')
+    expect(items[0]).toHaveTextContent('02/09/2026 · Restaurant')
+    expect(items[0].textContent?.replace(/\s/gu, ' ')).toContain('30,00 €')
+  })
+
+  test('« Virements affectés » says when no transfer was allocated', async () => {
+    debts = [GITE]
+    renderEdit()
+
+    expect(await screen.findByText('Aucun virement affecté.')).toBeInTheDocument()
+  })
+
+  test('« En cours » shows the API\'s message when the read fails', async () => {
+    peerDebtsFailure = 'Contact not found: 01TOM'
+    renderEdit()
+
+    const section = await screen.findByRole('region', { name: 'En cours' })
+    expect(await within(section).findByText('Contact not found: 01TOM')).toBeInTheDocument()
   })
 
   test('« En cours » says when nothing is open', async () => {

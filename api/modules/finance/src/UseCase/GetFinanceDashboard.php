@@ -39,6 +39,7 @@ class GetFinanceDashboard
         private readonly GetAccountIncidents $getAccountIncidents,
         private readonly GetSavingsAdvances $getSavingsAdvances,
         private readonly GetMonthlyReview $getMonthlyReview,
+        private readonly GetPeerDebtSummary $getPeerDebtSummary,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
     ) {
@@ -84,23 +85,27 @@ class GetFinanceDashboard
      * What waits for the owner, each count the one the screen it opens shows:
      * the pile of the lines to sort, the rejections not settled yet, the
      * review of the month just ended (not done while a line of it is unrated)
-     * and what is still owed back to the savings. Never the month shown: it
-     * is what is to do today.
+     * and what is still owed back to the savings, plus what people owe the owner
+     * and what the owner owes them (the « On te doit / Tu dois » pill). Never
+     * the month shown: it is what is to do today.
      *
      * @param array<string, int> $rejections the rejections to settle, by account id
      *
-     * @return array{toSortCount: int, rejectionsToSettleCount: int, reviewReady: bool, advanceToRepayCents: int}
+     * @return array{toSortCount: int, rejectionsToSettleCount: int, reviewReady: bool, advanceToRepayCents: int, owedToMeCents: int, iOweCents: int}
      */
     private function todo(User $user, array $rejections): array
     {
         $lastMonth = $this->getFinanceScores->resolveDate($user, null)->modify('first day of last month');
         $review = $this->getMonthlyReview->execute($user, (int) $lastMonth->format('Y'), (int) $lastMonth->format('n'));
+        $peers = $this->getPeerDebtSummary->execute($user);
 
         return [
             'toSortCount' => $this->transactionRepository->countToSortForUser($user),
             'rejectionsToSettleCount' => array_sum($rejections),
             'reviewReady' => $review['pendingCount'] > 0,
             'advanceToRepayCents' => $this->getSavingsAdvances->execute($user)['totalOutstandingCents'],
+            'owedToMeCents' => $peers['owedToMeCents'],
+            'iOweCents' => $peers['iOweCents'],
         ];
     }
 

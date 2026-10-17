@@ -521,3 +521,10 @@ Maggie\Finance\Entity\PeerDebtShare:
     contact: '@recorded_contact'
     amountCents: 6000
     repaidCents: 1000
+
+Maggie\Finance\Entity\PeerDebtAllocation:
+  recorded_peer_debt_allocation:
+    __construct:
+      transaction: '@recorded_transaction'
+      share: '@recorded_peer_debt_share'
+      amountCents: 1000

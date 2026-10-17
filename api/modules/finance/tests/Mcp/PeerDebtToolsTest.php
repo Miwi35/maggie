@@ -107,7 +107,9 @@ class PeerDebtToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, (string) $debt->getId());
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('gite'));
 
-        self::assertSame(['owedToMeCents' => 60000 + 5000, 'iOweCents' => 0], $this->call('summary'));
+        $summary = $this->call('summary');
+        self::assertSame([60000 + 5000, 0], [$summary['owedToMeCents'], $summary['iOweCents']]);
+        self::assertCount(3, $summary['byContact']);
     }
 
     /** @return iterable<string, array{0: string, 1: int, 2: list<array{0: string, 1?: int}>}> */

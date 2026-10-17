@@ -72,7 +72,7 @@ class GetFinanceDashboardTodoTest extends KernelTestCase
         $data = $this->dashboard();
 
         self::assertSame(
-            ['toSortCount' => 0, 'rejectionsToSettleCount' => 0, 'reviewReady' => false, 'advanceToRepayCents' => 0],
+            ['toSortCount' => 0, 'rejectionsToSettleCount' => 0, 'reviewReady' => false, 'advanceToRepayCents' => 0, 'owedToMeCents' => 0, 'iOweCents' => 0],
             $data['todo'],
         );
         self::assertSame([0], array_values(array_unique(array_column($data['tiles']['accounts']['accounts'], 'rejectionsToSettleCount'))));

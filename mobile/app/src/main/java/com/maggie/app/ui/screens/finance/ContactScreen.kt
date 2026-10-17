@@ -47,8 +47,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.ContactDebt
+import com.maggie.app.data.model.ContactHistoryLine
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.debtDayLabel
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.lastSeenLabel
 import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.owesYouLabel
@@ -73,6 +75,8 @@ fun ContactScreen(
     showsDetailPane: Boolean = false,
     openContactId: String? = null,
     onOpenConsumed: () -> Unit = {},
+    startCreation: Boolean = false,
+    onCreationStarted: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,6 +85,14 @@ fun ContactScreen(
         openContactId?.let {
             viewModel.open(it)
             onOpenConsumed()
+        }
+    }
+
+    // « + Personne » of « Créances et dettes » lands here with the new-contact dialog already open.
+    LaunchedEffect(startCreation) {
+        if (startCreation) {
+            viewModel.startCreation()
+            onCreationStarted()
         }
     }
 
@@ -336,6 +348,12 @@ private fun ContactPage(
                 else -> detail.openDebts.forEach { DebtRow(it) }
             }
 
+            if (!detail.isLoading && detail.history.isNotEmpty()) {
+                HorizontalDivider()
+                Text("Historique", style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag(UiTags.CONTACT_HISTORY))
+                detail.history.forEach { HistoryRow(it) }
+            }
+
             HorizontalDivider()
             Text("Ses comptes", style = MaterialTheme.typography.titleMedium)
             when {
@@ -379,6 +397,26 @@ private fun DebtRow(debt: ContactDebt) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(UiTags.CONTACT_DEBT_REMAINING),
         )
+    }
+}
+
+/** One transfer that gave a share back: its label and day, what it was for, and the amount it covered. */
+@Composable
+private fun HistoryRow(line: ContactHistoryLine) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.CONTACT_HISTORY_LINE),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(line.label, style = MaterialTheme.typography.bodyLarge)
+            val day = debtDayLabel(line.bookedAt)
+            Text(
+                listOfNotNull(day, line.subject).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(formatCents(line.amountCents), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
