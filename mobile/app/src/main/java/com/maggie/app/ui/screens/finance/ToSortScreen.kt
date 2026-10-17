@@ -401,16 +401,19 @@ private fun SortCard(
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    onClick = onTransfer,
-                    enabled = !state.isSorting,
-                    modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
-                ) { Text("Virement interne") }
-                TextButton(
-                    onClick = onCreateRule,
-                    enabled = !state.isSorting,
-                    modifier = Modifier.testTag(UiTags.TO_SORT_RULE),
-                ) { Text("Créer un filtre") }
+                // A filed transfer has a category: the API refuses an internal transfer, and a filter has nothing to file.
+                if (asksForCategory) {
+                    TextButton(
+                        onClick = onTransfer,
+                        enabled = !state.isSorting,
+                        modifier = Modifier.testTag(UiTags.TO_SORT_TRANSFER),
+                    ) { Text("Virement interne") }
+                    TextButton(
+                        onClick = onCreateRule,
+                        enabled = !state.isSorting,
+                        modifier = Modifier.testTag(UiTags.TO_SORT_RULE),
+                    ) { Text("Créer un filtre") }
+                }
                 TextButton(
                     onClick = onOpenSheet,
                     modifier = Modifier.testTag(UiTags.TO_SORT_OPEN_SHEET),

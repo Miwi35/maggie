@@ -168,22 +168,37 @@ const ClassementSection = ({ record }: { record: RaRecord }) => {
 /**
  * « Partage »: a transfer with a person — it has a contact, or was already
  * answered — asks « Ce virement est » (MAG-453); otherwise a received line can
- * still be given back (MAG-452) and a spend shared (MAG-451).
+ * still be given back (MAG-452) and a spend shared (MAG-451). Money sent already
+ * shared keeps its « Partage » — unless the share is the 0 a « Nouvelle créance » sets.
  */
-const PartageSection = ({ transactionId, label, amountCents }: { transactionId: string; label: string; amountCents: number }) => {
+const PartageSection = ({
+  transactionId,
+  label,
+  amountCents,
+  shared,
+}: {
+  transactionId: string
+  label: string
+  amountCents: number
+  shared: boolean
+}) => {
   const [peer, setPeer] = useState<boolean | null>(null)
 
   useEffect(() => {
     let live = true
     fetchAllocation(transactionId)
-      .then((a) => live && setPeer(a.canBeAllocated === true && (a.contact != null || a.peerKind != null)))
+      .then((a) => {
+        const withPerson = a.canBeAllocated === true && (a.contact != null || a.peerKind != null)
+        const keepsShare = a.direction === 'outgoing' && shared && a.peerKind !== 'new_claim'
+        if (live) setPeer(withPerson && !keepsShare)
+      })
       // Unreadable: the sections that do not need it still work.
       .catch(() => live && setPeer(false))
 
     return () => {
       live = false
     }
-  }, [transactionId])
+  }, [transactionId, shared])
 
   if (peer === null) return <LinearProgress aria-label="Chargement du partage" />
   if (peer) return <PeerTransferQualifier transactionId={transactionId} label={label} />
@@ -214,7 +229,14 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
     nature: <NatureSection transferApi={transferApi} kind={kind} amountCents={amountCents} />,
     classement: <ClassementSection record={record} />,
     recurrence: <RecurrenceSection record={record} />,
-    partage: <PartageSection transactionId={String(record.id)} label={String(record.label ?? '')} amountCents={amountCents} />,
+    partage: (
+      <PartageSection
+        transactionId={String(record.id)}
+        label={String(record.label ?? '')}
+        amountCents={amountCents}
+        shared={record.myShareCents !== null && record.myShareCents !== undefined}
+      />
+    ),
     jugement: <ComingSoon>Bientôt : dire si cette dépense était un bon choix.</ComingSoon>,
     note: (
       <TextInput

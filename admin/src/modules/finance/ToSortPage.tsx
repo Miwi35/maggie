@@ -124,7 +124,8 @@ const SortCard = ({
   const [qualification, setQualification] = useState<QualificationValue>(NO_QUALIFICATION)
   const [creating, setCreating] = useState(false)
   const { suggestion } = transaction
-  // A filed transfer only waits for « Ce virement est »: no category to ask.
+  // A filed transfer only waits for « Ce virement est »: no category to ask, and having one it can no
+  // longer be an internal transfer (the API refuses it).
   const asksCategory = transaction.reason !== 'peer_transfer'
 
   return (
@@ -227,9 +228,11 @@ const SortCard = ({
               Créer un filtre
             </Button>
           )}
-          <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
-            Virement interne
-          </Button>
+          {asksCategory && (
+            <Button color="inherit" disabled={sorting} onClick={() => onSort({ internalTransfer: {} })}>
+              Virement interne
+            </Button>
+          )}
           <Button
             color="inherit"
             component={Link}

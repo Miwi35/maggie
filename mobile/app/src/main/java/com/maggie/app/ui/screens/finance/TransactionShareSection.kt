@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 
@@ -64,9 +65,11 @@ internal fun ShareSection(
     val share = state.share
     val transaction = state.transaction
     // A transfer to or from a contact is first said what it is (MAG-453): its « À rembourser » supersedes
-    // MAG-452's, and money sent already shared keeps its « Partage ».
+    // MAG-452's, and money sent already shared keeps its « Partage » — unless the share is the 0 a « Nouvelle
+    // créance » sets.
     val peer = state.peer
-    if (peer != null && peer.isShown && peerActions != null && !(peer.isOutgoing && transaction.isShared)) {
+    val keepsShare = peer != null && peer.isOutgoing && transaction.isShared && peer.savedKind != PeerKind.NEW_CLAIM
+    if (peer != null && peer.isShown && peerActions != null && !keepsShare) {
         PeerTransferQualifier(peer, peerActions, transaction.currency)
         return
     }

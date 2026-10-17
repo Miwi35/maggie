@@ -415,6 +415,17 @@ describe('ToSortPage', () => {
       expect(within(card).getByRole('link', { name: 'Voir la fiche' })).toBeInTheDocument()
     })
 
+    test('a filed transfer offers neither « Virement interne » nor « Créer un filtre »', async () => {
+      // The API refuses an internal transfer on a line that already has a category.
+      withPeerTransfer()
+      renderPage()
+
+      const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
+      expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Virement interne' })).not.toBeInTheDocument()
+      expect(within(card).queryByRole('button', { name: 'Créer un filtre' })).not.toBeInTheDocument()
+    })
+
     test('a transfer still without category asks both', async () => {
       withPeerTransfer({ ...FILED_FROM_TOM, reason: 'category' })
       renderPage()
@@ -422,6 +433,7 @@ describe('ToSortPage', () => {
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
       expect(within(card).getByRole('button', { name: 'Autre catégorie' })).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Virement interne' })).toBeInTheDocument()
     })
 
     test('a line that does not ask for it shows no « Ce virement est »', async () => {

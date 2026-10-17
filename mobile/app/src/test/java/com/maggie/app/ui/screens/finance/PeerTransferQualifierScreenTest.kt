@@ -160,4 +160,43 @@ class PeerTransferQualifierScreenTest {
         }
         compose.onNodeWithTag(UiTags.TO_SORT_EMPTY).assertExists()
     }
+
+    private val noShareActions = ShareSheetActions(
+        onEnable = {}, onMyShareChange = {}, onAddPerson = {}, onRemovePerson = {}, onAmountChange = { _, _ -> },
+        onSubjectChange = {}, onNotesChange = {}, onSave = {},
+    )
+    private val noPeerActions = PeerTransferActions(
+        onKindChange = {}, onToggleShare = {}, onShareAmountChange = { _, _ -> }, onPickPerson = {},
+        onDebtAmountChange = {}, onSubjectChange = {}, onNotesChange = {}, onSave = {},
+    )
+
+    /** « Partage » of 60 € sent to Tom, whose share the server holds as [myShareCents], answered [peerKind]. */
+    private fun showSentToTom(myShareCents: Int?, peerKind: String?) {
+        val sent = Transaction(id = "tx-sent", label = "VIR. A TOM MARTIN", amountCents = -6000, bookedAt = "2026-10-10", myShareCents = myShareCents)
+        val state = TransferDetailState(
+            transaction = sent,
+            share = ShareEditor(totalCents = 6000, canBeShared = true, savedMyShareCents = myShareCents, enabled = myShareCents != null),
+            peer = PeerTransferEditor(
+                transactionId = "tx-sent", totalCents = 6000, direction = PeerKind.OUTGOING, savedKind = peerKind,
+                contactId = "c-tom", contactName = "Tom",
+            ),
+        )
+        compose.setContent { ShareSection(state, noShareActions, peerActions = noPeerActions) }
+    }
+
+    @Test
+    fun `money sent already shared keeps its Partage`() {
+        showSentToTom(myShareCents = 2000, peerKind = null)
+
+        compose.onNodeWithTag(UiTags.SHARE_SWITCH).assertExists()
+        compose.onAllNodesWithTag(UiTags.peerKind(PeerKind.NEW_CLAIM)).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a Nouvelle créance, whose share the qualifier set to 0, still shows Ce virement est`() {
+        showSentToTom(myShareCents = 0, peerKind = PeerKind.NEW_CLAIM)
+
+        compose.onNodeWithTag(UiTags.peerKind(PeerKind.NEW_CLAIM)).assertExists()
+        compose.onAllNodesWithTag(UiTags.SHARE_SWITCH).assertCountEquals(0)
+    }
 }
