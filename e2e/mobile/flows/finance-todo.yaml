@@ -97,9 +97,10 @@ tags:
       id: "incident_row"
     timeout: 30000
 - back
+# The list keeps its scroll position: the rings are above the screen, the pills are where it stopped.
 - extendedWaitUntil:
     visible:
-      id: "finance_score_ring_week"
+      id: "finance_pill_to_sort"
     timeout: 30000
 
 # « 3 à trier » opens the pile, on its oldest line.
