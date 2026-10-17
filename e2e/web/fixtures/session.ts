@@ -134,6 +134,13 @@ export const UPCOMING_USER_EMAIL = 'e2e-upcoming@maggie.local'
  */
 export const BALANCE_USER_EMAIL = 'e2e-balance@maggie.local'
 
+/**
+ * The seventeenth seeded account, for the bravo of a task done (MAG-508): a
+ * shooting star comes once a day per user, so on an account other journeys
+ * tick tasks of, the one the journey waits for could already have gone.
+ */
+export const BRAVO_USER_EMAIL = 'e2e-bravo@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
