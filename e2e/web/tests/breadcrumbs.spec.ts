@@ -121,6 +121,7 @@ test('the menu opens a summary page whose block leads to the cushion, and the tr
   const narrow = (page.viewportSize()?.width ?? NARROW_BELOW) < NARROW_BELOW
 
   await shell.goto(ROUTES.dashboard)
+  await shell.expectLoaded()
   await shell.navigateTo('Trésorerie', 'Finance')
 
   await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)

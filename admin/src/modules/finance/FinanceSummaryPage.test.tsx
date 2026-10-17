@@ -147,7 +147,7 @@ describe('FinanceSummaryPage', () => {
     const { unmount } = renderPage('/finance/summary/review')
     expect(await within(await block('to-sort')).findByText('3 transactions')).toBeInTheDocument()
     expect(await within(await block('monthly-review')).findByText('4 dépenses')).toBeInTheDocument()
-    expect(await within(await block('recurring')).findByText('7 opérations actives')).toBeInTheDocument()
+    expect(await within(await block('recurring')).findByText('7 opérations récurrentes actives')).toBeInTheDocument()
     expect(within(await block('rules')).getByRole('link', { name: 'Règles de catégorisation' })).toBeInTheDocument()
     unmount()
 
