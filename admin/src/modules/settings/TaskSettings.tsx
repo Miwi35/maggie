@@ -302,12 +302,11 @@ export const TaskSettings = () => {
 
           <RewardBlock settings={settings} onChange={(patch) => save(patch, (s) => ({ ...s, ...patch }))} />
 
+          {/* The rewards keep their switches: a sound turned off does not come back on with the alerts. */}
           <DefaultsButton
             onConfirm={() => {
-              const { alertSchedule, morningTime, eveningTime, rewardAnimation, rewardVibration, rewardSound, tone } =
-                settings.defaults
-              const patch = { alertSchedule, morningTime, eveningTime, rewardAnimation, rewardVibration, rewardSound, tone }
-              save(patch, (s) => ({ ...s, ...patch }))
+              const { alertSchedule, morningTime, eveningTime } = settings.defaults
+              save({ alertSchedule, morningTime, eveningTime }, (s) => ({ ...s, alertSchedule, morningTime, eveningTime }))
             }}
           />
         </Stack>
