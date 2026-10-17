@@ -152,14 +152,9 @@ const OverdraftCard = ({
           Solde projeté
         </Typography>
         <HorizonPicker months={months} onChange={onHorizon} />
-        {overdraft.isForecast && overdraft.onDate ? (
-          <Alert severity="error" data-testid="overdraft-forecast" sx={{ mb: 2 }}>
-            Découvert prévu le {shortDay(overdraft.onDate)} — solde le plus bas :{' '}
-            <strong>{formatCents(overdraft.worstBalanceCents)}</strong>
-          </Alert>
-        ) : (
-          <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
-            Aucun découvert prévu sur la période projetée.
+        {overdraft.isForecast && overdraft.onDate && (
+          <Alert severity="info" data-testid="overdraft-forecast" sx={{ mb: 2 }}>
+            Découvert prévu le {shortDay(overdraft.onDate)}
           </Alert>
         )}
         {noProjection ? (

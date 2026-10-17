@@ -156,6 +156,18 @@ class GetTreasuryOutlook
         ];
     }
 
+    /** The same day N months on, held to the last day of a shorter month (31 Jan + 1 month: 28 Feb, not 3 Mar). */
+    private static function monthsAfter(\DateTimeImmutable $day, int $months): \DateTimeImmutable
+    {
+        $target = $day->modify('first day of this month')->modify(sprintf('+%d months', $months));
+
+        return $target->setDate(
+            (int) $target->format('Y'),
+            (int) $target->format('n'),
+            min((int) $day->format('j'), (int) $target->format('t')),
+        );
+    }
+
     /**
      * One row per day from today to the horizon — the end of the next month, or
      * $arrival if later, or $months months on — at most {@see MAX_DAYS}: the
@@ -172,7 +184,7 @@ class GetTreasuryOutlook
     {
         $horizon = null === $months
             ? $today->modify('first day of this month')->modify('+2 months')
-            : $today->modify(sprintf('+%d months', $months));
+            : self::monthsAfter($today, $months);
         $end = min(max($arrival->modify('+1 day'), $horizon), $today->modify(sprintf('+%d days', self::MAX_DAYS)));
 
         $checking = [];

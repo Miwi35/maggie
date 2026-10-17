@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface TreasuryMovement {
   id: string
@@ -111,7 +111,10 @@ export function useTreasuryOutlook(months: number | null = null) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const latest = useRef(0)
+
   const refresh = useCallback(async () => {
+    const mine = ++latest.current
     setLoading(true)
     try {
       const [outlookRes, settingsRes] = await Promise.all([
@@ -121,17 +124,20 @@ export function useTreasuryOutlook(months: number | null = null) {
         fetch('/api/finance/treasury-settings', { headers: authHeaders() }),
       ])
       if (!outlookRes.ok || !settingsRes.ok) {
-        setError('La vue trésorerie est indisponible pour le moment.')
+        if (mine === latest.current) setError('La vue trésorerie est indisponible pour le moment.')
 
         return
       }
-      setOutlook((await outlookRes.json()) as TreasuryOutlook)
-      setSettings((await settingsRes.json()) as TreasurySettingsState)
+      const nextOutlook = (await outlookRes.json()) as TreasuryOutlook
+      const nextSettings = (await settingsRes.json()) as TreasurySettingsState
+      if (mine !== latest.current) return
+      setOutlook(nextOutlook)
+      setSettings(nextSettings)
       setError(null)
     } catch {
-      setError('La vue trésorerie est indisponible pour le moment.')
+      if (mine === latest.current) setError('La vue trésorerie est indisponible pour le moment.')
     } finally {
-      setLoading(false)
+      if (mine === latest.current) setLoading(false)
     }
   }, [months])
 
