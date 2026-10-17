@@ -93,9 +93,10 @@ class CalendarPeriodCacheScreenTest {
         )
     }
 
+    // A ceiling, not a wait: the screen fills in about 2 s on a cold JVM, more on a loaded CI runner.
     private suspend fun FullCalendarViewModel.eventually(check: (List<String>) -> Boolean): List<String> {
         var last = emptyList<String>()
-        withTimeoutOrNull(10_000) {
+        withTimeoutOrNull(30_000) {
             while (true) {
                 last = uiState.value.expandedEvents.map { it.summary }
                 if (check(last)) break
@@ -127,6 +128,10 @@ class CalendarPeriodCacheScreenTest {
 
         val shown = viewModel.eventually { it.size >= 37 }
 
-        assertEquals((1..37).map { "Séance $it" }.sorted(), shown.sorted())
+        assertEquals(
+            "error=${viewModel.uiState.value.error}, agendas=${viewModel.uiState.value.enabledAgendas}",
+            (1..37).map { "Séance $it" }.sorted(),
+            shown.sorted(),
+        )
     }
 }
