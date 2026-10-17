@@ -35,19 +35,25 @@ class GetFinanceDashboardTodoTest extends KernelTestCase
     /** @return array<string, mixed> */
     private function dashboard(string $userRef = 'test_user'): array
     {
-        $now = new \DateTimeImmutable();
+        $now = $this->now();
 
         return $this->useCase->execute($this->user($userRef), (int) $now->format('Y'), (int) $now->format('n'));
     }
 
+    /** The use case reads « today » in the user's timezone (Europe/Paris by default): so does the test. */
+    private function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
+    }
+
     private function today(): string
     {
-        return (new \DateTimeImmutable())->format('Y-m-d');
+        return $this->now()->format('Y-m-d');
     }
 
     private function lastMonth(): string
     {
-        return (new \DateTimeImmutable('first day of last month'))->format('Y-m-d');
+        return $this->now()->modify('first day of last month')->format('Y-m-d');
     }
 
     /** A rejected payment on an account: the debit and the credit that gives it back. */

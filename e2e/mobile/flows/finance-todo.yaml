@@ -18,8 +18,7 @@ tags:
 # leave lines in.
 #
 # What is not here: « rien à faire, aucune pastille » (`FinanceDashboardTilesScreenTest`, and the
-# admin's journey), the rejections pill opening the incidents (`FinanceHubScreenTest`,
-# `finance-overview.spec.ts`), the Budget tile's advance pill and « Revue ce soir » (their counts
+# admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
 # are the API's, `GetFinanceDashboardTodoTest`).
 
 - launchApp:
@@ -84,6 +83,24 @@ tags:
 # The old « À qualifier · n · montant » pill left the home (it stays on the budget screen).
 - assertNotVisible:
     id: "to_qualify_pill"
+
+# « 1 rejet » opens the account on its Incidents tab.
+- scrollUntilVisible:
+    element:
+      id: "finance_pill_rejections"
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "finance_pill_rejections"
+- extendedWaitUntil:
+    visible:
+      id: "incident_row"
+    timeout: 30000
+- back
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
 
 # « 3 à trier » opens the pile, on its oldest line.
 - scrollUntilVisible:

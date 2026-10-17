@@ -115,6 +115,33 @@ class TransactionTransferScreenTest {
     }
 
     @Test
+    fun `an account opened from the rejections pill lands on its incidents, once`() {
+        var opened = 0
+        compose.setContent {
+            TransactionListScreen(
+                viewModel = rejections().viewModel,
+                accountName = "Livret",
+                onBack = {},
+                openIncidents = true,
+                onIncidentsOpened = { opened++ },
+            )
+        }
+        compose.waitForIdle()
+
+        compose.onAllNodesWithTag(UiTags.INCIDENT_ROW).assertCountEquals(1)
+        compose.onNodeWithText("EDF").assertIsDisplayed()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `an account opened as usual lands on its transactions`() {
+        show(rejections())
+
+        compose.onNodeWithText("Supermarché").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.INCIDENT_ROW).assertCountEquals(0)
+    }
+
+    @Test
     fun `an account with no rejection says so on the incidents tab`() {
         show(FakeTransactionTransfers())
 
