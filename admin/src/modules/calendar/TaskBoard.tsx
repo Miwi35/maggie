@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography'
 import UpdateIcon from '@mui/icons-material/Update'
 import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { TaskBravoBanner } from './TaskBravo'
 import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { TaskEvening } from './TaskEvening'
@@ -24,6 +25,8 @@ import { UrgencyBadge } from './UrgencyBadge'
 import { claimEvening, claimMorning, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
+import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, playBravoSound } from './reward'
+import type { Reward, RewardCheer } from './reward'
 import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 
@@ -72,6 +75,8 @@ export const TaskBoard = () => {
   const [preparing, setPreparing] = useState(false)
   const [reviewing, setReviewing] = useState<DayPlan | null>(null)
   const [opening, setOpening] = useState(true)
+  const [cheer, setCheer] = useState<RewardCheer>(DEFAULT_CHEER)
+  const [banner, setBanner] = useState<{ title: string; reward: Reward | null }>({ title: '', reward: null })
 
   const today = localDay(new Date())
 
@@ -195,6 +200,11 @@ export const TaskBoard = () => {
 
   useMercure(TASK_TOPICS, reload)
 
+  // How a task done is cheered (MAG-508), as Réglages › Tâches says when the page opens.
+  useEffect(() => {
+    fetchRewardCheer().then(setCheer)
+  }, [])
+
   const selectView = (_: unknown, next: TaskView) => {
     if (next === view) return
     setLoading(true)
@@ -208,8 +218,16 @@ export const TaskBoard = () => {
     const done = task.completedAt == null
     setTaskDone(task['@id'] ?? task.id, done)
       .then(() => {
-        notify(done ? 'Tâche terminée' : 'Tâche rouverte', { type: 'success' })
         reload()
+        if (!done) return notify('Tâche rouverte', { type: 'success' })
+        // Away from the day, the bravo is a short banner (MAG-508).
+        return fetchReward(task['@id'] ?? task.id)
+          .then((reward) => {
+            if (!reward) throw new Error('no reward')
+            if (cheer.sound) playBravoSound()
+            setBanner({ title: task.title, reward })
+          })
+          .catch(() => notify('Tâche terminée', { type: 'success' }))
       })
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
@@ -289,6 +307,7 @@ export const TaskBoard = () => {
             onEdit={edit}
             onChange={() => setPreparing(true)}
             onEvening={() => setReviewing(day)}
+            cheer={cheer}
           />
         )
       ) : failed ? (
@@ -368,6 +387,8 @@ export const TaskBoard = () => {
           sx={{ mt: 2 }}
         />
       )}
+
+      <TaskBravoBanner title={banner.title} reward={banner.reward} onClose={() => setBanner((b) => ({ ...b, reward: null }))} />
 
       <TaskEditDialog
         open={editing !== null}

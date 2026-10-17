@@ -31,7 +31,7 @@ interface TaskFocusProps {
   task: DayTask
   /** Back to the day, nothing changed. */
   onBack: () => void
-  /** The task has been ticked: the day reads again and shows. */
+  /** The task has been ticked: the day shows its bravo (MAG-508) and reads again. */
   onDone: () => void
   /** Puts the task after the other slots not done; rejects when the API refuses. */
   onLater: () => Promise<void>
@@ -181,10 +181,7 @@ export const TaskFocus = ({ task, onBack, onDone, onLater, clock = Date.now }: T
     if (busy) return
     setBusy(true)
     setTaskDone(task.id, true)
-      .then(() => {
-        notify('Tâche terminée', { type: 'success' })
-        onDone()
-      })
+      .then(onDone)
       .catch((error: Error) => {
         fail(error)
         setBusy(false)
