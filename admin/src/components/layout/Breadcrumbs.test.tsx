@@ -46,8 +46,9 @@ describe('Breadcrumbs', () => {
   test('a list shows its module and its part, the part being the current page', () => {
     renderAt('/categories')
 
-    expect(labels()).toEqual(['Finance', 'Catégories'])
+    expect(labels()).toEqual(['Finance', 'Configuration', 'Catégories'])
     expect(screen.getByRole('link', { name: 'Finance' })).toHaveAttribute('href', '/finance/dashboard')
+    expect(screen.getByRole('link', { name: 'Configuration' })).toHaveAttribute('href', '/finance/summary/settings')
     expect(screen.queryByRole('link', { name: 'Catégories' })).toBeNull()
     expect(screen.getByText('Catégories')).toHaveAttribute('aria-current', 'page')
   })
@@ -152,8 +153,28 @@ describe('Breadcrumbs', () => {
   test('the recurring operations page sits under Finance', () => {
     renderAt('/finance/recurring-operations')
 
-    expect(labels()).toEqual(['Finance', 'Opérations récurrentes'])
+    expect(labels()).toEqual(['Finance', 'Revue', 'Opérations récurrentes'])
     expect(screen.getByText('Opérations récurrentes')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('a menu page sits under Finance', () => {
+    renderAt('/finance/summary/treasury')
+
+    expect(labels()).toEqual(['Finance', 'Trésorerie'])
+    expect(screen.getByText('Trésorerie')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('an aspect sits under its menu: Finance › Trésorerie › Matelas', () => {
+    renderAt('/finance/cushion')
+
+    expect(labels()).toEqual(['Finance', 'Trésorerie', 'Matelas'])
+    expect(screen.getByRole('link', { name: 'Trésorerie' })).toHaveAttribute('href', '/finance/summary/treasury')
+  })
+
+  test('the Dashboard is the module itself', () => {
+    renderAt('/finance/dashboard')
+
+    expect(labels()).toEqual(['Finance'])
   })
 
   test('a page the table does not know has no breadcrumb', () => {
@@ -166,7 +187,7 @@ describe('Breadcrumbs', () => {
     renderAt('/accounts/01ABC/transactions', testDataProvider({ getOne: getOne({ name: 'Compte joint' }) }))
 
     expect(await screen.findByText('Compte joint')).toBeInTheDocument()
-    expect(labels()).toEqual(['Finance', 'Comptes', 'Compte joint'])
+    expect(labels()).toEqual(['Finance', 'Comptes', 'Comptes et transactions', 'Compte joint'])
   })
 
   test('clicking a level goes there: the part, then the module dashboard', async () => {
@@ -233,6 +254,7 @@ describe('the menu and the breadcrumb agree', () => {
   test('every route the menu offers has a trail', async () => {
     const hrefs = await openWholeMenu()
     expect(hrefs.length).toBeGreaterThan(15)
+    expect(hrefs).toContain('/finance/summary/treasury')
 
     for (const href of hrefs) {
       expect(resolveTrail(href), `${href} has no breadcrumb`).not.toHaveLength(0)
@@ -248,11 +270,13 @@ describe('the menu and the breadcrumb agree', () => {
     expect(NAVIGATION.flatMap((module) => module.parts).some((part) => part.resource === 'recurring_grocery_items')).toBe(false)
   })
 
-  test('every part of the table resolves to its own two-level trail', () => {
+  test('every part of the table resolves to its own trail, through its menu when it has one', () => {
     for (const module of NAVIGATION) {
       for (const part of module.parts) {
         const trail = resolveTrail(part.path)
-        expect(trail.map((crumb) => crumb.label)).toEqual([module.label, part.label])
+        expect(trail.map((crumb) => crumb.label)).toEqual(
+          part.menu ? [module.label, part.menu.label, part.label] : [module.label, part.label],
+        )
       }
     }
   })

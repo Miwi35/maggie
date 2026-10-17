@@ -1,5 +1,6 @@
 import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { euros } from '../helpers/money.js'
+import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 
 /**
@@ -247,4 +248,27 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(rent).toHaveCount(1)
   await expect(rent).toHaveAttribute('data-date', `${year}-${monthNumber}-05`)
   await expect(overview.rhythmCurve.getByTestId('spent-line')).toBeVisible()
+})
+
+/**
+ * The seven Finance menus (MAG-427, extends MAG-102).
+ *
+ * Finance › Configuration opens a summary page — a block for the banks, one for
+ * the categories — and the banks block opens the banks page. The menu is never
+ * a list of links to screens.
+ */
+test('Finance › Configuration › Banques: the menu opens a summary, its block opens the banks page', async ({
+  page,
+}) => {
+  const overview = new FinanceOverviewPage(page)
+  await overview.open()
+
+  await overview.navigateTo('Configuration', 'Finance')
+
+  await expect(overview.content.getByTestId('summary-block')).toHaveCount(2)
+  await expect(overview.content.getByRole('link', { name: 'Catégories' })).toBeVisible()
+
+  await overview.content.getByRole('link', { name: 'Banques' }).click()
+
+  await expect(new FinanceBanksPage(page).connectionsCard).toBeVisible()
 })
