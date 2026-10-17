@@ -1,0 +1,10 @@
+# The night looks for regularities (MAG-159). Two conversations about two cities prove none: the answer is
+# empty, and nothing is written without proof.
+name: memory-night-regularities
+description: The night finds no regularity in the conversations of the day.
+
+match:
+  system_contains: "régularités"
+
+turns:
+  - text: '{"regularites": []}'

@@ -20,7 +20,8 @@ MAX_PEOPLE = 4
 PROFILE_HEAD = (
     "Ton profil : ce que tu sais d'essentiel, toujours là (une fiche par ligne). Ouvre la fiche qui concerne "
     "la question avec memory_open avant d'affirmer quoi que ce soit, et cherche avec memory_search — en "
-    "choisissant des termes associés — ce qui n'est pas dans cette liste :"
+    "choisissant des termes associés — ce qui n'est pas dans cette liste. Une fiche marquée ❓ porte un doute "
+    "que tu poses au propriétaire quand le sujet s'y prête, puis tu la réécris avec sa réponse :"
 )
 RECALLED_HEAD = (
     "Souvenirs revenus à propos de ce que dit le propriétaire (la carte seule : ouvre la fiche avec "
@@ -75,13 +76,17 @@ def render_profile(cards: list[CardView], usage: dict[str, int], limit: int) -> 
     Chosen by use (what Maggie opened most), listed by path: the text only changes when the set of fiches
     kept or one of them changes, so the cached block stays cached from one turn to the next.
     """
-    fiches = [c for c in cards if c.kind == "fiche"]
+    fiches = [c for c in cards if c.kind == "fiche" and not c.archived]
     if not fiches:
         return ""
     kept = sorted(fiches, key=lambda c: (-usage.get(c.card_id, 0), c.path))[:limit]
     lines = [PROFILE_HEAD]
     for card in sorted(kept, key=lambda c: c.path):
-        lines.append(f"- {card.path}" + (f" — {_short(card.resume, MAX_RESUME)}" if card.resume else ""))
+        line = f"- {card.path}" + (f" — {_short(card.resume, MAX_RESUME)}" if card.resume else "")
+        if card.question:
+            ask = _short(card.question, MAX_RESUME)
+            line += f" ❓ À demander au propriétaire, à la prochaine occasion naturelle : {ask}"
+        lines.append(line)
     if len(fiches) > len(kept):
         lines.append(f"- … et {len(fiches) - len(kept)} autres : memory_search.")
     return "\n".join(lines)

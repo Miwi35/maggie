@@ -1,0 +1,21 @@
+# Encoding along the way (MAG-15) of the first conversation of the night's journey (MAG-159): the owner says
+# where he lives, and the obvious fiche is written at once.
+name: memory-night-encoding-rennes
+description: The carte and the obvious fiche of a passage where the owner says he moved to Rennes.
+
+match:
+  system_contains: "tu écris la mémoire de maggie"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+J.ai emménagé à Rennes'
+
+turns:
+  - text: |
+      {"carte": {"resume": "Le propriétaire dit qu'il a emménagé à Rennes.",
+        "moments": [{"heure": "\1", "texte": "Le propriétaire dit qu'il a emménagé à Rennes"}],
+        "personnes": [],
+        "evoque": ["déménagement", "lieu de vie"]},
+       "fiches": [{"chemin": null, "titre": "Le propriétaire habite à Rennes",
+         "dossiers": ["Lieu de vie"], "resume": "Où habite le propriétaire", "personnes": [],
+         "evoque": ["adresse", "ville"], "alias": [],
+         "ajouts": [{"texte": "Le propriétaire habite à Rennes", "heure": "\1"}],
+         "doute": null}],
+       "doute": null}

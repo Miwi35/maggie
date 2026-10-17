@@ -18,6 +18,7 @@ from app.llm.fake import images_received, reset_images_received
 from app.llm.transcription import cleanup_requests, reset_cleanup_requests
 from app.memory import paths as memory_paths
 from app.memory.bucket import BucketError, FakeBucket
+from app.memory.night import memory_night
 from app.memory.service import memory_service
 from app.queue import scheduler
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
@@ -161,6 +162,24 @@ async def memory_encode(user_id: MemoryUser) -> dict[str, int]:
     """
     later = datetime.now(UTC) + timedelta(seconds=settings.memory_encode_after_seconds + 5)
     return {"encoded": await scheduler.run_memory_encoding(later, user_id)}
+
+
+@router.post("/memory/{user_id}/night")
+async def memory_night_run(user_id: MemoryUser) -> dict[str, object]:
+    """Run the night's upkeep of one user now, at an instant past the encoding delay (MAG-159).
+
+    The pass starts whatever the hour and carries on until it ends or spends its calls; the answer is
+    its account, as `memory_night_run.report` keeps it.
+    """
+    later = datetime.now(UTC) + timedelta(seconds=settings.memory_encode_after_seconds + 5)
+    run = await memory_night.run(user_id, later, force=True)
+    for _ in range(20):
+        if run is None or run.status == "done":
+            break
+        run = await memory_night.run(user_id, later) or run
+    if run is None:
+        return {"status": "none"}
+    return {"status": run.status, "night": run.night, "calls": run.calls, "report": run.report}
 
 
 @router.post("/memory/{user_id}/write")

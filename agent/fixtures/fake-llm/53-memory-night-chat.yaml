@@ -1,0 +1,11 @@
+# The two exchanges of MAG-159's journey: Maggie answers without any tool, the memory is written afterwards by
+# the encoding pass (13-memory-night-encoding-*.yaml) and the night (14-memory-night-*.yaml). No « je retiens »:
+# the claim guard would send an unbacked storage claim back for one more round.
+name: memory-night-chat-rennes
+description: Answer a move to Rennes in passing, with no tool call.
+
+match:
+  user_contains: "J'ai emménagé à Rennes"
+
+turns:
+  - text: "D'accord, tu habites donc à Rennes."
