@@ -39,6 +39,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -88,6 +89,7 @@ class TransactionViewModelTest {
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
         coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(sampleTransactions)
         coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(emptyList())
+        coEvery { transactionRepository.getSettledIncidents(accountId) } returns Result.success(emptyList())
     }
 
     private fun newViewModel() =
@@ -469,6 +471,150 @@ class TransactionViewModelTest {
         counterpartyName = "EDF",
         amountCents = 6240,
     )
+
+    private val gymIncident = AccountIncident(
+        debitId = "tx-gym",
+        creditId = null,
+        bookedAt = "2026-09-10",
+        counterpartyName = "Salle de sport",
+        amountCents = 3500,
+    )
+
+    /** An API that keeps the settled rejections apart, as the real one does (MAG-424). */
+    private fun serveSettlements(vararg all: AccountIncident): MutableSet<String> {
+        val settled = mutableSetOf<String>()
+        coEvery { transactionRepository.getIncidents(accountId) } answers {
+            Result.success(all.filterNot { it.openId in settled })
+        }
+        coEvery { transactionRepository.getSettledIncidents(accountId) } answers {
+            Result.success(all.filter { it.openId in settled }.map { it.copy(settledAt = "2026-10-16T10:00:00+00:00") })
+        }
+        coEvery { transactionRepository.settleRejection(any()) } answers {
+            settled += firstArg<String>()
+            Result.success(Unit)
+        }
+        coEvery { transactionRepository.unsettleRejection(any()) } answers {
+            settled -= firstArg<String>()
+            Result.success(Unit)
+        }
+        return settled
+    }
+
+    @Test
+    fun `settling a rejection takes it out of the pile into the settled ones and offers undo`() = runTest {
+        serveSettlements(edfIncident, gymIncident)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        assertEquals(listOf("tx-edf", "tx-gym"), viewModel.uiState.value.incidents.map { it.openId })
+
+        viewModel.settleIncident(edfIncident)
+
+        // At once, before the API answers: the pile shrinks and the buttons wait.
+        val pending = viewModel.uiState.value
+        assertEquals(listOf("tx-gym"), pending.incidents.map { it.openId })
+        assertEquals(listOf("tx-edf"), pending.settledIncidents.map { it.openId })
+        assertEquals(edfIncident.key, pending.settlingIncident)
+        assertNull(pending.undoableSettlement)
+
+        runCurrent()
+
+        val done = viewModel.uiState.value
+        assertNull(done.settlingIncident)
+        assertEquals(edfIncident, done.undoableSettlement)
+        assertEquals(listOf("tx-gym"), done.incidents.map { it.openId })
+        assertEquals(listOf("tx-edf"), done.settledIncidents.map { it.openId })
+        assertNotNull(done.settledIncidents.single().settledAt)
+        coVerify(exactly = 1) { transactionRepository.settleRejection("tx-edf") }
+    }
+
+    @Test
+    fun `undo puts the rejection back in the pile`() = runTest {
+        serveSettlements(edfIncident, gymIncident)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.settleIncident(edfIncident)
+        runCurrent()
+
+        viewModel.undoSettlement()
+
+        assertNull(viewModel.uiState.value.undoableSettlement)
+        assertEquals(listOf("tx-edf", "tx-gym"), viewModel.uiState.value.incidents.map { it.openId })
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("tx-edf", "tx-gym"), state.incidents.map { it.openId })
+        assertTrue(state.settledIncidents.isEmpty())
+        assertNull(state.settlingIncident)
+        coVerify(exactly = 1) { transactionRepository.unsettleRejection("tx-edf") }
+    }
+
+    @Test
+    fun `the undo offer closes after a few seconds and the rejection stays settled`() = runTest {
+        serveSettlements(edfIncident)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.settleIncident(edfIncident)
+        runCurrent()
+        assertNotNull(viewModel.uiState.value.undoableSettlement)
+
+        advanceTimeBy(UNDO_SETTLEMENT_MS + 1)
+
+        assertNull(viewModel.uiState.value.undoableSettlement)
+        viewModel.undoSettlement()
+        advanceUntilIdle()
+        assertEquals(listOf("tx-edf"), viewModel.uiState.value.settledIncidents.map { it.openId })
+        coVerify(exactly = 0) { transactionRepository.unsettleRejection(any()) }
+    }
+
+    @Test
+    fun `a settled rejection is put back from the settled section`() = runTest {
+        val settled = serveSettlements(edfIncident, gymIncident)
+        settled += "tx-gym"
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        assertEquals(listOf("tx-gym"), viewModel.uiState.value.settledIncidents.map { it.openId })
+
+        viewModel.unsettleIncident(viewModel.uiState.value.settledIncidents.single())
+        advanceUntilIdle()
+
+        assertEquals(listOf("tx-edf", "tx-gym"), viewModel.uiState.value.incidents.map { it.openId })
+        assertTrue(viewModel.uiState.value.settledIncidents.isEmpty())
+    }
+
+    @Test
+    fun `a refused settlement puts the rejection back where it was, with the reason`() = runTest {
+        serveSettlements(edfIncident, gymIncident)
+        coEvery { transactionRepository.settleRejection(any()) } returns Result.failure(RuntimeException("Not a rejected payment"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.settleIncident(edfIncident)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("tx-edf", "tx-gym"), state.incidents.map { it.openId })
+        assertTrue(state.settledIncidents.isEmpty())
+        assertNull(state.undoableSettlement)
+        assertNull(state.settlingIncident)
+        assertEquals("Not a rejected payment", state.settlementError)
+
+        viewModel.clearSettlementError()
+        assertNull(viewModel.uiState.value.settlementError)
+    }
+
+    @Test
+    fun `a second tap while a settlement is on its way is ignored`() = runTest {
+        serveSettlements(edfIncident, gymIncident)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.settleIncident(edfIncident)
+        viewModel.settleIncident(gymIncident)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { transactionRepository.settleRejection(any()) }
+        assertEquals(listOf("tx-gym"), viewModel.uiState.value.incidents.map { it.openId })
+    }
 
     @Test
     fun `incidents are loading until the API answers`() = runTest {

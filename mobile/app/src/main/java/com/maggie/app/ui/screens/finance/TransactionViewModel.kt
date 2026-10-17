@@ -20,6 +20,8 @@ import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.TransactionRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -34,6 +36,14 @@ data class TransactionUiState(
     val incidents: List<AccountIncident> = emptyList(),
     val isLoadingIncidents: Boolean = false,
     val incidentsError: String? = null,
+    // The rejections the owner settled (« Régularisé », MAG-424), out of the pile and listed apart.
+    val settledIncidents: List<AccountIncident> = emptyList(),
+    // The rejection « Annuler » would put back, while the offer lasts.
+    val undoableSettlement: AccountIncident? = null,
+    // The key of the rejection being settled or put back; its buttons wait meanwhile.
+    val settlingIncident: String? = null,
+    // A settlement the API refused; the rejection stays where it was.
+    val settlementError: String? = null,
     // The line whose detail screen is open; null while the list is showing.
     val detail: TransferDetailState? = null,
     // Names of the series the lines are attached to, by series id; empty while unread.
@@ -82,6 +92,11 @@ data class RuleDraftState(
 }
 
 const val DEFAULT_RULE_TOLERANCE = "10"
+
+/** How long « Annuler » stays on offer after « Régularisé » (MAG-424). */
+const val UNDO_SETTLEMENT_MS = 5_000L
+private const val SETTLE_ERROR = "Impossible de régulariser ce rejet"
+private const val UNSETTLE_ERROR = "Impossible de remettre ce rejet dans la pile"
 
 /** The detail screen of one line: its transfer state, and the candidates once the search opens. */
 data class TransferDetailState(
@@ -168,20 +183,119 @@ class TransactionViewModel(
         }
     }
 
+    // Only the latest read may land: one sent before a settlement must not put the line back.
+    private var incidentsRead = 0
+
     fun refreshIncidents() {
+        val read = ++incidentsRead
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingIncidents = true, incidentsError = null)
             transactionRepository.getIncidents(accountId)
                 .onSuccess { incidents ->
+                    if (read != incidentsRead) return@onSuccess
                     _uiState.value = _uiState.value.copy(incidents = incidents, isLoadingIncidents = false)
                 }
                 .onFailure { e ->
+                    if (read != incidentsRead) return@onFailure
                     _uiState.value = _uiState.value.copy(
                         isLoadingIncidents = false,
                         incidentsError = e.message ?: "Impossible de lire les incidents",
                     )
                 }
         }
+        // The settled ones only fill the folded section: a failure leaves it as it was.
+        viewModelScope.launch {
+            transactionRepository.getSettledIncidents(accountId).onSuccess { settled ->
+                if (read == incidentsRead) _uiState.value = _uiState.value.copy(settledIncidents = settled)
+            }
+        }
+    }
+
+    private var undoJob: Job? = null
+
+    /**
+     * « Régularisé »: the rejection leaves the pile at once for « Régularisés », and « Annuler »
+     * is on offer for [UNDO_SETTLEMENT_MS]. A refusal puts it back where it was.
+     */
+    fun settleIncident(incident: AccountIncident) {
+        val id = incident.openId ?: return
+        if (_uiState.value.settlingIncident != null) return
+        val before = _uiState.value
+        undoJob?.cancel()
+        incidentsRead++
+        _uiState.value = before.copy(
+            isLoadingIncidents = false,
+            incidents = before.incidents.filterNot { it.key == incident.key },
+            settledIncidents = listOf(incident) + before.settledIncidents.filterNot { it.key == incident.key },
+            settlingIncident = incident.key,
+            undoableSettlement = null,
+            settlementError = null,
+        )
+        viewModelScope.launch {
+            transactionRepository.settleRejection(id)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(settlingIncident = null, undoableSettlement = incident)
+                    undoJob = viewModelScope.launch {
+                        delay(UNDO_SETTLEMENT_MS)
+                        _uiState.value = _uiState.value.copy(undoableSettlement = null)
+                    }
+                    refreshIncidents()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        incidents = before.incidents,
+                        settledIncidents = before.settledIncidents,
+                        settlingIncident = null,
+                        settlementError = e.message ?: SETTLE_ERROR,
+                    )
+                    // The read this gesture cancelled is owed.
+                    refreshIncidents()
+                }
+        }
+    }
+
+    /** « Annuler » on the bar: the rejection just settled goes back to the pile. */
+    fun undoSettlement() {
+        val incident = _uiState.value.undoableSettlement ?: return
+        undoJob?.cancel()
+        _uiState.value = _uiState.value.copy(undoableSettlement = null)
+        unsettleIncident(incident)
+    }
+
+    /** Puts a settled rejection back in the pile, from the bar or from « Régularisés ». */
+    fun unsettleIncident(incident: AccountIncident) {
+        val id = incident.openId ?: return
+        if (_uiState.value.settlingIncident != null) return
+        val before = _uiState.value
+        incidentsRead++
+        _uiState.value = before.copy(
+            isLoadingIncidents = false,
+            incidents = (before.incidents + incident.copy(settledAt = null)).sortedByDescending { it.bookedAt },
+            settledIncidents = before.settledIncidents.filterNot { it.key == incident.key },
+            settlingIncident = incident.key,
+            settlementError = null,
+        )
+        viewModelScope.launch {
+            transactionRepository.unsettleRejection(id)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(settlingIncident = null)
+                    refreshIncidents()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        incidents = before.incidents,
+                        settledIncidents = before.settledIncidents,
+                        settlingIncident = null,
+                        settlementError = e.message ?: UNSETTLE_ERROR,
+                    )
+                    // The read this gesture cancelled is owed.
+                    refreshIncidents()
+                }
+        }
+    }
+
+    fun clearSettlementError() {
+        _uiState.value = _uiState.value.copy(settlementError = null)
     }
 
     /**

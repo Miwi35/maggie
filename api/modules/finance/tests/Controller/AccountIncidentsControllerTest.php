@@ -79,6 +79,7 @@ final class AccountIncidentsControllerTest extends WebTestCase
                 'counterpartyName' => 'EDF',
                 'amountCents' => 20600,
                 'kind' => 'direct_debit',
+                'settledAt' => null,
             ],
             [
                 'debitId' => (string) $laureDebit->getId(),
@@ -88,6 +89,7 @@ final class AccountIncidentsControllerTest extends WebTestCase
                 'counterpartyName' => 'Laure',
                 'amountCents' => 20000,
                 'kind' => 'transfer',
+                'settledAt' => null,
             ],
         ], $this->incidents('checking'));
     }
@@ -128,6 +130,7 @@ final class AccountIncidentsControllerTest extends WebTestCase
                 'counterpartyName' => 'EURO-ASSURANCE',
                 'amountCents' => 9988,
                 'kind' => 'direct_debit',
+                'settledAt' => null,
             ],
             [
                 'debitId' => (string) $lonelyDebit->getId(),
@@ -137,6 +140,7 @@ final class AccountIncidentsControllerTest extends WebTestCase
                 'counterpartyName' => 'Asso',
                 'amountCents' => 5000,
                 'kind' => 'direct_debit',
+                'settledAt' => null,
             ],
         ], $this->incidents('checking'));
     }

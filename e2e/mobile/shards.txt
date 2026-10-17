@@ -28,10 +28,10 @@
 # Greedy balance, every lot holding at least one flow outside quarantine (a lot of
 # quarantined flows alone would be folded into the last one, see impacted.sh):
 # 02 + 12-recipe = 162 s, 08 + 11 = 162 s, 01 + 05 + 12-rente = 140 s,
-# 09 + 12-event = 113 s, 04 + 13 = 109 s, plus 10-meal-ingredient-choice, 13-meals-planning, 13-finance-category-edit, 12-thread-deletion, 14-interruption, 15-task-subtasks, 15-stop-and-correct, 15-recurring-grocery, 15-mind-tab, 13-finance-budget-nesting, 16-finance-budget-split, 16-finance-budget-adjust, 17-task-settings, 17-tasks-views, 17b-tasks-day, 18-grocery-aisles, 17c-task-focus, 17c-tasks-evening, finance-scores, finance-overview and 19-finance-contacts (new, not measured yet). When a flow is added, re-read the
+# 09 + 12-event = 113 s, 04 + 13 = 109 s, plus 10-meal-ingredient-choice, 13-meals-planning, 13-finance-category-edit, 12-thread-deletion, 14-interruption, 15-task-subtasks, 15-stop-and-correct, 15-recurring-grocery, 15-mind-tab, 13-finance-budget-nesting, 16-finance-budget-split, 16-finance-budget-adjust, 17-task-settings, 17-tasks-views, 17b-tasks-day, 18-grocery-aisles, 17c-task-focus, 17c-tasks-evening, finance-scores, finance-overview, 13-finance-rejections and 19-finance-contacts (new, not measured yet). When a flow is added, re-read the
 # figures from the latest run and move it where the sum is lowest.
 1: 02-voice-overlay 12-recipe-realtime 14-interruption 17-task-settings 17b-tasks-day 17c-tasks-evening
 2: 08-grocery-realtime 11-calendar-all-day-series 15-calendar-more-than-a-page 15-stop-and-correct 17c-task-focus 19-finance-contacts
 3: 09-finance-banks 10-finance-recurring 12-event-date-picker 12-thread-deletion 13-finance-category-edit 13-finance-to-sort 14-rotation finance-treasury
 4: 04-calendar-import 10-meal-ingredient-choice 13-chat-opens-on-latest 13-meals-planning 13-finance-budget-nesting 16-finance-budget-split 16-finance-budget-adjust 15-mind-tab 17-tasks-views finance-scores
-5: 01-login-chat 05-deep-links 12-recipe-steps 12-finance-rente 15-task-subtasks 15-recurring-grocery 16-proaction-agenda 18-grocery-aisles finance-overview
+5: 01-login-chat 05-deep-links 12-recipe-steps 12-finance-rente 13-finance-rejections 15-task-subtasks 15-recurring-grocery 16-proaction-agenda 18-grocery-aisles finance-overview

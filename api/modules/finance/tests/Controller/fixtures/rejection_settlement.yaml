@@ -1,0 +1,80 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: rejection-settlement@example.com
+    googleId: google-rejection-settlement
+    name: Rejection Settlement User
+  other_user:
+    email: rejection-settlement-other@example.com
+    googleId: google-rejection-settlement-other
+    name: Rejection Settlement Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  edf_debit:
+    account: '@checking'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Rejected)>'
+    counterpart: '@edf_credit'
+    amountCents: -20600
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: PRELEVEMENT EDF
+    counterpartyName: EDF
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  edf_credit:
+    account: '@checking'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Rejected)>'
+    counterpart: '@edf_debit'
+    amountCents: 20600
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: REJET PRLV EDF
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  gym_debit:
+    account: '@checking'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Rejected)>'
+    amountCents: -3500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: PRELEVEMENT SALLE DE SPORT
+    counterpartyName: Salle de sport
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  groceries:
+    account: '@checking'
+    amountCents: -4200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: CARREFOUR
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  stranger_rejection:
+    account: '@stranger_account'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Rejected)>'
+    amountCents: -100
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-04"))>'
+    label: PRELEVEMENT D UN AUTRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

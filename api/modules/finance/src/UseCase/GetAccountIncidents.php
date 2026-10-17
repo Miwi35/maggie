@@ -16,6 +16,9 @@ use Maggie\Finance\Repository\TransactionRepository;
  * gives it back, paired by `counterpart`. The owner reads it as one incident.
  * A rejected line with no other leg still shows, with the missing side null,
  * rather than vanish from both lists.
+ *
+ * A rejection the owner settled (« Régularisé », MAG-424) leaves the pile:
+ * it is listed apart, on demand.
  */
 class GetAccountIncidents
 {
@@ -24,11 +27,12 @@ class GetAccountIncidents
     }
 
     /**
-     * Newest first, by the day the debit was booked.
+     * Newest first, by the day the debit was booked: the pile, or with
+     * `$settled` the rejections already settled.
      *
-     * @return list<array{debitId: ?string, creditId: ?string, bookedAt: string, rejectedAt: ?string, counterpartyName: string, amountCents: int, kind: string}>
+     * @return list<array{debitId: ?string, creditId: ?string, bookedAt: string, rejectedAt: ?string, counterpartyName: string, amountCents: int, kind: string, settledAt: ?string}>
      */
-    public function execute(Account $account): array
+    public function execute(Account $account, bool $settled = false): array
     {
         /** @var array<string, array{debit: ?Transaction, credit: ?Transaction}> $pairs */
         $pairs = [];
@@ -53,6 +57,11 @@ class GetAccountIncidents
             $first = $debit ?? $credit;
             \assert(null !== $first);
 
+            $settledAt = $debit?->getRejectionSettledAt() ?? $credit?->getRejectionSettledAt();
+            if ($settled !== (null !== $settledAt)) {
+                continue;
+            }
+
             $incidents[] = [
                 'debitId' => null === $debit ? null : (string) $debit->getId(),
                 'creditId' => null === $credit ? null : (string) $credit->getId(),
@@ -61,6 +70,7 @@ class GetAccountIncidents
                 'counterpartyName' => self::payee($debit, $credit),
                 'amountCents' => abs($first->getAmountCents()),
                 'kind' => DetectRejections::paymentKind($debit, $credit)->value,
+                'settledAt' => $settledAt?->format(\DateTimeInterface::ATOM),
             ];
         }
 

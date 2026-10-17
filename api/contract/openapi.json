@@ -21456,6 +21456,15 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "rejectionSettledAt": {
+                        "readOnly": true,
+                        "description": "When the owner said this rejected payment was dealt with (paid again,\nby another means), so it leaves the account's incidents. Carried by\nboth legs, like the marking; it goes with the marking.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "repays": {
                         "readOnly": true,
                         "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
@@ -21712,6 +21721,15 @@
                         ],
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "rejectionSettledAt": {
+                        "readOnly": true,
+                        "description": "When the owner said this rejected payment was dealt with (paid again,\nby another means), so it leaves the account's incidents. Carried by\nboth legs, like the marking; it goes with the marking.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "repays": {
                         "readOnly": true,
@@ -21970,6 +21988,15 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "rejectionSettledAt": {
+                        "readOnly": true,
+                        "description": "When the owner said this rejected payment was dealt with (paid again,\nby another means), so it leaves the account's incidents. Carried by\nboth legs, like the marking; it goes with the marking.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "repays": {
                         "readOnly": true,
                         "description": "The advance this line gives back: the debit leg of a repayment points at\nthe debit leg of the advance. What is left to give back is never stored —\nit is the advance minus the lines pointing at it.",
@@ -22219,6 +22246,15 @@
                                 ],
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "rejectionSettledAt": {
+                                "readOnly": true,
+                                "description": "When the owner said this rejected payment was dealt with (paid again,\nby another means), so it leaves the account's incidents. Carried by\nboth legs, like the marking; it goes with the marking.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "repays": {
                                 "readOnly": true,

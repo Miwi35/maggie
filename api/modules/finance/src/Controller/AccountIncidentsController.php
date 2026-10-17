@@ -9,11 +9,15 @@ use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\UseCase\GetAccountIncidents;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Ulid;
 
-/** The rejected payments of an account, one line per rejection (MAG-375). */
+/**
+ * The rejected payments of an account, one line per rejection (MAG-375):
+ * the pile, or with `?settled=true` those the owner settled (MAG-424).
+ */
 final class AccountIncidentsController
 {
     public function __construct(
@@ -24,7 +28,7 @@ final class AccountIncidentsController
     }
 
     #[Route('/api/accounts/{id}/incidents', name: 'api_account_incidents', methods: ['GET'])]
-    public function __invoke(string $id): JsonResponse
+    public function __invoke(string $id, Request $request): JsonResponse
     {
         $user = $this->security->getUser();
         if (!$user instanceof User) {
@@ -36,6 +40,11 @@ final class AccountIncidentsController
             return new JsonResponse(['error' => 'Account not found'], Response::HTTP_NOT_FOUND);
         }
 
-        return new JsonResponse(['incidents' => $this->getAccountIncidents->execute($account)]);
+        $settled = $request->query->get('settled', 'false');
+        if (!\in_array($settled, ['true', 'false'], true)) {
+            return new JsonResponse(['error' => 'settled must be true or false'], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse(['incidents' => $this->getAccountIncidents->execute($account, 'true' === $settled)]);
     }
 }

@@ -273,6 +273,35 @@ final class MergeDuplicateAccountsCommandTest extends KernelTestCase
         }
     }
 
+    public function testASettledRejectionStaysSettledOnTheAccountKept(): void
+    {
+        $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');
+
+        $connection = $this->connection();
+        $original = $this->account($connection, 'uid-expired-session-1');
+        $copy = $this->account($connection, 'uid-expired-session-2');
+
+        $this->movement($original, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        $this->movement($original, 'REJET PRLV ELECTRICITE DE FRANCE', 20600, '2026-10-06');
+        $debit = $this->movement($copy, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        $credit = $this->movement($copy, 'REJET PRLV ELECTRICITE DE FRANCE', 20600, '2026-10-06');
+        $debit->markAsRejection($credit, TransferSource::Auto);
+        // The owner said « Régularisé » on the copy (MAG-424).
+        $debit->settleRejection(new \DateTimeImmutable('2026-10-10 09:00:00'));
+        $this->em()->flush();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        $transactions = $this->transactions();
+        self::assertCount(2, $transactions);
+        foreach ($transactions as $transaction) {
+            self::assertSame(TransferKind::Rejected, $transaction->getTransferKind(), $transaction->getLabel());
+            self::assertSame('2026-10-10 09:00:00', $transaction->getRejectionSettledAt()?->format('Y-m-d H:i:s'), $transaction->getLabel());
+        }
+    }
+
     public function testRunningItAgainMergesNothingMore(): void
     {
         $this->duplicatedHistory();

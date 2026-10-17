@@ -547,6 +547,9 @@ mobile:
   e2e/mobile/flows/19-finance-contacts.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/contacts-api.js]
+  e2e/mobile/flows/13-finance-rejections.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/rejections-api.js]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-budget-api.js]

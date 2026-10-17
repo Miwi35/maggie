@@ -29,8 +29,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -182,6 +184,25 @@ fun TransactionListScreen(
         onRetry = viewModel::refresh,
     )
 
+    // The ViewModel owns the undo window and clears `undoableSettlement` when it closes, which
+    // ends this effect and takes the bar away with it (MAG-424).
+    LaunchedEffect(uiState.undoableSettlement?.key) {
+        val settled = uiState.undoableSettlement ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = "Rejet ${settled.counterpartyName} régularisé",
+            actionLabel = "Annuler",
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoSettlement()
+    }
+
+    ErrorSnackbar(
+        error = uiState.settlementError,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearSettlementError,
+        message = uiState.settlementError.orEmpty(),
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -309,6 +330,10 @@ fun TransactionListScreen(
                     error = uiState.incidentsError,
                     onOpen = viewModel::openIncident,
                     onRetry = viewModel::refreshIncidents,
+                    settled = uiState.settledIncidents,
+                    settling = uiState.settlingIncident,
+                    onSettle = viewModel::settleIncident,
+                    onUnsettle = viewModel::unsettleIncident,
                 )
             }
         }
