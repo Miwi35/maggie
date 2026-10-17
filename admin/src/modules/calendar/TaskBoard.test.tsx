@@ -5,6 +5,7 @@ import { TaskBoard } from './TaskBoard'
 import type { ViewTask } from './taskViews'
 import { resetMorningOffer } from './dayPlan'
 import type { DayTask } from './dayPlan'
+import type { Reward } from './reward'
 
 const mockNotify = vi.fn()
 const dataProvider = { getList: vi.fn().mockResolvedValue({ data: [], total: 0 }), update: vi.fn(), create: vi.fn() }
@@ -78,6 +79,9 @@ let morningTime: string | null = null
 let eveningTime: string | null = null
 let confirmedAt: string | null = null
 let reviewedAt: string | null = null
+/** The rewards the ticks lay down, by task id (MAG-508); none answers 404. */
+let rewards: Record<string, Reward> = {}
+let cheerSettings: Record<string, boolean> = {}
 
 const describeDay = () => {
   const slots = state.slots.map((t, i) => ({ position: i + 1, type: 'task', task: t }))
@@ -109,7 +113,11 @@ const respond = (url: string, init?: RequestInit): Response => {
   const view = /\/tasks\/view\/(\w+)/.exec(url)
   if (view) return viewResponse(view[1])
 
-  if (url.endsWith('/task-settings/me')) return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}) })
+  if (url.endsWith('/task-settings/me'))
+    return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}), ...cheerSettings })
+
+  const rewarded = /\/rewards\/task\/(\w+)$/.exec(url)
+  if (rewarded) return rewards[rewarded[1]] ? json(rewards[rewarded[1]]) : json({ error: 'No reward' }, 404)
 
   if (url.endsWith('/day-reviews/2026-10-15')) {
     if (method === 'PUT') reviewedAt = '2026-10-15T19:10:00+00:00'
@@ -184,6 +192,24 @@ const slotTitles = () =>
 
 const nowCard = () => screen.getByRole('region', { name: 'Maintenant' })
 
+const play = vi.fn(() => Promise.resolve())
+const AudioMock = vi.fn(function (this: { play: typeof play; volume: number }) {
+  this.play = play
+  this.volume = 1
+})
+
+const reward = (taskId: string, message: string, surprise: Reward['surprise'] = null): Reward => ({
+  id: `01RW${taskId}`,
+  subjectType: 'task',
+  subjectId: taskId,
+  level: surprise ? 'surprise' : 'standard',
+  surprise,
+  messageKey: surprise ? `${surprise}.1` : 'direct.3',
+  message,
+  star: true,
+  earnedAt: '2026-10-15T08:00:00+00:00',
+})
+
 const setup = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
 describe('TaskBoard', () => {
@@ -195,9 +221,13 @@ describe('TaskBoard', () => {
     eveningTime = null
     confirmedAt = null
     reviewedAt = null
+    rewards = {}
+    cheerSettings = {}
+    play.mockClear()
     resetMorningOffer()
     vi.stubGlobal('fetch', mockFetch)
     vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('Audio', AudioMock)
     localStorage.setItem('user', JSON.stringify({ id: 'U1' }))
     state = { slots: [BANK, CANTEEN, WATER], reserve: [BOOK, PHOTOS] }
     mockFetch.mockImplementation((url, init) => Promise.resolve(respond(String(url), init)))
@@ -952,6 +982,106 @@ describe('TaskBoard', () => {
 
       await user.click(screen.getByRole('button', { name: 'Le soir' }))
       expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
+    })
+  })
+  describe('the bravo (MAG-508)', () => {
+    beforeEach(() => {
+      rewards = { '01BANK': reward('01BANK', 'Réglé.'), '01MOVING': reward('01MOVING', 'Bouclé.') }
+    })
+
+    const bravo = () => screen.getByRole('dialog', { name: 'Appeler la banque · faite' })
+
+    test('ticking « Maintenant » opens the bravo: the message, the day so far, the next task, a little sound', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await screen.findByRole('region', { name: 'Maintenant' })
+
+      await user.click(within(nowCard()).getByRole('button', { name: "C'est fait" }))
+
+      await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
+      expect(bravo()).toHaveTextContent('Réglé.')
+      expect(bravo()).toHaveTextContent("1 sur 3 aujourd'hui")
+      expect(within(bravo()).getAllByTestId('bravo-segment').map((s) => s.dataset.done)).toEqual(['true', 'false', 'false'])
+      expect(within(bravo()).getByRole('button', { name: 'Suivante : Payer la cantine' })).toBeInTheDocument()
+      expect(within(bravo()).getByTestId('bravo')).toHaveAttribute('data-animated', 'true')
+      expect(within(bravo()).queryByTestId('bravo-shooting-star')).toBeNull()
+      expect(play).toHaveBeenCalledTimes(1)
+      expect(AudioMock).toHaveBeenCalledWith(expect.stringMatching(/\/maggie_bravo\.ogg$/))
+      expect(mockNotify).not.toHaveBeenCalledWith('Tâche terminée', expect.anything())
+    })
+
+    test('« Suivante » opens the Focus of the next task', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await user.click(await screen.findByRole('button', { name: 'Suivante : Payer la cantine' }))
+
+      expect(await screen.findByRole('heading', { name: 'Payer la cantine' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Retour à la journée' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    test('« Pause méritée » goes back to the day', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await user.click(await screen.findByRole('button', { name: 'Pause méritée' }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(nowCard()).toHaveTextContent('Payer la cantine')
+    })
+
+    test('a slot ticked from its checkbox and « C\'est fait » in the Focus open the bravo too', async () => {
+      rewards['01WATER'] = reward('01WATER', 'Bouclé.')
+      const user = setup()
+      render(<TaskBoard />)
+
+      await user.click(await screen.findByRole('checkbox', { name: 'Terminer Arroser' }))
+      expect(await screen.findByRole('dialog', { name: 'Arroser · faite' })).toHaveTextContent('Bouclé.')
+      await user.click(screen.getByRole('button', { name: 'Pause méritée' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+      await user.click(within(nowCard()).getByRole('button', { name: 'Juste 10 minutes' }))
+      await user.click(await screen.findByRole('button', { name: "C'est fait" }))
+      expect(await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })).toHaveTextContent('Réglé.')
+    })
+
+    test('the sound and the animation follow their settings', async () => {
+      cheerSettings = { rewardSound: false, rewardAnimation: false }
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
+      expect(within(bravo()).getByTestId('bravo')).toHaveAttribute('data-animated', 'false')
+      expect(play).not.toHaveBeenCalled()
+    })
+
+    test('a shooting star crosses for a surprise', async () => {
+      rewards['01BANK'] = reward('01BANK', 'Étoile filante : celle-là patientait depuis 3 jours. C\'est réglé.', 'waited')
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
+      expect(within(bravo()).getByTestId('bravo-shooting-star')).toBeInTheDocument()
+      expect(bravo()).toHaveTextContent('Étoile filante')
+    })
+
+    test('away from the day, the bravo is a short banner', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
+
+      await user.click(await screen.findByRole('checkbox', { name: 'Terminer Préparer le déménagement' }))
+
+      const banner = await screen.findByRole('status')
+      expect(banner).toHaveTextContent('Préparer le déménagement · faite — Bouclé.')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(play).toHaveBeenCalledTimes(1)
+      expect(mockNotify).not.toHaveBeenCalledWith('Tâche terminée', expect.anything())
     })
   })
 })

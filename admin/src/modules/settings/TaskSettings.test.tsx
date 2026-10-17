@@ -26,7 +26,16 @@ const SCHEDULE = {
   normal: { daysBefore: [], dueDay: true, overdueEveryDays: 2 },
 }
 
-const DEFAULTS = { orderWeights: {}, orderLevels: LEVELS, alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }
+const REWARD_DEFAULTS = { rewardAnimation: true, rewardVibration: true, rewardSound: true, tone: 'doux' }
+
+const DEFAULTS = {
+  orderWeights: {},
+  orderLevels: LEVELS,
+  alertSchedule: SCHEDULE,
+  morningTime: '08:00',
+  eveningTime: '21:00',
+  ...REWARD_DEFAULTS,
+}
 
 /** A user who already changed a few things — J-5 on Haute came through the API. */
 const SAVED = {
@@ -40,6 +49,10 @@ const SAVED = {
   },
   morningTime: '07:00',
   eveningTime: '22:00',
+  rewardAnimation: true,
+  rewardVibration: false,
+  rewardSound: true,
+  tone: 'direct',
   defaults: DEFAULTS,
 }
 
@@ -52,8 +65,12 @@ function merge(stored: Saved, body: Record<string, unknown>): Saved {
   for (const [urgency, patch] of Object.entries((body.alertSchedule ?? {}) as Record<string, object>)) {
     schedule[urgency] = { ...schedule[urgency], ...patch }
   }
+  const rewards = Object.fromEntries(
+    Object.entries(body).filter(([key]) => ['rewardAnimation', 'rewardVibration', 'rewardSound', 'tone'].includes(key)),
+  )
   return {
     ...stored,
+    ...rewards,
     ...(body.morningTime ? { morningTime: body.morningTime as string } : {}),
     ...(body.eveningTime ? { eveningTime: body.eveningTime as string } : {}),
     alertSchedule: schedule as Saved['alertSchedule'],
@@ -236,6 +253,35 @@ describe('TaskSettings — alerts', () => {
     expect(screen.getByLabelText('Heure du matin')).toHaveValue('07:00')
   })
 
+  test('« Rappels et récompenses » shows the saved toggles and tone (MAG-508)', async () => {
+    stubApi()
+    render(<TaskSettings />)
+
+    expect(await screen.findByRole('heading', { name: 'Rappels et récompenses' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Animation' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Vibration' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Son' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Doux' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('a reward switch and the tone are saved at once (MAG-508)', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    await userEvent.click(await screen.findByRole('switch', { name: 'Son' }))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ rewardSound: false }]))
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Son' })).not.toBeChecked())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Drôle' }))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ rewardSound: false }, { tone: 'drole' }]))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Drôle' })).toHaveAttribute('aria-pressed', 'true'))
+
+    // The tone chosen again is not unset: one is always chosen.
+    await userEvent.click(screen.getByRole('button', { name: 'Drôle' }))
+    expect(puts(fetchMock)).toHaveLength(2)
+  })
+
   test('a half-typed time is not sent and goes back to the saved one', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
@@ -261,7 +307,10 @@ describe('TaskSettings — alerts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Valeurs par défaut' }))
     await userEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
-    await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }]))
+    await waitFor(() =>
+      expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00', ...REWARD_DEFAULTS }]),
+    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Doux' })).toHaveAttribute('aria-pressed', 'true'))
     await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('08:00'))
     await waitFor(() => expect(screen.getByLabelText('Heure du soir')).toHaveValue('21:00'))
     await waitFor(() => expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'false'))
