@@ -26,6 +26,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
@@ -309,6 +310,30 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ApiProperty(writable: false)]
     #[IndexedField(type: 'long')]
     private ?int $myShareCents = null;
+
+    /**
+     * What a transfer with a person is (MAG-453): received, an income, the
+     * repayment of créances or a new dette; sent, the repayment of dettes, a
+     * new créance or anything else. Null until the owner answers — a transfer
+     * linked to a contact waits in « À trier » meanwhile.
+     *
+     * Read-only over REST: written with its allocations, through
+     * `PUT /api/finance/transactions/{id}/allocation`.
+     */
+    #[ORM\Column(length: 20, nullable: true, enumType: PeerKind::class)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'keyword')]
+    private ?PeerKind $peerKind = null;
+
+    /**
+     * What the allocations of this transfer give back, as positive cents: the
+     * sum of its `PeerDebtAllocation`s, kept on the line so the budget sums
+     * read it without a sub-select. Neither an income nor a spend.
+     */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'long')]
+    private int $peerAllocatedCents = 0;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -908,15 +933,55 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this->amountCents > 0 && TransferKind::None === $this->transferKind;
     }
 
+    public function getPeerKind(): ?PeerKind
+    {
+        return $this->peerKind;
+    }
+
+    public function setPeerKind(?PeerKind $peerKind): static
+    {
+        $this->peerKind = $peerKind;
+
+        return $this;
+    }
+
+    public function getPeerAllocatedCents(): int
+    {
+        return $this->peerAllocatedCents;
+    }
+
+    public function setPeerAllocatedCents(int $peerAllocatedCents): static
+    {
+        $this->peerAllocatedCents = $peerAllocatedCents;
+
+        return $this;
+    }
+
+    /**
+     * A transfer with a person that can be told apart (MAG-453): received or
+     * sent, never a movement between the owner's own accounts nor a
+     * rejection. Not serialized.
+     */
+    #[ApiProperty(readable: false)]
+    public function canBeAllocated(): bool
+    {
+        return 0 !== $this->amountCents && TransferKind::None === $this->transferKind;
+    }
+
     /**
      * The signed amount that is the owner's own: the part they kept of a
-     * shared spend, the whole amount otherwise. What every budget figure
-     * reads; `TransactionRepository::OWN_AMOUNT` is its DQL twin.
+     * shared spend, the whole amount less what gives back a debt otherwise
+     * (MAG-453). What every budget figure reads;
+     * `TransactionRepository::OWN_AMOUNT` is its DQL twin.
      */
     #[ApiProperty(readable: false)]
     public function getOwnAmountCents(): int
     {
-        return null === $this->myShareCents ? $this->amountCents : -$this->myShareCents;
+        if (null !== $this->myShareCents) {
+            return -$this->myShareCents;
+        }
+
+        return $this->amountCents < 0 ? $this->amountCents + $this->peerAllocatedCents : $this->amountCents - $this->peerAllocatedCents;
     }
 
     public function getUser(): User
@@ -963,6 +1028,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
             'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
             'myShareCents' => $this->myShareCents,
+            'peerKind' => $this->peerKind?->value,
+            'peerAllocatedCents' => $this->peerAllocatedCents,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -999,6 +1066,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'oneOffEnvelopeId' => null !== $this->oneOffEnvelope ? (string) $this->oneOffEnvelope->getId() : null,
             'contactId' => null !== $this->contact ? (string) $this->contact->getId() : null,
             'myShareCents' => $this->myShareCents,
+            'peerKind' => $this->peerKind?->value,
+            'peerAllocatedCents' => $this->peerAllocatedCents,
         ], self::withDerivedProperties($changedProperties), [
             ...Qualification::changedPropertyMap(),
             'qualifiedBySeries' => 'qualifiedBySeriesId',

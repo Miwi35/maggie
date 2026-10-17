@@ -310,12 +310,14 @@ class DetectInternalTransfers
      * two of them are exactly opposite, and neither is a transfer. So is a
      * rejection, paired or not: it gives a payment back, it moves nothing
      * between two accounts, whichever detection runs first (MAG-350). A
-     * shared spend too: the owner said who it was paid for (MAG-451).
+     * shared spend too: the owner said who it was paid for (MAG-451), and a
+     * transfer they told apart as money with a person (MAG-453).
      */
     private function isEligible(Transaction $transaction): bool
     {
         return 0 !== $transaction->getAmountCents()
             && null === $transaction->getMyShareCents()
+            && null === $transaction->getPeerKind()
             && null === $transaction->getCounterpart()
             && TransferKind::Rejected !== $transaction->getTransferKind()
             && !($transaction->getAmountCents() > 0 && DetectRejections::isRejectionLabel($transaction->getLabel()))

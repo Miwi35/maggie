@@ -21,6 +21,8 @@
             },
             "contact": null,
             "asksForContact": false,
+            "reason": "category",
+            "asksForPeerKind": false,
             "counterpartyLabel": "CARREFOUR MARKET 1234"
         },
         {
@@ -37,6 +39,8 @@
             "suggestion": null,
             "contact": null,
             "asksForContact": false,
+            "reason": "category",
+            "asksForPeerKind": false,
             "counterpartyLabel": "DUPONT MARTIN"
         },
         {
@@ -53,6 +57,8 @@
             "suggestion": null,
             "contact": null,
             "asksForContact": true,
+            "reason": "category",
+            "asksForPeerKind": false,
             "counterpartyLabel": "VIR INST DE RECORDED TOM"
         }
     ]

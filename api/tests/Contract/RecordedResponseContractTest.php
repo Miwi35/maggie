@@ -381,6 +381,29 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    /** « Ce virement est » (MAG-453): a received transfer that gives back a créance, as the controller sends it. */
+    public function testTheTransactionAllocationRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedAllocation.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/transactions/'.$this->getFixture('recorded_allocation_transfer')->getId().'/allocation', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotSame([], $body['allocations'] ?? [], 'The recorded transfer gives nothing back, so the recording proves nothing about an allocation.');
+        self::assertNotNull($body['contact'] ?? null, 'The recorded transfer has no contact.');
+
+        $this->assertMatchesContract(
+            'responses/finance_transaction_allocation.read.json',
+            self::stabilise($body),
+            'GET /api/finance/transactions/{id}/allocation no longer returns what it used to. The mobile DTOs (PeerDebt.kt) and the admin read this response.',
+        );
+    }
+
     /**
      * The balance of a month (MAG-457), as the « État courant » dashboard of
      * the phone and the admin reads it.

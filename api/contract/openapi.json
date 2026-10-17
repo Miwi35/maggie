@@ -23996,6 +23996,28 @@
                             "null"
                         ]
                     },
+                    "peerKind": {
+                        "readOnly": true,
+                        "description": "What a transfer with a person is (MAG-453): received, an income, the\nrepayment of créances or a new dette; sent, the repayment of dettes, a\nnew créance or anything else. Null until the owner answers — a transfer\nlinked to a contact waits in « À trier » meanwhile.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "income",
+                            "repayment",
+                            "new_debt",
+                            "new_claim",
+                            "other",
+                            null
+                        ]
+                    },
+                    "peerAllocatedCents": {
+                        "readOnly": true,
+                        "description": "What the allocations of this transfer give back, as positive cents: the\nsum of its `PeerDebtAllocation`s, kept on the line so the budget sums\nread it without a sub-select. Neither an income nor a spend.",
+                        "default": 0,
+                        "type": "integer"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -24269,6 +24291,28 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "peerKind": {
+                        "readOnly": true,
+                        "description": "What a transfer with a person is (MAG-453): received, an income, the\nrepayment of créances or a new dette; sent, the repayment of dettes, a\nnew créance or anything else. Null until the owner answers — a transfer\nlinked to a contact waits in « À trier » meanwhile.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "income",
+                            "repayment",
+                            "new_debt",
+                            "new_claim",
+                            "other",
+                            null
+                        ]
+                    },
+                    "peerAllocatedCents": {
+                        "readOnly": true,
+                        "description": "What the allocations of this transfer give back, as positive cents: the\nsum of its `PeerDebtAllocation`s, kept on the line so the budget sums\nread it without a sub-select. Neither an income nor a spend.",
+                        "default": 0,
+                        "type": "integer"
                     },
                     "user": {
                         "type": "string",
@@ -24544,6 +24588,28 @@
                             "null"
                         ]
                     },
+                    "peerKind": {
+                        "readOnly": true,
+                        "description": "What a transfer with a person is (MAG-453): received, an income, the\nrepayment of créances or a new dette; sent, the repayment of dettes, a\nnew créance or anything else. Null until the owner answers — a transfer\nlinked to a contact waits in « À trier » meanwhile.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "income",
+                            "repayment",
+                            "new_debt",
+                            "new_claim",
+                            "other",
+                            null
+                        ]
+                    },
+                    "peerAllocatedCents": {
+                        "readOnly": true,
+                        "description": "What the allocations of this transfer give back, as positive cents: the\nsum of its `PeerDebtAllocation`s, kept on the line so the budget sums\nread it without a sub-select. Neither an income nor a spend.",
+                        "default": 0,
+                        "type": "integer"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -24810,6 +24876,28 @@
                                     "integer",
                                     "null"
                                 ]
+                            },
+                            "peerKind": {
+                                "readOnly": true,
+                                "description": "What a transfer with a person is (MAG-453): received, an income, the\nrepayment of créances or a new dette; sent, the repayment of dettes, a\nnew créance or anything else. Null until the owner answers — a transfer\nlinked to a contact waits in « À trier » meanwhile.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "income",
+                                    "repayment",
+                                    "new_debt",
+                                    "new_claim",
+                                    "other",
+                                    null
+                                ]
+                            },
+                            "peerAllocatedCents": {
+                                "readOnly": true,
+                                "description": "What the allocations of this transfer give back, as positive cents: the\nsum of its `PeerDebtAllocation`s, kept on the line so the budget sums\nread it without a sub-select. Neither an income nor a spend.",
+                                "default": 0,
+                                "type": "integer"
                             },
                             "user": {
                                 "type": "string",

@@ -9,6 +9,7 @@ use Maggie\Finance\Entity\Contact;
 use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\PeerDebtDirection;
+use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Repository\ContactRepository;
 use Maggie\Finance\Repository\PeerDebtRepository;
 use Symfony\Component\Uid\Ulid;
@@ -37,6 +38,9 @@ class SetMyShare
     {
         // Everything is checked before anything is written: a part never stands without its créance.
         $transaction->assertCanKeep($myShareCents);
+        if (PeerKind::Repayment === $transaction->getPeerKind()) {
+            throw new \DomainException('This transfer gives back dettes: change its allocation (PUT /api/finance/transactions/{id}/allocation) before sharing it.');
+        }
         $owedCents = abs($transaction->getAmountCents()) - $myShareCents;
 
         if (null !== $notes && mb_strlen($notes) > PeerDebt::NOTES_MAX_LENGTH) {
