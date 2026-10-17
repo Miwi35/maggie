@@ -142,6 +142,10 @@ export const CategoryList = () => {
             live={CATEGORY_LIVE}
             perPage={200}
             pagination={false}
+            // The tree has no pager to change the page size or the sort back:
+            // what the old paginated list left in the store must not apply (MAG-503).
+            storeKey={false}
+            disableSyncWithLocation
             sort={{ field: 'name', order: 'ASC' }}
             actions={<CategoryActions />}
             empty={
