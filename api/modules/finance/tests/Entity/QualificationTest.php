@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Tests\Entity;
 
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
@@ -12,6 +11,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\QualificationKind;
+use Maggie\Finance\Enum\RecurrencePeriod;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -41,7 +41,7 @@ class QualificationTest extends TestCase
     public function testASeriesQualifiesALineWholeAndIsNamedForIt(): void
     {
         $category = (new Category())->setName('Crédits');
-        $series = (new RecurringOperation())->requalify(new Qualification(true, QualificationKind::Repayment, $category));
+        $series = (new RecurringOperation())->setPeriod(RecurrencePeriod::Monthly)->requalify(new Qualification(true, QualificationKind::Repayment, $category));
 
         $line = (new Transaction())->qualify($series->getQualification(), $series);
 
@@ -57,7 +57,7 @@ class QualificationTest extends TestCase
     public function testARuleThenTheOwnerQualifyALine(): void
     {
         $category = (new Category())->setName('Transport');
-        $rule = (new CategorizationRule())->requalify(new Qualification(true, QualificationKind::None, $category));
+        $rule = (new RecurringOperation())->requalify(new Qualification(true, QualificationKind::None, $category));
         $line = (new Transaction())->qualify($rule->getQualification(), $rule);
         self::assertSame('rule', $line->getQualifiedBy());
         self::assertSame($rule, $line->getQualifiedByRule());

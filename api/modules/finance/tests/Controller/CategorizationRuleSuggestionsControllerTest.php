@@ -5,7 +5,7 @@ namespace Maggie\Finance\Tests\Controller;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -121,7 +121,7 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
         $this->suggestions();
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(0, $em->getRepository(RecurringOperation::class)->findAll());
     }
 
     public function testAcceptingCreatesTheRuleAndFilesTheHistoryUnderIt(): void
@@ -147,7 +147,7 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
             ->findOneBy(['label' => 'PAIEMENT PAR CARTE X9633 MP*CARREFOUR DAC VL 04/08']);
         self::assertSame('Nourriture', $transaction->getCategory()->getName());
 
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testASpecificPatternOutranksTheBrandItContains(): void

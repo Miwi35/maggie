@@ -55,7 +55,7 @@ class GetRecurringOccurrences
             throw new \InvalidArgumentException(sprintf('The window of occurrences is at most %d days.', self::MAX_DAYS));
         }
 
-        $series = $this->operationRepository->findByUser($user);
+        $series = $this->operationRepository->findSeriesByUser($user);
         if ([] === $series) {
             return [];
         }

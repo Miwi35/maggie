@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Finance\Entity\QualifyingOperation;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Repository\TransactionRepository;
 
 /**
@@ -23,7 +23,7 @@ class RequalifyTransactions
     }
 
     /** @return int how many lines took the new qualification */
-    public function execute(QualifyingOperation $operation): int
+    public function execute(RecurringOperation $operation): int
     {
         $qualification = $operation->getQualification();
         $requalified = 0;

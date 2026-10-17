@@ -11,7 +11,7 @@ Maggie\Finance\Entity\Category:
     parent: '@recorded_to_sort_food_root'
     user: '@recorded_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   recorded_to_sort_rule:
     labelPattern: CARREFOUR
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\RecurringOperation;
+use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\TransactionMatcher;
@@ -54,7 +55,9 @@ class PreviewRecurringOperation
             throw new \DomainException("Account not found: {$accountId}");
         }
 
+        // A period makes it a series: recognised the way a series is.
         $draft = (new RecurringOperation())
+            ->setPeriod(RecurrencePeriod::Monthly)
             ->setCounterpartyName($counterpartyName)
             ->setLabelPattern($labelPattern)
             ->setReferenceAmountCents($referenceAmountCents)

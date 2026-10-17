@@ -11,8 +11,8 @@ use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Import\MerchantExtractor;
 
 /**
- * The one engine that recognises a transaction, shared by the categorization
- * rules and the recurring operations: counterparty, then label, then
+ * The one engine that recognises a transaction, for every operation, with or
+ * without recurrence: counterparty, then label, then
  * direction and amount bounds — which recognise a transaction alone when the
  * criteria name no payee and no label.
  *

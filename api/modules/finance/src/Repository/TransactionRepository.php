@@ -14,7 +14,6 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Contact;
 use Maggie\Finance\Entity\Envelope;
-use Maggie\Finance\Entity\QualifyingOperation;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
@@ -1321,10 +1320,10 @@ class TransactionRepository extends ServiceEntityRepository
      *
      * @return Transaction[]
      */
-    public function findQualifiedBy(QualifyingOperation $operation): array
+    public function findQualifiedBy(RecurringOperation $operation): array
     {
         return $this->findBy(
-            $operation instanceof RecurringOperation
+            $operation->hasRecurrence()
                 ? ['qualifiedBySeries' => $operation, 'recurringOperation' => $operation, 'categorySource' => CategorySource::Series]
                 : ['qualifiedByRule' => $operation, 'categorySource' => CategorySource::Rule],
             ['bookedAt' => 'ASC', 'id' => 'ASC'],

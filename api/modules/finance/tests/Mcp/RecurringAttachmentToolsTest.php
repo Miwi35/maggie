@@ -10,14 +10,14 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\RecurringLinkSource;
-use Maggie\Finance\Mcp\Tool\ManageRecurringOperationsTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * Attaching a transaction to a recurring operation through Maggie (MAG-305):
- * `attach` / `detach` on manage_recurring_operations, `recurringOperationId`
+ * `attach` / `detach` on manage_operations, `recurringOperationId`
  * on manage_transactions. Every gesture is the user's own: `manual`.
  */
 class RecurringAttachmentToolsTest extends KernelTestCase
@@ -38,7 +38,7 @@ class RecurringAttachmentToolsTest extends KernelTestCase
     /** @return array<string, mixed> */
     private function series(string $action, mixed ...$arguments): array
     {
-        $tool = self::getContainer()->get(ManageRecurringOperationsTool::class);
+        $tool = self::getContainer()->get(ManageOperationsTool::class);
 
         return json_decode($tool($action, ...$arguments), true, 512, JSON_THROW_ON_ERROR);
     }
@@ -69,7 +69,7 @@ class RecurringAttachmentToolsTest extends KernelTestCase
 
     public function testAnAttachNobodyIsBoundToIsRefused(): void
     {
-        $data = $this->series('attach', recurringOperationId: $this->id('gym'), transactionId: $this->id('apr_gym_dearer'));
+        $data = $this->series('attach', operationId: $this->id('gym'), transactionId: $this->id('apr_gym_dearer'));
 
         self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
         self::assertNull($this->reload('apr_gym_dearer')->getRecurringOperation());
@@ -87,7 +87,7 @@ class RecurringAttachmentToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->series('attach', recurringOperationId: $this->id('gym'));
+        $data = $this->series('attach', operationId: $this->id('gym'));
 
         self::assertStringContainsString('transactionId', $data['error']);
     }
@@ -96,7 +96,7 @@ class RecurringAttachmentToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->series('attach', recurringOperationId: $this->id('other_gym'), transactionId: $this->id('apr_gym_dearer'));
+        $data = $this->series('attach', operationId: $this->id('other_gym'), transactionId: $this->id('apr_gym_dearer'));
 
         self::assertStringContainsString('Recurring operation not found', $data['error']);
         self::assertNull($this->reload('apr_gym_dearer')->getRecurringOperation());
@@ -106,12 +106,12 @@ class RecurringAttachmentToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->series('attach', recurringOperationId: $this->id('gym'), transactionId: $this->id('apr_gym_dearer'));
+        $data = $this->series('attach', operationId: $this->id('gym'), transactionId: $this->id('apr_gym_dearer'));
 
         self::assertTrue($data['success']);
         self::assertSame('manual', $data['transaction']['recurringSource']);
         self::assertSame('2027-04-01', $data['transaction']['recurringOccurrenceOn']);
-        self::assertSame(-3990, $data['recurringOperation']['referenceAmountCents']);
+        self::assertSame(-3990, $data['operation']['referenceAmountCents']);
 
         $stored = $this->reload('apr_gym_dearer');
         self::assertSame($this->id('gym'), (string) $stored->getRecurringOperation()?->getId());
@@ -128,7 +128,7 @@ class RecurringAttachmentToolsTest extends KernelTestCase
         $user = $this->loginFixtureUser();
         self::getContainer()->get(AttachRecurringTransactions::class)->execute($user);
 
-        $data = $this->series('attach', recurringOperationId: $this->id('gym'), transactionId: $this->id('mar_gym_shop'), recurringOccurrenceOn: '2027-02-01');
+        $data = $this->series('attach', operationId: $this->id('gym'), transactionId: $this->id('mar_gym_shop'), recurringOccurrenceOn: '2027-02-01');
 
         self::assertStringContainsString('already settled', $data['error']);
         self::assertNull($this->reload('mar_gym_shop')->getRecurringOperation());

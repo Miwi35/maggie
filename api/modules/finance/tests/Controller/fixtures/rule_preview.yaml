@@ -39,7 +39,7 @@ Maggie\Finance\Entity\Category:
     user: '@other_user'
 
 # Outranks any rule written with the default priority.
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_premium:
     labelPattern: PREMIUM
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

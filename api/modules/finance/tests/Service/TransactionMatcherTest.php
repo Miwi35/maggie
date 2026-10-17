@@ -4,12 +4,12 @@ namespace Maggie\Finance\Tests\Service;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\Service\TransactionMatcher;
@@ -39,6 +39,7 @@ class TransactionMatcherTest extends TestCase
     {
         return (new RecurringOperation())
             ->setLabel('Abonnement Flixo')
+            ->setPeriod(RecurrencePeriod::Monthly)
             ->setReferenceAmountCents($amountCents)
             ->setAnchorOn(new \DateTimeImmutable('2027-01-12'));
     }
@@ -90,7 +91,7 @@ class TransactionMatcherTest extends TestCase
     public function testARuleStillMatchesOnItsLabelAndAmountBoundsEvenWhenTheTransactionHasACounterparty(): void
     {
         $matcher = new TransactionMatcher();
-        $rule = (new CategorizationRule())
+        $rule = (new RecurringOperation())
             ->setLabelPattern('CARREFOUR')
             ->setMatchType(MatchType::StartsWith)
             ->setDirection(AmountDirection::Debit)

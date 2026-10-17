@@ -21,9 +21,9 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Service\UserDataEraser;
 use Maggie\Finance\Mcp\Tool\ManageAccountsTool;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
 use Maggie\Finance\Mcp\Tool\ManageEnvelopesTool;
 use Maggie\Finance\Mcp\Tool\ManageLoansTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
 use Maggie\Grocery\Mcp\Tool\ManageProductsTool;
 use Maggie\Grocery\Mcp\Tool\ManageRecurringGroceriesTool;
@@ -81,7 +81,7 @@ final class DeletionReachesTheIndexTest extends WebTestCase
         yield 'sub-category' => ['subcategory_other', 'categories', ManageCategoriesTool::class, ['action' => 'delete', 'categoryId' => '%id%']];
         yield 'transaction' => ['transaction_other', 'transactions', ManageTransactionsTool::class, ['action' => 'delete', 'transactionId' => '%id%']];
         yield 'envelope' => ['envelope_other', 'envelopes', ManageEnvelopesTool::class, ['action' => 'delete', 'envelopeId' => '%id%']];
-        yield 'categorization rule' => ['rule_other', 'categorization_rules', ManageCategorizationRulesTool::class, ['action' => 'delete', 'categorizationRuleId' => '%id%']];
+        yield 'categorization rule' => ['rule_other', 'recurring_operations', ManageOperationsTool::class, ['action' => 'delete', 'operationId' => '%id%']];
         yield 'loan' => ['loan_other', 'loans', ManageLoansTool::class, ['action' => 'delete', 'loanId' => '%id%']];
     }
 

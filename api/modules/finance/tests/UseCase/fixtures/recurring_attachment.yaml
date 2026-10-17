@@ -57,16 +57,6 @@ Maggie\Finance\Entity\Category:
     user: '@other_user'
 
 # Claims no line of the fixtures: a test renames one so that it does.
-Maggie\Finance\Entity\CategorizationRule:
-  rule_premium:
-    labelPattern: PREMIUM
-    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
-    category: '@groceries'
-    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
-    priority: 10
-    isActive: true
-    user: '@test_user'
-
 Maggie\Finance\Entity\RecurringOperation:
   gym:
     label: Salle de sport
@@ -86,6 +76,14 @@ Maggie\Finance\Entity\RecurringOperation:
     anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
     referenceAmountCents: -3000
     user: '@other_user'
+  rule_premium:
+    labelPattern: PREMIUM
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@groceries'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
 
 Maggie\Finance\Entity\Transaction:
   # 30 € the day after the due date: attached.

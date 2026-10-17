@@ -6,12 +6,12 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\SafetyCushion;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Mcp\Tool\ManageCategorizationRulesTool;
 use Maggie\Finance\Mcp\Tool\ManageEnvelopesTool;
+use Maggie\Finance\Mcp\Tool\ManageOperationsTool;
 use Maggie\Finance\Message\UpdateSafetyCushionCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -82,7 +82,7 @@ class ForeignReferencesToolsTest extends KernelTestCase
 
     public function testLearningFromAnotherUsersTransactionIsRefused(): void
     {
-        $this->assertRefused(CategorizationRule::class, fn () => self::getContainer()->get(ManageCategorizationRulesTool::class)(
+        $this->assertRefused(RecurringOperation::class, fn () => self::getContainer()->get(ManageOperationsTool::class)(
             'learn',
             transactionId: $this->id('foreign_transaction'),
             categoryId: $this->id('own_category'),

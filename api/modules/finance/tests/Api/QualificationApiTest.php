@@ -6,7 +6,6 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
@@ -196,7 +195,7 @@ class QualificationApiTest extends WebTestCase
         $this->send('PATCH', $this->iri('categorization_rules', 'rule_fuel'), ['qualification' => ['mandatory' => false, 'kind' => 'none']]);
 
         self::assertResponseIsSuccessful();
-        self::assertFalse($this->reloadOperation(CategorizationRule::class, 'rule_fuel')->getQualification()->isMandatory());
+        self::assertFalse($this->reloadOperation(RecurringOperation::class, 'rule_fuel')->getQualification()->isMandatory());
         $fuel = $this->reload('fuel');
         self::assertFalse($fuel->getQualification()->isMandatory());
         self::assertSame('rule', $fuel->getQualifiedBy());
@@ -273,6 +272,7 @@ class QualificationApiTest extends WebTestCase
             'counterpartyName' => 'Banque Études',
             'category' => $this->iri('categories', 'transport'),
             'account' => $this->iri('accounts', 'checking'),
+            'period' => 'monthly',
             'anchorOn' => '2027-01-10',
             'referenceAmountCents' => -10000,
             'qualification' => ['mandatory' => true, 'kind' => 'repayment'],

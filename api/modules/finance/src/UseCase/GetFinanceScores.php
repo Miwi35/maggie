@@ -98,7 +98,7 @@ class GetFinanceScores
     public function execute(User $user, \DateTimeImmutable $date): array
     {
         $today = $date->format('Y-m-d');
-        $operations = $this->operationRepository->findByUser($user);
+        $operations = $this->operationRepository->findSeriesByUser($user);
         $childrenByParent = $this->childrenByParent($user);
 
         $monday = $date->modify('monday this week');

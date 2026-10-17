@@ -53,6 +53,7 @@ final class PreviewCategorizationRuleController
             'priority' => 'is_int',
             'isActive' => 'is_bool',
             'ruleId' => 'is_string',
+            'counterpartyName' => 'is_string',
         ];
         foreach ($types as $field => $check) {
             if (isset($body[$field]) && !$check($body[$field])) {
@@ -72,6 +73,7 @@ final class PreviewCategorizationRuleController
                 priority: $body['priority'] ?? 0,
                 isActive: $body['isActive'] ?? true,
                 ruleId: $body['ruleId'] ?? null,
+                counterpartyName: $body['counterpartyName'] ?? null,
             );
         } catch (\DomainException $e) {
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);

@@ -7,7 +7,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -75,10 +75,10 @@ class CategorizationRuleApiTest extends WebTestCase
         self::assertSame(20, $data['priority']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(2, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(2, $em->getRepository(RecurringOperation::class)->findAll());
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     /** @param array<string, mixed> $body */
@@ -302,13 +302,13 @@ class CategorizationRuleApiTest extends WebTestCase
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        $refreshed = $em->find(RecurringOperation::class, $rule->getId());
         self::assertNull($refreshed->getMaxAmountCents());
         self::assertSame(1000, $refreshed->getMinAmountCents());
         self::assertSame('CARREFOUR', $refreshed->getLabelPattern());
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testPatchWithoutBoundsLeavesThemUntouched(): void
@@ -325,7 +325,7 @@ class CategorizationRuleApiTest extends WebTestCase
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        $refreshed = $em->find(RecurringOperation::class, $rule->getId());
         self::assertSame(20, $refreshed->getPriority());
         self::assertSame(1000, $refreshed->getMinAmountCents());
         self::assertSame(5000, $refreshed->getMaxAmountCents());
@@ -349,10 +349,10 @@ class CategorizationRuleApiTest extends WebTestCase
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertNull($em->find(CategorizationRule::class, $ruleId));
+        self::assertNull($em->find(RecurringOperation::class, $ruleId));
 
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchDeleteDispatched('categorization_rules');
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchDeleteDispatched('recurring_operations');
     }
 
     public function testATransactionPostedWithoutCategoryInheritsTheRule(): void
@@ -403,11 +403,11 @@ class CategorizationRuleApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $rules = $em->getRepository(CategorizationRule::class)->findAll();
+        $rules = $em->getRepository(RecurringOperation::class)->findAll();
         self::assertCount(1, $rules);
         self::assertNull($rules[0]->getLabelPattern());
-        $this->assertMercureUpdatePublished('/categorization_rules/');
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        $this->assertMercureUpdatePublished('/recurring_operations/');
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
 
         self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_october'));
         self::assertSame((string) $salary->getId(), $this->categoryOfTransaction('pay_september'));
@@ -434,7 +434,7 @@ class CategorizationRuleApiTest extends WebTestCase
         }
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertCount(0, $em->getRepository(RecurringOperation::class)->findAll());
         $this->assertMercureUpdateCount(0);
     }
 
@@ -452,7 +452,7 @@ class CategorizationRuleApiTest extends WebTestCase
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        $refreshed = $em->find(RecurringOperation::class, $rule->getId());
         self::assertNull($refreshed->getLabelPattern());
         self::assertSame(1000, $refreshed->getMinAmountCents());
     }

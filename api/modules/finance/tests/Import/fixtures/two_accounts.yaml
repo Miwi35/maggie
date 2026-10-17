@@ -28,7 +28,7 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
     user: '@test_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_carrefour:
     labelPattern: CARREFOUR
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

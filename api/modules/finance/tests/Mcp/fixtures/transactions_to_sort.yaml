@@ -59,7 +59,7 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@other_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_carrefour:
     labelPattern: CARREFOUR
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

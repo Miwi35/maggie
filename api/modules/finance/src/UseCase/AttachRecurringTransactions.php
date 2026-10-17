@@ -53,7 +53,7 @@ class AttachRecurringTransactions
      */
     public function attachFor(Transaction $transaction): ?RecurringMatch
     {
-        $series = $this->operationRepository->findByUser($transaction->getUser());
+        $series = $this->operationRepository->findSeriesByUser($transaction->getUser());
         if ([] === $series) {
             return null;
         }
@@ -83,7 +83,7 @@ class AttachRecurringTransactions
     {
         $since = null === $limitDays ? null : (new \DateTimeImmutable('today'))->modify(sprintf('-%d days', $limitDays));
         $candidates = $this->transactionRepository->findRecurringCandidates($user, $since);
-        $series = $this->operationRepository->findByUser($user);
+        $series = $this->operationRepository->findSeriesByUser($user);
         $taken = $this->transactionRepository->findTakenOccurrences($user);
 
         $reference = [];

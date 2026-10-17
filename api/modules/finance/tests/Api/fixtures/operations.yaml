@@ -1,0 +1,82 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: operations-api-test@example.com
+    googleId: google-operations-api-test
+    name: Operations Api Test User
+  other_user:
+    email: operations-api-other@example.com
+    googleId: google-operations-api-other
+    name: Operations Api Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  gym:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@test_user'
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    category: '@food'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+  other_rule:
+    labelPattern: SECRET
+    category: '@other_secret'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  carrefour_line:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-03"))>'
+    label: CARREFOUR MARKET 4412
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  lidl_line:
+    account: '@checking'
+    amountCents: -2310
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-01-04"))>'
+    label: LIDL 0042
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

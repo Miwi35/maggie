@@ -303,7 +303,7 @@ Maggie\Finance\Entity\Envelope:
     year: '<e2eYear()>'
     user: '@e2e_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   e2e_rule_leclerc:
     labelPattern: 'LECLERC'
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

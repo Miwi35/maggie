@@ -185,9 +185,9 @@ class TestTheLabel:
             ("delete_skill", {"name": "courses"}, "Supprimer la compétence"),
             ("manage_loans", {"action": "delete", "loanId": ULID}, "Supprimer le prêt"),
             (
-                "manage_recurring_operations",
-                {"action": "delete", "recurringOperationId": ULID},
-                "Supprimer l'opération récurrente",
+                "manage_operations",
+                {"action": "delete", "operationId": ULID},
+                "Supprimer l'opération",
             ),
             ("delete_unheard_of", {"id": ULID}, "Supprimer un élément"),
             ("send_email", {"to": "a@b.c"}, "Action en attente de validation"),

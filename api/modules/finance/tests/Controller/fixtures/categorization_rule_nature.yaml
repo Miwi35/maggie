@@ -20,7 +20,7 @@ Maggie\Finance\Entity\Category:
     user: '@test_user'
 
 # Direction "any" is the default of a rule: it claims a refund as readily as a purchase.
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_cinema:
     labelPattern: CINE
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

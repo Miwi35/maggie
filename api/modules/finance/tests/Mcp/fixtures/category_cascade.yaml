@@ -25,7 +25,7 @@ Maggie\Finance\Entity\Envelope:
     month: 7
     user: '@test_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_restaurant:
     labelPattern: RESTO
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

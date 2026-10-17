@@ -20,8 +20,8 @@ use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\PeerDebtRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\OperationGuard;
 use Maggie\Finance\Service\OwnedReferenceResolver;
-use Maggie\Finance\Service\RecurringOperationGuard;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -143,7 +143,7 @@ class UpdateTransactionHandler
     private function applyQualification(Transaction $transaction, UpdateTransactionCommand $command): void
     {
         if (null !== $command->qualifiedByRuleId) {
-            $rule = $this->references->categorizationRule($command->qualifiedByRuleId, $transaction->getUser());
+            $rule = $this->references->operationWithoutRecurrence($command->qualifiedByRuleId, $transaction->getUser());
             $transaction->qualify($rule->getQualification(), $rule);
 
             return;
@@ -221,7 +221,7 @@ class UpdateTransactionHandler
                     ?? throw new \DomainException('recurringOccurrenceOn moves a line within its recurring operation: name the recurringOperationId to attach it.');
             $occurrenceOn = null === $command->recurringOccurrenceOn
                 ? null
-                : RecurringOperationGuard::date($command->recurringOccurrenceOn, 'recurringOccurrenceOn');
+                : OperationGuard::date($command->recurringOccurrenceOn, 'recurringOccurrenceOn');
         } catch (\DomainException $e) {
             // A refused request, like the attachment's own refusals: 422.
             throw new RecurringAttachmentException($e->getMessage(), 0, $e);

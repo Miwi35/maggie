@@ -6,9 +6,9 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -152,7 +152,7 @@ class ForeignReferenceApiTest extends WebTestCase
 
     public function testCreateRuleWithAnotherUsersCategoryIsRefused(): void
     {
-        $before = $this->rows(CategorizationRule::class);
+        $before = $this->rows(RecurringOperation::class);
 
         $this->send('POST', '/api/categorization_rules', [
             'category' => $this->iri('categories', 'other_secret'),
@@ -160,7 +160,7 @@ class ForeignReferenceApiTest extends WebTestCase
         ]);
 
         $this->assertRefused();
-        self::assertSame($before, $this->rows(CategorizationRule::class));
+        self::assertSame($before, $this->rows(RecurringOperation::class));
     }
 
     public function testPatchRuleWithAnotherUsersCategoryIsRefused(): void
@@ -170,7 +170,7 @@ class ForeignReferenceApiTest extends WebTestCase
         ]);
 
         $this->assertRefused();
-        self::assertSame('Alimentation', $this->reload(CategorizationRule::class, 'rule_carrefour')->getCategory()->getName());
+        self::assertSame('Alimentation', $this->reload(RecurringOperation::class, 'rule_carrefour')->getCategory()->getName());
     }
 
     public function testCreateCategoryWithAnotherUsersParentIsRefused(): void

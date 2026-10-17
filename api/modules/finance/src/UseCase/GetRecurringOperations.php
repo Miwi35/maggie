@@ -40,7 +40,7 @@ class GetRecurringOperations
         $today = ($today ?? new \DateTimeImmutable('today'))->setTime(0, 0);
         $day = $today->format('Y-m-d');
 
-        $series = $this->operationRepository->findByUser($user);
+        $series = $this->operationRepository->findSeriesByUser($user);
         if ([] === $series) {
             return ['operations' => [], 'proposals' => [], 'totals' => self::totals([], $day)];
         }

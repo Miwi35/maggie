@@ -22,6 +22,6 @@ final class RequalifyTransactionsOnOperationSaved
 
     public function __invoke(OperationQualificationSaved $event): void
     {
-        $this->commandBus->dispatch(new RequalifyTransactionsCommand($event->operationClass, $event->operationId));
+        $this->commandBus->dispatch(new RequalifyTransactionsCommand($event->operationId));
     }
 }

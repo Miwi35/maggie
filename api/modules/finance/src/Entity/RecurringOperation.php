@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
@@ -18,7 +20,6 @@ use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
-use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
@@ -30,48 +31,99 @@ use Maggie\Finance\Enum\ReferenceAmountSource;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Service\MatchCriteria;
-use Maggie\Finance\State\CreateRecurringOperationProcessor;
-use Maggie\Finance\State\DeleteRecurringOperationProcessor;
-use Maggie\Finance\State\UpdateRecurringOperationProcessor;
+use Maggie\Finance\State\CreateOperationProcessor;
+use Maggie\Finance\State\DeleteOperationProcessor;
+use Maggie\Finance\State\OperationCollectionProvider;
+use Maggie\Finance\State\UpdateOperationProcessor;
+use Maggie\Finance\Validator\OperationValidationGroups;
 use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
- * A series the owner expects to see again — rent on the 5th, Netflix on the
- * 12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never
- * written down, and the real transactions stay what they are.
+ * An operation: what recognises transactions (counterparty, label, amount and
+ * its sign), the qualification it copies onto each of them, and an optional
+ * recurrence (period, anchor, expected amount) — spec « Opération et
+ * transaction ».
  *
- * It recognises its transactions through the engine the categorization rules
- * use, with the expected counterparty as the main criterion.
+ * With a recurrence it is a series the owner expects to see again — rent on
+ * the 5th, Netflix on the 12th: its occurrences are computed by
+ * `RecurrenceSchedule`, never written down, and the transactions that settle
+ * them are attached to it. Without one it is what a categorization rule was:
+ * the first active one by priority files the lines no series claimed.
+ *
+ * The class keeps its historical name, its table and its IRI
+ * `/api/recurring_operations/{id}` — the one every view links to, and the one
+ * the live updates name — while the clients read them (MAG-478):
+ * `/api/operations` lists them all, `/api/recurring_operations` the series and
+ * `/api/categorization_rules` the others, with the fields each view knew.
  */
 #[ORM\Entity(repositoryClass: RecurringOperationRepository::class)]
 #[Indexed(index: 'recurring_operations', module: 'finance')]
-#[ApiResource(operations: [
-    new GetCollection(provider: ElasticsearchCollectionProvider::class),
-    new Get(provider: ElasticsearchItemProvider::class),
-    new Post(processor: CreateRecurringOperationProcessor::class),
-    new Patch(processor: UpdateRecurringOperationProcessor::class),
-    new Delete(processor: DeleteRecurringOperationProcessor::class),
-])]
-class RecurringOperation implements MercurePublishable, OwnedByUserInterface, IndexableInterface, QualifyingOperation
+// The first resource gives the canonical IRI.
+#[ApiResource(
+    operations: [
+        new GetCollection(provider: OperationCollectionProvider::class, extraProperties: [self::VIEW => self::VIEW_SERIES]),
+        new Get(provider: ElasticsearchItemProvider::class),
+        new Post(processor: CreateOperationProcessor::class, validationContext: ['groups' => ['Default', self::VIEW_SERIES]], extraProperties: [self::VIEW => self::VIEW_SERIES]),
+        // Any operation is changed here, at its IRI: a series as a series.
+        new Patch(processor: UpdateOperationProcessor::class, validationContext: ['groups' => OperationValidationGroups::class]),
+        new Delete(processor: DeleteOperationProcessor::class),
+    ],
+)]
+#[ApiResource(
+    shortName: 'CategorizationRule',
+    operations: [
+        new GetCollection(uriTemplate: '/categorization_rules', provider: OperationCollectionProvider::class, extraProperties: [self::VIEW => self::VIEW_RULE]),
+        new Get(uriTemplate: '/categorization_rules/{id}', provider: ElasticsearchItemProvider::class),
+        new Post(uriTemplate: '/categorization_rules', processor: CreateOperationProcessor::class, extraProperties: [self::VIEW => self::VIEW_RULE]),
+        new Patch(uriTemplate: '/categorization_rules/{id}', processor: UpdateOperationProcessor::class, validationContext: ['groups' => OperationValidationGroups::class]),
+        new Delete(uriTemplate: '/categorization_rules/{id}', processor: DeleteOperationProcessor::class),
+    ],
+)]
+#[ApiResource(
+    shortName: 'Operation',
+    operations: [
+        new GetCollection(uriTemplate: '/operations', provider: OperationCollectionProvider::class),
+        new Get(uriTemplate: '/operations/{id}', provider: ElasticsearchItemProvider::class),
+        new Post(uriTemplate: '/operations', processor: CreateOperationProcessor::class, validationContext: ['groups' => OperationValidationGroups::class]),
+        new Patch(uriTemplate: '/operations/{id}', processor: UpdateOperationProcessor::class, validationContext: ['groups' => OperationValidationGroups::class]),
+        new Delete(uriTemplate: '/operations/{id}', processor: DeleteOperationProcessor::class),
+    ],
+)]
+// `exists[period]=true` the series, `false` the others.
+#[ApiFilter(ExistsFilter::class, properties: ['period'])]
+class RecurringOperation implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use MercurePayloadFilterTrait;
 
     public const int DEFAULT_AMOUNT_TOLERANCE_PERCENT = 20;
     public const int DEFAULT_DATE_TOLERANCE_DAYS = 5;
 
+    /** Which view of the operations an API Platform operation serves: its extra property. */
+    public const string VIEW = 'operationView';
+    public const string VIEW_SERIES = 'series';
+    public const string VIEW_RULE = 'rule';
+
+    public const string UNRECOGNISABLE = 'An operation without recurrence needs a counterparty or a label pattern, or a direction (debit or credit) with an amount bound (minAmountCents and/or maxAmountCents).';
+    public const string PARTIAL_RECURRENCE = 'A recurrence is period, anchorOn, referenceAmountCents and accountId together: give all four, or none for an operation without recurrence.';
+
+    // The admin sends a record back with `id` set to its IRI; the id is never
+    // writable, so it must not be parsed as a Ulid on the way in.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
-    #[ORM\Column(length: 255)]
-    #[Assert\NotBlank]
+    /** What the owner calls it; a series has one, an operation without recurrence may. */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\NotBlank(groups: [self::VIEW_SERIES])]
     #[Assert\Length(max: 255)]
     #[IndexedField(type: 'text', boost: 2.0, keyword: true)]
-    private string $label;
+    private ?string $label = null;
 
     /** The payee of an expense, the payer of an income: who the bank names. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -85,11 +137,54 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[IndexedField(type: 'keyword')]
     private ?string $counterpartyKey = null;
 
-    /** Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the series. */
+    /** Read in the label when there is no counterparty to compare; with neither, the amount and its sign recognise the operation. */
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255)]
     #[IndexedField(type: 'text', keyword: true)]
     private ?string $labelPattern = null;
+
+    #[ORM\Column(length: 20, enumType: MatchType::class)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private MatchType $matchType = MatchType::Contains;
+
+    /**
+     * The sign an operation without recurrence expects; a series reads it off
+     * its reference amount.
+     */
+    #[ORM\Column(length: 20, enumType: AmountDirection::class)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private AmountDirection $direction = AmountDirection::Any;
+
+    /**
+     * Absolute amount bounds in cents, for an operation without recurrence: a
+     * debit of 15,99 € matches 1000..2000. A series is bounded by its
+     * reference amount and its tolerance instead.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\PositiveOrZero]
+    #[IndexedField(type: 'long')]
+    private ?int $minAmountCents = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\PositiveOrZero]
+    #[IndexedField(type: 'long')]
+    private ?int $maxAmountCents = null;
+
+    /**
+     * Among the operations without recurrence, the higher priority files the
+     * line; ties are broken by creation order. A series never competes: it
+     * attaches its own lines first.
+     */
+    #[ORM\Column(type: 'integer')]
+    #[IndexedField(type: 'integer')]
+    private int $priority = 0;
+
+    /** A paused operation recognises nothing; a series is never paused, it ends (`endsOn`). */
+    #[ORM\Column(type: 'boolean')]
+    #[IndexedField(type: 'boolean')]
+    private bool $isActive = true;
 
     /** The default category, inherited by the transactions attached to it. */
     #[ORM\ManyToOne(targetEntity: Category::class)]
@@ -110,27 +205,28 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[Context(denormalizationContext: [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false])]
     private Qualification $qualification;
 
-    /** Its currency is the operation's: there is no other. */
+    /** A series' account: its currency is the series'. An operation without recurrence reads every account. */
     #[ORM\ManyToOne(targetEntity: Account::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    #[Assert\NotNull]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[Assert\NotNull(groups: [self::VIEW_SERIES])]
     #[IndexedRelation(targetEntity: Account::class, sourceField: 'accountId')]
-    private Account $account;
+    private ?Account $account = null;
 
-    #[ORM\Column(length: 20, enumType: RecurrencePeriod::class)]
-    #[Assert\NotNull]
+    /** Null for an operation without recurrence: what tells the two apart. */
+    #[ORM\Column(length: 20, nullable: true, enumType: RecurrencePeriod::class)]
+    #[Assert\NotNull(groups: [self::VIEW_SERIES])]
     #[IndexedField(type: 'keyword')]
-    private RecurrencePeriod $period = RecurrencePeriod::Monthly;
+    private ?RecurrencePeriod $period = null;
 
     /**
      * Where the series is counted from, never from the previous occurrence.
      * With `last_day_of_month` the first occurrence is the last day of the
      * anchor's month.
      */
-    #[ORM\Column(type: 'date_immutable')]
-    #[Assert\NotNull]
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    #[Assert\NotNull(groups: [self::VIEW_SERIES])]
     #[IndexedField(type: 'date')]
-    private \DateTimeImmutable $anchorOn;
+    private ?\DateTimeImmutable $anchorOn = null;
 
     #[ORM\Column(length: 20, enumType: DayRule::class)]
     #[Assert\NotNull]
@@ -138,10 +234,11 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     private DayRule $dayRule = DayRule::FixedDay;
 
     /** Signed cents: negative is an expense, positive an income. */
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\NotNull(groups: [self::VIEW_SERIES])]
     #[Assert\NotEqualTo(0, message: 'The reference amount cannot be zero: negative for an expense, positive for an income.')]
     #[IndexedField(type: 'long')]
-    private int $referenceAmountCents = 0;
+    private ?int $referenceAmountCents = null;
 
     #[ORM\Column(length: 20, enumType: ReferenceAmountSource::class)]
     #[Assert\NotNull]
@@ -168,6 +265,10 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
+    /** Asked on save, never stored: give the existing history to this operation too. */
+    #[ApiProperty(readable: false, writable: true)]
+    private bool $applyToExisting = false;
+
     public function __construct()
     {
         $this->id = new Ulid();
@@ -175,9 +276,44 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     }
 
     #[Assert\Callback]
-    public function validateSeries(ExecutionContextInterface $context): void
+    public function validateOperation(ExecutionContextInterface $context): void
     {
-        if (null !== $this->endsOn && isset($this->anchorOn) && $this->endsOn < $this->anchorOn) {
+        $recurrence = [
+            'period' => $this->period,
+            'anchorOn' => $this->anchorOn,
+            'referenceAmountCents' => $this->referenceAmountCents,
+            'account' => $this->account,
+        ];
+        $given = array_filter($recurrence, static fn (mixed $value) => null !== $value);
+
+        if ([] !== $given && \count($given) < \count($recurrence)) {
+            $context->buildViolation(self::PARTIAL_RECURRENCE)
+                ->atPath((string) array_key_first(array_diff_key($recurrence, $given)))
+                ->addViolation();
+        }
+
+        if (null !== $this->minAmountCents
+            && null !== $this->maxAmountCents
+            && $this->minAmountCents > $this->maxAmountCents
+        ) {
+            $context->buildViolation('The minimum amount must not exceed the maximum amount.')
+                ->atPath('minAmountCents')
+                ->addViolation();
+        }
+
+        if ([] === $given) {
+            $this->validateWithoutRecurrence($context);
+
+            return;
+        }
+
+        if (null === $this->label || '' === trim($this->label)) {
+            $context->buildViolation('A recurring operation needs a label.')
+                ->atPath('label')
+                ->addViolation();
+        }
+
+        if (null !== $this->endsOn && null !== $this->anchorOn && $this->endsOn < $this->anchorOn) {
             $context->buildViolation('The series cannot end before its first occurrence.')
                 ->atPath('endsOn')
                 ->addViolation();
@@ -188,6 +324,48 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
                 ->atPath('dayRule')
                 ->addViolation();
         }
+
+        if (null !== $this->minAmountCents || null !== $this->maxAmountCents) {
+            $context->buildViolation('A series is bounded by its referenceAmountCents and amountTolerancePercent: minAmountCents and maxAmountCents are for an operation without recurrence.')
+                ->atPath(null !== $this->minAmountCents ? 'minAmountCents' : 'maxAmountCents')
+                ->addViolation();
+        }
+
+        if (null !== $this->referenceAmountCents && AmountDirection::Any !== $this->direction
+            && (AmountDirection::Debit === $this->direction) !== ($this->referenceAmountCents < 0)
+        ) {
+            $context->buildViolation('A series goes the way of its reference amount: negative is a debit, positive a credit.')
+                ->atPath('direction')
+                ->addViolation();
+        }
+
+        if (!$this->isActive) {
+            $context->buildViolation('A series is not paused: it ends, with endsOn.')
+                ->atPath('isActive')
+                ->addViolation();
+        }
+    }
+
+    private function validateWithoutRecurrence(ExecutionContextInterface $context): void
+    {
+        if (null !== $this->endsOn) {
+            $context->buildViolation('Only a series ends: endsOn needs a recurrence.')
+                ->atPath('endsOn')
+                ->addViolation();
+        }
+
+        if (!$this->matchCriteria()->isRecognisable()) {
+            $context->buildViolation(self::UNRECOGNISABLE)
+                ->atPath('labelPattern')
+                ->addViolation();
+        }
+    }
+
+    /** Whether it is a series: what a series has and an operation without recurrence has not. */
+    #[Ignore]
+    public function hasRecurrence(): bool
+    {
+        return null !== $this->period;
     }
 
     public function getId(): Ulid
@@ -195,14 +373,15 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         return $this->id;
     }
 
-    public function getLabel(): string
+    public function getLabel(): ?string
     {
         return $this->label;
     }
 
-    public function setLabel(string $label): static
+    public function setLabel(?string $label): static
     {
-        $this->label = $label;
+        $label = null === $label ? null : trim($label);
+        $this->label = '' === $label ? null : $label;
 
         return $this;
     }
@@ -250,6 +429,97 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         return $this;
     }
 
+    public function getMatchType(): MatchType
+    {
+        return $this->matchType;
+    }
+
+    public function setMatchType(MatchType $matchType): static
+    {
+        $this->matchType = $matchType;
+
+        return $this;
+    }
+
+    public function getDirection(): AmountDirection
+    {
+        return $this->direction;
+    }
+
+    public function setDirection(AmountDirection $direction): static
+    {
+        $this->direction = $direction;
+
+        return $this;
+    }
+
+    public function getMinAmountCents(): ?int
+    {
+        return $this->minAmountCents;
+    }
+
+    public function setMinAmountCents(?int $minAmountCents): static
+    {
+        $this->minAmountCents = $minAmountCents;
+
+        return $this;
+    }
+
+    public function getMaxAmountCents(): ?int
+    {
+        return $this->maxAmountCents;
+    }
+
+    public function setMaxAmountCents(?int $maxAmountCents): static
+    {
+        $this->maxAmountCents = $maxAmountCents;
+
+        return $this;
+    }
+
+    public function getPriority(): int
+    {
+        return $this->priority;
+    }
+
+    public function setPriority(int $priority): static
+    {
+        $this->priority = $priority;
+
+        return $this;
+    }
+
+    /** Symfony would serialise this as `active` while the field is written as `isActive`: see getIsActive(). */
+    #[Ignore]
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function getIsActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): static
+    {
+        $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function shouldApplyToExisting(): bool
+    {
+        return $this->applyToExisting;
+    }
+
+    public function setApplyToExisting(bool $applyToExisting): static
+    {
+        $this->applyToExisting = $applyToExisting;
+
+        return $this;
+    }
+
     public function getCategory(): Category
     {
         return $this->category;
@@ -285,38 +555,38 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         return $this;
     }
 
-    public function getAccount(): Account
+    public function getAccount(): ?Account
     {
         return $this->account;
     }
 
-    public function setAccount(Account $account): static
+    public function setAccount(?Account $account): static
     {
         $this->account = $account;
 
         return $this;
     }
 
-    public function getPeriod(): RecurrencePeriod
+    public function getPeriod(): ?RecurrencePeriod
     {
         return $this->period;
     }
 
-    public function setPeriod(RecurrencePeriod $period): static
+    public function setPeriod(?RecurrencePeriod $period): static
     {
         $this->period = $period;
 
         return $this;
     }
 
-    public function getAnchorOn(): \DateTimeImmutable
+    public function getAnchorOn(): ?\DateTimeImmutable
     {
         return $this->anchorOn;
     }
 
-    public function setAnchorOn(\DateTimeImmutable $anchorOn): static
+    public function setAnchorOn(?\DateTimeImmutable $anchorOn): static
     {
-        $this->anchorOn = $anchorOn->setTime(0, 0);
+        $this->anchorOn = $anchorOn?->setTime(0, 0);
 
         return $this;
     }
@@ -333,12 +603,12 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         return $this;
     }
 
-    public function getReferenceAmountCents(): int
+    public function getReferenceAmountCents(): ?int
     {
         return $this->referenceAmountCents;
     }
 
-    public function setReferenceAmountCents(int $referenceAmountCents): static
+    public function setReferenceAmountCents(?int $referenceAmountCents): static
     {
         $this->referenceAmountCents = $referenceAmountCents;
 
@@ -410,7 +680,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     {
         $day = $day->format('Y-m-d');
 
-        if ($day < $this->anchorOn->format('Y-m-d')) {
+        if (null === $this->anchorOn || $day < $this->anchorOn->format('Y-m-d')) {
             return false;
         }
 
@@ -427,7 +697,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     {
         $referenceCents ??= $this->referenceAmountCents;
 
-        if (0 === $amountCents || ($amountCents > 0) !== ($referenceCents > 0)) {
+        if (null === $referenceCents || 0 === $amountCents || ($amountCents > 0) !== ($referenceCents > 0)) {
             return false;
         }
 
@@ -435,35 +705,58 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
             <= abs($referenceCents) * $this->amountTolerancePercent;
     }
 
-    /** What the series costs (negative) or brings in (positive) a month, in cents. */
-    public function getMonthlyCostCents(): int
+    /** What the series costs (negative) or brings in (positive) a month, in cents; null without recurrence. */
+    public function getMonthlyCostCents(): ?int
     {
-        return intdiv($this->getYearlyCostCents(), 12);
+        $yearly = $this->getYearlyCostCents();
+
+        return null === $yearly ? null : intdiv($yearly, 12);
     }
 
-    /** What the series costs (negative) or brings in (positive) a year, in cents. */
-    public function getYearlyCostCents(): int
+    /** What the series costs (negative) or brings in (positive) a year, in cents; null without recurrence. */
+    public function getYearlyCostCents(): ?int
     {
+        if (null === $this->period || null === $this->referenceAmountCents) {
+            return null;
+        }
+
         return $this->referenceAmountCents * $this->period->perYear();
     }
 
     /**
-     * What the shared engine recognises its transactions by: the expected
-     * counterparty, else the label pattern, in the direction of the reference
-     * amount. A series with neither is recognised on the direction and the
-     * amount alone, so the tolerance bounds it. With an identity, the amount
-     * tolerance is not part of it: `acceptsAmount()` and the date window are
-     * conditions of attaching, not of recognising.
+     * What the shared engine recognises its transactions by.
+     *
+     * Without recurrence: the counterparty, the label pattern, the direction
+     * and the amount bounds, as given. Whether the operation is active is the
+     * caller's question.
+     *
+     * A series: the expected counterparty, else the label pattern, in the
+     * direction of the reference amount. A series with neither is recognised
+     * on the direction and the amount alone, so the tolerance bounds it. With
+     * an identity, the amount tolerance is not part of it: `acceptsAmount()`
+     * and the date window are conditions of attaching, not of recognising.
      *
      * @param int|null $referenceCents another reference than the stored one — a recalibration not yet written
      */
     public function matchCriteria(?int $referenceCents = null): MatchCriteria
     {
         $referenceCents ??= $this->referenceAmountCents;
+
+        if (!$this->hasRecurrence() || null === $referenceCents) {
+            return new MatchCriteria(
+                counterpartyKey: $this->counterpartyKey,
+                labelPattern: $this->labelPattern,
+                matchType: $this->matchType,
+                direction: $this->direction,
+                minAmountCents: $this->minAmountCents,
+                maxAmountCents: $this->maxAmountCents,
+            );
+        }
+
         $criteria = new MatchCriteria(
             counterpartyKey: $this->counterpartyKey,
             labelPattern: $this->labelPattern,
-            matchType: MatchType::Contains,
+            matchType: $this->matchType,
             direction: $referenceCents < 0 ? AmountDirection::Debit : AmountDirection::Credit,
         );
 
@@ -474,7 +767,7 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         $reference = abs($referenceCents);
 
         return new MatchCriteria(
-            matchType: MatchType::Contains,
+            matchType: $this->matchType,
             direction: $criteria->direction,
             minAmountCents: intdiv($reference * (100 - $this->amountTolerancePercent) + 99, 100),
             maxAmountCents: intdiv($reference * (100 + $this->amountTolerancePercent), 100),
@@ -485,21 +778,8 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     public function toSearchDocument(): array
     {
         return [
-            'label' => $this->label,
-            'counterpartyName' => $this->counterpartyName,
-            'counterpartyKey' => $this->counterpartyKey,
-            'labelPattern' => $this->labelPattern,
-            'period' => $this->period->value,
-            'anchorOn' => $this->anchorOn->format('Y-m-d'),
-            'dayRule' => $this->dayRule->value,
-            'referenceAmountCents' => $this->referenceAmountCents,
-            'referenceSource' => $this->referenceSource->value,
-            'amountTolerancePercent' => $this->amountTolerancePercent,
-            'dateToleranceDays' => $this->dateToleranceDays,
-            'endsOn' => $this->endsOn?->format('Y-m-d'),
-            'qualification' => $this->qualification->toArray(),
-            'categoryId' => (string) $this->category->getId(),
-            'accountId' => (string) $this->account->getId(),
+            ...$this->fields(),
+            'accountId' => null !== $this->account ? (string) $this->account->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -508,23 +788,37 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     public function toMercurePayload(?array $changedProperties = null): array
     {
         return self::filterPayload([
+            ...$this->fields(),
+            'monthlyCostCents' => $this->getMonthlyCostCents(),
+            'yearlyCostCents' => $this->getYearlyCostCents(),
+            'accountId' => null !== $this->account ? (string) $this->account->getId() : null,
+        ], $changedProperties, [...Qualification::changedPropertyMap(), 'category' => 'categoryId', 'account' => 'accountId']);
+    }
+
+    /** @return array<string, mixed> what the index and the live updates both carry */
+    private function fields(): array
+    {
+        return [
             'label' => $this->label,
             'counterpartyName' => $this->counterpartyName,
             'counterpartyKey' => $this->counterpartyKey,
             'labelPattern' => $this->labelPattern,
-            'period' => $this->period->value,
-            'anchorOn' => $this->anchorOn->format('Y-m-d'),
+            'matchType' => $this->matchType->value,
+            'direction' => $this->direction->value,
+            'minAmountCents' => $this->minAmountCents,
+            'maxAmountCents' => $this->maxAmountCents,
+            'priority' => $this->priority,
+            'isActive' => $this->isActive,
+            'period' => $this->period?->value,
+            'anchorOn' => $this->anchorOn?->format('Y-m-d'),
             'dayRule' => $this->dayRule->value,
             'referenceAmountCents' => $this->referenceAmountCents,
             'referenceSource' => $this->referenceSource->value,
             'amountTolerancePercent' => $this->amountTolerancePercent,
             'dateToleranceDays' => $this->dateToleranceDays,
             'endsOn' => $this->endsOn?->format('Y-m-d'),
-            'monthlyCostCents' => $this->getMonthlyCostCents(),
-            'yearlyCostCents' => $this->getYearlyCostCents(),
             'qualification' => $this->qualification->toArray(),
             'categoryId' => (string) $this->category->getId(),
-            'accountId' => (string) $this->account->getId(),
-        ], $changedProperties, [...Qualification::changedPropertyMap(), 'category' => 'categoryId', 'account' => 'accountId']);
+        ];
     }
 }

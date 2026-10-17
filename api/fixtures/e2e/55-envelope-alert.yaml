@@ -75,7 +75,7 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@e2e_envelope_alert_mobile_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   e2e_envelope_alert_rule:
     labelPattern: 'CINEMA'
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

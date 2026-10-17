@@ -6,7 +6,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
@@ -102,8 +102,8 @@ class TransactionsToSortToolTest extends KernelTestCase
         self::assertSame($this->id('food'), (string) $this->stored('bakery_two')->getCategory()->getId());
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        self::assertCount(2, $em->getRepository(CategorizationRule::class)->findAll());
-        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+        self::assertCount(2, $em->getRepository(RecurringOperation::class)->findAll());
+        $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
 
     public function testSortMarksAnInternalTransfer(): void

@@ -6,13 +6,11 @@ namespace Maggie\Finance\Service;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
-use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
@@ -32,7 +30,6 @@ class OwnedReferenceResolver
         private readonly TransactionRepository $transactionRepository,
         private readonly RecurringOperationRepository $recurringOperationRepository,
         private readonly EnvelopeRepository $envelopeRepository,
-        private readonly CategorizationRuleRepository $ruleRepository,
     ) {
     }
 
@@ -80,25 +77,36 @@ class OwnedReferenceResolver
         return $envelope;
     }
 
+    /** Any operation, with or without recurrence. */
+    public function operation(string $id, User $owner): RecurringOperation
+    {
+        $operation = Ulid::isValid($id) ? $this->recurringOperationRepository->find($id) : null;
+        if (!$operation instanceof RecurringOperation || !$operation->getUser()->getId()->equals($owner->getId())) {
+            throw new \DomainException("Operation not found: {$id}");
+        }
+
+        return $operation;
+    }
+
+    /** A series: an operation with a recurrence, the only kind a line can be an occurrence of. */
     public function recurringOperation(string $id, User $owner): RecurringOperation
     {
         $operation = Ulid::isValid($id) ? $this->recurringOperationRepository->find($id) : null;
-
-        if (!$operation instanceof RecurringOperation || !$operation->getUser()->getId()->equals($owner->getId())) {
+        if (!$operation instanceof RecurringOperation || !$operation->getUser()->getId()->equals($owner->getId()) || !$operation->hasRecurrence()) {
             throw new \DomainException("Recurring operation not found: {$id}");
         }
 
         return $operation;
     }
 
-    public function categorizationRule(string $id, User $owner): CategorizationRule
+    /** An operation without recurrence: what a categorization rule was. */
+    public function operationWithoutRecurrence(string $id, User $owner): RecurringOperation
     {
-        $rule = Ulid::isValid($id) ? $this->ruleRepository->find($id) : null;
-
-        if (!$rule instanceof CategorizationRule || !$rule->getUser()->getId()->equals($owner->getId())) {
-            throw new \DomainException("Categorization rule not found: {$id}");
+        $operation = Ulid::isValid($id) ? $this->recurringOperationRepository->find($id) : null;
+        if (!$operation instanceof RecurringOperation || !$operation->getUser()->getId()->equals($owner->getId()) || $operation->hasRecurrence()) {
+            throw new \DomainException("Operation without recurrence not found: {$id}");
         }
 
-        return $rule;
+        return $operation;
     }
 }

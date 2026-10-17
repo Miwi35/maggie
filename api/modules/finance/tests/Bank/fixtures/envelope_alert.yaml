@@ -25,7 +25,7 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@test_user'
 
-Maggie\Finance\Entity\CategorizationRule:
+Maggie\Finance\Entity\RecurringOperation:
   rule_bar:
     labelPattern: OBSYDIAN
     matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'

@@ -6,15 +6,15 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\RulePattern;
-use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
-use Maggie\Finance\Message\ApplyCategorizationRuleCommand;
-use Maggie\Finance\Message\CreateCategorizationRuleCommand;
+use Maggie\Finance\Message\ApplyOperationCommand;
+use Maggie\Finance\Message\CreateOperationCommand;
 use Maggie\Finance\Message\UpdateTransactionCommand;
-use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -34,7 +34,7 @@ class SortTransaction
 {
     public function __construct(
         private readonly TransactionRepository $transactionRepository,
-        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $operationRepository,
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly OwnedReferenceResolver $references,
         private readonly MessageBusInterface $bus,
@@ -42,7 +42,7 @@ class SortTransaction
     }
 
     /**
-     * @return array{transaction: Transaction, rule: ?CategorizationRule, ruleCreated: bool, alsoSorted: int, remaining: int}
+     * @return array{transaction: Transaction, rule: ?RecurringOperation, ruleCreated: bool, alsoSorted: int, remaining: int}
      *
      * @throws \DomainException when the line is not waiting to be sorted, the category is unknown, or no pattern can be drawn from the label
      */
@@ -73,12 +73,12 @@ class SortTransaction
         if (null !== $pattern) {
             // The rule that claims this line already — if it files it where the owner
             // just did, it only needs applying; asking « always » must not pile up copies.
-            $claiming = $this->categorizeTransaction->winner($transaction, $this->ruleRepository->findActiveForUser($user));
+            $claiming = $this->categorizeTransaction->winner($transaction, $this->operationRepository->findActiveWithoutRecurrenceForUser($user));
             $rule = null !== $claiming && $claiming->getCategory()->getId()->equals($category->getId()) ? $claiming : null;
             $ruleCreated = null === $rule;
 
             if (null === $rule) {
-                $envelope = $this->bus->dispatch(new CreateCategorizationRuleCommand(
+                $envelope = $this->bus->dispatch(new CreateOperationCommand(
                     userId: (string) $user->getId(),
                     categoryId: (string) $category->getId(),
                     labelPattern: $pattern,
@@ -88,10 +88,10 @@ class SortTransaction
                     priority: max(mb_strlen($pattern), null === $claiming ? 0 : $claiming->getPriority() + 1),
                     applyToExisting: true,
                 ));
-                /** @var CategorizationRule $rule */
+                /** @var RecurringOperation $rule */
                 $rule = $envelope->last(HandledStamp::class)->getResult();
             } else {
-                $this->bus->dispatch(new ApplyCategorizationRuleCommand((string) $rule->getId()));
+                $this->bus->dispatch(new ApplyOperationCommand((string) $rule->getId()));
             }
         }
 
