@@ -142,6 +142,27 @@ describe('TransactionSheet', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/transactions/01TX/my-share')
   })
 
+  test('the Partage section of a received transfer offers to give it back (MAG-452)', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          url.endsWith('/debt')
+            ? { transactionId: '01TX', amountCents: 56000, canBeDebt: true, suggestedContactId: null, peerDebt: null }
+            : transferState,
+      } as Response),
+    )
+
+    renderSheet({ ...RECORD, label: 'VIR. DE TOM MARTIN', amountCents: 56000 })
+
+    const section = await screen.findByRole('region', { name: 'Partage' })
+    expect(await within(section).findByText('Ce virement est')).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'À rembourser' })).toBeInTheDocument()
+    expect(within(section).queryByRole('switch', { name: 'Dépense partagée' })).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/finance/transactions/01TX/debt')
+  })
+
   test('a rejection says whether it is regularised', async () => {
     transferState = { transferKind: 'rejected', transferSource: 'manual', counterpart: null }
 

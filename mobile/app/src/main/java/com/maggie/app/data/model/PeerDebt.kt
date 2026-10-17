@@ -37,6 +37,7 @@ data class PeerDebt(
 
     companion object {
         const val DIRECTION_OWED_TO_ME = "owed_to_me"
+        const val DIRECTION_I_OWE = "i_owe"
         const val STATUS_OPEN = "open"
     }
 }
@@ -67,6 +68,28 @@ data class MyShareRequest(
     val shares: List<MyShareRequestShare>,
 )
 
+/**
+ * What `GET /api/finance/transactions/{id}/debt` says of a received transfer (MAG-452): whether it can be
+ * declared « À rembourser », the contact its label suggests, and the dette (« i_owe », one share) once declared.
+ */
+@Serializable
+data class TransactionDebt(
+    val transactionId: String,
+    val amountCents: Int = 0,
+    val canBeDebt: Boolean = false,
+    val suggestedContactId: String? = null,
+    val peerDebt: PeerDebt? = null,
+)
+
+/** `POST …/debt`: whom the transfer is to be given back to, and how much of it. */
+@Serializable
+data class TransactionDebtRequest(
+    val contactId: String,
+    val amountCents: Int,
+    val `object`: String? = null,
+    val notes: String? = null,
+)
+
 /** `GET /api/finance/peer-debts/summary`: what is left to be given back, both ways. */
 @Serializable
 data class PeerDebtSummary(
@@ -88,6 +111,9 @@ fun splitEqually(totalCents: Int, count: Int): List<Int> {
 /** « te doit 200,00 EUR »: what is left of one person's share. */
 fun owesYouLabel(remainingCents: Int, currency: String = "EUR"): String = "te doit ${formatCents(remainingCents, currency)}"
 
+/** « tu lui dois 280,00 EUR »: what the owner still has to give back to one person (MAG-452). */
+fun youOweLabel(remainingCents: Int, currency: String = "EUR"): String = "tu lui dois ${formatCents(remainingCents, currency)}"
+
 /** One open créance of a contact, as their page lists it under « En cours ». */
 data class ContactDebt(
     val debtId: String,
@@ -96,12 +122,14 @@ data class ContactDebt(
     val createdOn: String?,
     /** What is left of this contact's share. */
     val remainingCents: Int,
+    /** [PeerDebt.DIRECTION_OWED_TO_ME] (they owe the owner) or [PeerDebt.DIRECTION_I_OWE]. */
+    val direction: String = PeerDebt.DIRECTION_OWED_TO_ME,
 )
 
 /** The open créances [contactId] still owes something on, the latest first. */
 fun openDebtsOf(debts: List<PeerDebt>, contactId: String): List<ContactDebt> =
     debts
-        .filter { it.isOpen && it.direction == PeerDebt.DIRECTION_OWED_TO_ME }
+        .filter { it.isOpen }
         .mapNotNull { debt ->
             val share = debt.shares.firstOrNull { it.contactId == contactId && it.remainingCents > 0 } ?: return@mapNotNull null
             ContactDebt(
@@ -109,6 +137,7 @@ fun openDebtsOf(debts: List<PeerDebt>, contactId: String): List<ContactDebt> =
                 subject = debt.`object`.orEmpty().ifBlank { "Dépense partagée" },
                 createdOn = debt.createdAt?.take(10),
                 remainingCents = share.remainingCents,
+                direction = debt.direction,
             )
         }
         .sortedByDescending { it.createdOn.orEmpty() }

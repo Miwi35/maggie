@@ -38,6 +38,14 @@ class PeerDebtToolsTest extends KernelTestCase
         $this->resetAsyncTransport();
     }
 
+    private function loginWithReceivedTransfers(): void
+    {
+        $this->loadFixtures(self::FIXTURES, __DIR__.'/../Api/fixtures/peer_debts_received.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+    }
+
     /** @return array<string, mixed> */
     private function call(string $action, mixed ...$args): array
     {
@@ -162,5 +170,80 @@ class PeerDebtToolsTest extends KernelTestCase
         $byLabel = array_column($data['transactions'], null, 'label');
         self::assertSame(3000, $byLabel['RESTAURANT LE PHARE']['myShareCents']);
         self::assertNull($byLabel['GITE DES FALAISES']['myShareCents']);
+    }
+
+    // --- record_debt (MAG-452) -----------------------------------------------
+
+    public function testRecordDebtStoresPublishesAndIndexes(): void
+    {
+        $this->loginWithReceivedTransfers();
+
+        $data = $this->call('record_debt', transactionId: $this->id('tom_transfer'), contactId: $this->id('tom'), amountCents: 28000, object: 'Avance gîte');
+
+        self::assertTrue($data['success']);
+        self::assertSame('i_owe', $data['peerDebt']['direction']);
+        self::assertSame(28000, $data['peerDebt']['amountCents']);
+        self::assertSame(['Tom'], array_column($data['peerDebt']['shares'], 'contactName'));
+
+        $debt = $this->debtOf('tom_transfer');
+        self::assertNotNull($debt);
+        self::assertSame('Avance gîte', $debt->getObject());
+        self::assertSame(28000, $debt->getAmountCents());
+        $this->assertMercureUpdatePublished('/peer_debts/'.$debt->getId());
+        $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, (string) $debt->getId());
+
+        // Julie's dette (100 € left) is in the fixtures too.
+        self::assertSame(38000, $this->call('summary')['iOweCents']);
+    }
+
+    public function testRecordDebtAgainUpdatesAndANullAmountRemoves(): void
+    {
+        $this->loginWithReceivedTransfers();
+        $this->call('record_debt', transactionId: $this->id('tom_transfer'), contactId: $this->id('tom'), amountCents: 28000);
+        $first = $this->debtOf('tom_transfer');
+
+        $this->call('record_debt', transactionId: $this->id('tom_transfer'), contactId: $this->id('tom'), amountCents: 30000);
+        self::assertSame((string) $first?->getId(), (string) $this->debtOf('tom_transfer')?->getId());
+        self::assertSame(30000, $this->debtOf('tom_transfer')?->getAmountCents());
+
+        $data = $this->call('record_debt', transactionId: $this->id('tom_transfer'), amountCents: null);
+        self::assertTrue($data['success']);
+        self::assertNull($data['peerDebt']);
+        self::assertNull($this->debtOf('tom_transfer'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: ?string, 2: int}> */
+    public static function badDebts(): iterable
+    {
+        yield 'more than the transfer' => ['tom_transfer', 'tom', 45000];
+        yield 'nothing' => ['tom_transfer', 'tom', 0];
+        yield 'a spend' => ['gite', 'tom', 10000];
+        yield 'an internal transfer' => ['from_savings', 'tom', 10000];
+        yield 'another user\'s contact' => ['tom_transfer', 'others_contact', 10000];
+        yield 'no contact' => ['tom_transfer', null, 10000];
+        yield 'a dette partly given back, made smaller' => ['julie_transfer', 'julie', 4000];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('badDebts')]
+    public function testABadDebtIsRefused(string $transactionRef, ?string $contactRef, int $amountCents): void
+    {
+        $this->loginWithReceivedTransfers();
+        $before = $this->debtOf($transactionRef)?->getAmountCents();
+
+        $data = $this->call('record_debt', transactionId: $this->id($transactionRef), contactId: null === $contactRef ? null : $this->id($contactRef), amountCents: $amountCents);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame($before, $this->debtOf($transactionRef)?->getAmountCents());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testRecordDebtNeedsAUserAndATransaction(): void
+    {
+        $this->loadFixtures(self::FIXTURES, __DIR__.'/../Api/fixtures/peer_debts_received.yaml');
+        self::assertArrayHasKey('error', $this->call('record_debt', transactionId: $this->id('tom_transfer'), contactId: $this->id('tom'), amountCents: 1000));
+
+        $this->loginFixtureUser();
+        self::assertArrayHasKey('error', $this->call('record_debt', contactId: $this->id('tom'), amountCents: 1000));
+        self::assertArrayHasKey('error', $this->call('record_debt', transactionId: $this->id('julie_transfer'), amountCents: null));
     }
 }

@@ -7,7 +7,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Contact;
+use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -87,6 +90,21 @@ class TransactionRepositoryTest extends KernelTestCase
         return $transaction;
     }
 
+    /** A dette of `$cents` towards a contact, declared on a received transfer (MAG-452). */
+    private function owe(Transaction $transfer, int $cents, PeerDebtDirection $direction = PeerDebtDirection::IOwe): void
+    {
+        $contact = (new Contact())->setUser($this->user())->setName('Tom');
+        $debt = (new PeerDebt())
+            ->setUser($this->user())
+            ->setDirection($direction)
+            ->setObject($transfer->getLabel())
+            ->setOriginTransaction($transfer)
+            ->replaceShares([['contact' => $contact, 'amountCents' => $cents]]);
+        $this->em->persist($contact);
+        $this->em->persist($debt);
+        $this->flushWithoutTransactionEffects($this->em);
+    }
+
     /**
      * The movement of the owner's report: 3 000 € leaving the Livret, the same
      * 3 000 € landing on the Courant, marked as the one transfer it is.
@@ -134,6 +152,39 @@ class TransactionRepositoryTest extends KernelTestCase
         $flows = $this->repository->sumMonthlyFlowsBetween($this->user(), $this->from(), $this->until());
 
         self::assertSame(['incomeCents' => 495000, 'expenseCents' => 8000], $flows['2026-09']);
+    }
+
+    /** MAG-452: 280 € of Tom's 400 € are to give back, only 120 € are income. */
+    public function testWhatIsOwedBackLeavesTheMonthlyIncome(): void
+    {
+        $this->owe($this->add('checking', 40000, '2026-09-08', 'VIR. DE TOM'), 28000);
+        $this->add('checking', 495000, '2026-09-25', 'Salaire');
+        $this->add('checking', -8000, '2026-09-14', 'Supermarché');
+
+        $flows = $this->repository->sumMonthlyFlowsBetween($this->user(), $this->from(), $this->until());
+
+        self::assertSame(['incomeCents' => 495000 + 12000, 'expenseCents' => 8000], $flows['2026-09']);
+    }
+
+    /** A créance is money lent: the transfer that repays it is not owed back by anyone. */
+    public function testACreanceLeavesTheIncomeAsItWas(): void
+    {
+        $this->owe($this->add('checking', 40000, '2026-09-08', 'VIR. DE TOM'), 28000, PeerDebtDirection::OwedToMe);
+
+        $flows = $this->repository->sumMonthlyFlowsBetween($this->user(), $this->from(), $this->until());
+
+        self::assertSame(40000, $flows['2026-09']['incomeCents']);
+    }
+
+    public function testWhatIsOwedBackLeavesTheRentes(): void
+    {
+        $this->add('checking', 45000, '2026-09-05', 'Loyer de septembre', 'rente');
+        $this->owe($this->add('checking', 45000, '2026-09-06', 'Loyer avancé par un ami', 'rente'), 30000);
+
+        $income = $this->repository->sumPassiveIncomeByCategoryBetween($this->user(), $this->from(), $this->until());
+
+        self::assertCount(1, $income);
+        self::assertSame(45000 + 15000, $income[0]['incomeCents']);
     }
 
     public function testATransferLeavesTheSpendingByCategory(): void

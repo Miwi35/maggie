@@ -36,6 +36,7 @@ import {
   toTransactionPayload,
 } from './TransactionForm'
 import { natureOfAmount } from './transactionStatuses'
+import { TransactionDebtSection } from './TransactionDebtSection'
 import { TransactionShareSection } from './TransactionShareSection'
 import { useTransactionTransfer } from './useTransactionTransfer'
 
@@ -180,7 +181,12 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
     nature: <NatureSection transferApi={transferApi} kind={kind} amountCents={amountCents} />,
     classement: <ClassementSection record={record} />,
     recurrence: <RecurrenceSection record={record} />,
-    partage: <TransactionShareSection transactionId={String(record.id)} label={String(record.label ?? '')} />,
+    partage:
+      amountCents > 0 ? (
+        <TransactionDebtSection transactionId={String(record.id)} label={String(record.label ?? '')} />
+      ) : (
+        <TransactionShareSection transactionId={String(record.id)} label={String(record.label ?? '')} />
+      ),
     jugement: <ComingSoon>Bientôt : dire si cette dépense était un bon choix.</ComingSoon>,
     note: (
       <TextInput

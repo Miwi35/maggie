@@ -741,6 +741,23 @@ object UiTags {
     const val SHARE_PROBLEM = "share_problem"
     const val SHARE_ALL_OWED = "share_all_owed"
 
+    /**
+     * The sheet's « Ce virement est » on a received transfer (MAG-452): « Une recette » / « À rembourser », the person
+     * (opens the full-screen contact picker), the amount with its − / +, « Objet », « Notes », the sentence of what
+     * « Enregistrer » creates, what blocks it or what the server refused, and « Enregistrer ».
+     */
+    const val TRANSACTION_DEBT_RECEIPT = "transaction_debt_receipt"
+    const val TRANSACTION_DEBT_TOGGLE = "transaction_debt_toggle"
+    const val TRANSACTION_DEBT_PERSON = "transaction_debt_person"
+    const val TRANSACTION_DEBT_AMOUNT = "transaction_debt_amount"
+    const val TRANSACTION_DEBT_AMOUNT_LESS = "transaction_debt_amount_less"
+    const val TRANSACTION_DEBT_AMOUNT_MORE = "transaction_debt_amount_more"
+    const val TRANSACTION_DEBT_SUBJECT = "transaction_debt_subject"
+    const val TRANSACTION_DEBT_NOTES = "transaction_debt_notes"
+    const val TRANSACTION_DEBT_SUMMARY = "transaction_debt_summary"
+    const val TRANSACTION_DEBT_PROBLEM = "transaction_debt_problem"
+    const val TRANSACTION_DEBT_SAVE = "transaction_debt_save"
+
     /** The full-screen contact picker — a window of its own: its field, one result, « + Créer « … » ». */
     const val CONTACT_PICKER_SEARCH = "contact_picker_search"
     const val CONTACT_PICKER_RESULT = "contact_picker_result"

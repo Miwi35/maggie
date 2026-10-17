@@ -887,6 +887,24 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this->amountCents < 0 && TransferKind::None === $this->transferKind;
     }
 
+    /** @throws \DomainException when the line is not a received transfer, or the amount to give back not within it */
+    public function assertCanOwe(int $amountCents): void
+    {
+        if (!$this->canBeDebt()) {
+            throw new \DomainException('Only a received transfer can be declared as a dette: not a spend, an internal transfer or a rejection.');
+        }
+        if ($amountCents <= 0 || $amountCents > $this->amountCents) {
+            throw new \DomainException(sprintf('amountCents must be between 1 and %d.', $this->amountCents));
+        }
+    }
+
+    /** An income that is neither a transfer between the owner's accounts nor a rejection. Not serialized. */
+    #[ApiProperty(readable: false)]
+    public function canBeDebt(): bool
+    {
+        return $this->amountCents > 0 && TransferKind::None === $this->transferKind;
+    }
+
     /**
      * The signed amount that is the owner's own: the part they kept of a
      * shared spend, the whole amount otherwise. What every budget figure

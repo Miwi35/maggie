@@ -50,6 +50,8 @@ import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.PeerDebtShare
+import com.maggie.app.data.model.TransactionDebt
+import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -611,6 +613,46 @@ class FakeTransactionTransfers(
             lines[index] = lines[index].copy(myShareCents = null)
             debts -= id
             Result.success(myShareOf(id))
+        }
+        // A received transfer given back (MAG-452): the dette of each line, by line id.
+        val debtsOfReceived = mutableMapOf<String, PeerDebt>()
+        fun debtOf(id: String): TransactionDebt {
+            val line = lines.first { it.id == id }
+            return TransactionDebt(
+                transactionId = id,
+                amountCents = line.amountCents,
+                canBeDebt = line.amountCents > 0 && line.transferKind == "none",
+                peerDebt = debtsOfReceived[id],
+            )
+        }
+        coEvery { peerDebtRepository.getDebt(any()) } answers { Result.success(debtOf(firstArg())) }
+        coEvery { peerDebtRepository.recordDebt(any(), any()) } answers {
+            val id = firstArg<String>()
+            val request = secondArg<TransactionDebtRequest>()
+            debtsOfReceived[id] = PeerDebt(
+                id = "debt-$id",
+                direction = PeerDebt.DIRECTION_I_OWE,
+                `object` = request.`object`,
+                notes = request.notes,
+                originTransactionId = id,
+                amountCents = request.amountCents,
+                remainingCents = request.amountCents,
+                shares = listOf(
+                    PeerDebtShare(
+                        id = "share-0",
+                        contactId = request.contactId,
+                        contactName = people.first { it.id == request.contactId }.name,
+                        amountCents = request.amountCents,
+                        remainingCents = request.amountCents,
+                    ),
+                ),
+            )
+            Result.success(debtOf(id))
+        }
+        coEvery { peerDebtRepository.removeDebt(any()) } answers {
+            val id = firstArg<String>()
+            debtsOfReceived -= id
+            Result.success(debtOf(id))
         }
         val contactRepository = mockk<ContactRepository>()
         coEvery { contactRepository.getContacts() } answers { Result.success(people.toList()) }

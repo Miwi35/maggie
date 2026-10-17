@@ -13,6 +13,9 @@ import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
 import com.maggie.app.data.model.MyShareRequestShare
+import com.maggie.app.data.model.PeerDebt
+import com.maggie.app.data.model.TransactionDebt
+import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.Envelope
@@ -65,6 +68,8 @@ data class TransactionUiState(
     val isLoadingOneOffEnvelopes: Boolean = false,
     // « Ajouter une personne » of the sheet's « Partage » open: the owner's contacts, read when it opens.
     val shareContacts: ContactChoice? = null,
+    // « Envers qui »: the same full-screen picker, opened from a received transfer's « À rembourser » (MAG-452).
+    val debtContacts: ContactChoice? = null,
 ) {
     /** The name of the event the open line is attributed to, once the envelopes are read. */
     fun oneOffEnvelopeNameOf(transaction: Transaction): String? =
@@ -118,6 +123,8 @@ data class TransferDetailState(
     val error: String? = null,
     // « Partage » (MAG-451): read with the line, null until then and for a line that is not ordinary.
     val share: ShareEditor? = null,
+    // « Ce virement est » (MAG-452): read with a received line, null until then and for any other line.
+    val debt: DebtEditor? = null,
 )
 
 /** One person of « Qui te doit »: what they owe of the spend. */
@@ -206,6 +213,80 @@ data class ShareEditor(
                 editedByHand = people.isNotEmpty() && people.map { it.amountCents } != splitEqually(total - part, people.size),
                 subject = debt?.`object` ?: label,
                 notes = debt?.notes.orEmpty(),
+                message = message,
+            )
+        }
+    }
+}
+
+/**
+ * « Ce virement est » of a received transfer (MAG-452): « Une recette », or « À rembourser » — a dette
+ * (« Tu dois ») towards one person for [amountCents] of it, which then stops counting as income.
+ * Every edit stays a draft until « Enregistrer »; going back to « Une recette » takes the dette back.
+ */
+data class DebtEditor(
+    /** The transfer received, in cents. */
+    val totalCents: Int,
+    val canBeDebt: Boolean,
+    /** The dette the server holds; null while the transfer is a recette. */
+    val savedDebt: PeerDebt? = null,
+    /** The choice « À rembourser ». */
+    val enabled: Boolean = false,
+    /** Envers qui: the dette's contact, or the one the label suggests; null until one is chosen. */
+    val contactId: String? = null,
+    val contactName: String? = null,
+    /** Montant à rendre. */
+    val amountCents: Int = totalCents,
+    val subject: String = "",
+    val notes: String = "",
+    val isSaving: Boolean = false,
+    val error: String? = null,
+    val message: String? = null,
+) {
+    val isRecorded: Boolean get() = savedDebt != null
+
+    /** Why « Enregistrer » cannot be sent yet, null when it can. */
+    val problem: String? get() = when {
+        !enabled -> null
+        contactId == null -> "Choisis la personne à qui tu dois cet argent."
+        amountCents <= 0 -> "Indique le montant à rendre."
+        amountCents > totalCents -> "Le montant à rendre ne peut pas dépasser le virement."
+        else -> null
+    }
+
+    val canSave: Boolean get() = enabled && problem == null && !isSaving
+
+    /** What « Enregistrer » creates, once the person is known. */
+    fun summary(currency: String): String? = contactName?.let {
+        "Crée une dette de ${formatCents(amountCents, currency)} envers $it, dans « Tu dois »"
+    }
+
+    fun toRequest(): TransactionDebtRequest = TransactionDebtRequest(
+        contactId = contactId.orEmpty(),
+        amountCents = amountCents,
+        `object` = subject.trim().ifEmpty { null },
+        notes = notes.trim().ifEmpty { null },
+    )
+
+    companion object {
+        /**
+         * The editor as the server's answer leaves it: « À rembourser » when a dette is held. Before
+         * one is, the contact the label suggests ([suggestedName], read from the contacts) is proposed.
+         */
+        fun of(debt: TransactionDebt, label: String, suggestedName: String? = null, message: String? = null): DebtEditor {
+            val saved = debt.peerDebt
+            val share = saved?.shares?.firstOrNull()
+            val suggested = debt.suggestedContactId?.takeIf { suggestedName != null }
+            return DebtEditor(
+                totalCents = kotlin.math.abs(debt.amountCents),
+                canBeDebt = debt.canBeDebt,
+                savedDebt = saved,
+                enabled = saved != null,
+                contactId = share?.contactId ?: suggested,
+                contactName = share?.contactName ?: suggestedName.takeIf { suggested != null },
+                amountCents = share?.amountCents ?: kotlin.math.abs(debt.amountCents),
+                subject = saved?.`object` ?: label,
+                notes = saved?.notes.orEmpty(),
                 message = message,
             )
         }
@@ -460,10 +541,28 @@ class TransactionViewModel(
         if (transaction.qualifiedByRule != null && _uiState.value.ruleNames.isEmpty()) {
             loadRuleNames()
         }
-        // Only an ordinary line has a « Partage » section to fill.
+        // Only an ordinary line has a « Partage » section to fill: a spend is shared, a received transfer may be given back.
         if (transaction.transferKind == "none") {
-            loadShare(transaction)
+            if (transaction.amountCents > 0) loadDebt(transaction) else loadShare(transaction)
         }
+    }
+
+    private fun loadDebt(transaction: Transaction) {
+        viewModelScope.launch {
+            peerDebtRepository.getDebt(transaction.id)
+                .onSuccess { debt ->
+                    val suggestedName = suggestedContactName(debt)
+                    updateDetail(transaction.id) { it.copy(debt = DebtEditor.of(debt, transaction.label, suggestedName)) }
+                }
+                .onFailure { e -> updateDetail(transaction.id) { it.copy(error = e.message) } }
+        }
+    }
+
+    // The contacts only name the suggestion: without them the person is simply left to choose.
+    private suspend fun suggestedContactName(debt: TransactionDebt): String? {
+        val suggested = debt.suggestedContactId ?: return null
+        if (debt.peerDebt != null || !debt.canBeDebt) return null
+        return contactRepository.getContacts().getOrNull()?.firstOrNull { it.id == suggested }?.name
     }
 
     private fun loadShare(transaction: Transaction) {
@@ -601,6 +700,112 @@ class TransactionViewModel(
         }
     }
 
+    private fun updateDebt(change: (DebtEditor) -> DebtEditor) {
+        val open = _uiState.value.detail ?: return
+        val debt = open.debt ?: return
+        _uiState.value = _uiState.value.copy(detail = open.copy(debt = change(debt)))
+    }
+
+    /**
+     * The choice « Ce virement est »: « À rembourser » opens the draft; « Une recette » on a dette the
+     * server holds takes it back (the whole transfer counts as income again), on a draft only folds it.
+     */
+    fun setDebtEnabled(enabled: Boolean) {
+        val debt = _uiState.value.detail?.debt ?: return
+        when {
+            enabled -> updateDebt { it.copy(enabled = true, error = null, message = null) }
+            debt.isRecorded -> removeDebt()
+            else -> updateDebt { it.copy(enabled = false, error = null) }
+        }
+    }
+
+    /** « Montant à rendre », typed or stepped: kept between 0 and the transfer. */
+    fun changeDebtAmount(cents: Int) {
+        updateDebt { it.copy(amountCents = cents.coerceIn(0, it.totalCents), error = null, message = null) }
+    }
+
+    fun changeDebtSubject(text: String) = updateDebt { it.copy(subject = text) }
+
+    fun changeDebtNotes(text: String) = updateDebt { it.copy(notes = text) }
+
+    /** « Enregistrer »: the dette is created (or updated) with its single share. */
+    fun saveDebt() {
+        val open = _uiState.value.detail ?: return
+        val debt = open.debt ?: return
+        if (!debt.canSave) return
+        val id = open.transaction.id
+        updateDebt { it.copy(isSaving = true, error = null, message = null) }
+        viewModelScope.launch {
+            peerDebtRepository.recordDebt(id, debt.toRequest())
+                .onSuccess { saved -> debtSaved(id, saved, "Dette enregistrée") }
+                .onFailure { e -> updateDetail(id) { it.copy(debt = it.debt?.copy(isSaving = false, error = e.message ?: "Enregistrement impossible.")) } }
+        }
+    }
+
+    /** The dette taken back: the transfer is a recette again. */
+    fun removeDebt() {
+        val open = _uiState.value.detail ?: return
+        if (open.debt?.isSaving == true) return
+        val id = open.transaction.id
+        updateDebt { it.copy(isSaving = true, error = null, message = null) }
+        viewModelScope.launch {
+            peerDebtRepository.removeDebt(id)
+                .onSuccess { saved -> debtSaved(id, saved, "Dette retirée") }
+                .onFailure { e -> updateDetail(id) { it.copy(debt = it.debt?.copy(isSaving = false, enabled = true, error = e.message ?: "Suppression impossible.")) } }
+        }
+    }
+
+    private fun debtSaved(id: String, saved: TransactionDebt, message: String) {
+        // A recette again keeps the person and amount the owner had in mind, for a second thought.
+        updateDetail(id) {
+            val before = it.debt
+            val editor = DebtEditor.of(saved, it.transaction.label, message = message)
+            it.copy(
+                debt = if (saved.peerDebt == null && before != null) {
+                    editor.copy(contactId = before.contactId, contactName = before.contactName, amountCents = before.amountCents, subject = before.subject, notes = before.notes)
+                } else {
+                    editor
+                },
+            )
+        }
+    }
+
+    fun clearDebtMessage() = updateDebt { it.copy(message = null) }
+
+    /** « Envers qui »: the full-screen picker, on the owner's contacts. */
+    fun openDebtContactPicker() {
+        if (_uiState.value.detail?.debt == null) return
+        _uiState.value = _uiState.value.copy(debtContacts = ContactChoice())
+        viewModelScope.launch {
+            // No list is no reason to refuse: « + Créer » stays possible.
+            val contacts = contactRepository.getContacts().getOrDefault(emptyList())
+            _uiState.value.debtContacts?.let {
+                _uiState.value = _uiState.value.copy(debtContacts = ContactChoice(isLoading = false, contacts = contacts))
+            }
+        }
+    }
+
+    fun closeDebtContactPicker() {
+        _uiState.value = _uiState.value.copy(debtContacts = null)
+    }
+
+    fun pickDebtContact(contact: Contact) {
+        closeDebtContactPicker()
+        updateDebt { it.copy(contactId = contact.id, contactName = contact.name, error = null, message = null) }
+    }
+
+    /** « + Créer « Inès » »: the contact is created, then becomes the person owed. */
+    fun createDebtContact(name: String) {
+        if (name.isBlank()) return
+        closeDebtContactPicker()
+        val id = _uiState.value.detail?.transaction?.id ?: return
+        viewModelScope.launch {
+            contactRepository.createContact(name.trim())
+                .onSuccess { contact -> if (_uiState.value.detail?.transaction?.id == id) pickDebtContact(contact) }
+                .onFailure { e -> updateDetail(id) { it.copy(debt = it.debt?.copy(error = e.message ?: "Création impossible.")) } }
+        }
+    }
+
     // The rule's name only completes « Posée par la règle … »: a failure leaves the sentence without it.
     private fun loadRuleNames() {
         viewModelScope.launch {
@@ -654,7 +859,7 @@ class TransactionViewModel(
 
     fun closeDetail() {
         ruleDraftSession.close()
-        _uiState.value = _uiState.value.copy(detail = null, shareContacts = null)
+        _uiState.value = _uiState.value.copy(detail = null, shareContacts = null, debtContacts = null)
     }
 
     private fun loadDetailInfo(transactionId: String) {

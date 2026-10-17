@@ -1,0 +1,52 @@
+# Transfers received (MAG-452), loaded after peer_debts.yaml and sharing its
+# user, account and contacts: 400 € from Tom, recognised as his through his counterparty; 200 € from
+# Julie whose dette (150 €) she already got 50 € back on; an internal credit.
+Maggie\Finance\Entity\ContactCounterparty:
+  tom_label:
+    contact: '@tom'
+    label: VIR. DE TOM MARTIN
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  tom_transfer:
+    account: '@checking'
+    amountCents: 40000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-08"))>'
+    label: VIR. DE TOM MARTIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  julie_transfer:
+    account: '@checking'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-09"))>'
+    label: VIR. DE JULIE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  from_savings:
+    account: '@checking'
+    amountCents: 50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+    label: VIR. DU LIVRET A
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    isExceptional: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\PeerDebt:
+  julie_debt:
+    direction: '<(Maggie\Finance\Enum\PeerDebtDirection::IOwe)>'
+    object: Avance de Julie
+    originTransaction: '@julie_transfer'
+    user: '@test_user'
+
+Maggie\Finance\Entity\PeerDebtShare:
+  julie_share:
+    peerDebt: '@julie_debt'
+    contact: '@julie'
+    amountCents: 15000
+    repaidCents: 5000

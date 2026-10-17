@@ -7,10 +7,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Contact;
+use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\ObligationFlag;
+use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\ReferenceAmountSource;
@@ -179,6 +182,27 @@ class GetReferenceSalaryTest extends KernelTestCase
 
         self::assertSame(495000, $data['monthlyCents']);
         self::assertSame(2, $data['operations'][0]['paymentCount']);
+    }
+
+    /** MAG-452: what a colleague advanced and is to be given back is no salary. */
+    public function testWhatIsOwedBackOnAMeasuredPaymentIsNotSalary(): void
+    {
+        $this->attach('measured_op', 'measured_checking', 495000, 2);
+        $advance = $this->attach('measured_op', 'measured_checking', 515000, 1);
+
+        $user = $this->getFixture('measured_user');
+        $contact = (new Contact())->setUser($user)->setName('Tom');
+        $debt = (new PeerDebt())
+            ->setUser($user)
+            ->setDirection(PeerDebtDirection::IOwe)
+            ->setObject('Avance')
+            ->setOriginTransaction($advance)
+            ->replaceShares([['contact' => $contact, 'amountCents' => 20000]]);
+        $this->em->persist($contact);
+        $this->em->persist($debt);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        self::assertSame(495000, $this->read('measured_user')['monthlyCents']);
     }
 
     /** Measured but never paid yet: its reference is the only figure there is. */

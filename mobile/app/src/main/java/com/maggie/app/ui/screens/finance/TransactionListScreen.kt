@@ -130,6 +130,18 @@ fun TransactionListScreen(
                 onDismiss = viewModel::closeShareContactPicker,
             )
         }
+        // « Envers qui »: the same picker, for the dette of a received transfer.
+        uiState.debtContacts?.let { choice ->
+            ContactPickerDialog(
+                contacts = choice.contacts,
+                isLoading = choice.isLoading,
+                title = "À qui le rendre ?",
+                subtitle = detail.transaction.label,
+                onPick = viewModel::pickDebtContact,
+                onCreate = viewModel::createDebtContact,
+                onDismiss = viewModel::closeDebtContactPicker,
+            )
+        }
         val ruleDraft = uiState.ruleDraft
         if (ruleDraft != null) {
             TransactionRuleDraftScreen(
@@ -188,6 +200,14 @@ fun TransactionListScreen(
                         onNotesChange = viewModel::changeShareNotes,
                         onSave = viewModel::saveShare,
                         onSeeAllOwed = onOpenPeerDebts,
+                    ),
+                    debt = DebtSheetActions(
+                        onEnable = viewModel::setDebtEnabled,
+                        onPickPerson = viewModel::openDebtContactPicker,
+                        onAmountChange = viewModel::changeDebtAmount,
+                        onSubjectChange = viewModel::changeDebtSubject,
+                        onNotesChange = viewModel::changeDebtNotes,
+                        onSave = viewModel::saveDebt,
                     ),
                 ),
                 categories = uiState.categories,

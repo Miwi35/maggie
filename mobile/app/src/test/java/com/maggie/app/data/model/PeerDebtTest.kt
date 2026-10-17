@@ -38,6 +38,26 @@ class PeerDebtTest {
         assertEquals(emptyList<ContactDebt>(), openDebtsOf(debts, "c-julie"))
     }
 
+    /** MAG-452: a dette (the owner owes) is listed on the person's page too, worded the other way round. */
+    @Test
+    fun `a contact's page lists the dette the owner has towards them`() {
+        val debts = listOf(
+            PeerDebt(
+                id = "d-9",
+                direction = PeerDebt.DIRECTION_I_OWE,
+                `object` = "Avance gîte",
+                createdAt = "2026-10-12T09:00:00+00:00",
+                shares = listOf(PeerDebtShare("s-9", "c-tom", "Tom", amountCents = 28000, remainingCents = 28000)),
+            ),
+        )
+
+        assertEquals(
+            listOf(ContactDebt("d-9", "Avance gîte", "2026-10-12", 28000, PeerDebt.DIRECTION_I_OWE)),
+            openDebtsOf(debts, "c-tom"),
+        )
+        assertEquals("tu lui dois 280.00 EUR", youOweLabel(28000).replace(',', '.'))
+    }
+
     @Test
     fun `the day of a créance reads in French`() {
         assertEquals("10 octobre 2026", debtDayLabel("2026-10-10"))
@@ -48,5 +68,23 @@ class PeerDebtTest {
     @Test
     fun `what someone owes reads « te doit »`() {
         assertEquals("te doit ${formatCents(20000)}", owesYouLabel(20000))
+    }
+
+    @Test
+    fun `a received transfer's debt reads as the API sends it, with its single i_owe share`() {
+        val body = """
+            {"transactionId":"tx-1","amountCents":28000,"canBeDebt":true,"suggestedContactId":"c-tom",
+             "peerDebt":{"id":"d-1","direction":"i_owe","object":"Avance","notes":null,"originTransactionId":"tx-1",
+             "amountCents":15000,"repaidCents":0,"remainingCents":15000,"status":"open","createdAt":"2026-10-17T09:00:00+00:00",
+             "shares":[{"id":"s-1","contactId":"c-tom","contactName":"Tom","amountCents":15000,"repaidCents":0,"remainingCents":15000}]}}
+        """.trimIndent()
+
+        val debt = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(TransactionDebt.serializer(), body)
+
+        assertEquals(true, debt.canBeDebt)
+        assertEquals("c-tom", debt.suggestedContactId)
+        assertEquals(PeerDebt.DIRECTION_I_OWE, debt.peerDebt?.direction)
+        assertEquals("Tom", debt.peerDebt?.shares?.single()?.contactName)
+        assertEquals(15000, debt.peerDebt?.shares?.single()?.amountCents)
     }
 }
