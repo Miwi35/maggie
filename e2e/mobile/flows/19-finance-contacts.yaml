@@ -313,8 +313,10 @@ tags:
     visible:
       id: "contact_row"
     timeout: 30000
-- tapOn:
-    id: "contact_row"
+- extendedWaitUntil:
+    visible: "Tom"
+    timeout: 30000
+- tapOn: "Tom"
 - extendedWaitUntil:
     visible: "En cours"
     timeout: 30000
