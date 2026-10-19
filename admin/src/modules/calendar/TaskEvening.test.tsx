@@ -62,9 +62,22 @@ let refuseToday = false
 
 const all = () => [...TASKS, ...OTHERS]
 
+/** The constellations the mocked API holds, by month (MAG-509). */
+const STARS: Record<string, { count: number; best: { month: string; count: number } | null }> = {
+  '2026-10': { count: 4, best: { month: '2026-09', count: 9 } },
+  '2026-09': { count: 7, best: { month: '2026-08', count: 3 } },
+}
+
 const respond = (url: string, init?: RequestInit): Response => {
   const method = init?.method ?? 'GET'
   const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : {}
+  const starsOf = /\/stars(?:\?month=([\d-]+))?$/.exec(url)
+  if (starsOf) {
+    const month = starsOf[1] ?? TODAY.slice(0, 7)
+    const known = STARS[month] ?? { count: 0, best: null }
+
+    return json({ month, ...known, total: 31, latestAt: known.count ? `${month}-10T10:00:00+00:00` : null })
+  }
   const day = /\/day-plans\/([\d-]+)$/.exec(url)
   if (day) {
     if (refuse && method === 'PUT') return json({ error: 'A day holds 5 slots at most' }, 400)
@@ -144,6 +157,56 @@ describe('TaskEvening — « Le soir » (MAG-500)', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     await waitFor(() => expect(row('Réserver le train').getByRole('button', { name: 'Réserver le train : Plus tard' })).toHaveAttribute('aria-pressed', 'true'))
+  })
+
+  test('the constellation of the month sits next to « Fait », with the total since always under it (MAG-509)', async () => {
+    setup()
+
+    expect(await screen.findByRole('heading', { name: "Ta constellation d'octobre · 4 étoiles" })).toBeInTheDocument()
+    expect(screen.getAllByTestId('constellation-star')).toHaveLength(4)
+    expect(screen.getByTestId('constellation-total')).toHaveTextContent('31 étoiles depuis toujours')
+    expect(screen.getByRole('button', { name: 'Mois suivant' })).toBeDisabled()
+  })
+
+  test('« Mois précédent » shows last month\'s 7 stars, « Mois suivant » comes back (MAG-509)', async () => {
+    const { user } = setup()
+    await screen.findByRole('heading', { name: "Ta constellation d'octobre · 4 étoiles" })
+
+    await user.click(screen.getByRole('button', { name: 'Mois précédent' }))
+
+    expect(await screen.findByRole('heading', { name: "Ta constellation de septembre · 7 étoiles" })).toBeInTheDocument()
+    expect(screen.getAllByTestId('constellation-star')).toHaveLength(7)
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/stars?month=2026-09'), expect.anything())
+    expect(screen.getByRole('button', { name: 'Mois suivant' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Mois suivant' }))
+    expect(await screen.findByRole('heading', { name: "Ta constellation d'octobre · 4 étoiles" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mois suivant' })).toBeDisabled()
+  })
+
+  test('a month without a star is shown empty, not refused (MAG-509)', async () => {
+    const { user } = setup()
+    await screen.findByRole('heading', { name: "Ta constellation d'octobre · 4 étoiles" })
+
+    await user.click(screen.getByRole('button', { name: 'Mois précédent' }))
+    await screen.findByRole('heading', { name: 'Ta constellation de septembre · 7 étoiles' })
+    await user.click(screen.getByRole('button', { name: 'Mois précédent' }))
+
+    expect(await screen.findByRole('heading', { name: "Ta constellation d'août · 0 étoile" })).toBeInTheDocument()
+    expect(screen.queryAllByTestId('constellation-star')).toHaveLength(0)
+  })
+
+  test('the review still works when the stars cannot be read (MAG-509)', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockFetch.mockImplementation((url, init) =>
+      Promise.resolve(String(url).includes('/stars') ? json({ error: 'boom' }, 500) : respond(String(url), init)),
+    )
+    setup()
+
+    expect(await screen.findByRole('list', { name: 'Reste' })).toBeInTheDocument()
+    await waitFor(() => expect(error).toHaveBeenCalled())
+    expect(screen.queryByTestId('constellation')).toBeNull()
+    error.mockRestore()
   })
 
   test('« Demain » writes the task in tomorrow\'s five without settling that day', async () => {

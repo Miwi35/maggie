@@ -99,4 +99,36 @@ class RewardRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /** Every star the user ever earned: the total only goes up. */
+    public function countStars(User $user): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->where('r.user = :user')
+            ->andWhere('r.star = true')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /** When the latest star earned in [$from, $to[ was earned, null when there is none. */
+    public function findLatestStarDateBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): ?\DateTimeImmutable
+    {
+        $row = $this->createQueryBuilder('r')
+            ->select('r.earnedAt')
+            ->where('r.user = :user')
+            ->andWhere('r.star = true')
+            ->andWhere('r.earnedAt >= :from')
+            ->andWhere('r.earnedAt < :to')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('r.earnedAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return null === $row ? null : $row['earnedAt'];
+    }
 }

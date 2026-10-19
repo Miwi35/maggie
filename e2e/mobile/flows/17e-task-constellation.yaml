@@ -1,0 +1,88 @@
+appId: com.maggie.app.e2e
+name: 17e-task-constellation
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/stars-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-stars-mobile@maggie.local
+---
+# The constellation of the month (MAG-509, extends MAG-100): a tick adds a star.
+#
+# Given four stars this month and seven last month (the seed) and today's day holding one task
+# (`scripts/stars-api.js`), when the task is ticked from « Mes 5 », then the Bravo draws the
+# constellation of the month at « 5 étoiles », the API counts five and twelve in all, and, back on
+# the day, the task carries its star.
+#
+# It signs in as the seed's own account, `e2e-stars-mobile`: the counts are exact, so no other
+# journey may tick a task of it. The stars drawn one by one, the months before, the palier and
+# the animation switches are `ConstellationScreenTest`'s, `TasksEveningScreenTest`'s and the
+# Playwright journey's; the grid hides its stars from the accessibility tree, so only its title
+# is asserted here.
+
+- runScript:
+    file: ../scripts/stars-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-stars-mobile@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17e-task-constellation.yaml
+      e2e_email: e2e-stars-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+# The day holds the one task, not done yet, so no star on it.
+- scrollUntilVisible:
+    element:
+      id: "tasks_slot_1"
+    timeout: 20000
+- assertVisible: ".*Étoile MAG-509.*"
+- assertNotVisible:
+    id: "task_star"
+
+# Ticked from « Mes 5 »: the Bravo, with the constellation of the month and its five stars.
+- tapOn:
+    id: "tasks_slot_check_.*"
+    childOf:
+      id: "tasks_slot_1"
+- extendedWaitUntil:
+    visible:
+      id: "bravo"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "constellation_title"
+      text: ".*· 5 étoiles.*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/stars-api.js
+    env:
+      ACTION: expect-stars
+      TODAY: ${TODAY}
+      EMAIL: e2e-stars-mobile@maggie.local
+
+# Back on the day, the task carries its star.
+- tapOn:
+    id: "bravo_pause"
+- extendedWaitUntil:
+    visible:
+      id: "task_star"
+    timeout: 20000

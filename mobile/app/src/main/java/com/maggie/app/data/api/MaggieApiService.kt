@@ -44,6 +44,7 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountTimeline
@@ -831,6 +832,14 @@ class MaggieApiService(
         }
         if (response.status.value == 404) return null
         return response.orRefusal().body()
+    }
+
+    /** The constellation of [month] (`YYYY-MM`, MAG-509), the current month in the user's zone when `null`. */
+    suspend fun getStars(month: String? = null): Stars {
+        return client.get("$baseUrl/api/stars") {
+            accept(ContentType.Application.Json)
+            month?.let { parameter("month", it) }
+        }.orRefusal().body()
     }
 
     /** The evening's review of [date] (MAG-500), created empty on its first read. */

@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography'
 import UpdateIcon from '@mui/icons-material/Update'
 import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
-import { TaskBravoBanner } from './TaskBravo'
+import { TaskBravoBanner, TaskPalier } from './TaskBravo'
 import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { TaskEvening } from './TaskEvening'
@@ -25,13 +25,14 @@ import { UrgencyBadge } from './UrgencyBadge'
 import { claimEvening, claimMorning, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
-import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, playBravoSound } from './reward'
+import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
 import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 
 // The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
-const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}']
+// The rewards come on the same stream: a palier opens its bravo wherever the page is (MAG-509).
+const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
 const PAGE_SIZE = 30
 
 const TABS: Record<TaskView, { label: string; empty: string }> = {
@@ -76,6 +77,7 @@ export const TaskBoard = () => {
   const [reviewing, setReviewing] = useState<DayPlan | null>(null)
   const [opening, setOpening] = useState(true)
   const [cheer, setCheer] = useState<RewardCheer>(DEFAULT_CHEER)
+  const [palier, setPalier] = useState<Reward | null>(null)
   const [banner, setBanner] = useState<{ title: string; reward: Reward | null }>({ title: '', reward: null })
 
   const today = localDay(new Date())
@@ -198,7 +200,15 @@ export const TaskBoard = () => {
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
 
-  useMercure(TASK_TOPICS, reload)
+  // A palier is the one reward that comes unasked, from a chapter finished elsewhere.
+  useMercure(TASK_TOPICS, (data) => {
+    reload()
+    const reward = parseReward(data)
+    if (reward?.level === 'palier') {
+      if (cheer.sound) playBravoSound()
+      setPalier(reward)
+    }
+  })
 
   // How a task done is cheered (MAG-508), as Réglages › Tâches says when the page opens.
   useEffect(() => {
@@ -290,7 +300,7 @@ export const TaskBoard = () => {
       )}
 
       {view === 'today' && reviewing ? (
-        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} />
+        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} animate={cheer.animation} />
       ) : view === 'today' && preparing ? (
         <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
       ) : view === 'today' ? (
@@ -387,6 +397,8 @@ export const TaskBoard = () => {
           sx={{ mt: 2 }}
         />
       )}
+
+      {palier && <TaskPalier reward={palier} animate={cheer.animation} onClose={() => setPalier(null)} />}
 
       <TaskBravoBanner title={banner.title} reward={banner.reward} onClose={() => setBanner((b) => ({ ...b, reward: null }))} />
 

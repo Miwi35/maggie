@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -14,6 +15,7 @@ import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
@@ -53,6 +55,8 @@ class BravoScreenTest {
         earnedAt = "2026-10-15T08:00:00+00:00",
     )
 
+    private var stars: Result<Stars> = Result.success(Stars(month = "2026-10", count = 5, total = 12))
+
     private fun day(doneCount: Int): DayPlan {
         val tasks = listOf(
             DayTask(id = "d1", title = "Arroser"),
@@ -69,6 +73,7 @@ class BravoScreenTest {
         coEvery { repository.getTaskReward("d3") } returns Result.success(reward)
         coEvery { repository.getTaskSettings() } returns Result.failure(IllegalStateException("offline"))
         coEvery { repository.getDayPlan(today) } returns Result.success(day(doneCount))
+        coEvery { repository.getStars() } returns stars
         val viewModel = BravoViewModel(repository, TaskRewards(repository, mockk(relaxed = true)), today = { today })
         viewModel.open(BravoRequest("d3", "Renvoyer le formulaire"))
         compose.setContent { BravoScreen(viewModel = viewModel, onNext = { nextId = it }, onPause = { pauses++ }) }
@@ -86,6 +91,26 @@ class BravoScreenTest {
         compose.onNodeWithText("3 sur 5 aujourd'hui").assertIsDisplayed()
         compose.onNodeWithText("Suivante : Appeler le garage · 10 min").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.BRAVO_SHOOTING_STAR).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the month's constellation sits under the message, counting the new star (MAG-509)`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.CONSTELLATION_TITLE).assertTextEquals("Ta constellation d'octobre · 5 étoiles")
+        compose.onNodeWithTag(UiTags.CONSTELLATION_LATEST, useUnmergedTree = true).assertExists()
+        assertEquals(4, compose.onAllNodesWithTag(UiTags.CONSTELLATION_STAR, useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.onNodeWithTag(UiTags.CONSTELLATION_MORE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a constellation that cannot be read leaves the Bravo whole (MAG-509)`() {
+        stars = Result.failure(IllegalStateException("offline"))
+        show()
+
+        compose.onNodeWithTag(UiTags.CONSTELLATION).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.BRAVO_MESSAGE).assertTextEquals("Faite. Suivante.")
+        compose.onNodeWithTag(UiTags.BRAVO_DAY_BAR).assertIsDisplayed()
     }
 
     @Test

@@ -8,8 +8,11 @@ import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
 import CheckIcon from '@mui/icons-material/Check'
 import StarIcon from '@mui/icons-material/Star'
+import { Constellation } from './Constellation'
 import type { DayTask } from './dayPlan'
+import { motion } from './motion'
 import type { Reward } from './reward'
+import type { Stars } from './stars'
 
 const popIn = keyframes`
   0% { opacity: 0; transform: scale(0.3); }
@@ -25,10 +28,6 @@ const shoot = keyframes`
   20% { opacity: 1; }
   100% { opacity: 0; transform: translate(140px, -60px) rotate(-20deg); }
 `
-
-/** Off by its setting, and by « reduce motion » of the system. */
-const motion = (animate: boolean, animation: string) =>
-  animate ? { animation, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } } : {}
 
 /** Where the small stars sit around the circle, and when they twinkle. */
 const STARS = [
@@ -68,6 +67,8 @@ interface TaskBravoProps {
   next: DayTask | null
   /** The animations, as the settings say. */
   animate: boolean
+  /** The month's constellation, this star counted; drawn under the message once read. */
+  stars?: Stars | null
   onNext: () => void
   onPause: () => void
 }
@@ -77,7 +78,7 @@ interface TaskBravoProps {
  * small stars, the message of the reward, the day so far, then the next task
  * or a well-earned pause. A surprise crosses with a shooting star.
  */
-export const TaskBravo = ({ title, reward, done, total, next, animate, onNext, onPause }: TaskBravoProps) => (
+export const TaskBravo = ({ title, reward, done, total, next, animate, stars = null, onNext, onPause }: TaskBravoProps) => (
   <Dialog open onClose={onPause} fullWidth maxWidth="xs" aria-labelledby="bravo-title">
     <Stack data-testid="bravo" data-animated={animate} alignItems="center" spacing={2} sx={{ p: 4, textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
       {reward.surprise && (
@@ -134,6 +135,12 @@ export const TaskBravo = ({ title, reward, done, total, next, animate, onNext, o
         {reward.message}
       </Typography>
 
+      {stars && (
+        <Box sx={{ width: '100%', maxWidth: 280 }}>
+          <Constellation stars={stars} animate={animate} />
+        </Box>
+      )}
+
       {total > 0 && <DaySegments done={done} total={total} />}
 
       <Stack spacing={1} sx={{ width: '100%', pt: 1 }}>
@@ -167,4 +174,83 @@ export const TaskBravoBanner = ({ title, reward, onClose }: { title: string; rew
       }
     />
   </Snackbar>
+)
+
+const PALIER_GOLD = '#F2C46D'
+
+const burst = keyframes`
+  0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  60% { opacity: 1; }
+  100% { opacity: 0.7; transform: scale(1) rotate(25deg); }
+`
+
+/** Rays and stars around the badge of a palier: more of them than a task's bravo. */
+const PALIER_STARS = Array.from({ length: 10 }, (_, i) => ({ angle: i * 36, delay: i * 70 }))
+
+/**
+ * The bravo of a big moment (MAG-509), a chapter finished: the gold banner with
+ * its title, rays and more stars than a task's, the message of the palier bank.
+ * No star is added to the month, no next task — a pause is all it offers.
+ */
+export const TaskPalier = ({ reward, animate, onClose }: { reward: Reward; animate: boolean; onClose: () => void }) => (
+  <Dialog open onClose={onClose} fullWidth maxWidth="xs" aria-labelledby="palier-title">
+    <Stack data-testid="palier" data-animated={animate} alignItems="center" spacing={2} sx={{ p: 4, textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ position: 'relative', width: 160, height: 160 }}>
+        {PALIER_STARS.map(({ angle, delay }) => (
+          <Box
+            key={angle}
+            data-testid="palier-ray"
+            aria-hidden
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: 0,
+              height: 0,
+              transform: `rotate(${angle}deg) translateY(-70px)`,
+            }}
+          >
+            <StarIcon
+              sx={{
+                position: 'absolute',
+                left: -9,
+                top: -9,
+                fontSize: 18,
+                color: PALIER_GOLD,
+                ...motion(animate, `${twinkle} 1000ms ease-in-out ${delay}ms infinite`),
+              }}
+            />
+          </Box>
+        ))}
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            inset: 30,
+            borderRadius: '50%',
+            bgcolor: PALIER_GOLD,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            ...motion(animate, `${burst} 700ms cubic-bezier(0.2, 0.8, 0.3, 1) both`),
+          }}
+        >
+          <StarIcon sx={{ fontSize: 56, color: '#fff' }} />
+        </Box>
+      </Box>
+
+      <Box data-testid="palier-banner" sx={{ bgcolor: PALIER_GOLD, color: '#3b2a00', px: 3, py: 1, borderRadius: 1, width: '100%' }}>
+        <Typography id="palier-title" variant="h6" component="h2">
+          {reward.title}
+        </Typography>
+      </Box>
+      <Typography variant="body1" data-testid="palier-message">
+        {reward.message}
+      </Typography>
+
+      <Button variant="contained" onClick={onClose}>
+        Pause méritée
+      </Button>
+    </Stack>
+  </Dialog>
 )

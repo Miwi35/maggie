@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -708,6 +709,37 @@ class DtoContractTest {
         assertTrue(reward.isShootingStar)
         assertTrue(reward.star)
         assertTrue(reward.message.isNotBlank())
+    }
+
+    @Test
+    fun `a palier deserialises from the recorded response, gold and with no star in the month (MAG-509)`() {
+        assertItemContract("rewards.palier", serializer<Reward>(), "Reward")
+        val reward = json.decodeFromJsonElement(serializer<Reward>(), readRecording("rewards.palier"))
+
+        assertTrue(reward.isPalier)
+        assertFalse(reward.star)
+        assertNull(reward.surprise)
+        assertTrue(!reward.title.isNullOrBlank())
+        assertTrue(reward.message.isNotBlank())
+    }
+
+    @Test
+    fun `a standard reward carries no title (MAG-509)`() {
+        val reward = json.decodeFromJsonElement(serializer<Reward>(), readRecording("rewards.read"))
+
+        assertNull(reward.title)
+        assertFalse(reward.isPalier)
+    }
+
+    @Test
+    fun `the constellation of a month deserialises from the recorded response (MAG-509)`() {
+        assertItemContract("stars.read", serializer<Stars>(), "Stars")
+        val stars = json.decodeFromJsonElement(serializer<Stars>(), readRecording("stars.read"))
+
+        assertTrue(stars.month.matches(Regex("""\d{4}-\d{2}""")))
+        assertTrue(stars.total >= stars.count)
+        assertEquals(minOf(stars.count, Stars.MAX_DRAWN), stars.drawn)
+        assertEquals("Ta constellation ${Stars.monthOf(stars.month)} · ${Stars.starsLabelOf(stars.count)}", stars.title)
     }
 
     @Test

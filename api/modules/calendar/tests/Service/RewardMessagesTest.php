@@ -104,10 +104,33 @@ class RewardMessagesTest extends TestCase
         }
     }
 
+    #[DataProvider('tones')]
+    public function testAPalierDrawsFromItsToneBankAndNeverTwiceInARow(string $tone): void
+    {
+        self::assertCount(3, RewardMessages::PALIERS[$tone]);
+
+        $messages = self::seeded();
+        $previous = null;
+        for ($i = 0; $i < 20; ++$i) {
+            $drawn = $messages->drawPalier($tone, $previous);
+            self::assertMatchesRegularExpression('/^palier-'.$tone.'\.[1-3]$/', $drawn['key']);
+            self::assertNotSame($previous, $drawn['key']);
+            self::assertSame(RewardMessages::PALIERS[$tone][(int) explode('.', $drawn['key'])[1] - 1], $drawn['message']);
+            $previous = $drawn['key'];
+        }
+    }
+
+    public function testAPalierOfAnUnknownToneIsRefused(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        self::seeded()->drawPalier('sec', null);
+    }
+
     public function testNoMessageOfAnyBankIsAReproach(): void
     {
         $all = RewardMessages::all();
-        self::assertCount(39, $all);
+        self::assertCount(48, $all);
 
         foreach ($all as $message) {
             foreach (self::FORBIDDEN as $word) {

@@ -564,6 +564,25 @@ object UiTags {
     const val BRAVO_SHOOTING_STAR = "bravo_shooting_star"
     const val TASKS_REWARD_BANNER = "tasks_reward_banner"
 
+    /**
+     * The constellation (MAG-509): the month's stars under the Bravo and in the evening, its title,
+     * the latest star, the « +n » past a hundred, the all-time total and the arrows between months;
+     * the star of a done task in « Mes 5 »; the palier banner and its dismissal.
+     */
+    const val CONSTELLATION = "constellation"
+    const val CONSTELLATION_TITLE = "constellation_title"
+    const val CONSTELLATION_STAR = "constellation_star"
+    const val CONSTELLATION_LATEST = "constellation_latest"
+    const val CONSTELLATION_MORE = "constellation_more"
+    const val CONSTELLATION_TOTAL = "constellation_total"
+    const val CONSTELLATION_PREVIOUS = "constellation_previous"
+    const val CONSTELLATION_NEXT = "constellation_next"
+    const val TASK_STAR = "task_star"
+    const val PALIER = "palier"
+    const val PALIER_TITLE = "palier_title"
+    const val PALIER_MESSAGE = "palier_message"
+    const val PALIER_DISMISS = "palier_dismiss"
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 

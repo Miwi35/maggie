@@ -18,6 +18,7 @@ import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.RewardFeedback
@@ -60,6 +61,7 @@ class TasksViewModelTest {
     private lateinit var feedback: RewardFeedback
     private val pushes = MutableSharedFlow<MercureEvent>()
     private val dayPushes = MutableSharedFlow<MercureEvent>()
+    private val rewardPushes = MutableSharedFlow<MercureEvent>()
 
     private val counts = TaskViewCounts(today = 2, upcoming = 1, someday = 1, done = 1)
     private val late = task("t1", "Renvoyer le formulaire", dueDate = "2026-10-13", overdueDays = 2)
@@ -88,6 +90,9 @@ class TasksViewModelTest {
         coEvery { authRepository.getUserId() } returns "u1"
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.REWARDS)) } returns rewardPushes
+        // No constellation unless a test says so.
+        coEvery { taskRepository.getStars(any()) } returns Result.failure(IllegalStateException("offline"))
         // Unreadable morning time: the morning never opens by itself unless a test says so.
         coEvery { taskRepository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
         // Nor the evening.
@@ -1327,5 +1332,137 @@ class TasksViewModelTest {
         assertEquals(listOf("a", "b"), restoreAt(listOf("b"), "a", original))
         assertEquals(listOf("a", "d", "e"), restoreAt(listOf("a", "e"), "d", original))
         assertEquals(listOf("a", "c"), restoreAt(listOf("a", "c"), "c", original))
+    }
+
+    // La constellation et le palier (MAG-509)
+
+    private fun starsOf(month: String, count: Int) = Stars(month = month, count = count, total = 20, best = null, latestAt = null)
+
+    private val palierPush = """{"@id":"/api/rewards/rw9","subjectType":"saga_chapter","subjectId":"c1","level":"palier","surprise":null,""" +
+        """"messageKey":"palier-doux.1","message":"Un chapitre de bouclé. Prends le temps d'en profiter.","title":"Chapitre 1","star":false,""" +
+        """"earnedAt":"2026-10-15T20:00:00+00:00"}"""
+
+    @Test
+    fun `the evening reads the month's constellation, the current month being its limit (MAG-509)`() = runTest {
+        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
+        val viewModel = openEvening()
+
+        val state = viewModel.uiState.value.evening!!
+        assertEquals(5, state.stars?.count)
+        assertEquals("2026-10", state.currentMonth)
+        assertFalse("nothing after the current month", state.canGoNextMonth)
+
+        viewModel.nextMonth()
+        advanceUntilIdle()
+        coVerify(exactly = 0) { taskRepository.getStars("2026-11") }
+        assertEquals("2026-10", viewModel.uiState.value.evening!!.stars?.month)
+    }
+
+    @Test
+    fun `the previous month shows its constellation, the next one brings the current month back (MAG-509)`() = runTest {
+        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
+        coEvery { taskRepository.getStars("2026-09") } returns Result.success(starsOf("2026-09", 7))
+        val viewModel = openEvening()
+
+        viewModel.previousMonth()
+        advanceUntilIdle()
+        val back = viewModel.uiState.value.evening!!
+        assertEquals(7, back.stars?.count)
+        assertEquals("Ta constellation de septembre · 7 étoiles", back.stars?.title)
+        assertTrue(back.canGoNextMonth)
+        assertEquals("the current month stays the limit", "2026-10", back.currentMonth)
+
+        coEvery { taskRepository.getStars("2026-10") } returns Result.success(starsOf("2026-10", 5))
+        viewModel.nextMonth()
+        advanceUntilIdle()
+        assertEquals(5, viewModel.uiState.value.evening!!.stars?.count)
+        assertFalse(viewModel.uiState.value.evening!!.canGoNextMonth)
+    }
+
+    @Test
+    fun `a month that cannot be read leaves the constellation shown as it was (MAG-509)`() = runTest {
+        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
+        val viewModel = openEvening()
+
+        viewModel.previousMonth()
+        advanceUntilIdle()
+
+        assertEquals("2026-10", viewModel.uiState.value.evening!!.stars?.month)
+    }
+
+    @Test
+    fun `an evening whose stars cannot be read opens without a constellation (MAG-509)`() = runTest {
+        val viewModel = openEvening()
+
+        assertNotNull(viewModel.uiState.value.evening)
+        assertNull(viewModel.uiState.value.evening!!.stars)
+    }
+
+    @Test
+    fun `a palier pushed while the screen is on is shown, and goes away when dismissed (MAG-509)`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        rewardPushes.emit(MercureEvent(data = palierPush))
+        advanceUntilIdle()
+
+        val palier = viewModel.uiState.value.palier
+        assertEquals("Chapitre 1", palier?.reward?.title)
+        assertTrue(palier!!.reward.isPalier)
+        assertFalse(palier.reward.star)
+        // A palier moves no task: the list was not read again for it.
+        coVerify(exactly = 1) { taskRepository.getDayPlan(today) }
+
+        viewModel.dismissPalier()
+        assertNull(viewModel.uiState.value.palier)
+    }
+
+    @Test
+    fun `a standard reward pushed, or something that is no reward, shows no palier (MAG-509)`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        rewardPushes.emit(MercureEvent(data = palierPush.replace("\"palier\"", "\"standard\"")))
+        rewardPushes.emit(MercureEvent(data = """{"@id":"/api/tasks/t1","title":"x"}"""))
+        rewardPushes.emit(MercureEvent(data = "not json"))
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.palier)
+    }
+
+    @Test
+    fun `a palier plays the buzz and the sound its settings allow (MAG-509)`() = runTest {
+        coEvery { taskRepository.getTaskSettings() } returns Result.success(
+            mockk(relaxed = true) {
+                every { rewardVibration } returns true
+                every { rewardSound } returns false
+                every { rewardAnimation } returns false
+            },
+        )
+        val viewModel = createViewModel()
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        rewardPushes.emit(MercureEvent(data = palierPush))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { feedback.vibrate() }
+        verify(exactly = 0) { feedback.playSound() }
+        assertFalse(viewModel.uiState.value.palier!!.animate)
+    }
+
+    @Test
+    fun `the rewards stream is opened with the screen and released with it (MAG-509)`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.onOpened()
+        advanceUntilIdle()
+        assertEquals(1, rewardPushes.subscriptionCount.value)
+
+        viewModel.onClosed()
+        advanceUntilIdle()
+        assertEquals(0, rewardPushes.subscriptionCount.value)
     }
 }

@@ -141,6 +141,13 @@ export const BALANCE_USER_EMAIL = 'e2e-balance@maggie.local'
  */
 export const BRAVO_USER_EMAIL = 'e2e-bravo@maggie.local'
 
+/**
+ * The eighteenth seeded account, for the constellation of the month (MAG-509):
+ * four stars this month and seven last month, so the count a tick brings it to
+ * (five) is exact. Another journey ticking tasks of it would move that count.
+ */
+export const STARS_USER_EMAIL = 'e2e-stars@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

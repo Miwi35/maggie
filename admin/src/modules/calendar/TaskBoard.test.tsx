@@ -82,6 +82,8 @@ let reviewedAt: string | null = null
 /** The rewards the ticks lay down, by task id (MAG-508); none answers 404. */
 let rewards: Record<string, Reward> = {}
 let cheerSettings: Record<string, boolean> = {}
+/** The stars of the month the API counts (MAG-509). */
+let stars = 5
 
 const describeDay = () => {
   const slots = state.slots.map((t, i) => ({ position: i + 1, type: 'task', task: t }))
@@ -115,6 +117,9 @@ const respond = (url: string, init?: RequestInit): Response => {
 
   if (url.endsWith('/task-settings/me'))
     return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}), ...cheerSettings })
+
+  if (/\/stars(\?month=[\d-]+)?$/.test(url))
+    return json({ month: '2026-10', count: stars, total: 12, best: null, latestAt: '2026-10-15T09:00:00+00:00' })
 
   const rewarded = /\/rewards\/task\/(\w+)$/.exec(url)
   if (rewarded) return rewards[rewarded[1]] ? json(rewards[rewarded[1]]) : json({ error: 'No reward' }, 404)
@@ -206,6 +211,7 @@ const reward = (taskId: string, message: string, surprise: Reward['surprise'] = 
   surprise,
   messageKey: surprise ? `${surprise}.1` : 'direct.3',
   message,
+  title: null,
   star: true,
   earnedAt: '2026-10-15T08:00:00+00:00',
 })
@@ -223,6 +229,7 @@ describe('TaskBoard', () => {
     reviewedAt = null
     rewards = {}
     cheerSettings = {}
+    stars = 5
     play.mockClear()
     resetMorningOffer()
     vi.stubGlobal('fetch', mockFetch)
@@ -1068,6 +1075,89 @@ describe('TaskBoard', () => {
       await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
       expect(within(bravo()).getByTestId('bravo-shooting-star')).toBeInTheDocument()
       expect(bravo()).toHaveTextContent('Étoile filante')
+    })
+
+    test('the bravo draws the constellation of the month: 5 stars after the 5th tick (MAG-509)', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
+      expect(await within(bravo()).findByRole('heading', { name: "Ta constellation d'octobre · 5 étoiles" })).toBeInTheDocument()
+      expect(within(bravo()).getAllByTestId('constellation-star')).toHaveLength(5)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringMatching(/\/stars$/), expect.anything())
+    })
+
+    test('the bravo still opens when the stars cannot be read (MAG-509)', async () => {
+      mockFetch.mockImplementation((url, init) =>
+        Promise.resolve(String(url).includes('/stars') ? json({ error: 'boom' }, 500) : respond(String(url), init)),
+      )
+      const user = setup()
+      render(<TaskBoard />)
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+
+      await screen.findByRole('dialog', { name: 'Appeler la banque · faite' })
+      expect(bravo()).toHaveTextContent('Réglé.')
+      expect(screen.queryByTestId('constellation')).toBeNull()
+    })
+
+    test('a task done carries its star in « Mes 5 », an open one does not (MAG-509)', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      const list = await screen.findByRole('list', { name: 'Mes 5' })
+      expect(within(list).queryAllByTestId('task-star')).toHaveLength(0)
+
+      await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
+      await user.click(await screen.findByRole('button', { name: 'Pause méritée' }))
+
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Mes 5' })).getAllByTestId('task-star')).toHaveLength(1))
+      const done = within(screen.getByRole('list', { name: 'Mes 5' }))
+        .getAllByRole('listitem')
+        .find((li) => li.textContent?.includes('Appeler la banque'))!
+      expect(within(done).getByRole('img', { name: 'Étoile gagnée' })).toBeInTheDocument()
+    })
+
+    test('a palier reaching the page by Mercure opens the gold bravo, with the sound (MAG-509)', async () => {
+      render(<TaskBoard />)
+      await screen.findByRole('list', { name: 'Mes 5' })
+      expect(decodeURIComponent(MockEventSource.last!.url)).toContain('/users/U1/api/rewards/:id')
+
+      MockEventSource.last!.onmessage!({
+        data: JSON.stringify({
+          '@id': '/api/rewards/01PALIER',
+          subjectType: 'saga',
+          subjectId: '01CHAPTER',
+          level: 'palier',
+          surprise: null,
+          messageKey: 'palier-doux.1',
+          message: 'Un chapitre entier. Prends le temps de le savourer.',
+          title: 'Chapitre 1 · Le départ',
+          star: false,
+          earnedAt: '2026-10-15T09:00:00+00:00',
+        }),
+      } as MessageEvent)
+
+      const palier = await screen.findByRole('dialog', { name: 'Chapitre 1 · Le départ' })
+      expect(within(palier).getByTestId('palier-message')).toHaveTextContent('Un chapitre entier.')
+      expect(play).toHaveBeenCalledTimes(1)
+    })
+
+    test('a palier is silent when the sound is off, and a standard reward does not open it (MAG-509)', async () => {
+      cheerSettings = { rewardSound: false }
+      render(<TaskBoard />)
+      await screen.findByRole('list', { name: 'Mes 5' })
+      const send = (data: object) => MockEventSource.last!.onmessage!({ data: JSON.stringify(data) } as MessageEvent)
+
+      send({ '@id': '/api/rewards/01RW', level: 'standard', message: 'Réglé.', star: true })
+      await waitFor(() => expect(dayCalls().length).toBeGreaterThan(1))
+      expect(screen.queryByTestId('palier')).toBeNull()
+
+      send({ '@id': '/api/rewards/01PALIER', level: 'palier', message: 'Chapitre terminé.', title: 'Chapitre 2', star: false })
+      expect(await screen.findByRole('dialog', { name: 'Chapitre 2' })).toBeInTheDocument()
+      expect(play).not.toHaveBeenCalled()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Pause méritée' }))
+      await waitFor(() => expect(screen.queryByTestId('palier')).toBeNull())
     })
 
     test('away from the day, the bravo is a short banner', async () => {

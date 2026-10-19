@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayTask
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.data.repository.TaskRepository
@@ -33,6 +34,8 @@ data class BravoUiState(
     val celebration: Celebration? = null,
     /** The day once the tick was taken: its count and « Maintenant », the next task. Null while read or unreadable. */
     val day: DayPlan? = null,
+    /** The month's constellation once the tick was taken, the new star in it; null while read or unreadable. */
+    val stars: Stars? = null,
     /** The reward and the day are being read: the circle waits for them, to know whether it may move. */
     val isLoading: Boolean = false,
     val exit: BravoExit? = null,
@@ -43,7 +46,7 @@ data class BravoUiState(
 /**
  * The Bravo (MAG-508): a task of the day ticked, its reward, the day's count and the next task.
  * The reward and the day are read once the tick has answered; the buzz and the sound come with the
- * reward. Kept with the navigation graph like the Focus, so [open] is idempotent for the task shown.
+ * reward, and the month's constellation with its new star. Kept with the navigation graph like the Focus, so [open] is idempotent for the task shown.
  */
 class BravoViewModel(
     private val taskRepository: TaskRepository,
@@ -59,10 +62,12 @@ class BravoViewModel(
         _uiState.value = BravoUiState(taskId = request.taskId, title = request.title, isLoading = true)
         viewModelScope.launch {
             val day = async { taskRepository.getDayPlan(today()).getOrNull() }
+            val stars = async { taskRepository.getStars().getOrNull() }
             val celebration = rewards.celebrate(request.taskId)
             val read = day.await()
+            val month = stars.await()
             // An answer that comes after the Bravo was closed, or opened on another task, is not this one's.
-            _uiState.update { if (it.taskId != request.taskId) it else it.copy(celebration = celebration, day = read, isLoading = false) }
+            _uiState.update { if (it.taskId != request.taskId) it else it.copy(celebration = celebration, day = read, stars = month, isLoading = false) }
         }
     }
 

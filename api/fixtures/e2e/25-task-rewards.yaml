@@ -10,3 +10,46 @@ Maggie\Core\Entity\User:
     email: 'e2e-bravo@maggie.local'
     googleId: 'e2e-bravo-google-id'
     name: 'Lou Bravo'
+  e2e_stars_user:
+    email: 'e2e-stars@maggie.local'
+    googleId: 'e2e-stars-google-id'
+    name: 'Mia Étoile'
+  e2e_stars_mobile_user:
+    email: 'e2e-stars-mobile@maggie.local'
+    googleId: 'e2e-stars-mobile-google-id'
+    name: 'Noa Étoile'
+
+# The constellation journeys (MAG-509, extends MAG-100): four stars this month
+# and seven last month, earned before the journey starts. One account for the
+# web and one for the phone, because the count the journey asserts (« 5 étoiles »
+# after a tick) is exact, and the two suites may share a stack. The stars point
+# at no task: a deleted task keeps its star, so none is needed.
+Maggie\Calendar\Entity\Reward:
+  e2e_stars_web_this_month_{1..4}:
+    user: '@e2e_stars_user'
+    subjectType: 'task'
+    subjectId: 'e2e-stars-web-this-<current()>'
+    messageKey: 'direct.1'
+    message: 'Une de faite.'
+    earnedAt: '<e2eDate("first day of this month 12:00")>'
+  e2e_stars_web_last_month_{1..7}:
+    user: '@e2e_stars_user'
+    subjectType: 'task'
+    subjectId: 'e2e-stars-web-last-<current()>'
+    messageKey: 'direct.1'
+    message: 'Une de faite.'
+    earnedAt: '<e2eDate("first day of last month 12:00")>'
+  e2e_stars_mobile_this_month_{1..4}:
+    user: '@e2e_stars_mobile_user'
+    subjectType: 'task'
+    subjectId: 'e2e-stars-mobile-this-<current()>'
+    messageKey: 'direct.1'
+    message: 'Une de faite.'
+    earnedAt: '<e2eDate("first day of this month 12:00")>'
+  e2e_stars_mobile_last_month_{1..7}:
+    user: '@e2e_stars_mobile_user'
+    subjectType: 'task'
+    subjectId: 'e2e-stars-mobile-last-<current()>'
+    messageKey: 'direct.1'
+    message: 'Une de faite.'
+    earnedAt: '<e2eDate("first day of last month 12:00")>'

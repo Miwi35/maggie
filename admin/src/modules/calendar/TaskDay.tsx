@@ -37,6 +37,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
+import StarIcon from '@mui/icons-material/Star'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import UpdateIcon from '@mui/icons-material/Update'
@@ -45,8 +46,11 @@ import { TaskBravo } from './TaskBravo'
 import { TaskFocus } from './TaskFocus'
 import { DAY_SLOTS, deferOnDay, placeOnDay, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTarget, DayTask } from './dayPlan'
+import { STAR_COLOR } from './Constellation'
 import { DEFAULT_CHEER, fetchReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
+import { fetchStars } from './stars'
+import type { Stars } from './stars'
 import { createTask, postponedLabel, setTaskDone } from './taskViews'
 
 interface TaskDayProps {
@@ -240,6 +244,7 @@ const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onFocus, o
         </Typography>
         <TaskMarks task={task} today={today} />
       </Box>
+      {done && <StarIcon data-testid="task-star" titleAccess="Étoile gagnée" sx={{ color: STAR_COLOR, fontSize: 22 }} />}
       {!done && (
         <IconButton size="small" aria-label={`Se concentrer sur ${task.title}`} title="Focus" onClick={onFocus}>
           <CenterFocusStrongIcon fontSize="small" />
@@ -392,7 +397,7 @@ export const TaskDay = ({
   const [reserveOpen, setReserveOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
-  const [bravo, setBravo] = useState<{ task: DayTask; reward: Reward } | null>(null)
+  const [bravo, setBravo] = useState<{ task: DayTask; reward: Reward; stars: Stars | null } | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -420,11 +425,12 @@ export const TaskDay = ({
 
   // The tick laid down its reward (MAG-508): the bravo shows it, the plain notice only when it cannot be read.
   const celebrate = (task: DayTask) => {
-    fetchReward(task.id)
-      .then((reward) => {
+    // The constellation is a bonus: the bravo comes without it when it cannot be read.
+    Promise.all([fetchReward(task.id), fetchStars().catch(() => null)])
+      .then(([reward, stars]) => {
         if (!reward) throw new Error('no reward')
         if (cheer.sound) playBravoSound()
-        setBravo({ task, reward })
+        setBravo({ task, reward, stars })
       })
       .catch(() => {
         // No bravo to show: a Focus left open on the task done must not come back with it.
@@ -497,6 +503,7 @@ export const TaskDay = ({
         total={slotTasks.length}
         next={next}
         animate={cheer.animation}
+        stars={bravo.stars}
         onNext={() => {
           setBravo(null)
           if (next) setFocusId(next.id)
