@@ -359,7 +359,18 @@ export const NotificationBell = () => {
                   >
                     <ListItemText
                       primary={n.title}
-                      secondary={timeAgo(n.createdAt)}
+                      secondary={
+                        n.body ? (
+                          <>
+                            <Box component="span" sx={{ display: 'block', color: 'text.primary', fontSize: 13 }}>
+                              {n.body}
+                            </Box>
+                            {timeAgo(n.createdAt)}
+                          </>
+                        ) : (
+                          timeAgo(n.createdAt)
+                        )
+                      }
                       primaryTypographyProps={{
                         fontWeight: n.readAt ? 400 : 600,
                         fontSize: 14,

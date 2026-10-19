@@ -315,6 +315,14 @@ describe('NotificationBell — answering a task reminder (MAG-510)', () => {
     expect(screen.queryByRole('button', { name: 'Fait' })).toBeNull()
   })
 
+  test('shows its body under the title, as the phone does', async () => {
+    listed = [{ ...reminder, body: 'Premier pas : Trouver le numéro' }, film]
+    render(<NotificationBell />)
+    await openBell()
+
+    expect(screen.getByRole('button', { name: new RegExp(reminder.title) })).toHaveTextContent('Premier pas : Trouver le numéro')
+  })
+
   test.each([
     ["Je m'y mets", 'start'],
     ['Dans 10 min', 'in10'],

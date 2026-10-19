@@ -66,8 +66,8 @@ tags:
       CRITICAL_DAYS: "1"
 
 # « Rappels et récompenses » (MAG-510): reset to 6 a day, quiet from 21:00 to 08:00. Two taps on
-# « − » make it 4; « Calme » becomes 22:00 → 07:00 on the 24 h clock, an hour tapped on the dial
-# (its number, or its description « 22 heures »), the minutes left at 00. The server holds them,
+# « − » make it 4; « Calme » becomes 22:00 → 07:00 on the 24 h clock, an hour tapped on the dial,
+# the minutes left at 00. The server holds them,
 # and back in Réglages then into Tâches again, the screen shows them still.
 - scrollUntilVisible:
     element:
@@ -95,8 +95,11 @@ tags:
     visible:
       id: "picker_confirm"
     timeout: 20000
+# 22 is on the dial's inner ring, which Material 3 leaves out of the semantics tree (only
+# « 0 heures » … « 11 heures » are there): tapped at its place on the CI phone's dial, the
+# same angle as 10, closer to the centre.
 - tapOn:
-    text: "22( .*)?"
+    point: "35%,51%"
 - tapOn:
     id: "picker_confirm"
 - extendedWaitUntil:
