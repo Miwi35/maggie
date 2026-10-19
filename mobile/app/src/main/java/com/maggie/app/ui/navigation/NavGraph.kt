@@ -122,6 +122,8 @@ import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
+import com.maggie.app.ui.screens.finance.ReviewActivityRoute
+import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
@@ -253,6 +255,8 @@ sealed class Screen(val route: String, val label: String) {
     data object PeerDebts : Screen("peer_debts", "Créances et dettes")
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
+    /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
+    data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
     data object FinanceReview : Screen("finance_review", "Revue")
     data object FinanceTreasuryMenu : Screen("finance_treasury_menu", "Trésorerie")
@@ -452,6 +456,20 @@ private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController) 
                 if (route == Screen.FinanceDashboard.route) popUpTo(route) { inclusive = false }
             }
         },
+    )
+}
+
+// Out of NavGraph's body, like FinanceSummaryPage: that one function is already as large as the compiler takes.
+@Composable
+private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () -> Unit) {
+    ReviewActivityRoute(
+        viewModel = koinViewModel<ReviewActivityViewModel>(),
+        monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
+        adjustmentsViewModel = koinViewModel<EnvelopeAdjustmentsViewModel>(),
+        upcomingViewModel = koinViewModel<UpcomingViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onOpenMaggie = onOpenMaggie,
+        onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
     )
 }
 
@@ -688,6 +706,13 @@ fun NavGraph() {
                 refreshAll()
             }
         }
+    }
+
+    // « Lancer » on the review appointment (MAG-456): the activity opens full screen, the detail closes behind it.
+    fun launchActivity(event: ExpandedEvent) {
+        if (!event.launchesFinanceReview) return
+        selectedEvent = null
+        navController.navigate(Screen.FinanceReviewActivity.route) { launchSingleTop = true }
     }
 
     fun editTask(task: Task) {
@@ -1058,6 +1083,7 @@ fun NavGraph() {
                                         onEdit = { editEvent(event) },
                                         onDelete = { deleteEvent(event) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
+                                        onLaunch = { launchActivity(event) },
                                     )
                                 })
                                 task != null -> ({
@@ -1662,6 +1688,9 @@ fun NavGraph() {
                             onBack = { navController.backInFinance() },
                         )
                     }
+                    composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
+                        ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
+                    }
                     composable(Screen.FinanceReview.route) {
                         FinanceSummaryPage(FinanceMenu.REVIEW, navController)
                     }
@@ -1878,6 +1907,7 @@ fun NavGraph() {
                 onDismiss = { selectedEvent = null },
                 onEdit = { editEvent(event) },
                 onDelete = { deleteEvent(event) },
+                onLaunch = { launchActivity(event) },
             )
         }
 

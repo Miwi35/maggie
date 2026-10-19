@@ -348,4 +348,49 @@ class RecurrenceServiceTest extends TestCase
 
         return $event;
     }
+
+    /** MAG-456: each occurrence of the monthly review is named after its own month. */
+    public function testAnOccurrenceOfTheFinanceReviewIsNamedAfterItsMonth(): void
+    {
+        $agenda = new Agenda();
+        $agenda->setName('Finance');
+
+        $event = new Event();
+        $event->setSummary('Revue du mois');
+        $event->setTimeZone('Europe/Paris');
+        $event->setStartAt(new \DateTimeImmutable('2026-09-25T20:00:00+02:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-09-25T21:00:00+02:00'));
+        $event->setRrule('FREQ=MONTHLY;BYMONTHDAY=25');
+        $event->setActivity(Event::ACTIVITY_FINANCE_REVIEW);
+        $event->setAgenda($agenda);
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-09-01T00:00:00Z'),
+            new \DateTimeImmutable('2026-12-01T00:00:00Z'),
+        );
+
+        self::assertSame(['Revue de septembre', "Revue d'octobre", 'Revue de novembre'], array_map(static fn (Event $occurrence): string => $occurrence->getSummary(), $result));
+        self::assertSame(Event::ACTIVITY_FINANCE_REVIEW, $result[1]->getActivity());
+        self::assertSame('Revue du mois', $event->getSummary(), 'the series keeps its own summary');
+    }
+
+    public function testAnOrdinaryOccurrenceKeepsTheSummaryOfItsSeries(): void
+    {
+        $agenda = new Agenda();
+        $agenda->setName('Test Agenda');
+
+        $event = new Event();
+        $event->setSummary('Loyer');
+        $event->setStartAt(new \DateTimeImmutable('2026-09-25T20:00:00Z'));
+        $event->setEndAt(new \DateTimeImmutable('2026-09-25T21:00:00Z'));
+        $event->setRrule('FREQ=MONTHLY;COUNT=2');
+        $event->setAgenda($agenda);
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences($event, new \DateTimeImmutable('2026-09-01T00:00:00Z'), new \DateTimeImmutable('2026-12-01T00:00:00Z'));
+
+        self::assertSame(['Loyer', 'Loyer'], array_map(static fn (Event $occurrence): string => $occurrence->getSummary(), $result));
+    }
 }

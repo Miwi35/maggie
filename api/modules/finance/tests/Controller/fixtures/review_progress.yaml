@@ -1,0 +1,59 @@
+# The review activity (MAG-456): two lines of test_user's to hand, one of another user's.
+Maggie\Core\Entity\User:
+  test_user:
+    email: review-progress@example.com
+    googleId: google-review-progress
+    name: Review Progress User
+  other_user:
+    email: review-progress-other@example.com
+    googleId: google-review-progress-other
+    name: Review Progress Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  first:
+    account: '@checking'
+    amountCents: -1250
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-01"))>'
+    label: ACTIVITE UN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+  second:
+    account: '@checking'
+    amountCents: -3400
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: ACTIVITE DEUX
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+  strangers:
+    account: '@stranger_account'
+    amountCents: -900
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: PAS A MOI
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\ReviewProgress:
+  # Another user's progress on the same month never answers for test_user.
+  others_progress:
+    user: '@other_user'
+    month: '<(new \DateTimeImmutable("2026-10-01"))>'
+    step: '<(Maggie\Finance\Enum\ReviewStep::Projects)>'

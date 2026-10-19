@@ -41,6 +41,8 @@ data class ExpandedEvent(
     val agendaColor: String? = null,
     val agendaName: String? = null,
     val recurrenceUnreadable: Boolean = false,
+    /** What the event launches, e.g. [ACTIVITY_FINANCE_REVIEW] (MAG-456); null for a plain event. */
+    val activity: String? = null,
 ) {
     /** Sorts events of one day: an ISO date sorts before any instant of that date. */
     val sortKey: String get() = startAt ?: startDate?.toString().orEmpty()
@@ -62,6 +64,20 @@ data class ExpandedEvent(
 
     /** The first day the event covers in [zone]. */
     fun firstDay(zone: ZoneId): LocalDate? = days(zone)?.start
+
+    /** The review appointment launches the activity: its detail offers « Lancer ». */
+    val launchesFinanceReview: Boolean get() = activity == ACTIVITY_FINANCE_REVIEW
+
+    /**
+     * The title the screens show: « Revue d'octobre » for an occurrence of the review appointment,
+     * whatever its stored summary says; the summary for any other event.
+     */
+    val title: String
+        get() {
+            if (!launchesFinanceReview) return summary
+            val day = runCatching { firstDay(ZoneId.of(timeZone)) }.getOrNull() ?: return summary
+            return reviewTitle(day)
+        }
 }
 
 /**

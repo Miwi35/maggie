@@ -89,7 +89,7 @@ fun DashboardEventItem(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = event.summary,
+                text = event.title,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

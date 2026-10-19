@@ -1,0 +1,52 @@
+# The review activity journeys (MAG-456, extends MAG-102): launch the review,
+# qualify the first transaction, quit, relaunch — it resumes on the second.
+#
+# A user of its own: two unrecognised spends this month and nothing else to
+# review — no recognised line, no envelope, no project — so the activity has
+# exactly two transactions to walk and skips the empty steps. The queue walks
+# the unrecognised oldest first: « ACTIVITE UN 1111 », then « ACTIVITE DEUX 2222 ».
+# One category, « Loisirs », for « Changer » to pick.
+#
+# The review's appointment (the « Finance » agenda) is not seeded: the first
+# read of the finances lays it down, as in production.
+
+Maggie\Core\Entity\User:
+  e2e_activity_user:
+    email: 'e2e-activity@maggie.local'
+    googleId: 'e2e-activity-google-id'
+    name: 'Lou Revue'
+
+Maggie\Finance\Entity\Account:
+  e2e_activity_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_activity_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_activity_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_activity_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_activity_first:
+    account: '@e2e_activity_checking'
+    amountCents: -1250
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'ACTIVITE UN 1111'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@e2e_activity_user'
+  e2e_activity_second:
+    account: '@e2e_activity_checking'
+    amountCents: -3400
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "+1 day")>'
+    label: 'ACTIVITE DEUX 2222'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@e2e_activity_user'

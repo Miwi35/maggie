@@ -50,6 +50,8 @@ Maggie\Calendar\Entity\Event:
       useDefault: false
       overrides:
         - { method: 'popup', minutes: 30 }
+    # The activity it launches too (MAG-456): the clients show « Lancer » for it.
+    activity: finance-review
     agenda: '@recorded_agenda'
 
   recorded_recurring_event:

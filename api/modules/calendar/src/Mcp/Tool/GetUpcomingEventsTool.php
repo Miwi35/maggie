@@ -65,6 +65,8 @@ class GetUpcomingEventsTool
             // The schedule in the event's own zone, with the day of the week of each local date (MAG-431).
             ...EventSchedule::describe($event),
             'status' => $event->getStatus()->value,
+            // The activity the event launches (finance-review: the monthly review, MAG-456).
+            'activity' => $event->getActivity(),
             'agenda' => $event->getAgenda()->getName(),
             'recurring' => $event->isRecurring(),
             'rrule' => $event->getRrule(),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Service\FinanceReviewAppointment;
 use Maggie\Finance\UseCase\GetFinanceDashboard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ final class FinanceDashboardController
     public function __construct(
         private readonly Security $security,
         private readonly GetFinanceDashboard $getFinanceDashboard,
+        private readonly FinanceReviewAppointment $reviewAppointment,
     ) {
     }
 
@@ -43,6 +45,10 @@ final class FinanceDashboardController
             return new JsonResponse(['error' => 'year must be between 2000 and 2100'], Response::HTTP_BAD_REQUEST);
         }
 
-        return new JsonResponse($this->getFinanceDashboard->execute($user, $year, $month));
+        $dashboard = $this->getFinanceDashboard->execute($user, $year, $month);
+        // Opening the finances lays down the monthly review's appointment, once (MAG-456).
+        $this->reviewAppointment->ensure($user);
+
+        return new JsonResponse($dashboard);
     }
 }

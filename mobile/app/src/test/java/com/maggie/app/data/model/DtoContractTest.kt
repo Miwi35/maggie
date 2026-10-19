@@ -493,6 +493,40 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the review queue deserialises from the recorded response`() {
+        val name = "finance_review_queue.read"
+        val body = readRecording(name)
+
+        val queue = json.decodeFromJsonElement(serializer<ReviewQueue>(), body)
+
+        assertDeclaredFieldsExist("ReviewQueue", serializer<ReviewQueue>(), body.keys, name)
+        val items = body["items"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet()
+        assertDeclaredFieldsExist("ReviewQueueItem", serializer<ReviewQueueItem>(), items, name)
+
+        assertEquals("2026-03", queue.month)
+        assertEquals(queue.unrecognisedCount + queue.recognisedCount, queue.items.size)
+        assertEquals(listOf(false, false, false, true), queue.items.map { it.recognised })
+        assertEquals("Recorded Food › Recorded Courses", queue.items[2].suggestion?.categoryPath)
+        assertEquals("Recorded Food › Recorded Courses", queue.items[3].categoryPath)
+        assertEquals("rule", queue.items[3].qualifiedBy)
+    }
+
+    @Test
+    fun `the review progress deserialises from the recorded response`() {
+        val name = "finance_review_progress.read"
+        val body = readRecording(name)
+
+        val progress = json.decodeFromJsonElement(serializer<ReviewProgress>(), body)
+
+        assertDeclaredFieldsExist("ReviewProgress", serializer<ReviewProgress>(), body.keys, name)
+        assertEquals("2026-03", progress.month)
+        assertEquals(REVIEW_STEP_BALANCE, progress.step)
+        assertEquals(ReviewStep.BALANCE, ReviewStep.of(progress.step))
+        assertEquals(listOf("01ARZ3NDEKTSV4RRFFQ69G5FAV"), progress.handledTransactionIds)
+        assertNotNull(progress.updatedAt)
+    }
+
+    @Test
     fun `the recognised lines to control deserialise from the recorded response`() {
         val name = "finance_review_recognised.read"
         val body = readRecording(name)

@@ -42,6 +42,8 @@ class GetEventTool
                 // each local date (MAG-431).
                 ...EventSchedule::describe($event),
                 'status' => $event->getStatus()->value,
+                // The activity the event launches (finance-review: the monthly review, MAG-456).
+                'activity' => $event->getActivity(),
                 'agenda' => $event->getAgenda()->getName(),
                 'recurring' => $event->isRecurring(),
             ],

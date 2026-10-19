@@ -1,0 +1,78 @@
+appId: com.maggie.app.e2e
+name: 22-finance-review-activity
+tags:
+  - finance
+---
+# Activité Comptes · la revue, from the phone (MAG-456, extends MAG-102).
+#
+# Étant donné deux transactions à qualifier ce mois-ci
+# Quand je lance la revue, que je qualifie la première puis que je quitte
+# Et que je relance la revue
+# Alors la revue reprend sur la seconde
+#
+# The data is the seed's own user for it (`api/fixtures/e2e/59-finance-activity.yaml`):
+# « ACTIVITE UN 1111 » then « ACTIVITE DEUX 2222 », unrecognised, one category « Loisirs »,
+# no envelope and no recognised line. What stops the relaunch on the second line is the
+# progress the API keeps (`PUT /api/finance/review/progress`, handled ids) — no other test puts
+# the app's request and the server's answer together, hence a journey and not a screen test.
+#
+# The deep link is the « Revue ce soir » and « Lancer » of the app: both open the same route.
+# What is not here: each transition of the wizard (`ReviewActivityViewModelTest`), what the
+# screen draws (`ReviewActivityScreenTest`), « Lancer » in the appointment's detail
+# (`EventDetailScreenTest`), the tablet's two columns, and the admin's side of the same API.
+#
+# The seed is read once per stack: the first line stays qualified and handled afterwards,
+# so a second run on the same stack starts on the second line.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/22-finance-review-activity.yaml
+      e2e_email: e2e-activity@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/review/activity"
+
+- extendedWaitUntil:
+    visible:
+      id: "review_activity_label"
+    timeout: 30000
+- assertVisible: "ACTIVITE UN 1111"
+- assertVisible: "1 / 2"
+- assertVisible: "Ensuite… Bilan"
+
+# Qualified under « Loisirs »: the line is filed and handled, the second one comes.
+- scrollUntilVisible:
+    element:
+      id: "review_activity_change"
+- tapOn:
+    id: "review_activity_change"
+- tapOn:
+    id: "review_activity_search"
+- inputText: "Loisir"
+- hideKeyboard
+- tapOn: "Loisirs"
+- extendedWaitUntil:
+    visible: "ACTIVITE DEUX 2222"
+    timeout: 30000
+- assertVisible: "2 / 2"
+
+# Quit, then launch again.
+- tapOn:
+    id: "review_activity_quit"
+- extendedWaitUntil:
+    notVisible:
+      id: "review_activity"
+    timeout: 15000
+
+- openLink: "maggie-e2e://finance/review/activity"
+- extendedWaitUntil:
+    visible:
+      id: "review_activity_label"
+    timeout: 30000
+- assertVisible: "ACTIVITE DEUX 2222"
+- assertNotVisible: "ACTIVITE UN 1111"
+- assertVisible: "1 / 1"

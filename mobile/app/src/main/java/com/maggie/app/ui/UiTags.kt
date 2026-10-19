@@ -1090,4 +1090,30 @@ object UiTags {
     const val MEAL_DETAIL_SAVE = "meal_detail_save"
     const val MEAL_DETAIL_DELETE = "meal_detail_delete"
     const val MEAL_DETAIL_INGREDIENTS = "meal_detail_ingredients"
+
+    // Activité Comptes · la revue (MAG-456): the full-screen wizard, its header, its footer and the card of a line.
+    const val EVENT_LAUNCH_ACTIVITY = "event_launch_activity"
+    const val REVIEW_ACTIVITY = "review_activity"
+    const val REVIEW_ACTIVITY_SEGMENT_PREFIX = "review_activity_segment_"
+    const val REVIEW_ACTIVITY_STEP_TITLE = "review_activity_step_title"
+    const val REVIEW_ACTIVITY_NEXT_STEP = "review_activity_next_step"
+    const val REVIEW_ACTIVITY_QUIT = "review_activity_quit"
+    const val REVIEW_ACTIVITY_MAGGIE = "review_activity_maggie"
+    const val REVIEW_ACTIVITY_PREVIOUS = "review_activity_previous"
+    const val REVIEW_ACTIVITY_NEXT = "review_activity_next"
+    const val REVIEW_ACTIVITY_CARD = "review_activity_card"
+    const val REVIEW_ACTIVITY_LABEL = "review_activity_label"
+    const val REVIEW_ACTIVITY_COUNTER = "review_activity_counter"
+    const val REVIEW_ACTIVITY_ACCEPT = "review_activity_accept"
+    const val REVIEW_ACTIVITY_CHANGE = "review_activity_change"
+    const val REVIEW_ACTIVITY_CREATE_RULE = "review_activity_create_rule"
+    const val REVIEW_ACTIVITY_CORRECT = "review_activity_correct"
+    const val REVIEW_ACTIVITY_SEARCH = "review_activity_search"
+    const val REVIEW_ACTIVITY_KEEP = "review_activity_keep"
+    const val REVIEW_ACTIVITY_AVOIDABLE = "review_activity_avoidable"
+    const val REVIEW_ACTIVITY_DONE = "review_activity_done"
+    const val REVIEW_ACTIVITY_RESTART = "review_activity_restart"
+    const val REVIEW_ACTIVITY_REMAINING = "review_activity_remaining"
+
+    fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
 }

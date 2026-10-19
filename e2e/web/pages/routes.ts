@@ -51,6 +51,8 @@ export const ROUTES = {
   financeCushion: '/finance/cushion',
   financeTreasury: '/finance/treasury',
   financeReview: '/finance/monthly-review',
+  // The review as a full-screen activity, out of the layout (MAG-456).
+  financeReviewActivity: '/finance/review/activity',
   financeRecurring: '/finance/recurring-operations',
   financeSavingsAdvances: '/finance/savings-advances',
 } as const

@@ -88,8 +88,11 @@ mapfile -t declared < <(sed -n 's/.*const val [A-Z_]* = "\([a-z0-9_]*\)".*/\1/p'
 mapfile -t prefixes < <(sed -n 's/.*const val [A-Z_]*_PREFIX = "\([a-z0-9_]*\)".*/\1/p' "$TAGS_FILE" | sort -u)
 
 mapfile -t used < <(sed -n 's/.*\bid:[[:space:]]*"\([^"]*\)".*/\1/p' "${flows[@]}" | sort -u)
+# A here-string, not a pipe: `grep -q` leaves at the first match and, under pipefail, the
+# `printf` it cut off would fail the test with SIGPIPE — a declared tag reported missing.
+declared_list="$(printf '%s\n' "${declared[@]}")"
 for id in "${used[@]}"; do
-  if printf '%s\n' "${declared[@]}" | grep -qxF "$id"; then
+  if grep -qxF "$id" <<<"$declared_list"; then
     pass "id \"$id\""
     continue
   fi

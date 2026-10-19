@@ -29,6 +29,8 @@ data class Event(
     val originalStartAt: String? = null,
     val reminders: EventReminders? = null,
     val agenda: String? = null,
+    /** What the event launches, e.g. [ACTIVITY_FINANCE_REVIEW] (MAG-456); null for a plain event. */
+    val activity: String? = null,
 ) {
     val firstDate: LocalDate? get() = startDate?.let(LocalDate::parse)
     /** The exclusive end date; one day after the start when the API left it out. */

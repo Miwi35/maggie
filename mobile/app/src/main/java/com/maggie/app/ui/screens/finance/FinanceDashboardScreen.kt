@@ -158,7 +158,7 @@ private fun OverviewTab(
             if (dashboard?.todo?.reviewReady == true) {
                 item {
                     Button(
-                        onClick = { onOpen(Screen.MonthlyReview.route) },
+                        onClick = { onOpen(Screen.FinanceReviewActivity.route) },
                         modifier = Modifier.fillMaxWidth().testTag(UiTags.FINANCE_REVIEW_SHORTCUT),
                     ) {
                         Text("Revue ce soir")

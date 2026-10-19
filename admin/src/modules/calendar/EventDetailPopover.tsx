@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
 import Typography from '@mui/material/Typography'
@@ -8,10 +9,14 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined'
 import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import Chip from '@mui/material/Chip'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { lastDayOf, parseDay } from '../../dates'
+import { REVIEW_ACTIVITY, REVIEW_ACTIVITY_PATH } from '../finance/reviewActivity'
+import type { ReviewLaunchState } from '../finance/reviewActivity'
 import { rruleToFrenchText } from './recurrenceUtils'
 import { PROACTION_STATUS_LABELS } from './proaction'
 import { remindersToFrenchText } from './ReminderPicker'
@@ -45,6 +50,8 @@ export interface PopoverEvent {
   isVirtualOccurrence?: boolean
   calendarIri?: string
   proaction?: PopoverProaction
+  /** The activity the event opens (`finance-review`, MAG-456), null on an ordinary event. */
+  activity?: string | null
 }
 
 interface EventDetailPopoverProps {
@@ -122,6 +129,30 @@ const ProactionDetail = ({ proaction }: { proaction: PopoverProaction }) => (
     {proaction.error && <ProactionText label="Erreur" text={proaction.error} error />}
   </Box>
 )
+
+/**
+ * « Lancer » on the review appointment (MAG-456): the activity, full screen; quitting it
+ * comes back to the agenda as it was. Its own component, so the router is only asked
+ * for on that card.
+ */
+const LaunchReviewButton = () => {
+  const location = useLocation()
+  const state: ReviewLaunchState = { from: `${location.pathname}${location.search}` }
+
+  return (
+    <Button
+      component={RouterLink}
+      to={REVIEW_ACTIVITY_PATH}
+      state={state}
+      variant="contained"
+      size="small"
+      startIcon={<PlayArrowIcon />}
+      sx={{ mt: 1.5 }}
+    >
+      Lancer
+    </Button>
+  )
+}
 
 export const EventDetailPopover = ({
   event,
@@ -249,6 +280,8 @@ export const EventDetailPopover = ({
         )}
 
         {event.proaction && <ProactionDetail proaction={event.proaction} />}
+
+        {event.activity === REVIEW_ACTIVITY && <LaunchReviewButton />}
 
         {/* Calendar name */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>

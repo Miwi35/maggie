@@ -444,6 +444,9 @@ web:
     paths: [api/fixtures/e2e/58-finance-month-balance.yaml]
   e2e/web/tests/finance-review.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-review-activity.spec.ts:
+    areas: [finance, calendar]
+    paths: [api/fixtures/e2e/59-finance-activity.yaml]
   e2e/web/tests/finance-recurring-detection.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-recurring.spec.ts:
@@ -567,6 +570,9 @@ mobile:
   e2e/mobile/flows/13-finance-to-control.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/to-control-api.js]
+  e2e/mobile/flows/22-finance-review-activity.yaml:
+    areas: [finance]
+    paths: [api/fixtures/e2e/59-finance-activity.yaml]
   e2e/mobile/flows/19-finance-contacts.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/contacts-api.js]

@@ -1,5 +1,6 @@
 package com.maggie.app.util
 
+import com.maggie.app.data.model.ACTIVITY_FINANCE_REVIEW
 import com.maggie.app.data.model.Event
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +33,36 @@ class EventExpanderRangeTest {
             result.map { it.startDate.toString() },
         )
         assertTrue(result.none { it.recurrenceUnreadable })
+    }
+
+    // MAG-456: a moved occurrence of the review appointment keeps « Lancer » and its month's title.
+    @Test
+    fun `a moved occurrence of the review appointment keeps the master's activity`() {
+        val review = Event(
+            id = "r1",
+            summary = "Revue du mois",
+            startAt = "2026-09-25T18:00:00Z",
+            endAt = "2026-09-25T19:00:00Z",
+            rrule = "FREQ=MONTHLY;BYMONTHDAY=25",
+            activity = ACTIVITY_FINANCE_REVIEW,
+        )
+        val moved = Event(
+            id = "x1",
+            summary = "Revue du mois",
+            startAt = "2026-10-26T18:00:00Z",
+            endAt = "2026-10-26T19:00:00Z",
+            recurringEvent = "/api/events/r1",
+            originalStartAt = "2026-10-25T18:00:00Z",
+        )
+
+        val occurrence = EventExpander.expandForRange(listOf(review, moved), rangeStart, rangeEnd, emptyMap()).single()
+        val opened = EventExpander.single(moved, review, emptyMap())
+
+        assertEquals("x1", occurrence.id)
+        assertEquals(ACTIVITY_FINANCE_REVIEW, occurrence.activity)
+        assertTrue(occurrence.launchesFinanceReview)
+        assertEquals("Revue d'octobre", occurrence.title)
+        assertEquals(ACTIVITY_FINANCE_REVIEW, opened.activity)
     }
 
     @Test
