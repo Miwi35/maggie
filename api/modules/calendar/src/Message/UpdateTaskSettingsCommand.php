@@ -22,6 +22,11 @@ final readonly class UpdateTaskSettingsCommand
         public mixed $rewardVibration = null,
         public mixed $rewardSound = null,
         public mixed $tone = null,
+        /** The moments to change, merged over the current ones. */
+        public mixed $dayMoments = null,
+        public mixed $reminderDailyCap = null,
+        public mixed $quietStart = null,
+        public mixed $quietEnd = null,
     ) {
     }
 }

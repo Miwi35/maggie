@@ -740,9 +740,11 @@ paris_now="$(TZ=Europe/Paris date -d "@$now_epoch" +%H:%M)"
 task_due_day="$(TZ=Europe/Paris date -d "$(TZ=Europe/Paris date -d "@$now_epoch" '+%F %T') 3 days" +%F)"
 task_title="Tâche smoke $(date -u -d "@$now_epoch" +%H%M%S)"
 
+# The stack's clock is the real one: no quiet hours (MAG-510, the same start and end) and the
+# widest daily cap, or a run at night or on a busy day would rightly send nothing.
 assert_eq "$paris_now" \
   "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
-    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t}')" \
+    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t, quietStart: "00:00", quietEnd: "00:00", reminderDailyCap: 12}')" \
     "$BASE_URL/api/task-settings/me" | jq -r '.morningTime // empty')" \
   "the user's morning is now"
 
@@ -762,7 +764,7 @@ fi
 
 task_alerts_of() {
   curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
-    | jq -c --arg t "Dans 3 j : $task_title" '[.member[] | select(.title == $t)]'
+    | jq -c --arg iri "/api/tasks/$task_id" '[.member[] | select(.type == "task_due" and .relatedEntityIri == $iri)]'
 }
 
 task_notified=""
@@ -783,6 +785,11 @@ fi
 
 assert_eq task_due "$(printf '%s' "$task_notifications" | jq -r '.[0].type // empty')" \
   "the notification carries the task-due kind"
+# Its words come from a bank (MAG-510): they name the task, and the days left.
+assert_eq yes "$(printf '%s' "$task_notifications" | jq -r --arg t "« $task_title »" '.[0].title | if contains($t) and contains("3 j") then "yes" else . end')" \
+  "the alert names the task and its three days"
+assert_eq "start,done,tomorrow" "$(printf '%s' "$task_notifications" | jq -r '.[0].actions | join(",")')" \
+  "the alert offers « Je m'y mets », « Fait », « Demain »"
 assert_eq "/api/tasks/$task_id" "$(printf '%s' "$task_notifications" | jq -r '.[0].relatedEntityIri // empty')" \
   "the notification points back at the task"
 
@@ -793,7 +800,7 @@ assert_eq 1 "$(task_alerts_of | jq -r 'length')" "a second run of the cron alert
 
 # Back to the default morning: the account is shared with the journeys that follow.
 curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
-  -d '{"morningTime":"08:00"}' "$BASE_URL/api/task-settings/me"
+  -d '{"morningTime":"08:00","quietStart":"21:00","quietEnd":"08:00","reminderDailyCap":6}' "$BASE_URL/api/task-settings/me"
 
 # ---------------------------------------------------------------------------
 step "12. A bank consent runs from the picker to the callback"

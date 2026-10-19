@@ -57,6 +57,15 @@
     "rewardVibration": true,
     "rewardSound": true,
     "tone": "doux",
+    "dayMoments": {
+        "wake": "07:30",
+        "afterBreakfast": "08:30",
+        "afterLunch": "13:30",
+        "afterDinner": "20:00"
+    },
+    "reminderDailyCap": 6,
+    "quietStart": "21:00",
+    "quietEnd": "08:00",
     "defaults": {
         "orderWeights": {
             "timePressure": {
@@ -114,6 +123,15 @@
         "rewardAnimation": true,
         "rewardVibration": true,
         "rewardSound": true,
-        "tone": "doux"
+        "tone": "doux",
+        "dayMoments": {
+            "wake": "07:30",
+            "afterBreakfast": "08:30",
+            "afterLunch": "13:30",
+            "afterDinner": "20:00"
+        },
+        "reminderDailyCap": 6,
+        "quietStart": "21:00",
+        "quietEnd": "08:00"
     }
 }

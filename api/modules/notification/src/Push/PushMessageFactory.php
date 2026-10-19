@@ -75,6 +75,10 @@ class PushMessageFactory
             'body' => $text,
             'link' => $action['link'] ?? null,
             'actionLabel' => $action['label'] ?? null,
+            // A task reminder's buttons (MAG-510), as ordered keys the phone labels; they answer the reminder.
+            'reminderId' => $notification->getReminderId(),
+            'taskId' => null === $notification->getReminderId() ? null : $this->taskId($notification->getRelatedEntityIri()),
+            'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
 
         return [
@@ -125,11 +129,18 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
         };
+    }
+
+    private function taskId(?string $relatedEntityIri): ?string
+    {
+        $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
+
+        return 1 === preg_match('#^/api/tasks/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
     }
 
     /** @return array{link: string, label: string}|null */

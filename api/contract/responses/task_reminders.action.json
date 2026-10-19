@@ -1,0 +1,32 @@
+{
+    "reminder": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "kind": "due",
+        "subjectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "moment": null,
+        "scheduledFor": "2026-04-22T12:00:00+00:00",
+        "sentAt": "2026-04-22T12:00:00+00:00",
+        "droppedAt": null,
+        "snoozed": false,
+        "messageKey": "due.overdue.doux.1",
+        "action": "done"
+    },
+    "next": null,
+    "reward": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "subjectType": "task",
+        "subjectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "level": "surprise",
+        "surprise": "waited",
+        "messageKey": "waited.1",
+        "message": "Étoile filante : celle-là patientait depuis 33 jours. C'est réglé.",
+        "star": true,
+        "earnedAt": "2026-04-22T12:00:00+00:00"
+    },
+    "notification": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "title": "Étoile filante : celle-là patientait depuis 33 jours. C'est réglé.",
+        "body": null,
+        "actions": []
+    }
+}

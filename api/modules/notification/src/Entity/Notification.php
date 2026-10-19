@@ -87,6 +87,22 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $occurrenceStartAt = null;
 
+    /**
+     * The task reminder it was sent for (MAG-510), whose buttons answer through
+     * `/api/task-reminders/{id}/action`.
+     */
+    #[ORM\Column(length: 26, nullable: true)]
+    private ?string $reminderId = null;
+
+    /**
+     * The buttons it offers, in order, as keys the screens label (`start`,
+     * `in10`…). Null or empty: none beyond opening it.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $actions = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $readAt = null;
@@ -179,6 +195,32 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
         return $this;
     }
 
+    public function getReminderId(): ?string
+    {
+        return $this->reminderId;
+    }
+
+    public function setReminderId(?string $reminderId): static
+    {
+        $this->reminderId = $reminderId;
+
+        return $this;
+    }
+
+    /** @return list<string> */
+    public function getActions(): array
+    {
+        return $this->actions ?? [];
+    }
+
+    /** @param list<string>|null $actions */
+    public function setActions(?array $actions): static
+    {
+        $this->actions = [] === $actions ? null : $actions;
+
+        return $this;
+    }
+
     public function getReadAt(): ?\DateTimeImmutable
     {
         return $this->readAt;
@@ -206,6 +248,8 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'createdAt' => $this->createdAt->format('c'),
             'readAt' => $this->readAt?->format('c'),
             'relatedEntityIri' => $this->relatedEntityIri,
+            'reminderId' => $this->reminderId,
+            'actions' => $this->actions,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -219,6 +263,8 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'title' => $this->title,
             'body' => $this->body,
             'relatedEntityIri' => $this->relatedEntityIri,
+            'reminderId' => $this->reminderId,
+            'actions' => $this->getActions(),
             'readAt' => $this->readAt?->format('c'),
             'createdAt' => $this->createdAt->format('c'),
         ], $changedProperties);

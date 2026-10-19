@@ -6,6 +6,7 @@ namespace Maggie\Calendar\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Calendar\Enum\DayMoment;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Calendar\Service\TaskAlertSchedule;
 use Maggie\Calendar\Service\TaskOrderWeights;
@@ -19,7 +20,8 @@ use Symfony\Component\Uid\Ulid;
  * The task settings, one row per user, created on first read: the weights of
  * the order (MAG-406), the alert schedule and the morning time (MAG-407),
  * the evening time the review opens after (MAG-500), how a task done is
- * cheered and the tone of the words (MAG-508).
+ * cheered and the tone of the words (MAG-508), the reminders' daily cap, quiet
+ * hours and moments of the day (MAG-510).
  *
  * Read and written through `/api/task-settings/me`, never through an API
  * Platform operation on an identifier-less path, which would build a fresh
@@ -41,6 +43,12 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** The tone of the rewards, and of the reminders to come. */
     public const TONES = [self::TONE_DOUX, self::TONE_DIRECT, self::TONE_DROLE];
     public const DEFAULT_TONE = self::TONE_DOUX;
+
+    public const DEFAULT_REMINDER_DAILY_CAP = 6;
+    public const MIN_REMINDER_DAILY_CAP = 1;
+    public const MAX_REMINDER_DAILY_CAP = 12;
+    public const DEFAULT_QUIET_START = '21:00';
+    public const DEFAULT_QUIET_END = '08:00';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -87,6 +95,25 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** Among {@see self::TONES}. */
     #[ORM\Column(length: 10, options: ['default' => self::DEFAULT_TONE])]
     private string $tone = self::DEFAULT_TONE;
+
+    /**
+     * The hour of each moment of the day, `HH:MM`: {@see DayMoment}.
+     *
+     * @var array<string, string>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '{"wake":"07:30","afterBreakfast":"08:30","afterLunch":"13:30","afterDinner":"20:00"}'])]
+    private array $dayMoments = DayMoment::DEFAULTS;
+
+    /** At most this many reminders a local day, those put off by the user aside. */
+    #[ORM\Column(options: ['default' => self::DEFAULT_REMINDER_DAILY_CAP])]
+    private int $reminderDailyCap = self::DEFAULT_REMINDER_DAILY_CAP;
+
+    /** No reminder goes out from `quietStart` to `quietEnd`, `HH:MM` in the user's timezone. */
+    #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_QUIET_START])]
+    private string $quietStart = self::DEFAULT_QUIET_START;
+
+    #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_QUIET_END])]
+    private string $quietEnd = self::DEFAULT_QUIET_END;
 
     public function __construct()
     {
@@ -222,6 +249,140 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    /** @return array<string, string> every moment, the defaults filling what is not stored */
+    public function getDayMoments(): array
+    {
+        return self::completeMoments($this->dayMoments);
+    }
+
+    /** The hour of one moment, `HH:MM`. */
+    public function getDayMoment(DayMoment $moment): string
+    {
+        return $this->getDayMoments()[$moment->value];
+    }
+
+    /**
+     * @param array<string, string> $dayMoments
+     *
+     * @throws \InvalidArgumentException on an unknown moment or a value that is not `HH:MM`
+     */
+    public function setDayMoments(array $dayMoments): static
+    {
+        $this->dayMoments = self::mergeMoments($this->getDayMoments(), $dayMoments);
+
+        return $this;
+    }
+
+    /**
+     * $changes over $current, every key checked: a refused one changes none.
+     *
+     * @param array<string, string> $current
+     * @param array<mixed>          $changes
+     *
+     * @return array<string, string>
+     *
+     * @throws \InvalidArgumentException
+     */
+    public static function mergeMoments(array $current, array $changes): array
+    {
+        foreach ($changes as $moment => $time) {
+            if (null === DayMoment::tryFrom((string) $moment)) {
+                throw new \InvalidArgumentException(\sprintf('dayMoments: unknown moment "%s". Known moments: %s.', $moment, implode(', ', array_keys(DayMoment::DEFAULTS))));
+            }
+            if (!\is_string($time) || 1 !== preg_match(self::TIME_PATTERN, $time)) {
+                throw new \InvalidArgumentException(\sprintf('dayMoments.%s must be a time "HH:MM" from 00:00 to 23:59.', $moment));
+            }
+            $current[(string) $moment] = $time;
+        }
+
+        return self::completeMoments($current);
+    }
+
+    /**
+     * @param array<string, string> $moments
+     *
+     * @return array<string, string>
+     */
+    private static function completeMoments(array $moments): array
+    {
+        $complete = [];
+        foreach (DayMoment::DEFAULTS as $moment => $default) {
+            $complete[$moment] = $moments[$moment] ?? $default;
+        }
+
+        return $complete;
+    }
+
+    public function getReminderDailyCap(): int
+    {
+        return $this->reminderDailyCap;
+    }
+
+    /** @throws \InvalidArgumentException outside 1 to 12 */
+    public function setReminderDailyCap(int $reminderDailyCap): static
+    {
+        if ($reminderDailyCap < self::MIN_REMINDER_DAILY_CAP || $reminderDailyCap > self::MAX_REMINDER_DAILY_CAP) {
+            throw new \InvalidArgumentException(\sprintf('reminderDailyCap must be a whole number from %d to %d, not %d.', self::MIN_REMINDER_DAILY_CAP, self::MAX_REMINDER_DAILY_CAP, $reminderDailyCap));
+        }
+        $this->reminderDailyCap = $reminderDailyCap;
+
+        return $this;
+    }
+
+    public function getQuietStart(): string
+    {
+        return $this->quietStart;
+    }
+
+    /** @throws \InvalidArgumentException when it is not `HH:MM` */
+    public function setQuietStart(string $quietStart): static
+    {
+        if (1 !== preg_match(self::TIME_PATTERN, $quietStart)) {
+            throw new \InvalidArgumentException(\sprintf('quietStart must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $quietStart));
+        }
+        $this->quietStart = $quietStart;
+
+        return $this;
+    }
+
+    public function getQuietEnd(): string
+    {
+        return $this->quietEnd;
+    }
+
+    /** @throws \InvalidArgumentException when it is not `HH:MM` */
+    public function setQuietEnd(string $quietEnd): static
+    {
+        if (1 !== preg_match(self::TIME_PATTERN, $quietEnd)) {
+            throw new \InvalidArgumentException(\sprintf('quietEnd must be a time "HH:MM" from 00:00 to 23:59, not "%s".', $quietEnd));
+        }
+        $this->quietEnd = $quietEnd;
+
+        return $this;
+    }
+
+    /**
+     * Whether $time, `HH:MM` on the user's clock, falls in the quiet hours. They
+     * run over midnight when they start after they end; the same start and end
+     * leave no quiet hours.
+     */
+    public function isQuiet(string $time): bool
+    {
+        if ($this->quietStart === $this->quietEnd) {
+            return false;
+        }
+
+        return $this->quietStart < $this->quietEnd
+            ? $time >= $this->quietStart && $time < $this->quietEnd
+            : $time >= $this->quietStart || $time < $this->quietEnd;
+    }
+
+    /** When the morning alerts go out: the morning, or the end of the quiet hours when the morning falls in them. */
+    public function getAlertTime(): string
+    {
+        return $this->isQuiet($this->morningTime) ? $this->quietEnd : $this->morningTime;
+    }
+
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
@@ -234,6 +395,10 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
             'rewardVibration' => $this->rewardVibration,
             'rewardSound' => $this->rewardSound,
             'tone' => $this->tone,
+            'dayMoments' => $this->getDayMoments(),
+            'reminderDailyCap' => $this->reminderDailyCap,
+            'quietStart' => $this->quietStart,
+            'quietEnd' => $this->quietEnd,
         ], $changedProperties);
     }
 }

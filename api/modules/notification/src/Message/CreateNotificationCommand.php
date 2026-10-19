@@ -14,6 +14,10 @@ final readonly class CreateNotificationCommand
         public ?string $userId = null,
         /** Which occurrence of the related entity this is about — a reminder of a recurring event. */
         public ?\DateTimeImmutable $occurrenceStartAt = null,
+        /** The task reminder it is sent for, whose buttons answer it (MAG-510). */
+        public ?string $reminderId = null,
+        /** @var list<string> the buttons it offers, in order */
+        public array $actions = [],
     ) {
     }
 }
