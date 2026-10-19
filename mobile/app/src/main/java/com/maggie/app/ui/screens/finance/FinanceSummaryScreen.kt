@@ -50,6 +50,7 @@ data class SummaryEntry(val block: SummaryBlock, val title: String, val route: S
 fun summaryEntries(menu: FinanceMenu): List<SummaryEntry> = when (menu) {
     FinanceMenu.REVIEW -> listOf(
         SummaryEntry(SummaryBlock.TO_SORT, "À qualifier", Screen.TransactionsToSort.route),
+        SummaryEntry(SummaryBlock.TO_CONTROL, "Reconnues à contrôler", Screen.RecognisedToControl.route),
         SummaryEntry(SummaryBlock.MONTHLY_REVIEW, "Revue mensuelle", Screen.MonthlyReview.route),
         SummaryEntry(SummaryBlock.RULES, "Règles", Screen.CategorizationRuleList.route),
         SummaryEntry(SummaryBlock.RECURRING_OPERATIONS, "Opérations récurrentes", Screen.RecurringOperations.route),

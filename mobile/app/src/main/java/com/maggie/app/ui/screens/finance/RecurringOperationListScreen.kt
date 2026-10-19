@@ -74,6 +74,7 @@ import com.maggie.app.ui.navigation.Screen
  *
  * [seed] is the transaction the owner asked to turn into a series from its detail screen: the
  * editor opens on it once, and leaving it goes back to that transaction ([onBackToTransaction]).
+ * [openSeriesId] is the series « Reconnues à contrôler » (MAG-460) asked to see: its editor opens once the series are read.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +84,8 @@ fun RecurringOperationListScreen(
     seed: Transaction? = null,
     onSeedConsumed: () -> Unit = {},
     onBackToTransaction: () -> Unit = {},
+    openSeriesId: String? = null,
+    onSeriesOpened: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -93,6 +96,14 @@ fun RecurringOperationListScreen(
         if (seed != null) {
             viewModel.startFromTransaction(seed)
             onSeedConsumed()
+        }
+    }
+
+    // The series are read after the screen opens: wait for the overview, then open the editor on the one asked for.
+    LaunchedEffect(openSeriesId, uiState.isLoading, uiState.overview) {
+        if (openSeriesId != null && !uiState.isLoading && uiState.overview != null) {
+            viewModel.startEdit(openSeriesId)
+            onSeriesOpened()
         }
     }
 

@@ -28,6 +28,7 @@ import { EnvelopeCreate } from './EnvelopeCreate'
 import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
 import { PeerDebtsPage } from './PeerDebtsPage'
+import { RecognisedToControlPage } from './RecognisedToControlPage'
 import { ToSortPage } from './ToSortPage'
 import { TransactionCreate } from './TransactionCreate'
 import { TransactionSheet } from './TransactionSheet'
@@ -43,6 +44,7 @@ export const financeResources = (
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
       <Route path="/finance/to-sort" element={<ToSortPage />} />
       <Route path="/finance/peer-debts" element={<PeerDebtsPage />} />
+      <Route path="/finance/to-control" element={<RecognisedToControlPage />} />
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/treasury" element={<TreasuryPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />

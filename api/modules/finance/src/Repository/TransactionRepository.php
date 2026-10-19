@@ -466,8 +466,9 @@ class TransactionRepository extends ServiceEntityRepository
 
     /**
      * The lines of a period an operation recognised — a series or a rule set
-     * their qualification, the owner did not — oldest first. Transfers are
-     * left out: they are neutral, there is nothing to check on them.
+     * their qualification, the owner did not — and the owner has not checked
+     * yet, oldest first. Transfers are left out: they are neutral, there is
+     * nothing to check on them.
      *
      * @return Transaction[]
      */
@@ -477,6 +478,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :none')
             ->andWhere('t.categorySource IN (:operations)')
+            ->andWhere('t.controlledAt IS NULL')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')

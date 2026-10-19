@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.MonthlyReview
+import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.SavingsAdvances
 import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.data.model.toControlCounter
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.bankConnectionNeedsAction
 import com.maggie.app.data.model.cushionStateLabel
@@ -39,6 +41,7 @@ enum class SummaryBlock {
     SAVINGS_ADVANCES,
     OUTLOOK,
     TO_SORT,
+    TO_CONTROL,
     MONTHLY_REVIEW,
     RULES,
     RECURRING_OPERATIONS,
@@ -100,6 +103,7 @@ class FinanceSummaryViewModel(
         SummaryBlock.SAVINGS_ADVANCES -> advancesRepository.getSavingsAdvances().toBlock(::advancesBlock)
         SummaryBlock.OUTLOOK -> treasuryRepository.getOutlook().toBlock(::outlookBlock)
         SummaryBlock.TO_SORT -> transactionRepository.getToSort().toBlock(::toSortBlock)
+        SummaryBlock.TO_CONTROL -> transactionRepository.getRecognisedToControl(today().toString().take(7)).toBlock(::toControlBlock)
         SummaryBlock.MONTHLY_REVIEW -> {
             val date = today()
             reviewRepository.getReview(date.year, date.monthValue).toBlock(::monthlyReviewBlock)
@@ -177,6 +181,9 @@ internal fun toSortBlock(pile: ToSortPile): BlockState =
     } else {
         BlockState.Ready(listOf("${pile.total} transaction${if (pile.total > 1) "s" else ""} à qualifier"), needsAttention = true)
     }
+
+internal fun toControlBlock(recognised: RecognisedToControl): BlockState =
+    BlockState.Ready(listOf(toControlCounter(recognised.total)), needsAttention = recognised.total > 0)
 
 internal fun monthlyReviewBlock(review: MonthlyReview): BlockState = when {
     review.pendingCount > 0 -> BlockState.Ready(

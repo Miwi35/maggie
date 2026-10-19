@@ -44,6 +44,7 @@ enum class FinanceMenu(
         listOf(
             Screen.FinanceReview.route,
             Screen.TransactionsToSort.route,
+            Screen.RecognisedToControl.route,
             Screen.MonthlyReview.route,
             Screen.CategorizationRuleList.route,
             Screen.RuleSuggestions.route,

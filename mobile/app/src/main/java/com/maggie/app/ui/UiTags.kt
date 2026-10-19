@@ -721,6 +721,25 @@ object UiTags {
     const val TO_SORT_KEEP = "to_sort_keep"
     const val TO_SORT_AVOIDABLE = "to_sort_avoidable"
 
+    /**
+     * « Reconnues à contrôler » (MAG-460): the counter, a group and its two gestures, a line and its five, the correction
+     * screen (category, search, save), the empty list. A group or a line repeats: a journey taps the first.
+     */
+    const val TO_CONTROL_REMAINING = "to_control_remaining"
+    const val TO_CONTROL_GROUP = "to_control_group"
+    const val TO_CONTROL_VALIDATE = "to_control_validate"
+    const val TO_CONTROL_KEEP_ALL = "to_control_keep_all"
+    const val TO_CONTROL_ROW = "to_control_row"
+    const val TO_CONTROL_KEEP = "to_control_keep"
+    const val TO_CONTROL_AVOIDABLE = "to_control_avoidable"
+    const val TO_CONTROL_CORRECT = "to_control_correct"
+    const val TO_CONTROL_OPEN_OPERATION = "to_control_open_operation"
+    const val TO_CONTROL_OPEN_SHEET = "to_control_open_sheet"
+    const val TO_CONTROL_CATEGORY = "to_control_category"
+    const val TO_CONTROL_SEARCH = "to_control_search"
+    const val TO_CONTROL_SAVE = "to_control_save"
+    const val TO_CONTROL_EMPTY = "to_control_empty"
+
     /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
     const val TO_QUALIFY_PILL = "to_qualify_pill"
 

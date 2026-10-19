@@ -1,0 +1,35 @@
+{
+    "month": "2026-03",
+    "total": 1,
+    "groups": [
+        {
+            "operationType": "rule",
+            "operationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "label": "CARREFOUR",
+            "count": 1,
+            "totalCents": -2450,
+            "unratedCount": 1,
+            "transactions": [
+                {
+                    "recognised": true,
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "CARREFOUR CITY 99",
+                    "counterpartyName": null,
+                    "amountCents": -2450,
+                    "currency": "EUR",
+                    "bookedAt": "2026-03-10",
+                    "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "accountName": "Recorded Account",
+                    "judgeable": true,
+                    "retrospect": "unrated",
+                    "suggestion": null,
+                    "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "categoryPath": "Recorded Food › Recorded Courses",
+                    "qualifiedBy": "rule",
+                    "qualifiedBySeriesId": null,
+                    "qualifiedByRuleId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            ]
+        }
+    ]
+}

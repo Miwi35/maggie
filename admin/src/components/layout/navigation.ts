@@ -70,6 +70,7 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Créances et dettes', path: '/finance/peer-debts' },
       resourcePart('Transactions', 'transactions'),
       { label: 'À qualifier', path: '/finance/to-sort' },
+      { label: 'Reconnues à contrôler', path: '/finance/to-control' },
       resourcePart('Catégories', 'categories'),
       resourcePart('Budgets', 'envelopes'),
       { label: 'Trésorerie', path: '/finance/treasury' },
