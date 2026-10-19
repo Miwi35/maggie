@@ -150,6 +150,7 @@ class PeerTransferQualifierScreenTest {
             transactions, categories, mockk<CategorizationRuleRepository>(relaxed = true), mockk<ContactRepository>(), peerDebts,
         )
         compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        compose.onAllNodesWithTag(UiTags.TO_SORT_ROW)[0].performClick()
 
         // Filed already: the card asks no category.
         compose.onAllNodesWithTag(UiTags.TO_SORT_OTHER).assertCountEquals(0)

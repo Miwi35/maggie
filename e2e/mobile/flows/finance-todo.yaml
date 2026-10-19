@@ -101,7 +101,7 @@ tags:
       id: "finance_pill_rejections"
     timeout: 30000
 
-# « 3 à trier » opens the pile, on its oldest line.
+# « 3 à trier » opens the pile, on its list.
 - scrollUntilVisible:
     element:
       id: "finance_pill_to_sort"
@@ -111,9 +111,15 @@ tags:
     id: "finance_pill_to_sort"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_card"
+      id: "to_sort_row"
     timeout: 30000
 - assertVisible: "3 à qualifier"
+- assertVisible: "A TRIER MAG-421 A"
+- tapOn: "A TRIER MAG-421 A"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
 - assertVisible: "A TRIER MAG-421 A"
 
 # Left as found.
