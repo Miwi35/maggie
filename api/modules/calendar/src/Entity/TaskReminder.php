@@ -42,6 +42,13 @@ class TaskReminder implements OwnedByUserInterface
     public const ACTION_TOMORROW = 'tomorrow';
     public const ACTIONS = [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_DONE, self::ACTION_TOMORROW];
 
+    /** What each kind can be answered with: a morning alert is not put off, a nudge is not ticked. */
+    public const ACTIONS_BY_KIND = [
+        self::KIND_DUE => [self::ACTION_START, self::ACTION_DONE, self::ACTION_TOMORROW],
+        self::KIND_NUDGE => [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_TOMORROW],
+        self::KIND_ROUTINE => [],
+    ];
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;

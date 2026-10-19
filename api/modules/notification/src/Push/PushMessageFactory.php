@@ -10,7 +10,8 @@ use Maggie\Notification\Enum\NotificationType;
 /**
  * Turns a stored notification into the FCM message one device receives.
  *
- * Both blocks, never data alone (owner's rule, 7 Oct.): with a `notification`
+ * Both blocks, never data alone (owner's rule, 7 Oct.) — but for a task
+ * reminder with buttons (MAG-510), see {@see self::build()}: with a `notification`
  * block Android shows the push itself while the app is closed, killed or in
  * the background; in the foreground it shows nothing and hands the message to
  * `onMessageReceived`, where the app raises its interruption (MAG-314). The
@@ -80,6 +81,17 @@ class PushMessageFactory
             'taskId' => null === $notification->getReminderId() ? null : $this->taskId($notification->getRelatedEntityIri()),
             'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
+
+        // A task reminder (MAG-510) goes as data alone: a `notification` block would be shown by
+        // Android itself in the background, without the buttons it exists for. The app posts it
+        // with them (`PushNotifier`), in the reminders channel its type maps to.
+        if ([] !== $notification->getActions()) {
+            return [
+                'token' => $deviceToken,
+                'data' => $data,
+                'android' => ['priority' => 'high'],
+            ];
+        }
 
         return [
             'token' => $deviceToken,

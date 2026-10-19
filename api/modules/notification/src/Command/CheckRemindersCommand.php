@@ -11,6 +11,7 @@ use Maggie\Calendar\Service\TaskReminders;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Repository\NotificationRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -33,6 +34,7 @@ class CheckRemindersCommand extends Command
         private readonly UserRepository $userRepository,
         private readonly TaskReminders $taskReminders,
         private readonly ClockInterface $clock,
+        private readonly LoggerInterface $logger,
     ) {
         parent::__construct();
     }
@@ -159,7 +161,14 @@ class CheckRemindersCommand extends Command
         $created = 0;
 
         foreach ($this->userRepository->findAll() as $user) {
-            $sent = $this->taskReminders->run($user);
+            try {
+                $sent = $this->taskReminders->run($user);
+            } catch (\Throwable $e) {
+                // One user's trouble must not cost the others their reminders.
+                $this->logger->error('Task reminders failed for {user}: {error}', ['user' => (string) $user->getId(), 'error' => $e->getMessage(), 'exception' => $e]);
+                $io->warning(sprintf('Task reminders failed for %s: %s', $user->getEmail(), $e->getMessage()));
+                continue;
+            }
             if ($sent > 0) {
                 $io->writeln(sprintf('  Sent %d task reminder(s) to %s', $sent, $user->getEmail()));
             }

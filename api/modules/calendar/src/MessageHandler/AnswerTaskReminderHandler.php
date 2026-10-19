@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\TaskReminder;
 use Maggie\Calendar\Message\AnswerTaskReminderCommand;
 use Maggie\Calendar\Repository\TaskReminderRepository;
@@ -21,6 +22,7 @@ class AnswerTaskReminderHandler
     public function __construct(
         private readonly TaskReminderRepository $repository,
         private readonly TaskReminders $reminders,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -33,7 +35,8 @@ class AnswerTaskReminderHandler
         }
 
         try {
-            return $this->reminders->act($reminder, $command->action);
+            // One transaction: the claimed answer, the task ticked, the two days of « Demain » — or none.
+            return $this->em->getConnection()->transactional(fn (): array => $this->reminders->act($reminder, $command->action));
         } catch (\InvalidArgumentException $e) {
             throw new \DomainException($e->getMessage(), 0, $e);
         }

@@ -115,6 +115,8 @@ class PushIntentsTest {
         assertEquals("$scheme://task/t-1/focus", start.dataString)
         assertEquals(PushActionKind.START, PushIntents.answerOf(start)?.first)
         assertNull("a tap on the body answers nothing", PushIntents.answerOf(PushIntents.open(context, payload)))
+        val forged = PushIntents.open(context, payload).putExtra(PushIntents.EXTRA_ANSWER, PushActionKind.TICK.reminderKey)
+        assertNull("only « Je m'y mets » is answered from an intent the app opens", PushIntents.answerOf(forged))
         assertNull(PushIntents.startFocus(context, PushPayload.from(mapOf("notificationId" to "n-1", "reminderId" to "r-1"))!!))
     }
 }

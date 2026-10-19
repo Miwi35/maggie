@@ -25,6 +25,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Clock\NativeClock;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * Reminders that change their words (MAG-510): a nudge on the task « now »
@@ -210,6 +211,7 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertNull($response['notification'], 'it goes away');
         self::assertNull($this->em()->find(Notification::class, $notificationId));
         $this->assertMercureDeletePublished('/api/notifications/'.$notificationId);
+        $this->assertElasticsearchDeleteDispatched();
 
         $this->at('2026-10-14 06:40:00 UTC');
         self::assertSame(0, $this->remind(), 'not before 08:41');
@@ -274,16 +276,17 @@ final class TaskReminderApiTest extends WebTestCase
 
     public function testDoneTicksTheTaskAndTheNotificationSaysTheBravo(): void
     {
-        $reminder = $this->sentNudge();
+        $reminder = $this->sentDue();
         $notificationId = (string) $reminder->getNotification()?->getId();
         $this->resetMercure();
+        $this->resetAsyncTransport();
 
         $response = $this->act($reminder, 'done');
 
         self::assertResponseIsSuccessful();
-        $task = $this->em()->find(Task::class, $this->getFixture('garagiste')->getId());
+        $task = $this->em()->find(Task::class, Ulid::fromString($reminder->getSubjectId()));
         self::assertNotNull($task?->getCompletedAt());
-        $reward = $this->em()->getRepository(Reward::class)->findOneBy(['subjectId' => $this->id('garagiste')]);
+        $reward = $this->em()->getRepository(Reward::class)->findOneBy(['subjectId' => $reminder->getSubjectId()]);
         self::assertInstanceOf(Reward::class, $reward);
         self::assertSame($reward->getMessage(), $response['reward']['message']);
 
@@ -294,6 +297,27 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertNotNull($notification->getReadAt());
         self::assertSame($reward->getMessage(), $response['notification']['title']);
         $this->assertMercureUpdatePublished('/api/notifications/'.$notificationId);
+        $this->assertElasticsearchIndexDispatchedFor(Notification::class, $notificationId);
+    }
+
+    public function testEachKindIsAnsweredWithItsOwnButtons(): void
+    {
+        $due = $this->sentDue();
+        $this->act($due, 'in10');
+        self::assertResponseStatusCodeSame(409, 'a morning alert is not put off');
+        $this->act($due, 'tonight');
+        self::assertResponseStatusCodeSame(409);
+
+        self::assertNull($this->onlyReminder()->getAction(), 'refused, it can still be answered');
+        self::assertCount(1, $this->reminders());
+    }
+
+    public function testANudgeIsNotTicked(): void
+    {
+        $this->act($this->sentNudge(), 'done');
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertNull($this->em()->find(Task::class, $this->getFixture('garagiste')->getId())?->getCompletedAt());
     }
 
     public function testTomorrowPutsTheTaskInTomorrowsFiveAsAProposal(): void
@@ -446,6 +470,16 @@ final class TaskReminderApiTest extends WebTestCase
     {
         $this->settings(['dayMoments' => ['afterBreakfast' => Clock::get()->now()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('H:i')]]);
         $this->setDay(['garagiste']);
+        self::assertSame(1, $this->remind());
+
+        return $this->onlyReminder();
+    }
+
+    /** A morning alert on « Échéance 1 », due today, sent now. */
+    private function sentDue(): TaskReminder
+    {
+        $this->settings(['morningTime' => Clock::get()->now()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('H:i')]);
+        $this->dueTasks(1);
         self::assertSame(1, $this->remind());
 
         return $this->onlyReminder();

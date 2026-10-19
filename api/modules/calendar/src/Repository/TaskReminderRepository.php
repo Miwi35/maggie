@@ -113,4 +113,28 @@ class TaskReminderRepository extends ServiceEntityRepository
 
         return \is_array($row) ? $row['messageKey'] : null;
     }
+
+    /**
+     * Sets the answer when there is none yet, in one statement: of two
+     * answers at once, one only finds the row unanswered.
+     */
+    public function claim(TaskReminder $reminder, string $action): bool
+    {
+        $claimed = $this->createQueryBuilder('r')
+            ->update()
+            ->set('r.action', ':action')
+            ->where('r.id = :id')
+            ->andWhere('r.action IS NULL')
+            ->setParameter('action', $action)
+            ->setParameter('id', $reminder->getId(), 'ulid')
+            ->getQuery()
+            ->execute();
+
+        if (1 !== $claimed) {
+            return false;
+        }
+        $reminder->setAction($action);
+
+        return true;
+    }
 }

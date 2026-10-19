@@ -209,7 +209,10 @@ object PushIntents {
 
     /** The reminder's button an intent asks the app to answer, with its push; null for any other intent. */
     fun answerOf(intent: Intent): Pair<PushActionKind, PushPayload>? {
-        val kind = intent.getStringExtra(EXTRA_ANSWER)?.let(PushActionKind::ofReminderKey) ?: return null
+        // « Je m'y mets » only, the one answer the app puts there: the activity is exported, and
+        // another app's intent must not tick a task or move it to tomorrow.
+        val kind = intent.getStringExtra(EXTRA_ANSWER)?.let(PushActionKind::ofReminderKey)
+            ?.takeIf { it == PushActionKind.START } ?: return null
         val payload = payloadOf(intent)?.takeIf { it.reminderId != null } ?: return null
         return kind to payload
     }

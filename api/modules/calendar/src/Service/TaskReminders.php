@@ -13,6 +13,7 @@ use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Enum\DayMoment;
 use Maggie\Calendar\Message\SetDayPlanCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Maggie\Calendar\MessageHandler\AnswerTaskReminderHandler;
 use Maggie\Calendar\Repository\DayPlanRepository;
 use Maggie\Calendar\Repository\RewardRepository;
 use Maggie\Calendar\Repository\TaskReminderRepository;
@@ -107,6 +108,13 @@ final class TaskReminders
         if (null !== $reminder->getAction()) {
             throw new \DomainException(\sprintf('This reminder was already answered: "%s".', $reminder->getAction()));
         }
+        if (!\in_array($action, TaskReminder::ACTIONS_BY_KIND[$reminder->getKind()] ?? [], true)) {
+            throw new \DomainException(\sprintf('A "%s" reminder is answered with %s, not "%s".', $reminder->getKind(), implode(', ', TaskReminder::ACTIONS_BY_KIND[$reminder->getKind()] ?? []), $action));
+        }
+        // Claimed first: a second press, on the phone and in the admin at once, finds it answered.
+        if (!$this->reminders->claim($reminder, $action)) {
+            throw new \DomainException('This reminder was already answered.');
+        }
 
         $user = $reminder->getUser();
         $task = $this->task($user, $reminder->getSubjectId())
@@ -138,7 +146,6 @@ final class TaskReminders
                 break;
         }
 
-        $reminder->setAction($action);
         $this->em->flush();
 
         if (null !== $notification) {
@@ -345,14 +352,16 @@ final class TaskReminders
         $taskId = (string) $task->getId();
 
         $tomorrow = $this->dayPlans->forDate($user, $today->modify('+1 day'));
-        if (!\in_array($taskId, $tomorrow->getTaskIds(), true)) {
-            if (\count($tomorrow->getSlots()) >= DayPlan::MAX_SLOTS) {
-                throw new \DomainException(\sprintf('Tomorrow already holds %d tasks.', DayPlan::MAX_SLOTS));
-            }
-            $this->setSlots($user, $tomorrow, [...self::slotsOf($tomorrow), ['type' => DayPlan::TYPE_TASK, 'taskId' => $taskId]]);
+        $todayPlan = $this->dayPlanRepository->findOneByUserAndDate($user, $today);
+        $toTomorrow = !\in_array($taskId, $tomorrow->getTaskIds(), true);
+        if ($toTomorrow && \count($tomorrow->getSlots()) >= DayPlan::MAX_SLOTS) {
+            throw new \DomainException(\sprintf('Tomorrow already holds %d tasks.', DayPlan::MAX_SLOTS));
         }
 
-        $todayPlan = $this->dayPlanRepository->findOneByUserAndDate($user, $today);
+        // Both days or neither: the answer runs in one transaction ({@see AnswerTaskReminderHandler}).
+        if ($toTomorrow) {
+            $this->setSlots($user, $tomorrow, [...self::slotsOf($tomorrow), ['type' => DayPlan::TYPE_TASK, 'taskId' => $taskId]]);
+        }
         if (null !== $todayPlan && \in_array($taskId, $todayPlan->getTaskIds(), true)) {
             $this->setSlots($user, $todayPlan, array_values(array_filter(self::slotsOf($todayPlan), static fn (array $slot): bool => $slot['taskId'] !== $taskId)));
         }
