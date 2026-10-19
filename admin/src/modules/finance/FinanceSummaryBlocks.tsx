@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import { useGetList } from 'react-admin'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import { formatCents } from './accountTypes'
 import { CUSHION_STATE_LABELS, useCushionStatus } from './useCushionStatus'
+import { fetchPeerDebtSummary, type PeerDebtSummary } from './peerDebtsApi'
 import { useBankConnections } from './useBankConnections'
 import { useBudgetStatus } from './useBudgetStatus'
 import { useFinanceDashboard } from './useFinanceDashboard'
@@ -101,6 +103,25 @@ const RulesBlock = () => <ResourceCountBlock resource="categorization_rules" one
 const CategoriesBlock = () => <ResourceCountBlock resource="categories" one="catégorie" />
 
 const ContactsBlock = () => <ResourceCountBlock resource="contacts" one="contact" />
+
+const PeerDebtsBlock = () => {
+  const [summary, setSummary] = useState<PeerDebtSummary | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    fetchPeerDebtSummary().then(setSummary).catch(() => setFailed(true))
+  }, [])
+
+  if (!summary) return <Unavailable loading={!failed} />
+  if (summary.owedToMeCents === 0 && summary.iOweCents === 0) return <Hint>Personne ne te doit rien, tu ne dois rien.</Hint>
+
+  return (
+    <>
+      {summary.owedToMeCents > 0 && <Figure>On te doit {formatCents(summary.owedToMeCents)}</Figure>}
+      {summary.iOweCents > 0 && <Hint warn>Tu dois {formatCents(summary.iOweCents)}</Hint>}
+    </>
+  )
+}
 
 const LoansBlock = () => <ResourceCountBlock resource="loans" one="prêt" />
 
@@ -238,6 +259,7 @@ export const SUMMARY_BLOCKS: Record<string, ComponentType> = {
   envelopes: EnvelopesBlock,
   cushion: CushionBlock,
   advances: AdvancesBlock,
+  'peer-debts': PeerDebtsBlock,
   outlook: OutlookBlock,
   loans: LoansBlock,
   independence: IndependenceBlock,

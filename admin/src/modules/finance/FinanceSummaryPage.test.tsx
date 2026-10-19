@@ -37,6 +37,7 @@ const ANSWERS: Record<string, Body> = {
   },
   '/api/finance/cushion-status': { isConfigured: true, state: 'building', currentCents: 420000, targetCents: 700000 },
   '/api/finance/savings-advances': { advances: [], totalOutstandingCents: 100000 },
+  '/api/finance/peer-debts/summary': { owedToMeCents: 25000, iOweCents: 0, byContact: [] },
   '/api/finance/treasury-outlook': {
     balanceCents: 184550,
     salary: { isConfigured: true },
@@ -99,7 +100,7 @@ describe('FinanceSummaryPage', () => {
     renderPage('/finance/summary/treasury')
 
     const blocks = await screen.findAllByTestId('summary-block')
-    expect(blocks.map((candidate) => candidate.getAttribute('data-aspect'))).toEqual(['cushion', 'advances', 'outlook'])
+    expect(blocks.map((candidate) => candidate.getAttribute('data-aspect'))).toEqual(['cushion', 'advances', 'peer-debts', 'outlook'])
 
     const cushion = await block('cushion')
     expect(await within(cushion).findByText(/4 200,00 € \/ 7 000,00 €/)).toBeInTheDocument()
@@ -111,6 +112,13 @@ describe('FinanceSummaryPage', () => {
     expect(within(advances).getByRole('link', { name: "Avances d'épargne" })).toHaveAttribute(
       'href',
       '/finance/savings-advances',
+    )
+
+    const peerDebts = await block('peer-debts')
+    expect(await within(peerDebts).findByText(/On te doit 250,00 €/)).toBeInTheDocument()
+    expect(within(peerDebts).getByRole('link', { name: 'Créances et dettes' })).toHaveAttribute(
+      'href',
+      '/finance/peer-debts',
     )
 
     const outlook = await block('outlook')

@@ -63,6 +63,7 @@ describe('the seven Finance menus', () => {
         '/finance/cushion',
         '/finance/import',
         '/finance/monthly-review',
+        '/finance/peer-debts',
         '/finance/recurring-operations',
         '/finance/savings-advances',
         '/finance/to-sort',
