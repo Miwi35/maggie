@@ -1,8 +1,10 @@
 package com.maggie.app.data.fcm
 
 import android.util.Log
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.model.TaskReminderAnswer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +26,9 @@ sealed interface PushOutcome {
 
     /** The request is no longer open (already answered elsewhere, or expired): there is nothing left to press. */
     data class Settled(val message: String) : PushOutcome
+
+    /** « Fait » on a task reminder (MAG-510): the notification says the bravo in place of the reminder, with no button. */
+    data class Rewarded(val message: String) : PushOutcome
 }
 
 /**
@@ -54,6 +59,50 @@ class PushActionHandler(
         PushActionKind.REPLY -> reply(payload, reply, onLateFailure)
         PushActionKind.APPROVE -> decide(payload) { apiService.approve(it, "notification") }
         PushActionKind.DENY -> decide(payload) { apiService.deny(it, "notification") }
+        // « Je m'y mets » opens the Focus by itself (an activity intent): this only answers the reminder.
+        PushActionKind.START, PushActionKind.IN_TEN, PushActionKind.TONIGHT, PushActionKind.TOMORROW ->
+            answerReminder(kind, payload) { PushOutcome.Closed }
+        PushActionKind.TICK -> answerReminder(kind, payload) { answer ->
+            PushOutcome.Rewarded(answer.reward?.message ?: answer.notification?.title ?: TICKED)
+        }
+    }
+
+    /**
+     * Answers [kind] without waiting: « Je m'y mets » opens the app on the Focus, and the answer
+     * must not hold the screen nor be lost when the activity goes.
+     */
+    fun answerInBackground(kind: PushActionKind, payload: PushPayload) {
+        sendScope.launch { handle(kind, payload) }
+    }
+
+    // In ten minutes and tonight, the server deletes the notification and sends another later;
+    // tomorrow and start leave nothing to show either. A refusal is final: the reminder was answered.
+    private suspend fun answerReminder(
+        kind: PushActionKind,
+        payload: PushPayload,
+        outcome: (TaskReminderAnswer) -> PushOutcome,
+    ): PushOutcome {
+        val reminderId = payload.reminderId ?: return PushOutcome.Settled(REMINDER_SETTLED)
+        val action = kind.reminderKey ?: return PushOutcome.Settled(REMINDER_SETTLED)
+        return try {
+            outcome(apiService.answerTaskReminder(reminderId, action))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiRefusalException) {
+            if (e.status in FINAL_STATUSES) PushOutcome.Settled(refusal(kind, e)) else PushOutcome.Retry(UNREACHABLE)
+        } catch (e: Exception) {
+            Log.w(TAG, "Reminder answer failed: ${e.message}")
+            PushOutcome.Retry(UNREACHABLE)
+        }
+    }
+
+    // The server's reasons are in English: the phone says them in its own words.
+    private fun refusal(kind: PushActionKind, e: ApiRefusalException): String = when {
+        e.status == 404 -> "Ce rappel n'existe plus."
+        e.message.orEmpty().contains("already answered", ignoreCase = true) -> "Ce rappel a déjà eu sa réponse."
+        kind == PushActionKind.TONIGHT -> "La soirée est passée : mettez-la plutôt à demain."
+        kind == PushActionKind.TOMORROW -> "Demain est déjà plein."
+        else -> REMINDER_SETTLED
     }
 
     private suspend fun markRead(payload: PushPayload): PushOutcome = attempt {
@@ -122,5 +171,10 @@ class PushActionHandler(
         private const val TAG = "PushActionHandler"
         const val REPLY_BUDGET_MS = 7_000L
         private const val UNREACHABLE = "Maggie est injoignable. Réessayez."
+        private const val REMINDER_SETTLED = "Ce rappel n'est plus en attente."
+        private const val TICKED = "C'est fait."
+
+        /** The reminder cannot take this answer, now or later: 400 unknown button, 404 gone, 409 refused. */
+        private val FINAL_STATUSES = setOf(400, 404, 409)
     }
 }

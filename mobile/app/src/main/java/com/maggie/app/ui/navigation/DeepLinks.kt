@@ -21,6 +21,9 @@ object DeepLinks {
 
     const val EVENT_ROUTE = "link/event/{$ARG_ID}"
     const val TASK_ROUTE = "link/task/{$ARG_ID}"
+
+    /** A task's Focus (MAG-510), what « Je m'y mets » of a reminder opens. */
+    const val TASK_FOCUS_ROUTE = "link/task/{$ARG_ID}/focus"
     const val GROCERY_ROUTE = "link/grocery/{$ARG_ID}"
     const val RECIPE_ROUTE = "link/recipe/{$ARG_ID}"
     const val ACCOUNT_ROUTE = "link/finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"
@@ -29,6 +32,7 @@ object DeepLinks {
     private val PATTERNS: Map<String, List<String>> = mapOf(
         EVENT_ROUTE to listOf("$SCHEME://event/{$ARG_ID}"),
         TASK_ROUTE to listOf("$SCHEME://task/{$ARG_ID}"),
+        TASK_FOCUS_ROUTE to listOf("$SCHEME://task/{$ARG_ID}/focus"),
         GROCERY_ROUTE to listOf("$SCHEME://grocery/{$ARG_ID}"),
         RECIPE_ROUTE to listOf("$SCHEME://recipe/{$ARG_ID}"),
         ACCOUNT_ROUTE to listOf("$SCHEME://finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"),
@@ -65,6 +69,9 @@ object DeepLinks {
     private val VALID_ID = Regex("[0-9A-Za-z-]{1,64}")
 
     fun isValidId(id: String?): Boolean = id != null && VALID_ID.matches(id)
+
+    /** The link of [taskId]'s Focus; the id is the caller's to check ([isValidId]). */
+    fun taskFocus(taskId: String): String = "$SCHEME://task/$taskId/focus"
 
     // A link prefills the chat, it never sends: any app can fire one.
     fun chatDraft(message: String?): String = message?.trim().orEmpty()

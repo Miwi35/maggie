@@ -788,6 +788,47 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the reminders' cap, quiet hours and moments come with the task settings and their defaults (MAG-510)`() {
+        val settings = json.decodeFromJsonElement(serializer<TaskSettings>(), readRecording("task_settings.me"))
+
+        assertEquals(6, settings.reminderDailyCap)
+        assertEquals("21:00", settings.quietStart)
+        assertEquals("08:00", settings.quietEnd)
+        assertEquals(
+            mapOf(
+                TaskSettings.MOMENT_WAKE to "07:30",
+                TaskSettings.MOMENT_AFTER_BREAKFAST to "08:30",
+                TaskSettings.MOMENT_AFTER_LUNCH to "13:30",
+                TaskSettings.MOMENT_AFTER_DINNER to "20:00",
+            ),
+            settings.dayMoments,
+        )
+        assertEquals(settings.values, settings.defaults)
+    }
+
+    @Test
+    fun `a reminder's answer deserialises from the recorded response under the names the API sends (MAG-510)`() {
+        assertItemContract("task_reminders.action", serializer<TaskReminderAnswer>(), "TaskReminderAnswer")
+        val body = readRecording("task_reminders.action")
+        assertDeclaredFieldsExist("TaskReminder", serializer<TaskReminder>(), body["reminder"]!!.jsonObject.keys, "task_reminders.action")
+        assertDeclaredFieldsExist("Reward", serializer<Reward>(), body["reward"]!!.jsonObject.keys, "task_reminders.action")
+        assertDeclaredFieldsExist(
+            "TaskReminderNotification",
+            serializer<TaskReminderNotification>(),
+            body["notification"]!!.jsonObject.keys,
+            "task_reminders.action",
+        )
+
+        val answer = json.decodeFromJsonElement(serializer<TaskReminderAnswer>(), body)
+        assertEquals("done", answer.reminder.action)
+        assertEquals("due", answer.reminder.kind)
+        assertNull(answer.next)
+        assertTrue(answer.reward!!.message.isNotBlank())
+        assertEquals(answer.reward!!.message, answer.notification!!.title)
+        assertTrue(answer.notification!!.actions.isEmpty())
+    }
+
+    @Test
     fun `a reward deserialises from the recorded response under the names the API sends (MAG-508)`() {
         assertItemContract("rewards.read", serializer<Reward>(), "Reward")
         val reward = json.decodeFromJsonElement(serializer<Reward>(), readRecording("rewards.read"))

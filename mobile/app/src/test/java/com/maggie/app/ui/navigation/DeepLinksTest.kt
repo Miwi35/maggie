@@ -26,6 +26,12 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `a task's Focus opens from task id focus, the link a reminder's Je m'y mets follows (MAG-510)`() {
+        assertEquals(listOf("$scheme://task/{id}/focus"), DeepLinks.patternsFor(DeepLinks.TASK_FOCUS_ROUTE))
+        assertEquals("$scheme://task/01JABCDEFGHJKMNPQRSTVWXYZ0/focus", DeepLinks.taskFocus("01JABCDEFGHJKMNPQRSTVWXYZ0"))
+    }
+
+    @Test
     fun `the treasury screen opens from finance treasury`() {
         assertEquals(listOf("$scheme://finance/treasury"), DeepLinks.patternsFor(Screen.Treasury.route))
     }
@@ -93,13 +99,14 @@ class DeepLinksTest {
         val entryRoutes = listOf(
             DeepLinks.EVENT_ROUTE,
             DeepLinks.TASK_ROUTE,
+            DeepLinks.TASK_FOCUS_ROUTE,
             DeepLinks.GROCERY_ROUTE,
             DeepLinks.RECIPE_ROUTE,
             DeepLinks.ACCOUNT_ROUTE,
             DeepLinks.CONTACT_ROUTE,
         )
         val screens = listOf(
-            Screen.EventCreate, Screen.EventEdit, Screen.TaskCreate, Screen.TaskEdit, Screen.RecipeDetail,
+            Screen.EventCreate, Screen.EventEdit, Screen.TaskCreate, Screen.TaskEdit, Screen.TaskFocus, Screen.RecipeDetail,
             Screen.RecipeCreate, Screen.RecipeEdit, Screen.AccountTransactions, Screen.Grocery, Screen.Contacts,
         ).map { it.route }
 

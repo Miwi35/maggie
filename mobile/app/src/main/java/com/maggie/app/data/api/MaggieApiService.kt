@@ -45,6 +45,7 @@ import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Stars
+import com.maggie.app.data.model.TaskReminderAnswer
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountTimeline
@@ -847,6 +848,19 @@ class MaggieApiService(
         return client.get("$baseUrl/api/stars") {
             accept(ContentType.Application.Json)
             month?.let { parameter("month", it) }
+        }.orRefusal().body()
+    }
+
+    /**
+     * A button of a task reminder (MAG-510): `start`, `in10`, `tonight`, `done` or `tomorrow`.
+     * A reminder answers once: a refusal (409 — answered already, tonight passed, tomorrow full;
+     * 404 — gone) is an [ApiRefusalException] carrying the status.
+     */
+    suspend fun answerTaskReminder(reminderId: String, action: String): TaskReminderAnswer {
+        return client.post("$baseUrl/api/task-reminders/$reminderId/action") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(buildJsonObject { put("action", action) })
         }.orRefusal().body()
     }
 

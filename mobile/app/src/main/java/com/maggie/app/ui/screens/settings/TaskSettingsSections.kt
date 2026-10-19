@@ -64,7 +64,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.TaskOrderPreviewItem
+import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.components.InFrench
 import com.maggie.app.ui.theme.urgencyColor
 import com.maggie.app.ui.uiTagRoot
@@ -72,7 +74,7 @@ import kotlin.math.roundToInt
 
 /**
  * Réglages › Tâches (MAG-407): « Heure du matin » and « Heure du soir » (MAG-500), then when each urgency alerts,
- * then « Rappels et récompenses » (MAG-508). Every change is saved as it is made; no help text, the owner's choice.
+ * then « Rappels et récompenses » (MAG-508, its reminders MAG-510). Every change is saved as it is made; no help text, the owner's choice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,6 +100,8 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
             )
         }
         HorizontalDivider()
+        Text("Rappels et récompenses", style = MaterialTheme.typography.titleMedium)
+        RemindersSettings(settings = settings, viewModel = viewModel)
         RewardsSettings(
             animation = settings.rewardAnimation,
             vibration = settings.rewardVibration,
@@ -243,33 +247,102 @@ private fun TimeRow(label: String, tag: String, time: String, onPick: (hour: Int
     }
 
     if (open) {
-        val (hour, minute) = time.split(':').map { it.toIntOrNull() ?: 0 } + listOf(0, 0)
-        val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(label) },
-            text = { InFrench { TimePicker(state = state) } },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        open = false
-                        onPick(state.hour, state.minute)
-                    },
-                    modifier = Modifier.testTag(UiTags.PICKER_CONFIRM),
-                ) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Annuler") } },
-            modifier = Modifier.uiTagRoot(),
-        )
+        TimePickerDialog(title = label, time = time, onPick = onPick, onClose = { open = false })
     }
 }
 
-/** « Rappels et récompenses »: what a task done gives — animation, vibration, sound — and the tone of its message. */
+/** The 24 h clock on [time]; OK hands the time picked over, either button closes it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(title: String, time: String, onPick: (hour: Int, minute: Int) -> Unit, onClose: () -> Unit) {
+    val (hour, minute) = time.split(':').map { it.toIntOrNull() ?: 0 } + listOf(0, 0)
+    val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = { InFrench { TimePicker(state = state) } },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onClose()
+                    onPick(state.hour, state.minute)
+                },
+                modifier = Modifier.testTag(UiTags.PICKER_CONFIRM),
+            ) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Annuler") } },
+        modifier = Modifier.uiTagRoot(),
+    )
+}
+
+/**
+ * The reminders of « Rappels et récompenses » (MAG-510): how many a day at most, the quiet hours
+ * from → to, and the four moments of the day they are anchored to.
+ */
+@Composable
+private fun RemindersSettings(settings: TaskSettings, viewModel: SettingsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Au plus, par jour", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            GuestsStepper(
+                value = settings.reminderDailyCap,
+                onStep = viewModel::stepReminderDailyCap,
+                tag = UiTags.SETTINGS_TASKS_REMINDER_CAP,
+                min = TaskSettings.MIN_DAILY_CAP,
+                max = TaskSettings.MAX_DAILY_CAP,
+            )
+        }
+        QuietHoursRow(
+            start = settings.quietStart,
+            end = settings.quietEnd,
+            onStart = viewModel::setQuietStart,
+            onEnd = viewModel::setQuietEnd,
+        )
+        Text("Mes moments", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+        TaskSettingsChoices.MOMENT_LABELS.forEach { (moment, label) ->
+            val time = settings.dayMoments[moment] ?: return@forEach
+            TimeRow(
+                label = label,
+                tag = UiTags.settingsTasksMoment(moment),
+                time = time,
+                onPick = { hour, minute -> viewModel.setDayMoment(moment, hour, minute) },
+            )
+        }
+    }
+}
+
+/** « Calme » and its two hours, from → to, each a button that opens the clock. */
+@Composable
+private fun QuietHoursRow(
+    start: String,
+    end: String,
+    onStart: (hour: Int, minute: Int) -> Unit,
+    onEnd: (hour: Int, minute: Int) -> Unit,
+) {
+    var picking by remember { mutableStateOf<Boolean?>(null) }
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Calme", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        TextButton(onClick = { picking = true }, modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_QUIET_START)) {
+            Text(start, style = MaterialTheme.typography.bodyLarge)
+        }
+        Text("→", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { picking = false }, modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_QUIET_END)) {
+            Text(end, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+
+    when (picking) {
+        true -> TimePickerDialog(title = "Calme à partir de", time = start, onPick = onStart, onClose = { picking = null })
+        false -> TimePickerDialog(title = "Calme jusqu'à", time = end, onPick = onEnd, onClose = { picking = null })
+        null -> Unit
+    }
+}
+
+/** The rewards of « Rappels et récompenses »: what a task done gives — animation, vibration, sound — and the tone of its message. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RewardsSettings(animation: Boolean, vibration: Boolean, sound: Boolean, tone: String, viewModel: SettingsViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Rappels et récompenses", style = MaterialTheme.typography.titleMedium)
         SwitchRow("Animation", animation, UiTags.SETTINGS_TASKS_REWARD_ANIMATION, viewModel::setRewardAnimation)
         SwitchRow("Vibration", vibration, UiTags.SETTINGS_TASKS_REWARD_VIBRATION, viewModel::setRewardVibration)
         SwitchRow("Son", sound, UiTags.SETTINGS_TASKS_REWARD_SOUND, viewModel::setRewardSound)

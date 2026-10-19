@@ -166,4 +166,39 @@ class PushActionReceiverTest {
         assertNull(shown())
         assertEquals("n-1", center.current.value?.notificationId)
     }
+
+    private fun reminder() = PushPayload.from(
+        data = mapOf(
+            "notificationId" to "n-1",
+            "type" to "task_due",
+            "title" to "Le garage attend depuis hier.",
+            "reminderId" to "r-1",
+            "taskId" to "t-1",
+            "actions" to "start,done,tomorrow",
+        ),
+    )!!
+
+    @Test
+    fun `Fait on a task reminder turns the notification into the bravo, with no button (MAG-510)`() {
+        coEvery { handler.handle(PushActionKind.TICK, any(), any(), any()) } returns PushOutcome.Rewarded("Et une de moins. Bravo.")
+        PushNotifier(app).show(reminder())
+
+        press("Fait")
+        await { shown()?.actions.isNullOrEmpty() }
+
+        assertEquals("Et une de moins. Bravo.", shown().extras.getString("android.title"))
+        assertEquals(0, shown().actions?.size ?: 0)
+        coVerify { handler.handle(PushActionKind.TICK, match { it.reminderId == "r-1" }, null, any()) }
+    }
+
+    @Test
+    fun `Demain on a task reminder removes the notification`() {
+        coEvery { handler.handle(PushActionKind.TOMORROW, any(), any(), any()) } returns PushOutcome.Closed
+        PushNotifier(app).show(reminder())
+
+        press("Demain")
+        await { shown() == null }
+
+        assertNull(shown())
+    }
 }

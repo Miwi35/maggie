@@ -72,6 +72,10 @@ class SettingsViewModelTest {
         rewardVibration = true,
         rewardSound = true,
         tone = "doux",
+        dayMoments = mapOf("wake" to "07:30", "afterBreakfast" to "08:30", "afterLunch" to "13:30", "afterDinner" to "20:00"),
+        reminderDailyCap = 6,
+        quietStart = "21:00",
+        quietEnd = "08:00",
     )
 
     private fun taskSettings(values: TaskSettingsValues = defaultValues) = TaskSettings(
@@ -84,6 +88,10 @@ class SettingsViewModelTest {
         rewardVibration = values.rewardVibration,
         rewardSound = values.rewardSound,
         tone = values.tone,
+        dayMoments = values.dayMoments,
+        reminderDailyCap = values.reminderDailyCap,
+        quietStart = values.quietStart,
+        quietEnd = values.quietEnd,
         defaults = defaultValues,
     )
 
@@ -440,6 +448,70 @@ class SettingsViewModelTest {
 
         assertEquals("""{"tone":"drole"}""", bodies.single().toString())
         assertEquals("drole", viewModel.uiState.value.tasks.settings?.tone)
+    }
+
+    @Test
+    fun `the cap steps by one and sends only itself (MAG-510)`() = runTest {
+        answersWith(ownValues.copy(reminderDailyCap = 5))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.stepReminderDailyCap(-1)
+        advanceUntilIdle()
+
+        assertEquals("""{"reminderDailyCap":5}""", bodies.single().toString())
+        assertEquals(5, viewModel.uiState.value.tasks.settings?.reminderDailyCap)
+        assertTrue(viewModel.uiState.value.tasks.saved)
+    }
+
+    @Test
+    fun `the cap never goes under one nor over twelve, and a bound sends nothing (MAG-510)`() = runTest {
+        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(reminderDailyCap = 1))
+        answersWith(ownValues.copy(reminderDailyCap = 2))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.stepReminderDailyCap(-1)
+        advanceUntilIdle()
+        assertTrue(bodies.isEmpty())
+        assertEquals(1, viewModel.uiState.value.tasks.settings?.reminderDailyCap)
+
+        assertEquals(12, TaskSettingsChoices.dailyCap(12, 1))
+        assertEquals(12, TaskSettingsChoices.dailyCap(11, 1))
+        assertEquals(1, TaskSettingsChoices.dailyCap(1, -1))
+    }
+
+    @Test
+    fun `the quiet hours are sent one end at a time, as HH MM (MAG-510)`() = runTest {
+        answersWith(ownValues.copy(quietStart = "22:00", quietEnd = "07:00"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setQuietStart(22, 0)
+        viewModel.setQuietEnd(7, 0)
+        viewModel.setQuietEnd(7, 0)
+        advanceUntilIdle()
+
+        assertEquals(listOf("""{"quietStart":"22:00"}""", """{"quietEnd":"07:00"}"""), bodies.map { it.toString() })
+        val settings = viewModel.uiState.value.tasks.settings!!
+        assertEquals("22:00", settings.quietStart)
+        assertEquals("07:00", settings.quietEnd)
+    }
+
+    @Test
+    fun `a moment picked is sent alone, the API merging it into the others (MAG-510)`() = runTest {
+        answersWith(ownValues.copy(dayMoments = ownValues.dayMoments + ("afterLunch" to "14:05")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setDayMoment("afterLunch", 14, 5)
+        viewModel.setDayMoment("midnightSnack", 23, 0)
+        advanceUntilIdle()
+
+        assertEquals("""{"dayMoments":{"afterLunch":"14:05"}}""", bodies.single().toString())
+        val moments = viewModel.uiState.value.tasks.settings!!.dayMoments
+        assertEquals("14:05", moments["afterLunch"])
+        assertEquals("07:30", moments["wake"])
     }
 
     @Test

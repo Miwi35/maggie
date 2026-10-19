@@ -158,4 +158,56 @@ class PushNotifierTest {
         assertNull(shown())
         assertEquals(1, shadowOf(app.getSystemService(android.app.AlarmManager::class.java)).scheduledAlarms.size)
     }
+
+    private fun reminder(type: String, actions: String, taskId: String? = "t-1") = PushPayload.from(
+        data = buildMap {
+            put("notificationId", "n-1")
+            put("type", type)
+            put("title", "Le garage, tu t'y mets ?")
+            put("reminderId", "r-1")
+            taskId?.let { put("taskId", it) }
+            put("actions", actions)
+        },
+    )!!
+
+    @Test
+    fun `a task reminder carries its buttons in the server's order (MAG-510)`() {
+        notifier.show(reminder("task_nudge", "start,in10,tonight"))
+        assertEquals(listOf("Je m'y mets", "Dans 10 min", "Ce soir"), buttons())
+
+        notifier.show(reminder("task_due", "start,done,tomorrow"))
+        assertEquals(listOf("Je m'y mets", "Fait", "Demain"), buttons())
+        assertEquals(PushChannels.REMINDERS, shown().channelId)
+    }
+
+    @Test
+    fun `Je m'y mets opens the app on the task's Focus and asks it to answer the reminder`() {
+        notifier.show(reminder("task_nudge", "start,in10,tonight"))
+
+        val start = shadowOf(shown().actions.first().actionIntent)
+        assertTrue("an activity, never a broadcast", start.isActivity)
+        val intent = start.savedIntent
+        assertEquals(Intent.ACTION_VIEW, intent.action)
+        assertEquals("${BuildConfig.DEEP_LINK_SCHEME}://task/t-1/focus", intent.dataString)
+        assertEquals(PushActionKind.START to "r-1", PushIntents.answerOf(intent)?.let { (kind, payload) -> kind to payload.reminderId })
+    }
+
+    @Test
+    fun `the other reminder buttons are broadcasts to the app's receiver`() {
+        notifier.show(reminder("task_nudge", "start,in10,tonight"))
+
+        val in10 = shadowOf(shown().actions[1].actionIntent)
+        assertTrue(in10.isBroadcast)
+        assertEquals(PushActionReceiver.actionFor(PushActionKind.IN_TEN), in10.savedIntent.action)
+        assertEquals("r-1", in10.savedIntent.getStringExtra(PushIntents.EXTRA_REMINDER_ID))
+    }
+
+    @Test
+    fun `Je m'y mets without a task only answers the reminder`() {
+        notifier.show(reminder("task_nudge", "start,in10", taskId = null))
+
+        val start = shadowOf(shown().actions.first().actionIntent)
+        assertTrue(start.isBroadcast)
+        assertEquals(PushActionReceiver.actionFor(PushActionKind.START), start.savedIntent.action)
+    }
 }

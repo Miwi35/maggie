@@ -16,7 +16,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/** « − 2 + »: a number of people by steps, never under one. Tagged `<tag>_minus`, `<tag>_value`, `<tag>_plus`. */
+/**
+ * « − 2 + »: a number of people by steps, never under one — or any number between [min] and [max]
+ * (the reminders a day, MAG-510). Tagged `<tag>_minus`, `<tag>_value`, `<tag>_plus`.
+ */
 @Composable
 fun GuestsStepper(
     value: Int,
@@ -24,11 +27,13 @@ fun GuestsStepper(
     tag: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    min: Int = 1,
+    max: Int = Int.MAX_VALUE,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         IconButton(
             onClick = { onStep(-1) },
-            enabled = enabled && value > 1,
+            enabled = enabled && value > min,
             modifier = Modifier.testTag(tag + "_minus"),
         ) {
             Icon(Icons.Default.Remove, contentDescription = "Diminuer")
@@ -41,7 +46,7 @@ fun GuestsStepper(
         )
         IconButton(
             onClick = { onStep(1) },
-            enabled = enabled,
+            enabled = enabled && value < max,
             modifier = Modifier.testTag(tag + "_plus"),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Augmenter")

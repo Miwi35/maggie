@@ -11,10 +11,14 @@ tags:
 # opens Réglages › Tâches and switches J-3 off on « Critique »; « Enregistré » shows, the
 # server holds [1], and the app, started again, reads it back: J-3 is no longer checked.
 #
-# Only that chip is touched — the order levels, which order « Aujourd'hui » in
-# `15-task-subtasks`, stay what the seed made them. The time picker, « En retard », the
-# sliders and their preview, the defaults, a refused save and the re-read on a Mercure
-# message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
+# Then the reminders (MAG-510): « Au plus, par jour » goes to 4 and « Calme » to 22:00 → 07:00;
+# the server holds them, and they stay after going back to Réglages and returning, and after a
+# restart.
+#
+# Only these are touched — the order levels, which order « Aujourd'hui » in
+# `15-task-subtasks`, stay what the seed made them. « Heure du matin », « Mes moments »,
+# « En retard », the sliders and their preview, the defaults, a refused save and the re-read on
+# a Mercure message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
 #
 # A chip is a `FilterChip` (role Checkbox): Android reports it `checked`, never `selected`.
 
@@ -61,6 +65,99 @@ tags:
       ACTION: expect
       CRITICAL_DAYS: "1"
 
+# « Rappels et récompenses » (MAG-510): reset to 6 a day, quiet from 21:00 to 08:00. Two taps on
+# « − » make it 4; « Calme » becomes 22:00 → 07:00 on the 24 h clock, an hour tapped on the dial
+# (its number, or its description « 22 heures »), the minutes left at 00. The server holds them,
+# and back in Réglages then into Tâches again, the screen shows them still.
+- scrollUntilVisible:
+    element:
+      id: "settings_tasks_reminder_cap_minus"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "settings_tasks_reminder_cap_minus"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_reminder_cap_value"
+      text: "5"
+    timeout: 20000
+- tapOn:
+    id: "settings_tasks_reminder_cap_minus"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_reminder_cap_value"
+      text: "4"
+    timeout: 20000
+
+- tapOn:
+    id: "settings_tasks_quiet_start"
+- extendedWaitUntil:
+    visible:
+      id: "picker_confirm"
+    timeout: 20000
+- tapOn:
+    text: "22( .*)?"
+- tapOn:
+    id: "picker_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_quiet_start"
+      text: "22:00"
+    timeout: 20000
+
+- tapOn:
+    id: "settings_tasks_quiet_end"
+- extendedWaitUntil:
+    visible:
+      id: "picker_confirm"
+    timeout: 20000
+- tapOn:
+    text: "0?7( .*)?"
+- tapOn:
+    id: "picker_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_quiet_end"
+      text: "07:00"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_saved"
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/task-settings-api.js
+    env:
+      ACTION: expect
+      CRITICAL_DAYS: "1"
+      CAP: "4"
+      QUIET_START: "22:00"
+      QUIET_END: "07:00"
+
+- back
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks"
+    timeout: 20000
+- tapOn:
+    id: "settings_tasks"
+- scrollUntilVisible:
+    element:
+      id: "settings_tasks_reminder_cap_value"
+      text: "4"
+    centerElement: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_quiet_start"
+      text: "22:00"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "settings_tasks_quiet_end"
+      text: "07:00"
+    timeout: 20000
+
 # Read back from the server, not from the screen that changed it: the app starts again,
 # still signed in, and opens the section fresh.
 - stopApp
@@ -89,3 +186,9 @@ tags:
 - assertVisible:
     id: "settings_tasks_chip_critical_d3"
     checked: false
+- scrollUntilVisible:
+    element:
+      id: "settings_tasks_reminder_cap_value"
+      text: "4"
+    centerElement: true
+    timeout: 30000

@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.settings
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
@@ -50,6 +52,10 @@ class TaskSettingsScreenTest {
         rewardVibration = true,
         rewardSound = true,
         tone = "doux",
+        dayMoments = mapOf("wake" to "07:30", "afterBreakfast" to "08:30", "afterLunch" to "13:30", "afterDinner" to "20:00"),
+        reminderDailyCap = 6,
+        quietStart = "21:00",
+        quietEnd = "08:00",
     )
 
     private val settings = TaskSettings(
@@ -62,6 +68,10 @@ class TaskSettingsScreenTest {
         rewardVibration = values.rewardVibration,
         rewardSound = values.rewardSound,
         tone = values.tone,
+        dayMoments = values.dayMoments,
+        reminderDailyCap = values.reminderDailyCap,
+        quietStart = values.quietStart,
+        quietEnd = values.quietEnd,
         defaults = values,
     )
 
@@ -158,6 +168,61 @@ class TaskSettingsScreenTest {
         verify(exactly = 1) { viewModel.setRewardVibration(false) }
         verify(exactly = 1) { viewModel.setRewardSound(true) }
         verify(exactly = 1) { viewModel.setTone("drole") }
+    }
+
+    @Test
+    fun `the reminders show the cap, the quiet hours and the four moments, with no help text (MAG-510)`() {
+        open(loaded.copy(settings = settings.copy(reminderDailyCap = 4, quietStart = "22:00", quietEnd = "07:00")))
+
+        compose.onNodeWithText("Au plus, par jour").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REMINDER_CAP_VALUE).performScrollTo().assertTextContains("4")
+        compose.onNodeWithText("Calme").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_QUIET_START).performScrollTo().assertTextContains("22:00")
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_QUIET_END).assertTextContains("07:00")
+        compose.onNodeWithText("Mes moments").performScrollTo().assertIsDisplayed()
+        listOf(
+            "wake" to "Réveil" to "07:30",
+            "afterBreakfast" to "Après le petit-déjeuner" to "08:30",
+            "afterLunch" to "Après le déjeuner" to "13:30",
+            "afterDinner" to "Après le dîner" to "20:00",
+        ).forEach { (moment, time) ->
+            compose.onNodeWithTag(UiTags.settingsTasksMoment(moment.first)).performScrollTo()
+                .assertTextContains(moment.second).assertTextContains(time)
+        }
+    }
+
+    @Test
+    fun `the cap's − and + step through the ViewModel, each disabled at its bound (MAG-510)`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REMINDER_CAP_MINUS).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REMINDER_CAP_PLUS).performClick()
+
+        verify(exactly = 1) { viewModel.stepReminderDailyCap(-1) }
+        verify(exactly = 1) { viewModel.stepReminderDailyCap(1) }
+    }
+
+    @Test
+    fun `at twelve a day the + is off, the − still on (MAG-510)`() {
+        open(loaded.copy(settings = settings.copy(reminderDailyCap = 12)))
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REMINDER_CAP_PLUS).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_REMINDER_CAP_MINUS).assertIsEnabled()
+    }
+
+    @Test
+    fun `each end of the quiet hours and each moment opens the clock, OK sends its time (MAG-510)`() {
+        val viewModel = open(loaded)
+
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_QUIET_START).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_QUIET_END).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+        compose.onNodeWithTag(UiTags.settingsTasksMoment("afterDinner")).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+
+        verify(exactly = 1) { viewModel.setQuietStart(21, 0) }
+        verify(exactly = 1) { viewModel.setQuietEnd(8, 0) }
+        verify(exactly = 1) { viewModel.setDayMoment("afterDinner", 20, 0) }
     }
 
     @Test

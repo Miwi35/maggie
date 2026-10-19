@@ -181,6 +181,43 @@ class SettingsViewModel(
         saveTaskSettings(current.copy(tone = tone), buildJsonObject { put("tone", tone) })
     }
 
+    /** « Au plus, par jour » (MAG-510): − or + one reminder, from 1 to 12; at a bound, nothing is sent. */
+    fun stepReminderDailyCap(step: Int) {
+        val current = _uiState.value.tasks.settings ?: return
+        val cap = TaskSettingsChoices.dailyCap(current.reminderDailyCap, step)
+        if (cap == current.reminderDailyCap) return
+        saveTaskSettings(current.copy(reminderDailyCap = cap), buildJsonObject { put("reminderDailyCap", cap) })
+    }
+
+    /** « Calme », from: no reminder is sent from this time on. */
+    fun setQuietStart(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.quietStart == time) return
+        saveTaskSettings(current.copy(quietStart = time), buildJsonObject { put("quietStart", time) })
+    }
+
+    /** « Calme », to: the reminders start again at this time. */
+    fun setQuietEnd(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        val current = _uiState.value.tasks.settings ?: return
+        if (current.quietEnd == time) return
+        saveTaskSettings(current.copy(quietEnd = time), buildJsonObject { put("quietEnd", time) })
+    }
+
+    /** One of « Mes moments »: only that moment is sent, the API merges it into the others. */
+    fun setDayMoment(moment: String, hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        val current = _uiState.value.tasks.settings ?: return
+        if (moment !in TaskSettingsChoices.MOMENT_LABELS || current.dayMoments[moment] == time) return
+        saveTaskSettings(
+            current.copy(dayMoments = current.dayMoments + (moment to time)),
+            buildJsonObject { putJsonObject("dayMoments") { put(moment, time) } },
+        )
+    }
+
+    private fun hhmm(hour: Int, minute: Int): String = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
+
     /** A « J-n » chip of [urgency]: the day on or off. */
     fun toggleAlertDay(urgency: String, days: Int) = changeAlertRule(urgency) { rule ->
         val next = TaskSettingsChoices.toggleDay(rule, days)

@@ -1,5 +1,6 @@
 package com.maggie.app.data.fcm
 
+import com.maggie.app.ui.navigation.DeepLinks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -149,5 +150,69 @@ class PushPayloadTest {
     @Test
     fun `an unreadable interaction is ignored, the type decides`() {
         assertEquals(listOf(PushActionKind.OK), payload("reminder", "interaction" to "{not json").actions())
+    }
+
+    // MAG-510: a task reminder carries the buttons the server lists, in its order.
+
+    private fun reminder(type: String, actions: String?) = payload(
+        type,
+        *listOfNotNull("reminderId" to "r-1", "taskId" to "t-1", actions?.let { "actions" to it }).toTypedArray(),
+    )
+
+    @Test
+    fun `a task nudge rings on the reminders channel`() {
+        assertEquals(PushChannels.REMINDERS, payload("task_nudge").channel)
+    }
+
+    @Test
+    fun `a task reminder reads its reminder, its task and its buttons`() {
+        val p = reminder("task_nudge", "start,in10,tonight")
+
+        assertEquals("r-1", p.reminderId)
+        assertEquals("t-1", p.taskId)
+        assertEquals(listOf("start", "in10", "tonight"), p.reminderActions)
+    }
+
+    @Test
+    fun `a nudge's buttons come in the server's order with their labels`() {
+        val p = reminder("task_nudge", "start,in10,tonight")
+
+        assertEquals(listOf(PushActionKind.START, PushActionKind.IN_TEN, PushActionKind.TONIGHT), p.actions())
+        assertEquals(listOf("Je m'y mets", "Dans 10 min", "Ce soir"), p.actions().map { it.label })
+    }
+
+    @Test
+    fun `a due reminder's buttons replace Fait and Plus tard`() {
+        val p = reminder("task_due", "start,done,tomorrow")
+
+        assertEquals(listOf(PushActionKind.START, PushActionKind.TICK, PushActionKind.TOMORROW), p.actions())
+        assertEquals(listOf("Je m'y mets", "Fait", "Demain"), p.actions().map { it.label })
+    }
+
+    @Test
+    fun `no more than three buttons, the most Android shows, and an unknown key is skipped`() {
+        assertEquals(
+            listOf(PushActionKind.TOMORROW, PushActionKind.START, PushActionKind.IN_TEN),
+            reminder("task_due", "tomorrow, snooze_week ,start,in10,done").actions(),
+        )
+    }
+
+    @Test
+    fun `a reminder whose notification has no button shows none`() {
+        assertEquals(emptyList<PushActionKind>(), reminder("task_due", null).actions())
+    }
+
+    @Test
+    fun `buttons without a reminder to answer are not reminder buttons`() {
+        val p = payload("task_due", "actions" to "start,done,tomorrow")
+
+        assertEquals(listOf(PushActionKind.DONE, PushActionKind.LATER), p.actions())
+    }
+
+    @Test
+    fun `Je m'y mets points at the Focus of the reminder's task, never at a forged id`() {
+        assertEquals("${DeepLinks.SCHEME}://task/t-1/focus", reminder("task_nudge", "start").focusLink())
+        assertNull(payload("task_nudge", "reminderId" to "r-1").focusLink())
+        assertNull(payload("task_nudge", "reminderId" to "r-1", "taskId" to "../users").focusLink())
     }
 }
