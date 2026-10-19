@@ -102,10 +102,12 @@ tags:
     point: "35%,51%"
 - tapOn:
     id: "picker_confirm"
+# The tag is on the button, its hour on the Text inside it: matched as its child.
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_quiet_start"
       text: "22:00"
+      childOf:
+        id: "settings_tasks_quiet_start"
     timeout: 20000
 
 - tapOn:
@@ -120,8 +122,9 @@ tags:
     id: "picker_confirm"
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_quiet_end"
       text: "07:00"
+      childOf:
+        id: "settings_tasks_quiet_end"
     timeout: 20000
 - extendedWaitUntil:
     visible:
@@ -152,13 +155,15 @@ tags:
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_quiet_start"
       text: "22:00"
+      childOf:
+        id: "settings_tasks_quiet_start"
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      id: "settings_tasks_quiet_end"
       text: "07:00"
+      childOf:
+        id: "settings_tasks_quiet_end"
     timeout: 20000
 
 # Read back from the server, not from the screen that changed it: the app starts again,
