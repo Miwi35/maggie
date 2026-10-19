@@ -125,7 +125,7 @@ test('the menu opens a summary page whose block leads to the cushion, and the tr
   await shell.navigateTo('Trésorerie', 'Finance')
 
   await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)
-  await expect(shell.content.getByTestId('summary-block')).toHaveCount(3)
+  await expect(shell.content.getByTestId('summary-block')).toHaveCount(4)
 
   await shell.content.getByRole('link', { name: 'Matelas' }).click()
 
