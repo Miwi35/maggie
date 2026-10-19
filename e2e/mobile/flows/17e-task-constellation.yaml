@@ -54,7 +54,9 @@ onFlowComplete:
     element:
       id: "tasks_slot_1"
     timeout: 20000
-- assertVisible: ".*Étoile MAG-509.*"
+- extendedWaitUntil:
+    visible: ".*Étoile MAG-509.*"
+    timeout: 20000
 - assertNotVisible:
     id: "task_star"
 
