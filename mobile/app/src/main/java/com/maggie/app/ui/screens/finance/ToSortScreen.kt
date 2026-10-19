@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -67,9 +71,10 @@ import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 
 /**
- * « À qualifier »: the lines without a category, oldest first, one card at a time (MAG-423, MAG-458).
- * On a phone the card is the screen; with [showsDetailPane] (a tablet) the pile is a list and the card
- * sits beside it. [onOpenTransaction] opens the line's own sheet.
+ * « À qualifier »: the lines without a category, oldest first (MAG-423, MAG-458). It opens on the list;
+ * a line opens its card, « Précédent » / « Suivant » (or a swipe) walk the list's order, and back returns
+ * to the list where it was (MAG-507). With [showsDetailPane] (a tablet) the list and the card sit side by side.
+ * [onOpenTransaction] opens the line's own sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +87,19 @@ fun ToSortScreen(
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val tree = remember(state.categories) { CategoryTree(state.categories) }
+    val listState = rememberLazyListState()
+    val showsCardOnly = state.ficheOpen && !showsDetailPane
+
+    BackHandler(enabled = showsCardOnly, onBack = viewModel::backToList)
+
+    // Back on the list, the line the owner walked to is in view (the counter is the list's first item).
+    LaunchedEffect(showsCardOnly, state.selectedId) {
+        if (showsCardOnly) return@LaunchedEffect
+        val index = state.pile.indexOfFirst { it.id == state.selectedId }
+        if (index >= 0 && listState.layoutInfo.visibleItemsInfo.none { it.index == index + 1 }) {
+            listState.scrollToItem(index + 1)
+        }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -178,8 +196,14 @@ fun ToSortScreen(
                 TopAppBar(
                     title = { Text("À qualifier") },
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        IconButton(
+                            onClick = if (showsCardOnly) viewModel::backToList else onBack,
+                            modifier = if (showsCardOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = if (showsCardOnly) "Retour à la liste" else "Retour",
+                            )
                         }
                     },
                 )
@@ -209,12 +233,14 @@ fun ToSortScreen(
 
                 showsDetailPane -> ListDetailPane(
                     showsDetailPane = true,
-                    list = { PileList(state, onSelect = viewModel::select) },
-                    detail = { CardPane(state, viewModel, onOpenTransaction) },
+                    list = { PileList(state, listState, onSelect = viewModel::select) },
+                    detail = if (state.ficheOpen) ({ CardPane(state, viewModel, onOpenTransaction) }) else null,
                     placeholder = "Touchez une ligne pour la qualifier ici.",
                 )
 
-                else -> CardPane(state, viewModel, onOpenTransaction)
+                state.ficheOpen -> CardPane(state, viewModel, onOpenTransaction)
+
+                else -> PileList(state, listState, onSelect = viewModel::select)
             }
         }
     }
@@ -225,14 +251,20 @@ private fun CardPane(state: ToSortUiState, viewModel: ToSortViewModel, onOpenTra
     val line = state.current ?: return
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .swipeToNavigate(onPrevious = viewModel::previous, onNext = viewModel::next)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            toSortCounter(state.total),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(UiTags.TO_SORT_REMAINING),
+        ReviewSheetNav(
+            position = state.position,
+            total = state.pile.size,
+            hasPrevious = state.hasPrevious,
+            hasNext = state.hasNext,
+            onPrevious = viewModel::previous,
+            onNext = viewModel::next,
         )
         SortCard(
             line = line,
@@ -424,9 +456,19 @@ private fun qualificationToggleLabel(qualification: Qualification, open: Boolean
     return if (open || chosen.isEmpty()) "Qualification" else "Qualification · ${chosen.joinToString(" · ")}"
 }
 
+// The pill of a row: the heading the app suggests, or what the line still needs.
+private fun pillOf(line: TransactionToSort): String {
+    val suggestion = line.suggestion
+    return when {
+        line.reason == TO_SORT_REASON_PEER_TRANSFER -> "Virement à préciser"
+        suggestion != null -> "→ ${suggestion.categoryPath.substringAfterLast(" › ")}"
+        else -> "À qualifier"
+    }
+}
+
 @Composable
-private fun PileList(state: ToSortUiState, onSelect: (String) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+private fun PileList(state: ToSortUiState, listState: LazyListState, onSelect: (String) -> Unit) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         item {
             Text(
                 toSortCounter(state.total),
@@ -436,23 +478,38 @@ private fun PileList(state: ToSortUiState, onSelect: (String) -> Unit) {
             )
         }
         items(state.pile, key = { it.id }) { line ->
-            Column(
+            val isCursor = line.id == state.selectedId
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onSelect(line.id) }
                     .testTag(UiTags.TO_SORT_ROW)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    line.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (line.id == state.current?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    listOfNotNull(line.bookedAt, formatCents(line.amountCents, line.currency), line.contact?.name).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        line.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isCursor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        listOfNotNull(line.bookedAt, formatCents(line.amountCents, line.currency), line.contact?.name).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = if (line.suggestion != null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        pillOf(line),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
             }
             HorizontalDivider()
         }

@@ -143,6 +143,57 @@ test('an unrecognised spend is qualified, judged « Superflue » and leaves À q
   expect(filed.retrospect).toBe('avoidable')
 })
 
+test('Suivant opens the next line of the list, and a qualified line leaves it (MAG-507)', async ({ page, api }) => {
+  const merchant = `PARCOURS ${letters(8)}`
+  const labels = [1, 2, 3].map((n) => `${merchant} ${n}`)
+  const categoryName = `Parcours ${letters(8)}`
+
+  const created = await api.post('/api/categories', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: { name: categoryName, obligation: 'optional' },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  await waitForIndexed(
+    api,
+    '/api/categories',
+    (candidate: { name?: string }) => candidate.name === categoryName,
+    { what: `The category ${categoryName}` },
+  )
+
+  // Oldest first: three consecutive days far before the seed's, so these lines head the pile in this order.
+  const firstDay = -(3000 + Math.floor(Math.random() * 2000))
+  for (const [index, label] of labels.entries()) {
+    const response = await api.post('/api/transactions', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: {
+        account: `/api/accounts/${seedId('e2e_account_savings')}`,
+        label,
+        amountCents: -1400,
+        currency: 'EUR',
+        bookedAt: seedDate(firstDay + index),
+        status: 'spent',
+      },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+  }
+
+  const toSort = new FinanceToSortPage(page)
+  await toSort.open()
+  await expect(toSort.pile.getByRole('button', { name: labels[2] })).toBeVisible()
+  await expect(toSort.card, 'the list comes first: no fiche until a line is opened').toBeHidden()
+
+  await toSort.select(labels[1])
+  await toSort.step('Suivant')
+  await toSort.expectCard(labels[2])
+  await toSort.step('Précédent')
+  await toSort.expectCard(labels[1])
+  await toSort.step('Suivant')
+
+  await toSort.chooseCategory(categoryName)
+  await expect(toSort.pile.getByRole('button', { name: labels[2] })).toHaveCount(0)
+  await expect(toSort.pile.getByRole('button', { name: labels[0] })).toBeVisible()
+})
+
 test('« Tout à conserver » judges the lines a rule recognised and the group is checked', async ({ page, api }) => {
   const merchant = `CONTROLE ${letters(8)}`
   const labels = [1, 2, 3, 4].map((n) => `${merchant} ${n}${n}${n}${n}`)

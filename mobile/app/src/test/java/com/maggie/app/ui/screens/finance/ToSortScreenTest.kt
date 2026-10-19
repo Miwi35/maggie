@@ -2,6 +2,12 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -79,22 +85,101 @@ class ToSortScreenTest {
         return ToSortViewModel(transactions, categoryRepository, mockk<CategorizationRuleRepository>(relaxed = true), contactRepository, peerDebts)
     }
 
+    // « À qualifier » opens on the list (MAG-507): a line is tapped to bring its card up.
+    private fun showCard(
+        model: ToSortViewModel,
+        row: Int = 0,
+        onOpenTransaction: (TransactionToSort) -> Unit = {},
+    ) {
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}, onOpenTransaction = onOpenTransaction) }
+        compose.onAllNodesWithTag(UiTags.TO_SORT_ROW)[row].performClick()
+        compose.waitForIdle()
+    }
+
+    private val pileOfThree = listOf(
+        carrefour,
+        carrefour.copy(id = "tx-2", label = "BOULANGERIE PAUL", amountCents = -450, bookedAt = "2026-10-13", suggestion = null),
+        carrefour.copy(id = "tx-3", label = "SNCF INTERNET", amountCents = -3900, bookedAt = "2026-10-14"),
+    )
+
+    @Test
+    fun `the screen opens on the list, with the count, the date, the amount and the pill of each line`() {
+        val model = viewModel(pile = pileOfThree)
+        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CARD).assertDoesNotExist()
+        compose.onNodeWithText("3 à qualifier").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.TO_SORT_ROW).assertCountEquals(3)
+        compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
+        // The top bar's title and the pill of the one line without a suggestion.
+        compose.onAllNodesWithText("À qualifier").assertCountEquals(2)
+        compose.onAllNodesWithText("→ Courses").assertCountEquals(2)
+    }
+
+    @Test
+    fun `opening a line shows its card, Suivant and Précédent walk the list, back returns to it`() {
+        val model = viewModel(pile = pileOfThree)
+        showCard(model, row = 1)
+
+        compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("2 / 3")
+
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).performClick()
+        compose.onNodeWithText("SNCF INTERNET").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).assertIsNotEnabled()
+
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).performClick()
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).performClick()
+        compose.onNodeWithText("CARREFOUR MARKET 1234").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).assertIsNotEnabled()
+
+        compose.onNodeWithTag(UiTags.REVIEW_BACK_TO_LIST).performClick()
+        compose.onNodeWithTag(UiTags.TO_SORT_CARD).assertDoesNotExist()
+        compose.onAllNodesWithTag(UiTags.TO_SORT_ROW).assertCountEquals(3)
+    }
+
+    @Test
+    fun `a swipe to the left opens the next line and a swipe to the right the previous one`() {
+        val model = viewModel(pile = pileOfThree)
+        showCard(model, row = 1)
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CARD).performTouchInput { swipeLeft() }
+        compose.onNodeWithText("SNCF INTERNET").assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CARD).performTouchInput { swipeRight() }
+        compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
+    }
+
+    @Test
+    fun `qualifying from the card brings the next line, not the list`() {
+        val model = viewModel(pile = pileOfThree)
+        showCard(model)
+        // The server's next read no longer has the line.
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(2, pileOfThree.drop(1)))
+
+        compose.onNodeWithTag(UiTags.TO_SORT_VALIDATE).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.TO_SORT_CARD).assertIsDisplayed()
+        compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("1 / 2")
+    }
+
     @Test
     fun `the card says where the line would go and why`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_CARD).assertIsDisplayed()
         compose.onNodeWithText("CARREFOUR MARKET 1234").assertIsDisplayed()
         compose.onNodeWithText("→ Courses").assertIsDisplayed()
         compose.onNodeWithText("Règle « contient CARREFOUR »").assertIsDisplayed()
-        compose.onNodeWithText("1 à qualifier").assertIsDisplayed()
     }
 
     @Test
     fun `validating with the switch on asks for the rule as well`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_ALWAYS).performClick()
         compose.onNodeWithTag(UiTags.TO_SORT_VALIDATE).performClick()
@@ -106,7 +191,7 @@ class ToSortScreenTest {
     @Test
     fun `another category is found by its whole path`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_OTHER).performClick()
         compose.onNodeWithText("Loisirs › Bars › Obsydian").assertIsDisplayed()
@@ -129,7 +214,7 @@ class ToSortScreenTest {
     fun `the satisfaction is offered on a spend that can be judged, and sends the verdict`() {
         val judgeable = carrefour.copy(judgeable = true)
         val model = viewModel(pile = listOf(judgeable))
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithText("À conserver").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.TO_SORT_AVOIDABLE).performScrollTo().performClick()
@@ -144,7 +229,7 @@ class ToSortScreenTest {
     @Test
     fun `a line that cannot be judged offers no satisfaction at all`() {
         val model = viewModel(pile = listOf(carrefour.copy(judgeable = false)))
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_CARD).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.TO_SORT_KEEP).assertDoesNotExist()
@@ -157,7 +242,7 @@ class ToSortScreenTest {
     fun `the card carries the sheet's gestures, and the sheet opens from it`() {
         val opened = mutableListOf<String>()
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}, onOpenTransaction = { opened += it.id }) }
+        showCard(model, onOpenTransaction = { opened += it.id })
 
         compose.onNodeWithTag(UiTags.TO_SORT_QUALIFICATION).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.TO_SORT_RULE).performScrollTo().assertIsDisplayed()
@@ -170,7 +255,7 @@ class ToSortScreenTest {
     @Test
     fun `the qualification unfolds from the card`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithText("Obligatoire").assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TO_SORT_QUALIFICATION).performScrollTo().performClick()
@@ -194,7 +279,7 @@ class ToSortScreenTest {
         coEvery { contactRepository.link("c-tom", "VIR. DE TOM MARTIN") } returns
             Result.success(ContactCounterparty(id = "cp-1", contact = "/api/contacts/c-tom", label = "VIR. DE TOM MARTIN"))
         val model = viewModel(pile = listOf(tomTransfer))
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).performClick()
         compose.onNodeWithTag(UiTags.CONTACT_PICKER_SEARCH).performTextInput("Tom")
@@ -209,7 +294,7 @@ class ToSortScreenTest {
     @Test
     fun `a line attached to a contact says whose it is and asks nothing`() {
         val model = viewModel(pile = listOf(tomTransfer.copy(contact = ContactRef("c-tom", "Tom"), asksForContact = false)))
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_CONTACT_NAME).assertIsDisplayed()
         compose.onNodeWithText("Contact : Tom").assertIsDisplayed()
@@ -219,7 +304,7 @@ class ToSortScreenTest {
     @Test
     fun `a purchase asks for no contact`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_CONTACT).assertDoesNotExist()
     }
@@ -236,7 +321,7 @@ class ToSortScreenTest {
         coEvery { peerDebts.getAllocation("tx-3") } returns
             Result.success(TransactionAllocation(transactionId = "tx-3", amountCents = 40000, canBeAllocated = true))
         val model = viewModel(pile = listOf(filed))
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onAllNodesWithTag(UiTags.TO_SORT_TRANSFER).assertCountEquals(0)
         compose.onAllNodesWithTag(UiTags.TO_SORT_RULE).assertCountEquals(0)
@@ -246,7 +331,7 @@ class ToSortScreenTest {
     @Test
     fun `a line still to file offers Virement interne`() {
         val model = viewModel()
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
+        showCard(model)
 
         compose.onNodeWithTag(UiTags.TO_SORT_TRANSFER).performScrollTo().assertIsDisplayed()
     }

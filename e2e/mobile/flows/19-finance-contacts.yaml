@@ -82,6 +82,12 @@ tags:
 
 - extendedWaitUntil:
     visible:
+      id: "to_sort_row"
+    timeout: 30000
+- tapOn:
+    id: "to_sort_row"
+- extendedWaitUntil:
+    visible:
       id: "to_sort_card"
     timeout: 30000
 - assertVisible: "VIR. DE TOM MARTIN"
@@ -370,6 +376,12 @@ tags:
     env:
       ACTION: allocation
 - openLink: "maggie-e2e://finance/to-sort"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_row"
+    timeout: 30000
+- tapOn:
+    id: "to_sort_row"
 - extendedWaitUntil:
     visible:
       id: "to_sort_card"

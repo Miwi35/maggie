@@ -3,7 +3,12 @@ name: 13-finance-to-sort
 tags:
   - finance
 ---
-# The « À qualifier » pile, one card at a time, from the phone (MAG-423, MAG-458, extends MAG-102).
+# The « À qualifier » pile, from the phone: the list first, a line opens its card, « Suivant » / « Précédent » walk
+# the list's order (MAG-423, MAG-458, MAG-507, extends MAG-102).
+#
+# Étant donné deux lignes Carrefour sans catégorie
+# Quand j'ouvre À qualifier, j'ouvre la première ligne puis touche « Suivant »
+# Alors la fiche de la seconde s'affiche (2 / 2), « Précédent » revient à la première, et le retour mène à la liste
 #
 # Étant donné deux lignes Carrefour sans catégorie et une règle « contient CARREFOUR »
 # Quand j'ouvre À qualifier et que je valide avec « Toujours pour ce marchand »
@@ -22,7 +27,7 @@ tags:
 # files the other one in the same stroke — what the answer reports in the snackbar.
 #
 # What is not here: « Virement interne » and « Créer un filtre » (`ToSortViewModelTest`),
-# the tablet's list beside the card, and the admin's side of the same API
+# the swipe (`ToSortScreenTest`), the tablet's list beside the card, and the admin's side of the same API
 # (`finance-to-sort.spec.ts`).
 
 - launchApp:
@@ -42,11 +47,53 @@ tags:
 
 - openLink: "maggie-e2e://finance/to-sort"
 
+# The list comes first, in the pile's order.
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_row"
+    timeout: 30000
+- assertVisible: "2 à qualifier"
+- assertVisible: "CARREFOUR MARKET 1234"
+- assertVisible: "CARREFOUR MARKET 5678"
+- assertNotVisible:
+    id: "to_sort_card"
+
+# Open a line, walk to the next one and back, then return to the list.
+- tapOn: "CARREFOUR MARKET 1234"
 - extendedWaitUntil:
     visible:
       id: "to_sort_card"
     timeout: 30000
-- assertVisible: "2 à qualifier"
+- assertVisible:
+    id: "review_position"
+    text: "1 / 2"
+- tapOn:
+    id: "review_next"
+- extendedWaitUntil:
+    visible: "CARREFOUR MARKET 5678"
+    timeout: 30000
+- assertVisible:
+    id: "review_position"
+    text: "2 / 2"
+- tapOn:
+    id: "review_previous"
+- extendedWaitUntil:
+    visible: "CARREFOUR MARKET 1234"
+    timeout: 30000
+- tapOn:
+    id: "review_back_to_list"
+- extendedWaitUntil:
+    visible: "2 à qualifier"
+    timeout: 30000
+- assertNotVisible:
+    id: "to_sort_card"
+
+# Open the first line again to qualify it.
+- tapOn: "CARREFOUR MARKET 1234"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
 - assertVisible: ".*contient CARREFOUR.*"
 - assertVisible: ".*Courses MAG-423.*"
 
@@ -72,9 +119,14 @@ tags:
 - openLink: "maggie-e2e://finance/to-sort"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_card"
+      id: "to_sort_row"
     timeout: 30000
 - assertVisible: "1 à qualifier"
+- tapOn: "DUPONT MARTIN"
+- extendedWaitUntil:
+    visible:
+      id: "to_sort_card"
+    timeout: 30000
 - assertVisible: "DUPONT MARTIN"
 - scrollUntilVisible:
     element:
