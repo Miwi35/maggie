@@ -5,10 +5,13 @@ import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { AccountTransactionsEmpty, AccountTransactionsView } from './AccountTransactionsView'
+import { dayTitle, dueDay, monthTitle } from './timelineFormat'
+import type { AccountTimelinePage, TimelineDay, TimelineTransaction } from './useAccountTimeline'
 
 const mercureListeners: Array<(data?: string) => void> = []
 vi.mock('../../hooks/useMercure', () => ({
   useMercure: (_topics: string[], cb: (data?: string) => void) => {
+    mercureListeners.length = 0
     mercureListeners.push(cb)
   },
 }))
@@ -16,33 +19,115 @@ const emitMercure = () => act(() => mercureListeners.forEach((listener) => liste
 
 const ACCOUNT_IRI = '/api/accounts/01ABC'
 
-const emptyProvider = testDataProvider({
-  getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
-  getOne: (() =>
-    Promise.resolve({
-      data: { id: ACCOUNT_IRI, name: 'Compte joint' },
-    })) as unknown as DataProvider['getOne'],
-})
+const accounts = [
+  { id: ACCOUNT_IRI, name: 'Compte joint' },
+  { id: '/api/accounts/02XYZ', name: 'Livret' },
+]
+
+const providerOf = (account: Record<string, unknown> = { id: ACCOUNT_IRI, name: 'Compte joint' }) =>
+  testDataProvider({
+    getList: ((resource: string) =>
+      Promise.resolve(resource === 'accounts' ? { data: accounts, total: accounts.length } : { data: [], total: 0 })) as unknown as DataProvider['getList'],
+    getOne: ((resource: string, params: { id: string }) =>
+      Promise.resolve({
+        data:
+          resource === 'recurring_operations'
+            ? { id: params.id, label: 'Loyer mensuel' }
+            : account,
+      })) as unknown as DataProvider['getOne'],
+    getMany: ((resource: string, params: { ids: string[] }) =>
+      Promise.resolve({
+        data: resource === 'categories' ? params.ids.map((id) => ({ id, name: 'Alimentation' })) : [],
+      })) as unknown as DataProvider['getMany'],
+  })
+
+const emptyProvider = providerOf()
 
 const LocationState = () => {
   const { pathname, state } = useLocation()
   return <pre data-testid="location">{JSON.stringify({ pathname, state })}</pre>
 }
 
-/** Answers the incidents route with `incidents`, every other route with `transfer`. */
-const stubFetch = (transfer: unknown = {}, incidents: unknown[] = []) =>
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (url: string) => ({
-      ok: true,
-      json: async () =>
-        String(url).endsWith('/incidents')
-          ? { incidents }
-          : String(url).endsWith('/incidents?settled=true')
-            ? { incidents: [] }
-            : transfer,
-    })),
+const timelinePage = (over: Partial<AccountTimelinePage> = {}): AccountTimelinePage => ({
+  month: '2026-03',
+  previousMonth: null,
+  account: {
+    id: '01ABC',
+    name: 'Compte joint',
+    bank: 'Boursorama',
+    type: 'checking',
+    currency: 'EUR',
+    balanceCents: 123456,
+    isCushion: false,
+    isManual: true,
+  },
+  days: [],
+  ...over,
+})
+
+const line = (over: Partial<TimelineTransaction> = {}): TimelineTransaction => ({
+  id: '01LINE',
+  label: 'Courses',
+  counterpartyName: null,
+  amountCents: -2000,
+  currency: 'EUR',
+  status: 'spent',
+  categoryId: '01CAT',
+  transferKind: 'none',
+  counterpartAccount: null,
+  recurringOperationId: null,
+  recurringIncrease: null,
+  ...over,
+})
+
+const day = (date: string, transactions: TimelineTransaction[] = [], missedOccurrences: TimelineDay['missedOccurrences'] = []): TimelineDay => ({
+  date,
+  transactions,
+  missedOccurrences,
+})
+
+/**
+ * Answers the incidents route with `incidents`, the timeline route with
+ * `timeline` (a function of the URL when the month matters).
+ */
+const stubFetch = (
+  incidents: unknown[] = [],
+  timeline: AccountTimelinePage | ((url: string) => AccountTimelinePage) = timelinePage(),
+) => {
+  const fetchMock = vi.fn(async (url: string) => {
+    const path = String(url)
+    if (path.endsWith('/incidents')) return { ok: true, json: async () => ({ incidents }) }
+    if (path.endsWith('/incidents?settled=true')) return { ok: true, json: async () => ({ incidents: [] }) }
+    if (path.includes('/timeline')) {
+      return { ok: true, json: async () => (typeof timeline === 'function' ? timeline(path) : timeline) }
+    }
+
+    return { ok: true, json: async () => ({}) }
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  return fetchMock
+}
+
+const timelineCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+  fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/timeline'))
+
+const renderView = (provider: DataProvider = emptyProvider, entry = '/accounts/01ABC/transactions') =>
+  render(
+    <MemoryRouter initialEntries={[entry]}>
+      <AdminContext dataProvider={provider}>
+        <h6 id="react-admin-title" data-testid="app-bar-title" />
+        <Routes>
+          <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+          <Route path="*" element={<LocationState />} />
+        </Routes>
+      </AdminContext>
+    </MemoryRouter>,
   )
+
+const rowOf = async (text: string | RegExp) => (await screen.findByText(text)).closest('tr')!
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('AccountTransactionsEmpty', () => {
   test('says the account is empty and offers the button that adds a transaction', () => {
@@ -59,23 +144,23 @@ describe('AccountTransactionsEmpty', () => {
   })
 })
 
+describe('formats', () => {
+  test('a day reads as a French calendar day, a month with its year, a due date as « le 5 »', () => {
+    expect(dayTitle('2026-03-12')).toBe('Jeudi 12 mars')
+    expect(monthTitle('2026-03')).toBe('Mars 2026')
+    expect(dueDay('2026-03-05')).toBe('le 5')
+    expect(dueDay('2026-03-01')).toBe('le 1er')
+  })
+})
+
 describe('AccountTransactionsView', () => {
   test('an account with no operation still shows the button, and it preselects the account', async () => {
+    stubFetch()
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-        <AdminContext dataProvider={emptyProvider}>
-          <Routes>
-            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-            <Route path="*" element={<LocationState />} />
-          </Routes>
-        </AdminContext>
-      </MemoryRouter>,
-    )
+    renderView()
 
-    // Once the empty state replaces the list, the toolbar and its button are gone:
-    // the one button left is the empty state's own.
+    // The empty state replaces the toolbar: the one button left is its own.
     const placeholder = (await screen.findByText('Aucune transaction sur ce compte')).parentElement!
     const button = within(placeholder).getByRole('link', { name: 'Ajouter une transaction' })
     expect(screen.getAllByRole('link', { name: 'Ajouter une transaction' })).toHaveLength(1)
@@ -87,17 +172,23 @@ describe('AccountTransactionsView', () => {
     expect(location.state.record).toEqual({ account: ACCOUNT_IRI })
   })
 
+  test('with lines, « Ajouter une transaction » opens the form with the account already chosen', async () => {
+    stubFetch([], timelinePage({ days: [day('2026-03-12', [line()])] }))
+    const user = userEvent.setup()
+
+    renderView()
+
+    await screen.findByText('Courses')
+    await user.click(screen.getByRole('link', { name: 'Ajouter une transaction' }))
+
+    const location = JSON.parse((await screen.findByTestId('location')).textContent ?? '{}')
+    expect(location.pathname).toBe('/transactions/create')
+    expect(location.state.record).toEqual({ account: ACCOUNT_IRI })
+  })
+
   test('the app bar carries one title, the account\'s, so a long one can end in an ellipsis (MAG-387)', async () => {
-    render(
-      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-        <AdminContext dataProvider={emptyProvider}>
-          <h6 id="react-admin-title" data-testid="app-bar-title" />
-          <Routes>
-            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-          </Routes>
-        </AdminContext>
-      </MemoryRouter>,
-    )
+    stubFetch()
+    renderView()
 
     await screen.findByText('Aucune transaction sur ce compte')
     await waitFor(() => expect(screen.getByTestId('app-bar-title')).toHaveTextContent('Transactions — Compte joint'))
@@ -105,23 +196,8 @@ describe('AccountTransactionsView', () => {
   })
 
   test('the title tells the bank, the currency and the name of the account (MAG-501)', async () => {
-    const provider = testDataProvider({
-      getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
-      getOne: (() =>
-        Promise.resolve({
-          data: { id: ACCOUNT_IRI, name: 'Compte joint', bank: 'Boursorama', currency: 'EUR' },
-        })) as unknown as DataProvider['getOne'],
-    })
-    render(
-      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-        <AdminContext dataProvider={provider}>
-          <h6 id="react-admin-title" data-testid="app-bar-title" />
-          <Routes>
-            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-          </Routes>
-        </AdminContext>
-      </MemoryRouter>,
-    )
+    stubFetch()
+    renderView(providerOf({ id: ACCOUNT_IRI, name: 'Compte joint', bank: 'Boursorama', currency: 'EUR' }))
 
     await screen.findByText('Aucune transaction sur ce compte')
     await waitFor(() =>
@@ -129,206 +205,248 @@ describe('AccountTransactionsView', () => {
     )
   })
 
-  test('a recette reads Reçue or Attendue in the list, a dépense Dépensée — never the other way round', async () => {
-    const rows = [
-      { id: '/api/transactions/1', label: 'Salaire', amountCents: 235000, currency: 'EUR', status: 'spent', bookedAt: '2026-07-31' },
-      { id: '/api/transactions/2', label: 'Prime', amountCents: 50000, currency: 'EUR', status: 'planned', bookedAt: '2026-08-15' },
-      { id: '/api/transactions/3', label: 'Netflix', amountCents: -1399, currency: 'EUR', status: 'spent', bookedAt: '2026-07-03' },
-    ]
-    const provider = testDataProvider({
-      getList: (() => Promise.resolve({ data: rows, total: rows.length })) as unknown as DataProvider['getList'],
-      getOne: (() =>
-        Promise.resolve({ data: { id: ACCOUNT_IRI, name: 'Compte joint' } })) as unknown as DataProvider['getOne'],
-    })
+  test('the account and its balance head the screen, and the selector offers the owner\'s accounts', async () => {
+    stubFetch([], timelinePage({ days: [day('2026-03-12', [line()])] }))
+    const user = userEvent.setup()
 
-    render(
-      <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-        <AdminContext dataProvider={provider}>
-          <Routes>
-            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-          </Routes>
-        </AdminContext>
-      </MemoryRouter>,
-    )
+    renderView()
 
-    const rowOf = async (label: string) => (await screen.findByText(label)).closest('tr')!
-
-    expect(within(await rowOf('Salaire')).getByText('Reçue')).toBeInTheDocument()
-    expect(within(await rowOf('Prime')).getByText('Attendue')).toBeInTheDocument()
-    expect(within(await rowOf('Netflix')).getByText('Dépensée')).toBeInTheDocument()
-    expect(screen.getAllByText('Dépensée')).toHaveLength(1)
+    expect(await screen.findByLabelText('Solde du compte')).toHaveTextContent(/1\s?234,56/)
+    await user.click(screen.getByRole('combobox', { name: 'Compte' }))
+    expect(await screen.findByRole('option', { name: 'Livret' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Compte joint' })).toBeInTheDocument()
   })
 
-  describe('one line of pills, one sheet', () => {
-    const rows = [
-      { id: '/api/transactions/01A', label: 'Courses', amountCents: -2000, currency: 'EUR', status: 'spent', bookedAt: '2026-09-14', transferKind: 'none', category: null },
-      { id: '/api/transactions/01B', label: 'Loyer', amountCents: -50000, currency: 'EUR', status: 'spent', bookedAt: '2026-09-01', transferKind: 'none', category: '/api/categories/01C', recurringOperation: '/api/recurring_operations/01S' },
-    ]
-    const provider = testDataProvider({
-      getList: (() => Promise.resolve({ data: rows, total: rows.length })) as unknown as DataProvider['getList'],
-      getOne: ((resource: string) =>
-        Promise.resolve({
-          data: resource === 'recurring_operations' ? { id: '/api/recurring_operations/01S', label: 'Loyer mensuel' } : { id: ACCOUNT_IRI, name: 'Compte joint' },
-        })) as unknown as DataProvider['getOne'],
+  test('changing the account reads the timeline of the new one', async () => {
+    const fetchMock = stubFetch([], timelinePage({ days: [day('2026-03-12', [line()])] }))
+    const user = userEvent.setup()
+
+    renderView()
+
+    await screen.findByText('Courses')
+    expect(timelineCalls(fetchMock)).toEqual(['/api/finance/accounts/01ABC/timeline'])
+
+    await user.click(screen.getByRole('combobox', { name: 'Compte' }))
+    await user.click(await screen.findByRole('option', { name: 'Livret' }))
+
+    await waitFor(() => expect(timelineCalls(fetchMock)).toContain('/api/finance/accounts/02XYZ/timeline'))
+  })
+
+  describe('the timeline', () => {
+    const march = timelinePage({
+      days: [
+        day('2026-03-12', [
+          line({ id: '01PLAN', label: 'Assurance habitation', amountCents: -4500, status: 'planned' }),
+          line({ id: '01SALARY', label: 'Salaire', amountCents: 235000, status: 'spent', categoryId: null }),
+        ]),
+        day('2026-03-05', [
+          line({
+            id: '01RENT',
+            label: 'Loyer',
+            amountCents: -120000,
+            recurringOperationId: '01S',
+            recurringIncrease: { percent: 33, previousCents: -90000 },
+          }),
+        ], [{ recurringOperationId: '01GYM', label: 'Salle de sport', expectedOn: '2026-03-05', amountCents: -3000 }]),
+      ],
     })
 
-    afterEach(() => vi.unstubAllGlobals())
-
-    const renderView = () => {
-      stubFetch()
-
-      return render(
-        <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-          <AdminContext dataProvider={provider}>
-            <Routes>
-              <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-              <Route path="*" element={<LocationState />} />
-            </Routes>
-          </AdminContext>
-        </MemoryRouter>,
-      )
-    }
-
-    test('a line without category is « À trier », a line of a series names it, and nothing else sits on the row', async () => {
+    test('lines are grouped by day, newest first, under the month', async () => {
+      stubFetch([], march)
       renderView()
 
-      const sorted = (await screen.findByText('Courses')).closest('tr')!
-      expect(within(sorted).getByText('À trier')).toBeInTheDocument()
-      const series = (await screen.findByText('Loyer')).closest('tr')!
-      expect(await within(series).findByText('Série · Loyer mensuel')).toBeInTheDocument()
-      expect(within(series).queryByText('À trier')).not.toBeInTheDocument()
-      // The pencil, the « make recurring » button and the detachable chip are gone: the sheet holds them.
-      expect(screen.queryByRole('link', { name: /Modifier|Éditer/ })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /En faire une opération récurrente/ })).not.toBeInTheDocument()
-      expect(screen.queryByLabelText(/Détacher/)).not.toBeInTheDocument()
-      expect(within(series).getByRole('button', { name: /delete/i })).toBeInTheDocument()
+      expect(await screen.findByText('Mars 2026')).toBeInTheDocument()
+      const days = screen.getAllByText(/^(Jeudi) \d+ mars$/).map((node) => node.textContent)
+      expect(days).toEqual(['Jeudi 12 mars', 'Jeudi 5 mars'])
+      // Several lines of one day sit between its title and the next.
+      const rows = screen.getAllByRole('row').map((row) => row.textContent ?? '')
+      const titleAt = rows.findIndex((text) => text === 'Jeudi 12 mars')
+      expect(rows[titleAt + 1]).toContain('Assurance habitation')
+      expect(rows[titleAt + 2]).toContain('Salaire')
     })
 
-    test('a click on a pill opens the sheet of the line, like the row', async () => {
+    test('each line says its real status in words, by the sign of the amount', async () => {
+      stubFetch([], march)
+      renderView()
+
+      expect(within(await rowOf('Assurance habitation')).getByText('Planifiée')).toBeInTheDocument()
+      expect(within(await rowOf('Salaire')).getByText('Reçue')).toBeInTheDocument()
+      expect(within(await rowOf('Loyer')).getByText('Dépensée')).toBeInTheDocument()
+    })
+
+    test('a rent that rose carries « +33 % », and an ordinary line does not', async () => {
+      stubFetch([], march)
+      renderView()
+
+      expect(within(await rowOf('Loyer')).getByText('+33 %')).toBeInTheDocument()
+      expect(within(await rowOf('Salaire')).queryByText(/%/)).not.toBeInTheDocument()
+    })
+
+    test('an operation that never came reads « attendu le 5 — en retard »', async () => {
+      stubFetch([], march)
+      renderView()
+
+      const missed = await rowOf('Salle de sport attendu le 5 — en retard')
+      expect(within(missed).getByText(/30,00/)).toBeInTheDocument()
+    })
+
+    test('a line shows its category, or « À trier » when it has none, and a series names itself', async () => {
+      stubFetch([], march)
+      renderView()
+
+      expect(await within(await rowOf('Loyer')).findByText('Alimentation')).toBeInTheDocument()
+      expect(await within(await rowOf('Loyer')).findByText('Série · Loyer mensuel')).toBeInTheDocument()
+      expect(within(await rowOf('Salaire')).getByText('À trier')).toBeInTheDocument()
+    })
+
+    test('a click on a line opens its sheet', async () => {
+      stubFetch([], march)
       const user = userEvent.setup()
       renderView()
 
-      await user.click(await screen.findByText('À trier'))
+      await user.click(await screen.findByText('Assurance habitation'))
 
       const location = JSON.parse((await screen.findByTestId('location')).textContent ?? '{}')
-      expect(location.pathname).toBe('/transactions/%2Fapi%2Ftransactions%2F01A')
-    })
-
-    test('a click on the row opens the sheet', async () => {
-      const user = userEvent.setup()
-      renderView()
-
-      await user.click(await screen.findByText('Courses'))
-
-      const location = JSON.parse((await screen.findByTestId('location')).textContent ?? '{}')
-      expect(location.pathname).toBe('/transactions/%2Fapi%2Ftransactions%2F01A')
+      expect(location.pathname).toBe('/transactions/%2Fapi%2Ftransactions%2F01PLAN')
     })
   })
 
   describe('internal transfers', () => {
-    const rows = [
-      {
-        id: '/api/transactions/01OUT',
-        label: 'Virement vers Courant',
-        amountCents: -300000,
-        currency: 'EUR',
-        status: 'spent',
-        bookedAt: '2026-09-12',
-        transferKind: 'internal',
-        transferSource: 'auto',
-        counterpart: '/api/transactions/01IN',
-      },
-      {
-        id: '/api/transactions/01SHOP',
-        label: 'Supermarché',
-        amountCents: -8000,
-        currency: 'EUR',
-        status: 'spent',
-        bookedAt: '2026-09-14',
-        transferKind: 'none',
-        transferSource: 'auto',
-        counterpart: null,
-      },
-    ]
-    const providerOf = (data: typeof rows) =>
-      testDataProvider({
-        getList: (() => Promise.resolve({ data, total: data.length })) as unknown as DataProvider['getList'],
-        getOne: (() =>
-          Promise.resolve({ data: { id: ACCOUNT_IRI, name: 'Livret' } })) as unknown as DataProvider['getOne'],
-      })
-
-    afterEach(() => {
-      vi.unstubAllGlobals()
-    })
-
-    const renderView = (data = rows) =>
-      render(
-        <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-          <AdminContext dataProvider={providerOf(data)}>
-            <Routes>
-              <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-            </Routes>
-          </AdminContext>
-        </MemoryRouter>,
-      )
-
-    test('a marked line carries the badge and names its counterpart; an ordinary one does not', async () => {
-      stubFetch({
+    const transfers = timelinePage({
+      days: [
+        day('2026-03-12', [
+          line({
+            id: '01IN',
+            label: 'Virement du Courant',
+            amountCents: 300000,
+            categoryId: null,
             transferKind: 'internal',
-            transferSource: 'auto',
-            counterpart: {
-              id: '01IN',
-              label: 'Virement du Livret',
-              amountCents: 300000,
-              currency: 'EUR',
-              bookedAt: '2026-09-13',
-              accountId: '01CHK',
-              accountName: 'Courant',
-            },
-          })
+            counterpartAccount: { id: '01CHK', name: 'Compte courant' },
+          }),
+          line({
+            id: '01OUT',
+            label: 'Virement vers Livret',
+            amountCents: -50000,
+            categoryId: null,
+            transferKind: 'internal',
+            counterpartAccount: { id: '01SAV', name: 'Livret' },
+          }),
+          line({ id: '01ALONE', label: 'Virement orphelin', categoryId: null, transferKind: 'internal' }),
+          line({ id: '01SHOP', label: 'Supermarché' }),
+        ]),
+      ],
+    })
 
+    test('a transfer carries the badge and names the account on the other side', async () => {
+      stubFetch([], transfers)
       renderView()
 
-      const marked = (await screen.findByText('Virement vers Courant')).closest('tr')!
-      expect(within(marked).getByText('Virement interne')).toBeInTheDocument()
-      expect(await within(marked).findByText(/Courant · 13\/09\/2026 · Virement du Livret/)).toBeInTheDocument()
-
-      const ordinary = (await screen.findByText('Supermarché')).closest('tr')!
+      const incoming = await rowOf('Virement du Courant')
+      expect(within(incoming).getByText('Virement interne')).toBeInTheDocument()
+      expect(within(incoming).getByText('depuis Compte courant')).toBeInTheDocument()
+      const outgoing = await rowOf('Virement vers Livret')
+      expect(within(outgoing).getByText('vers Livret')).toBeInTheDocument()
+      const ordinary = await rowOf('Supermarché')
       expect(within(ordinary).queryByText('Virement interne')).not.toBeInTheDocument()
-      expect(screen.getAllByText('Virement interne')).toHaveLength(1)
     })
 
-    test('a line paired with nothing says the other account is not followed', async () => {
-      stubFetch({ transferKind: 'internal', transferSource: 'manual', counterpart: null })
+    test('a transfer paired with nothing says the other account is not followed', async () => {
+      stubFetch([], transfers)
+      renderView()
+
+      expect(await within(await rowOf('Virement orphelin')).findByText(/Sans contrepartie/)).toBeInTheDocument()
+    })
+  })
+
+  describe('months', () => {
+    const timeline = (url: string) =>
+      url.includes('month=2026-02')
+        ? timelinePage({ month: '2026-02', previousMonth: null, days: [day('2026-02-27', [line({ id: '01OLD', label: 'Cadeau de février' })])] })
+        : timelinePage({ previousMonth: '2026-02', days: [day('2026-03-12', [line({ id: '01NEW', label: 'Courses de mars' })])] })
+
+    test('the current month comes first, « Mois précédent » reads the month before and adds it below', async () => {
+      const fetchMock = stubFetch([], timeline)
+      const user = userEvent.setup()
+      renderView()
+
+      await screen.findByText('Courses de mars')
+      expect(screen.queryByText('Cadeau de février')).not.toBeInTheDocument()
+      expect(timelineCalls(fetchMock)).toEqual(['/api/finance/accounts/01ABC/timeline'])
+
+      await user.click(screen.getByRole('button', { name: 'Mois précédent' }))
+
+      expect(await screen.findByText('Cadeau de février')).toBeInTheDocument()
+      expect(screen.getByText('Février 2026')).toBeInTheDocument()
+      expect(screen.getByText('Courses de mars')).toBeInTheDocument()
+      expect(timelineCalls(fetchMock)).toContain('/api/finance/accounts/01ABC/timeline?month=2026-02')
+      // Nothing earlier: the button goes.
+      expect(screen.queryByRole('button', { name: 'Mois précédent' })).not.toBeInTheDocument()
+    })
+
+    test('a month with no line but an earlier one invites to go back', async () => {
+      stubFetch([], timelinePage({ previousMonth: '2026-02' }))
+      renderView()
+
+      expect(await screen.findByText('Aucune transaction ce mois-ci')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Mois précédent' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Ajouter une transaction' })).toBeInTheDocument()
+    })
+  })
+
+  describe('when the API fails', () => {
+    test('says so with a retry button that reads the timeline again', async () => {
+      let healthy = false
+      const fetchMock = vi.fn(async (url: string) => {
+        if (String(url).endsWith('/incidents')) return { ok: true, json: async () => ({ incidents: [] }) }
+
+        return healthy
+          ? { ok: true, json: async () => timelinePage({ days: [day('2026-03-12', [line({ label: 'Retrouvée' })])] }) }
+          : { ok: false, json: async () => ({}) }
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      const user = userEvent.setup()
 
       renderView()
 
-      const marked = (await screen.findByText('Virement vers Courant')).closest('tr')!
-      expect(await within(marked).findByText(/Sans contrepartie/)).toBeInTheDocument()
+      expect(await screen.findByText('Impossible de lire les transactions du compte')).toBeInTheDocument()
+      expect(screen.queryByText('Aucune transaction sur ce compte')).not.toBeInTheDocument()
+
+      healthy = true
+      await user.click(screen.getByRole('button', { name: 'Réessayer' }))
+
+      expect(await screen.findByText('Retrouvée')).toBeInTheDocument()
+      expect(screen.queryByText('Impossible de lire les transactions du compte')).not.toBeInTheDocument()
     })
 
-    test('a rejected payment reads « Rejeté » and names the credit that gave it back', async () => {
-      stubFetch({
-            transferKind: 'rejected',
-            transferSource: 'auto',
-            counterpart: {
-              id: '01BACK',
-              label: 'Rejet virement Courant',
-              amountCents: 300000,
-              currency: 'EUR',
-              bookedAt: '2026-09-15',
-              accountId: '01ABC',
-              accountName: 'Livret',
-            },
-          })
+    test('a network failure reads the same', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
 
-      renderView([{ ...rows[0], transferKind: 'rejected', counterpart: '/api/transactions/01BACK' }])
+      renderView()
 
-      const rejected = (await screen.findByText('Virement vers Courant')).closest('tr')!
-      expect(within(rejected).getByText('Rejeté')).toBeInTheDocument()
-      expect(await within(rejected).findByText(/Rendu par :/)).toBeInTheDocument()
-      expect(within(rejected).queryByText('Virement interne')).not.toBeInTheDocument()
+      expect(await screen.findByText('Impossible de lire les transactions du compte')).toBeInTheDocument()
     })
+  })
+
+  test('a transaction written while the screen is open joins the timeline without a reload', async () => {
+    let current = timelinePage({ days: [day('2026-03-12', [line({ label: 'Courses' })])] })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => ({
+        ok: true,
+        json: async () => (String(url).endsWith('/incidents') ? { incidents: [] } : current),
+      })),
+    )
+
+    renderView()
+    await screen.findByText('Courses')
+
+    current = timelinePage({
+      days: [day('2026-03-13', [line({ id: '01BAKERY', label: 'Boulangerie' })]), day('2026-03-12', [line({ label: 'Courses' })])],
+    })
+    await emitMercure()
+
+    expect(await screen.findByText('Boulangerie')).toBeInTheDocument()
+    expect(screen.getByText('Courses')).toBeInTheDocument()
   })
 })
 
@@ -359,42 +477,28 @@ describe('Incidents tab', () => {
     },
   }
   const provider = testDataProvider({
-    getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
+    getList: ((resource: string) =>
+      Promise.resolve(resource === 'accounts' ? { data: accounts, total: accounts.length } : { data: [], total: 0 })) as unknown as DataProvider['getList'],
     getOne: ((resource: string, params: { id: string }) =>
       Promise.resolve({
         data: resource === 'transactions' ? legs[params.id] : { id: ACCOUNT_IRI, name: 'Compte joint' },
       })) as unknown as DataProvider['getOne'],
   })
 
-  const renderView = (entry = '/accounts/01ABC/transactions') =>
-    render(
-      <MemoryRouter initialEntries={[entry]}>
-        <AdminContext dataProvider={provider}>
-          <Routes>
-            <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
-          </Routes>
-        </AdminContext>
-      </MemoryRouter>,
-    )
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   test('the home pill lands on the incidents tab with `?tab=incidents`', async () => {
-    stubFetch({}, [incident])
+    stubFetch([incident])
 
-    renderView('/accounts/01ABC/transactions?tab=incidents')
+    renderView(provider, '/accounts/01ABC/transactions?tab=incidents')
 
     expect(await screen.findByRole('tab', { name: 'Incidents (1)', selected: true })).toBeInTheDocument()
     expect(await screen.findByText('EDF')).toBeVisible()
   })
 
   test('the tab carries the number of rejections, and each one reads as a single line', async () => {
-    stubFetch({}, [incident, { ...incident, debitId: '01D2', creditId: '01C2', counterpartyName: 'Mme Martin', kind: 'transfer', amountCents: 5000 }])
+    stubFetch([incident, { ...incident, debitId: '01D2', creditId: '01C2', counterpartyName: 'Mme Martin', kind: 'transfer', amountCents: 5000 }])
     const user = userEvent.setup()
 
-    renderView()
+    renderView(provider)
 
     const tab = await screen.findByRole('tab', { name: 'Incidents (2)' })
     await user.click(tab)
@@ -408,10 +512,10 @@ describe('Incidents tab', () => {
   })
 
   test('a click on a rejection opens the two original operations', async () => {
-    stubFetch({}, [incident])
+    stubFetch([incident])
     const user = userEvent.setup()
 
-    renderView()
+    renderView(provider)
 
     await user.click(await screen.findByRole('tab', { name: 'Incidents (1)' }))
     await user.click((await screen.findByText('EDF')).closest('tr')!)
@@ -423,10 +527,10 @@ describe('Incidents tab', () => {
   })
 
   test('an account with no rejection says so', async () => {
-    stubFetch({}, [])
+    stubFetch([])
     const user = userEvent.setup()
 
-    renderView()
+    renderView(provider)
 
     await user.click(await screen.findByRole('tab', { name: 'Incidents (0)' }))
     expect(await screen.findByText('Aucun incident sur ce compte')).toBeInTheDocument()
@@ -436,7 +540,7 @@ describe('Incidents tab', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })))
     const user = userEvent.setup()
 
-    renderView()
+    renderView(provider)
 
     await user.click(await screen.findByRole('tab', { name: 'Incidents' }))
     expect(await screen.findByText('Impossible de lire les incidents')).toBeInTheDocument()
@@ -462,6 +566,7 @@ describe('Incidents tab', () => {
           else settledIds.delete(match[1])
           return { ok: true, json: async () => ({ success: true }) }
         }
+        if (path.includes('/timeline')) return { ok: true, json: async () => timelinePage() }
         const wantsSettled = path.endsWith('?settled=true')
         return {
           ok: true,
@@ -550,11 +655,14 @@ describe('Incidents tab', () => {
       'fetch',
       vi.fn(async (url: string) => ({
         ok: true,
-        json: async () => ({ incidents: String(url).endsWith('?settled=true') ? [] : incidents }),
+        json: async () =>
+          String(url).includes('/incidents')
+            ? { incidents: String(url).endsWith('?settled=true') ? [] : incidents }
+            : timelinePage(),
       })),
     )
 
-    renderView()
+    renderView(provider)
     await screen.findByRole('tab', { name: 'Incidents (0)' })
 
     incidents = [incident]

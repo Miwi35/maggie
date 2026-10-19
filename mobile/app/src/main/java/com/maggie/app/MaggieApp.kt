@@ -352,7 +352,7 @@ class MaggieApp : Application() {
             viewModel { PastErrandsViewModel(get(), get(), get()) }
             viewModel { StoreViewModel(get()) }
             viewModel { (storeId: String) -> StoreAislesViewModel(storeId, get(), get(), get()) }
-            viewModel { AccountViewModel(get()) }
+            viewModel { AccountViewModel(get(), get(), get(), get(), get()) }
             viewModel { CategoryViewModel(get(), get(), get()) }
             viewModel { BudgetViewModel(get(), get(), get(), get(), get()) }
             viewModel { EnvelopeAdjustmentsViewModel(get()) }

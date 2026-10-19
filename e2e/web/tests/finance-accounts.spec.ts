@@ -46,6 +46,7 @@ interface StoredTransaction {
   amountCents?: number
   bookedAt?: string
   account?: string
+  transferKind?: string
 }
 
 test('the seeded accounts show the balance and the type they were given', async ({ page }) => {
@@ -330,4 +331,98 @@ test('choosing Recette offers every category, and files a positive transaction',
   await expect(accounts.row(label)).toContainText(signedEuros(150000))
   await expect(accounts.row(label)).toContainText('Reçue')
   await expect(accounts.row(label)).not.toContainText('Dépensée')
+})
+
+/**
+ * Accounts side by side, day by day (MAG-422).
+ *
+ * The view lists an account's **current month** grouped by day, with the real
+ * status of each line, and a selector to move to another account without going
+ * back to the list. A transfer between two accounts names the account on the
+ * other side of it: « depuis X » on the credit, « vers X » on the debit.
+ *
+ * Accounts and lines of its own, as the neighbour: the owner's seeded accounts
+ * are read by other files and an internal transfer would be one more thing to
+ * keep out of their figures. Suffixed with the attempt, amount included: CI
+ * retries once without reseeding, and a first attempt's leg would be paired
+ * with this one's.
+ */
+test('changing account shows the other account\'s days, and a transfer names the account it came from', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+  const checkingName = `Compte courant MAG-422, essai ${attempt}`
+  const savingsName = `Livret MAG-422, essai ${attempt}`
+  const debit = `VIREMENT VERS LIVRET MAG-422 ESSAI ${attempt}`
+  const credit = `VIREMENT DEPUIS COURANT MAG-422 ESSAI ${attempt}`
+  const interest = `INTERETS LIVRET MAG-422 ESSAI ${attempt}`
+  const transferCents = 45_000 + attempt * 300
+  const today = seedDate()
+
+  const accountIds: Record<string, string> = {}
+  for (const [name, type] of [
+    [checkingName, 'checking'],
+    [savingsName, 'savings'],
+  ]) {
+    const response = await api.post('/api/accounts', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: { name, type, currency: 'EUR', balanceCents: 0 },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+    accountIds[name] = String(((await response.json()) as StoredAccount).id ?? '')
+  }
+
+  const book = async (accountName: string, label: string, amountCents: number) => {
+    const response = await api.post('/api/transactions', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: {
+        account: `/api/accounts/${accountIds[accountName]}`,
+        label,
+        amountCents,
+        currency: 'EUR',
+        bookedAt: today,
+        status: 'spent',
+      },
+    })
+    expect(response.status(), await response.text()).toBe(201)
+  }
+
+  // Given a transfer between them, and an ordinary line on the savings account the same day.
+  // The credit is paired as it lands, the way a sync does it.
+  await book(checkingName, debit, -transferCents)
+  await book(savingsName, credit, transferCents)
+  await book(savingsName, interest, 1_250)
+  for (const label of [debit, credit]) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'internal',
+      { what: `The leg "${label}", paired as an internal transfer` },
+    )
+  }
+
+  // When I read the checking account.
+  const accounts = new FinanceAccountsPage(page)
+  await accounts.openTransactions(accountIds[checkingName])
+
+  // Then the debit wears the badge and says where it went, with its status in words.
+  await expect(accounts.row(debit)).toContainText('Virement interne')
+  await expect(accounts.row(debit)).toContainText(`vers ${savingsName}`)
+  await expect(accounts.row(debit)).toContainText('Dépensée')
+
+  // When I change account in the view.
+  await accounts.chooseAccount(savingsName)
+
+  // Then the savings account shows the lines of its own day, and the credit says where it came from.
+  await expect(accounts.row(credit)).toContainText('Virement interne')
+  await expect(accounts.row(credit)).toContainText(`depuis ${checkingName}`)
+  await expect(accounts.row(credit)).toContainText(signedEuros(transferCents))
+  await expect(accounts.row(interest)).toContainText(signedEuros(1_250))
+  await expect(
+    accounts.content.locator(`[data-day="${today}"]`),
+    'both lines sit under the one title of their day',
+  ).toHaveCount(1)
+  // And the checking account's own line is not on this one.
+  await expect(accounts.row(debit)).toHaveCount(0)
 })

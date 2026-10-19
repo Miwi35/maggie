@@ -1,0 +1,155 @@
+{
+    "month": "2026-03",
+    "previousMonth": "2026-02",
+    "account": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "name": "Recorded Account",
+        "bank": "Recorded Bank",
+        "type": "checking",
+        "currency": "EUR",
+        "balanceCents": 123456,
+        "isCushion": true,
+        "isManual": true
+    },
+    "days": [
+        {
+            "date": "2026-03-28",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "ASSURANCE HABITATION",
+                    "counterpartyName": null,
+                    "amountCents": -4500,
+                    "currency": "EUR",
+                    "status": "planned",
+                    "categoryId": null,
+                    "transferKind": "none",
+                    "counterpartAccount": null,
+                    "recurringOperationId": null,
+                    "recurringIncrease": null
+                }
+            ],
+            "missedOccurrences": []
+        },
+        {
+            "date": "2026-03-25",
+            "transactions": [],
+            "missedOccurrences": [
+                {
+                    "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded salary",
+                    "expectedOn": "2026-03-25",
+                    "amountCents": 495000
+                }
+            ]
+        },
+        {
+            "date": "2026-03-20",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded ticket",
+                    "counterpartyName": null,
+                    "amountCents": -8900,
+                    "currency": "EUR",
+                    "status": "spent",
+                    "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "transferKind": "none",
+                    "counterpartAccount": null,
+                    "recurringOperationId": null,
+                    "recurringIncrease": null
+                }
+            ],
+            "missedOccurrences": [
+                {
+                    "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Salle de sport",
+                    "expectedOn": "2026-03-20",
+                    "amountCents": -3000
+                }
+            ]
+        },
+        {
+            "date": "2026-03-17",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded transaction",
+                    "counterpartyName": null,
+                    "amountCents": -4250,
+                    "currency": "EUR",
+                    "status": "spent",
+                    "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "transferKind": "none",
+                    "counterpartAccount": null,
+                    "recurringOperationId": null,
+                    "recurringIncrease": null
+                }
+            ],
+            "missedOccurrences": []
+        },
+        {
+            "date": "2026-03-14",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "NETFLIX.COM",
+                    "counterpartyName": "NETFLIX",
+                    "amountCents": -1349,
+                    "currency": "EUR",
+                    "status": "spent",
+                    "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "transferKind": "none",
+                    "counterpartAccount": null,
+                    "recurringOperationId": null,
+                    "recurringIncrease": null
+                }
+            ],
+            "missedOccurrences": []
+        },
+        {
+            "date": "2026-03-10",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "VIR LIVRET",
+                    "counterpartyName": null,
+                    "amountCents": -20000,
+                    "currency": "EUR",
+                    "status": "spent",
+                    "categoryId": null,
+                    "transferKind": "internal",
+                    "counterpartAccount": {
+                        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "name": "Recorded Savings"
+                    },
+                    "recurringOperationId": null,
+                    "recurringIncrease": null
+                }
+            ],
+            "missedOccurrences": []
+        },
+        {
+            "date": "2026-03-05",
+            "transactions": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "LOYER SCI VERDA",
+                    "counterpartyName": "LOYER SCI VERDA",
+                    "amountCents": -120000,
+                    "currency": "EUR",
+                    "status": "spent",
+                    "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "transferKind": "none",
+                    "counterpartAccount": null,
+                    "recurringOperationId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "recurringIncrease": {
+                        "percent": 33,
+                        "previousCents": -90000
+                    }
+                }
+            ],
+            "missedOccurrences": []
+        }
+    ]
+}

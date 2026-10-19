@@ -256,6 +256,44 @@ class DtoContractTest {
     }
 
     @Test
+    fun `an account's timeline deserialises from the recorded response, its days, transfer, increase and late occurrence (MAG-422)`() {
+        val body = readRecording("finance_account_timeline.read")
+        val timeline = json.decodeFromJsonElement(serializer<AccountTimeline>(), body)
+        val source = "finance_account_timeline.read"
+
+        assertDeclaredFieldsExist("AccountTimeline", serializer<AccountTimeline>(), body.keys, source)
+        assertDeclaredFieldsExist("TimelineAccount", serializer<TimelineAccount>(), body["account"]!!.jsonObject.keys, source)
+        assertDeclaredFieldsExist("TimelineDay", serializer<TimelineDay>(), keysOf(body, "days"), source)
+
+        val lines = body["days"]!!.jsonArray.flatMap { it.jsonObject["transactions"]!!.jsonArray }.map { it.jsonObject }
+        assertDeclaredFieldsExist("TimelineLine", serializer<TimelineLine>(), lines.flatMap { it.keys }.toSet(), source)
+        assertDeclaredFieldsExist(
+            "TimelineCounterpartAccount",
+            serializer<TimelineCounterpartAccount>(),
+            lines.mapNotNull { it["counterpartAccount"] as? JsonObject }.flatMap { it.keys }.toSet(),
+            source,
+        )
+        assertDeclaredFieldsExist(
+            "RecurringIncrease",
+            serializer<RecurringIncrease>(),
+            lines.mapNotNull { it["recurringIncrease"] as? JsonObject }.flatMap { it.keys }.toSet(),
+            source,
+        )
+        val missedKeys = body["days"]!!.jsonArray.flatMap { it.jsonObject["missedOccurrences"]!!.jsonArray }.flatMap { it.jsonObject.keys }.toSet()
+        assertDeclaredFieldsExist("TimelineMissedOccurrence", serializer<TimelineMissedOccurrence>(), missedKeys, source)
+
+        assertTrue("The recording has no manual account: isManual proves nothing.", timeline.account.isManual)
+        val all = timeline.days.flatMap { it.transactions }
+        val transfer = all.single { it.transferKind == "internal" }
+        assertEquals("Recorded Savings", transfer.counterpartAccount?.name)
+        assertEquals("vers Recorded Savings", transfer.transferBadge())
+        assertEquals("+33 %", all.mapNotNull { it.recurringIncrease }.single().label())
+        val missed = timeline.days.flatMap { it.missedOccurrences }
+        assertTrue("Salle de sport attendu le 20 — en retard" in missed.map { it.lateLabel() })
+        assertTrue("planned" in all.map { it.status })
+    }
+
+    @Test
     fun `recurring grocery items deserialise from the recorded response`() =
         assertCollectionContract("recurring_grocery_items", serializer<RecurringGroceryItem>(), "RecurringGroceryItem")
 

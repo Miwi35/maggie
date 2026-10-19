@@ -142,6 +142,51 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The lines of an account booked from one day to another, both included,
+     * newest first, with the other leg of a transfer and its account loaded in
+     * the same query. The rejected payments are left out: they have their own
+     * list (MAG-375).
+     *
+     * @return Transaction[]
+     */
+    public function findByAccountBetween(Account $account, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->leftJoin('t.counterpart', 'c')
+            ->leftJoin('c.account', 'ca')
+            ->addSelect('c', 'ca')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.transferKind != :rejected')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt <= :until')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->setParameter('rejected', TransferKind::Rejected->value)
+            ->setParameter('from', $from, 'date_immutable')
+            ->setParameter('until', $until, 'date_immutable')
+            ->orderBy('t.bookedAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** The day of the latest line of an account booked before a day, rejected payments aside; null when there is none. */
+    public function findLatestBookingDayBefore(Account $account, \DateTimeImmutable $day): ?\DateTimeImmutable
+    {
+        $latest = $this->createQueryBuilder('t')
+            ->select('MAX(t.bookedAt)')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.transferKind != :rejected')
+            ->andWhere('t.bookedAt < :day')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->setParameter('rejected', TransferKind::Rejected->value)
+            ->setParameter('day', $day, 'date_immutable')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return null === $latest ? null : new \DateTimeImmutable((string) $latest);
+    }
+
+    /**
      * The rejected lines of an account, with the leg each one points at
      * loaded in the same query. Either side of a pair may be what is found
      * here, so the caller folds the two legs into one incident.

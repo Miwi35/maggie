@@ -260,7 +260,7 @@ test.describe('Filing the history', () => {
 
     const { actor, observer } = twoWindows
     const accounts = new FinanceAccountsPage(observer)
-    await openSubscribed(observer, () => accounts.openTransactions(checkingId))
+    await openSubscribed(observer, () => accounts.openTransactions(checkingId, { back: 1 }))
     for (const label of labels) {
       await expect(accounts.row(label), 'still to file').toBeVisible()
       await expect(accounts.row(label)).not.toContainText(category)

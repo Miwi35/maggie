@@ -38,6 +38,7 @@ executionOrder:
     - 13-finance-rejections
     - 13-finance-to-control
     - 13-finance-budget-nesting
+    - 13-finance-accounts-swipe
     - 16-finance-budget-split
     - 16-finance-budget-adjust
     - 14-rotation

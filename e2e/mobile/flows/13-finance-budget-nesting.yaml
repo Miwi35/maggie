@@ -107,6 +107,13 @@ tags:
     visible: "EUR · Compte MAG-412"
     timeout: 20000
 - tapOn: "EUR · Compte MAG-412"
+# The accounts are a pager now (MAG-422): the dot moves to the account, whose page opens on its
+# days; the full list of lines (and its sheet) is one button away.
+- extendedWaitUntil:
+    visible: "Compte MAG-412"
+    timeout: 20000
+- tapOn:
+    id: "account_all_transactions"
 - extendedWaitUntil:
     visible: "BILLET HELLFEST MAG-414"
     timeout: 30000

@@ -15,6 +15,10 @@ export class FinanceAccountsPage extends AdminShell {
   readonly createAccount: Locator
   /** "Ajouter une transaction", only on the account-scoped list. */
   readonly addTransaction: Locator
+  /** « Mois précédent », under the timeline: it loads the month of the latest earlier line (MAG-422). */
+  readonly previousMonth: Locator
+  /** The account selector at the top of the transactions view. */
+  readonly accountSelect: Locator
 
   constructor(page: Page) {
     super(page)
@@ -25,6 +29,8 @@ export class FinanceAccountsPage extends AdminShell {
     // button either way.
     this.createAccount = this.content.getByRole('link', { name: /Créer|Ajouter un compte/ })
     this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une transaction' })
+    this.previousMonth = this.content.getByRole('button', { name: 'Mois précédent' })
+    this.accountSelect = this.content.getByRole('combobox', { name: 'Compte' })
   }
 
   /**
@@ -45,26 +51,49 @@ export class FinanceAccountsPage extends AdminShell {
   }
 
   /**
-   * The transactions of one account, by its bare ULID.
+   * The transactions of one account, by its bare ULID — its **current month**,
+   * day by day (MAG-422).
    *
-   * The wait allows for both outcomes. The collection is served from
-   * Elasticsearch, and a react-admin list with an `empty` renders *only* that
-   * — toolbar included — so an account whose first transaction is not indexed
-   * yet legitimately shows the invitation rather than a grid.
+   * `back` pages back with « Mois précédent » that many times, for a journey
+   * whose lines are booked in an earlier month. Each click adds the month of
+   * the latest earlier line below the ones already shown; it stops early when
+   * there is nothing earlier left.
+   *
+   * The wait allows for both outcomes: a month with nothing in it shows an
+   * invitation (« Aucune transaction sur ce compte », or « … ce mois-ci » when
+   * an earlier month holds lines) rather than a table.
    */
-  async openTransactions(accountId: string): Promise<void> {
+  async openTransactions(accountId: string, options: { back?: number } = {}): Promise<void> {
     await this.goto(accountTransactionsRoute(accountId))
     await expect(
       this.content
         .getByRole('table')
-        .or(this.content.getByText('Aucune transaction sur ce compte')),
+        .or(this.content.getByText(/^Aucune transaction (sur ce compte|ce mois-ci)$/)),
     ).toBeVisible()
+    await this.pageBack(options.back ?? 0)
+  }
+
+  /** Loads `months` earlier months, one click each, waiting for each to be drawn. */
+  async pageBack(months: number): Promise<void> {
+    const shown = this.content.locator('[data-month]')
+    for (let loaded = 0; loaded < months; loaded++) {
+      if ((await this.previousMonth.count()) === 0) return
+      const before = await shown.count()
+      await this.previousMonth.click()
+      await expect(shown).toHaveCount(before + 1)
+    }
+  }
+
+  /** Switches to another of the owner's accounts from the selector; matches by part of its label. */
+  async chooseAccount(name: string): Promise<void> {
+    await this.accountSelect.click()
+    await this.page.getByRole('option', { name }).click()
   }
 
   /**
-   * One row of whichever datagrid is on screen, addressed by its text.
+   * One row of the timeline (or of the Incidents table) on screen, addressed by its text.
    *
-   * `row` rather than a cell lookup: both grids put the amount in a `<span>`
+   * `row` rather than a cell lookup: both tables put the amount in a `<span>`
    * of its own, so asserting "this line shows that amount" means filtering the
    * row and reading inside it.
    */
