@@ -334,21 +334,41 @@ final class TaskReminders
         return $reminder;
     }
 
-    /** « Demain », as the evening does it (MAG-500): at the end of tomorrow's five, which stays a proposal. */
+    /**
+     * « Demain », as the evening does it (MAG-500): at the end of tomorrow's
+     * five, which stays a proposal. Pressed during the day, the task also
+     * leaves today's five, or it would stay « now » and be nudged again.
+     */
     private function putInTomorrow(User $user, Task $task): void
     {
-        $plan = $this->dayPlans->forDate($user, $this->overdue->today($user)->modify('+1 day'));
+        $today = $this->overdue->today($user);
         $taskId = (string) $task->getId();
-        if (\in_array($taskId, $plan->getTaskIds(), true)) {
-            return;
-        }
-        if (\count($plan->getSlots()) >= DayPlan::MAX_SLOTS) {
-            throw new \DomainException(\sprintf('Tomorrow already holds %d tasks.', DayPlan::MAX_SLOTS));
+
+        $tomorrow = $this->dayPlans->forDate($user, $today->modify('+1 day'));
+        if (!\in_array($taskId, $tomorrow->getTaskIds(), true)) {
+            if (\count($tomorrow->getSlots()) >= DayPlan::MAX_SLOTS) {
+                throw new \DomainException(\sprintf('Tomorrow already holds %d tasks.', DayPlan::MAX_SLOTS));
+            }
+            $this->setSlots($user, $tomorrow, [...self::slotsOf($tomorrow), ['type' => DayPlan::TYPE_TASK, 'taskId' => $taskId]]);
         }
 
-        $slots = array_map(static fn (array $slot): array => ['type' => $slot['type'], 'taskId' => $slot['taskId']], $plan->getSlots());
-        $slots[] = ['type' => DayPlan::TYPE_TASK, 'taskId' => $taskId];
+        $todayPlan = $this->dayPlanRepository->findOneByUserAndDate($user, $today);
+        if (null !== $todayPlan && \in_array($taskId, $todayPlan->getTaskIds(), true)) {
+            $this->setSlots($user, $todayPlan, array_values(array_filter(self::slotsOf($todayPlan), static fn (array $slot): bool => $slot['taskId'] !== $taskId)));
+        }
+    }
+
+    /** @return list<array{type: string, taskId: string}> */
+    private static function slotsOf(DayPlan $plan): array
+    {
+        return array_map(static fn (array $slot): array => ['type' => $slot['type'], 'taskId' => $slot['taskId']], $plan->getSlots());
+    }
+
+    /** @param list<array{type: string, taskId: string}> $slots */
+    private function setSlots(User $user, DayPlan $plan, array $slots): void
+    {
         try {
+            // Written without settling the day: tomorrow stays a proposal, today is already settled.
             $this->bus->dispatch(new SetDayPlanCommand((string) $user->getId(), (string) $plan->getId(), $slots, confirm: false));
         } catch (HandlerFailedException $e) {
             // A day refused by its own rules is the caller's to read; anything else is ours.

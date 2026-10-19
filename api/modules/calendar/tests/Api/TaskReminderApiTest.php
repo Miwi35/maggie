@@ -307,6 +307,9 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertInstanceOf(DayPlan::class, $plan);
         self::assertSame([$this->id('garagiste')], $plan->getTaskIds());
         self::assertNull($plan->getConfirmedAt(), 'tomorrow stays a proposal');
+        $today = $this->em()->getRepository(DayPlan::class)->findOneBy(['user' => $this->getFixture('test_user')->getId(), 'date' => new \DateTimeImmutable(self::TODAY)]);
+        self::assertSame([], $today?->getTaskIds(), 'it leaves today\'s five, or it would be nudged again after lunch');
+        self::assertNotNull($today->getConfirmedAt());
         $notification = $this->onlyReminder()->getNotification();
         self::assertNotNull($notification?->getReadAt());
         self::assertSame([], $notification?->getActions());
