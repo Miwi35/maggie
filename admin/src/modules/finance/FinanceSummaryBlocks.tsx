@@ -13,6 +13,7 @@ import { useMonthlyReview } from './useMonthlyReview'
 import { useRecurringOverview } from './useRecurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
 import { useTransactionsToSort } from './useTransactionsToSort'
+import { useRecognisedToControl } from './useRecognisedToControl'
 import { useTreasuryOutlook } from './useTreasuryOutlook'
 
 /** The month a block reads: the current one, as the dashboard opens on. */
@@ -87,6 +88,21 @@ const ToSortBlock = () => {
     </>
   ) : (
     <Hint>Rien à qualifier.</Hint>
+  )
+}
+
+const ToControlBlock = () => {
+  const { review, loading } = useRecognisedToControl()
+
+  if (!review) return <Unavailable loading={loading} />
+
+  return review.total > 0 ? (
+    <>
+      <Figure>{count(review.total, 'transaction')}</Figure>
+      <Hint warn>reconnues, à contrôler</Hint>
+    </>
+  ) : (
+    <Hint>Rien à contrôler.</Hint>
   )
 }
 
@@ -253,6 +269,7 @@ export const SUMMARY_BLOCKS: Record<string, ComponentType> = {
   import: ImportBlock,
   contacts: ContactsBlock,
   'to-sort': ToSortBlock,
+  'to-control': ToControlBlock,
   'monthly-review': MonthlyReviewBlock,
   rules: RulesBlock,
   recurring: RecurringBlock,

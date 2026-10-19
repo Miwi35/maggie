@@ -66,6 +66,7 @@ describe('the seven Finance menus', () => {
         '/finance/peer-debts',
         '/finance/recurring-operations',
         '/finance/savings-advances',
+        '/finance/to-control',
         '/finance/to-sort',
         '/finance/treasury',
         '/loans',
