@@ -38,13 +38,12 @@ tags:
 
 - openLink: "maggie-e2e://finance"
 
+# The pill's box enters the screen while the list still clips it, its label not drawn yet: scroll
+# to the label, which only exists once the pill is on screen.
 - scrollUntilVisible:
     element:
-      id: "finance_pill_owed"
+      text: "Tu dois 80[.,]00 EUR"
     timeout: 30000
-- extendedWaitUntil:
-    visible: "Tu dois 80[.,]00 EUR"
-    timeout: 10000
 - tapOn:
     id: "finance_pill_owed"
 
