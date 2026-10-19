@@ -335,6 +335,16 @@ web:
     areas: [dashboard, finance, settings, design]
   e2e/web/tests/notifications-bell.spec.ts:
     areas: [notification, realtime]
+    # The buttons of a task reminder (MAG-510): the reminders live in the calendar module.
+    paths:
+      - api/fixtures/e2e/26-task-reminders.yaml
+      - api/modules/calendar/src/Entity/TaskReminder.php
+      - api/modules/calendar/src/Enum/DayMoment.php
+      - api/modules/calendar/src/Controller/TaskReminderController.php
+      - api/modules/calendar/src/Repository/TaskReminderRepository.php
+      - api/modules/calendar/src/Service/{TaskReminders,ReminderMessages}.php
+      - api/modules/calendar/src/Message/AnswerTaskReminderCommand.php
+      - api/modules/calendar/src/MessageHandler/AnswerTaskReminderHandler.php
   e2e/web/tests/mercure.spec.ts:
     areas: [realtime, grocery, calendar, settings]
   e2e/web/tests/live-lists.spec.ts:

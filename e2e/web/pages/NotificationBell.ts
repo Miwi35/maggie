@@ -36,6 +36,11 @@ export class NotificationBell extends AdminShell {
     return this.popover.getByRole('listitem').filter({ hasText: title })
   }
 
+  /** A button under a task reminder (MAG-510): « Je m'y mets », « Dans 10 min », « Ce soir », « Fait », « Demain ». */
+  action(title: string, label: string): Locator {
+    return this.row(title).getByRole('button', { name: label, exact: true })
+  }
+
   async delete(title: string): Promise<void> {
     await this.row(title).getByRole('button', { name: 'Supprimer' }).click()
   }

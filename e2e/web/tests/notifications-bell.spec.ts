@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed } from '../helpers/mercure.js'
@@ -106,4 +106,71 @@ test('the bell deletes one notification, then empties itself after a confirmatio
   await page.reload()
   await bell.open()
   await expect(bell.popover.getByText('Aucune notification')).toBeVisible()
+})
+
+/**
+ * The buttons of a task reminder (MAG-510, extends MAG-103).
+ *
+ * The producer is the cron, which no browser can run: the nudge is seeded as
+ * sent this morning on the task « now » of a confirmed day
+ * (`api/fixtures/e2e/26-task-reminders.yaml`), and the smoke journey's step 11c
+ * (`e2e/smoke/smoke.sh`) proves the cron sends it and says nothing more on the
+ * next tick. What only the bell can prove is here: the buttons in the words of
+ * the phone, and « Dans 10 min » putting it off.
+ *
+ * On an account of its own (`e2e-reminders@maggie.local`): the answer deletes
+ * the notification, which the neighbours' unread counts would see go. A
+ * reminder is answered once, so a retry, or a second run on the same stack,
+ * finds nothing to press — reseed first, and no retry.
+ */
+test.describe('a task reminder', () => {
+  test.describe.configure({ retries: 0 })
+
+  const title = 'Suivante : « Appeler le garagiste ».'
+
+  test('the bell shows a nudge with « Je m\'y mets », « Dans 10 min », « Ce soir »; « Dans 10 min » takes it away and plans it again 10 minutes later', async ({
+    remindersUser,
+  }) => {
+    const { page } = remindersUser
+    const bell = new NotificationBell(page)
+
+    // Given the nudge on « Appeler le garagiste », with its first step…
+    await openSubscribed(page, () => bell.goto('/'))
+    await bell.expectUnreadCount(1, LIVE)
+    await bell.open()
+    await expect(bell.item(title)).toBeVisible()
+    await expect(bell.item(title)).toContainText('Premier pas : Trouver le numéro')
+    await expect(bell.row(title).getByRole('button', { name: /^(Je m'y mets|Dans 10 min|Ce soir|Fait|Demain)$/ })).toHaveText([
+      "Je m'y mets",
+      'Dans 10 min',
+      'Ce soir',
+    ])
+
+    // When « Dans 10 min »…
+    const answered = page.waitForResponse(
+      (response) => /\/api\/task-reminders\/[^/]+\/action$/.test(response.url()) && response.request().method() === 'POST',
+    )
+    const before = e2eNow().getTime()
+    await bell.action(title, 'Dans 10 min').click()
+    const response = await answered
+    expect(response.ok(), `POST …/action answered ${response.status()}`).toBe(true)
+
+    // …then it leaves the bell…
+    await expect(bell.item(title)).toHaveCount(0, { timeout: LIVE })
+    await bell.expectUnreadCount(0, LIVE)
+
+    // …and the API holds a reminder put off by the user, 10 minutes after the answer — the
+    // stack's clock barely moves (e2e/clock.sh), so within a minute of it.
+    const body = (await response.json()) as {
+      reminder: { action: string | null }
+      next: { kind: string; snoozed: boolean; scheduledFor: string; sentAt: string | null } | null
+      notification: unknown
+    }
+    expect(body.reminder.action).toBe('in10')
+    expect(body.notification).toBeNull()
+    expect(body.next).toMatchObject({ kind: 'nudge', snoozed: true, sentAt: null })
+    const delay = Date.parse(body.next?.scheduledFor ?? '') - before
+    expect(delay).toBeGreaterThanOrEqual(599_000)
+    expect(delay).toBeLessThan(660_000)
+  })
 })
