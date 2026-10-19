@@ -8,6 +8,7 @@ import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.SalaryDelay
 import com.maggie.app.data.model.SavingsAdvance
 import com.maggie.app.data.model.SavingsAdvances
+import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
@@ -173,6 +174,27 @@ class FinanceSummaryViewModelTest {
         val state = viewModel.blocks.value[SummaryBlock.TO_SORT] as BlockState.Ready
         assertEquals(listOf("4 transactions à qualifier"), state.lines)
         assertTrue(state.needsAttention)
+    }
+
+    @Test
+    fun `the to-control block counts the recognised lines of the month and asks for attention while any is left`() = runTest {
+        coEvery { transactions.getRecognisedToControl("2026-10") } returns Result.success(RecognisedToControl(month = "2026-10", total = 6))
+        val viewModel = buildViewModel()
+
+        viewModel.load(listOf(SummaryBlock.TO_CONTROL))
+        advanceUntilIdle()
+
+        val state = viewModel.blocks.value[SummaryBlock.TO_CONTROL] as BlockState.Ready
+        assertEquals(listOf("6 reconnues à contrôler"), state.lines)
+        assertTrue(state.needsAttention)
+    }
+
+    @Test
+    fun `nothing left to control says so without asking for attention`() {
+        val state = toControlBlock(RecognisedToControl(total = 0)) as BlockState.Ready
+
+        assertEquals(listOf("Rien à contrôler"), state.lines)
+        assertFalse(state.needsAttention)
     }
 
     @Test

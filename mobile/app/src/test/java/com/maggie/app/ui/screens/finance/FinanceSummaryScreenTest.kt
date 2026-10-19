@@ -117,7 +117,7 @@ class FinanceSummaryScreenTest {
     @Test
     fun `each page lists the screens that exist and nothing else`() {
         assertEquals(
-            listOf(Screen.TransactionsToSort.route, Screen.MonthlyReview.route, Screen.CategorizationRuleList.route, Screen.RecurringOperations.route),
+            listOf(Screen.TransactionsToSort.route, Screen.RecognisedToControl.route, Screen.MonthlyReview.route, Screen.CategorizationRuleList.route, Screen.RecurringOperations.route),
             summaryEntries(FinanceMenu.REVIEW).map { it.route },
         )
         assertEquals(
