@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { MenuItemLink, useSidebarState } from 'react-admin'
+import { useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -35,20 +36,23 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import InsightsIcon from '@mui/icons-material/Insights'
 import SavingsIcon from '@mui/icons-material/Savings'
-import ShieldIcon from '@mui/icons-material/Shield'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
-import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
-import RuleIcon from '@mui/icons-material/Rule'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
-import UploadFileIcon from '@mui/icons-material/UploadFile'
-import EventRepeatIcon from '@mui/icons-material/EventRepeat'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
-import PeopleIcon from '@mui/icons-material/People'
 import { ModuleIcon } from './ModuleIcon'
 import type { ModuleName } from '../../theme'
 import { useAgentName } from '../../hooks/useAgentName'
+import { FINANCE_MENUS, financeMenuOf } from './navigation'
+
+const FINANCE_MENU_ICONS: Record<string, ReactElement> = {
+  dashboard: <InsightsIcon />,
+  accounts: <AccountBalanceIcon />,
+  review: <FactCheckIcon />,
+  budget: <SavingsIcon />,
+  treasury: <ShowChartIcon />,
+  planning: <CreditScoreIcon />,
+  settings: <TuneIcon />,
+}
 
 const tinted = (module: ModuleName, icon: ReactElement) => <ModuleIcon module={module}>{icon}</ModuleIcon>
 
@@ -62,6 +66,8 @@ export const CustomMenu = () => {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [open] = useSidebarState()
   const agentName = useAgentName()
+  const { pathname } = useLocation()
+  const activeFinanceMenu = financeMenuOf(pathname)
 
   return (
     <Box sx={{ mt: 1 }}>
@@ -163,96 +169,16 @@ export const CustomMenu = () => {
 
           <Collapse in={financeOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
-              <MenuItemLink
-                to="/finance/dashboard"
-                primaryText="Vue d'ensemble"
-                leftIcon={tinted('comptes', <InsightsIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/banks"
-                primaryText="Banques"
-                leftIcon={tinted('comptes', <AccountBalanceOutlinedIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/import"
-                primaryText="Import de relevé"
-                leftIcon={tinted('comptes', <UploadFileIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/accounts"
-                primaryText="Comptes"
-                leftIcon={tinted('comptes', <AccountBalanceIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/contacts"
-                primaryText="Contacts"
-                leftIcon={tinted('comptes', <PeopleIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/to-sort"
-                primaryText="À qualifier"
-                leftIcon={tinted('comptes', <RuleIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/to-control"
-                primaryText="Reconnues à contrôler"
-                leftIcon={tinted('comptes', <PlaylistAddCheckIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/categories"
-                primaryText="Catégories"
-                leftIcon={tinted('comptes', <CategoryIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/envelopes"
-                primaryText="Budgets"
-                leftIcon={tinted('comptes', <SavingsIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/treasury"
-                primaryText="Trésorerie"
-                leftIcon={tinted('comptes', <ShowChartIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/cushion"
-                primaryText="Matelas"
-                leftIcon={tinted('comptes', <ShieldIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/savings-advances"
-                primaryText="Avances d'épargne"
-                leftIcon={tinted('comptes', <SwapHorizIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/loans"
-                primaryText="Prêts"
-                leftIcon={tinted('comptes', <CreditScoreIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/recurring-operations"
-                primaryText="Opérations récurrentes"
-                leftIcon={tinted('comptes', <EventRepeatIcon />)}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/finance/monthly-review"
-                primaryText="Revue mensuelle"
-                leftIcon={tinted('comptes', <FactCheckIcon />)}
-                sx={{ pl: 4 }}
-              />
+              {FINANCE_MENUS.map((menu) => (
+                <MenuItemLink
+                  key={menu.key}
+                  to={menu.path}
+                  primaryText={menu.label}
+                  leftIcon={tinted('comptes', FINANCE_MENU_ICONS[menu.key])}
+                  selected={activeFinanceMenu === menu.key}
+                  sx={{ pl: 4 }}
+                />
+              ))}
             </List>
           </Collapse>
 
