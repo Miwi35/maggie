@@ -28,6 +28,14 @@ export interface UrgencySchedule {
 export const TONES = ['doux', 'direct', 'drole'] as const
 export type Tone = (typeof TONES)[number]
 
+/** The moments of the day the reminders are anchored to (MAG-510), each `HH:MM`. */
+export const DAY_MOMENTS = ['wake', 'afterBreakfast', 'afterLunch', 'afterDinner'] as const
+export type DayMoment = (typeof DAY_MOMENTS)[number]
+
+/** How many reminders a day, at most (MAG-510). */
+export const REMINDER_CAP_MIN = 1
+export const REMINDER_CAP_MAX = 12
+
 export interface SettingsValues {
   orderWeights: Record<string, Record<string, number>>
   orderLevels: Record<LevelGroup, number>
@@ -40,6 +48,11 @@ export interface SettingsValues {
   rewardVibration: boolean
   rewardSound: boolean
   tone: Tone
+  /** When the reminders come, and when they never do (MAG-510). */
+  dayMoments: Record<DayMoment, string>
+  reminderDailyCap: number
+  quietStart: string
+  quietEnd: string
 }
 
 export interface TaskSettingsResponse extends SettingsValues {
@@ -57,6 +70,11 @@ export interface SettingsPatch {
   rewardVibration?: boolean
   rewardSound?: boolean
   tone?: Tone
+  /** Merged by the API: one moment may be sent alone. */
+  dayMoments?: Partial<Record<DayMoment, string>>
+  reminderDailyCap?: number
+  quietStart?: string
+  quietEnd?: string
 }
 
 export const SAVE_ERROR = "Impossible d'enregistrer les réglages des tâches"

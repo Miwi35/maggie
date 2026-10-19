@@ -4,15 +4,18 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
 import { urgencyColor } from '../../design/tokens'
-import { TONES, URGENCIES, useTaskSettings } from './taskSettingsApi'
-import type { SettingsPatch, TaskSettingsResponse, Tone, Urgency, UrgencySchedule } from './taskSettingsApi'
+import { DAY_MOMENTS, REMINDER_CAP_MAX, REMINDER_CAP_MIN, TONES, URGENCIES, useTaskSettings } from './taskSettingsApi'
+import type { DayMoment, SettingsPatch, TaskSettingsResponse, Tone, Urgency, UrgencySchedule } from './taskSettingsApi'
 import { DefaultsButton, TaskSettingsFrame } from './TaskSettingsParts'
 
 /**
@@ -51,6 +54,13 @@ const REWARD_TOGGLES: [RewardToggle, string][] = [
   ['rewardVibration', 'Vibration'],
   ['rewardSound', 'Son'],
 ]
+
+const MOMENT_LABELS: Record<DayMoment, string> = {
+  wake: 'Réveil',
+  afterBreakfast: 'Après le petit-déjeuner',
+  afterLunch: 'Après le déjeuner',
+  afterDinner: 'Après le dîner',
+}
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -99,14 +109,15 @@ const DayChip = ({
  * way to 07:30), so saving on change would send every step. A value that is
  * not a time goes back to the saved one.
  */
-const TimeField = ({
+const TimeInput = ({
   id,
-  label,
+  name,
   saved,
   onSave,
 }: {
-  id: string
-  label: string
+  id?: string
+  /** The accessible name, when no visible label points at the field. */
+  name?: string
   saved: string
   onSave: (time: string) => void
 }) => {
@@ -118,24 +129,41 @@ const TimeField = ({
   }
 
   return (
-    <Stack direction="row" alignItems="center" spacing={2}>
-      <Typography component="label" htmlFor={id} variant="subtitle1" sx={{ minWidth: 130 }}>
-        {label}
-      </Typography>
-      <TextField
-        id={id}
-        type="time"
-        size="small"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit()
-        }}
-      />
-    </Stack>
+    <TextField
+      id={id}
+      type="time"
+      size="small"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+      }}
+      slotProps={name ? { htmlInput: { 'aria-label': name } } : undefined}
+    />
   )
 }
+
+const TimeField = ({
+  id,
+  label,
+  saved,
+  onSave,
+  labelWidth = 130,
+}: {
+  id: string
+  label: string
+  saved: string
+  onSave: (time: string) => void
+  labelWidth?: number
+}) => (
+  <Stack direction="row" alignItems="center" spacing={2}>
+    <Typography component="label" htmlFor={id} variant="subtitle1" sx={{ minWidth: labelWidth }}>
+      {label}
+    </Typography>
+    <TimeInput id={id} saved={saved} onSave={onSave} />
+  </Stack>
+)
 
 const UrgencyBlock = ({
   urgency,
@@ -223,51 +251,134 @@ const UrgencyBlock = ({
   )
 }
 
-/** « Rappels et récompenses »: the bravo of a task done, and the tone of the words (MAG-508). */
+/** « Au plus, par jour »: − and + around the number, and as many dots lit out of twelve. */
+const CapStepper = ({ cap, onChange }: { cap: number; onChange: (cap: number) => void }) => (
+  <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap" useFlexGap>
+    <Typography id="task-settings-cap" variant="body2" sx={{ minWidth: 200 }}>
+      Au plus, par jour
+    </Typography>
+    <Stack direction="row" alignItems="center" spacing={1} role="group" aria-labelledby="task-settings-cap">
+      <IconButton
+        size="small"
+        aria-label="Moins"
+        disabled={cap <= REMINDER_CAP_MIN}
+        onClick={() => onChange(cap - 1)}
+      >
+        <RemoveIcon fontSize="small" />
+      </IconButton>
+      <Typography variant="subtitle1" fontWeight={600} sx={{ minWidth: 24, textAlign: 'center' }}>
+        {cap}
+      </Typography>
+      <IconButton size="small" aria-label="Plus" disabled={cap >= REMINDER_CAP_MAX} onClick={() => onChange(cap + 1)}>
+        <AddIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+    <Stack direction="row" spacing={0.5} aria-hidden>
+      {Array.from({ length: REMINDER_CAP_MAX }, (_, i) => (
+        <Box
+          key={i}
+          sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: i < cap ? 'primary.main' : 'action.disabled' }}
+        />
+      ))}
+    </Stack>
+  </Stack>
+)
+
+/**
+ * « Rappels et récompenses »: the bravo of a task done, the tone of the words
+ * (MAG-508), and when the reminders come — how many, never in the quiet hours,
+ * anchored to the moments of the day (MAG-510).
+ */
 const RewardBlock = ({
   settings,
   onChange,
 }: {
   settings: TaskSettingsResponse
-  onChange: (patch: Pick<SettingsPatch, RewardToggle | 'tone'>) => void
-}) => (
-  <Card variant="outlined" component="section" aria-labelledby="task-settings-rewards">
-    <CardContent>
-      <Typography id="task-settings-rewards" variant="subtitle1" component="h2" fontWeight={600} mb={1}>
-        Rappels et récompenses
-      </Typography>
-      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-        {REWARD_TOGGLES.map(([field, label]) => (
-          <FormControlLabel
-            key={field}
-            control={<Switch checked={settings[field]} onChange={(e) => onChange({ [field]: e.target.checked })} />}
-            label={label}
-          />
-        ))}
-      </Stack>
-      <Stack direction="row" alignItems="center" spacing={2} mt={2}>
-        <Typography variant="body2" sx={{ minWidth: 60 }}>
-          Ton
+  onChange: (patch: SettingsPatch, change: (s: TaskSettingsResponse) => TaskSettingsResponse) => void
+}) => {
+  const set = (patch: Pick<SettingsPatch, RewardToggle | 'tone' | 'reminderDailyCap' | 'quietStart' | 'quietEnd'>) =>
+    onChange(patch, (s) => ({ ...s, ...patch }))
+  const setMoment = (moment: DayMoment, time: string) =>
+    onChange({ dayMoments: { [moment]: time } }, (s) => ({ ...s, dayMoments: { ...s.dayMoments, [moment]: time } }))
+
+  return (
+    <Card variant="outlined" component="section" aria-labelledby="task-settings-rewards">
+      <CardContent>
+        <Typography id="task-settings-rewards" variant="subtitle1" component="h2" fontWeight={600} mb={1}>
+          Rappels et récompenses
         </Typography>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={settings.tone}
-          aria-label="Ton"
-          onChange={(_, tone: Tone | null) => {
-            if (tone) onChange({ tone })
-          }}
-        >
-          {TONES.map((tone) => (
-            <ToggleButton key={tone} value={tone}>
-              {TONE_LABELS[tone]}
-            </ToggleButton>
+        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+          {REWARD_TOGGLES.map(([field, label]) => (
+            <FormControlLabel
+              key={field}
+              control={<Switch checked={settings[field]} onChange={(e) => set({ [field]: e.target.checked })} />}
+              label={label}
+            />
           ))}
-        </ToggleButtonGroup>
-      </Stack>
-    </CardContent>
-  </Card>
-)
+        </Stack>
+        <Stack direction="row" alignItems="center" spacing={2} mt={2}>
+          <Typography variant="body2" sx={{ minWidth: 60 }}>
+            Ton
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={settings.tone}
+            aria-label="Ton"
+            onChange={(_, tone: Tone | null) => {
+              if (tone) set({ tone })
+            }}
+          >
+            {TONES.map((tone) => (
+              <ToggleButton key={tone} value={tone}>
+                {TONE_LABELS[tone]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
+
+        <Stack spacing={2} mt={3}>
+          <CapStepper cap={settings.reminderDailyCap} onChange={(reminderDailyCap) => set({ reminderDailyCap })} />
+
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+            <Typography variant="body2" sx={{ minWidth: 200 }}>
+              Calme
+            </Typography>
+            <TimeInput
+              key={`quiet-start-${settings.quietStart}`}
+              name="Calme de"
+              saved={settings.quietStart}
+              onSave={(quietStart) => set({ quietStart })}
+            />
+            <Typography variant="body2" aria-hidden>
+              –
+            </Typography>
+            <TimeInput
+              key={`quiet-end-${settings.quietEnd}`}
+              name="Calme jusqu'à"
+              saved={settings.quietEnd}
+              onSave={(quietEnd) => set({ quietEnd })}
+            />
+          </Stack>
+
+          <Typography variant="body2" component="h3" fontWeight={600}>
+            Mes moments
+          </Typography>
+          {DAY_MOMENTS.map((moment) => (
+            <TimeField
+              key={`${moment}-${settings.dayMoments[moment]}`}
+              id={`task-settings-moment-${moment}`}
+              label={MOMENT_LABELS[moment]}
+              labelWidth={200}
+              saved={settings.dayMoments[moment]}
+              onSave={(time) => setMoment(moment, time)}
+            />
+          ))}
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
 
 export const TaskSettings = () => {
   const { settings, loadFailed, saved, save } = useTaskSettings()
@@ -300,9 +411,9 @@ export const TaskSettings = () => {
             />
           ))}
 
-          <RewardBlock settings={settings} onChange={(patch) => save(patch, (s) => ({ ...s, ...patch }))} />
+          <RewardBlock settings={settings} onChange={save} />
 
-          {/* The rewards keep their switches: a sound turned off does not come back on with the alerts. */}
+          {/* The rewards and reminders keep theirs: a sound turned off, a quiet evening, do not come back with the alerts. */}
           <DefaultsButton
             onConfirm={() => {
               const { alertSchedule, morningTime, eveningTime } = settings.defaults

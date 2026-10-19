@@ -32,6 +32,25 @@ interface Notification {
   relatedEntityIri: string | null
   readAt: string | null
   createdAt: string
+  /** A task reminder's (MAG-510): what its buttons answer, `[]` once answered. */
+  reminderId?: string | null
+  actions?: string[]
+}
+
+/** The answers a task reminder offers, in the words of the push on the phone (MAG-510). */
+const ACTION_LABELS: Record<string, string> = {
+  start: "Je m'y mets",
+  in10: 'Dans 10 min',
+  tonight: 'Ce soir',
+  done: 'Fait',
+  tomorrow: 'Demain',
+}
+
+const ANSWER_ERROR = 'Impossible de répondre au rappel.'
+
+/** `POST /api/task-reminders/{id}/action`: the notification as it stands after the answer, if it stays. */
+interface ActionResult {
+  notification: { title: string; body: string | null; actions: string[] } | null
 }
 
 /** What Mercure last told us about each notification, by IRI; `null` is a deletion. */
@@ -61,6 +80,7 @@ export const NotificationBell = () => {
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [answering, setAnswering] = useState<string | null>(null)
   const dataProvider = useDataProvider()
   const redirect = useRedirect()
 
@@ -205,6 +225,56 @@ export const NotificationBell = () => {
     }
   }, [apply, notifications])
 
+  // « Dans 10 min » and « Ce soir » delete the notification (a new one comes back
+  // later); the other answers keep it, read, with the words the API gives it.
+  const handleAction = useCallback(
+    async (notification: Notification, action: string) => {
+      if (!notification.reminderId) return
+      setAnswering(notification.id)
+      setError(null)
+      try {
+        const token = getToken()
+        const response = await fetch(`/api/task-reminders/${encodeURIComponent(notification.reminderId)}/action`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ action }),
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok) {
+          setError(response.status === 409 && typeof body?.error === 'string' ? body.error : ANSWER_ERROR)
+          return
+        }
+        const kept = (body as ActionResult | null)?.notification
+        if (action === 'in10' || action === 'tonight' || !kept) {
+          apply({ '@id': notification.id, deleted: true })
+        } else {
+          apply({
+            '@id': notification.id,
+            title: kept.title,
+            body: kept.body,
+            actions: kept.actions,
+            readAt: notification.readAt ?? new Date().toISOString(),
+          })
+        }
+        // No Focus screen has a route of its own: « Je m'y mets » opens the task.
+        const link = action === 'start' ? notificationLink(notification.relatedEntityIri) : null
+        if (link) {
+          setAnchorEl(null)
+          redirect(link.path)
+        }
+      } catch {
+        setError(ANSWER_ERROR)
+      } finally {
+        setAnswering(null)
+      }
+    },
+    [apply, redirect],
+  )
+
   const open = Boolean(anchorEl)
 
   return (
@@ -271,6 +341,7 @@ export const NotificationBell = () => {
                 <ListItem
                   key={n.id}
                   disablePadding
+                  sx={{ flexDirection: 'column', alignItems: 'stretch' }}
                   secondaryAction={
                     <IconButton edge="end" size="small" aria-label="Supprimer" onClick={() => handleDelete(n)}>
                       <DeleteOutlineIcon fontSize="small" />
@@ -296,6 +367,36 @@ export const NotificationBell = () => {
                       secondaryTypographyProps={{ fontSize: 12 }}
                     />
                   </ListItemButton>
+                  {n.reminderId && n.actions && n.actions.length > 0 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 0.5,
+                        px: 2,
+                        pr: 7,
+                        pb: 1,
+                        bgcolor: n.readAt ? 'transparent' : 'action.hover',
+                        borderLeft: n.readAt ? 'none' : '3px solid',
+                        borderLeftColor: 'primary.main',
+                      }}
+                    >
+                      {n.actions.map((action) => (
+                        <Button
+                          key={action}
+                          size="small"
+                          variant={action === 'start' ? 'contained' : 'outlined'}
+                          disabled={answering === n.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAction(n, action)
+                          }}
+                        >
+                          {ACTION_LABELS[action] ?? action}
+                        </Button>
+                      ))}
+                    </Box>
+                  )}
                 </ListItem>
               ))}
             </List>

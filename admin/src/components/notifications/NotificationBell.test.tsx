@@ -277,3 +277,110 @@ describe('NotificationBell — deleting', () => {
     expect(screen.queryByRole('button', { name: 'Tout effacer' })).not.toBeInTheDocument()
   })
 })
+
+describe('NotificationBell — answering a task reminder (MAG-510)', () => {
+  const fetchMock = vi.fn()
+  const reminder = {
+    ...dentist,
+    id: iri('01K0NUDGE'),
+    type: 'task_nudge',
+    title: 'Appeler le garage, ça te prend 5 minutes',
+    relatedEntityIri: '/api/tasks/01K0TASK',
+    reminderId: '01K0REMIND',
+    actions: ['start', 'in10', 'tonight'],
+  }
+  const answer = (notification: unknown) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ reminder: {}, next: null, reward: null, notification }),
+  })
+  const posted = () => fetchMock.mock.calls.map(([url, init]) => [url, init?.method, JSON.parse(String(init?.body))])
+
+  beforeEach(() => {
+    refetch.mockReset()
+    redirect.mockReset()
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+    listed = [reminder, film]
+  })
+
+  test('shows its answers under the title, in the given order; a plain notification has none', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    const names = ["Je m'y mets", 'Dans 10 min', 'Ce soir']
+    for (const name of names) expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    const shown = screen.getAllByRole('button').map((b) => b.textContent ?? '')
+    expect(shown.filter((t) => names.includes(t))).toEqual(names)
+    expect(screen.queryByRole('button', { name: 'Fait' })).toBeNull()
+  })
+
+  test.each([
+    ["Je m'y mets", 'start'],
+    ['Dans 10 min', 'in10'],
+    ['Ce soir', 'tonight'],
+  ])('« %s » posts { action: %s } to the reminder', async (name, action) => {
+    fetchMock.mockResolvedValue(answer({ id: '01K0NUDGE', title: reminder.title, body: null, actions: [] }))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name }))
+
+    expect(posted()).toEqual([['/api/task-reminders/01K0REMIND/action', 'POST', { action }]])
+    // The button answers; it does not also open the notification.
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  test('« Dans 10 min » takes the notification out of the bell: it comes back later', async () => {
+    fetchMock.mockResolvedValue(answer(null))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dans 10 min' }))
+
+    expect(screen.queryByText(reminder.title)).toBeNull()
+    expect(screen.getByText('Votre film commence')).toBeInTheDocument()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  test('« Fait » shows the bravo in place of the reminder, read, with no buttons left', async () => {
+    listed = [{ ...reminder, actions: ['done', 'tomorrow'] }]
+    const bravo = "Étoile filante : celle-là patientait depuis 33 jours. C'est réglé."
+    fetchMock.mockResolvedValue(answer({ id: '01K0NUDGE', title: bravo, body: null, actions: [] }))
+    render(<NotificationBell />)
+    await openBell()
+    expect(unread()).toBe('1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fait' }))
+
+    expect(posted()).toEqual([['/api/task-reminders/01K0REMIND/action', 'POST', { action: 'done' }]])
+    expect(await screen.findByText(bravo)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fait' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Demain' })).toBeNull()
+    expect(unread()).toBe('')
+  })
+
+  test("« Je m'y mets » opens the task and closes the bell", async () => {
+    fetchMock.mockResolvedValue(answer({ id: '01K0NUDGE', title: reminder.title, body: null, actions: [] }))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: "Je m'y mets" }))
+
+    expect(redirect).toHaveBeenCalledExactlyOnceWith('/tasks/%2Fapi%2Ftasks%2F01K0TASK/show')
+    // Read: only the film is left unread.
+    expect(unread()).toBe('1')
+  })
+
+  test('a refused answer (409) says why and keeps the reminder as it was', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: 'Ce soir est déjà passé.' }) })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ce soir' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ce soir est déjà passé.')
+    expect(screen.getByText(reminder.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ce soir' })).toBeEnabled()
+  })
+})
