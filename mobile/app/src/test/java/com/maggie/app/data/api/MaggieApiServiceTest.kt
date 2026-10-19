@@ -1222,6 +1222,23 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `getTreasuryOutlook sends the horizon in months only when one is asked for`() = runBlocking {
+        val urls = mutableListOf<String>()
+        val service = MaggieApiService(
+            categoryClient { request ->
+                urls += request.url.toString()
+                outlookJson
+            },
+        )
+
+        service.getTreasuryOutlook()
+        service.getTreasuryOutlook(12)
+
+        assertTrue(urls[0].endsWith("/api/finance/treasury-outlook"))
+        assertTrue(urls[1].endsWith("/api/finance/treasury-outlook?months=12"))
+    }
+
+    @Test
     fun `an outlook not yet configured reads with its nulls`() = runBlocking {
         val service = MaggieApiService(
             categoryClient {

@@ -69,7 +69,8 @@ class GetTreasuryOutlookRecurringTest extends KernelTestCase
 
         self::assertTrue($outlook['overdraft']['isForecast']);
         self::assertSame('2026-10-29', $outlook['overdraft']['onDate']);
-        self::assertSame(-70000, $outlook['overdraft']['worstBalanceCents']);
+        // The rent comes back on 29 November, inside the window: the lowest point is the second one.
+        self::assertSame(-160000, $outlook['overdraft']['worstBalanceCents']);
 
         $day = $this->rowOn($outlook, '2026-10-29');
         self::assertSame(-70000, $day['balanceCents']);

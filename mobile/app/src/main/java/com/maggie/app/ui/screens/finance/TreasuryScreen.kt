@@ -3,8 +3,10 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,10 +41,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CUSHION_ADVANCE_WARNING
+import com.maggie.app.data.model.TREASURY_HORIZONS
 import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.TreasuryAdvice
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.movementRows
 import com.maggie.app.data.model.salaryDelayLabel
 import com.maggie.app.data.model.toPrefill
 import com.maggie.app.data.model.treasuryDate
@@ -124,7 +129,7 @@ fun TreasuryScreen(
                 SalaryDayCard(isSaving = uiState.isSaving, onSave = viewModel::saveSalaryDay)
             } else {
                 SalaryCard(outlook)
-                ProjectionCard(outlook)
+                ProjectionCard(outlook, uiState.months, viewModel::selectHorizon)
                 AdviceCard(outlook, onPrepareAdvance)
                 OverdraftLimitCard(
                     limitCents = outlook.overdraft.limitCents,
@@ -207,7 +212,44 @@ private fun SalaryCard(outlook: TreasuryOutlook) {
 }
 
 @Composable
-private fun ProjectionCard(outlook: TreasuryOutlook) {
+private fun PlannedMovements(outlook: TreasuryOutlook) {
+    val rows = outlook.movementRows()
+    if (rows.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Mouvements prévus", style = MaterialTheme.typography.titleSmall)
+        rows.forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "${treasuryDate(row.date)} · ${row.label}" + if (row.isRecurring) " (récurrent)" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(formatCents(row.amountCents), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HorizonPicker(months: Int?, onSelect: (Int?) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        TREASURY_HORIZONS.forEach { horizon ->
+            FilterChip(
+                selected = horizon.months == months,
+                onClick = { onSelect(horizon.months) },
+                label = { Text(horizon.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProjectionCard(outlook: TreasuryOutlook, months: Int?, onSelectHorizon: (Int?) -> Unit) {
     val overdraft = outlook.overdraft
     val onDate = overdraft.onDate
 
@@ -217,6 +259,7 @@ private fun ProjectionCard(outlook: TreasuryOutlook) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Solde projeté", style = MaterialTheme.typography.titleSmall)
+            HorizonPicker(months, onSelectHorizon)
 
             if (outlook.projection.isEmpty()) {
                 Text(
@@ -226,19 +269,16 @@ private fun ProjectionCard(outlook: TreasuryOutlook) {
                 )
             } else {
                 TreasuryChart(days = outlook.projection, limitCents = overdraft.limitCents)
+                Text("Entrées et sorties prévues, cumulées", style = MaterialTheme.typography.titleSmall)
+                TreasuryFlowsChart(days = outlook.projection)
             }
+
+            PlannedMovements(outlook)
 
             if (overdraft.isForecast && onDate != null) {
                 Text(
-                    text = "Découvert prévu le ${treasuryDate(onDate)} : ${formatCents(overdraft.worstBalanceCents)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            } else {
-                Text(
-                    text = "Aucun découvert prévu avant le salaire.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "Découvert prévu le ${treasuryDate(onDate)}",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }

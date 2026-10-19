@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface TreasuryMovement {
   id: string
@@ -7,11 +7,17 @@ export interface TreasuryMovement {
   status: string
   accountId: string
   accountName: string
+  /** `transaction` for a planned or committed line, `recurring` for the occurrence of a series. */
+  source: 'transaction' | 'recurring'
 }
 
 export interface TreasuryDay {
   date: string
   balanceCents: number
+  /** What came in since today, up to and including this day. */
+  cumulativeInflowCents: number
+  /** What went out since today, as a positive amount. */
+  cumulativeOutflowCents: number
   movements: TreasuryMovement[]
 }
 
@@ -35,7 +41,7 @@ export interface TreasuryAdvice {
   touchesCushion: boolean
 }
 
-/** What `GET /api/finance/treasury-outlook` answers (MAG-279): the treasury until the salary comes. */
+/** What `GET /api/finance/treasury-outlook` answers (MAG-279): the treasury over the horizon asked for (MAG-506). */
 export interface TreasuryOutlook {
   today: string
   salary: {
@@ -89,34 +95,51 @@ export const TREASURY_TOPICS = [
   '/api/recurring_operations/{id}',
 ]
 
-/** The treasury until the salary comes, and the two settings that shape it. */
-export function useTreasuryOutlook() {
+/** The horizons the owner can pick, in months; `null` is the API's default, the end of the next month. */
+export const TREASURY_HORIZONS: ReadonlyArray<{ months: number | null; label: string }> = [
+  { months: null, label: 'Fin du mois suivant' },
+  { months: 1, label: '1 mois' },
+  { months: 3, label: '3 mois' },
+  { months: 6, label: '6 mois' },
+  { months: 12, label: '1 an' },
+]
+
+/** The treasury over a horizon, and the two settings that shape it. */
+export function useTreasuryOutlook(months: number | null = null) {
   const [outlook, setOutlook] = useState<TreasuryOutlook | null>(null)
   const [settings, setSettings] = useState<TreasurySettingsState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const latest = useRef(0)
+
   const refresh = useCallback(async () => {
+    const mine = ++latest.current
     setLoading(true)
     try {
       const [outlookRes, settingsRes] = await Promise.all([
-        fetch('/api/finance/treasury-outlook', { headers: authHeaders() }),
+        fetch(months === null ? '/api/finance/treasury-outlook' : `/api/finance/treasury-outlook?months=${months}`, {
+          headers: authHeaders(),
+        }),
         fetch('/api/finance/treasury-settings', { headers: authHeaders() }),
       ])
       if (!outlookRes.ok || !settingsRes.ok) {
-        setError('La vue trésorerie est indisponible pour le moment.')
+        if (mine === latest.current) setError('La vue trésorerie est indisponible pour le moment.')
 
         return
       }
-      setOutlook((await outlookRes.json()) as TreasuryOutlook)
-      setSettings((await settingsRes.json()) as TreasurySettingsState)
+      const nextOutlook = (await outlookRes.json()) as TreasuryOutlook
+      const nextSettings = (await settingsRes.json()) as TreasurySettingsState
+      if (mine !== latest.current) return
+      setOutlook(nextOutlook)
+      setSettings(nextSettings)
       setError(null)
     } catch {
-      setError('La vue trésorerie est indisponible pour le moment.')
+      if (mine === latest.current) setError('La vue trésorerie est indisponible pour le moment.')
     } finally {
-      setLoading(false)
+      if (mine === latest.current) setLoading(false)
     }
-  }, [])
+  }, [months])
 
   const save = useCallback(
     async (change: TreasurySettingsChange): Promise<TreasurySaveResult> => {

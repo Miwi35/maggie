@@ -14,31 +14,43 @@
         {
             "date": "2026-04-30",
             "balanceCents": 123456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 0,
             "movements": []
         },
         {
             "date": "2026-05-01",
             "balanceCents": 123456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 0,
             "movements": []
         },
         {
             "date": "2026-05-02",
             "balanceCents": 123456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 0,
             "movements": []
         },
         {
             "date": "2026-05-03",
             "balanceCents": 123456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 0,
             "movements": []
         },
         {
             "date": "2026-05-04",
             "balanceCents": 123456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 0,
             "movements": []
         },
         {
             "date": "2026-05-05",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": [
                 {
                     "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -54,76 +66,106 @@
         {
             "date": "2026-05-06",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-07",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-08",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-09",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-10",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-11",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-12",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-13",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-14",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-15",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-16",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-17",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-18",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-19",
             "balanceCents": 33456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 90000,
             "movements": []
         },
         {
             "date": "2026-05-20",
             "balanceCents": 30456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 93000,
             "movements": [
                 {
                     "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -139,21 +181,88 @@
         {
             "date": "2026-05-21",
             "balanceCents": 30456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 93000,
             "movements": []
         },
         {
             "date": "2026-05-22",
             "balanceCents": 30456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 93000,
             "movements": []
         },
         {
             "date": "2026-05-23",
             "balanceCents": 30456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 93000,
             "movements": []
         },
         {
             "date": "2026-05-24",
             "balanceCents": 30456,
+            "cumulativeInflowCents": 0,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-25",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "label": "Recorded salary",
+                    "amountCents": 495000,
+                    "status": "expected",
+                    "accountId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "accountName": "Recorded Account",
+                    "source": "recurring"
+                }
+            ]
+        },
+        {
+            "date": "2026-05-26",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-27",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-28",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-29",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-30",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
+            "movements": []
+        },
+        {
+            "date": "2026-05-31",
+            "balanceCents": 525456,
+            "cumulativeInflowCents": 495000,
+            "cumulativeOutflowCents": 93000,
             "movements": []
         }
     ],

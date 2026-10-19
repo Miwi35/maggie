@@ -63,6 +63,15 @@ tags:
     visible: ".*Salaire en retard de.*"
     timeout: 20000
 
+# MAG-506: the horizon choice sits above the curves. Its chips scroll sideways, so only the
+# first ones are on screen: « 1 mois » stands for the row, the others are `TreasuryScreenTest`.
+- scrollUntilVisible:
+    element: "1 mois"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "treasury_flows_chart"
+    timeout: 30000
 - scrollUntilVisible:
     element: ".*Découvert prévu le.*"
     timeout: 30000
@@ -71,9 +80,11 @@ tags:
 - scrollUntilVisible:
     element: ".*depuis Livret MAG-280.*"
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*reste à rendre.*"
-    timeout: 10000
+# MAG-506: the planned movements list lengthened the screen, so the line under « depuis … »
+# now lands below the fold when the first one scrolls into view.
+- scrollUntilVisible:
+    element: ".*reste à rendre.*"
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "treasury_prepare_advance"
