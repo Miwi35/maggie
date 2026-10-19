@@ -36,6 +36,14 @@ class UpdateTaskSettingsHandler
             if (null !== $command->eveningTime && (!\is_string($command->eveningTime) || 1 !== preg_match(TaskSettings::TIME_PATTERN, $command->eveningTime))) {
                 throw new \InvalidArgumentException('eveningTime must be a time "HH:MM" from 00:00 to 23:59.');
             }
+            foreach (['rewardAnimation' => $command->rewardAnimation, 'rewardVibration' => $command->rewardVibration, 'rewardSound' => $command->rewardSound] as $field => $value) {
+                if (null !== $value && !\is_bool($value)) {
+                    throw new \InvalidArgumentException("{$field} must be true or false.");
+                }
+            }
+            if (null !== $command->tone && !\in_array($command->tone, TaskSettings::TONES, true)) {
+                throw new \InvalidArgumentException('tone must be one of '.implode(', ', TaskSettings::TONES).'.');
+            }
         } catch (\InvalidArgumentException $e) {
             throw new \DomainException($e->getMessage(), 0, $e);
         }
@@ -51,6 +59,18 @@ class UpdateTaskSettingsHandler
         }
         if (\is_string($command->eveningTime)) {
             $settings->setEveningTime($command->eveningTime);
+        }
+        if (\is_bool($command->rewardAnimation)) {
+            $settings->setRewardAnimation($command->rewardAnimation);
+        }
+        if (\is_bool($command->rewardVibration)) {
+            $settings->setRewardVibration($command->rewardVibration);
+        }
+        if (\is_bool($command->rewardSound)) {
+            $settings->setRewardSound($command->rewardSound);
+        }
+        if (\is_string($command->tone)) {
+            $settings->setTone($command->tone);
         }
 
         return $this->updateTaskSettings->execute($settings);

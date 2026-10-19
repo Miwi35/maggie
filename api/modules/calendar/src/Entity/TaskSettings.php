@@ -18,7 +18,8 @@ use Symfony\Component\Uid\Ulid;
 /**
  * The task settings, one row per user, created on first read: the weights of
  * the order (MAG-406), the alert schedule and the morning time (MAG-407),
- * the evening time the review opens after (MAG-500).
+ * the evening time the review opens after (MAG-500), how a task done is
+ * cheered and the tone of the words (MAG-508).
  *
  * Read and written through `/api/task-settings/me`, never through an API
  * Platform operation on an identifier-less path, which would build a fresh
@@ -33,6 +34,13 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     public const DEFAULT_MORNING_TIME = '08:00';
     public const DEFAULT_EVENING_TIME = '21:00';
     public const TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
+
+    public const TONE_DOUX = 'doux';
+    public const TONE_DIRECT = 'direct';
+    public const TONE_DROLE = 'drole';
+    /** The tone of the rewards, and of the reminders to come. */
+    public const TONES = [self::TONE_DOUX, self::TONE_DIRECT, self::TONE_DROLE];
+    public const DEFAULT_TONE = self::TONE_DOUX;
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -65,6 +73,20 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     /** The « evening » the review opens after, `HH:MM` in the user's timezone. */
     #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_EVENING_TIME])]
     private string $eveningTime = self::DEFAULT_EVENING_TIME;
+
+    /** The « bravo » of a task done: its animation, its short vibration, its little sound. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $rewardAnimation = true;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $rewardVibration = true;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $rewardSound = true;
+
+    /** Among {@see self::TONES}. */
+    #[ORM\Column(length: 10, options: ['default' => self::DEFAULT_TONE])]
+    private string $tone = self::DEFAULT_TONE;
 
     public function __construct()
     {
@@ -148,6 +170,58 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function isRewardAnimation(): bool
+    {
+        return $this->rewardAnimation;
+    }
+
+    public function setRewardAnimation(bool $rewardAnimation): static
+    {
+        $this->rewardAnimation = $rewardAnimation;
+
+        return $this;
+    }
+
+    public function isRewardVibration(): bool
+    {
+        return $this->rewardVibration;
+    }
+
+    public function setRewardVibration(bool $rewardVibration): static
+    {
+        $this->rewardVibration = $rewardVibration;
+
+        return $this;
+    }
+
+    public function isRewardSound(): bool
+    {
+        return $this->rewardSound;
+    }
+
+    public function setRewardSound(bool $rewardSound): static
+    {
+        $this->rewardSound = $rewardSound;
+
+        return $this;
+    }
+
+    public function getTone(): string
+    {
+        return $this->tone;
+    }
+
+    /** @throws \InvalidArgumentException outside {@see self::TONES} */
+    public function setTone(string $tone): static
+    {
+        if (!\in_array($tone, self::TONES, true)) {
+            throw new \InvalidArgumentException(\sprintf('tone must be one of %s, not "%s".', implode(', ', self::TONES), $tone));
+        }
+        $this->tone = $tone;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toMercurePayload(?array $changedProperties = null): array
     {
@@ -156,6 +230,10 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
             'alertSchedule' => $this->getAlertSchedule(),
             'morningTime' => $this->morningTime,
             'eveningTime' => $this->eveningTime,
+            'rewardAnimation' => $this->rewardAnimation,
+            'rewardVibration' => $this->rewardVibration,
+            'rewardSound' => $this->rewardSound,
+            'tone' => $this->tone,
         ], $changedProperties);
     }
 }

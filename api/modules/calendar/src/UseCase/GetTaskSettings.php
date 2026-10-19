@@ -54,12 +54,20 @@ class GetTaskSettings
             'alertSchedule' => $settings->getAlertSchedule(),
             'morningTime' => $settings->getMorningTime(),
             'eveningTime' => $settings->getEveningTime(),
+            'rewardAnimation' => $settings->isRewardAnimation(),
+            'rewardVibration' => $settings->isRewardVibration(),
+            'rewardSound' => $settings->isRewardSound(),
+            'tone' => $settings->getTone(),
             'defaults' => [
                 'orderWeights' => TaskOrderWeights::DEFAULTS,
                 'orderLevels' => array_map(static fn (): int => TaskOrderWeights::DEFAULT_LEVEL, TaskOrderWeights::DEFAULTS),
                 'alertSchedule' => TaskAlertSchedule::DEFAULTS,
                 'morningTime' => TaskSettings::DEFAULT_MORNING_TIME,
                 'eveningTime' => TaskSettings::DEFAULT_EVENING_TIME,
+                'rewardAnimation' => true,
+                'rewardVibration' => true,
+                'rewardSound' => true,
+                'tone' => TaskSettings::DEFAULT_TONE,
             ],
         ];
     }

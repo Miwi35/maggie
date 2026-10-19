@@ -41,9 +41,12 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import UpdateIcon from '@mui/icons-material/Update'
 import { UrgencyBadge } from './UrgencyBadge'
+import { TaskBravo } from './TaskBravo'
 import { TaskFocus } from './TaskFocus'
 import { DAY_SLOTS, deferOnDay, placeOnDay, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTarget, DayTask } from './dayPlan'
+import { DEFAULT_CHEER, fetchReward, playBravoSound } from './reward'
+import type { Reward, RewardCheer } from './reward'
 import { createTask, postponedLabel, setTaskDone } from './taskViews'
 
 interface TaskDayProps {
@@ -60,6 +63,8 @@ interface TaskDayProps {
   onChange?: () => void
   /** Opens the evening's review on demand (MAG-500). */
   onEvening?: () => void
+  /** How a task done is cheered (MAG-508). */
+  cheer?: RewardCheer
 }
 
 const FREE = 'place:free'
@@ -372,12 +377,22 @@ const ReserveRow = ({ task, today, slots, busy, onEdit, onPlace }: ReserveRowPro
  * first not done — on top, and the reserve folded away below. Every change
  * sends the whole list to the API, which answers the day as it stands.
  */
-export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange, onEvening }: TaskDayProps) => {
+export const TaskDay = ({
+  day,
+  today,
+  onDay,
+  onReload,
+  onEdit,
+  onChange,
+  onEvening,
+  cheer = DEFAULT_CHEER,
+}: TaskDayProps) => {
   const notify = useNotify()
   const [busy, setBusy] = useState(false)
   const [reserveOpen, setReserveOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
+  const [bravo, setBravo] = useState<{ task: DayTask; reward: Reward } | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -403,11 +418,27 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange, onEveni
 
   const place = (taskId: string, target: DayTarget) => save(placeOnDay(ids, taskId, target))
 
+  // The tick laid down its reward (MAG-508): the bravo shows it, the plain notice only when it cannot be read.
+  const celebrate = (task: DayTask) => {
+    fetchReward(task.id)
+      .then((reward) => {
+        if (!reward) throw new Error('no reward')
+        if (cheer.sound) playBravoSound()
+        setBravo({ task, reward })
+      })
+      .catch(() => {
+        // No bravo to show: a Focus left open on the task done must not come back with it.
+        setFocusId(null)
+        notify('Tâche terminée', { type: 'success' })
+      })
+  }
+
   const toggle = (task: DayTask) => {
     const done = task.completedAt == null
     setTaskDone(task.id, done)
       .then(() => {
-        notify(done ? 'Tâche terminée' : 'Tâche rouverte', { type: 'success' })
+        if (done) celebrate(task)
+        else notify('Tâche rouverte', { type: 'success' })
         onReload()
       })
       .catch(fail)
@@ -453,15 +484,40 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange, onEveni
     setFocusId(null)
   }
 
+  // The day may not have read the tick yet: the task just done counts as done, and is not next.
+  let overlay: ReactNode = null
+  if (bravo) {
+    const doneNow = (task: DayTask) => task.completedAt != null || task.id === bravo.task.id
+    const next = slotTasks.find((task) => !doneNow(task)) ?? null
+    overlay = (
+      <TaskBravo
+        title={bravo.task.title}
+        reward={bravo.reward}
+        done={slotTasks.filter(doneNow).length}
+        total={slotTasks.length}
+        next={next}
+        animate={cheer.animation}
+        onNext={() => {
+          setBravo(null)
+          if (next) setFocusId(next.id)
+        }}
+        onPause={() => {
+          setBravo(null)
+          setFocusId(null)
+        }}
+      />
+    )
+  }
+
   const focused = focusId ? slotTasks.find((task) => task.id === focusId && task.completedAt == null) : undefined
-  if (focused) {
+  if (focused && !bravo) {
     return (
       <TaskFocus
         key={focused.id}
         task={focused}
         onBack={() => setFocusId(null)}
         onDone={() => {
-          setFocusId(null)
+          celebrate(focused)
           onReload()
         }}
         onLater={() => later(focused.id)}
@@ -500,6 +556,7 @@ export const TaskDay = ({ day, today, onDay, onReload, onEdit, onChange, onEveni
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
+      {overlay}
       {card}
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>

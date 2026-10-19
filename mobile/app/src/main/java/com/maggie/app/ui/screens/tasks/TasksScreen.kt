@@ -72,7 +72,8 @@ internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
  * Tasks in four tabs (MAG-408), as the admin shows them. The list is the API's: its order, its
  * views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
  * [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws;
- * [onFocus] opens the Focus (MAG-499) on a task of the day.
+ * [onFocus] opens the Focus (MAG-499) on a task of the day; [onBravo] the Bravo (MAG-508) on a task
+ * of the day just ticked. A task ticked in another tab shows its reward as a banner instead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +82,7 @@ fun TasksScreen(
     onTaskClick: (Task) -> Unit,
     modifier: Modifier = Modifier,
     onFocus: (taskId: String) -> Unit = {},
+    onBravo: (BravoRequest) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -94,6 +96,13 @@ fun TasksScreen(
         state.opened?.let {
             onTaskClick(it)
             viewModel.onTaskOpened()
+        }
+    }
+
+    LaunchedEffect(state.bravo) {
+        state.bravo?.let {
+            onBravo(it)
+            viewModel.onBravoShown()
         }
     }
 
@@ -119,6 +128,8 @@ fun TasksScreen(
                 submitTag = UiTags.TASKS_ADD_SUBMIT,
             )
         }
+
+        state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
 
         state.message?.let { message ->
             Row(

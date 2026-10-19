@@ -24,6 +24,10 @@ export interface UrgencySchedule {
   overdueEveryDays: number | null
 }
 
+/** The tone of the rewards' words, and of the reminders to come (MAG-508). */
+export const TONES = ['doux', 'direct', 'drole'] as const
+export type Tone = (typeof TONES)[number]
+
 export interface SettingsValues {
   orderWeights: Record<string, Record<string, number>>
   orderLevels: Record<LevelGroup, number>
@@ -31,6 +35,11 @@ export interface SettingsValues {
   morningTime: string
   /** After it, the first visit of Tâches opens the evening's review (MAG-500). */
   eveningTime: string
+  /** How a task done is cheered (MAG-508): the vibration is the phone's alone. */
+  rewardAnimation: boolean
+  rewardVibration: boolean
+  rewardSound: boolean
+  tone: Tone
 }
 
 export interface TaskSettingsResponse extends SettingsValues {
@@ -44,6 +53,10 @@ export interface SettingsPatch {
   alertSchedule?: Partial<Record<Urgency, Partial<UrgencySchedule>>>
   morningTime?: string
   eveningTime?: string
+  rewardAnimation?: boolean
+  rewardVibration?: boolean
+  rewardSound?: boolean
+  tone?: Tone
 }
 
 export const SAVE_ERROR = "Impossible d'enregistrer les réglages des tâches"

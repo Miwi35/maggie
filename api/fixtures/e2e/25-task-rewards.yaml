@@ -1,0 +1,12 @@
+# The bravo journeys (MAG-508, extends MAG-100): a reward for every task done.
+#
+# One account that only the bravo signs in to: a shooting star comes once per
+# local day and per user, so on an account another journey ticks tasks of, the
+# star the journey waits for could already have gone. The journey writes its
+# day, its tasks and its tone itself.
+
+Maggie\Core\Entity\User:
+  e2e_bravo_user:
+    email: 'e2e-bravo@maggie.local'
+    googleId: 'e2e-bravo-google-id'
+    name: 'Lou Bravo'

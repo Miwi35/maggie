@@ -1,0 +1,98 @@
+appId: com.maggie.app.e2e
+name: 17d-task-bravo
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/bravo-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-other@maggie.local
+---
+# The bravo of a task done (MAG-508, extends MAG-100): a tick from « Mes 5 » opens it.
+#
+# Given today's day holding five tasks of the journey's own, the first two done
+# (`scripts/bravo-api.js`), when the third is ticked from « Mes 5 », then the Bravo shows
+# « … · faite », a message and the day bar, the reward is stored as a star, and « Suivante »
+# opens the Focus of the fourth — the task « Maintenant » now holds.
+#
+# It signs in as the seed's second user, like the other journeys of the day; `onFlowComplete`
+# deletes the tasks and empties the day even when a step failed. The message bank, the
+# shooting stars and the switches of the vibration and the sound are `RewardApiTest`'s,
+# `BravoViewModelTest`'s and `BravoScreenTest`'s; the shooting star of a full day is the
+# Playwright journey's.
+
+- runScript:
+    file: ../scripts/bravo-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17d-task-bravo.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+# The day: « Maintenant » on the third, two of five done.
+- extendedWaitUntil:
+    visible:
+      id: "tasks_now"
+    timeout: 30000
+- assertVisible: ".*Bravo 3 MAG-508.*"
+
+# Ticked from « Mes 5 »: the Bravo, with the task, a message and the day so far.
+- scrollUntilVisible:
+    element:
+      id: "tasks_slot_3"
+    timeout: 20000
+- tapOn:
+    id: "tasks_slot_check_.*"
+    childOf:
+      id: "tasks_slot_3"
+- extendedWaitUntil:
+    visible:
+      id: "bravo"
+    timeout: 20000
+- assertVisible:
+    id: "bravo_title"
+    text: ".*Bravo 3 MAG-508 · faite.*"
+- assertVisible:
+    id: "bravo_message"
+- assertVisible:
+    id: "bravo_day_bar"
+- assertVisible: ".*3 sur 5 aujourd'hui.*"
+- runScript:
+    file: ../scripts/bravo-api.js
+    env:
+      ACTION: expect-reward
+      TODAY: ${TODAY}
+      EMAIL: e2e-other@maggie.local
+
+# « Suivante » opens the Focus of the next task. The button's label is a child of its node, so
+# the label and the button are asserted apart.
+- assertVisible:
+    id: "bravo_next"
+- assertVisible: ".*Suivante : Bravo 4 MAG-508.*15 min.*"
+- tapOn:
+    id: "bravo_next"
+- extendedWaitUntil:
+    visible:
+      id: "focus"
+    timeout: 20000
+- assertVisible: ".*Bravo 4 MAG-508.*"

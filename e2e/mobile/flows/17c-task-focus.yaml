@@ -90,6 +90,14 @@ onFlowComplete:
 - tapOn:
     id: "focus_done"
 
+# The bravo (MAG-508) comes first; « Pause méritée » goes back to the day.
+- extendedWaitUntil:
+    visible:
+      id: "bravo"
+    timeout: 20000
+- tapOn:
+    id: "bravo_pause"
+
 # Back on the day: « Maintenant » follows.
 - extendedWaitUntil:
     visible:

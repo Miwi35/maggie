@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,7 +37,11 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -54,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.AlertRule
@@ -65,8 +71,8 @@ import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
 /**
- * Réglages › Tâches (MAG-407): « Heure du matin » and « Heure du soir » (MAG-500), then when each urgency alerts. Every change
- * is saved as it is made; no help text, the owner's choice.
+ * Réglages › Tâches (MAG-407): « Heure du matin » and « Heure du soir » (MAG-500), then when each urgency alerts,
+ * then « Rappels et récompenses » (MAG-508). Every change is saved as it is made; no help text, the owner's choice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +97,14 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
                 onOverdue = { every -> viewModel.setOverdueEvery(urgency, every) },
             )
         }
+        HorizontalDivider()
+        RewardsSettings(
+            animation = settings.rewardAnimation,
+            vibration = settings.rewardVibration,
+            sound = settings.rewardSound,
+            tone = settings.tone,
+            viewModel = viewModel,
+        )
         HorizontalDivider()
         DefaultsButton(tag = UiTags.SETTINGS_TASKS_DEFAULTS, onClick = { confirmDefaults = true })
     }
@@ -247,6 +261,46 @@ private fun TimeRow(label: String, tag: String, time: String, onPick: (hour: Int
             dismissButton = { TextButton(onClick = { open = false }) { Text("Annuler") } },
             modifier = Modifier.uiTagRoot(),
         )
+    }
+}
+
+/** « Rappels et récompenses »: what a task done gives — animation, vibration, sound — and the tone of its message. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RewardsSettings(animation: Boolean, vibration: Boolean, sound: Boolean, tone: String, viewModel: SettingsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Rappels et récompenses", style = MaterialTheme.typography.titleMedium)
+        SwitchRow("Animation", animation, UiTags.SETTINGS_TASKS_REWARD_ANIMATION, viewModel::setRewardAnimation)
+        SwitchRow("Vibration", vibration, UiTags.SETTINGS_TASKS_REWARD_VIBRATION, viewModel::setRewardVibration)
+        SwitchRow("Son", sound, UiTags.SETTINGS_TASKS_REWARD_SOUND, viewModel::setRewardSound)
+        Text("Ton", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+        val tones = TaskSettingsChoices.TONE_LABELS.entries.toList()
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            tones.forEachIndexed { index, (value, label) ->
+                SegmentedButton(
+                    selected = tone == value,
+                    onClick = { viewModel.setTone(value) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tones.size),
+                    modifier = Modifier.testTag(UiTags.settingsTasksTone(value)),
+                ) { Text(label, maxLines = 1) }
+            }
+        }
+    }
+}
+
+/** A switch and its word on one line, the whole line tappable. */
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .testTag(tag)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

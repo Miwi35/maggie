@@ -3,16 +3,21 @@ import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { urgencyColor } from '../../design/tokens'
-import { URGENCIES, useTaskSettings } from './taskSettingsApi'
-import type { TaskSettingsResponse, Urgency, UrgencySchedule } from './taskSettingsApi'
+import { TONES, URGENCIES, useTaskSettings } from './taskSettingsApi'
+import type { SettingsPatch, TaskSettingsResponse, Tone, Urgency, UrgencySchedule } from './taskSettingsApi'
 import { DefaultsButton, TaskSettingsFrame } from './TaskSettingsParts'
 
 /**
- * Réglages › Tâches (MAG-407): when Maggie alerts about a task, by urgency.
+ * Réglages › Tâches (MAG-407): when Maggie alerts about a task, by urgency,
+ * and how a task done is cheered (MAG-508).
  * Every change is saved at once; the task order lives on its own page
  * (`TaskOrderSettings`).
  */
@@ -31,6 +36,20 @@ const OVERDUE_CHOICES: [number | null, string][] = [
   [1, 'Chaque matin'],
   [2, 'Tous les 2 jours'],
   [7, 'Chaque semaine'],
+]
+
+const TONE_LABELS: Record<Tone, string> = {
+  doux: 'Doux',
+  direct: 'Direct',
+  drole: 'Drôle',
+}
+
+type RewardToggle = 'rewardAnimation' | 'rewardVibration' | 'rewardSound'
+
+const REWARD_TOGGLES: [RewardToggle, string][] = [
+  ['rewardAnimation', 'Animation'],
+  ['rewardVibration', 'Vibration'],
+  ['rewardSound', 'Son'],
 ]
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -204,6 +223,52 @@ const UrgencyBlock = ({
   )
 }
 
+/** « Rappels et récompenses »: the bravo of a task done, and the tone of the words (MAG-508). */
+const RewardBlock = ({
+  settings,
+  onChange,
+}: {
+  settings: TaskSettingsResponse
+  onChange: (patch: Pick<SettingsPatch, RewardToggle | 'tone'>) => void
+}) => (
+  <Card variant="outlined" component="section" aria-labelledby="task-settings-rewards">
+    <CardContent>
+      <Typography id="task-settings-rewards" variant="subtitle1" component="h2" fontWeight={600} mb={1}>
+        Rappels et récompenses
+      </Typography>
+      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+        {REWARD_TOGGLES.map(([field, label]) => (
+          <FormControlLabel
+            key={field}
+            control={<Switch checked={settings[field]} onChange={(e) => onChange({ [field]: e.target.checked })} />}
+            label={label}
+          />
+        ))}
+      </Stack>
+      <Stack direction="row" alignItems="center" spacing={2} mt={2}>
+        <Typography variant="body2" sx={{ minWidth: 60 }}>
+          Ton
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={settings.tone}
+          aria-label="Ton"
+          onChange={(_, tone: Tone | null) => {
+            if (tone) onChange({ tone })
+          }}
+        >
+          {TONES.map((tone) => (
+            <ToggleButton key={tone} value={tone}>
+              {TONE_LABELS[tone]}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Stack>
+    </CardContent>
+  </Card>
+)
+
 export const TaskSettings = () => {
   const { settings, loadFailed, saved, save } = useTaskSettings()
 
@@ -235,6 +300,9 @@ export const TaskSettings = () => {
             />
           ))}
 
+          <RewardBlock settings={settings} onChange={(patch) => save(patch, (s) => ({ ...s, ...patch }))} />
+
+          {/* The rewards keep their switches: a sound turned off does not come back on with the alerts. */}
           <DefaultsButton
             onConfirm={() => {
               const { alertSchedule, morningTime, eveningTime } = settings.defaults

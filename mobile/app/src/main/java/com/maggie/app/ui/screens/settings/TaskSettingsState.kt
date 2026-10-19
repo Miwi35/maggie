@@ -63,6 +63,13 @@ object TaskSettingsChoices {
         "priority" to "Ma priorité",
     )
 
+    /** The reward's tones (MAG-508), as « Ton » shows them. */
+    val TONE_LABELS: Map<String, String> = linkedMapOf(
+        TaskSettings.TONE_DOUX to "Doux",
+        TaskSettings.TONE_DIRECT to "Direct",
+        TaskSettings.TONE_DROLE to "Drôle",
+    )
+
     val LEVEL_LABELS: List<String> = listOf("Très peu", "Peu", "Normal", "Beaucoup", "Énormément")
 
     fun levelLabel(level: Int): String = LEVEL_LABELS[level.coerceIn(LEVEL_LABELS.indices)]

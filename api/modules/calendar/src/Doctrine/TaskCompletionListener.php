@@ -19,11 +19,13 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * Raises {@see TaskCompleted} and {@see TaskReopened} on every transition of
  * a stored task (MAG-497), whichever door saves it. A task created already
  * done — an old one a Google sync brings in — is no transition. The changeset
- * only exists during onFlush; the events go out after the flush.
+ * only exists during onFlush; the events go out after the flush. The postFlush
+ * runs after the projection collector's: a handler flushing again (the reward,
+ * MAG-508) would otherwise overwrite what that one noted.
  */
 #[AsDoctrineListener(event: Events::preFlush)]
 #[AsDoctrineListener(event: Events::onFlush)]
-#[AsDoctrineListener(event: Events::postFlush)]
+#[AsDoctrineListener(event: Events::postFlush, priority: -100)]
 final class TaskCompletionListener
 {
     /** @var list<TaskCompleted|TaskReopened> */
