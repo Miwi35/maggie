@@ -362,6 +362,12 @@ web:
     areas: [calendar, notification]
   e2e/web/tests/agenda-events.spec.ts:
     areas: [calendar, realtime]
+    quarantine:
+      since: 2026-10-19
+      reason: >-
+        « an event created in one window appears in the other without a reload »
+        red twice (retry included) on two unrelated PRs (#545, #537, 17 Oct.) while
+        green every night on main: realtime timing on a loaded runner.
   e2e/web/tests/agenda-google.spec.ts:
     areas: [calendar, google]
   e2e/web/tests/agenda-isolation.spec.ts:
