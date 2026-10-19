@@ -49,6 +49,7 @@ final readonly class UpdateTransactionCommand
         public ?string $note = null,
         public ?string $oneOffEnvelopeId = null,
         public array $clearFields = [],
+        public ?bool $controlled = null,
     ) {
     }
 }

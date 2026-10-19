@@ -92,6 +92,20 @@ class FinanceNavigationTest {
     }
 
     @Test
+    fun `the recognised lines to control sit in the review menu right after the lines to qualify, with a deep link`() {
+        assertEquals("recognised_to_control", Screen.RecognisedToControl.route)
+        assertEquals("Reconnues à contrôler", Screen.RecognisedToControl.label)
+        assertEquals(FinanceMenu.REVIEW, FinanceMenu.of(Screen.RecognisedToControl.route))
+        assertEquals(
+            listOf("${DeepLinks.SCHEME}://finance/to-control"),
+            DeepLinks.patternsFor(Screen.RecognisedToControl.route),
+        )
+
+        val routes = FinanceMenu.REVIEW.routes
+        assertEquals(routes.indexOf(Screen.TransactionsToSort.route) + 1, routes.indexOf(Screen.RecognisedToControl.route))
+    }
+
+    @Test
     fun `the lines to qualify keep their route and deep link under their new name`() {
         assertEquals("transactions_to_sort", Screen.TransactionsToSort.route)
         assertEquals("À qualifier", Screen.TransactionsToSort.label)

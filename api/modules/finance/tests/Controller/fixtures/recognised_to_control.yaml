@@ -1,0 +1,181 @@
+# The lines an operation recognised in October 2026 (MAG-460): three by the
+# CARREFOUR rule (one already judged), one by the gym series, an income, one
+# line whose series is gone, and what must stay out of the page: a line
+# qualified by hand, one already checked, September's, and someone else's.
+# The operation behind each line is set by the test (`recognise`).
+Maggie\Core\Entity\User:
+  test_user:
+    email: recognised-control@example.com
+    googleId: google-recognised-control
+    name: Recognised Control User
+  other_user:
+    email: recognised-control-other@example.com
+    googleId: google-recognised-control-other
+    name: Recognised Control Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  salary:
+    name: Remboursements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  stranger_category:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+  rule_refund:
+    labelPattern: REMBOURSEMENT
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@salary'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 5
+    isActive: true
+    user: '@test_user'
+  gym:
+    label: Salle de sport
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-10-01"))>'
+    referenceAmountCents: -3000
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  carrefour_a:
+    account: '@checking'
+    category: '@food'
+    amountCents: -4000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: CARREFOUR MARKET
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  carrefour_b:
+    account: '@checking'
+    category: '@food'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-10"))>'
+    label: CARREFOUR CITY
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+    user: '@test_user'
+  carrefour_c:
+    account: '@checking'
+    category: '@food'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-17"))>'
+    label: CARREFOUR EXPRESS
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  carrefour_checked:
+    account: '@checking'
+    category: '@food'
+    amountCents: -900
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: CARREFOUR DEJA CONTROLE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    controlledAt: '<(new \DateTimeImmutable("2026-10-07"))>'
+    user: '@test_user'
+  carrefour_september:
+    account: '@checking'
+    category: '@food'
+    amountCents: -700
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+    label: CARREFOUR SEPTEMBRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  gym_october:
+    account: '@checking'
+    category: '@subscriptions'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-01"))>'
+    label: SALLE DE SPORT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  refund:
+    account: '@checking'
+    category: '@salary'
+    amountCents: 4500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-08"))>'
+    label: REMBOURSEMENT MUTUELLE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  orphan:
+    account: '@checking'
+    category: '@subscriptions'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Series)>'
+    amountCents: -800
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-04"))>'
+    label: ANCIEN ABONNEMENT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  by_hand:
+    account: '@checking'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    amountCents: -1100
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-09"))>'
+    label: CARREFOUR A LA MAIN
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  stranger_line:
+    account: '@stranger_account'
+    category: '@stranger_category'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: -1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-12"))>'
+    label: CARREFOUR D UN AUTRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

@@ -83,6 +83,9 @@ class UpdateTransactionHandler
             $transaction->setRetrospect($verdict);
         }
         $this->applyQualification($transaction, $command);
+        if (true === $command->controlled) {
+            $transaction->setControlledAt(new \DateTimeImmutable());
+        }
 
         $this->applyTransfer($transaction, $command);
         // After the marking and the amount: a shared spend stays one whose part is below it.
