@@ -6,7 +6,8 @@ import { ROUTES } from './routes.js'
 
 /**
  * Finance → À qualifier (`/finance/to-sort`): the pile of operations waiting for a
- * qualification, oldest first, one card at a time, with the whole pile listed beside it.
+ * qualification, oldest first: the list opens first, a line opens its fiche (MAG-507), the
+ * whole pile stays listed beside it on a wide screen.
  */
 export class FinanceToSortPage extends AdminShell {
   readonly card: Locator
@@ -38,13 +39,23 @@ export class FinanceToSortPage extends AdminShell {
 
   async open(): Promise<void> {
     await this.goto(ROUTES.financeToSort)
-    await expect(this.card.or(this.content.getByText('Rien à qualifier'))).toBeVisible()
+    await expect(this.pile.or(this.content.getByText('Rien à qualifier'))).toBeVisible()
   }
 
   /** Brings a line of the pile up as the current card. */
   async select(label: string): Promise<void> {
     await this.pile.getByRole('button', { name: label }).click()
+    await this.expectCard(label)
+  }
+
+  /** The fiche on screen is this line's. */
+  async expectCard(label: string): Promise<void> {
     await expect(this.card.getByText(label, { exact: true })).toBeVisible()
+  }
+
+  /** « Suivant » / « Précédent » (MAG-507): the next or previous line of the pile, in its order. */
+  async step(direction: 'Précédent' | 'Suivant'): Promise<void> {
+    await this.content.getByRole('button', { name: direction }).click()
   }
 
   async chooseCategory(category: string): Promise<void> {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.RETROSPECT_UNRATED
+import com.maggie.app.data.model.RecognisedGroup
 import com.maggie.app.data.model.RecognisedLine
 import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.controlSummary
@@ -44,8 +45,29 @@ data class RecognisedToControlUiState(
     val loadError: String? = null,
     /** A gesture that was refused or lost: the lines stay where they were. */
     val actionError: String? = null,
+    /** The line the cursor is on: it stays when the fiche is closed, so the list can show where the owner was. */
+    val selectedId: String? = null,
+    /** True while a line's fiche is open; false on the list. */
+    val ficheOpen: Boolean = false,
 ) {
     val isEmpty: Boolean get() = loaded && data.groups.isEmpty()
+
+    /** The lines in the order the list shows them: the groups one after the other. */
+    val flatLines: List<RecognisedLine> get() = data.groups.flatMap { it.transactions }
+
+    val current: RecognisedLine? get() = selectedId?.let { id -> flatLines.firstOrNull { it.id == id } }
+
+    /** The group [current] belongs to: the fiche names its operation. */
+    val currentGroup: RecognisedGroup? get() = selectedId?.let { id -> data.groups.firstOrNull { group -> group.transactions.any { it.id == id } } }
+
+    /** 1-based place of [current] in [flatLines], 0 when none. */
+    val position: Int get() = selectedId?.let { id -> flatLines.indexOfFirst { it.id == id } + 1 } ?: 0
+
+    val total: Int get() = flatLines.size
+
+    val hasPrevious: Boolean get() = position > 1
+
+    val hasNext: Boolean get() = position in 1 until total
 }
 
 /**
@@ -75,7 +97,7 @@ class RecognisedToControlViewModel(
             loadCategories()
             transactionRepository.getRecognisedToControl(month)
                 .onSuccess { data ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, loaded = true, loadError = null, data = data)
+                    _uiState.value = _uiState.value.withData(data).copy(isLoading = false, loaded = true, loadError = null)
                 }
                 .onFailure { failure ->
                     _uiState.value = _uiState.value.copy(
@@ -95,6 +117,46 @@ class RecognisedToControlViewModel(
             .onSuccess { categories -> _uiState.value = _uiState.value.copy(categories = categories) }
     }
 
+    /** Opens the fiche of [lineId]. */
+    fun select(lineId: String) {
+        if (_uiState.value.flatLines.none { it.id == lineId }) {
+            return
+        }
+        _uiState.value = _uiState.value.copy(selectedId = lineId, ficheOpen = true)
+    }
+
+    /** Back to the list; the cursor stays on the line last open. */
+    fun backToList() {
+        _uiState.value = _uiState.value.copy(ficheOpen = false)
+    }
+
+    fun next() = move(+1)
+
+    fun previous() = move(-1)
+
+    private fun move(step: Int) {
+        val state = _uiState.value
+        if (state.position == 0) {
+            return
+        }
+        val target = state.flatLines.getOrNull(state.position - 1 + step)?.id ?: return
+        _uiState.value = state.copy(selectedId = target)
+    }
+
+    /**
+     * Swaps in [newData]. The cursor stays where it is unless its line has left: then it goes to the line that followed
+     * it (else the one before), and the fiche closes when nothing remains.
+     */
+    private fun RecognisedToControlUiState.withData(newData: RecognisedToControl): RecognisedToControlUiState {
+        val id = selectedId ?: return copy(data = newData)
+        val after = newData.groups.flatMap { it.transactions.map { line -> line.id } }
+        if (id in after) {
+            return copy(data = newData)
+        }
+        val moved = neighbourAfterRemoval(flatLines.map { it.id }, id, after)
+        return copy(data = newData, selectedId = moved, ficheOpen = ficheOpen && moved != null)
+    }
+
     /** « Valider » or, with [keep], « Tout à conserver »: the whole group is checked in one stroke and leaves the list. */
     fun controlGroup(groupKey: String, keep: Boolean) {
         val state = _uiState.value
@@ -109,11 +171,9 @@ class RecognisedToControlViewModel(
         viewModelScope.launch {
             transactionRepository.controlRecognised(group.transactions.map { it.id }, keep)
                 .onSuccess { result ->
-                    _uiState.value = _uiState.value.copy(
-                        controllingKey = null,
-                        data = _uiState.value.data.withoutGroup(groupKey),
-                        message = controlSummary(group, result),
-                    )
+                    _uiState.value = _uiState.value
+                        .withData(_uiState.value.data.withoutGroup(groupKey))
+                        .copy(controllingKey = null, message = controlSummary(group, result))
                 }
                 .onFailure {
                     _uiState.value = _uiState.value.copy(controllingKey = null, actionError = it.message ?: "Contrôle impossible.")
@@ -192,11 +252,10 @@ class RecognisedToControlViewModel(
         viewModelScope.launch {
             transactionRepository.setQualification(correction.line.id, categoryId, correction.qualification)
                 .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        correction = null,
-                        data = _uiState.value.data.withoutLine(correction.line.id),
-                        message = "Ligne corrigée",
-                    )
+                    // The line leaves the list: the fiche shows the one that followed it.
+                    _uiState.value = _uiState.value
+                        .withData(_uiState.value.data.withoutLine(correction.line.id))
+                        .copy(correction = null, message = "Ligne corrigée")
                 }
                 .onFailure { failure ->
                     updateCorrection { it.copy(isSaving = false, error = failure.message ?: "Correction impossible.") }

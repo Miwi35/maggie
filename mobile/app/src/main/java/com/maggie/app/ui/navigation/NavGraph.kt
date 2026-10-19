@@ -1584,6 +1584,7 @@ fun NavGraph() {
                         RecognisedToControlScreen(
                             viewModel = controlViewModel,
                             onBack = { navController.backInFinance() },
+                            showsDetailPane = paneShown,
                             onOpenOperation = { group ->
                                 // A series has its editor; a rule has no screen of its own, only the list of the rules.
                                 if (group.operationType == OPERATION_SERIES) {

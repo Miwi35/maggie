@@ -2,6 +2,9 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -135,12 +138,95 @@ class RecognisedToControlScreenTest {
         compose.onNodeWithTag(UiTags.TO_CONTROL_KEEP_ALL).assertDoesNotExist()
     }
 
+    private fun openLine(index: Int = 0) {
+        compose.onAllNodesWithTag(UiTags.TO_CONTROL_ROW)[index].performScrollTo().performClick()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `the page opens on the list, the line gestures wait for the fiche`() {
+        val model = viewModel()
+        compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
+
+        compose.onAllNodesWithTag(UiTags.TO_CONTROL_ROW).assertCountEquals(3)
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_CORRECT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_AVOIDABLE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `touching a line opens its fiche with precedent, suivant and its position`() {
+        val model = viewModel()
+        compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
+
+        openLine(1)
+
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("2 / 3")
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).assertIsEnabled()
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).assertIsEnabled()
+        compose.onNodeWithText("CARREFOUR t2").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_VALIDATE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `suivant and precedent move the fiche along the list and stop at its ends`() {
+        val model = viewModel()
+        compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
+        openLine(0)
+
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).assertIsNotEnabled()
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).performClick()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("2 / 3")
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).performClick()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("3 / 3")
+        compose.onNodeWithText("VIREMENT EMPLOYEUR").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.REVIEW_NEXT).assertIsNotEnabled()
+        compose.onNodeWithTag(UiTags.REVIEW_PREVIOUS).performClick()
+        compose.onNodeWithTag(UiTags.REVIEW_POSITION).assertTextEquals("2 / 3")
+    }
+
+    @Test
+    fun `back from the fiche returns to the list, not out of the page`() {
+        var left = false
+        val model = viewModel()
+        compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = { left = true }) }
+        openLine(1)
+
+        compose.onNodeWithTag(UiTags.REVIEW_BACK_TO_LIST).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertDoesNotExist()
+        compose.onAllNodesWithTag(UiTags.TO_CONTROL_GROUP).assertCountEquals(2)
+        assertEquals(false, left)
+        assertEquals("t2", model.uiState.value.selectedId)
+    }
+
+    @Test
+    fun `on a tablet the list stays and the fiche sits beside it, a placeholder until a line is open`() {
+        val model = viewModel()
+        compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}, showsDetailPane = true) }
+
+        // The test window is narrower than a tablet's: the pane is drawn, not necessarily in view.
+        compose.onNodeWithText("Touchez une ligne pour la contrôler ici.").assertExists()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertDoesNotExist()
+
+        openLine(0)
+
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertExists()
+        compose.onAllNodesWithTag(UiTags.TO_CONTROL_GROUP).assertCountEquals(2)
+        compose.onNodeWithText("Touchez une ligne pour la contrôler ici.").assertDoesNotExist()
+    }
+
     @Test
     fun `an income offers no satisfaction at all`() {
         val model = viewModel(groups = listOf(salary))
         compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
 
         compose.onNodeWithTag(UiTags.TO_CONTROL_ROW).assertIsDisplayed()
+        openLine()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_FICHE).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.TO_CONTROL_KEEP).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TO_CONTROL_AVOIDABLE).assertDoesNotExist()
         compose.onNodeWithText("Superflue").assertDoesNotExist()
@@ -151,7 +237,8 @@ class RecognisedToControlScreenTest {
         val model = viewModel(groups = listOf(groceries))
         compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
 
-        compose.onAllNodesWithTag(UiTags.TO_CONTROL_AVOIDABLE).onFirst().performScrollTo().performClick()
+        openLine()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_AVOIDABLE).performClick()
         compose.waitForIdle()
 
         coVerify(exactly = 1) { transactions.setRetrospect("t1", RETROSPECT_AVOIDABLE) }
@@ -161,7 +248,7 @@ class RecognisedToControlScreenTest {
     fun `the operation and the sheet open from a line, and the operation only while it exists`() {
         val operations = mutableListOf<String>()
         val sheets = mutableListOf<String>()
-        val deleted = groceries.copy(operationId = null)
+        val deleted = groceries.copy(operationId = null, transactions = listOf(spend("t5"), spend("t6")))
         val model = viewModel(groups = listOf(groceries, deleted.copy(label = "Ancienne règle")))
         compose.setContent {
             RecognisedToControlScreen(
@@ -173,9 +260,12 @@ class RecognisedToControlScreenTest {
         }
 
         // Two groups of two lines: only the first has an operation left to open.
-        compose.onAllNodesWithTag(UiTags.TO_CONTROL_OPEN_OPERATION).assertCountEquals(2)
-        compose.onAllNodesWithTag(UiTags.TO_CONTROL_OPEN_OPERATION).onFirst().performScrollTo().performClick()
-        compose.onAllNodesWithTag(UiTags.TO_CONTROL_OPEN_SHEET).onFirst().performScrollTo().performClick()
+        openLine(0)
+        compose.onNodeWithTag(UiTags.TO_CONTROL_OPEN_OPERATION).performClick()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_OPEN_SHEET).performClick()
+        compose.onNodeWithTag(UiTags.REVIEW_BACK_TO_LIST).performClick()
+        openLine(2)
+        compose.onNodeWithTag(UiTags.TO_CONTROL_OPEN_OPERATION).assertDoesNotExist()
 
         assertEquals(listOf("Courses"), operations)
         assertEquals(listOf("t1"), sheets)
@@ -187,7 +277,8 @@ class RecognisedToControlScreenTest {
         val model = viewModel(groups = listOf(groceries))
         compose.setContent { RecognisedToControlScreen(viewModel = model, onBack = {}) }
 
-        compose.onAllNodesWithTag(UiTags.TO_CONTROL_CORRECT).onFirst().performScrollTo().performClick()
+        openLine()
+        compose.onNodeWithTag(UiTags.TO_CONTROL_CORRECT).performClick()
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.TO_CONTROL_SAVE).assertIsDisplayed()

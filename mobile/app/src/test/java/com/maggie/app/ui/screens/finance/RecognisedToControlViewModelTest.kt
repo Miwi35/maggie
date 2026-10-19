@@ -410,4 +410,260 @@ class RecognisedToControlViewModelTest {
         assertNull(viewModel.uiState.value.correction)
         assertEquals(4, viewModel.uiState.value.data.total)
     }
+
+    @Test
+    fun `the page opens on the list, with nothing selected and no fiche`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.ficheOpen)
+        assertNull(state.selectedId)
+        assertNull(state.current)
+        assertEquals(listOf("t1", "t2", "t3", "t4"), state.flatLines.map { it.id })
+        assertEquals(4, state.total)
+        assertEquals(0, state.position)
+    }
+
+    @Test
+    fun `selecting a line opens its fiche at its place in the flat order`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.select("t3")
+
+        val state = viewModel.uiState.value
+        assertTrue(state.ficheOpen)
+        assertEquals("t3", state.selectedId)
+        assertEquals("t3", state.current?.id)
+        assertEquals("Courses", state.currentGroup?.label)
+        assertEquals(3, state.position)
+        assertTrue(state.hasPrevious)
+        assertTrue(state.hasNext)
+    }
+
+    @Test
+    fun `selecting a line that is not in the list does nothing`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.select("nope")
+
+        assertFalse(viewModel.uiState.value.ficheOpen)
+        assertNull(viewModel.uiState.value.selectedId)
+    }
+
+    @Test
+    fun `next and previous walk the groups flattened in order, across a group boundary`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+
+        viewModel.next()
+        assertEquals("t3", viewModel.uiState.value.selectedId)
+        viewModel.next()
+        assertEquals("t4", viewModel.uiState.value.selectedId)
+        assertEquals("Salaire", viewModel.uiState.value.currentGroup?.label)
+        viewModel.previous()
+        viewModel.previous()
+        assertEquals("t2", viewModel.uiState.value.selectedId)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+    }
+
+    @Test
+    fun `next and previous do nothing at the ends of the list`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.select("t4")
+        assertFalse(viewModel.uiState.value.hasNext)
+        viewModel.next()
+        assertEquals("t4", viewModel.uiState.value.selectedId)
+
+        viewModel.select("t1")
+        assertFalse(viewModel.uiState.value.hasPrevious)
+        viewModel.previous()
+        assertEquals("t1", viewModel.uiState.value.selectedId)
+    }
+
+    @Test
+    fun `next and previous do nothing while no line is selected`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+
+        viewModel.next()
+        viewModel.previous()
+
+        assertNull(viewModel.uiState.value.selectedId)
+        assertFalse(viewModel.uiState.value.ficheOpen)
+    }
+
+    @Test
+    fun `back to the list closes the fiche and keeps the line last open`() = runTest {
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t1")
+        viewModel.next()
+
+        viewModel.backToList()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.ficheOpen)
+        assertEquals("t2", state.selectedId)
+        assertEquals(2, state.position)
+    }
+
+    @Test
+    fun `correcting the open line removes it and the fiche shows the one that followed`() = runTest {
+        coEvery { transactions.getTransaction("t2") } returns Result.success(Transaction(id = "t2", label = "x"))
+        coEvery { transactions.setQualification(any(), any(), any()) } returns Result.success(Transaction(id = "t2", label = "x"))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+        viewModel.startCorrection("t2")
+        advanceUntilIdle()
+
+        viewModel.saveCorrection()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("t1", "t3", "t4"), state.flatLines.map { it.id })
+        assertEquals("t3", state.selectedId)
+        assertTrue(state.ficheOpen)
+        assertEquals(2, state.position)
+        assertEquals(3, state.total)
+    }
+
+    @Test
+    fun `correcting the last line of the list moves the fiche to the one before`() = runTest {
+        coEvery { transactions.getTransaction("t4") } returns Result.success(Transaction(id = "t4", label = "x"))
+        coEvery { transactions.setQualification(any(), any(), any()) } returns Result.success(Transaction(id = "t4", label = "x"))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t4")
+        viewModel.startCorrection("t4")
+        advanceUntilIdle()
+
+        viewModel.saveCorrection()
+        advanceUntilIdle()
+
+        assertEquals("t3", viewModel.uiState.value.selectedId)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+    }
+
+    @Test
+    fun `correcting another line than the selected one leaves the cursor alone`() = runTest {
+        coEvery { transactions.getTransaction("t1") } returns Result.success(Transaction(id = "t1", label = "x"))
+        coEvery { transactions.setQualification(any(), any(), any()) } returns Result.success(Transaction(id = "t1", label = "x"))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t3")
+        viewModel.startCorrection("t1")
+        advanceUntilIdle()
+
+        viewModel.saveCorrection()
+        advanceUntilIdle()
+
+        assertEquals("t3", viewModel.uiState.value.selectedId)
+        assertEquals(2, viewModel.uiState.value.position)
+    }
+
+    @Test
+    fun `a refused correction keeps the fiche on its line`() = runTest {
+        coEvery { transactions.getTransaction("t2") } returns Result.success(Transaction(id = "t2", label = "x"))
+        coEvery { transactions.setQualification(any(), any(), any()) } returns Result.failure(RuntimeException("refused"))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+        viewModel.startCorrection("t2")
+        advanceUntilIdle()
+
+        viewModel.saveCorrection()
+        advanceUntilIdle()
+        viewModel.cancelCorrection()
+
+        assertEquals("t2", viewModel.uiState.value.selectedId)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+        assertEquals(4, viewModel.uiState.value.total)
+    }
+
+    @Test
+    fun `controlling the group of the open line moves the cursor to the next line, still open`() = runTest {
+        coEvery { transactions.controlRecognised(any(), any()) } returns Result.success(ControlResult(3, 0))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+
+        viewModel.controlGroup(groceries.key, keep = false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("t4", state.selectedId)
+        assertTrue(state.ficheOpen)
+        assertEquals(1, state.position)
+    }
+
+    @Test
+    fun `controlling another group leaves the cursor on its line`() = runTest {
+        coEvery { transactions.controlRecognised(any(), any()) } returns Result.success(ControlResult(1, 0))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+
+        viewModel.controlGroup(salary.key, keep = false)
+        advanceUntilIdle()
+
+        assertEquals("t2", viewModel.uiState.value.selectedId)
+        assertEquals(2, viewModel.uiState.value.position)
+    }
+
+    @Test
+    fun `controlling the group while on the list moves the highlight but does not open a fiche`() = runTest {
+        coEvery { transactions.controlRecognised(any(), any()) } returns Result.success(ControlResult(3, 0))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t1")
+        viewModel.backToList()
+
+        viewModel.controlGroup(groceries.key, keep = false)
+        advanceUntilIdle()
+
+        assertEquals("t4", viewModel.uiState.value.selectedId)
+        assertFalse(viewModel.uiState.value.ficheOpen)
+    }
+
+    @Test
+    fun `when the last line leaves, nothing is selected and the fiche closes`() = runTest {
+        coEvery { transactions.getRecognisedToControl("2026-10") } returns Result.success(
+            RecognisedToControl(month = "2026-10", total = 1, groups = listOf(salary)),
+        )
+        coEvery { transactions.controlRecognised(listOf("t4"), false) } returns Result.success(ControlResult(1, 0))
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t4")
+
+        viewModel.controlGroup(salary.key, keep = false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.selectedId)
+        assertFalse(state.ficheOpen)
+        assertTrue(state.isEmpty)
+        assertEquals(0, state.position)
+    }
+
+    @Test
+    fun `judging a line keeps the cursor and the fiche where they are`() = runTest {
+        coEvery { transactions.setRetrospect("t2", RETROSPECT_KEEP) } returns Result.success(Unit)
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("t2")
+
+        viewModel.judge("t2", RETROSPECT_KEEP)
+        advanceUntilIdle()
+
+        assertEquals("t2", viewModel.uiState.value.selectedId)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+        assertEquals(RETROSPECT_KEEP, viewModel.uiState.value.current?.retrospect)
+    }
 }

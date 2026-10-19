@@ -852,4 +852,167 @@ class ToSortViewModelTest {
         assertNull(viewModel.uiState.value.peerContacts)
         assertEquals("c-julie", viewModel.uiState.value.currentPeer!!.personId)
     }
+
+    private fun threeLines() = listOf(carrefour, unknown, carrefour.copy(id = "tx-5", label = "SNCF INTERNET"))
+
+    private fun loadThree(): ToSortViewModel {
+        coEvery { transactions.getToSort(oldestFirst = true) } returns Result.success(ToSortPile(3, threeLines()))
+        return load()
+    }
+
+    @Test
+    fun `the list comes first, with no fiche open`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.ficheOpen)
+        assertEquals(listOf("tx-1", "tx-2", "tx-5"), state.pile.map { it.id })
+    }
+
+    @Test
+    fun `opening a line opens its fiche at its place in the list`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+
+        viewModel.select("tx-2")
+
+        val state = viewModel.uiState.value
+        assertTrue(state.ficheOpen)
+        assertEquals("tx-2", state.current?.id)
+        assertEquals(2, state.position)
+        assertTrue(state.hasPrevious)
+        assertTrue(state.hasNext)
+    }
+
+    @Test
+    fun `next opens the following line and stops at the last one`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+        viewModel.select("tx-2")
+
+        viewModel.next()
+        assertEquals("tx-5", viewModel.uiState.value.current?.id)
+        assertFalse(viewModel.uiState.value.hasNext)
+
+        viewModel.next()
+        assertEquals("tx-5", viewModel.uiState.value.current?.id)
+    }
+
+    @Test
+    fun `previous opens the line before and stops at the first one`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+        viewModel.select("tx-2")
+
+        viewModel.previous()
+        assertEquals("tx-1", viewModel.uiState.value.current?.id)
+        assertFalse(viewModel.uiState.value.hasPrevious)
+
+        viewModel.previous()
+        assertEquals("tx-1", viewModel.uiState.value.current?.id)
+    }
+
+    @Test
+    fun `moving to another line forgets the qualification chosen on the previous one`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+        viewModel.select("tx-1")
+        viewModel.setQualification(mandatorySaving)
+        viewModel.setAlwaysForMerchant(true)
+
+        viewModel.next()
+
+        assertEquals(Qualification.NONE, viewModel.uiState.value.qualification)
+        assertFalse(viewModel.uiState.value.alwaysForMerchant)
+    }
+
+    @Test
+    fun `back to the list closes the fiche and keeps the cursor on the line`() = runTest {
+        val viewModel = loadThree()
+        advanceUntilIdle()
+        viewModel.select("tx-1")
+        viewModel.next()
+
+        viewModel.backToList()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.ficheOpen)
+        assertEquals("tx-2", state.selectedId)
+        assertEquals(3, state.pile.size)
+    }
+
+    @Test
+    fun `a qualified line leaves the list and the fiche shows the next one`() = runTest {
+        coEvery { transactions.sortToCategory("tx-2", "cat-courses", false) } returns Result.success(SortResult(success = true, remaining = 2))
+        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
+            Result.success(ToSortPile(3, threeLines())),
+            Result.success(ToSortPile(2, listOf(carrefour, threeLines()[2]))),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("tx-2")
+
+        viewModel.chooseCategory("cat-courses")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("tx-1", "tx-5"), state.pile.map { it.id })
+        assertEquals("tx-5", state.current?.id)
+        assertTrue(state.ficheOpen)
+        assertEquals(2, state.position)
+    }
+
+    @Test
+    fun `the last line qualified goes to the one before it`() = runTest {
+        coEvery { transactions.sortToCategory("tx-5", "cat-courses", false) } returns Result.success(SortResult(success = true, remaining = 2))
+        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
+            Result.success(ToSortPile(3, threeLines())),
+            Result.success(ToSortPile(2, threeLines().take(2))),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("tx-5")
+
+        viewModel.chooseCategory("cat-courses")
+        advanceUntilIdle()
+
+        assertEquals("tx-2", viewModel.uiState.value.current?.id)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+    }
+
+    @Test
+    fun `qualifying the only line closes the fiche on an empty list`() = runTest {
+        coEvery { transactions.sortToCategory("tx-1", "cat-courses", false) } returns Result.success(SortResult(success = true, remaining = 0))
+        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
+            Result.success(ToSortPile(1, listOf(carrefour))),
+            Result.success(ToSortPile(0, emptyList())),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("tx-1")
+
+        viewModel.chooseCategory("cat-courses")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.ficheOpen)
+        assertTrue(viewModel.uiState.value.isEmpty)
+    }
+
+    @Test
+    fun `a line a rule filed under the cursor hands it to the next one`() = runTest {
+        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
+            Result.success(ToSortPile(3, threeLines())),
+            Result.success(ToSortPile(2, listOf(carrefour, threeLines()[2]))),
+        )
+        val viewModel = load()
+        advanceUntilIdle()
+        viewModel.select("tx-2")
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals("tx-5", viewModel.uiState.value.current?.id)
+        assertTrue(viewModel.uiState.value.ficheOpen)
+    }
 }

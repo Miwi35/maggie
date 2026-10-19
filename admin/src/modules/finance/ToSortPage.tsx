@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
 import List from '@mui/material/List'
@@ -25,6 +26,8 @@ import { bareId } from './envelopeTree'
 import { Qualification } from './Qualification'
 import { NO_QUALIFICATION } from './qualificationKinds'
 import { PeerTransferQualifier } from './PeerTransferQualifier'
+import { ReviewSheetNav, useArrowNavigation, useWideReview } from './ReviewSheetNav'
+import { useSequenceCursor } from './reviewSequence'
 import type { QualificationValue } from './qualificationKinds'
 import { formatDay } from './recurringOperations'
 import { useTransactionsToSort } from './useTransactionsToSort'
@@ -279,38 +282,64 @@ const SortCard = ({
   )
 }
 
+/** What the pile says of a line at a glance: where the app would file it, or that it waits. */
+const pillOf = (transaction: ToSortTransaction): { label: string; known: boolean } => {
+  if (transaction.reason === 'peer_transfer') return { label: 'Virement à préciser', known: false }
+  if (transaction.suggestion) {
+    return { label: `→ ${transaction.suggestion.categoryPath.split(' › ').pop()}`, known: true }
+  }
+
+  return { label: 'À qualifier', known: false }
+}
+
 const PileList = ({
   transactions,
   currentId,
   onSelect,
 }: {
   transactions: ToSortTransaction[]
-  currentId: string
+  currentId: string | null
   onSelect: (id: string) => void
 }) => (
-  <Card sx={{ minWidth: { md: 320 }, maxWidth: { md: 380 }, flexShrink: 0 }}>
+  <Card>
     <List dense disablePadding aria-label="File d'attente">
-      {transactions.map((transaction) => (
-        <ListItemButton
-          key={transaction.id}
-          selected={transaction.id === currentId}
-          onClick={() => onSelect(transaction.id)}
-        >
-          <ListItemText
-            primary={transaction.label}
-            secondary={`${formatDay(transaction.bookedAt)} · ${formatCents(transaction.amountCents, transaction.currency)}`}
-            primaryTypographyProps={{ noWrap: true }}
-          />
-        </ListItemButton>
-      ))}
+      {transactions.map((transaction) => {
+        const pill = pillOf(transaction)
+
+        return (
+          <ListItemButton
+            key={transaction.id}
+            selected={transaction.id === currentId}
+            aria-current={transaction.id === currentId ? 'true' : undefined}
+            onClick={() => onSelect(transaction.id)}
+          >
+            <ListItemText
+              primary={transaction.label}
+              secondary={`${formatDay(transaction.bookedAt)} · ${formatCents(transaction.amountCents, transaction.currency)}`}
+              primaryTypographyProps={{ noWrap: true }}
+            />
+            <Chip
+              size="small"
+              variant="outlined"
+              color={pill.known ? 'primary' : 'warning'}
+              label={pill.label}
+              sx={{ ml: 1, maxWidth: 160, flexShrink: 0 }}
+            />
+          </ListItemButton>
+        )
+      })}
     </List>
   </Card>
 )
 
+/** Revue › À qualifier: the list of the pile first, then the fiche of the line opened, with Précédent / Suivant (MAG-507). */
 export const ToSortPage = () => {
   const { pile, loading, error, sortError, sorting, lastResult, retry, sort, judge, reload, linkContact } = useTransactionsToSort()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const lines = pile?.transactions ?? []
+  const cursor = useSequenceCursor(lines.map((line) => line.id))
+  const wide = useWideReview()
   const notify = useNotify()
+  useArrowNavigation(cursor)
 
   const link = async (transaction: ToSortTransaction, contact: Contact): Promise<boolean> => {
     try {
@@ -346,7 +375,9 @@ export const ToSortPage = () => {
   }
 
   const notice = ruleNotice(lastResult)
-  const current = pile.transactions.find((t) => t.id === selectedId) ?? pile.transactions[0]
+  const current = lines.find((line) => line.id === cursor.cursorId)
+  const showList = wide || !cursor.isOpen
+  const showSheet = wide || cursor.isOpen
 
   return (
     <>
@@ -370,29 +401,44 @@ export const ToSortPage = () => {
         </Alert>
       )}
 
-      {!current ? (
+      {lines.length === 0 ? (
         <Card>
           <Placeholder title="Rien à qualifier" description="Toutes vos transactions ont une catégorie." />
         </Card>
       ) : (
         <>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            {pile.total} à qualifier · {formatCents(pile.totalCents, current.currency)}
+            {pile.total} à qualifier · {formatCents(pile.totalCents, lines[0].currency)}
           </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <SortCard
-                key={current.id}
-                transaction={current}
-                sorting={sorting}
-                onSort={(answer, qualification) => void sort(current.id, answer, qualification)}
-                onJudge={(verdict) => void judge(current.id, verdict)}
-                onOperationCreated={() => void reload()}
-                onLinkContact={(contact) => link(current, contact)}
-                onPeerAnswered={() => void reload()}
-              />
-            </Box>
-            <PileList transactions={pile.transactions} currentId={current.id} onSelect={setSelectedId} />
+          <Stack direction="row" spacing={2} alignItems="flex-start">
+            {showList && (
+              <Box sx={{ width: wide ? 420 : '100%', flexShrink: 0 }}>
+                <PileList transactions={lines} currentId={cursor.cursorId} onSelect={cursor.open} />
+              </Box>
+            )}
+            {showSheet && (
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                {current ? (
+                  <>
+                    <ReviewSheetNav cursor={cursor} showBack={!wide} />
+                    <SortCard
+                      key={current.id}
+                      transaction={current}
+                      sorting={sorting}
+                      onSort={(answer, qualification) => void sort(current.id, answer, qualification)}
+                      onJudge={(verdict) => void judge(current.id, verdict)}
+                      onOperationCreated={() => void reload()}
+                      onLinkContact={(contact) => link(current, contact)}
+                      onPeerAnswered={() => void reload()}
+                    />
+                  </>
+                ) : (
+                  <Card>
+                    <Placeholder title="Choisissez une transaction" description="Ouvrez une ligne de la liste pour la qualifier." />
+                  </Card>
+                )}
+              </Box>
+            )}
           </Stack>
         </>
       )}

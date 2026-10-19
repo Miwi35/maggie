@@ -40,8 +40,10 @@ data class ToSortUiState(
     val pile: List<TransactionToSort> = emptyList(),
     val total: Int = 0,
     val categories: List<Category> = emptyList(),
-    /** The line open on a tablet's list; null means the oldest, which is what a phone always shows. */
+    /** The line the cursor is on; null means the oldest. It stays when the fiche is closed, so the list shows where the owner was. */
     val selectedId: String? = null,
+    /** True while a line's fiche is open (MAG-507); false on the list, which is where « À qualifier » opens. */
+    val ficheOpen: Boolean = false,
     val alwaysForMerchant: Boolean = false,
     /** « Obligatoire » and the type, chosen on the card before the category is: they go with the answer. */
     val qualification: Qualification = Qualification.NONE,
@@ -74,6 +76,13 @@ data class ToSortUiState(
     val current: TransactionToSort? get() = pile.firstOrNull { it.id == selectedId } ?: pile.firstOrNull()
 
     val isEmpty: Boolean get() = loaded && pile.isEmpty()
+
+    /** 1-based place of [current] in the pile, 0 when there is none. */
+    val position: Int get() = current?.let { line -> pile.indexOfFirst { it.id == line.id } + 1 } ?: 0
+
+    val hasPrevious: Boolean get() = position > 1
+
+    val hasNext: Boolean get() = position in 1 until pile.size
 
     val canValidate: Boolean get() = !isSorting && current?.suggestion != null
 }
@@ -115,7 +124,7 @@ class ToSortViewModel(
         write = { _uiState.value = _uiState.value.copy(ruleDraft = it) },
         applyToExisting = true,
         onSaved = {
-            _uiState.value = _uiState.value.copy(selectedId = null, qualification = Qualification.NONE, message = "Filtre créé")
+            _uiState.value = _uiState.value.copy(qualification = Qualification.NONE, message = "Filtre créé")
             refresh()
         },
     )
@@ -153,20 +162,65 @@ class ToSortViewModel(
 
     private fun applyPile(pile: ToSortPile) {
         val state = _uiState.value
+        val cursor = cursorAfter(state, pile.transactions)
         _uiState.value = state.copy(
             isLoading = false,
             loaded = true,
             loadError = null,
             pile = pile.transactions,
             total = pile.total,
-            selectedId = state.selectedId?.takeIf { id -> pile.transactions.any { it.id == id } },
+            selectedId = cursor,
+            ficheOpen = state.ficheOpen && cursor != null,
         )
         loadPeerOfCurrent()
     }
 
+    // The cursor stays on its line; when the line left the pile (a rule filed it) it goes to the one that followed, else the one before.
+    private fun cursorAfter(state: ToSortUiState, pile: List<TransactionToSort>): String? {
+        val id = state.selectedId ?: return null
+        val after = pile.map { it.id }
+        return if (id in after) id else neighbourAfterRemoval(state.pile.map { it.id }, id, after)
+    }
+
+    /** Opens the fiche of [id]. */
     fun select(id: String) {
-        _uiState.value = _uiState.value.copy(selectedId = id, alwaysForMerchant = false, qualification = Qualification.NONE)
+        if (_uiState.value.pile.none { it.id == id }) {
+            return
+        }
+        _uiState.value = _uiState.value.copy(selectedId = id, ficheOpen = true, alwaysForMerchant = false, qualification = Qualification.NONE)
         loadPeerOfCurrent()
+    }
+
+    /** Back to the list; the cursor stays on the line last open. */
+    fun backToList() {
+        _uiState.value = _uiState.value.copy(ficheOpen = false)
+    }
+
+    /** « Suivant »: the next line of the pile, in its order. */
+    fun next() = move(+1)
+
+    /** « Précédent »: the previous line of the pile, in its order. */
+    fun previous() = move(-1)
+
+    private fun move(step: Int) {
+        val state = _uiState.value
+        if (state.isSorting || state.position == 0) {
+            return
+        }
+        val target = state.pile.getOrNull(state.position - 1 + step)?.id ?: return
+        _uiState.value = state.copy(selectedId = target, alwaysForMerchant = false, qualification = Qualification.NONE)
+        loadPeerOfCurrent()
+    }
+
+    // Where the cursor goes once [leaving] has left the pile: the following line, else the previous one; the fiche closes on an empty pile.
+    private fun ToSortUiState.withoutLine(leaving: String): ToSortUiState {
+        val remaining = pile.filter { it.id != leaving }
+        val moved = if (selectedId == leaving || current?.id == leaving) {
+            neighbourAfterRemoval(pile.map { it.id }, leaving, remaining.map { it.id })
+        } else {
+            selectedId
+        }
+        return copy(pile = remaining, selectedId = moved, ficheOpen = ficheOpen && moved != null)
     }
 
     // The question needs the créances the transfer may cover: read once per line, when it becomes the card.
@@ -216,14 +270,14 @@ class ToSortViewModel(
             peerDebtRepository.setAllocation(line.id, request)
                 .onSuccess { saved ->
                     val now = _uiState.value
-                    _uiState.value = now.copy(
-                        pile = if (line.reason == TO_SORT_REASON_PEER_TRANSFER) {
-                            now.pile.filter { it.id != line.id }
-                        } else {
-                            now.pile.map { if (it.id == line.id) it.copy(asksForPeerKind = false) else it }
-                        },
-                        total = if (line.reason == TO_SORT_REASON_PEER_TRANSFER) (now.total - 1).coerceAtLeast(0) else now.total,
-                        selectedId = null,
+                    val leaves = line.reason == TO_SORT_REASON_PEER_TRANSFER
+                    val moved = if (leaves) {
+                        now.withoutLine(line.id)
+                    } else {
+                        now.copy(pile = now.pile.map { if (it.id == line.id) it.copy(asksForPeerKind = false) else it }, selectedId = line.id)
+                    }
+                    _uiState.value = moved.copy(
+                        total = if (leaves) (now.total - 1).coerceAtLeast(0) else now.total,
                         peer = null,
                         message = peerSavedMessage(saved.peerKind),
                     )
@@ -320,7 +374,7 @@ class ToSortViewModel(
                     .onFailure {
                         // The line is filed all the same: it leaves the pile, the owner is told what was lost.
                         failedSort(it)
-                        _uiState.value = _uiState.value.copy(selectedId = null, qualification = Qualification.NONE)
+                        _uiState.value = _uiState.value.copy(qualification = Qualification.NONE)
                         refresh()
                         return@launch
                     }
@@ -369,15 +423,14 @@ class ToSortViewModel(
 
     // The answered line leaves the pile at once; the read that follows only brings what a rule filed besides.
     private fun afterSort(line: TransactionToSort, result: SortResult) {
-        _uiState.value = _uiState.value.copy(
-            pile = _uiState.value.pile.filter { it.id != line.id },
+        _uiState.value = _uiState.value.withoutLine(line.id).copy(
             total = result.remaining,
             isSorting = false,
             alwaysForMerchant = false,
             qualification = Qualification.NONE,
-            selectedId = null,
             message = sortedSummary(result),
         )
+        loadPeerOfCurrent()
         refresh()
     }
 

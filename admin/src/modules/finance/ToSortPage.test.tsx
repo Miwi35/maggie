@@ -104,6 +104,17 @@ const renderPage = () =>
     </MemoryRouter>,
   )
 
+/** Opens the line of the list at `index` (the oldest by default): the page starts on the list, not on a fiche. */
+const openLine = async (index = 0) => {
+  const list = await screen.findByRole('list', { name: "File d'attente" })
+  await userEvent.click(within(list).getAllByRole('button')[index])
+}
+
+const renderOpen = async (index = 0) => {
+  renderPage()
+  await openLine(index)
+}
+
 const writes = (method: string) =>
   fetchMock.mock.calls
     .filter(([, init]) => (init as RequestInit | undefined)?.method === method)
@@ -128,8 +139,22 @@ describe('ToSortPage', () => {
     fetchMock.mockReset()
   })
 
-  test('shows the oldest line as a card, with its suggestion, its reason and the counter', async () => {
+  test('opens on the list of the pile, in order, with the counter and a pill per line', async () => {
     renderPage()
+
+    const list = await screen.findByRole('list', { name: "File d'attente" })
+    const rows = within(list).getAllByRole('button')
+    expect(rows).toHaveLength(2)
+    expect(within(rows[0]).getByText('CARREFOUR MARKET 1234')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('→ Courses')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('PAIEMENT PAR CARTE X')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('À qualifier')).toBeInTheDocument()
+    expect(screen.getByText(/2 à qualifier · 57,99/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Transaction à qualifier' })).not.toBeInTheDocument()
+  })
+
+  test('opening a line shows its fiche, with its suggestion, its reason and its position', async () => {
+    await renderOpen()
 
     const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
     expect(within(card).getByText('CARREFOUR MARKET 1234')).toBeInTheDocument()
@@ -137,29 +162,158 @@ describe('ToSortPage', () => {
     expect(within(card).getByText(/12\/10\/2026 · Courant/)).toBeInTheDocument()
     expect(within(card).getByText('→ Dépenses courantes › Alimentation › Courses')).toBeInTheDocument()
     expect(within(card).getByText(/La règle « contient CARREFOUR »/)).toBeInTheDocument()
-    expect(screen.getByText(/2 à qualifier · 57,99/)).toBeInTheDocument()
-    expect(within(screen.getByRole('list', { name: "File d'attente" })).getAllByRole('button')).toHaveLength(2)
+    expect(screen.getByText('1 / 2')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: "File d'attente" })).not.toBeInTheDocument()
   })
 
   test('a line without suggestion offers no « Valider »', async () => {
     fetchMock.mockImplementation(() => answer(true, pileOf(MYSTERY)))
-    renderPage()
+    await renderOpen()
 
     expect(await screen.findByText('Aucune suggestion pour cette ligne.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Valider' })).not.toBeInTheDocument()
   })
 
-  test('picking a line of the pile brings its card up', async () => {
-    renderPage()
+  describe('Précédent / Suivant (MAG-507)', () => {
+    const THIRD = { ...MYSTERY, id: 'T4', label: 'RETRAIT DAB 3', bookedAt: '2026-10-11' }
+    const FOURTH = { ...MYSTERY, id: 'T5', label: 'ABONNEMENT 4', bookedAt: '2026-10-12' }
 
-    await userEvent.click(await screen.findByRole('button', { name: /PAIEMENT PAR CARTE X/ }))
+    const withFour = () => {
+      fetchMock.mockImplementation((_url: string, init?: RequestInit) =>
+        init?.method === 'POST' ? answer(true, SORTED) : answer(true, pileOf(CARREFOUR, MYSTERY, THIRD, FOURTH)),
+      )
+    }
 
-    const card = screen.getByRole('region', { name: 'Transaction à qualifier' })
-    expect(within(card).getByText('PAIEMENT PAR CARTE X')).toBeInTheDocument()
+    const shown = () => within(screen.getByRole('region', { name: 'Transaction à qualifier' })).getAllByRole('heading')[0]
+
+    test('« Suivant » opens the line after, « Précédent » the one before', async () => {
+      withFour()
+      await renderOpen(2)
+      expect(shown()).toHaveTextContent('RETRAIT DAB 3')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Suivant' }))
+      expect(shown()).toHaveTextContent('ABONNEMENT 4')
+      expect(screen.getByText('4 / 4')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Précédent' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Précédent' }))
+      expect(shown()).toHaveTextContent('PAIEMENT PAR CARTE X')
+    })
+
+    test('there is nothing before the first line nor after the last', async () => {
+      withFour()
+      await renderOpen(0)
+      expect(screen.getByRole('button', { name: 'Précédent' })).toBeDisabled()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retour à la liste' }))
+      await openLine(3)
+      expect(screen.getByRole('button', { name: 'Suivant' })).toBeDisabled()
+    })
+
+    test('the arrow keys move through the lines, but not while typing in a field', async () => {
+      withFour()
+      await renderOpen(1)
+
+      await userEvent.keyboard('{ArrowRight}')
+      expect(shown()).toHaveTextContent('RETRAIT DAB 3')
+      await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
+      expect(shown()).toHaveTextContent('CARREFOUR MARKET 1234')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Autre catégorie' }))
+      await userEvent.click(screen.getByLabelText('Catégorie'))
+      await userEvent.keyboard('{ArrowRight}')
+      expect(shown()).toHaveTextContent('CARREFOUR MARKET 1234')
+    })
+
+    test('the arrow keys do nothing on the list', async () => {
+      withFour()
+      renderPage()
+      await screen.findByRole('list', { name: "File d'attente" })
+
+      await userEvent.keyboard('{ArrowRight}')
+
+      expect(screen.queryByRole('region', { name: 'Transaction à qualifier' })).not.toBeInTheDocument()
+    })
+
+    test('back to the list keeps the position: the line left is the one marked', async () => {
+      withFour()
+      await renderOpen(1)
+      await userEvent.click(screen.getByRole('button', { name: 'Suivant' }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retour à la liste' }))
+
+      const rows = within(screen.getByRole('list', { name: "File d'attente" })).getAllByRole('button')
+      expect(rows[2]).toHaveAttribute('aria-current', 'true')
+      expect(rows[1]).not.toHaveAttribute('aria-current')
+    })
+
+    test('a qualified line leaves the list and the fiche goes on to the next one', async () => {
+      withFour()
+      await renderOpen(1)
+      fetchMock.mockImplementation((_url: string, init?: RequestInit) =>
+        init?.method === 'POST' ? answer(true, SORTED) : answer(true, pileOf(CARREFOUR, THIRD, FOURTH)),
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: 'Autre catégorie' }))
+      await userEvent.click(screen.getByLabelText('Catégorie'))
+      await userEvent.click(await screen.findByRole('option', { name: 'Loisirs' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Qualifier' }))
+
+      await waitFor(() => expect(shown()).toHaveTextContent('RETRAIT DAB 3'))
+      expect(screen.getByText('2 / 3')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retour à la liste' }))
+      expect(screen.queryByRole('button', { name: /PAIEMENT PAR CARTE X/ })).not.toBeInTheDocument()
+    })
+
+    test('the last line qualified hands the fiche to the one before', async () => {
+      withFour()
+      await renderOpen(3)
+      fetchMock.mockImplementation((_url: string, init?: RequestInit) =>
+        init?.method === 'POST' ? answer(true, SORTED) : answer(true, pileOf(CARREFOUR, MYSTERY, THIRD)),
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: 'Autre catégorie' }))
+      await userEvent.click(screen.getByLabelText('Catégorie'))
+      await userEvent.click(await screen.findByRole('option', { name: 'Loisirs' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Qualifier' }))
+
+      await waitFor(() => expect(shown()).toHaveTextContent('RETRAIT DAB 3'))
+      expect(screen.getByRole('button', { name: 'Suivant' })).toBeDisabled()
+    })
+
+    describe('on a wide window', () => {
+      beforeEach(() => {
+        vi.stubGlobal(
+          'matchMedia',
+          (query: string) => ({ matches: true, media: query, addEventListener: () => {}, removeEventListener: () => {} }),
+        )
+      })
+
+      test('the list stays on the left while the fiche is on the right', async () => {
+        withFour()
+        renderPage()
+
+        const list = await screen.findByRole('list', { name: "File d'attente" })
+        expect(screen.getByText('Choisissez une transaction')).toBeInTheDocument()
+
+        await userEvent.click(within(list).getAllByRole('button')[1])
+        expect(shown()).toHaveTextContent('PAIEMENT PAR CARTE X')
+        expect(screen.getByRole('list', { name: "File d'attente" })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Retour à la liste' })).not.toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Suivant' }))
+        expect(shown()).toHaveTextContent('RETRAIT DAB 3')
+        expect(within(screen.getByRole('list', { name: "File d'attente" })).getAllByRole('button')[2]).toHaveAttribute(
+          'aria-current',
+          'true',
+        )
+      })
+    })
   })
 
   test('« Valider » files the line under the suggested category, then the pile is read again', async () => {
-    renderPage()
+    await renderOpen()
 
     fetchMock.mockImplementation((_url: string, init?: RequestInit) =>
       init?.method === 'POST' ? answer(true, SORTED) : answer(true, pileOf(MYSTERY)),
@@ -177,7 +331,7 @@ describe('ToSortPage', () => {
   })
 
   test('« Autre catégorie » files the line under the chosen category', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Autre catégorie' }))
     await userEvent.click(screen.getByLabelText('Catégorie'))
@@ -190,7 +344,7 @@ describe('ToSortPage', () => {
   })
 
   test('a mandatory or a kind chosen with the category is written once the line is filed', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Autre catégorie' }))
     await userEvent.click(screen.getByLabelText('Catégorie'))
@@ -208,7 +362,7 @@ describe('ToSortPage', () => {
   })
 
   test('the category cannot be confirmed before it is chosen', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Autre catégorie' }))
 
@@ -226,7 +380,7 @@ describe('ToSortPage', () => {
           })
         : answer(true, pileOf(CARREFOUR, MYSTERY)),
     )
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('switch', { name: 'Toujours pour ce marchand' }))
     await userEvent.click(screen.getByRole('button', { name: 'Valider' }))
@@ -237,7 +391,7 @@ describe('ToSortPage', () => {
   })
 
   test('« Virement interne » marks the line as a transfer between the owner\'s accounts', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Virement interne' }))
 
@@ -260,6 +414,7 @@ describe('ToSortPage', () => {
     expect(await screen.findByText('Service indisponible')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }))
+    await openLine()
 
     const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
     expect(within(card).getByText('CARREFOUR MARKET 1234')).toBeInTheDocument()
@@ -271,7 +426,7 @@ describe('ToSortPage', () => {
         ? answer(false, { error: 'This transaction is not waiting to be sorted.' })
         : answer(true, pileOf(CARREFOUR, MYSTERY)),
     )
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Valider' }))
 
@@ -282,7 +437,7 @@ describe('ToSortPage', () => {
   })
 
   test('« Superflue » gives the spend its satisfaction, and pressing it again takes it back', async () => {
-    renderPage()
+    await renderOpen()
 
     const first = await screen.findByRole('button', { name: 'Superflue' })
     fetchMock.mockImplementation(() => answer(true, pileOf({ ...CARREFOUR, retrospect: 'avoidable' }, MYSTERY)))
@@ -301,7 +456,7 @@ describe('ToSortPage', () => {
   })
 
   test('« À conserver » says the spend was worth it', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'À conserver' }))
 
@@ -310,7 +465,7 @@ describe('ToSortPage', () => {
 
   test('an income offers no satisfaction at all', async () => {
     fetchMock.mockImplementation(() => answer(true, pileOf(SALARY)))
-    renderPage()
+    await renderOpen()
 
     await screen.findByRole('region', { name: 'Transaction à qualifier' })
     expect(screen.queryByRole('button', { name: 'Superflue' })).not.toBeInTheDocument()
@@ -323,7 +478,7 @@ describe('ToSortPage', () => {
         ? answer(false, { detail: 'Only a spend can be judged.' })
         : answer(true, pileOf(CARREFOUR)),
     )
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Superflue' }))
 
@@ -331,7 +486,7 @@ describe('ToSortPage', () => {
   })
 
   test('« Voir la fiche » links to the transaction sheet', async () => {
-    renderPage()
+    await renderOpen()
 
     const link = await screen.findByRole('link', { name: 'Voir la fiche' })
 
@@ -340,7 +495,7 @@ describe('ToSortPage', () => {
   })
 
   test('« Créer un filtre » opens the rule brick filled from the line, applying to the existing lines', async () => {
-    renderPage()
+    await renderOpen()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Créer un filtre' }))
 
@@ -404,7 +559,7 @@ describe('ToSortPage', () => {
 
     test('a filed transfer with a person asks only « Ce virement est », not its category', async () => {
       withPeerTransfer()
-      renderPage()
+      await renderOpen()
 
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
@@ -418,7 +573,7 @@ describe('ToSortPage', () => {
     test('a filed transfer offers neither « Virement interne » nor « Créer un filtre »', async () => {
       // The API refuses an internal transfer on a line that already has a category.
       withPeerTransfer()
-      renderPage()
+      await renderOpen()
 
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
@@ -428,7 +583,7 @@ describe('ToSortPage', () => {
 
     test('a transfer still without category asks both', async () => {
       withPeerTransfer({ ...FILED_FROM_TOM, reason: 'category' })
-      renderPage()
+      await renderOpen()
 
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(await within(card).findByText('Ce virement est')).toBeInTheDocument()
@@ -437,7 +592,7 @@ describe('ToSortPage', () => {
     })
 
     test('a line that does not ask for it shows no « Ce virement est »', async () => {
-      renderPage()
+      await renderOpen()
 
       await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(screen.queryByText('Ce virement est')).not.toBeInTheDocument()
@@ -446,7 +601,7 @@ describe('ToSortPage', () => {
 
     test('once allocated, the pile is read again and the line leaves it', async () => {
       withPeerTransfer()
-      renderPage()
+      await renderOpen()
 
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       await userEvent.click(await within(card).findByRole('button', { name: 'Un remboursement' }))
@@ -491,7 +646,7 @@ describe('ToSortPage', () => {
     }
 
     test('is only asked on a transfer nobody claims', async () => {
-      renderPage()
+      await renderOpen()
 
       await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(screen.queryByRole('button', { name: 'Associer à un contact ?' })).not.toBeInTheDocument()
@@ -501,7 +656,7 @@ describe('ToSortPage', () => {
       fetchMock.mockImplementation(() =>
         answer(true, pileOf({ ...FROM_TOM, asksForContact: false, contact: { id: '01TOM', name: 'Tom' } })),
       )
-      renderPage()
+      await renderOpen()
 
       const card = await screen.findByRole('region', { name: 'Transaction à qualifier' })
       expect(within(card).getByText('Tom')).toBeInTheDocument()
@@ -510,7 +665,7 @@ describe('ToSortPage', () => {
 
     test('« + Créer « Tom » » creates the contact, links the label to it, and the line shows Tom', async () => {
       withContacts()
-      renderPage()
+      await renderOpen()
 
       await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
       const dialog = await screen.findByRole('dialog', { name: 'Associer à un contact' })
@@ -532,7 +687,7 @@ describe('ToSortPage', () => {
 
     test('picking an existing contact links the label to them', async () => {
       withContacts()
-      renderPage()
+      await renderOpen()
 
       await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
       await userEvent.click(await screen.findByRole('button', { name: /Anna/ }))
@@ -548,7 +703,7 @@ describe('ToSortPage', () => {
 
     test('a refused link shows the API\'s message and leaves the picker open', async () => {
       withContacts('« VIR. DE TOM MARTIN » is already linked to Anna.')
-      renderPage()
+      await renderOpen()
 
       await userEvent.click(await screen.findByRole('button', { name: 'Associer à un contact ?' }))
       await userEvent.click(await screen.findByRole('button', { name: /Anna/ }))

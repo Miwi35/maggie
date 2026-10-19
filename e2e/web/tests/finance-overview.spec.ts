@@ -381,12 +381,13 @@ test.describe('what is to do', () => {
     await expect(page).toHaveURL(/#\/accounts\/[^/]+\/transactions\?tab=incidents$/)
     await expect(new FinanceTransfersPage(page).incidentsTab(1)).toHaveAttribute('aria-selected', 'true')
 
-    // « 3 à trier » opens the pile on its oldest line.
+    // « 3 à trier » opens the pile as a list, oldest line first; the line opens its fiche (MAG-507).
     await overview.open()
     await overview.toSortPill.click()
     await expect(page).toHaveURL(/#\/finance\/to-sort$/)
     const toSort = new FinanceToSortPage(page)
-    await expect(toSort.card.getByText(sorted[0].label, { exact: true })).toBeVisible()
+    await expect(toSort.pile.getByRole('button').first()).toContainText(sorted[0].label)
+    await toSort.select(sorted[0].label)
     for (const line of sorted) {
       await expect(toSort.pile.getByRole('button', { name: line.label })).toBeVisible()
     }

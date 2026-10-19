@@ -753,6 +753,16 @@ object UiTags {
     const val TO_CONTROL_SEARCH = "to_control_search"
     const val TO_CONTROL_SAVE = "to_control_save"
     const val TO_CONTROL_EMPTY = "to_control_empty"
+    const val TO_CONTROL_FICHE = "to_control_fiche"
+
+    /**
+     * The review pages' fiche (MAG-507): « Précédent » / « Suivant », the « 3 / 12 » position and the way back to the
+     * list, shared by « À qualifier » and « Reconnues à contrôler ».
+     */
+    const val REVIEW_PREVIOUS = "review_previous"
+    const val REVIEW_NEXT = "review_next"
+    const val REVIEW_POSITION = "review_position"
+    const val REVIEW_BACK_TO_LIST = "review_back_to_list"
 
     /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
     const val TO_QUALIFY_PILL = "to_qualify_pill"
