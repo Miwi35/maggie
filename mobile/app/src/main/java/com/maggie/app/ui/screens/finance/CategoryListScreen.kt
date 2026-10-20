@@ -32,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -60,6 +61,37 @@ fun CategoryListScreen(
     showsDetailPane: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    CategoryPanes(viewModel, uiState, showsDetailPane) {
+        CategoryTreeScreen(viewModel, uiState, onBack, onOpenRules)
+    }
+}
+
+/**
+ * The tree, the editor and the tablet's detail pane, without a bar of their own: the Configuration
+ * page shows them as its « Catégories » tab. [onOpenRules], when given, adds the way to the rules.
+ */
+@Composable
+fun CategoryListContent(
+    viewModel: CategoryViewModel,
+    modifier: Modifier = Modifier,
+    onOpenRules: (() -> Unit)? = null,
+    showsDetailPane: Boolean = false,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    CategoryPanes(viewModel, uiState, showsDetailPane) {
+        CategoryTreeContent(viewModel, uiState, onOpenRules, modifier)
+    }
+}
+
+@Composable
+private fun CategoryPanes(
+    viewModel: CategoryViewModel,
+    uiState: CategoryUiState,
+    showsDetailPane: Boolean,
+    tree: @Composable () -> Unit,
+) {
     val editing = uiState.editing
 
     // A category has a screen of its own, new or existing (MAG-353): the list is only
@@ -87,13 +119,13 @@ fun CategoryListScreen(
     }
 
     if (!showsDetailPane) {
-        if (editor != null) editor() else CategoryTreeScreen(viewModel, uiState, onBack, onOpenRules)
+        if (editor != null) editor() else tree()
         return
     }
 
     ListDetailPane(
         showsDetailPane = true,
-        list = { CategoryTreeScreen(viewModel, uiState, onBack, onOpenRules) },
+        list = tree,
         detail = editor,
         placeholder = "Touchez une catégorie pour la modifier ici.",
     )
@@ -107,16 +139,6 @@ private fun CategoryTreeScreen(
     onBack: () -> Unit,
     onOpenRules: () -> Unit,
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-    val rows = remember(uiState.categories, uiState.expanded) { uiState.rows }
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
-
     Scaffold(
         topBar = {
             FinanceTopBar(Screen.CategoryList.route) {
@@ -138,17 +160,33 @@ private fun CategoryTreeScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.startCreating() }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle catégorie")
-            }
-        },
     ) { paddingValues ->
+        CategoryTreeContent(viewModel, uiState, onOpenRules = null, Modifier.padding(paddingValues))
+    }
+}
+
+@Composable
+private fun CategoryTreeContent(
+    viewModel: CategoryViewModel,
+    uiState: CategoryUiState,
+    onOpenRules: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val rows = remember(uiState.categories, uiState.expanded) { uiState.rows }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.categories.isEmpty() -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
@@ -156,7 +194,6 @@ private fun CategoryTreeScreen(
             }
             uiState.categories.isEmpty() -> {
                 EmptyState(
-                    modifier = Modifier.padding(paddingValues),
                     title = "Aucune catégorie pour l'instant",
                     description = "Les catégories portent les budgets, les règles et la revue mensuelle. Commencez par celles où va l'essentiel de votre argent.",
                     actionLabel = "Créer une catégorie",
@@ -165,10 +202,17 @@ private fun CategoryTreeScreen(
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    if (onOpenRules != null) {
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(onClick = onOpenRules) { Text("Règles de catégorisation") }
+                            }
+                        }
+                    }
                     items(rows, key = { it.category.id }) { row ->
                         CategoryTreeRow(
                             row = row,
@@ -180,6 +224,13 @@ private fun CategoryTreeScreen(
                     }
                 }
             }
+        }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+        FloatingActionButton(
+            onClick = { viewModel.startCreating() },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nouvelle catégorie")
         }
     }
 }

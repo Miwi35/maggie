@@ -87,6 +87,46 @@ fun RecurringOperationListScreen(
     openSeriesId: String? = null,
     onSeriesOpened: () -> Unit = {},
 ) {
+    RecurringOperationListContent(
+        viewModel = viewModel,
+        onBack = onBack,
+        seed = seed,
+        onSeedConsumed = onSeedConsumed,
+        onBackToTransaction = onBackToTransaction,
+        openSeriesId = openSeriesId,
+        onSeriesOpened = onSeriesOpened,
+        topBar = {
+            FinanceTopBar(Screen.RecurringOperations.route) {
+                TopAppBar(
+                    title = { Text("Opérations récurrentes") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
+        },
+    )
+}
+
+/**
+ * The list, its editors and its button. The screen gives it a [topBar]; the Revue page shows it as its
+ * « Opérations récurrentes » tab without one, and without [onBack], which the page's own back handles.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecurringOperationListContent(
+    viewModel: RecurringOperationViewModel,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    seed: Transaction? = null,
+    onSeedConsumed: () -> Unit = {},
+    onBackToTransaction: () -> Unit = {},
+    openSeriesId: String? = null,
+    onSeriesOpened: () -> Unit = {},
+    topBar: (@Composable () -> Unit)? = null,
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     // The suggestion whose heading is being chosen: a screen of its own, never a dropdown.
@@ -162,7 +202,7 @@ fun RecurringOperationListScreen(
         return
     }
 
-    BackHandler(onBack = onBack)
+    if (onBack != null) BackHandler(onBack = onBack)
 
     ErrorSnackbar(
         error = uiState.error,
@@ -172,18 +212,8 @@ fun RecurringOperationListScreen(
     )
 
     Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.RecurringOperations.route) {
-                TopAppBar(
-                    title = { Text("Opérations récurrentes") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            }
-        },
+        modifier = modifier,
+        topBar = { topBar?.invoke() },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(

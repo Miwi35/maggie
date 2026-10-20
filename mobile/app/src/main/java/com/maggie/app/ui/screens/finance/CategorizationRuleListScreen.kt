@@ -69,23 +69,6 @@ fun CategorizationRuleListScreen(
     onOpenSuggestions: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
-    var showCreateDialog by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiState.lastApplyMessage) {
-        uiState.lastApplyMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearApplyMessage()
-        }
-    }
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
 
     Scaffold(
         topBar = {
@@ -110,76 +93,126 @@ fun CategorizationRuleListScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle règle")
-            }
-        },
     ) { paddingValues ->
-        when {
-            uiState.isLoading && uiState.rules.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
+        CategorizationRuleListContent(viewModel, onOpenSuggestions, Modifier.padding(paddingValues), showToolbar = false)
+    }
+}
+
+/**
+ * The body of the screen, button and dialog included: the Revue page shows it as its « Règles » tab.
+ * Without a top bar to carry them, [showToolbar] puts the suggestions and « Appliquer » above the list.
+ */
+@Composable
+fun CategorizationRuleListContent(
+    viewModel: CategorizationRuleViewModel,
+    onOpenSuggestions: () -> Unit,
+    modifier: Modifier = Modifier,
+    showToolbar: Boolean = true,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.lastApplyMessage) {
+        uiState.lastApplyMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearApplyMessage()
+        }
+    }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showToolbar) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    CircularProgressIndicator()
+                    TextButton(onClick = onOpenSuggestions) { Text("Suggestions") }
+                    TextButton(onClick = { viewModel.applyRules() }, enabled = !uiState.isApplying) {
+                        Text("Appliquer les règles")
+                    }
                 }
             }
-            uiState.rules.isEmpty() -> {
-                EmptyState(
-                    modifier = Modifier.padding(paddingValues),
-                    title = "Aucune règle pour l'instant",
-                    description = "Une règle classe toute seule les transactions dont le libellé correspond, et vaut aussi pour l'historique.",
-                    actionLabel = "Écrire une règle",
-                    onAction = { showCreateDialog = true },
-                )
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(uiState.rules, key = { it.id }) { rule ->
-                        val categoryName = tree.pathOf(rule.categoryId)
-                        // Without a label the headline already says the direction and the amount.
-                        val scope = if (rule.labelPattern.isNullOrBlank()) "" else describeRuleScope(
-                            rule.direction,
-                            rule.minAmountCents,
-                            rule.maxAmountCents,
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    uiState.isLoading && uiState.rules.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                    uiState.rules.isEmpty() -> {
+                        EmptyState(
+                            title = "Aucune règle pour l'instant",
+                            description = "Une règle classe toute seule les transactions dont le libellé correspond, et vaut aussi pour l'historique.",
+                            actionLabel = "Écrire une règle",
+                            onAction = { showCreateDialog = true },
                         )
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(uiState.rules, key = { it.id }) { rule ->
+                                val categoryName = tree.pathOf(rule.categoryId)
+                                // Without a label the headline already says the direction and the amount.
+                                val scope = if (rule.labelPattern.isNullOrBlank()) "" else describeRuleScope(
+                                    rule.direction,
+                                    rule.minAmountCents,
+                                    rule.maxAmountCents,
+                                )
 
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = rule.headline(),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
-                                    Text(
-                                        text = listOfNotNull(categoryName, scope.ifEmpty { null })
-                                            .joinToString(" · "),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                IconButton(onClick = { viewModel.deleteRule(rule.id) }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Supprimer",
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
+                                Card(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = rule.headline(),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                            )
+                                            Text(
+                                                text = listOfNotNull(categoryName, scope.ifEmpty { null })
+                                                    .joinToString(" · "),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        IconButton(onClick = { viewModel.deleteRule(rule.id) }) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Supprimer",
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+        FloatingActionButton(
+            onClick = { showCreateDialog = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nouvelle règle")
         }
     }
 

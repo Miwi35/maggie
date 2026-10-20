@@ -70,6 +70,28 @@ fun BankConnectionListScreen(
     viewModel: BankConnectionViewModel,
     onBack: () -> Unit,
 ) {
+    Scaffold(
+        topBar = {
+            FinanceTopBar(Screen.BankConnectionList.route) {
+                TopAppBar(
+                    title = { Text("Banques") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
+        },
+    ) { paddingValues ->
+        BankConnectionListContent(viewModel, Modifier.padding(paddingValues))
+    }
+}
+
+/** The body of the screen, the fetch button included: the Configuration page shows it as its « Banques » tab. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BankConnectionListContent(viewModel: BankConnectionViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -99,36 +121,11 @@ fun BankConnectionListScreen(
         onRetry = viewModel::refresh,
     )
 
-    Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.BankConnectionList.route) {
-                TopAppBar(
-                    title = { Text("Banques") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        if (uiState.connections.isNotEmpty()) {
-                            TextButton(
-                                onClick = { viewModel.sync() },
-                                enabled = !uiState.isSyncing,
-                                modifier = Modifier.testTag(UiTags.BANK_SYNC),
-                            ) {
-                                Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
-                            }
-                        }
-                    },
-                )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
+    Box(modifier = modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            modifier = Modifier.fillMaxSize(),
         ) {
             when {
                 uiState.isLoading && uiState.connections.isEmpty() -> {
@@ -148,6 +145,17 @@ fun BankConnectionListScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(
+                                    onClick = { viewModel.sync() },
+                                    enabled = !uiState.isSyncing,
+                                    modifier = Modifier.testTag(UiTags.BANK_SYNC),
+                                ) {
+                                    Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
+                                }
+                            }
+                        }
                         items(uiState.connections, key = { it.id }) { connection ->
                             ConnectionCard(
                                 connection = connection,
@@ -159,6 +167,7 @@ fun BankConnectionListScreen(
                 }
             }
         }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

@@ -18,9 +18,10 @@ export interface NavPart {
 }
 
 /**
- * One aspect of a menu (MAG-427): a block of the menu's summary page, opening
- * on its detailed screen. No `path` when no screen holds the detail yet — the
- * block then only says where things stand.
+ * One aspect of a menu (MAG-427, MAG-518): a tab of the menu's page, whose body
+ * is the aspect's own content. `path` is the standalone screen the same content
+ * is also reached from (a record's trail, a redirect after saving); no `path`
+ * when the aspect has no screen outside its tab.
  */
 export interface NavAspect {
   id: string
@@ -30,7 +31,7 @@ export interface NavAspect {
   resource?: string
 }
 
-/** A menu of the sidebar: it opens a summary page, never a list of links. */
+/** A menu of the sidebar: it opens a page of one tab per aspect, never a list of links. */
 export interface NavMenu {
   key: string
   label: string
@@ -60,10 +61,14 @@ export const FINANCE_DASHBOARD_PATH = '/finance/dashboard'
 
 export const financeSummaryPath = (key: string): string => `/finance/summary/${key}`
 
+/** The menu's page opened on one aspect: the tab lives in the path, so a link or the back button lands on it. */
+export const financeAspectPath = (menuKey: string, aspectId: string): string =>
+  `${financeSummaryPath(menuKey)}/${aspectId}`
+
 /**
  * The seven Finance menus (owner, 15 Oct.), in the sidebar's order. The
  * Dashboard is the module's home and has no aspects; each of the others opens
- * the summary page at `/finance/summary/<key>`. Every Finance screen sits under
+ * its page at `/finance/summary/<key>`, one tab per aspect. Every Finance screen sits under
  * exactly one aspect — transactions are reached through their account.
  */
 export const FINANCE_MENUS: NavMenu[] = [
@@ -288,6 +293,13 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
     const menu = module.menus?.find((candidate) => candidate.path === path)
     if (menu) {
       return [moduleCrumb(module), { label: menu.label, to: menu.path }]
+    }
+
+    for (const candidate of module.menus ?? []) {
+      const aspect = candidate.aspects.find((entry) => financeAspectPath(candidate.key, entry.id) === path)
+      if (aspect) {
+        return [moduleCrumb(module), { label: candidate.label, to: candidate.path }, { label: aspect.label, to: path }]
+      }
     }
 
     for (const part of module.parts) {

@@ -117,7 +117,6 @@ import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
-import com.maggie.app.ui.screens.finance.FinanceSummaryScreen
 import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
@@ -443,24 +442,7 @@ private fun NavController.backInFinance() {
     }
 }
 
-@Composable
-private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController) {
-    val viewModel: FinanceSummaryViewModel = koinViewModel()
-    FinanceSummaryScreen(
-        menu = menu,
-        viewModel = viewModel,
-        onBack = { navController.backInFinance() },
-        onOpen = { route ->
-            navController.navigate(route) {
-                launchSingleTop = true
-                // The dashboard already underneath is returned to, not stacked a second time.
-                if (route == Screen.FinanceDashboard.route) popUpTo(route) { inclusive = false }
-            }
-        },
-    )
-}
-
-// Out of NavGraph's body, like FinanceSummaryPage: that one function is already as large as the compiler takes.
+// Out of NavGraph's body, like FinanceMenuRoute: that one function is already as large as the compiler takes.
 @Composable
 private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () -> Unit) {
     ReviewActivityRoute(
@@ -672,9 +654,9 @@ fun NavGraph() {
     }
 
     // The menus are siblings: Dashboard → Trésorerie → Revue goes back to the Dashboard in one step.
-    fun selectFinanceMenu(menu: FinanceMenu) {
+    fun selectFinanceMenu(menu: FinanceMenu, tab: String? = null) {
         val dashboardInBackStack = runCatching { navController.getBackStackEntry(Screen.FinanceDashboard.route) }.isSuccess
-        val action = financeTabAction(menu, dashboardInBackStack)
+        val action = financeTabAction(menu, dashboardInBackStack, tab)
         val currentId = navController.currentBackStackEntry?.destination?.id
         navController.navigate(action.route) {
             if (action.popToDashboard) {
@@ -685,6 +667,31 @@ fun NavGraph() {
             launchSingleTop = true
         }
     }
+
+    // What the aspects of a Finance menu page do with the rest of the app. Called inside each page's
+    // composition, so that the state it reads (the series to open, the seed) is observed there.
+    fun financeHooks() = FinanceAspectHooks(
+        showsDetailPane = paneShown,
+        openTransaction = { accountId, accountName, transactionId, drillDown ->
+            selectedAccount = accountId to (accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
+            transactionToOpen = transactionId
+            if (drillDown) accountDrillDown = true
+            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+        },
+        prepareAdvance = { accountId, accountName, prefill ->
+            selectedAccount = accountId to accountName.ifBlank { DEFAULT_ACCOUNT_NAME }
+            transactionPrefill = prefill
+            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+        },
+        openSuggestions = { navigateTo(Screen.RuleSuggestions.route) },
+        openRules = { selectFinanceMenu(FinanceMenu.REVIEW, tab = "rules") },
+        declareRente = { navigateTo(Screen.CategoryList.route) },
+        recurringSeed = recurringSeed,
+        onSeedConsumed = { recurringSeed = null },
+        onBackToTransaction = { navController.popBackStack() },
+        seriesToOpen = seriesToOpen,
+        setSeriesToOpen = { seriesToOpen = it },
+    )
 
     // The detail of an event or a task acts the same in its sheet and in the calendar's detail pane.
     fun editEvent(event: ExpandedEvent) {
@@ -846,7 +853,7 @@ fun NavGraph() {
                 {
                     FinanceNavigationRail(
                         currentRoute = currentRoute,
-                        onSelect = ::selectFinanceMenu,
+                        onSelect = { selectFinanceMenu(it) },
                         chatAction = if (chrome.showsChatInRail) {
                             {
                                 ChatRailActions(
@@ -1708,17 +1715,37 @@ fun NavGraph() {
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
                         ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
                     }
-                    composable(Screen.FinanceReview.route) {
-                        FinanceSummaryPage(FinanceMenu.REVIEW, navController)
+                    composable(financeMenuPattern(Screen.FinanceReview.route), arguments = FinanceMenuArguments) { entry ->
+                        FinanceMenuRoute(
+                            FinanceMenu.REVIEW,
+                            entry.arguments?.getString(FINANCE_TAB_ARG),
+                            financeHooks(),
+                            onBack = { navController.backInFinance() },
+                        )
                     }
-                    composable(Screen.FinanceTreasuryMenu.route) {
-                        FinanceSummaryPage(FinanceMenu.TREASURY, navController)
+                    composable(financeMenuPattern(Screen.FinanceTreasuryMenu.route), arguments = FinanceMenuArguments) { entry ->
+                        FinanceMenuRoute(
+                            FinanceMenu.TREASURY,
+                            entry.arguments?.getString(FINANCE_TAB_ARG),
+                            financeHooks(),
+                            onBack = { navController.backInFinance() },
+                        )
                     }
-                    composable(Screen.FinancePlanning.route) {
-                        FinanceSummaryPage(FinanceMenu.PLANNING, navController)
+                    composable(financeMenuPattern(Screen.FinancePlanning.route), arguments = FinanceMenuArguments) { entry ->
+                        FinanceMenuRoute(
+                            FinanceMenu.PLANNING,
+                            entry.arguments?.getString(FINANCE_TAB_ARG),
+                            financeHooks(),
+                            onBack = { navController.backInFinance() },
+                        )
                     }
-                    composable(Screen.FinanceConfiguration.route) {
-                        FinanceSummaryPage(FinanceMenu.SETTINGS, navController)
+                    composable(financeMenuPattern(Screen.FinanceConfiguration.route), arguments = FinanceMenuArguments) { entry ->
+                        FinanceMenuRoute(
+                            FinanceMenu.SETTINGS,
+                            entry.arguments?.getString(FINANCE_TAB_ARG),
+                            financeHooks(),
+                            onBack = { navController.backInFinance() },
+                        )
                     }
                     composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
                         val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()

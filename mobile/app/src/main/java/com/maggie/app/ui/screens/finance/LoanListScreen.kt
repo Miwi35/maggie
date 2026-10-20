@@ -58,17 +58,6 @@ fun LoanListScreen(
     viewModel: LoanViewModel,
     onBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var showCreateDialog by remember { mutableStateOf(false) }
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
-
     Scaffold(
         topBar = {
             FinanceTopBar(Screen.LoanList.route) {
@@ -82,17 +71,30 @@ fun LoanListScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouveau prêt")
-            }
-        },
     ) { paddingValues ->
+        LoanListContent(viewModel, Modifier.padding(paddingValues))
+    }
+}
+
+/** The body of the screen, button and dialog included: the Planification page shows it as its « Prêts » tab. */
+@Composable
+fun LoanListContent(viewModel: LoanViewModel, modifier: Modifier = Modifier) {
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.loans.isEmpty() -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
@@ -100,7 +102,6 @@ fun LoanListScreen(
             }
             uiState.loans.isEmpty() -> {
                 EmptyState(
-                    modifier = Modifier.padding(paddingValues),
                     title = "Aucun prêt enregistré",
                     description = "Renseignez vos crédits en cours pour savoir quand chaque mensualité se libère.",
                     actionLabel = "Ajouter un prêt",
@@ -109,8 +110,8 @@ fun LoanListScreen(
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     uiState.timeline?.let { timeline ->
@@ -159,6 +160,13 @@ fun LoanListScreen(
                     }
                 }
             }
+        }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+        FloatingActionButton(
+            onClick = { showCreateDialog = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nouveau prêt")
         }
     }
 

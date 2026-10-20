@@ -109,11 +109,11 @@ test('a settings page and the dashboard carry their trail @responsive', async ({
 /**
  * Finance › Trésorerie › Matelas (MAG-427).
  *
- * A menu opens its summary page, whose blocks lead to the detailed screens: the
- * owner reaches the cushion by the menu, then by its block, and the trail says
- * where he is. Below `md` the trail only shows the way back, to the menu.
+ * A menu opens its page of tabs, one per aspect, each the aspect's own content
+ * (MAG-518): the owner reaches the cushion by the menu, then by its tab, and the
+ * trail says where he is. Below `md` the trail only shows the way back, to the menu.
  */
-test('the menu opens a summary page whose block leads to the cushion, and the trail says where @responsive', async ({
+test('the menu opens a page of tabs, the cushion tab shows the cushion, and the trail says where @responsive', async ({
   page,
 }) => {
   const shell = new AdminShell(page)
@@ -125,11 +125,11 @@ test('the menu opens a summary page whose block leads to the cushion, and the tr
   await shell.navigateTo('Trésorerie', 'Finance')
 
   await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)
-  await expect(shell.content.getByTestId('summary-block')).toHaveCount(4)
+  await expect(shell.content.getByRole('tab')).toHaveCount(4)
 
-  await shell.content.getByRole('link', { name: 'Matelas' }).click()
+  await shell.content.getByRole('tab', { name: 'Matelas' }).click()
 
-  await expect(page).toHaveURL(/#\/finance\/cushion$/)
+  await expect(page).toHaveURL(/#\/finance\/summary\/treasury\/cushion$/)
   await expect(new FinanceCushionPage(page).summary).toBeVisible()
   if (narrow) {
     await expect(trail.getByRole('link', { name: 'Trésorerie' })).toBeVisible()
