@@ -1,0 +1,17 @@
+# « Mets le canapé en premier » (MAG-519), first message: the priority order is read with
+# `manage_projects` list. Reordering needs EVERY project id in the new order, and a scenario
+# cannot capture an id from its own run's results (the history leaves out the message being
+# answered), so Maggie checks first — the Canapé waits for the Déménagement in the seed — and
+# 91-projects-reorder.yaml writes the order on the user's yes, with the ids the replayed list
+# gave.
+name: projects-reorder-read
+description: Read the projects' priority order before moving one to the top.
+
+match:
+  user_contains: "mets le canapé en premier"
+
+turns:
+  - tools:
+      - name: manage_projects
+        input: {action: list}
+  - text: "Le Canapé attend le Déménagement, aujourd'hui en tête de vos priorités. Je passe quand même le Canapé en premier ?"

@@ -209,6 +209,11 @@ finds nothing. The fake logs an error when a scenario searches while `web_search
 task id). The fake cannot compute a date, so any text or argument of a scenario may carry `${today}` and
 `${tomorrow}`: both are expanded to the Paris calendar day of the stack's clock.
 
+**Projects** (MAG-519). `91-projects-create.yaml` creates « Voyage au Japon » with a deadline through
+`manage_projects`. Reordering takes every project id, which a run cannot capture from its own results: « Mets
+le canapé en premier » reads the list (`91-projects-reorder-read.yaml`), and « Oui, le canapé d'abord »
+reorders with the ids the replayed list gave (`91-projects-reorder.yaml`).
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

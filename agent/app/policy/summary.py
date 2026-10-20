@@ -58,6 +58,7 @@ _MANAGE_OBJECTS = {
     "manage_notifications": "la notification",
     "manage_operations": "l'opération",
     "manage_products": "le produit",
+    "manage_projects": "le projet",
     "manage_recurring_groceries": "la course récurrente",
     "manage_stores": "le magasin",
     "manage_transactions": "la transaction",

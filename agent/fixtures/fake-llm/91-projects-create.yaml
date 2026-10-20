@@ -1,0 +1,23 @@
+# « Ajoute un projet Voyage au Japon de 3000 euros avec une date limite en août 2027 »
+# (MAG-519): one `manage_projects` create carrying everything the user said — the name, the
+# amount in cents, `deadline` because « date limite » means « at the latest », and the last
+# day of the month named. `wellbeing` is the tool's default, spelled out. The fake does not
+# read the result: the journey reads the new project on `GET /api/finance/projects`; what the
+# tool refuses (a missing field answers `error` + `current`) is `ProjectToolsTest`'s business.
+name: projects-create
+description: Create a project with a deadline through MCP.
+
+match:
+  user_contains: "ajoute un projet voyage au japon"
+
+turns:
+  - tools:
+      - name: manage_projects
+        input:
+          action: create
+          name: "Voyage au Japon"
+          amountCents: 300000
+          dateMode: deadline
+          targetOn: "2027-08-31"
+          wellbeing: medium
+  - text: "C'est noté : le projet Voyage au Japon, 3 000 €, à financer au plus tard le 31 août 2027. Il passe en dernier dans vos priorités."

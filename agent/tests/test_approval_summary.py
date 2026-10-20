@@ -126,6 +126,14 @@ class TestManageToolsWithTheDeleteAction:
         assert summary == "Supprimer l'ustensile « Poêle »"
         mcp.call_tool.assert_awaited_once_with("manage_utensils", {"action": "list"}, user_id="user-1")
 
+    async def test_a_project_is_found_in_the_list_action(self, mcp):
+        mcp.call_tool.return_value = reply({"projects": [{"id": ULID, "name": "Canapé", "dependsOn": []}]})
+
+        summary = await build_summary("manage_projects", {"action": "delete", "projectId": ULID}, "user-1")
+
+        assert summary == "Supprimer le projet « Canapé »"
+        mcp.call_tool.assert_awaited_once_with("manage_projects", {"action": "list"}, user_id="user-1")
+
     async def test_the_list_action_is_never_the_one_that_deletes(self, mcp):
         await build_summary("manage_stores", {"action": "delete", "storeId": ULID}, "user-1")
 
@@ -184,6 +192,7 @@ class TestTheLabel:
             ("delete_task", {"id": ULID}, "Supprimer la tâche"),
             ("delete_skill", {"name": "courses"}, "Supprimer la compétence"),
             ("manage_loans", {"action": "delete", "loanId": ULID}, "Supprimer le prêt"),
+            ("manage_projects", {"action": "delete", "projectId": ULID}, "Supprimer le projet"),
             (
                 "manage_operations",
                 {"action": "delete", "operationId": ULID},
