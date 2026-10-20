@@ -104,6 +104,9 @@ class RotationNavGraphScreenTest {
         val tasks = mockk<com.maggie.app.ui.screens.tasks.TasksViewModel>(relaxed = true) {
             every { uiState } returns state(com.maggie.app.ui.screens.tasks.TasksUiState())
         }
+        val routines = mockk<com.maggie.app.ui.screens.tasks.RoutinesViewModel>(relaxed = true) {
+            every { uiState } returns state(com.maggie.app.ui.screens.tasks.RoutinesUiState())
+        }
         val cal = mockk<FullCalendarViewModel>(relaxed = true) { every { uiState } returns state(FullCalendarUiState()) }
         val notif = mockk<NotificationViewModel>(relaxed = true) { every { uiState } returns state(NotificationUiState()) }
         val recipes = mockk<RecipeListViewModel>(relaxed = true) {
@@ -158,6 +161,7 @@ class RotationNavGraphScreenTest {
                         )
                     }
                     viewModel { tasks }
+                    viewModel { routines }
                     single<InterruptionAlert> { InterruptionAlert {} }
                 },
             )
