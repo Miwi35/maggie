@@ -261,6 +261,38 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    /**
+     * Where the user stands in the review of a month (MAG-456): a step and the
+     * transactions already handled, as the PUT leaves them and the GET reads them.
+     */
+    public function testTheReviewProgressRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml', 'RecordedToSort.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('PUT', '/api/finance/review/progress', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'month' => '2026-03',
+            'step' => 'balance',
+            'handledTransactionIds' => [(string) $this->getFixture('recorded_to_sort_claimed')->getId()],
+        ], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/finance/review/progress?month=2026-03', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertCount(1, $body['handledTransactionIds'], 'The recorded progress must hold a handled transaction.');
+
+        $this->assertMatchesContract(
+            'responses/finance_review_progress.read.json',
+            self::stabilise($body),
+            'GET /api/finance/review/progress no longer returns what it used to. The mobile DTOs (ReviewActivity.kt) and the admin hook (useReviewProgress) read this response.',
+        );
+    }
+
     public function testTheEnvelopeAdjustmentsRecordingIsCurrent(): void
     {
         $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/Controller/fixtures/envelope_adjustments.yaml');

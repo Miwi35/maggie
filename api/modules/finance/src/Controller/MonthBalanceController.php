@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Service\FinanceReviewAppointment;
 use Maggie\Finance\UseCase\GetMonthBalance;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,6 +19,7 @@ final class MonthBalanceController
     public function __construct(
         private readonly Security $security,
         private readonly GetMonthBalance $getMonthBalance,
+        private readonly FinanceReviewAppointment $reviewAppointment,
     ) {
     }
 
@@ -34,6 +36,10 @@ final class MonthBalanceController
             return new JsonResponse(['error' => 'month must be a month as YYYY-MM, between 2000 and 2100'], Response::HTTP_BAD_REQUEST);
         }
 
-        return new JsonResponse($this->getMonthBalance->execute($user, new \DateTimeImmutable($month.'-01')));
+        $balance = $this->getMonthBalance->execute($user, new \DateTimeImmutable($month.'-01'));
+        // Opening the finances lays down the monthly review's appointment, once (MAG-456).
+        $this->reviewAppointment->ensure($user);
+
+        return new JsonResponse($balance);
     }
 }

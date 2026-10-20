@@ -148,6 +148,13 @@ export const BRAVO_USER_EMAIL = 'e2e-bravo@maggie.local'
  */
 export const STARS_USER_EMAIL = 'e2e-stars@maggie.local'
 
+/**
+ * The nineteenth seeded account, for the review activity (MAG-456): where its
+ * review stands — the step, the lines handled — is the user's, on every device,
+ * so no other file may walk a review on it.
+ */
+export const ACTIVITY_USER_EMAIL = 'e2e-activity@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

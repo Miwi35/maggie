@@ -1,6 +1,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { EventDetailPopover } from './EventDetailPopover'
 import type { PopoverEvent } from './EventDetailPopover'
 
@@ -112,5 +113,46 @@ describe('EventDetailPopover — proaction', () => {
     renderPopover()
 
     expect(screen.queryByText('Instruction')).not.toBeInTheDocument()
+  })
+})
+
+/** The monthly review appointment opens the review activity (MAG-456). */
+describe('EventDetailPopover — activity', () => {
+  const Where = () => {
+    const location = useLocation()
+
+    return <span data-testid="where">{`${location.pathname} from ${(location.state as { from?: string } | null)?.from}`}</span>
+  }
+
+  test('« Lancer » launches the review from its appointment, to come back to the agenda', async () => {
+    render(
+      <MemoryRouter initialEntries={['/calendar?view=month']}>
+        <Routes>
+          <Route
+            path="/calendar"
+            element={
+              <EventDetailPopover
+                event={{ ...event, title: "Revue d'octobre", activity: 'finance-review' }}
+                anchorEl={document.body}
+                onClose={vi.fn()}
+                onEdit={vi.fn()}
+                onDelete={vi.fn()}
+              />
+            }
+          />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(screen.getByRole('link', { name: 'Lancer' }))
+
+    expect(await screen.findByTestId('where')).toHaveTextContent('/finance/review/activity from /calendar?view=month')
+  })
+
+  test('an ordinary event has nothing to launch', () => {
+    renderPopover({ activity: null })
+
+    expect(screen.queryByRole('link', { name: 'Lancer' })).not.toBeInTheDocument()
   })
 })

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -15,11 +16,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,9 +32,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.lastDayOf
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.util.RruleUtils
 import java.time.Instant
@@ -69,15 +75,18 @@ fun EventDetailSheet(
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onLaunch: (() -> Unit)? = null,
 ) {
-    EventDetailContent(event = event, onEdit = onEdit, onDelete = onDelete) { body ->
-        ModalBottomSheet(onDismissRequest = onDismiss) { body() }
+    EventDetailContent(event = event, onEdit = onEdit, onDelete = onDelete, onLaunch = onLaunch) { body ->
+        // A sheet is a window of its own: its tags need their own root for Maestro to see « Lancer ».
+        ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.uiTagRoot()) { body() }
     }
 }
 
 /**
  * The detail of an event. [frame] wraps it: the sheet puts it in a modal, the default
  * draws it in place, which is what the detail pane beside the calendar wants (MAG-263).
+ * An event that launches an activity — the monthly review (MAG-456) — offers « Lancer », which calls [onLaunch].
  */
 @Composable
 fun EventDetailContent(
@@ -85,6 +94,7 @@ fun EventDetailContent(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    onLaunch: (() -> Unit)? = null,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     val agendaColor = event.agendaColor?.let { parseColor(it) }
@@ -107,10 +117,21 @@ fun EventDetailContent(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
                 Text(
-                    text = event.summary,
+                    text = event.title,
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.weight(1f),
                 )
+            }
+
+            if (event.launchesFinanceReview && onLaunch != null) {
+                Button(
+                    onClick = onLaunch,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.EVENT_LAUNCH_ACTIVITY),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lancer")
+                }
             }
 
             // Date & time

@@ -62,6 +62,9 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     use HasGoogleEventTrackingTrait;
     use MercurePayloadFilterTrait;
 
+    /** The monthly review of the finances, launched from its appointment (MAG-456). */
+    public const ACTIVITY_FINANCE_REVIEW = 'finance-review';
+
     /** The column's default, and what a time zone nobody can resolve falls back on. */
     public const FALLBACK_TIME_ZONE = 'Europe/Paris';
 
@@ -211,6 +214,18 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         ])]),
     ])]
     private ?array $reminders = null;
+
+    // The activity a module launches from this event, e.g. the monthly review of the
+    // finances (MAG-456): the clients show a « Lancer » button for it. Set by the
+    // module that files the event, never by a client. Protected so the meals and
+    // proactions inherit that too: API Platform reads no private parent attribute.
+    #[ORM\Column(length: 40, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(
+        description: 'The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.',
+        writable: false,
+    )]
+    protected ?string $activity = null;
 
     #[ORM\ManyToOne(targetEntity: Agenda::class, inversedBy: 'events')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -505,6 +520,18 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         return $this;
     }
 
+    public function getActivity(): ?string
+    {
+        return $this->activity;
+    }
+
+    public function setActivity(?string $activity): static
+    {
+        $this->activity = $activity;
+
+        return $this;
+    }
+
     /** Whether the server picks the agenda itself, so a client body need not carry one. */
     #[Ignore]
     public function isAgendaChosenByServer(): bool
@@ -552,6 +579,7 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
             'originalStartAt' => $this->originalStartAt?->format('c'),
             'status' => $this->status->value,
             'reminders' => $this->reminders,
+            'activity' => $this->activity,
             'agendaId' => (string) $this->agenda->getId(),
             'userId' => (string) $this->agenda->getUser()->getId(),
         ];
@@ -566,6 +594,7 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
             'endAt' => $this->endAt?->format('c'),
             'startDate' => $this->startDate?->format('Y-m-d'),
             'endDate' => $this->endDate?->format('Y-m-d'),
+            'activity' => $this->activity,
         ], $changedProperties);
     }
 }

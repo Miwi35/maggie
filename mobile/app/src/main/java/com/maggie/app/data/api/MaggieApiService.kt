@@ -81,6 +81,9 @@ import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.ControlRequest
 import com.maggie.app.data.model.ControlResult
 import com.maggie.app.data.model.RecognisedToControl
+import com.maggie.app.data.model.ReviewProgress
+import com.maggie.app.data.model.ReviewProgressUpdate
+import com.maggie.app.data.model.ReviewQueue
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.SalaryExpectedDayRequest
@@ -1697,6 +1700,29 @@ class MaggieApiService(
         return client.post("$baseUrl/api/finance/review/controls") {
             contentType(ContentType.Application.Json)
             setBody(request)
+        }.orRefusal().body()
+    }
+
+    // Finance — Activité Comptes · la revue (MAG-456)
+    /** The lines of [month] (`YYYY-MM`) the review walks: those to qualify, then those an operation recognised. */
+    suspend fun getReviewQueue(month: String): ReviewQueue {
+        return client.get("$baseUrl/api/finance/review/queue") {
+            url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /** Where the review of [month] stands: its step and the lines already left. Nothing is stored by the read. */
+    suspend fun getReviewProgress(month: String): ReviewProgress {
+        return client.get("$baseUrl/api/finance/review/progress") {
+            url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /** Moves the step and adds lines to those already handled; the API answers with the whole progress. */
+    suspend fun putReviewProgress(update: ReviewProgressUpdate): ReviewProgress {
+        return client.put("$baseUrl/api/finance/review/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(update)
         }.orRefusal().body()
     }
 

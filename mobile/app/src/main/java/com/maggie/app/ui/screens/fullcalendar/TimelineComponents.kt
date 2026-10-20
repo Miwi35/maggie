@@ -100,7 +100,7 @@ fun EventBlock(
         // Tag and click sit on the Text itself: on a parent Box the merged semantics node
         // carries the id but not the text, so Maestro cannot match both at once.
         Text(
-            text = event.summary,
+            text = event.title,
             style = MaterialTheme.typography.labelSmall,
             color = readableTextOn(bgColor),
             maxLines = if (height > 30.dp) 2 else 1,
@@ -157,7 +157,7 @@ fun AllDayRow(
             ) {
                 // Tag and click on the Text itself, as in EventBlock: Maestro matches both at once.
                 Text(
-                    text = event.summary,
+                    text = event.title,
                     style = MaterialTheme.typography.labelSmall,
                     color = readableTextOn(bgColor),
                     maxLines = 1,

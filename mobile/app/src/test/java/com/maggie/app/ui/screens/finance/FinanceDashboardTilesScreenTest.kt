@@ -322,14 +322,14 @@ class FinanceDashboardTilesScreenTest {
     }
 
     @Test
-    fun `the review shortcut leads to the monthly review when it is ready`() {
+    fun `the review shortcut launches the review activity when it is ready`() {
         val opened = mutableListOf<String>()
         open(tilesWithRejection, busy) { opened += it }
 
         compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertIsDisplayed()
         compose.onNodeWithText("Revue ce soir").performClick()
 
-        assertEquals(listOf(Screen.MonthlyReview.route), opened)
+        assertEquals(listOf(Screen.FinanceReviewActivity.route), opened)
     }
 
     @Test

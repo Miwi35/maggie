@@ -93,6 +93,7 @@ class RecurrenceService
             $occurrence = clone $event;
             $occurrence->setStartAt($occurrenceStart);
             $occurrence->setEndAt($occurrenceEnd);
+            self::retitle($occurrence);
             $occurrences[] = $occurrence;
         }
 
@@ -147,10 +148,23 @@ class RecurrenceService
             $occurrence = clone $event;
             $occurrence->setStartDate($day);
             $occurrence->setEndDate($endOfOccurrence);
+            self::retitle($occurrence);
             $occurrences[] = $occurrence;
         }
 
         return $occurrences;
+    }
+
+    /**
+     * An activity's occurrence is named after its own date: the monthly review
+     * of October is « Revue d'octobre », not the summary of the series (MAG-456).
+     */
+    private static function retitle(Event $occurrence): void
+    {
+        $title = ActivityTitle::ofOccurrence($occurrence);
+        if (null !== $title) {
+            $occurrence->setSummary($title);
+        }
     }
 
     /**

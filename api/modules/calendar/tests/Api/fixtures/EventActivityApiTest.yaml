@@ -1,0 +1,30 @@
+# MAG-456: the monthly review's appointment carries its activity; an ordinary event none.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  finance_agenda:
+    name: Finance
+    module: finance
+    user: '@test_user'
+  test_agenda:
+    name: Test Agenda
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  review:
+    summary: Revue du mois
+    startAt: '<(new \DateTimeImmutable("2026-10-25 20:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-25 21:00", new \DateTimeZone("Europe/Paris")))>'
+    rrule: FREQ=MONTHLY;BYMONTHDAY=25
+    activity: finance-review
+    agenda: '@finance_agenda'
+  ordinary:
+    summary: Dentiste
+    startAt: '<(new \DateTimeImmutable("2026-10-20 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-20 11:00"))>'
+    agenda: '@test_agenda'

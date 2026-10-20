@@ -79,6 +79,51 @@ class EventApiTest extends WebTestCase
         self::assertSame('Event 1', $data['summary']);
     }
 
+    /** MAG-456: the clients show « Lancer » on the event whose activity they know. */
+    public function testEveryEventReadCarriesItsActivity(): void
+    {
+        $this->loadFixtures('EventActivityApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $headers = array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders());
+
+        $this->client->request('GET', '/api/events/'.$this->getFixture('review')->getId(), [], [], $headers);
+        self::assertResponseIsSuccessful();
+        $review = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('finance-review', $review['activity']);
+        self::assertSame('Revue du mois', $review['summary'], 'the series keeps its summary: the clients name each occurrence');
+
+        $this->client->request('GET', '/api/events', [], [], $headers);
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $bySummary = array_column($data['member'], null, 'summary');
+        self::assertSame('finance-review', $bySummary['Revue du mois']['activity']);
+        self::assertArrayNotHasKey('activity', $bySummary['Dentiste'], 'null, so left out like every empty field');
+    }
+
+    public function testAClientCannotSetTheActivity(): void
+    {
+        $this->loadFixtures('EventActivityApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('POST', '/api/events', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'summary' => 'Fausse revue',
+            'startAt' => '2026-10-21T10:00:00+02:00',
+            'endAt' => '2026-10-21T11:00:00+02:00',
+            'agenda' => '/api/agendas/'.$this->getFixture('test_agenda')->getId(),
+            'activity' => 'finance-review',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('activity', $data);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Event::class)->findOneBy(['summary' => 'Fausse revue'])?->getActivity());
+    }
+
     public function testCreateEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');

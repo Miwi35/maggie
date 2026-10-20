@@ -30,6 +30,8 @@ object EventExpander {
             masterRrule = if (isException) master?.rrule else event.rrule,
             masterStartAt = if (isException) master?.startKey else event.startKey.takeIf { event.rrule != null },
             originalStartAt = if (isException) event.originalStartAt else null,
+            // A moved occurrence of the review appointment still launches it (MAG-456).
+            activity = event.activity ?: master?.activity,
         )
     }
 
@@ -103,6 +105,8 @@ object EventExpander {
                                 masterRrule = e.rrule,
                                 masterStartAt = e.startKey,
                                 originalStartAt = exception.originalStartAt,
+                                // The exception rarely repeats it: a moved review occurrence is still the review.
+                                activity = exception.activity ?: e.activity,
                             ),
                         )
                     } else {
@@ -198,5 +202,6 @@ object EventExpander {
         agendaIri = agendaIri,
         agendaColor = agenda?.color,
         agendaName = agenda?.name,
+        activity = e.activity,
     )
 }

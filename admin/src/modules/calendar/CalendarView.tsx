@@ -3,7 +3,7 @@ import { useDataProvider, useNotify } from 'react-admin'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
-import { criticalityColor, SOURCE_COLORS } from '../../design/tokens'
+import { criticalityColor, SOURCE_COLORS, TOKENS } from '../../design/tokens'
 import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
@@ -57,6 +57,7 @@ import { EventCreateDialog } from './EventCreateDialog'
 import { TaskCreateDialog } from './TaskCreateDialog'
 import { TaskEditDialog, type TaskData } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
+import { REVIEW_ACTIVITY, eventTitle } from '../finance/reviewActivity'
 import { EventEditDialog } from './EventEditDialog'
 import type { EventEditValues } from './EventEditDialog'
 import { statusClassNames, toEventStatus } from './eventStatus'
@@ -118,6 +119,16 @@ export const MODULE_CALENDARS: Record<string, ModuleCalendar> = {
   cookbook: { label: 'Repas', color: MEAL_COLOR },
 }
 
+/**
+ * The agendas the API keeps out of the list but whose events it serves: the review's
+ * appointment sits in the « Finance » module agenda (MAG-456), drawn in the accounts' mint.
+ */
+const ACTIVITY_AGENDAS: Record<string, { name: string; color: string }> = {
+  [REVIEW_ACTIVITY]: { name: 'Finance', color: TOKENS.module.comptes.dark },
+}
+
+const activityAgenda = (activity: string | null | undefined) => (activity ? ACTIVITY_AGENDAS[activity] : undefined)
+
 interface GoogleCalendar {
   id: string
   /** The name the agenda will carry — "Défaut" for the primary calendar (MAG-148). */
@@ -167,6 +178,8 @@ interface CalendarEvent {
   originalStartAt?: string
   status?: string
   reminders?: EventReminders | null
+  /** The activity the event opens (`finance-review`, MAG-456). */
+  activity?: string | null
 }
 
 /** `dueDate` is a day, `YYYY-MM-DD`: FullCalendar draws it on that day as is (MAG-404). */
@@ -901,7 +914,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       if (e.recurringEvent) continue
 
       const calId = typeof e.agenda === 'string' ? e.agenda : ''
-      const color = calendarColorMap.get(calId)
+      const color = calendarColorMap.get(calId) ?? activityAgenda(e.activity)?.color
       const masterIri = eventIri(e.id)
 
       if (e.rrule && rangeStart && rangeEnd) {
@@ -940,7 +953,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             const excColor = calendarColorMap.get(excCalId) || color
             result.push({
               id: exception.id,
-              title: exception.summary,
+              title: eventTitle(exception.summary, exception.activity ?? e.activity, exception.startAt ?? occ.isoDate),
               ...toFullCalendarTiming(exception),
               calendarId: excCalId,
               backgroundColor: excColor,
@@ -954,6 +967,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
                 reminders: exception.reminders,
                 calendarId: excCalId,
                 calendarIri: exception.agenda,
+                activity: exception.activity ?? e.activity,
                 isException: true,
                 masterEventId: e.id,
               },
@@ -962,7 +976,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             // No exception → render as virtual occurrence
             result.push({
               id: `${e.id}__${occ.isoDate}`,
-              title: e.summary,
+              title: eventTitle(e.summary, e.activity, String(occ.timing.start ?? occ.isoDate)),
               ...occ.timing,
               calendarId: calId,
               backgroundColor: color,
@@ -982,6 +996,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
                 masterSummary: e.summary,
                 masterAllDay: e.allDay,
                 masterTimeZone: e.agenda,
+                activity: e.activity,
                 isVirtualOccurrence: true,
               },
             })
@@ -991,7 +1006,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         // Non-recurring event
         result.push({
           id: e.id,
-          title: e.summary,
+          title: eventTitle(e.summary, e.activity, e.startAt ?? e.startDate ?? ''),
           ...toFullCalendarTiming(e),
           calendarId: calId,
           backgroundColor: color,
@@ -1005,6 +1020,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             reminders: e.reminders,
             calendarId: calId,
             calendarIri: e.agenda,
+            activity: e.activity,
           },
         })
       }
@@ -1097,7 +1113,14 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
     if (!enabledCalendars) return [...coloredEvents, ...taskEvents, ...mealEvents, ...proactionEvents]
-    const calFiltered = coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
+    // An activity's appointment lives in a module agenda the list leaves out, so no toggle
+    // could hide it: it shows whatever is ticked (the review's, MAG-456).
+    const listed = new Set(calendars.map((c) => c.id))
+    const calFiltered = coloredEvents.filter(
+      (e) =>
+        enabledCalendars.has(e.calendarId) ||
+        (!listed.has(e.calendarId) && activityAgenda(e.extendedProps?.activity as string | undefined) !== undefined),
+    )
     const tasksVisible = enabledCalendars.has('__tasks__')
     const mealsVisible = enabledCalendars.has('__meals__')
     const proactionsVisible = enabledCalendars.has(PROACTION_LINE)
@@ -1107,7 +1130,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       ...(mealsVisible ? mealEvents : []),
       ...(proactionsVisible ? proactionEvents : []),
     ]
-  }, [coloredEvents, enabledCalendars, taskEvents, mealEvents, proactionEvents])
+  }, [coloredEvents, enabledCalendars, calendars, taskEvents, mealEvents, proactionEvents])
 
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
@@ -1159,7 +1182,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       const fcEvent = arg.event
       const calId = fcEvent.extendedProps.calendarId || ''
       const isProaction = Boolean(fcEvent.extendedProps.isProaction)
-      const color = isProaction ? PROACTION_COLOR : calendarColorMap.get(calId) || theme.palette.primary.main
+      const activity = activityAgenda(fcEvent.extendedProps.activity)
+      const color = isProaction
+        ? PROACTION_COLOR
+        : calendarColorMap.get(calId) || activity?.color || theme.palette.primary.main
       const { start, end } = fromFullCalendar(fcEvent.start, fcEvent.end, fcEvent.allDay)
 
       setPopoverEvent({
@@ -1170,7 +1196,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         end,
         allDay: fcEvent.allDay,
         color,
-        calendarName: isProaction ? 'Maggie' : calendarNameMap.get(calId) || '',
+        calendarName: isProaction ? 'Maggie' : calendarNameMap.get(calId) || activity?.name || '',
         description: fcEvent.extendedProps.description,
         location: fcEvent.extendedProps.location,
         reminders: fcEvent.extendedProps.reminders,
@@ -1179,6 +1205,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         masterEventId: fcEvent.extendedProps.masterEventId,
         isVirtualOccurrence: fcEvent.extendedProps.isVirtualOccurrence,
         calendarIri: fcEvent.extendedProps.calendarIri,
+        activity: fcEvent.extendedProps.activity ?? null,
       })
       setPopoverAnchorEl(arg.el)
     },
@@ -1682,15 +1709,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           if (deepLinkEventId) {
             const event = data as unknown as CalendarEvent
             const calId = typeof event.agenda === 'string' ? event.agenda : ''
-            const color = calendarColorMap.get(calId) || theme.palette.primary.main
+            const color = calendarColorMap.get(calId) || activityAgenda(event.activity)?.color || theme.palette.primary.main
             setPopoverEvent({
               id: event.id,
-              title: event.summary,
+              title: eventTitle(event.summary, event.activity, event.startAt ?? event.startDate ?? ''),
               start: (event.allDay ? eventDays(event).start : event.startAt) ?? '',
               end: (event.allDay ? eventDays(event).end : event.endAt) ?? '',
               allDay: event.allDay,
               color,
-              calendarName: calendarNameMap.get(calId) || '',
+              calendarName: calendarNameMap.get(calId) || activityAgenda(event.activity)?.name || '',
               description: event.description,
               location: event.location,
               // The edit form reads them off this card: dropped here, cleared on the next save.
@@ -1698,6 +1725,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               status: toEventStatus(event.status),
               rrule: event.rrule,
               calendarIri: event.agenda,
+              activity: event.activity ?? null,
             })
           } else {
             const meal = data as unknown as CalendarMeal

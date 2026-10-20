@@ -30,6 +30,8 @@ import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
 import { PeerDebtsPage } from './PeerDebtsPage'
 import { RecognisedToControlPage } from './RecognisedToControlPage'
+import { ReviewActivityPage } from './ReviewActivityPage'
+import { REVIEW_ACTIVITY_PATH } from './reviewActivity'
 import { ToSortPage } from './ToSortPage'
 import { TransactionCreate } from './TransactionCreate'
 import { TransactionSheet } from './TransactionSheet'
@@ -53,6 +55,10 @@ export const financeResources = (
       <Route path="/finance/savings-advances" element={<SavingsAdvancesPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
       <Route path="/finance/recurring-operations" element={<RecurringOperationsPage />} />
+    </CustomRoutes>
+    {/* The monthly review as an activity (MAG-456): full screen, out of the menus. */}
+    <CustomRoutes noLayout>
+      <Route path={REVIEW_ACTIVITY_PATH} element={<ReviewActivityPage />} />
     </CustomRoutes>
     <ResourceGuesser
       name="accounts"

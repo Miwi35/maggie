@@ -383,7 +383,7 @@ private fun ContinuousEventChip(
     ) {
         if (isStart) {
             Text(
-                text = event.summary,
+                text = event.title,
                 fontSize = 9.sp,
                 lineHeight = 10.sp,
                 color = readableTextOn(color),

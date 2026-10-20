@@ -14891,6 +14891,14 @@
                         "additionalProperties": false,
                         "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                     },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "agenda": {
                         "type": "string",
                         "format": "iri-reference",
@@ -15042,6 +15050,14 @@
                         "additionalProperties": false,
                         "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                     },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "agenda": {
                         "type": "string",
                         "format": "iri-reference",
@@ -15192,6 +15208,14 @@
                         },
                         "additionalProperties": false,
                         "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
+                    },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "agenda": {
                         "type": "string",
@@ -15345,6 +15369,14 @@
                                 },
                                 "additionalProperties": false,
                                 "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
+                            },
+                            "activity": {
+                                "readOnly": true,
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "agenda": {
                                 "type": "string",
@@ -17195,6 +17227,14 @@
                         "type": "string",
                         "format": "ulid"
                     },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -17380,6 +17420,14 @@
                         "type": "string",
                         "format": "ulid"
                     },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -17560,6 +17608,14 @@
                         "readOnly": true,
                         "type": "string",
                         "format": "ulid"
+                    },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "startAt": {
                         "type": [
@@ -17750,6 +17806,14 @@
                                 "readOnly": true,
                                 "type": "string",
                                 "format": "ulid"
+                            },
+                            "activity": {
+                                "readOnly": true,
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "startAt": {
                                 "type": [
@@ -19270,6 +19334,14 @@
                         "type": "string",
                         "format": "ulid"
                     },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "startAt": {
                         "type": [
                             "string",
@@ -19442,6 +19514,14 @@
                         "readOnly": true,
                         "type": "string",
                         "format": "ulid"
+                    },
+                    "activity": {
+                        "readOnly": true,
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "startAt": {
                         "type": [
@@ -19620,6 +19700,14 @@
                                 "readOnly": true,
                                 "type": "string",
                                 "format": "ulid"
+                            },
+                            "activity": {
+                                "readOnly": true,
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "startAt": {
                                 "type": [

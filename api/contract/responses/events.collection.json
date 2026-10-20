@@ -25,6 +25,7 @@
                     }
                 ]
             },
+            "activity": "finance-review",
             "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "ownerRelation": "agenda",
             "recurring": false,

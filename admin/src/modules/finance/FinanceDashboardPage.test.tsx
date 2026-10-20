@@ -159,7 +159,7 @@ describe('FinanceDashboardPage', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/peer-debts')
   })
 
-  test('« Revue ce soir » heads the page while the review is not done and opens it', async () => {
+  test('« Revue ce soir » heads the page while the review is not done and launches the activity', async () => {
     const user = userEvent.setup()
     const payload = dashboardFixture()
     payload.todo.reviewReady = true
@@ -168,7 +168,7 @@ describe('FinanceDashboardPage', () => {
 
     await user.click(await screen.findByRole('link', { name: 'Revue ce soir' }))
 
-    expect(screen.getByTestId('where')).toHaveTextContent('/finance/monthly-review')
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/review/activity')
   })
 
   test('the pill follows the next read: settling the last rejection drops it', async () => {

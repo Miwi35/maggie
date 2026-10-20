@@ -304,7 +304,7 @@ private fun SpanningEventBar(
             .background(color.copy(alpha = 0.85f), shape),
     ) {
         Text(
-            text = event.summary,
+            text = event.title,
             fontSize = 10.sp,
             lineHeight = 12.sp,
             color = readableTextOn(color),

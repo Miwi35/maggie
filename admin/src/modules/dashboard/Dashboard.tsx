@@ -10,6 +10,7 @@ import { DigestSection } from './DigestSection'
 import { getThisMonth, getThisWeek, getToday, getTomorrow } from './dateUtils'
 import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { expandRrule, expandRruleDays } from '../calendar/recurrenceUtils'
+import { eventTitle } from '../finance/reviewActivity'
 import type { DashboardEvent } from './EventListWidget'
 import type { DashboardTask } from './TaskListWidget'
 import { fetchTodayTasks } from './todayTasks'
@@ -48,6 +49,8 @@ interface RawEvent {
   recurringEvent?: string
   originalStartAt?: string
   status?: string
+  /** The activity the event opens (`finance-review`, MAG-456): its title is the review's. */
+  activity?: string | null
 }
 
 interface RawTask {
@@ -173,11 +176,16 @@ export const Dashboard = () => {
             const exception = exceptions?.get(new Date(`${day}T00:00:00Z`).getTime())
             if (exception) {
               if (exception.status === 'cancelled') continue
-              result.push({ id: exception.id, summary: exception.summary, ...timingOf(exception), location: exception.location })
+              result.push({
+                id: exception.id,
+                summary: eventTitle(exception.summary, exception.activity ?? e.activity, day),
+                ...timingOf(exception),
+                location: exception.location,
+              })
             } else {
               result.push({
                 id: `${e.id}__${day}`,
-                summary: e.summary,
+                summary: eventTitle(e.summary, e.activity, day),
                 allDay: true,
                 startAt: null,
                 endAt: null,
@@ -202,7 +210,7 @@ export const Dashboard = () => {
               if (exception.status === 'cancelled') continue
               result.push({
                 id: exception.id,
-                summary: exception.summary,
+                summary: eventTitle(exception.summary, exception.activity ?? e.activity, exception.startAt ?? occ),
                 ...timingOf(exception),
                 location: exception.location,
               })
@@ -210,7 +218,7 @@ export const Dashboard = () => {
               const occEnd = new Date(occTime + duration)
               result.push({
                 id: `${e.id}__${occ.toISOString().slice(0, 10)}`,
-                summary: e.summary,
+                summary: eventTitle(e.summary, e.activity, occ),
                 startAt: occ.toISOString(),
                 endAt: occEnd.toISOString(),
                 startDate: null,
@@ -226,7 +234,7 @@ export const Dashboard = () => {
           if (eventStart >= start && eventStart < end) {
             result.push({
               id: e.id,
-              summary: e.summary,
+              summary: eventTitle(e.summary, e.activity, eventStart),
               ...timingOf(e),
               location: e.location,
             })

@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CalendarView } from './CalendarView'
+import { reviewTitle } from '../finance/reviewActivity'
 
 // Mock EventSource
 class MockEventSource {
@@ -17,6 +18,13 @@ vi.stubGlobal('EventSource', MockEventSource)
 // Mock react-router-dom
 vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  // « Lancer », on the review appointment's card (MAG-456), is a router link.
+  useLocation: () => ({ pathname: '/calendar', search: '' }),
+  Link: ({ to, ...rest }: { to: string; state?: unknown } & Record<string, unknown>) => {
+    delete rest.state
+
+    return <a href={`#${to}`} {...rest} />
+  },
 }))
 
 // Mock react-admin's useDataProvider
@@ -723,5 +731,80 @@ describe('CalendarView', () => {
         ),
       )
     })
+  })
+})
+
+/** The review appointment is named after its month, whatever its stored summary (MAG-456). */
+describe('CalendarView — the review appointment', { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('EventSource', MockEventSource)
+  })
+
+  test('shows each occurrence of the review as « Revue de <mois> »', async () => {
+    const evening = new Date()
+    evening.setDate(15)
+    evening.setHours(20, 0, 0, 0)
+    const startAt = evening.toISOString()
+    const endAt = new Date(evening.getTime() + 3600_000).toISOString()
+    const review = {
+      id: '/api/events/rv1',
+      summary: 'Revue du mois',
+      startAt,
+      endAt,
+      allDay: false,
+      agenda: AGENDA,
+      rrule: 'FREQ=MONTHLY;BYMONTHDAY=15',
+      activity: 'finance-review',
+    }
+    mockGetList.mockImplementation((resource: string) => {
+      if (resource === 'agendas') {
+        return Promise.resolve({ data: [{ id: AGENDA, name: 'Finance', color: '#7FD1AE', default: false }], total: 1 })
+      }
+      if (resource === 'events') return Promise.resolve({ data: [review], total: 1 })
+
+      return Promise.resolve({ data: [], total: 0 })
+    })
+
+    render(<CalendarView />)
+
+    expect(await screen.findByText(reviewTitle(evening))).toBeInTheDocument()
+    expect(screen.queryByText('Revue du mois')).not.toBeInTheDocument()
+  })
+
+  test('shows it in the Finance agenda, though the agenda list leaves module agendas out, and launches it', async () => {
+    const evening = new Date()
+    evening.setDate(15)
+    evening.setHours(20, 0, 0, 0)
+    mockGetList.mockImplementation((resource: string) => {
+      if (resource === 'agendas') {
+        return Promise.resolve({ data: [{ id: AGENDA, name: 'Perso', color: '#1976d2', default: true }], total: 1 })
+      }
+      if (resource === 'events') {
+        return Promise.resolve({
+          data: [
+            {
+              id: '/api/events/rv2',
+              summary: 'Revue du mois',
+              startAt: evening.toISOString(),
+              endAt: new Date(evening.getTime() + 3600_000).toISOString(),
+              allDay: false,
+              agenda: '/api/agendas/finance',
+              activity: 'finance-review',
+            },
+          ],
+          total: 1,
+        })
+      }
+
+      return Promise.resolve({ data: [], total: 0 })
+    })
+
+    render(<CalendarView />)
+    await userEvent.click(await screen.findByText(reviewTitle(evening)))
+
+    expect(await screen.findByRole('heading', { name: reviewTitle(evening) })).toBeInTheDocument()
+    expect(screen.getByText('Finance')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Lancer' })).toHaveAttribute('href', '#/finance/review/activity')
   })
 })
