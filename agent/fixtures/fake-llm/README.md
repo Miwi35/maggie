@@ -64,7 +64,17 @@ walked; numbers and booleans are left alone, so a `quantity: 4` stays a number.
 Check which kind of id you are matching — API entities carry ULIDs, the agent's
 own rows carry `uuid4().hex`.
 
-A scenario needing an id it cannot capture has no way to get one: write the id
+**Ids from the tools of this run.** `history_matches` reads the *history*, which stops short of
+the batch that answers the message being handled. When the id she needs is in a tool she called
+a moment ago in the same run — `list_routines`, then `check_routine` on the one the user
+named — declare `results_matches` at the top level (not under `match`: it is no condition, the
+first turn has no result yet). It is a regex on the tool results since the last user message; its
+groups feed `\1` ahead of the other two, and a result without it falls back to them. Results are
+Python reprs of the API's JSON, so separate the keys with `\W+`, and end the pattern on the
+next key so that « Grand verre d'eau (essai 1) » is not taken for « Grand verre d'eau ».
+`55-routine-check.yaml` does it; a typo'd pattern is refused at load like the others.
+
+A scenario needing an id it can capture from neither has no way to get one: write the id
 into what the journey *says*. The sentence then reads oddly for a human, which
 is the honest trade — judging whether Maggie could have worked out which shop
 "le primeur" is belongs to `task e2e:eval` on the real model, not here.

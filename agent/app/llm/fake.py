@@ -176,6 +176,9 @@ class Scenario:
     system_contains: tuple[str, ...] = ()
     history_contains: tuple[str, ...] = ()
     history_matches: str | None = None
+    # Not a condition: a regex on what the tools returned *this run*, whose groups feed `\1`
+    # first (MAG-513) — « list the routines, then tick the one named ».
+    results_matches: str | None = None
     stream_delay_ms: int = 0
     stall_after_deltas: int = 0
     # The question came with a picture (MAG-214) — the model sees it, a journey cannot.
@@ -217,7 +220,7 @@ class Scenario:
     def turn(self, index: int) -> Turn | None:
         return self.turns[index] if 0 <= index < len(self.turns) else None
 
-    def render(self, text: str, user_text: str, history: str = "") -> str:
+    def render(self, text: str, user_text: str, history: str = "", results: str = "") -> str:
         r"""Put the capture groups of `user_matches` back into a turn's text, as `\1`, `\2`…
 
         The one thing a scripted answer cannot hardcode is an id, since it
@@ -227,16 +230,20 @@ class Scenario:
         A scenario declaring `history_matches` takes its groups from the history instead
         (MAG-211): « supprime-le » names nothing, and the id it means is in the
         `tool_result` of the call that created it — replayed, or not there at all.
+
+        A scenario declaring `results_matches` takes them first from what the tools of
+        the current run returned (MAG-513): « j'ai bu mon verre d'eau » names no id
+        either, and the one she needs is in the `list_routines` she has just called —
+        which `history` leaves out, being the batch that answers the message.
         """
         if not text:
             return text
         text = expand_days(text)
-        if self.history_matches:
+        found = re.search(self.results_matches, results, re.IGNORECASE) if self.results_matches else None
+        if found is None and self.history_matches:
             found = re.search(self.history_matches, history, re.IGNORECASE)
-        elif self.user_matches:
+        elif found is None and self.user_matches:
             found = re.search(self.user_matches, user_text, re.IGNORECASE)
-        else:
-            return text
         if found is None:
             return text
         try:
@@ -245,7 +252,7 @@ class Scenario:
             logger.error(f"[fake-llm] scenario {self.name!r}: cannot expand its text ({exc})")
             return text
 
-    def render_input(self, value: Any, user_text: str, history: str = "") -> Any:
+    def render_input(self, value: Any, user_text: str, history: str = "", results: str = "") -> Any:
         r"""The same substitution, through a scripted tool's arguments.
 
         A tool that takes an id was simply unreachable from a journey before
@@ -260,11 +267,11 @@ class Scenario:
         quantities and booleans must not be turned into text.
         """
         if isinstance(value, str):
-            return self.render(value, user_text, history)
+            return self.render(value, user_text, history, results)
         if isinstance(value, dict):
-            return {key: self.render_input(item, user_text, history) for key, item in value.items()}
+            return {key: self.render_input(item, user_text, history, results) for key, item in value.items()}
         if isinstance(value, list):
-            return [self.render_input(item, user_text, history) for item in value]
+            return [self.render_input(item, user_text, history, results) for item in value]
         return value
 
 
@@ -338,6 +345,9 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
     # come out as a 500 on /chat and "Désolé, une erreur est survenue." on the
     # stream, with the `[fake-llm]` sentence never printed.
     patterns = {key: match.get(key) for key in ("user_matches", "history_matches")}
+    results_matches = raw.get("results_matches")
+    if results_matches is not None:
+        patterns["results_matches"] = results_matches
     for key, pattern in patterns.items():
         if pattern is None:
             continue
@@ -363,6 +373,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         system_contains=_as_tuple(match.get("system_contains")),
         history_contains=_as_tuple(match.get("history_contains")),
         history_matches=str(history_matches) if history_matches is not None else None,
+        results_matches=str(results_matches) if results_matches is not None else None,
         stream_delay_ms=stream_delay_ms,
         stall_after_deltas=stall_after_deltas,
         user_has_image=bool(match.get("user_has_image")),
@@ -535,6 +546,23 @@ def history_text(messages: list[dict] | None) -> str:
     return "\n".join(parts)
 
 
+def round_results(messages: list[dict] | None) -> str:
+    """What the tools returned since the message being answered, as one string.
+
+    The counterpart of `history_text`, which stops short of it: the batches of the current
+    run are the tail of the array, after the last real question.
+    """
+    parts: list[str] = []
+    for message in reversed(messages or []):
+        if message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if not _is_loop_round(content):
+            break
+        parts.append(str(content))
+    return "\n".join(reversed(parts))
+
+
 def _without_image_data(content: Any) -> Any:
     """A list content with its pictures reduced to their type: the bytes are not text to match or count."""
     if not isinstance(content, list):
@@ -676,6 +704,7 @@ class FakeMessages:
             _images_received += 1
 
         history = history_text(messages)
+        results = round_results(messages)
         scenario = self._library.resolve(user_text, prompt, history, has_image=has_image)
         if scenario is None:
             logger.error(f"[fake-llm] no scenario for {user_text!r} — add one under {self._library.directory}")
@@ -690,7 +719,7 @@ class FakeMessages:
             else:
                 turn = found
 
-        text = scenario.render(turn.text, user_text, history) if scenario else turn.text
+        text = scenario.render(turn.text, user_text, history, results) if scenario else turn.text
 
         offered = {tool["name"] for tool in tools if isinstance(tool, dict) and "name" in tool} if tools else set()
         content: list = []
@@ -699,7 +728,7 @@ class FakeMessages:
             if offered and "web_search" not in offered:
                 logger.error(f"[fake-llm] scenario {scenario_name!r} searches the web, but web_search was not offered")
             search_id = f"srvtoolu_fake_{index}"
-            query = scenario.render(search.query, user_text, history) if scenario else search.query
+            query = scenario.render(search.query, user_text, history, results) if scenario else search.query
             content.append(FakeServerToolUseBlock(id=search_id, input={"query": query}))
             content.append(
                 FakeWebSearchResultBlock(
@@ -724,7 +753,9 @@ class FakeMessages:
                     f"[fake-llm] scenario {scenario_name!r} calls {tool.name!r}, which was not offered — "
                     "is its module still in discovery.scan_dirs?"
                 )
-            arguments = scenario.render_input(dict(tool.input), user_text, history) if scenario else dict(tool.input)
+            arguments = dict(tool.input)
+            if scenario:
+                arguments = scenario.render_input(arguments, user_text, history, results)
             content.append(
                 FakeToolUseBlock(
                     id=f"toolu_fake_{index}_{position}",

@@ -493,6 +493,44 @@ class TestMatching:
 
         assert "[fake-llm]" in text_of(answer)
 
+    async def test_results_matches_takes_its_groups_from_the_tools_of_the_current_run(self, fixtures_dir):
+        # « j'ai bu mon verre d'eau » names no id: the one she needs is in the list she has just
+        # called, a batch `history_text` leaves out (MAG-513).
+        write_scenario(
+            fixtures_dir,
+            "10-tick.yaml",
+            {
+                "match": {"user_contains": "verre d'eau"},
+                "results_matches": 'id\\W+(\\w{26})\\W+title\\W+Verre d\\W+eau',
+                "turns": [
+                    {"tools": [{"name": "list_routines", "input": {}}]},
+                    {"tools": [{"name": "check_routine", "input": {"id": "\\1"}}]},
+                ],
+            },
+        )
+        client = build_client(fixtures_dir)
+        listed = [{"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE", "title": "Verre d'eau"}]
+
+        first = await ask(client, "J'ai bu mon verre d'eau", tools=[{"name": "list_routines"}])
+        second = await client.messages.create(
+            model="fake",
+            max_tokens=1024,
+            system="Tu es Maggie.",
+            tools=[{"name": "check_routine"}],
+            messages=[
+                {"role": "user", "content": "J'ai bu mon verre d'eau"},
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "list_routines", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": json.dumps(listed)}]},
+            ],
+        )
+
+        assert first.content[0].name == "list_routines"
+        assert second.content[0].input == {"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}
+
+    def test_a_typoed_results_pattern_is_refused_at_load_time(self):
+        with pytest.raises(ValueError, match="results_matches"):
+            parse_scenario({"match": {"user_contains": "x"}, "results_matches": "id(", "turns": [{"text": "ok"}]}, source="x.yaml")
+
     def test_a_typoed_history_pattern_is_refused_at_load_time(self):
         with pytest.raises(ValueError, match="history_matches"):
             parse_scenario({"match": {"history_matches": "id("}, "turns": [{"text": "ok"}]}, source="x.yaml")

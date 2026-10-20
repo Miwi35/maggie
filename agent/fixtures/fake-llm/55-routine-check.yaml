@@ -1,0 +1,22 @@
+# « J'ai bu mon grand verre d'eau » (MAG-513): she lists the routines due today, then ticks
+# the one named — by the id her own `list_routines` returned, which `results_matches` captures
+# from the tool result of this very run (see README.md). The end of the pattern, `\W+anchor`,
+# keeps « Grand verre d'eau » from matching a routine whose title goes on.
+#
+# The answer says it is noted and stops there: no congratulations, no streak.
+name: routine-check
+description: List today's routines, tick the one the user says they did, confirm in one line.
+
+match:
+  user_matches: "bu mon grand verre d.eau"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Grand verre d\W+eau\W+anchor'
+
+turns:
+  - tools:
+      - name: list_routines
+        input: {date: "${today}"}
+  - tools:
+      - name: check_routine
+        input: {id: '\1'}
+  - text: "C'est noté, ton grand verre d'eau est coché."

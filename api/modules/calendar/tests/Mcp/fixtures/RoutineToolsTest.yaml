@@ -1,0 +1,48 @@
+# Routines, Maggie's tools (MAG-513). The tests pin the clock at Tuesday 2026-10-20 12:00 in Paris.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\TaskSettings:
+  # Dinner is early here: the moments order the routines by the user's own hours.
+  settings:
+    user: '@test_user'
+    dayMoments: { wake: '06:45', afterDinner: '19:30' }
+
+Maggie\Calendar\Entity\Routine:
+  water:
+    user: '@test_user'
+    title: Grand verre d'eau
+    anchor: wake
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  trash:
+    user: '@test_user'
+    title: Sortir les poubelles
+    anchor: afterDinner
+    recurrence: { kind: weekly, weekday: 2 }
+    createdAt: '<(new \DateTimeImmutable("2026-08-04 18:00:00 UTC"))>'
+  rent:
+    user: '@test_user'
+    title: Aérer la chambre
+    anchor: wake
+    recurrence: { kind: monthly, monthDay: 31 }
+    createdAt: '<(new \DateTimeImmutable("2026-08-01 06:00:00 UTC"))>'
+  # Another user's routine is never test_user's.
+  others:
+    user: '@other_user'
+    title: Méditer
+    anchor: wake
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-01 06:00:00 UTC"))>'
