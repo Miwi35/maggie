@@ -678,8 +678,8 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
-     * The routines (MAG-511), as `/api/routines` sends them once one is
-     * weekly and ticked today: the totals and the last seven days, no streak.
+     * The routines (MAG-511), as `/api/routines` sends them once there is
+     * a weekly, a monthly and a ticked one: the totals and the last seven days, no streak.
      */
     public function testTheRoutinesRecordingIsCurrent(): void
     {
@@ -692,6 +692,8 @@ final class RecordedResponseContractTest extends WebTestCase
         $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
         $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Sortir les poubelles', 'anchor' => 'afterDinner', 'recurrence' => ['kind' => 'weekly', 'weekday' => 3]], \JSON_THROW_ON_ERROR));
         self::assertResponseStatusCodeSame(201);
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Arroser les plantes', 'anchor' => 'wake', 'recurrence' => ['kind' => 'monthly', 'monthDay' => 31]], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
         $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Lire', 'anchor' => 'time', 'anchorTime' => '22:30'], \JSON_THROW_ON_ERROR));
         self::assertResponseStatusCodeSame(201);
         $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
@@ -702,8 +704,8 @@ final class RecordedResponseContractTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($body);
-        self::assertCount(2, $body['member']);
-        self::assertSame(1, $body['member'][1]['totalCount'], 'The recorded routine is not ticked, so it proves nothing about the totals.');
+        self::assertCount(3, $body['member']);
+        self::assertSame(1, $body['member'][2]['totalCount'], 'The recorded routine is not ticked, so it proves nothing about the totals.');
 
         $this->assertMatchesContract(
             'responses/routines.collection.json',

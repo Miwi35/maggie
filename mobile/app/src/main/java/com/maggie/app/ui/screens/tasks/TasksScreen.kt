@@ -31,7 +31,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -69,12 +72,23 @@ internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
     return count?.let { "${view.label} ($it)" } ?: view.label
 }
 
+/** The key of the « Routines » tab (MAG-511), beside the four views: `tasks_tab_routines`. */
+internal const val ROUTINES_TAB = "routines"
+
+/**
+ * The tabs in their order: « Aujourd'hui », then « Routines » when the screen has them (MAG-511),
+ * then the other views. A null entry is the « Routines » tab.
+ */
+internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
+    listOf(TaskView.TODAY) + (if (withRoutines) listOf(null) else emptyList()) + TaskView.entries.drop(1)
+
 /**
  * Tasks in four tabs (MAG-408), as the admin shows them. The list is the API's: its order, its
  * views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
  * [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws;
  * [onFocus] opens the Focus (MAG-499) on a task of the day; [onBravo] the Bravo (MAG-508) on a task
  * of the day just ticked. A task ticked in another tab shows its reward as a banner instead.
+ * [routines] draws the « Routines » tab (MAG-511), next to « Aujourd'hui »; without it, no such tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,9 +98,12 @@ fun TasksScreen(
     modifier: Modifier = Modifier,
     onFocus: (taskId: String) -> Unit = {},
     onBravo: (BravoRequest) -> Unit = {},
+    routines: (@Composable () -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
     val reducedMotion = rememberReducedMotion()
+    var showRoutines by rememberSaveable { mutableStateOf(false) }
+    val routinesShown = showRoutines && routines != null
 
     DisposableEffect(viewModel) {
         viewModel.onOpened()
@@ -109,77 +126,95 @@ fun TasksScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
-        ScrollableTabRow(selectedTabIndex = TaskView.entries.indexOf(state.view), edgePadding = 0.dp) {
-            TaskView.entries.forEach { view ->
-                Tab(
-                    selected = state.view == view,
-                    onClick = { viewModel.selectView(view) },
-                    text = { Text(tabLabelOf(view, state), maxLines = 1) },
-                    modifier = Modifier.testTag(UiTags.tasksTab(view.key)),
-                )
-            }
-        }
-
-        // The day has its own add field, between its five and its reserve.
-        if (state.view.addable && state.view != TaskView.TODAY) {
-            QuickAdd(
-                state = state,
-                viewModel = viewModel,
-                hint = addHintOf(state.view),
-                inputTag = UiTags.TASKS_ADD_INPUT,
-                submitTag = UiTags.TASKS_ADD_SUBMIT,
-            )
-        }
-
-        state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
-        state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
-
-        state.message?.let { message ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = viewModel::dismissMessage) { Text("Fermer") }
-            }
-        }
-
-        PullToRefreshBox(
-            isRefreshing = state.isLoading && state.hasContent,
-            onRefresh = viewModel::refresh,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            when {
-                state.error != null -> ErrorState(state.error.orEmpty(), onRetry = viewModel::refresh)
-                state.isLoading && !state.hasContent -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
-                    Text(
-                        text = emptyTextOf(state.view),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.testTag(UiTags.TASKS_EMPTY),
+        val tabs = tabsOf(withRoutines = routines != null)
+        val selected = if (routinesShown) tabs.indexOf(null) else tabs.indexOf(state.view)
+        ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
+            tabs.forEach { view ->
+                if (view == null) {
+                    Tab(
+                        selected = routinesShown,
+                        onClick = { showRoutines = true },
+                        text = { Text("Routines", maxLines = 1) },
+                        modifier = Modifier.testTag(UiTags.tasksTab(ROUTINES_TAB)),
+                    )
+                } else {
+                    Tab(
+                        selected = !routinesShown && state.view == view,
+                        onClick = {
+                            showRoutines = false
+                            viewModel.selectView(view)
+                        },
+                        text = { Text(tabLabelOf(view, state), maxLines = 1) },
+                        modifier = Modifier.testTag(UiTags.tasksTab(view.key)),
                     )
                 }
-                else -> {
-                    val day = state.day
-                    val morning = state.morning
-                    val evening = state.evening
-                    if (state.view == TaskView.TODAY && evening != null) {
-                        EveningContent(evening = evening, viewModel = viewModel)
-                    } else if (state.view == TaskView.TODAY && morning != null) {
-                        MorningContent(morning = morning, viewModel = viewModel)
-                    } else if (state.view == TaskView.TODAY && day != null) {
-                        DayContent(day = day, state = state, viewModel = viewModel, onFocus = onFocus)
-                    } else {
-                        TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+            }
+        }
+
+        if (routinesShown) {
+            routines?.invoke()
+        } else {
+            // The day has its own add field, between its five and its reserve.
+            if (state.view.addable && state.view != TaskView.TODAY) {
+                QuickAdd(
+                    state = state,
+                    viewModel = viewModel,
+                    hint = addHintOf(state.view),
+                    inputTag = UiTags.TASKS_ADD_INPUT,
+                    submitTag = UiTags.TASKS_ADD_SUBMIT,
+                )
+            }
+
+            state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
+            state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
+
+            state.message?.let { message ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = viewModel::dismissMessage) { Text("Fermer") }
+                }
+            }
+
+            PullToRefreshBox(
+                isRefreshing = state.isLoading && state.hasContent,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when {
+                    state.error != null -> ErrorState(state.error.orEmpty(), onRetry = viewModel::refresh)
+                    state.isLoading && !state.hasContent -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
+                        Text(
+                            text = emptyTextOf(state.view),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.testTag(UiTags.TASKS_EMPTY),
+                        )
+                    }
+                    else -> {
+                        val day = state.day
+                        val morning = state.morning
+                        val evening = state.evening
+                        if (state.view == TaskView.TODAY && evening != null) {
+                            EveningContent(evening = evening, viewModel = viewModel)
+                        } else if (state.view == TaskView.TODAY && morning != null) {
+                            MorningContent(morning = morning, viewModel = viewModel)
+                        } else if (state.view == TaskView.TODAY && day != null) {
+                            DayContent(day = day, state = state, viewModel = viewModel, onFocus = onFocus)
+                        } else {
+                            TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                        }
                     }
                 }
             }

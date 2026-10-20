@@ -2,6 +2,61 @@
     "member": [
         {
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Arroser les plantes",
+            "anchor": "wake",
+            "anchorTime": null,
+            "time": "07:30",
+            "recurrence": {
+                "kind": "monthly",
+                "monthDay": 31
+            },
+            "active": true,
+            "remind": false,
+            "createdAt": "2026-01-01T00:00:00+00:00",
+            "checkedToday": false,
+            "dueToday": false,
+            "monthCount": 0,
+            "totalCount": 0,
+            "recentDays": [
+                {
+                    "date": "2026-04-16",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-17",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-18",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-19",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-20",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-21",
+                    "due": false,
+                    "checked": false
+                },
+                {
+                    "date": "2026-04-22",
+                    "due": false,
+                    "checked": false
+                }
+            ]
+        },
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "title": "Sortir les poubelles",
             "anchor": "afterDinner",
             "anchorTime": null,

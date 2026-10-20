@@ -876,6 +876,33 @@ class DtoContractTest {
     }
 
     @Test
+    fun `routines deserialise from the recorded response under the names the API sends (MAG-511)`() {
+        assertCollectionContract("routines", serializer<Routine>(), "Routine")
+        val body = readRecording("routines.collection")
+        val members = body["member"]!!.jsonArray.map { it.jsonObject }
+        assertDeclaredFieldsExist(
+            "RoutineRecurrence",
+            serializer<RoutineRecurrence>(),
+            members.flatMap { it["recurrence"]!!.jsonObject.keys }.toSet(),
+            "routines.collection",
+        )
+        assertDeclaredFieldsExist(
+            "RoutineDay",
+            serializer<RoutineDay>(),
+            members.flatMap { member -> member["recentDays"]!!.jsonArray.flatMap { it.jsonObject.keys } }.toSet(),
+            "routines.collection",
+        )
+
+        val routines = json.decodeFromJsonElement(ApiCollection.serializer(serializer<Routine>()), body).member
+        val weekly = routines.first { it.recurrence.kind == RoutineRecurrence.WEEKLY }
+        assertTrue(weekly.recurrence.weekday in 1..7)
+        assertEquals(7, weekly.recentDays.size)
+        assertTrue("No recorded routine is ticked today, so checkedToday proves nothing.", routines.any { it.checkedToday })
+        assertTrue("No recorded routine is due today, so dueToday proves nothing.", routines.any { it.dueToday })
+        assertTrue(routines.any { it.anchor == Routine.ANCHOR_TIME && it.anchorTime == it.time })
+    }
+
+    @Test
     fun `the task order preview deserialises from the recorded response`() {
         val body = readRecording("task_settings.preview")
         val members = body["member"]!!.jsonArray
