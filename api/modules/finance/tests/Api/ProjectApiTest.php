@@ -442,9 +442,25 @@ class ProjectApiTest extends WebTestCase
         self::assertSame('Canapé d’angle', $sofa->getName());
         self::assertSame(2, $sofa->getPosition());
         self::assertSame([$this->id('move')], $sofa->dependencyIds());
+        self::assertSame([$this->iri('move')], $this->response()['dependsOn']);
         self::assertSame('Le gris, chez Maisons du Monde', $sofa->getNote());
         $this->assertMercureUpdatePublished('/api/finance/projects/');
         $this->assertElasticsearchIndexDispatched(Project::class);
+    }
+
+    /** A dependency dropped from the front leaves a gap the answer must not show as a JSON object. */
+    public function testDependenciesAreAListAfterOneIsDropped(): void
+    {
+        $this->login();
+        $this->send('PATCH', $this->iri('sofa'), ['dependsOn' => [$this->iri('japan'), $this->iri('move')]]);
+        self::assertResponseIsSuccessful();
+
+        $this->send('PATCH', $this->iri('sofa'), ['dependsOn' => [$this->iri('move')]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$this->iri('move')], $this->response()['dependsOn']);
+        $payloads = $this->mercurePayloadsOn('/api/finance/projects/'.$this->id('sofa'));
+        self::assertSame([$this->iri('move')], end($payloads)['dependsOn']);
     }
 
     public function testDeleteRequiresAuthentication(): void

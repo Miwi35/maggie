@@ -325,6 +325,7 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
         foreach ($wanted as $project) {
             $this->addDependency($project);
         }
+        $this->keepDependenciesAList();
 
         return $this;
     }
@@ -349,8 +350,27 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
                 $this->dependsOn->removeElement($current);
             }
         }
+        $this->keepDependenciesAList();
 
         return $this;
+    }
+
+    /**
+     * A removal leaves a gap in the keys, and a collection with gaps is
+     * serialised as a JSON object the clients cannot read: renumbered from 0.
+     * Doctrine rewrites the join rows of a cleared collection.
+     */
+    private function keepDependenciesAList(): void
+    {
+        $dependencies = $this->dependsOn->toArray();
+        if (array_is_list($dependencies)) {
+            return;
+        }
+
+        $this->dependsOn->clear();
+        foreach ($dependencies as $project) {
+            $this->dependsOn->add($project);
+        }
     }
 
     /** @return list<string> the ids of the projects this one waits for */

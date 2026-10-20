@@ -48,4 +48,17 @@ class ProjectDependsOnTest extends TestCase
 
         self::assertSame([$move], array_values($sofa->getDependsOn()->toArray()));
     }
+
+    /** Keys left with gaps serialise `dependsOn` as a JSON object, which the clients cannot read. */
+    public function testTheDependenciesStayAList(): void
+    {
+        $managed = self::project('Déménagement');
+        $sofa = self::project('Canapé');
+        $sofa->getDependsOn()->add(self::project('Voyage au Japon'));
+        $sofa->getDependsOn()->add(self::project('Déménagement', $managed->getId()));
+
+        $sofa->setDependsOn([$managed]);
+
+        self::assertSame([$managed], $sofa->getDependsOn()->toArray());
+    }
 }
