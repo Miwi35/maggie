@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
@@ -80,7 +81,7 @@ data class ProjectForm(
     /** Set by the first save: an empty field is not an error while the form is still being filled. */
     val showErrors: Boolean = false,
     val isSaving: Boolean = false,
-    /** What the server refused, in its own words (a cycle, a dependency on itself). */
+    /** What the server refused, said in French (a cycle, a dependency on itself). */
     val error: String? = null,
     val done: Boolean = false,
 ) {
@@ -141,13 +142,15 @@ class ProjectViewModel(
         if (showLoading) _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         repository.getProjects()
             .onSuccess { projects ->
-                _uiState.value = _uiState.value.copy(projects = projects, isLoading = false, hasLoaded = true)
+                // An answer that lands under a finger would undo the drag; the drag's own reorder follows.
+                _uiState.value = if (orderBeforeDrag != null) {
+                    _uiState.value.copy(isLoading = false, hasLoaded = true)
+                } else {
+                    _uiState.value.copy(projects = projects, isLoading = false, hasLoaded = true)
+                }
             }
-            .onFailure { failure ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = failure.message?.takeIf { it.isNotBlank() } ?: MESSAGE_LOAD,
-                )
+            .onFailure {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = MESSAGE_LOAD)
             }
     }
 
@@ -199,7 +202,7 @@ class ProjectViewModel(
                     _uiState.value = _uiState.value.copy(
                         form = _uiState.value.form?.copy(
                             isSaving = false,
-                            error = failure.message?.takeIf { it.isNotBlank() } ?: MESSAGE_SAVE,
+                            error = refusal(failure, MESSAGE_SAVE),
                         ),
                     )
                 }
@@ -224,7 +227,7 @@ class ProjectViewModel(
                 .onFailure { failure ->
                     _uiState.value = _uiState.value.copy(
                         projects = before,
-                        error = failure.message?.takeIf { it.isNotBlank() } ?: MESSAGE_DELETE,
+                        error = refusal(failure, MESSAGE_DELETE),
                     )
                 }
         }
@@ -257,14 +260,19 @@ class ProjectViewModel(
             repository.reorderProjects(after.map { it.id })
                 .onSuccess { stored ->
                     reorderInFlight = false
-                    _uiState.value = _uiState.value.copy(projects = stored)
+                    // A new drag started meanwhile: its own reorder carries the newer order.
+                    if (orderBeforeDrag == null) _uiState.value = _uiState.value.copy(projects = stored)
                 }
-                .onFailure { failure ->
+                .onFailure {
                     reorderInFlight = false
-                    _uiState.value = _uiState.value.copy(
-                        projects = before,
-                        error = failure.message?.takeIf { it.isNotBlank() }?.let { "$MESSAGE_REORDER $it" } ?: MESSAGE_REORDER,
-                    )
+                    // The API's reason is English (a project missing from the list): the phone says it its own way.
+                    _uiState.value = if (orderBeforeDrag == null) {
+                        _uiState.value.copy(projects = before, error = MESSAGE_REORDER)
+                    } else {
+                        _uiState.value.copy(error = MESSAGE_REORDER)
+                    }
+                    // A project created elsewhere during the drag is often why the order was refused.
+                    load(showLoading = false)
                 }
         }
     }
@@ -286,10 +294,26 @@ class ProjectViewModel(
     }
 
     companion object {
+        /**
+         * The API refuses in English: the refusals a user can cause from the form are said in French,
+         * as the admin does (projectsApi.ts `translate`); anything else, and any failure that is not a
+         * refusal (no network), is [fallback].
+         */
+        internal fun refusal(failure: Throwable, fallback: String): String {
+            val message = (failure as? ApiRefusalException)?.message ?: return fallback
+            return when {
+                message.contains("cycle", ignoreCase = true) -> MESSAGE_CYCLE
+                message.contains("depend on itself", ignoreCase = true) -> MESSAGE_SELF_DEPENDENCY
+                else -> fallback
+            }
+        }
+
         const val MESSAGE_LOAD = "Les projets n'ont pas pu être chargés."
         const val MESSAGE_NOT_FOUND = "Ce projet n'existe plus. Tirez pour actualiser."
         const val MESSAGE_SAVE = "Le projet n'a pas été enregistré."
         const val MESSAGE_DELETE = "Le projet n'a pas été supprimé."
         const val MESSAGE_REORDER = "L'ordre n'a pas pu être enregistré."
+        const val MESSAGE_CYCLE = "Ces dépendances formeraient un cycle : un projet finirait par attendre lui-même."
+        const val MESSAGE_SELF_DEPENDENCY = "Un projet ne peut pas dépendre de lui-même."
     }
 }

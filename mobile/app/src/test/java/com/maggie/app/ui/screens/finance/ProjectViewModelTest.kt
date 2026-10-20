@@ -109,6 +109,32 @@ class ProjectViewModelTest {
     }
 
     @Test
+    fun `a network failure on load is a French sentence, not the exception's text`() = runTest {
+        coEvery { repository.getProjects() } returns Result.failure(RuntimeException("Unable to resolve host \"api\""))
+        val viewModel = viewModel()
+
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_LOAD, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a load answered during a drag does not undo the order under the finger`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val answer = CompletableDeferred<Result<List<Project>>>()
+        coEvery { repository.getProjects() } coAnswers { answer.await() }
+
+        viewModel.refresh()
+        runCurrent()
+        viewModel.previewMove(1, 0)
+        answer.complete(Result.success(listOf(move, sofa)))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Canapé", "Déménagement"), viewModel.uiState.value.projects.map { it.name })
+    }
+
+    @Test
     fun `a new project is created, the form closes and the list is read again`() = runTest {
         val request = slot<ProjectWriteRequest>()
         val created = Project(id = "p3", name = "Vélo", amountCents = 90000, position = 2)
@@ -151,9 +177,10 @@ class ProjectViewModelTest {
     }
 
     @Test
-    fun `a refusal of the API stays on the form, in its own words`() = runTest {
-        coEvery { repository.updateProject("p1", any()) } returns
-            Result.failure(ApiRefusalException(400, "Ces dépendances forment un cycle."))
+    fun `a refusal of the API stays on the form, said in French`() = runTest {
+        coEvery { repository.updateProject("p1", any()) } returns Result.failure(
+            ApiRefusalException(400, "These dependencies would make a cycle: a project would end up waiting for itself."),
+        )
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -165,7 +192,52 @@ class ProjectViewModelTest {
         val form = viewModel.uiState.value.form!!
         assertFalse(form.done)
         assertFalse(form.isSaving)
-        assertEquals("Ces dépendances forment un cycle.", form.error)
+        assertEquals(ProjectViewModel.MESSAGE_CYCLE, form.error)
+        assertEquals("Ces dépendances formeraient un cycle : un projet finirait par attendre lui-même.", form.error)
+    }
+
+    @Test
+    fun `a dependency on itself is refused in French`() = runTest {
+        coEvery { repository.updateProject("p1", any()) } returns
+            Result.failure(ApiRefusalException(400, "dependsOn: A project cannot depend on itself."))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openEdit("p1")
+        viewModel.editDraft { it.copy(dependsOn = listOf("p1")) }
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals("Un projet ne peut pas dépendre de lui-même.", viewModel.uiState.value.form!!.error)
+    }
+
+    @Test
+    fun `a refusal the phone cannot translate is a French sentence, never the English one`() = runTest {
+        coEvery { repository.createProject(any()) } returns
+            Result.failure(ApiRefusalException(400, "The currency must be a 3-letter ISO 4217 code."))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openNew()
+        viewModel.editDraft { it.copy(name = "Vélo", amount = "900") }
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_SAVE, viewModel.uiState.value.form!!.error)
+    }
+
+    @Test
+    fun `a network failure on save is a French sentence, not the exception's text`() = runTest {
+        coEvery { repository.createProject(any()) } returns Result.failure(RuntimeException("Unable to resolve host"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openNew()
+        viewModel.editDraft { it.copy(name = "Vélo", amount = "900") }
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_SAVE, viewModel.uiState.value.form!!.error)
     }
 
     @Test
@@ -222,8 +294,8 @@ class ProjectViewModelTest {
     }
 
     @Test
-    fun `a refused deletion puts the project back and says why`() = runTest {
-        coEvery { repository.deleteProject("p2") } returns Result.failure(RuntimeException("Erreur réseau"))
+    fun `a failed deletion puts the project back and says so in French`() = runTest {
+        coEvery { repository.deleteProject("p2") } returns Result.failure(RuntimeException("Unable to resolve host"))
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -231,7 +303,7 @@ class ProjectViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("Déménagement", "Canapé"), viewModel.uiState.value.projects.map { it.name })
-        assertEquals("Erreur réseau", viewModel.uiState.value.error)
+        assertEquals(ProjectViewModel.MESSAGE_DELETE, viewModel.uiState.value.error)
     }
 
     @Test
@@ -270,6 +342,59 @@ class ProjectViewModelTest {
 
         assertEquals(listOf("Déménagement", "Canapé"), viewModel.uiState.value.projects.map { it.name })
         assertEquals(ProjectViewModel.MESSAGE_REORDER, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a reorder refused in English says so in French only`() = runTest {
+        coEvery { repository.reorderProjects(any()) } returns Result.failure(
+            ApiRefusalException(400, "The list must name every project, in the new order. Missing: p3."),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.previewMove(1, 0)
+        viewModel.endMove()
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_REORDER, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a refused reorder reads the list again, with a project created during the drag`() = runTest {
+        val bike = Project(id = "p3", name = "Vélo", amountCents = 90000, position = 2)
+        coEvery { repository.reorderProjects(any()) } returns
+            Result.failure(ApiRefusalException(400, "The list must name every project, in the new order. Missing: p3."))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, bike))
+
+        viewModel.previewMove(1, 0)
+        viewModel.endMove()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Déménagement", "Canapé", "Vélo"), state.projects.map { it.name })
+        assertFalse(state.isLoading)
+        assertEquals(ProjectViewModel.MESSAGE_REORDER, state.error)
+    }
+
+    @Test
+    fun `a reorder answered during the next drag does not undo the order under the finger`() = runTest {
+        val bike = Project(id = "p3", name = "Vélo", amountCents = 90000, position = 2)
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, bike))
+        val answer = CompletableDeferred<Result<List<Project>>>()
+        coEvery { repository.reorderProjects(listOf("p2", "p1", "p3")) } coAnswers { answer.await() }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.previewMove(1, 0)
+        viewModel.endMove()
+        runCurrent()
+        viewModel.previewMove(2, 0)
+        answer.complete(Result.success(listOf(sofa, move, bike)))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Vélo", "Canapé", "Déménagement"), viewModel.uiState.value.projects.map { it.name })
     }
 
     @Test
