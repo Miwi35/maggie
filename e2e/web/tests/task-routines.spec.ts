@@ -136,7 +136,8 @@ test('the routines of the morning ride above the day and on the home; a tick the
     const band = board.content.getByRole('region', { name: 'Routines · matin' })
     const pill = band.getByRole('button', { name: title, exact: true })
     await expect(pill).toHaveAttribute('aria-pressed', 'false')
-    const ring = await board.ring.getAttribute('aria-label')
+    // (the ring is absent while the day holds no task)
+    const ring = (await board.ring.count()) > 0 ? await board.ring.getAttribute('aria-label') : null
     const hadNow = await board.now.count()
 
     // When I tick it…
@@ -144,7 +145,8 @@ test('the routines of the morning ride above the day and on the home; a tick the
 
     // …then the pill is checked — and the ring and « Maintenant » have not moved.
     await expect(pill).toHaveAttribute('aria-pressed', 'true')
-    await expect(board.ring).toHaveAttribute('aria-label', ring ?? '')
+    if (null === ring) await expect(board.ring).toHaveCount(0)
+    else await expect(board.ring).toHaveAttribute('aria-label', ring)
     await expect(board.now).toHaveCount(hadNow)
     await expect.poll(() => dayCounts(api)).toEqual({ done: before.done + 1, due: before.due })
 
