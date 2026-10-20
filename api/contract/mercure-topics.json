@@ -20,6 +20,7 @@
     "PeerDebt": "/users/{userId}/api/peer_debts/{id}",
     "Proaction": "/users/{userId}/api/proactions/{id}",
     "Product": "/users/{userId}/api/products/{id}",
+    "Project": "/users/{userId}/api/finance/projects/{id}",
     "Recipe": "/users/{userId}/api/recipes/{id}",
     "RecurringGroceryItem": "/users/{userId}/api/recurring_grocery_items/{id}",
     "RecurringOperation": "/users/{userId}/api/recurring_operations/{id}",

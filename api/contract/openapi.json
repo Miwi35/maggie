@@ -7665,6 +7665,435 @@
                 }
             }
         },
+        "/api/finance/projects": {
+            "get": {
+                "operationId": "api_financeprojects_get_collection",
+                "tags": [
+                    "Project"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Project.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Project.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Project"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Project.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Project resources.",
+                "description": "Retrieves the collection of Project resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_financeprojects_post",
+                "tags": [
+                    "Project"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Project resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Project resource.",
+                "description": "Creates a Project resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Project resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Project"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Project"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Project"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/finance/projects/{id}": {
+            "get": {
+                "operationId": "api_financeprojects_id_get",
+                "tags": [
+                    "Project"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Project resource.",
+                "description": "Retrieves a Project resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Project identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_financeprojects_id_delete",
+                "tags": [
+                    "Project"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Project resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Project resource.",
+                "description": "Removes the Project resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Project identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_financeprojects_id_patch",
+                "tags": [
+                    "Project"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Project resource.",
+                "description": "Updates the Project resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Project identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Project resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Project.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/recipes": {
             "get": {
                 "operationId": "api_recipes_get_collection",
@@ -20774,6 +21203,405 @@
                     }
                 ]
             },
+            "Project": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "amountCents": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "description": "What the project costs, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "currency": {
+                        "minLength": 3,
+                        "maxLength": 3,
+                        "pattern": "^([A-Z]{3})$",
+                        "default": "EUR",
+                        "type": "string"
+                    },
+                    "wellbeing": {
+                        "description": "How much the project counts for the user's wellbeing: essential (4), high (3), medium (2), comfort (1).",
+                        "default": "medium",
+                        "type": "string",
+                        "enum": [
+                            "essential",
+                            "high",
+                            "medium",
+                            "comfort"
+                        ]
+                    },
+                    "position": {
+                        "readOnly": true,
+                        "description": "Priority order, 0 first. Read-only: changed by POST /api/finance/projects/reorder.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "dateMode": {
+                        "description": "none: no date, the planning places it; fixed: a locked date; deadline: at the latest on targetOn.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "fixed",
+                            "deadline"
+                        ]
+                    },
+                    "targetOn": {
+                        "description": "The project's date, YYYY-MM-DD: required when dateMode is fixed or deadline, null when none.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2027-03-01"
+                    },
+                    "dependsOn": {
+                        "description": "The projects (IRIs) this one waits for, all the user's own.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "iri-reference",
+                            "example": "https://example.com/"
+                        }
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "wellbeingScore": {
+                        "readOnly": true,
+                        "description": "4 for essential down to 1 for comfort.",
+                        "type": "integer"
+                    },
+                    "unmetDependencies": {
+                        "readOnly": true,
+                        "description": "The projects this one waits for whose date it does not respect: it is\ndated before them. Only dated projects on both sides can disagree.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "name",
+                    "currency"
+                ]
+            },
+            "Project.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "amountCents": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "description": "What the project costs, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "currency": {
+                        "minLength": 3,
+                        "maxLength": 3,
+                        "pattern": "^([A-Z]{3})$",
+                        "default": "EUR",
+                        "type": "string"
+                    },
+                    "wellbeing": {
+                        "description": "How much the project counts for the user's wellbeing: essential (4), high (3), medium (2), comfort (1).",
+                        "default": "medium",
+                        "type": "string",
+                        "enum": [
+                            "essential",
+                            "high",
+                            "medium",
+                            "comfort"
+                        ]
+                    },
+                    "position": {
+                        "readOnly": true,
+                        "description": "Priority order, 0 first. Read-only: changed by POST /api/finance/projects/reorder.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "dateMode": {
+                        "description": "none: no date, the planning places it; fixed: a locked date; deadline: at the latest on targetOn.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "fixed",
+                            "deadline"
+                        ]
+                    },
+                    "targetOn": {
+                        "description": "The project's date, YYYY-MM-DD: required when dateMode is fixed or deadline, null when none.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2027-03-01"
+                    },
+                    "dependsOn": {
+                        "description": "The projects (IRIs) this one waits for, all the user's own.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "iri-reference",
+                            "example": "https://example.com/"
+                        }
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "wellbeingScore": {
+                        "readOnly": true,
+                        "description": "4 for essential down to 1 for comfort.",
+                        "type": "integer"
+                    },
+                    "unmetDependencies": {
+                        "readOnly": true,
+                        "description": "The projects this one waits for whose date it does not respect: it is\ndated before them. Only dated projects on both sides can disagree.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "name",
+                    "currency"
+                ]
+            },
+            "Project.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "amountCents": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "description": "What the project costs, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "currency": {
+                        "minLength": 3,
+                        "maxLength": 3,
+                        "pattern": "^([A-Z]{3})$",
+                        "default": "EUR",
+                        "type": "string"
+                    },
+                    "wellbeing": {
+                        "description": "How much the project counts for the user's wellbeing: essential (4), high (3), medium (2), comfort (1).",
+                        "default": "medium",
+                        "type": "string",
+                        "enum": [
+                            "essential",
+                            "high",
+                            "medium",
+                            "comfort"
+                        ]
+                    },
+                    "position": {
+                        "readOnly": true,
+                        "description": "Priority order, 0 first. Read-only: changed by POST /api/finance/projects/reorder.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "dateMode": {
+                        "description": "none: no date, the planning places it; fixed: a locked date; deadline: at the latest on targetOn.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "fixed",
+                            "deadline"
+                        ]
+                    },
+                    "targetOn": {
+                        "description": "The project's date, YYYY-MM-DD: required when dateMode is fixed or deadline, null when none.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2027-03-01"
+                    },
+                    "dependsOn": {
+                        "description": "The projects (IRIs) this one waits for, all the user's own.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "iri-reference",
+                            "example": "https://example.com/"
+                        }
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "wellbeingScore": {
+                        "readOnly": true,
+                        "description": "4 for essential down to 1 for comfort.",
+                        "type": "integer"
+                    },
+                    "unmetDependencies": {
+                        "readOnly": true,
+                        "description": "The projects this one waits for whose date it does not respect: it is\ndated before them. Only dated projects on both sides can disagree.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "Project.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "name": {
+                                "maxLength": 255,
+                                "type": "string"
+                            },
+                            "amountCents": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
+                                "description": "What the project costs, in integer cents.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "currency": {
+                                "minLength": 3,
+                                "maxLength": 3,
+                                "pattern": "^([A-Z]{3})$",
+                                "default": "EUR",
+                                "type": "string"
+                            },
+                            "wellbeing": {
+                                "description": "How much the project counts for the user's wellbeing: essential (4), high (3), medium (2), comfort (1).",
+                                "default": "medium",
+                                "type": "string",
+                                "enum": [
+                                    "essential",
+                                    "high",
+                                    "medium",
+                                    "comfort"
+                                ]
+                            },
+                            "position": {
+                                "readOnly": true,
+                                "description": "Priority order, 0 first. Read-only: changed by POST /api/finance/projects/reorder.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "dateMode": {
+                                "description": "none: no date, the planning places it; fixed: a locked date; deadline: at the latest on targetOn.",
+                                "default": "none",
+                                "type": "string",
+                                "enum": [
+                                    "none",
+                                    "fixed",
+                                    "deadline"
+                                ]
+                            },
+                            "targetOn": {
+                                "description": "The project's date, YYYY-MM-DD: required when dateMode is fixed or deadline, null when none.",
+                                "type": "string",
+                                "format": "date",
+                                "nullable": true,
+                                "example": "2027-03-01"
+                            },
+                            "dependsOn": {
+                                "description": "The projects (IRIs) this one waits for, all the user's own.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "format": "iri-reference",
+                                    "example": "https://example.com/"
+                                }
+                            },
+                            "note": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "wellbeingScore": {
+                                "readOnly": true,
+                                "description": "4 for essential down to 1 for comfort.",
+                                "type": "integer"
+                            },
+                            "unmetDependencies": {
+                                "readOnly": true,
+                                "description": "The projects this one waits for whose date it does not respect: it is\ndated before them. Only dated projects on both sides can disagree.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "currency"
+                        ]
+                    }
+                ]
+            },
             "PurchasedItem": {
                 "type": "object",
                 "properties": {
@@ -25556,6 +26384,10 @@
         {
             "name": "PeerDebt",
             "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same."
+        },
+        {
+            "name": "Project",
+            "description": "Resource 'Project' operations."
         },
         {
             "name": "RecurringOperation",

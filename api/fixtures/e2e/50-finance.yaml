@@ -342,3 +342,25 @@ Maggie\Finance\Entity\Loan:
     priority: 1
     currency: EUR
     user: '@e2e_user'
+
+# The projects (MAG-519): a move on a locked date first, then a sofa with no
+# date that waits for it.
+Maggie\Finance\Entity\Project:
+  e2e_project_move:
+    name: Déménagement
+    amountCents: 250000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
+    position: 0
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
+    targetOn: '<(new \DateTimeImmutable("2027-03-01"))>'
+    user: '@e2e_user'
+  e2e_project_sofa:
+    name: Canapé
+    amountCents: 120000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 1
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::None)>'
+    dependsOn: ['@e2e_project_move']
+    user: '@e2e_user'

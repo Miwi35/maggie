@@ -1,0 +1,46 @@
+{
+    "@context": "/api/contexts/Project",
+    "@id": "/api/finance/projects",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/finance/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Project",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded move",
+            "amountCents": 250000,
+            "currency": "EUR",
+            "wellbeing": "essential",
+            "position": 0,
+            "dateMode": "fixed",
+            "targetOn": "2027-03-01",
+            "dependsOn": [],
+            "note": null,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "wellbeingScore": 4,
+            "unmetDependencies": []
+        },
+        {
+            "@id": "/api/finance/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Project",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded sofa",
+            "amountCents": 120000,
+            "currency": "EUR",
+            "wellbeing": "comfort",
+            "position": 1,
+            "dateMode": "fixed",
+            "targetOn": "2027-01-15",
+            "dependsOn": [
+                "/api/finance/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            ],
+            "note": "Recorded note",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "wellbeingScore": 1,
+            "unmetDependencies": [
+                "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            ]
+        }
+    ]
+}

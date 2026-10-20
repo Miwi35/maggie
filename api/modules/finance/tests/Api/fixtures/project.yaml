@@ -1,0 +1,47 @@
+# MAG-519's scenario: a trip with a deadline, a move on a locked date and a
+# sofa that waits for the move. Another user's project proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+  other_user:
+    email: finance-projects-other@example.com
+    googleId: google-finance-projects-other
+    name: Other Projects User
+
+Maggie\Finance\Entity\Project:
+  japan:
+    name: Voyage au Japon
+    amountCents: 300000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::High)>'
+    position: 0
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Deadline)>'
+    targetOn: '<(new \DateTimeImmutable("2027-08-31"))>'
+    user: '@test_user'
+  move:
+    name: Déménagement
+    amountCents: 250000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
+    position: 1
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
+    targetOn: '<(new \DateTimeImmutable("2027-03-01"))>'
+    user: '@test_user'
+  sofa:
+    name: Canapé
+    amountCents: 120000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 2
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::None)>'
+    dependsOn: ['@move']
+    note: Le gris, chez Maisons du Monde
+    user: '@test_user'
+  secret:
+    name: Projet secret
+    amountCents: 99900
+    currency: EUR
+    position: 0
+    user: '@other_user'

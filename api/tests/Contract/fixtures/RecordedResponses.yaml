@@ -530,3 +530,27 @@ Maggie\Finance\Entity\PeerDebtAllocation:
       transaction: '@recorded_transaction'
       share: '@recorded_peer_debt_share'
       amountCents: 1000
+
+# The projects (MAG-519): the sofa is dated before the move it waits for, so
+# its unmetDependencies is not empty in the recording.
+Maggie\Finance\Entity\Project:
+  recorded_project_move:
+    name: Recorded move
+    amountCents: 250000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
+    position: 0
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
+    targetOn: '<(new \DateTimeImmutable("2027-03-01"))>'
+    user: '@recorded_user'
+  recorded_project_sofa:
+    name: Recorded sofa
+    amountCents: 120000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 1
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
+    targetOn: '<(new \DateTimeImmutable("2027-01-15"))>'
+    dependsOn: ['@recorded_project_move']
+    note: Recorded note
+    user: '@recorded_user'
