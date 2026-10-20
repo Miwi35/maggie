@@ -1,0 +1,113 @@
+appId: com.maggie.app.e2e
+name: 17f-routines
+tags:
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/routines-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+---
+# The « Routines » tab of the tasks (MAG-511, extends MAG-100).
+#
+# Given the « Routines » tab, when « Sortir les poubelles » is created to repeat every week
+# after dinner, then it shows in « Chaque semaine »; when it is ticked, then its total reads
+# « 1 fois » and the API counts it ticked today, once.
+#
+# The spec says « chaque mardi ». The stack's clock is not frozen on a weekday (`TODAY` is the
+# seed's anchor day), and the round only shows on a routine due today, so the journey keeps the
+# weekday the sheet starts on — today's — rather than tapping Tuesday: « Chaque {today} ».
+# `routines-api.js find` checks that the routine sent is weekly on TODAY's weekday, after dinner.
+#
+# The other moments, the hour, the monthly day, « Active », « Supprimer », the dots of the last
+# seven days and the buzz are `RoutinesViewModelTest`'s, `RoutinesScreenTest`'s and `RoutineTest`'s.
+
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: cleanup
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17f-routines.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+
+- tapOn:
+    id: "tasks_tab_routines"
+- extendedWaitUntil:
+    visible:
+      id: "routines_add"
+    timeout: 20000
+
+# « Nouvelle routine »: Quoi, Quand « Après le dîner », Répéter « Chaque {today} ».
+- tapOn:
+    id: "routines_add"
+- extendedWaitUntil:
+    visible:
+      id: "routine_title"
+    timeout: 20000
+- tapOn:
+    id: "routine_title"
+- inputText: "Sortir les poubelles"
+- hideKeyboard
+- tapOn:
+    id: "routine_anchor_afterDinner"
+- tapOn:
+    id: "routine_repeat_weekly"
+- extendedWaitUntil:
+    visible:
+      id: "routine_weekday_1"
+    timeout: 10000
+- tapOn:
+    id: "routine_save"
+
+# Then it is in « Chaque semaine ».
+- extendedWaitUntil:
+    notVisible:
+      id: "routine_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Sortir les poubelles.*"
+      childOf:
+        id: "routine_group_weekly"
+    timeout: 20000
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: find
+      TODAY: ${TODAY}
+- extendedWaitUntil:
+    visible:
+      id: "routine_total_${output.routineId}"
+      text: ".*: 0 fois"
+    timeout: 20000
+
+# When it is ticked, its total reads once.
+- tapOn:
+    id: "routine_check_${output.routineId}"
+- extendedWaitUntil:
+    visible:
+      id: "routine_total_${output.routineId}"
+      text: ".*: 1 fois"
+    timeout: 20000
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: expect-checked
+      TODAY: ${TODAY}

@@ -200,6 +200,8 @@ import com.maggie.app.ui.screens.tasks.BravoScreen
 import com.maggie.app.ui.screens.tasks.BravoViewModel
 import com.maggie.app.ui.screens.tasks.FocusScreen
 import com.maggie.app.ui.screens.tasks.FocusViewModel
+import com.maggie.app.ui.screens.tasks.RoutinesScreen
+import com.maggie.app.ui.screens.tasks.RoutinesViewModel
 import com.maggie.app.ui.screens.tasks.TasksScreen
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.login.LoginScreen
@@ -520,6 +522,7 @@ fun NavGraph() {
     val tasksViewModel: TasksViewModel = koinViewModel()
     val focusViewModel: FocusViewModel = koinViewModel()
     val bravoViewModel: BravoViewModel = koinViewModel()
+    val routinesViewModel: RoutinesViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
@@ -1183,6 +1186,7 @@ fun NavGraph() {
                                         bravoViewModel.open(it)
                                         navController.navigate(Screen.TaskBravo.route) { launchSingleTop = true }
                                     },
+                                    routines = { RoutinesScreen(viewModel = routinesViewModel) },
                                 )
                             },
                             detail = task?.let { open ->

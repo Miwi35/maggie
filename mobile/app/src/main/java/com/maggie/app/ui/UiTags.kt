@@ -592,6 +592,50 @@ object UiTags {
     const val PALIER_MESSAGE = "palier_message"
     const val PALIER_DISMISS = "palier_dismiss"
 
+    /**
+     * The « Routines » tab of the tasks (MAG-511, tab `tasks_tab_routines`): its list, « Nouvelle
+     * routine », a group (suffixed by its key: morning, afternoon, evening, weekly, monthly), a card,
+     * its tick and its total (suffixed by the routine's id); then the sheet: the title, a moment
+     * (suffixed by the anchor), the hour, a repeat (suffixed by the kind), a weekday (1-7), a day of
+     * the month (1-31), « Me le rappeler », « Active », « Enregistrer », « Supprimer » and its
+     * confirmation.
+     */
+    const val ROUTINES = "routines"
+    const val ROUTINES_ADD = "routines_add"
+    const val ROUTINES_EMPTY = "routines_empty"
+    const val ROUTINE_GROUP_PREFIX = "routine_group_"
+    const val ROUTINE_CARD_PREFIX = "routine_card_"
+    const val ROUTINE_CHECK_PREFIX = "routine_check_"
+    const val ROUTINE_TOTAL_PREFIX = "routine_total_"
+    const val ROUTINE_SHEET = "routine_sheet"
+    const val ROUTINE_TITLE = "routine_title"
+    const val ROUTINE_ANCHOR_PREFIX = "routine_anchor_"
+    const val ROUTINE_TIME = "routine_time"
+    const val ROUTINE_REPEAT_PREFIX = "routine_repeat_"
+    const val ROUTINE_WEEKDAY_PREFIX = "routine_weekday_"
+    const val ROUTINE_MONTH_DAY_PREFIX = "routine_month_day_"
+    const val ROUTINE_REMIND = "routine_remind"
+    const val ROUTINE_ACTIVE = "routine_active"
+    const val ROUTINE_SAVE = "routine_save"
+    const val ROUTINE_DELETE = "routine_delete"
+    const val ROUTINE_DELETE_CONFIRM = "routine_delete_confirm"
+
+    fun routineGroup(key: String) = ROUTINE_GROUP_PREFIX + key
+
+    fun routineCard(id: String) = ROUTINE_CARD_PREFIX + id
+
+    fun routineCheck(id: String) = ROUTINE_CHECK_PREFIX + id
+
+    fun routineTotal(id: String) = ROUTINE_TOTAL_PREFIX + id
+
+    fun routineAnchor(anchor: String) = ROUTINE_ANCHOR_PREFIX + anchor
+
+    fun routineRepeat(kind: String) = ROUTINE_REPEAT_PREFIX + kind
+
+    fun routineWeekday(weekday: Int) = ROUTINE_WEEKDAY_PREFIX + weekday
+
+    fun routineMonthDay(day: Int) = ROUTINE_MONTH_DAY_PREFIX + day
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 

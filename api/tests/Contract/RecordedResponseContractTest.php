@@ -678,6 +678,43 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The routines (MAG-511), as `/api/routines` sends them once there is
+     * a weekly, a monthly and a ticked one: the totals and the last seven days, no streak.
+     */
+    public function testTheRoutinesRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Sortir les poubelles', 'anchor' => 'afterDinner', 'recurrence' => ['kind' => 'weekly', 'weekday' => 3]], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Arroser les plantes', 'anchor' => 'wake', 'recurrence' => ['kind' => 'monthly', 'monthDay' => 31]], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Lire', 'anchor' => 'time', 'anchorTime' => '22:30'], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        $this->client->request('PUT', '/api/routines/'.$created['id'].'/checks/2026-04-22', [], [], $headers);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/routines', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertCount(3, $body['member']);
+        self::assertSame(1, $body['member'][2]['totalCount'], 'The recorded routine is not ticked, so it proves nothing about the totals.');
+
+        $this->assertMatchesContract(
+            'responses/routines.collection.json',
+            self::stabilise($body),
+            'GET /api/routines no longer returns what it used to. The mobile DTOs (Routine.kt) and the admin (routinesApi.ts) are written against this response.',
+        );
+    }
+
+    /**
      * The bravo of a task done (MAG-508), as `/api/rewards/task/{id}` sends it
      * once the task is ticked: a shooting star, the task having waited a month.
      * The message is drawn by chance among three: the recording keeps the first.

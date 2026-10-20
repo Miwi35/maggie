@@ -3,8 +3,11 @@ import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
-/** The four tabs of the « Tâches » page, by the word the owner reads (MAG-408). */
-export type TasksTab = "Aujourd'hui" | 'À venir' | 'À faire un jour' | 'Faites'
+/** The tabs of the « Tâches » page, by the word the owner reads (MAG-408), « Routines » right after « Aujourd'hui » (MAG-511). */
+export type TasksTab = "Aujourd'hui" | 'Routines' | 'À venir' | 'À faire un jour' | 'Faites'
+
+/** The groups of « Routines »: the part of the day for the daily ones, then the rhythm (MAG-511). */
+export type RoutineGroup = 'Matin' | 'Après-midi' | 'Soir' | 'Chaque semaine' | 'Chaque mois'
 
 /**
  * The « Tâches » page: « Aujourd'hui » — the day of five tasks at most, its
@@ -59,6 +62,10 @@ export class TasksPage extends AdminShell {
   /** The constellation of the month (MAG-509), in the bravo or in the evening: « Ta constellation d'octobre · 5 étoiles ». */
   readonly constellationOfBravo: Locator
   readonly constellationOfEvening: Locator
+  /** « Nouvelle routine », on the « Routines » tab (MAG-511). */
+  readonly newRoutine: Locator
+  /** The routine's form, new or opened from its card: titled « Nouvelle routine » or by the routine. */
+  readonly routineDialog: Locator
 
   constructor(page: Page) {
     super(page)
@@ -88,6 +95,35 @@ export class TasksPage extends AdminShell {
     this.pause = this.bravo.getByRole('button', { name: 'Pause méritée', exact: true })
     this.constellationOfBravo = this.bravo.getByTestId('constellation')
     this.constellationOfEvening = this.evening.getByTestId('constellation')
+    this.newRoutine = this.content.getByRole('button', { name: 'Nouvelle routine', exact: true })
+    this.routineDialog = page.getByRole('dialog')
+  }
+
+  /** The page on « Routines »: the morning or the evening may be offered, the tab is another view. */
+  async openRoutines(): Promise<void> {
+    await this.openMorning()
+    await this.select('Routines')
+    await expect(this.newRoutine).toBeVisible()
+  }
+
+  /** A group of « Routines », as a region named by its heading. */
+  routineGroup(name: RoutineGroup): Locator {
+    return this.content.getByRole('region', { name, exact: true })
+  }
+
+  /** The card of `title` among the routines. */
+  routineCard(title: string): Locator {
+    return this.content.getByTestId('routine-card').filter({ has: this.page.getByText(title, { exact: true }) })
+  }
+
+  /** The round tick of `title` for today — only on a day it is due. */
+  routineCheck(title: string): Locator {
+    return this.routineCard(title).getByRole('checkbox', { name: `${title} : fait aujourd'hui`, exact: true })
+  }
+
+  /** « ce mois : 3 fois » or « depuis août : 9 fois », on the card of `title`. */
+  routineCount(title: string): Locator {
+    return this.routineCard(title).getByTestId('routine-count')
   }
 
   /**

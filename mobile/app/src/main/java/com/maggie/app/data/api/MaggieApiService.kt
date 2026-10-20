@@ -44,6 +44,7 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.TaskReminderAnswer
 import com.maggie.app.data.model.Utensil
@@ -906,6 +907,49 @@ class MaggieApiService(
             accept(ContentType.Application.Json)
             setBody(request)
         }.orRefusal().body()
+    }
+
+    // Routines (MAG-511): plain JSON; a refusal (400) carries its reason in `error`.
+
+    /** Every routine, active or not, by hour then title. */
+    suspend fun getRoutines(): List<Routine> {
+        return client.get("$baseUrl/api/routines") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body<ApiCollection<Routine>>().member
+    }
+
+    /** A new routine: `title`, `anchor`, `anchorTime`, `recurrence`, `active`, `remind`. */
+    suspend fun createRoutine(data: JsonObject): Routine {
+        return client.post("$baseUrl/api/routines") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(data)
+        }.orRefusal().body()
+    }
+
+    /** Only the fields present are changed. */
+    suspend fun updateRoutine(id: String, data: JsonObject): Routine {
+        return client.patch("$baseUrl/api/routines/$id") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(data)
+        }.orRefusal().body()
+    }
+
+    /** The routine and its ticks. */
+    suspend fun deleteRoutine(id: String) {
+        client.delete("$baseUrl/api/routines/$id").orRefusal()
+    }
+
+    /** Ticks (PUT) or unticks (DELETE) [date], `YYYY-MM-DD`; both idempotent, both answer the routine. */
+    suspend fun setRoutineCheck(id: String, date: String, checked: Boolean): Routine {
+        val url = "$baseUrl/api/routines/$id/checks/$date"
+        val response = if (checked) {
+            client.put(url) { accept(ContentType.Application.Json) }
+        } else {
+            client.delete(url) { accept(ContentType.Application.Json) }
+        }
+        return response.orRefusal().body()
     }
 
     suspend fun createTask(request: TaskCreateRequest): Task {

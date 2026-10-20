@@ -68,6 +68,7 @@ import com.maggie.app.data.repository.SearchRepository
 import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
 import com.maggie.app.data.repository.StoreRepository
+import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -122,6 +123,7 @@ import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.tasks.BravoViewModel
+import com.maggie.app.ui.screens.tasks.RoutinesViewModel
 import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
@@ -282,6 +284,7 @@ class MaggieApp : Application() {
             // Repositories
             single { EventRepository(get(), get()) }
             single { TaskRepository(get(), get()) }
+            single { RoutineRepository(get()) }
             single { ChatPreferencesRepository(androidContext()) }
             single { ChatRepository(get(), get()) }
             single { ApprovalRepository(get(), get(), get()) }
@@ -338,6 +341,7 @@ class MaggieApp : Application() {
             viewModel { TasksViewModel(get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }
             viewModel { BravoViewModel(get(), get()) }
+            viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
