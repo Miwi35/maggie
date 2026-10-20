@@ -156,6 +156,32 @@
         },
         "description": "Toggle the checked state of a grocery item. Set checked=true when bought, false to uncheck."
     },
+    "check_routine": {
+        "name": "check_routine",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "done": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Tick a routine as done on a day, or take the tick back. id is the routine's (list_routines gives it — call it with the date first when the user names the routine by its title). date is YYYY-MM-DD, today (the user's timezone) when left out; a day to come, or before the routine existed, is refused. done=false removes the tick. Ticking twice or removing a tick that is not there changes nothing. A routine may be ticked on a day it was not due. Returns {success, date, checked, routine} as list_routines reads the routine. Say it is noted, nothing more: no congratulations, no streak."
+    },
     "claim_due_proactions": {
         "name": "claim_due_proactions",
         "inputSchema": {
@@ -882,6 +908,22 @@
             }
         },
         "description": "List the proactions Maggie scheduled for the user, by time: each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). Optional from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; optional status filters. Use it before scheduling, so as not to schedule one that already exists."
+    },
+    "list_routines": {
+        "name": "list_routines",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read the user's routines — small habits that come back (a glass of water at waking, the bins on Tuesday evening). Without date: every routine, active or not, in the order of the day, as {routines: [...]}. With date (YYYY-MM-DD): only the active routines due that day, grouped by moment of the day, as {date, moments: [{anchor, time, routines: [...]}]}, each with checked (ticked that day or not). A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner or time), anchorTime (HH:MM, only with anchor time), time (the hour it falls at), recurrence ({kind: daily} | {kind: weekdays} | {kind: weekly, weekday: 1 Monday to 7 Sunday} | {kind: monthly, monthDay: 1 to 31}), active, remind, createdAt, checkedToday, dueToday, monthCount (ticks this month) and totalCount (ticks since the creation). Report what was done — the month's count, the total — never a streak, never days missed."
     },
     "manage_accounts": {
         "name": "manage_accounts",
@@ -2931,6 +2973,92 @@
             ]
         },
         "description": "Reorder grocery items by setting their position. Pass an array of {id, position} pairs."
+    },
+    "save_routine": {
+        "name": "save_routine",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "title": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "anchor": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "wake",
+                        "afterBreakfast",
+                        "afterLunch",
+                        "afterDinner",
+                        "time"
+                    ]
+                },
+                "anchorTime": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "recurrence": {
+                    "type": "object",
+                    "default": null,
+                    "properties": {
+                        "kind": {
+                            "type": "string",
+                            "enum": [
+                                "daily",
+                                "weekdays",
+                                "weekly",
+                                "monthly"
+                            ]
+                        },
+                        "weekday": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 7
+                        },
+                        "monthDay": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                        }
+                    },
+                    "required": [
+                        "kind"
+                    ]
+                },
+                "active": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "remind": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Create or change a routine — a small habit that comes back. Without id: creates it, and title, anchor and recurrence are all required (nothing is guessed: ask the user for what is missing). With id: changes only the fields given, the others stay as they are. title: what to do, 255 characters at most. anchor: the moment of the day it belongs to — wake, afterBreakfast, afterLunch, afterDinner — or time for a fixed hour, which needs anchorTime \"HH:MM\" (24 hours, user's timezone) and is the only anchor allowed one. recurrence: {kind: daily}, {kind: weekdays} (Monday to Friday), {kind: weekly, weekday: 1 Monday to 7 Sunday} (« le mardi » is weekday 2) or {kind: monthly, monthDay: 1 to 31} (a shorter month falls on its last day); weekday and monthDay go with their kind only. active=false pauses it without losing its ticks; remind=true asks for a reminder. A refused or incomplete call changes nothing and answers {error} with the routine as it stands (changing) or the fields given (creating). Returns {success, routine} as list_routines reads it. Deleting a routine is not possible from here: the user does it in the app."
     },
     "schedule_proaction": {
         "name": "schedule_proaction",

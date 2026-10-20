@@ -1,0 +1,16 @@
+# « Où en sont mes routines ? » (MAG-513): she reads them all and reports what was done —
+# the month's count and the total since the creation — never a streak, never the days missed.
+# The counts are those of the first routine of the list, captured from the tool result.
+name: routine-status
+description: List every routine and answer with the month's totals, no streak.
+
+match:
+  user_contains: "où en sont mes routines"
+
+results_matches: 'monthCount\W+(\d+)\W+totalCount\W+(\d+)'
+
+turns:
+  - tools:
+      - name: list_routines
+        input: {}
+  - text: "Voici où elles en sont : la première de ta liste est cochée \\1 fois ce mois-ci, \\2 fois depuis sa création. Le détail de chacune est dans l'onglet Routines."

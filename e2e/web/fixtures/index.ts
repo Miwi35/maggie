@@ -139,8 +139,8 @@ export interface MaggieFixtures {
    */
   interruptedUser: OtherUser
   /**
-   * The fourth seeded account, for the stock journey (MAG-294) and the
-   * last-salary question (MAG-364): the files that drive it work on data of
+   * The fourth seeded account, for the stock journey (MAG-294), the
+   * last-salary question (MAG-364) and the routines told to Maggie (MAG-513): the files that drive it work on data of
    * their own and read the API, never the chat history's length.
    */
   stockUser: OtherUser

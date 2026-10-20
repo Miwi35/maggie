@@ -1,0 +1,19 @@
+# « Ajoute une routine : sortir les poubelles le mardi après le dîner » (MAG-513): the three
+# things a routine needs are all in the sentence — a title, a moment, a rhythm — so she creates
+# it at once. « le mardi » is weekday 2 (1 is Monday).
+#
+# Numbered before 80-proaction-bin-night.yaml, which answers any message holding « poubelles ».
+name: routine-add
+description: Create a weekly routine anchored after dinner from one sentence.
+
+match:
+  user_matches: "ajoute une routine.*sortir les poubelles"
+
+turns:
+  - tools:
+      - name: save_routine
+        input:
+          title: "Sortir les poubelles"
+          anchor: afterDinner
+          recurrence: {kind: weekly, weekday: 2}
+  - text: "Routine ajoutée : sortir les poubelles, le mardi après le dîner."
