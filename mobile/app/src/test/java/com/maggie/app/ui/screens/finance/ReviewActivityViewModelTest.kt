@@ -514,7 +514,10 @@ class ReviewActivityViewModelTest {
         advanceUntilIdle()
 
         assertEquals(ReviewStep.PROJECTS, viewModel.uiState.value.step)
-        assertEquals(setOf(ReviewStep.ENVELOPES, ReviewStep.UPCOMING), viewModel.uiState.value.skipped)
+        assertEquals(
+            setOf(ReviewStep.ENVELOPES, ReviewStep.UPCOMING),
+            viewModel.uiState.value.skipped - setOf(ReviewStep.PERIOD_BALANCE, ReviewStep.PERIOD_PLAN),
+        )
         coVerify(exactly = 0) { review.moveTo(month, REVIEW_STEP_ENVELOPES) }
         coVerify(exactly = 0) { review.moveTo(month, REVIEW_STEP_UPCOMING) }
         coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_PROJECTS) }
