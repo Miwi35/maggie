@@ -367,6 +367,7 @@ class FinanceMenuPageTest {
             defaultAspectId(
                 aspects,
                 mapOf(
+                    SummaryBlock.PROJECTS to BlockState.Ready(listOf("Aucun projet")),
                     SummaryBlock.LOANS to BlockState.Ready(listOf("Aucun prêt")),
                     SummaryBlock.INDEPENDENCE to BlockState.Ready(listOf("x"), hasData = true),
                 ),
