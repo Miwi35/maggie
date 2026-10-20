@@ -1115,5 +1115,25 @@ object UiTags {
     const val REVIEW_ACTIVITY_RESTART = "review_activity_restart"
     const val REVIEW_ACTIVITY_REMAINING = "review_activity_remaining"
 
+    // The two steps that close a quarter, a semester or a year (MAG-462).
+    const val PERIOD_BALANCE = "review_period_balance"
+    const val PERIOD_BALANCE_MONTHS = "review_period_balance_months"
+    const val PERIOD_BALANCE_ENVELOPES = "review_period_balance_envelopes"
+    const val PERIOD_BALANCE_PROJECTS = "review_period_balance_projects"
+    const val PERIOD_BALANCE_ERROR = "review_period_balance_error"
+    const val PERIOD_PLAN = "review_period_plan"
+    const val PERIOD_PLAN_ROW_PREFIX = "review_period_plan_row_"
+    const val PERIOD_PLAN_AMOUNT_PREFIX = "review_period_plan_amount_"
+    const val PERIOD_PLAN_ONE_OFF_NAME = "review_period_plan_one_off_name"
+    const val PERIOD_PLAN_ONE_OFF_AMOUNT = "review_period_plan_one_off_amount"
+    const val PERIOD_PLAN_ONE_OFF_ADD = "review_period_plan_one_off_add"
+    const val PERIOD_PLAN_ONE_OFF_ROW = "review_period_plan_one_off_row"
+    const val PERIOD_PLAN_APPLY = "review_period_plan_apply"
+    const val PERIOD_PLAN_APPLIED = "review_period_plan_applied"
+    const val PERIOD_PLAN_REFUSED = "review_period_plan_refused"
+    const val PERIOD_PLAN_ERROR = "review_period_plan_error"
+
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
+    fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId
+    fun periodPlanAmount(categoryId: String) = PERIOD_PLAN_AMOUNT_PREFIX + categoryId
 }

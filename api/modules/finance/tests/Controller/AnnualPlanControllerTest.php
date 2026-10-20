@@ -33,6 +33,10 @@ class AnnualPlanControllerTest extends WebTestCase
         yield 'year below the range' => ['?year=1999'];
         yield 'year above the range' => ['?year=2101'];
         yield 'year is not a number' => ['?year=bientôt'];
+        yield 'a fifth quarter' => ['?period=2026-Q5'];
+        yield 'a month is not a period' => ['?period=2026-04'];
+        yield 'a period out of range' => ['?period=1999-Q1'];
+        yield 'a period and a year' => ['?period=2026-Q2&year=2026'];
         yield 'negative threshold' => ['?thresholdCents=-1'];
         // `(int) 'abc'` is 0, which would make every debit a big expense.
         yield 'threshold is not a number' => ['?thresholdCents=beaucoup'];
@@ -160,6 +164,53 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertSame(45000, $this->categoryNamed($strict, 'Courses')['lastYear']['consumedCents']);
         self::assertSame(165800, $strict['totalLastYearConsumedCents']);
         self::assertSame(143000, $strict['totalSuggestedCents']);
+    }
+
+    public function testAQuarterIsPlannedFromTheOneBehindIt(): void
+    {
+        $this->loadFixtures('period_plan.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $plan = $this->review('?period=2026-Q2');
+
+        self::assertSame(['key' => '2026-Q2', 'level' => 'quarter', 'from' => '2026-04', 'to' => '2026-06', 'months' => 3], $plan['period']);
+        self::assertSame('2026-Q1', $plan['sourcePeriod']['key']);
+        self::assertSame(2026, $plan['year']);
+
+        $leisure = $this->categoryNamed($plan, 'Loisirs');
+        // What the quarter behind had budgeted and cost, over its three months.
+        self::assertSame(60000, $leisure['lastYear']['budgetedCents']);
+        self::assertSame(73000, $leisure['lastYear']['consumedCents']);
+        // The trip decided for May carries the suggestion, per quarter and per month.
+        self::assertSame(90000, $leisure['plannedCents']);
+        self::assertSame(90000, $leisure['suggestedCents']);
+        self::assertSame(30000, $leisure['suggestedMonthlyCents']);
+        self::assertSame(['Voyage en Norvège'], array_column($leisure['plannedEvents'], 'label'));
+
+        $food = $this->categoryNamed($plan, 'Alimentation');
+        self::assertSame(120000, $food['lastYear']['budgetedCents']);
+        // Nothing decided: what the quarter behind cost, 50 000 over three months.
+        self::assertSame(50000, $food['suggestedCents']);
+        self::assertSame(16667, $food['suggestedMonthlyCents']);
+        // April is already set; the quarter has no single envelope to point at.
+        self::assertSame(45000, $food['envelopeCents']);
+        self::assertNull($food['envelopeId']);
+    }
+
+    public function testASemesterAndAYearAreReadTheSameWay(): void
+    {
+        $this->loadFixtures('period_plan.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $semester = $this->review('?period=2026-S2');
+        self::assertSame('2026-S1', $semester['sourcePeriod']['key']);
+        self::assertSame(6, $semester['period']['months']);
+        // The whole first quarter, the 30 000 put aside included: the session has always counted what a category cost.
+        self::assertSame(153000, $semester['totalLastYearConsumedCents']);
+
+        $year = $this->review('?period=2026');
+        self::assertSame(2025, $year['sourceYear']);
+        self::assertSame($this->review('?year=2026'), $year, 'a year is a year, whichever way it is asked');
     }
 
     public function testItDefaultsToTheYearBeingPrepared(): void

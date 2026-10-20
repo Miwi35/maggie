@@ -1,0 +1,58 @@
+{
+    "period": {
+        "key": "2026-Q1",
+        "level": "quarter",
+        "from": "2026-01",
+        "to": "2026-03",
+        "months": 3
+    },
+    "months": [
+        {
+            "month": "2026-01",
+            "budgetCents": 0,
+            "spentCents": 91349,
+            "savedCents": 0
+        },
+        {
+            "month": "2026-02",
+            "budgetCents": 0,
+            "spentCents": 91349,
+            "savedCents": 0
+        },
+        {
+            "month": "2026-03",
+            "budgetCents": 30000,
+            "spentCents": 124249,
+            "savedCents": 0
+        }
+    ],
+    "totals": {
+        "budgetCents": 30000,
+        "spentCents": 306947,
+        "savedCents": 0
+    },
+    "envelopes": [
+        {
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Parent Category",
+            "budgetCents": 30000,
+            "consumedCents": 125599,
+            "percent": 418,
+            "status": "over"
+        }
+    ],
+    "satisfaction": {
+        "judgedCents": 0,
+        "keptCents": 0,
+        "avoidableCents": 0,
+        "keptPercent": null
+    },
+    "savings": {
+        "savedCents": 0,
+        "plannedCents": 1485000
+    },
+    "projects": {
+        "done": [],
+        "postponed": []
+    }
+}

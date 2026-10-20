@@ -848,6 +848,36 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The expense a planning session already put in a month of a category under
+     * that label (case apart): how a replayed plan finds it again.
+     */
+    public function findPlannedEvent(User $user, Category $category, string $label, \DateTimeImmutable $monthStart): ?Transaction
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category = :category')
+            ->andWhere('LOWER(t.label) = LOWER(:label)')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:decided)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('category', $category->getId(), 'ulid')
+            ->setParameter('label', $label)
+            ->setParameter('decided', [
+                TransactionStatus::Planned->value,
+                TransactionStatus::Committed->value,
+                TransactionStatus::ToArbitrate->value,
+            ])
+            ->setParameter('from', $monthStart)
+            ->setParameter('until', $monthStart->modify('+1 month'))
+            ->orderBy('t.bookedAt', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * The debits a period has already decided on without having spent them:
      * planned, committed and to-arbitrate. Categorized only, in date order.
      *

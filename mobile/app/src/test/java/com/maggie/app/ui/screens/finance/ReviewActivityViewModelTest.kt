@@ -9,7 +9,12 @@ import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
 import com.maggie.app.data.model.REVIEW_STEP_BALANCE
 import com.maggie.app.data.model.REVIEW_STEP_DONE
+import com.maggie.app.data.model.PlanningPeriodRef
+import com.maggie.app.data.model.REVIEW_LEVEL_MONTH
+import com.maggie.app.data.model.REVIEW_LEVEL_QUARTER
 import com.maggie.app.data.model.REVIEW_STEP_ENVELOPES
+import com.maggie.app.data.model.REVIEW_STEP_PERIOD_BALANCE
+import com.maggie.app.data.model.REVIEW_STEP_PERIOD_PLAN
 import com.maggie.app.data.model.REVIEW_STEP_PROJECTS
 import com.maggie.app.data.model.REVIEW_STEP_REVIEW
 import com.maggie.app.data.model.REVIEW_STEP_UPCOMING
@@ -418,6 +423,82 @@ class ReviewActivityViewModelTest {
         coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_UPCOMING) }
         coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_PROJECTS) }
         coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_DONE) }
+    }
+
+    // --- the review that closes a period (MAG-462) ---
+
+    private fun quarterEnd(step: String) = progress(step = step).copy(
+        level = REVIEW_LEVEL_QUARTER,
+        period = PlanningPeriodRef("2026-Q4", REVIEW_LEVEL_QUARTER, "2026-10", "2026-12", 3),
+        nextPeriod = PlanningPeriodRef("2027-Q1", REVIEW_LEVEL_QUARTER, "2027-01", "2027-03", 3),
+    )
+
+    @Test
+    fun `a plain month walks five steps and carries no period`() = runTest {
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(REVIEW_LEVEL_MONTH, state.level)
+        assertEquals(ReviewStep.MONTH, state.steps)
+        assertNull(state.nextPeriod)
+        assertTrue(ReviewStep.PERIOD_BALANCE in state.skipped && ReviewStep.PERIOD_PLAN in state.skipped)
+    }
+
+    @Test
+    fun `the review that closes a quarter walks seven steps and names the next period`() = runTest {
+        coEvery { review.getProgress(month) } returns Result.success(quarterEnd(REVIEW_STEP_PROJECTS))
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(REVIEW_LEVEL_QUARTER, state.level)
+        assertEquals(7, state.steps.size)
+        assertEquals("2027-Q1", state.nextPeriod?.key)
+        assertEquals(ReviewStep.PERIOD_BALANCE, state.nextStep)
+    }
+
+    @Test
+    fun `Suivant from Projets goes to the bilan of the period, then to the planning, each written`() = runTest {
+        coEvery { review.getProgress(month) } returns Result.success(quarterEnd(REVIEW_STEP_PROJECTS))
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        viewModel.next()
+        advanceUntilIdle()
+        assertEquals(ReviewStep.PERIOD_BALANCE, viewModel.uiState.value.step)
+        assertEquals("Bilan du trimestre", viewModel.uiState.value.step.titleFor(viewModel.uiState.value.level))
+        viewModel.next()
+        advanceUntilIdle()
+        assertEquals(ReviewStep.PERIOD_PLAN, viewModel.uiState.value.step)
+        assertNull("the planning is the last step", viewModel.uiState.value.nextStep)
+        viewModel.next()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.done)
+        coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_PERIOD_BALANCE) }
+        coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_PERIOD_PLAN) }
+        coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_DONE) }
+    }
+
+    @Test
+    fun `a review stored on the planning resumes there`() = runTest {
+        coEvery { review.getProgress(month) } returns Result.success(quarterEnd(REVIEW_STEP_PERIOD_PLAN))
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        assertEquals(ReviewStep.PERIOD_PLAN, viewModel.uiState.value.step)
+        assertTrue(viewModel.uiState.value.canGoBack)
+        coVerify(exactly = 0) { review.moveTo(any(), any()) }
+    }
+
+    @Test
+    fun `a month review stored on a period step falls back on the steps it walks`() = runTest {
+        coEvery { review.getProgress(month) } returns Result.success(progress(step = REVIEW_STEP_PERIOD_PLAN))
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        assertEquals(ReviewStep.PROJECTS, viewModel.uiState.value.step)
     }
 
     @Test

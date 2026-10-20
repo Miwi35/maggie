@@ -14,6 +14,12 @@ vi.mock('./MonthBalanceTab', () => ({ MonthBalanceTab: () => <div data-testid="m
 vi.mock('./EnvelopeAdjustments', () => ({
   EnvelopeAdjustments: ({ month }: { month: string }) => <div data-testid="envelopes-step">Enveloppes de {month}</div>,
 }))
+vi.mock('./PeriodBalanceStep', () => ({
+  PeriodBalanceStep: ({ month }: { month: string }) => <div data-testid="period-balance-step">Bilan de la période de {month}</div>,
+}))
+vi.mock('./PeriodPlanStep', () => ({
+  PeriodPlanStep: ({ period }: { period: { key: string } }) => <div data-testid="period-plan-step">Plan de {period.key}</div>,
+}))
 vi.mock('../../components/chat/ChatWidget', () => ({
   ChatWidget: ({ open }: { open: boolean }) => (open ? <div data-testid="chat-panel">Conversation</div> : null),
 }))
@@ -60,6 +66,8 @@ interface Server {
   items: Record<string, unknown>[]
   envelopes: unknown[]
   upcoming: UpcomingProjection
+  /** What the API says of the month: a plain one when absent. */
+  closing?: { level: string; period: Record<string, unknown>; nextPeriod: Record<string, unknown> }
   progressFails?: boolean
   queueFails?: boolean
   saveFails?: boolean
@@ -71,7 +79,19 @@ const fetchMock = vi.fn()
 
 const answer = (ok: boolean, body: unknown) => Promise.resolve({ ok, json: async () => body }) as Promise<Response>
 
-const progressBody = () => ({ month: MONTH, step: server.step, handledTransactionIds: server.handled, updatedAt: null })
+const progressBody = () => ({
+  month: MONTH,
+  step: server.step,
+  handledTransactionIds: server.handled,
+  updatedAt: null,
+  ...(server.closing ?? { level: 'month', period: null, nextPeriod: null }),
+})
+
+const QUARTER_END = {
+  level: 'quarter',
+  period: { key: '2027-Q1', level: 'quarter', from: '2027-01', to: '2027-03', months: 3 },
+  nextPeriod: { key: '2027-Q2', level: 'quarter', from: '2027-04', to: '2027-06', months: 3 },
+}
 
 const handle = (url: string, init?: RequestInit): Promise<Response> => {
   const method = init?.method ?? 'GET'
@@ -279,6 +299,68 @@ describe('ReviewActivityPage', () => {
     await userEvent.keyboard('{ArrowLeft}')
     expect(await screen.findByText(`Enveloppes de ${MONTH}`)).toBeInTheDocument()
     expect(progressWrites().map((write) => write.step)).toEqual(['envelopes', 'projects', 'envelopes'])
+  })
+
+  test('a month that closes no period has the five steps and ends on the projects', async () => {
+    server.step = 'projects'
+    renderActivity()
+
+    expect(await screen.findByTestId('next-project-card')).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^review-segment-/)).toHaveLength(5)
+    expect(screen.getByText('Ensuite… fin de la revue')).toBeInTheDocument()
+    expect(screen.queryByTestId('period-balance-step')).not.toBeInTheDocument()
+  })
+
+  test('the review of a quarter\'s last month adds the period\'s bilan then the plan of the next one', async () => {
+    server.step = 'projects'
+    server.closing = QUARTER_END
+    renderActivity()
+
+    expect(await screen.findByTestId('next-project-card')).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^review-segment-/)).toHaveLength(7)
+    expect(screen.getByText('Ensuite… Période')).toBeInTheDocument()
+    // « Terminer » is for the last step only.
+    expect(screen.getByRole('button', { name: 'Suivant →' })).toBeInTheDocument()
+
+    await userEvent.keyboard('{ArrowRight}')
+    expect(await screen.findByTestId('period-balance-step')).toHaveTextContent(`Bilan de la période de ${MONTH}`)
+    expect(screen.getByRole('heading', { name: 'Bilan du trimestre' })).toBeInTheDocument()
+    expect(screen.getByText('Ensuite… Planification')).toBeInTheDocument()
+
+    await userEvent.keyboard('{ArrowRight}')
+    expect(await screen.findByTestId('period-plan-step')).toHaveTextContent('Plan de 2027-Q2')
+    expect(screen.getByRole('heading', { name: 'Planification du trimestre suivant' })).toBeInTheDocument()
+    expect(screen.getByText('Ensuite… fin de la revue')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Terminer →' }))
+    expect(await screen.findByText('Revue terminée')).toBeInTheDocument()
+    expect(progressWrites().map((write) => write.step)).toEqual(['period_balance', 'period_plan', 'done'])
+  })
+
+  test('a year\'s review names its bilan and its plan after the year', async () => {
+    server.step = 'period_balance'
+    server.closing = {
+      level: 'year',
+      period: { key: '2026', level: 'year', from: '2026-01', to: '2026-12', months: 12 },
+      nextPeriod: { key: '2027', level: 'year', from: '2027-01', to: '2027-12', months: 12 },
+    }
+    renderActivity()
+
+    expect(await screen.findByRole('heading', { name: "Bilan de l'année" })).toBeInTheDocument()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(await screen.findByRole('heading', { name: "Planification de l'année suivante" })).toBeInTheDocument()
+  })
+
+  test('resumes on the plan of the next period where it was quit', async () => {
+    server.step = 'period_plan'
+    server.handled = ['T1', 'T2', 'T3']
+    server.closing = QUARTER_END
+    renderActivity()
+
+    expect(await screen.findByTestId('period-plan-step')).toBeInTheDocument()
+    expect(progressWrites()).toEqual([])
+    await userEvent.click(screen.getByRole('button', { name: '← Précédent' }))
+    expect(await screen.findByTestId('period-balance-step')).toBeInTheDocument()
   })
 
   test('← from the balance goes back to the last line of the review', async () => {

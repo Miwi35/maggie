@@ -78,6 +78,41 @@ class PlanAnnualBudgetToolTest extends KernelTestCase
         self::assertArrayNotHasKey('categories', $result);
     }
 
+    public function testAQuarterIsPlannedFromTheOneBefore(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/period_plan.yaml');
+        $this->loginFixtureUser();
+
+        $plan = $this->call(period: '2026-Q2');
+
+        self::assertSame('2026-Q2', $plan['period']['key']);
+        self::assertSame('2026-Q1', $plan['sourcePeriod']['key']);
+        self::assertSame(2026, $plan['year']);
+        $food = array_values(array_filter($plan['categories'], static fn (array $c): bool => 'Alimentation' === $c['categoryName']))[0];
+        self::assertSame(45000, $food['envelopeCents'], 'What the monthly envelopes of the quarter add up to.');
+        self::assertSame(16667, $food['suggestedMonthlyCents']);
+    }
+
+    public function testAPeriodAndAYearTogetherAreRefused(): void
+    {
+        $this->signIn();
+
+        $result = $this->call(year: 2027, period: '2027-Q1');
+
+        self::assertStringContainsString('not both', $result['error']);
+        self::assertArrayNotHasKey('categories', $result);
+    }
+
+    public function testAPeriodNoSessionCouldBeAboutIsRefused(): void
+    {
+        $this->signIn();
+
+        $result = $this->call(period: '2027-Q5');
+
+        self::assertStringContainsString('period must be', $result['error']);
+        self::assertArrayNotHasKey('categories', $result);
+    }
+
     public function testItOnlySeesItsOwnUser(): void
     {
         $this->loadFixtures(self::FIXTURE);
@@ -96,12 +131,12 @@ class PlanAnnualBudgetToolTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function call(?int $year = null, ?int $thresholdCents = null): array
+    private function call(?int $year = null, ?int $thresholdCents = null, ?string $period = null): array
     {
         /** @var PlanAnnualBudgetTool $tool */
         $tool = self::getContainer()->get(PlanAnnualBudgetTool::class);
 
-        return json_decode($tool($year, $thresholdCents), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($tool($year, $thresholdCents, $period), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**

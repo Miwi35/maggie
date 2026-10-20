@@ -1,0 +1,94 @@
+{
+    "year": 2026,
+    "sourceYear": 2026,
+    "period": {
+        "key": "2026-Q2",
+        "level": "quarter",
+        "from": "2026-04",
+        "to": "2026-06",
+        "months": 3
+    },
+    "sourcePeriod": {
+        "key": "2026-Q1",
+        "level": "quarter",
+        "from": "2026-01",
+        "to": "2026-03",
+        "months": 3
+    },
+    "thresholdCents": 10000,
+    "totalLastYearConsumedCents": 311197,
+    "totalDecidedCents": 279000,
+    "totalToArbitrateCents": 0,
+    "totalSuggestedCents": 279000,
+    "totalEnvelopedCents": 0,
+    "categories": [
+        {
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Category",
+            "currency": "EUR",
+            "lastYear": {
+                "budgetedCents": null,
+                "consumedCents": 311197,
+                "events": [
+                    {
+                        "label": "LOYER SCI VERDA",
+                        "amountCents": 120000,
+                        "currency": "EUR",
+                        "month": 3,
+                        "bookedAt": "2026-03-05",
+                        "status": "spent",
+                        "isExceptional": false
+                    },
+                    {
+                        "label": "LOYER SCI VERDA",
+                        "amountCents": 90000,
+                        "currency": "EUR",
+                        "month": 1,
+                        "bookedAt": "2026-01-05",
+                        "status": "spent",
+                        "isExceptional": false
+                    },
+                    {
+                        "label": "LOYER SCI VERDA",
+                        "amountCents": 90000,
+                        "currency": "EUR",
+                        "month": 2,
+                        "bookedAt": "2026-02-05",
+                        "status": "spent",
+                        "isExceptional": false
+                    }
+                ]
+            },
+            "plannedCents": 0,
+            "committedCents": 0,
+            "recurringCents": 279000,
+            "toArbitrateCents": 0,
+            "decidedCents": 279000,
+            "plannedEvents": [],
+            "envelopeId": null,
+            "envelopeCents": null,
+            "suggestedCents": 279000,
+            "suggestedMonthlyCents": 93000
+        },
+        {
+            "categoryId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "categoryName": "Recorded Parent Category",
+            "currency": "EUR",
+            "lastYear": {
+                "budgetedCents": 30000,
+                "consumedCents": 0,
+                "events": []
+            },
+            "plannedCents": 0,
+            "committedCents": 0,
+            "recurringCents": 0,
+            "toArbitrateCents": 0,
+            "decidedCents": 0,
+            "plannedEvents": [],
+            "envelopeId": null,
+            "envelopeCents": null,
+            "suggestedCents": 0,
+            "suggestedMonthlyCents": 0
+        }
+    ]
+}

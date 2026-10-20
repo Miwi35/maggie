@@ -33,9 +33,18 @@ interface StoredEvent {
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 
-/** The appointment's title, as both apps show it: « Revue d'octobre », « Revue de novembre ». */
+const PERIOD_ENDS: Record<number, string> = {
+  3: 'Revue de fin de trimestre',
+  6: 'Revue de fin de semestre',
+  9: 'Revue de fin de trimestre',
+  12: "Revue de fin d'année",
+}
+
+/** The appointment's title, as both apps show it: « Revue d'octobre », « Revue de fin de trimestre ». */
 const reviewTitle = (month: string): string => {
-  const name = MONTHS[Number(month.slice(5, 7)) - 1]
+  const number = Number(month.slice(5, 7))
+  if (PERIOD_ENDS[number]) return PERIOD_ENDS[number]
+  const name = MONTHS[number - 1]
 
   return /^[aeiouyéèâàô]/.test(name) ? `Revue d'${name}` : `Revue de ${name}`
 }

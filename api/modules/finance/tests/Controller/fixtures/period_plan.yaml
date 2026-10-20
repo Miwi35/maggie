@@ -1,0 +1,216 @@
+# The world of an augmented review: the first quarter of 2026 behind (reviewed
+# in March), the second one to plan. Figures checkable by hand:
+#   Alimentation Q1: budget 3 x 40 000 = 120 000, consumed 20 000 + 30 000 = 50 000 (held)
+#   Loisirs Q1:      budget 3 x 20 000 =  60 000, consumed 15 000 + 8 000 + 50 000 = 73 000 (over)
+#   put aside: 30 000 in February
+#   planned in Q1: a committed gift (done), a bike and a dentist still planned (postponed)
+#   Q2 already holds: an April food envelope of 45 000 and a planned 90 000 trip in May
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: period-plan-test@example.com
+    googleId: google-period-plan-test
+    name: Period Plan Test User
+  other_user:
+    email: period-plan-other@example.com
+    googleId: google-period-plan-other
+    name: Period Plan Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  savings:
+    name: Épargne
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Saving)>'
+    user: '@test_user'
+  other_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  food_q1_1:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 1
+    user: '@test_user'
+  food_q1_2:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 2
+    user: '@test_user'
+  food_q1_3:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 3
+    user: '@test_user'
+  leisure_q1_1:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: 2026
+    month: 1
+    user: '@test_user'
+  leisure_q1_2:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: 2026
+    month: 2
+    user: '@test_user'
+  leisure_q1_3:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: 2026
+    month: 3
+    user: '@test_user'
+  food_april:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 45000
+    currency: EUR
+    year: 2026
+    month: 4
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  groceries_jan:
+    account: '@checking'
+    category: '@food'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-10"))>'
+    label: Courses janvier
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+  groceries_feb:
+    account: '@checking'
+    category: '@food'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-10"))>'
+    label: Courses février
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(true, Maggie\Finance\Enum\QualificationKind::None))>'
+  concert_jan:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -15000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-20"))>'
+    label: Concert
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+  trip_march:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-14"))>'
+    label: Week-end
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+  gift_feb:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-14"))>'
+    label: Cadeau
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
+    isExceptional: false
+    user: '@test_user'
+  saved_feb:
+    account: '@checking'
+    category: '@savings'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-06"))>'
+    label: Virement épargne
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+    qualification: '<(new Maggie\Finance\Entity\Qualification(false, Maggie\Finance\Enum\QualificationKind::Saving))>'
+  bike:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-01-25"))>'
+    label: Vélo
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
+  dentist:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -9000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-30"))>'
+    label: Dentiste
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
+  trip_may:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-05-15"))>'
+    label: Voyage en Norvège
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
+  strangers:
+    account: '@other_checking'
+    category: '@other_leisure'
+    amountCents: -99000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-15"))>'
+    label: Festival du voisin
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

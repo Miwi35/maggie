@@ -59,7 +59,7 @@ private const val CLOSE = "close"
 private const val OVER = "over"
 
 /** The bar of an envelope follows the score palette: held is green, close orange, over red. */
-private fun envelopeScoreStatus(status: String): String = when (status) {
+internal fun envelopeScoreStatus(status: String): String = when (status) {
     OVER -> "red"
     CLOSE -> "orange"
     else -> "green"
@@ -150,7 +150,7 @@ internal fun MonthBalanceContent(balance: MonthBalance, onOpenToQualify: () -> U
 }
 
 @Composable
-private fun BalanceCard(title: String, tag: String, content: @Composable () -> Unit) {
+internal fun BalanceCard(title: String, tag: String, content: @Composable () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
@@ -207,7 +207,7 @@ private fun EnvelopeBar(envelope: BalanceEnvelope) {
 }
 
 @Composable
-private fun SatisfactionCard(satisfaction: BalanceSatisfaction) {
+internal fun SatisfactionCard(satisfaction: BalanceSatisfaction) {
     BalanceCard("Satisfaction", UiTags.MONTH_BALANCE_SATISFACTION) {
         val kept = satisfaction.keptPercent
         val track = MaterialTheme.colorScheme.surfaceVariant
@@ -254,7 +254,7 @@ private fun SatisfactionCard(satisfaction: BalanceSatisfaction) {
 }
 
 @Composable
-private fun SavingsCard(savings: BalanceSavings) {
+internal fun SavingsCard(savings: BalanceSavings) {
     BalanceCard("Épargne", UiTags.MONTH_BALANCE_SAVINGS) {
         val planned = savings.plannedCents
         val fill = if (planned != null && planned > 0) (savings.savedCents.toFloat() / planned).coerceIn(0f, 1f) else 0f

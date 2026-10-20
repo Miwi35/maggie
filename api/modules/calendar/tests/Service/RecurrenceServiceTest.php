@@ -371,7 +371,7 @@ class RecurrenceServiceTest extends TestCase
             new \DateTimeImmutable('2026-12-01T00:00:00Z'),
         );
 
-        self::assertSame(['Revue de septembre', "Revue d'octobre", 'Revue de novembre'], array_map(static fn (Event $occurrence): string => $occurrence->getSummary(), $result));
+        self::assertSame(['Revue de fin de trimestre', "Revue d'octobre", 'Revue de novembre'], array_map(static fn (Event $occurrence): string => $occurrence->getSummary(), $result));
         self::assertSame(Event::ACTIVITY_FINANCE_REVIEW, $result[1]->getActivity());
         self::assertSame('Revue du mois', $event->getSummary(), 'the series keeps its own summary');
     }

@@ -1,0 +1,21 @@
+# The plan of a quarter, written through Maggie (MAG-462).
+#
+# One real MCP call: `manage_period_plan` sets the envelope of a one-off event,
+# the one element of a plan that needs no id from the seed. The fake scripts only
+# the model's side — the tool runs against the real MCP server and database.
+#
+# 2033-Q2 is a far-future literal, like 48-annual-plan.yaml's year: no other
+# journey reaches it. The tool's answer is read back through the API by the
+# journey, never through Maggie's wording.
+name: period-plan
+description: Write one element of the plan of a far-future quarter, through MCP.
+
+match:
+  user_contains: "planification du trimestre"
+
+turns:
+  - text: "J'inscris le budget de ton escapade au plan du trimestre."
+    tools:
+      - name: manage_period_plan
+        input: {action: set_one_off_envelope, period: "2033-Q2", name: "Escapade MAG-462", amountCents: 45000}
+  - text: "C'est noté : 450,00 € pour ton escapade au deuxième trimestre."

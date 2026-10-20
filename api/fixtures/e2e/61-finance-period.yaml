@@ -1,0 +1,29 @@
+# The period review journey (MAG-462, extends MAG-102): the review that closes a
+# quarter ends on two more steps, the balance of the period and the planning of
+# the next one.
+#
+# A user of its own, with a current account and « Loisirs » and nothing else:
+# the journey books the quarter's spend itself, dated in the quarter the browser
+# clock closes — a month the seed cannot name, since it depends on the day the
+# stack runs at — and applies the plan the review proposes for the next one.
+
+Maggie\Core\Entity\User:
+  e2e_period_user:
+    email: 'e2e-period@maggie.local'
+    googleId: 'e2e-period-google-id'
+    name: 'Lou Trimestre'
+
+Maggie\Finance\Entity\Account:
+  e2e_period_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_period_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_period_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_period_user'

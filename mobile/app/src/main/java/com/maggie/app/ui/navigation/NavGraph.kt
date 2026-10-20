@@ -123,6 +123,7 @@ import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
 import com.maggie.app.ui.screens.finance.ReviewActivityRoute
+import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
@@ -467,6 +468,7 @@ private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () ->
         monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
         adjustmentsViewModel = koinViewModel<EnvelopeAdjustmentsViewModel>(),
         upcomingViewModel = koinViewModel<UpcomingViewModel>(),
+        periodReviewViewModel = koinViewModel<PeriodReviewViewModel>(),
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },

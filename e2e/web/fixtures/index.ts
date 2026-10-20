@@ -19,6 +19,7 @@ import {
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
   OTHER_USER_EMAIL,
+  PERIOD_USER_EMAIL,
   RECURRING_USER_EMAIL,
   SEASON_USER_EMAIL,
   SEED_USER_EMAIL,
@@ -37,6 +38,7 @@ import { JOURNEY_HEADER, journeyId } from './journey.js'
 export { expect }
 export {
   ACTIVITY_USER_EMAIL,
+  PERIOD_USER_EMAIL,
   ADJUST_USER_EMAIL,
   SEED_USER_EMAIL,
   OTHER_USER_EMAIL,
@@ -179,6 +181,8 @@ export interface MaggieFixtures {
   starsUser: OtherUser
   /** The nineteenth seeded account, for the review activity and where it stands (MAG-456). */
   activityUser: OtherUser
+  /** The twentieth seeded account, for the review of a period (MAG-462). */
+  periodUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -426,6 +430,10 @@ export const test = base.extend<MaggieFixtures>({
 
   activityUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(ACTIVITY_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  periodUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(PERIOD_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

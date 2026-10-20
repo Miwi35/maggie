@@ -8,11 +8,25 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.EnvelopeAdjustment
 import com.maggie.app.data.model.EnvelopeAdjustments
+import com.maggie.app.data.model.PeriodBalance
+import com.maggie.app.data.model.PeriodEnvelope
+import com.maggie.app.data.model.PeriodMonth
+import com.maggie.app.data.model.PeriodPlan
+import com.maggie.app.data.model.PeriodTotals
+import com.maggie.app.data.model.PlanCategory
+import com.maggie.app.data.model.PlanLastPeriod
+import com.maggie.app.data.model.PlanRefusedException
+import com.maggie.app.data.model.PlanningPeriodRef
+import com.maggie.app.data.model.REVIEW_LEVEL_QUARTER
 import com.maggie.app.data.model.REVIEW_STEP_BALANCE
+import com.maggie.app.data.model.REVIEW_STEP_PERIOD_BALANCE
+import com.maggie.app.data.model.REVIEW_STEP_PERIOD_PLAN
 import com.maggie.app.data.model.REVIEW_STEP_DONE
 import com.maggie.app.data.model.REVIEW_STEP_REVIEW
 import com.maggie.app.data.model.ReviewProgress
@@ -66,6 +80,7 @@ class ReviewActivityScreenTest {
     private fun viewModel(
         step: String = REVIEW_STEP_REVIEW,
         items: List<ReviewQueueItem> = listOf(line("t1", "ACTIVITE UN 1111"), line("t2", "ACTIVITE DEUX 2222")),
+        progress: ReviewProgress = ReviewProgress(month = month, step = step),
     ): ReviewActivityViewModel {
         val categories = mockk<CategoryRepository>()
         val budget = mockk<BudgetRepository>()
@@ -74,7 +89,7 @@ class ReviewActivityScreenTest {
         coEvery { budget.getEnvelopeAdjustments(month) } returns
             Result.success(EnvelopeAdjustments(envelopes = listOf(EnvelopeAdjustment(envelopeId = "e1", categoryId = "c1"))))
         coEvery { upcoming.getUpcoming() } returns Result.success(UpcomingProjection())
-        coEvery { review.getProgress(month) } returns Result.success(ReviewProgress(month = month, step = step))
+        coEvery { review.getProgress(month) } returns Result.success(progress)
         coEvery { review.getQueue(month) } returns Result.success(ReviewQueue(month = month, items = items))
         coEvery { review.markHandled(month, any()) } answers { Result.success(ReviewProgress(month = month)) }
         coEvery { review.moveTo(month, any()) } answers { Result.success(ReviewProgress(month = month, step = secondArg())) }
@@ -204,5 +219,130 @@ class ReviewActivityScreenTest {
 
         compose.onNodeWithText("Contenu du bilan").assertIsDisplayed()
         coVerify(exactly = 1) { review.moveTo(month, REVIEW_STEP_BALANCE) }
+    }
+
+    // --- the two steps that close a period (MAG-462) ---
+
+    private val next = PlanningPeriodRef("2027-Q1", REVIEW_LEVEL_QUARTER, "2027-01", "2027-03", 3)
+
+    private fun quarterEnd(step: String) = ReviewProgress(
+        month = month,
+        step = step,
+        level = REVIEW_LEVEL_QUARTER,
+        period = PlanningPeriodRef("2026-Q4", REVIEW_LEVEL_QUARTER, "2026-10", "2026-12", 3),
+        nextPeriod = next,
+    )
+
+    private fun showPeriod(model: ReviewActivityViewModel, periodReview: PeriodReviewViewModel) {
+        compose.setContent {
+            ReviewActivityScreen(
+                viewModel = model,
+                onQuit = {},
+                onOpenMaggie = {},
+                twoColumns = false,
+                balance = { Text("Contenu du bilan") },
+                envelopes = { Text("Contenu des enveloppes") },
+                upcoming = { Text("Contenu à venir") },
+                projects = { Text("Contenu des projets") },
+                periodBalance = { PeriodBalanceStep(periodReview, month) },
+                periodPlan = { PeriodPlanStep(periodReview, next) },
+            )
+        }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `a quarter's review shows the bilan of the period with its titles`() {
+        coEvery { review.getPeriodBalance(month) } returns Result.success(
+            PeriodBalance(
+                period = PlanningPeriodRef("2026-Q4", REVIEW_LEVEL_QUARTER, "2026-10", "2026-12", 3),
+                months = listOf(PeriodMonth("2026-10", budgetCents = 50_000, spentCents = 42_000)),
+                totals = PeriodTotals(budgetCents = 50_000, spentCents = 42_000),
+                envelopes = listOf(PeriodEnvelope("c1", "Loisirs", budgetCents = 30_000, consumedCents = 12_000, percent = 40)),
+            ),
+        )
+        showPeriod(viewModel(progress = quarterEnd(REVIEW_STEP_PERIOD_BALANCE)), PeriodReviewViewModel(review))
+
+        compose.onNodeWithTag(UiTags.REVIEW_ACTIVITY_STEP_TITLE).assertTextEquals("Bilan du trimestre")
+        compose.onNodeWithTag(UiTags.REVIEW_ACTIVITY_NEXT_STEP).assertTextEquals("Ensuite… Planification du trimestre suivant")
+        compose.onNodeWithTag(UiTags.PERIOD_BALANCE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PERIOD_BALANCE_ENVELOPES).assertIsDisplayed()
+        compose.onNodeWithText("Loisirs").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.reviewSegment(REVIEW_STEP_PERIOD_PLAN)).assertExists()
+    }
+
+    @Test
+    fun `a bilan that cannot be read says so and offers to retry`() {
+        coEvery { review.getPeriodBalance(month) } returns Result.failure(Exception("Hors ligne"))
+        showPeriod(viewModel(progress = quarterEnd(REVIEW_STEP_PERIOD_BALANCE)), PeriodReviewViewModel(review))
+
+        compose.onNodeWithTag(UiTags.PERIOD_BALANCE_ERROR).assertTextEquals("Hors ligne")
+        compose.onNodeWithText("Réessayer").assertIsDisplayed()
+    }
+
+    private fun stubPlan() {
+        coEvery { review.getPeriodPlan("2027-Q1") } returns Result.success(
+            PeriodPlan(
+                period = next,
+                categories = listOf(
+                    PlanCategory("c-loisirs", "Loisirs", lastYear = PlanLastPeriod(30_000), suggestedCents = 30_000, suggestedMonthlyCents = 10_000),
+                    PlanCategory("c-vide", "Vide"),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `the planning proposes a row per category and applies the plan in one call`() {
+        stubPlan()
+        coEvery { review.applyPeriodPlan("2027-Q1", any()) } returns Result.success(Unit)
+        showPeriod(viewModel(progress = quarterEnd(REVIEW_STEP_PERIOD_PLAN)), PeriodReviewViewModel(review))
+
+        compose.onNodeWithTag(UiTags.REVIEW_ACTIVITY_STEP_TITLE).assertTextEquals("Planification du trimestre suivant")
+        compose.onNodeWithTag(UiTags.REVIEW_ACTIVITY_NEXT).assertTextEquals("Terminer")
+        compose.onNodeWithTag(UiTags.periodPlanRow("c-loisirs")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.periodPlanRow("c-vide")).assertDoesNotExist()
+
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_APPLY).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_APPLIED).assertIsDisplayed()
+        coVerify(exactly = 1) { review.applyPeriodPlan("2027-Q1", any()) }
+    }
+
+    @Test
+    fun `an amount edited is the one applied, and a one-off event is added`() {
+        stubPlan()
+        coEvery { review.applyPeriodPlan("2027-Q1", any()) } returns Result.success(Unit)
+        showPeriod(viewModel(progress = quarterEnd(REVIEW_STEP_PERIOD_PLAN)), PeriodReviewViewModel(review))
+
+        compose.onNodeWithTag(UiTags.periodPlanAmount("c-loisirs")).performTextClearance()
+        compose.onNodeWithTag(UiTags.periodPlanAmount("c-loisirs")).performTextInput("80")
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_ONE_OFF_NAME).performScrollTo().performTextInput("Escapade")
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_ONE_OFF_AMOUNT).performScrollTo().performTextInput("450")
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_ONE_OFF_ADD).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_APPLY).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        coVerify(exactly = 1) {
+            review.applyPeriodPlan(
+                "2027-Q1",
+                match { items -> items.map { it.kind to it.amountCents } == listOf("monthly" to 8_000, "one_off" to 45_000) },
+            )
+        }
+    }
+
+    @Test
+    fun `a plan refused names the line and says nothing was written`() {
+        stubPlan()
+        coEvery { review.applyPeriodPlan(any(), any()) } returns Result.failure(PlanRefusedException("Montant invalide.", 0))
+        showPeriod(viewModel(progress = quarterEnd(REVIEW_STEP_PERIOD_PLAN)), PeriodReviewViewModel(review))
+
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_APPLY).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_REFUSED).assertIsDisplayed()
+        compose.onNodeWithText("« Loisirs » : Montant invalide. Rien n'a été écrit.").assertExists()
+        compose.onNodeWithTag(UiTags.PERIOD_PLAN_APPLIED).assertDoesNotExist()
     }
 }

@@ -4,5 +4,20 @@
     "handledTransactionIds": [
         "01ARZ3NDEKTSV4RRFFQ69G5FAV"
     ],
-    "updatedAt": "2026-01-01T00:00:00+00:00"
+    "updatedAt": "2026-01-01T00:00:00+00:00",
+    "level": "quarter",
+    "period": {
+        "key": "2026-Q1",
+        "level": "quarter",
+        "from": "2026-01",
+        "to": "2026-03",
+        "months": 3
+    },
+    "nextPeriod": {
+        "key": "2026-Q2",
+        "level": "quarter",
+        "from": "2026-04",
+        "to": "2026-06",
+        "months": 3
+    }
 }

@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-/** The steps of the review, in order; `done` once the last one is left. */
-export const REVIEW_STEPS = ['review', 'balance', 'envelopes', 'upcoming', 'projects', 'done'] as const
+/** The steps of the review, in order; `done` once the last one is left. The two before it only exist at the end of a quarter, a semester or a year (MAG-462). */
+export const REVIEW_STEPS = ['review', 'balance', 'envelopes', 'upcoming', 'projects', 'period_balance', 'period_plan', 'done'] as const
 export type ReviewStep = (typeof REVIEW_STEPS)[number]
+
+/** What kind of review a month is: the plain monthly one, or the one that closes a longer period. */
+export type ReviewLevel = 'month' | 'quarter' | 'semester' | 'year'
+
+/** A quarter (`2027-Q1`), a semester (`2027-S2`) or a year (`2027`), as the API describes it. */
+export interface PlanningPeriodRef {
+  key: string
+  level: Exclude<ReviewLevel, 'month'>
+  /** `YYYY-MM`, first month of the period. */
+  from: string
+  /** `YYYY-MM`, last month of the period. */
+  to: string
+  months: number
+}
 
 /** `GET`/`PUT /api/finance/review/progress`: how far the review of a month went, on any device. */
 export interface ReviewProgress {
@@ -10,6 +24,12 @@ export interface ReviewProgress {
   step: ReviewStep
   handledTransactionIds: string[]
   updatedAt: string | null
+  /** The kind of review the month is: the API says, no client works it out. Absent reads as `month`. */
+  level?: ReviewLevel
+  /** The period this review closes, null for a plain month. */
+  period?: PlanningPeriodRef | null
+  /** The period it plans, null for a plain month. */
+  nextPeriod?: PlanningPeriodRef | null
 }
 
 /** What a `PUT` changes: the step replaces, the ids are added to the handled ones. */

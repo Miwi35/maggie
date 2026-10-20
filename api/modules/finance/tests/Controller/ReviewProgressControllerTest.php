@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\ReviewProgress;
 use Maggie\Finance\Enum\ReviewStep;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -144,7 +145,7 @@ class ReviewProgressControllerTest extends WebTestCase
         $progress = $this->request('GET', self::ENDPOINT.'?month=2026-10');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['month' => '2026-10', 'step' => 'review', 'handledTransactionIds' => [], 'updatedAt' => null], $progress, 'another user\'s progress is not mine');
+        self::assertSame(['month' => '2026-10', 'step' => 'review', 'handledTransactionIds' => [], 'updatedAt' => null, 'level' => 'month', 'period' => null, 'nextPeriod' => null], $progress, 'another user\'s progress is not mine');
         self::assertNull($this->stored());
     }
 
@@ -161,7 +162,7 @@ class ReviewProgressControllerTest extends WebTestCase
         $progress = $this->request('PUT', self::ENDPOINT, ['month' => '2026-10', 'step' => 'envelopes']);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['month' => '2026-10', 'step' => 'envelopes', 'handledTransactionIds' => [], 'updatedAt' => '2026-10-19T18:30:00+00:00'], $progress);
+        self::assertSame(['month' => '2026-10', 'step' => 'envelopes', 'handledTransactionIds' => [], 'updatedAt' => '2026-10-19T18:30:00+00:00', 'level' => 'month', 'period' => null, 'nextPeriod' => null], $progress);
         $stored = $this->stored();
         self::assertNotNull($stored);
         self::assertSame(ReviewStep::Envelopes, $stored->getStep());
@@ -213,5 +214,56 @@ class ReviewProgressControllerTest extends WebTestCase
         self::assertSame('review', $this->request('GET', self::ENDPOINT.'?month=2026-10')['step']);
         self::assertSame('done', $this->request('GET', self::ENDPOINT.'?month=2026-09')['step']);
         self::assertSame(ReviewStep::Done, $this->stored('2026-09-01')?->getStep());
+    }
+
+    /** @return iterable<string, array{string, string, string|null, string|null}> */
+    public static function levels(): iterable
+    {
+        yield 'a plain month' => ['2026-10', 'month', null, null];
+        yield 'a year no session is about is a plain month' => ['1999-03', 'month', null, null];
+        yield 'March closes a quarter' => ['2027-03', 'quarter', '2027-Q1', '2027-Q2'];
+        yield 'June closes a semester' => ['2027-06', 'semester', '2027-S1', '2027-S2'];
+        yield 'September closes a quarter' => ['2026-09', 'quarter', '2026-Q3', '2026-Q4'];
+        yield 'December closes the year and plans the next' => ['2026-12', 'year', '2026', '2027'];
+    }
+
+    #[DataProvider('levels')]
+    public function testTheProgressSaysWhichReviewTheMonthIs(string $month, string $level, ?string $period, ?string $next): void
+    {
+        $progress = $this->request('GET', self::ENDPOINT.'?month='.$month);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($level, $progress['level']);
+        self::assertSame($period, $progress['period']['key'] ?? null);
+        self::assertSame($next, $progress['nextPeriod']['key'] ?? null);
+
+        $written = $this->request('PUT', self::ENDPOINT, ['month' => $month, 'step' => 'projects']);
+        self::assertSame([$level, $period, $next], [$written['level'], $written['period']['key'] ?? null, $written['nextPeriod']['key'] ?? null]);
+    }
+
+    public function testDecemberOffersTheYearAndTheNextYearsPlanning(): void
+    {
+        $progress = $this->request('GET', self::ENDPOINT.'?month=2026-12');
+
+        self::assertSame(
+            ['key' => '2026', 'level' => 'year', 'from' => '2026-01', 'to' => '2026-12', 'months' => 12],
+            $progress['period'],
+        );
+        self::assertSame(
+            ['key' => '2027', 'level' => 'year', 'from' => '2027-01', 'to' => '2027-12', 'months' => 12],
+            $progress['nextPeriod'],
+        );
+    }
+
+    public function testThePeriodStepsAreStoredAndResumed(): void
+    {
+        foreach (['period_balance', 'period_plan'] as $step) {
+            $progress = $this->request('PUT', self::ENDPOINT, ['month' => '2027-03', 'step' => $step]);
+
+            self::assertResponseIsSuccessful($step);
+            self::assertSame($step, $progress['step']);
+            self::assertSame($step, $this->request('GET', self::ENDPOINT.'?month=2027-03')['step']);
+        }
+        self::assertSame(ReviewStep::PeriodPlan, $this->stored('2027-03-01')?->getStep());
     }
 }

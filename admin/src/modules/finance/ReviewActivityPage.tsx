@@ -19,7 +19,9 @@ import { EnvelopeAdjustments } from './EnvelopeAdjustments'
 import { MonthBalanceTab } from './MonthBalanceTab'
 import { NextProjectCard } from './NextProjectCard'
 import { ReviewTransactionCard } from './ReviewTransactionCard'
-import { REVIEW_FALLBACK_PATH, currentMonthKey } from './reviewActivity'
+import { PeriodBalanceStep } from './PeriodBalanceStep'
+import { PeriodPlanStep } from './PeriodPlanStep'
+import { PERIOD_WORDS, REVIEW_FALLBACK_PATH, currentMonthKey } from './reviewActivity'
 import type { ReviewLaunchState } from './reviewActivity'
 import { UpcomingRemaining } from './UpcomingRemaining'
 import { UpcomingWindow } from './UpcomingWindow'
@@ -35,8 +37,10 @@ import { useUpcomingProjection } from './useUpcomingProjection'
 
 type ActiveStep = Exclude<ReviewStep, 'done'>
 
-/** The five segments of the bar, in order (`done` is no step of its own). */
-const STEPS = REVIEW_STEPS.filter((step): step is ActiveStep => step !== 'done')
+const ALL_STEPS = REVIEW_STEPS.filter((step): step is ActiveStep => step !== 'done')
+
+/** The five steps of every review (`done` is no step of its own). */
+const MONTH_STEPS = ALL_STEPS.filter((step) => step !== 'period_balance' && step !== 'period_plan')
 
 const STEP_LABELS: Record<ActiveStep, string> = {
   review: 'Revue',
@@ -44,6 +48,8 @@ const STEP_LABELS: Record<ActiveStep, string> = {
   envelopes: 'Enveloppes',
   upcoming: 'À venir',
   projects: 'Projets',
+  period_balance: 'Période',
+  period_plan: 'Planification',
 }
 
 const STEP_TITLES: Record<ActiveStep, string> = {
@@ -52,6 +58,8 @@ const STEP_TITLES: Record<ActiveStep, string> = {
   envelopes: 'Ajuster les enveloppes',
   upcoming: 'À venir',
   projects: 'Projets',
+  period_balance: 'Bilan de la période',
+  period_plan: 'Planification',
 }
 
 /** Veilleuse, whatever the admin's mode: the dark night of the activities, the accounts' mint for accent. */
@@ -115,7 +123,9 @@ const ProjectsStep = ({ projection }: { projection: UpcomingProjection | null })
 /**
  * Comptes › la revue du mois, as an activity (MAG-456): full screen, out of the menus,
  * five steps — Revue, Bilan, Enveloppes, À venir, Projets — walked with the keyboard
- * (← Précédent, → or Entrée Suivant / Valider, Échap quitter) or the footer.
+ * (← Précédent, → or Entrée Suivant / Valider, Échap quitter) or the footer. The review that
+ * closes a quarter, a semester or a year (MAG-462) has two more: the bilan of the period
+ * and the plan of the next one.
  *
  * Where the owner stands is the API's (`/api/finance/review/progress`): every line left
  * and every step reached is written at once, so a review quit at the third line
@@ -129,6 +139,10 @@ export const ReviewActivityPage = () => {
   const from = (location.state as ReviewLaunchState | null)?.from
 
   const progress = useReviewProgress(month)
+  // … and, when the month closes a quarter, a semester or a year, the two that look back and plan ahead (MAG-462).
+  const closing = progress.progress?.period ?? null
+  const nextPeriod = progress.progress?.nextPeriod ?? null
+  const steps = useMemo(() => (closing && nextPeriod ? ALL_STEPS : MONTH_STEPS), [closing, nextPeriod])
   const review = useReviewQueue(month)
   const envelopes = useEnvelopeAdjustments(month)
   const upcoming = useUpcomingProjection()
@@ -183,8 +197,8 @@ export const ReviewActivityPage = () => {
 
   /** The first step from `start` on that has something to show, or `done`. */
   const forwardFrom = useCallback(
-    (start: ActiveStep): ReviewStep => STEPS.slice(STEPS.indexOf(start)).find(hasContent) ?? 'done',
-    [hasContent],
+    (start: ActiveStep): ReviewStep => steps.slice(steps.indexOf(start)).find(hasContent) ?? 'done',
+    [steps, hasContent],
   )
 
   const enter = useCallback(
@@ -259,14 +273,14 @@ export const ReviewActivityPage = () => {
 
       return
     }
-    const following = STEPS[STEPS.indexOf(step) + 1]
+    const following = steps[steps.indexOf(step) + 1]
     enter(following ? forwardFrom(following) : 'done')
-  }, [step, moving, review, current, enter, forwardFrom, leaveLine])
+  }, [steps, step, moving, review, current, enter, forwardFrom, leaveLine])
 
   const previousTarget = useMemo((): { step: ActiveStep; at: number } | null => {
     if (step === null || step === 'done') return null
     if (step === 'review') return cursor > 0 ? { step: 'review', at: cursor - 1 } : null
-    for (const candidate of STEPS.slice(0, STEPS.indexOf(step)).reverse()) {
+    for (const candidate of steps.slice(0, steps.indexOf(step)).reverse()) {
       if (candidate === 'review') {
         if (items.length > 0) return { step: 'review', at: items.length - 1 }
       } else if (hasContent(candidate)) {
@@ -275,7 +289,7 @@ export const ReviewActivityPage = () => {
     }
 
     return null
-  }, [step, cursor, items.length, hasContent])
+  }, [steps, step, cursor, items.length, hasContent])
 
   const previous = useCallback(() => {
     if (!previousTarget || moving || review.busy) return
@@ -312,17 +326,23 @@ export const ReviewActivityPage = () => {
 
   const restart = () => enter(forwardFrom('balance'))
 
-  const activeIndex = step === null ? -1 : step === 'done' ? STEPS.length : STEPS.indexOf(step)
-  const following = step && step !== 'done' ? STEPS.slice(STEPS.indexOf(step) + 1).find(hasContent) : undefined
+  const activeIndex = step === null ? -1 : step === 'done' ? steps.length : steps.indexOf(step)
+  const following = step && step !== 'done' ? steps.slice(steps.indexOf(step) + 1).find(hasContent) : undefined
   const loadError = progress.error ?? review.error
   const busy = moving || review.busy
+  const stepTitle = (target: ActiveStep): string =>
+    target === 'period_balance' && closing
+      ? `Bilan ${PERIOD_WORDS[closing.level].of}`
+      : target === 'period_plan' && nextPeriod
+        ? `Planification ${PERIOD_WORDS[nextPeriod.level].next}`
+        : STEP_TITLES[target]
 
   const primaryLabel =
     step === 'review' && current
       ? current.recognised || (current.suggestion && !current.categoryId)
         ? 'Valider'
         : 'Passer'
-      : step === 'projects'
+      : step === steps[steps.length - 1]
         ? 'Terminer'
         : 'Suivant'
 
@@ -397,6 +417,10 @@ export const ReviewActivityPage = () => {
         return <UpcomingStep projection={upcoming.projection} error={upcoming.error} retry={() => void upcoming.refresh()} />
       case 'projects':
         return <ProjectsStep projection={upcoming.projection} />
+      case 'period_balance':
+        return <PeriodBalanceStep month={month} />
+      case 'period_plan':
+        return nextPeriod ? <PeriodPlanStep key={nextPeriod.key} period={nextPeriod} /> : null
     }
   }
 
@@ -414,11 +438,11 @@ export const ReviewActivityPage = () => {
                 role="progressbar"
                 aria-label="Étapes de la revue"
                 aria-valuemin={1}
-                aria-valuemax={STEPS.length}
-                aria-valuenow={Math.min(activeIndex + 1, STEPS.length)}
+                aria-valuemax={steps.length}
+                aria-valuenow={Math.min(activeIndex + 1, steps.length)}
                 sx={{ flex: 1, display: 'flex', gap: 0.75 }}
               >
-                {STEPS.map((segment, index) => (
+                {steps.map((segment, index) => (
                   <Box
                     key={segment}
                     data-testid={`review-segment-${segment}`}
@@ -444,7 +468,7 @@ export const ReviewActivityPage = () => {
             {step && step !== 'done' && (
               <Stack direction="row" alignItems="baseline" spacing={2} sx={{ mt: 1.5, flexWrap: 'wrap' }}>
                 <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-                  {STEP_TITLES[step]}
+                  {stepTitle(step)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" data-testid="review-then">
                   Ensuite… {following ? STEP_LABELS[following] : 'fin de la revue'}
