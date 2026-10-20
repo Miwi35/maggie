@@ -33,7 +33,7 @@ const MenuTabs = ({ menu, requested }: { menu: NavMenu; requested: string | unde
     setPresence((current) => (current[aspectId] === hasData ? current : { ...current, [aspectId]: hasData }))
   }, [])
 
-  // Coming back to the bare menu asks again: what has data may have changed since.
+  // Opening a tab forgets the answers, so the bare menu asks again when it comes back: what has data may have changed.
   const [previous, setPrevious] = useState(requested)
   if (previous !== requested) {
     setPrevious(requested)
@@ -113,5 +113,5 @@ export const FinanceSummaryPage = () => {
     )
   }
 
-  return <MenuTabs menu={menu} requested={aspect} />
+  return <MenuTabs key={menu.key} menu={menu} requested={aspect} />
 }

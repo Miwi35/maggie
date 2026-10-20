@@ -121,8 +121,16 @@ tags:
       id: "finance_tab_aspect_to-sort"
     timeout: 20000
 
-- assertVisible:
-    id: "finance_tab_aspect_rules"
+# The tab row scrolls: the last tabs are past the edge of a phone until it is swiped.
+- swipe:
+    from:
+      id: "finance_tab_aspect_to-sort"
+    direction: LEFT
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_tab_aspect_rules"
+    timeout: 20000
 
 - assertVisible:
     id: "finance_tab_aspect_recurring"
