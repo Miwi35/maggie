@@ -642,6 +642,21 @@ describe('TaskBoard', () => {
       ])
     })
 
+    test('« Routines » is the last tab: it reads the routines, not a view of the tasks (MAG-511)', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+      await screen.findByRole('list', { name: 'Mes 5' })
+
+      await user.click(screen.getByRole('tab', { name: 'Routines' }))
+      expect(await screen.findByRole('button', { name: 'Nouvelle routine' })).toBeInTheDocument()
+      expect(screen.queryByRole('textbox', { name: 'Nouvelle tâche' })).not.toBeInTheDocument()
+      await waitFor(() => expect(calls()).toContain('http://localhost/api/routines'))
+      expect(viewCalls()).toEqual(['http://localhost/api/tasks/view/today'])
+
+      await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
+      expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
+    })
+
     test('a subtask goes under its task', async () => {
       const user = setup()
       render(<TaskBoard />)

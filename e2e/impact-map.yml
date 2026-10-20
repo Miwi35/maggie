@@ -357,6 +357,8 @@ web:
     areas: [settings]
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
+  e2e/web/tests/task-routines.spec.ts:
+    areas: [calendar]
   e2e/web/tests/search.spec.ts:
     areas: [search, calendar, cookbook, realtime]
   e2e/web/tests/mag-130-controls.spec.ts:

@@ -212,6 +212,22 @@ class RoutineApiTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
+    /** The day after, the routine is no longer ticked and the total stays — the e2e clock cannot move a day. */
+    public function testTheDayAfterTheTickIsGoneAndTheTotalStays(): void
+    {
+        $this->request('PUT', "/api/routines/{$this->id('water')}/checks/".self::TODAY);
+        self::assertResponseIsSuccessful();
+
+        Clock::set(new MockClock('2026-10-21 10:00:00 UTC'));
+        $water = $this->listed('Grand verre d\'eau');
+
+        self::assertFalse($water['checkedToday']);
+        self::assertTrue($water['dueToday']);
+        self::assertSame(1, $water['monthCount']);
+        self::assertSame(1, $water['totalCount']);
+        self::assertSame(['date' => self::TODAY, 'due' => true, 'checked' => true], $water['recentDays'][5]);
+    }
+
     public function testTheMonthCountsItsTicksAndTheTotalKeepsThem(): void
     {
         $this->seedChecks('water', ...array_map(static fn (int $day): string => \sprintf('2026-10-%02d', $day), range(1, 13)));

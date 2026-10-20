@@ -21,6 +21,7 @@ import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { TaskEvening } from './TaskEvening'
 import { TaskMorning } from './TaskMorning'
+import { TaskRoutines } from './TaskRoutines'
 import { UrgencyBadge } from './UrgencyBadge'
 import { claimEvening, claimMorning, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
@@ -35,6 +36,9 @@ import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
 const PAGE_SIZE = 30
 
+/** The four views of the tasks, then the routines (MAG-511), which are not tasks. */
+type BoardTab = TaskView | 'routines'
+
 const TABS: Record<TaskView, { label: string; empty: string }> = {
   today: { label: "Aujourd'hui", empty: "Rien à faire aujourd'hui" },
   upcoming: { label: 'À venir', empty: 'Aucune tâche à venir' },
@@ -43,7 +47,7 @@ const TABS: Record<TaskView, { label: string; empty: string }> = {
 }
 
 /** The due day a quick-created task gets: tomorrow in « À venir », none in « À faire un jour ». */
-const defaultDueDate = (view: TaskView): string | undefined => {
+const defaultDueDate = (view: BoardTab): string | undefined => {
   if (view === 'upcoming') return addDays(localDay(new Date()), 1)
 
   return undefined
@@ -61,7 +65,7 @@ const shortDay = (day: string): string =>
 export const TaskBoard = () => {
   const notify = useNotify()
 
-  const [view, setView] = useState<TaskView>('today')
+  const [view, setView] = useState<BoardTab>('today')
   const [page, setPage] = useState(1)
   const [tasks, setTasks] = useState<ViewTask[]>([])
   const [total, setTotal] = useState(0)
@@ -110,6 +114,7 @@ export const TaskBoard = () => {
   }, [])
 
   const load = useCallback(() => {
+    if (view === 'routines') return
     const current = ++request.current
     fetchTaskView(view, page)
       .then((result) => {
@@ -215,7 +220,7 @@ export const TaskBoard = () => {
     fetchRewardCheer().then(setCheer)
   }, [])
 
-  const selectView = (_: unknown, next: TaskView) => {
+  const selectView = (_: unknown, next: BoardTab) => {
     if (next === view) return
     setLoading(true)
     setFailed(false)
@@ -284,9 +289,10 @@ export const TaskBoard = () => {
             label={tabLabel(name)}
           />
         ))}
+        <Tab value="routines" label="Routines" />
       </Tabs>
 
-      {view !== 'done' && view !== 'today' && (
+      {view !== 'done' && view !== 'today' && view !== 'routines' && (
         <TextField
           label="Nouvelle tâche"
           size="small"
@@ -299,7 +305,9 @@ export const TaskBoard = () => {
         />
       )}
 
-      {view === 'today' && reviewing ? (
+      {view === 'routines' ? (
+        <TaskRoutines animate={cheer.animation} />
+      ) : view === 'today' && reviewing ? (
         <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} animate={cheer.animation} />
       ) : view === 'today' && preparing ? (
         <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
