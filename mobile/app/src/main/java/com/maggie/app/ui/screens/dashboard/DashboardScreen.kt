@@ -40,6 +40,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     onEventClick: (ExpandedEvent) -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val pagerState = rememberPagerState(pageCount = { 3 })
@@ -81,7 +82,7 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) { page ->
                     when (page) {
-                        0 -> TodayPage(uiState, viewModel, onEventClick, onTaskClick)
+                        0 -> TodayPage(uiState, viewModel, onEventClick, onTaskClick, onOpenRoutines)
                         1 -> WeekPage(uiState, viewModel, onEventClick, onTaskClick)
                         2 -> MonthPage(uiState, viewModel, onEventClick, onTaskClick)
                     }
@@ -97,12 +98,18 @@ private fun TodayPage(
     viewModel: DashboardViewModel,
     onEventClick: (ExpandedEvent) -> Unit,
     onTaskClick: (Task) -> Unit,
+    onOpenRoutines: () -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
+        if (uiState.routines?.dueCount?.let { it > 0 } == true) {
+            item(key = "routines") {
+                DashboardRoutines(day = uiState.routines, onToggle = viewModel::toggleRoutine, onOpen = onOpenRoutines)
+            }
+        }
         item {
             DashboardSection(
                 title = "Aujourd'hui",

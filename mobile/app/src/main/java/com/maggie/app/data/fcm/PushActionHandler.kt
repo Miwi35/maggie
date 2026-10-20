@@ -59,8 +59,8 @@ class PushActionHandler(
         PushActionKind.REPLY -> reply(payload, reply, onLateFailure)
         PushActionKind.APPROVE -> decide(payload) { apiService.approve(it, "notification") }
         PushActionKind.DENY -> decide(payload) { apiService.deny(it, "notification") }
-        // « Je m'y mets » opens the Focus by itself (an activity intent): this only answers the reminder.
-        PushActionKind.START, PushActionKind.IN_TEN, PushActionKind.TONIGHT, PushActionKind.TOMORROW ->
+        // « Je m'y mets » and « Voir » open the app by themselves (an activity intent): this only answers the reminder.
+        PushActionKind.START, PushActionKind.OPEN, PushActionKind.IN_TEN, PushActionKind.TONIGHT, PushActionKind.TOMORROW ->
             answerReminder(kind, payload) { PushOutcome.Closed }
         PushActionKind.TICK -> answerReminder(kind, payload) { answer ->
             PushOutcome.Rewarded(answer.reward?.message ?: answer.notification?.title ?: TICKED)

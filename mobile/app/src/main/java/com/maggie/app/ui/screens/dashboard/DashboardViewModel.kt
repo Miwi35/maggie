@@ -8,10 +8,13 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.util.DateRange
 import com.maggie.app.util.DateRanges
@@ -25,8 +28,10 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 data class DashboardUiState(
@@ -38,6 +43,8 @@ data class DashboardUiState(
     val tomorrowTasks: List<Task> = emptyList(),
     val weekTasks: List<Task> = emptyList(),
     val monthTasks: List<Task> = emptyList(),
+    /** The routines due today (MAG-512), for the « Routines » widget; `null` until read. */
+    val routines: RoutineDayView? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
 )
@@ -46,6 +53,7 @@ class DashboardViewModel(
     private val eventRepository: EventRepository,
     private val taskRepository: TaskRepository,
     private val agendaRepository: AgendaRepository,
+    private val routineRepository: RoutineRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
@@ -55,6 +63,7 @@ class DashboardViewModel(
 
     private val loader = SingleFlight(viewModelScope) { load() }
     private var forceNext = false
+    private val pendingRoutines = mutableSetOf<String>()
     private var allEvents: List<Event> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
 
@@ -141,6 +150,9 @@ class DashboardViewModel(
             // timezone. The other days go by the same score, sorted here.
             val todayTasks = taskRepository.getTodayTasks()
 
+            // The widget is not worth a failed dashboard: a day that cannot be read keeps the one shown.
+            val routines = routineRepository.getDay(today).getOrNull() ?: _uiState.value.routines
+
             val tomorrowTasks = rawTasks.filter { t -> t.dueDay == tomorrow }.sortedWith(Task.SCORE_ORDER)
 
             // Week tasks (exclude today/tomorrow)
@@ -156,6 +168,7 @@ class DashboardViewModel(
                 tomorrowTasks = tomorrowTasks,
                 weekTasks = weekTasks,
                 monthTasks = monthTasks,
+                routines = routines,
                 isLoading = false,
             ))
         } catch (e: CancellationException) {
@@ -178,6 +191,34 @@ class DashboardViewModel(
         viewModelScope.launch {
             taskRepository.toggleDone(taskId, done)
             reload()
+        }
+    }
+
+    /** Ticks a routine of the widget, or unticks it: shown at once, taken back when the API refuses. */
+    fun toggleRoutine(routine: DayRoutine) {
+        val day = _uiState.value.routines ?: return
+        if (!pendingRoutines.add(routine.id)) return
+        val checked = !(day.routines.firstOrNull { it.id == routine.id }?.checked ?: routine.checked)
+        setRoutineChecked(routine.id, checked)
+        viewModelScope.launch {
+            try {
+                routineRepository.setChecked(routine.id, LocalDate.parse(day.date), checked)
+                    .onFailure { setRoutineChecked(routine.id, !checked) }
+            } finally {
+                pendingRoutines.remove(routine.id)
+            }
+        }
+    }
+
+    private fun setRoutineChecked(id: String, checked: Boolean) {
+        _uiState.update { state -> state.copy(routines = state.routines?.withChecked(id, checked)) }
+    }
+
+    private fun reloadRoutines() {
+        viewModelScope.launch {
+            routineRepository.getDay(DateRanges.todayDate()).onSuccess { day ->
+                _uiState.update { it.copy(routines = day) }
+            }
         }
     }
 
@@ -209,6 +250,18 @@ class DashboardViewModel(
             )
                 .coalescedAndRechecked()
                 .collect { reload() }
+        }
+        // A routine ticked elsewhere (the Tasks screen, Maggie, the admin): only the widget is read again.
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            merge(
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ROUTINES))
+                    .catch { /* SSE reconnects automatically */ },
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ROUTINE_CHECKS))
+                    .catch { /* SSE reconnects automatically */ },
+            )
+                .coalescedAndRechecked()
+                .collect { reloadRoutines() }
         }
     }
 

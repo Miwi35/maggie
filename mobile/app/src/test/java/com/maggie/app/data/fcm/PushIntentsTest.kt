@@ -119,4 +119,17 @@ class PushIntentsTest {
         assertNull("only « Je m'y mets » is answered from an intent the app opens", PushIntents.answerOf(forged))
         assertNull(PushIntents.startFocus(context, PushPayload.from(mapOf("notificationId" to "n-1", "reminderId" to "r-1"))!!))
     }
+
+    @Test
+    fun `Voir opens the tasks of its link and asks the app to answer the reminder (MAG-512)`() {
+        val payload = PushPayload.from(
+            mapOf("notificationId" to "n-1", "type" to "routine", "reminderId" to "r-9", "link" to "$scheme://tasks"),
+        )!!
+
+        val open = PushIntents.openReminder(context, payload)!!
+
+        assertEquals("$scheme://tasks", open.dataString)
+        assertEquals(PushActionKind.OPEN, PushIntents.answerOf(open)?.first)
+        assertNull(PushIntents.openReminder(context, PushPayload.from(mapOf("notificationId" to "n-1", "link" to "https://evil.example"))!!))
+    }
 }

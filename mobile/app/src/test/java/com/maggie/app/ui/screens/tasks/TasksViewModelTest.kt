@@ -17,8 +17,12 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.model.TaskViewResponse
+import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.RoutineDayView
+import com.maggie.app.data.model.RoutineMoment
 import com.maggie.app.data.model.Stars
+import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.RewardFeedback
@@ -56,12 +60,15 @@ import java.time.LocalTime
 class TasksViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var taskRepository: TaskRepository
+    private lateinit var routineRepository: RoutineRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var feedback: RewardFeedback
     private val pushes = MutableSharedFlow<MercureEvent>()
     private val dayPushes = MutableSharedFlow<MercureEvent>()
     private val rewardPushes = MutableSharedFlow<MercureEvent>()
+    private val routinePushes = MutableSharedFlow<MercureEvent>()
+    private val routineCheckPushes = MutableSharedFlow<MercureEvent>()
 
     private val counts = TaskViewCounts(today = 2, upcoming = 1, someday = 1, done = 1)
     private val late = task("t1", "Renvoyer le formulaire", dueDate = "2026-10-13", overdueDays = 2)
@@ -80,6 +87,9 @@ class TasksViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         taskRepository = mockk()
+        routineRepository = mockk()
+        // No routine unless a test says so.
+        coEvery { routineRepository.getDay(any()) } returns Result.success(RoutineDayView(date = "2026-10-15"))
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
         feedback = mockk(relaxed = true)
@@ -91,6 +101,8 @@ class TasksViewModelTest {
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.REWARDS)) } returns rewardPushes
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.ROUTINES)) } returns routinePushes
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.ROUTINE_CHECKS)) } returns routineCheckPushes
         // No constellation unless a test says so.
         coEvery { taskRepository.getStars(any()) } returns Result.failure(IllegalStateException("offline"))
         // Unreadable morning time: the morning never opens by itself unless a test says so.
@@ -110,7 +122,7 @@ class TasksViewModelTest {
     private var clockDay = LocalDate.of(2026, 10, 15)
 
     private fun createViewModel(now: LocalTime = LocalTime.of(10, 0)) =
-        TasksViewModel(taskRepository, mercureService, authRepository, TaskRewards(taskRepository, feedback), today = { clockDay }, now = { now })
+        TasksViewModel(taskRepository, mercureService, authRepository, TaskRewards(taskRepository, feedback), routineRepository, today = { clockDay }, now = { now })
 
     private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
         DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
@@ -1464,5 +1476,135 @@ class TasksViewModelTest {
         viewModel.onClosed()
         advanceUntilIdle()
         assertEquals(0, rewardPushes.subscriptionCount.value)
+    }
+
+    private fun routine(id: String, title: String, anchor: String = "wake", checked: Boolean = false) =
+        DayRoutine(id = id, title = title, anchor = anchor, time = "07:30", checked = checked)
+
+    private fun routinesDay(vararg moments: RoutineMoment) = RoutineDayView(date = "2026-10-15", moments = moments.toList())
+
+    private val wakeMoment get() = RoutineMoment("wake", "07:30", listOf(routine("r-water", "Boire un verre d'eau"), routine("r-vit", "Vitamines")))
+
+    private fun serveRoutines(day: RoutineDayView) {
+        coEvery { routineRepository.getDay(today) } returns Result.success(day)
+    }
+
+    @Test
+    fun `the routines of the moment form the band above the day (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(wakeMoment, RoutineMoment("time", "21:00", listOf(routine("r-night", "Lire", "time")))))
+        val viewModel = openDay()
+
+        val band = viewModel.uiState.value.routinesBand!!
+        assertEquals("Routines · matin", band.title)
+        assertEquals(listOf("r-water", "r-vit"), band.routines.map { it.id })
+    }
+
+    @Test
+    fun `no routine due, no band (MAG-512)`() = runTest {
+        val viewModel = openDay()
+
+        assertNull(viewModel.uiState.value.routinesBand)
+    }
+
+    @Test
+    fun `unreadable routines leave the day as it is (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.failure(IllegalStateException("offline"))
+        val viewModel = openDay()
+
+        assertNull(viewModel.uiState.value.routinesBand)
+        assertEquals(listOf("d1", "d2"), viewModel.uiState.value.day?.taskIds)
+    }
+
+    @Test
+    fun `ticking a pill ticks the routine at once and sends the tick (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(wakeMoment))
+        coEvery { routineRepository.setChecked("r-water", today, true) } returns Result.success(mockk(relaxed = true))
+        val viewModel = openDay()
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routinesBand!!.routines.first())
+        runCurrent()
+        assertTrue(viewModel.uiState.value.routinesBand!!.routines.first { it.id == "r-water" }.checked)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { routineRepository.setChecked("r-water", today, true) }
+        assertTrue(viewModel.uiState.value.routinesPending.isEmpty())
+        assertEquals(1, viewModel.uiState.value.routines!!.doneCount)
+    }
+
+    @Test
+    fun `a ticked pill ticked again is unticked (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(RoutineMoment("wake", "07:30", listOf(routine("r-water", "Boire un verre d'eau", checked = true)))))
+        coEvery { routineRepository.setChecked("r-water", today, false) } returns Result.success(mockk(relaxed = true))
+        val viewModel = openDay()
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routinesBand!!.routines.first())
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { routineRepository.setChecked("r-water", today, false) }
+        assertFalse(viewModel.uiState.value.routinesBand!!.routines.first().checked)
+    }
+
+    @Test
+    fun `a refused tick is taken back and told (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(wakeMoment))
+        coEvery { routineRepository.setChecked("r-water", today, true) } returns Result.failure(IllegalStateException("boom"))
+        val viewModel = openDay()
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routinesBand!!.routines.first())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.routinesBand!!.routines.first { it.id == "r-water" }.checked)
+        assertNotNull(viewModel.uiState.value.message)
+        assertTrue(viewModel.uiState.value.routinesPending.isEmpty())
+    }
+
+    @Test
+    fun `a routine moves neither the ring nor the star (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(wakeMoment))
+        coEvery { routineRepository.setChecked(any(), any(), any()) } returns Result.success(mockk(relaxed = true))
+        val viewModel = openDay()
+        val before = viewModel.uiState.value.day
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routinesBand!!.routines.first())
+        advanceUntilIdle()
+
+        assertEquals(before, viewModel.uiState.value.day)
+        assertNull(viewModel.uiState.value.palier)
+        coVerify(exactly = 0) { taskRepository.getTaskReward(any()) }
+    }
+
+    @Test
+    fun `a routine ticked elsewhere refreshes the band (MAG-512)`() = runTest {
+        serveRoutines(routinesDay(wakeMoment))
+        val viewModel = openDay()
+
+        serveRoutines(routinesDay(RoutineMoment("wake", "07:30", wakeMoment.routines.map { it.copy(checked = true) })))
+        routineCheckPushes.emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.routinesBand!!.routines.all { it.checked })
+        assertEquals(1, routineCheckPushes.subscriptionCount.value)
+    }
+
+    @Test
+    fun `a routine changed elsewhere refreshes the band (MAG-512)`() = runTest {
+        val viewModel = openDay()
+        assertNull(viewModel.uiState.value.routinesBand)
+
+        serveRoutines(routinesDay(wakeMoment))
+        routinePushes.emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.routinesBand!!.routines.size)
+    }
+
+    @Test
+    fun `the home widget asks for the routines tab, once (MAG-512)`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.requestRoutinesTab()
+        assertTrue(viewModel.uiState.value.routinesTabRequested)
+        viewModel.onRoutinesTabShown()
+        assertFalse(viewModel.uiState.value.routinesTabRequested)
     }
 }

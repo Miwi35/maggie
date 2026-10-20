@@ -810,6 +810,43 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The routines of a day (MAG-512), as `/api/routines/day/{date}` sends them:
+     * grouped by moment, one ticked, one at an hour of its own.
+     */
+    public function testTheRoutinesDayRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Sortir les poubelles', 'anchor' => 'afterDinner', 'recurrence' => ['kind' => 'weekly', 'weekday' => 3], 'remind' => true], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Lire', 'anchor' => 'time', 'anchorTime' => '22:30'], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        $this->client->request('PUT', '/api/routines/'.$created['id'].'/checks/2026-04-22', [], [], $headers);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/routines/day/2026-04-22', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertCount(2, $body['moments']);
+        $checked = array_merge(...array_map(static fn (array $moment): array => array_column($moment['routines'], 'checked'), $body['moments']));
+        sort($checked);
+        self::assertSame([false, true], $checked, 'One routine ticked and one not, or the recording proves nothing about `checked`.');
+
+        $this->assertMatchesContract(
+            'responses/routines.day.json',
+            self::stabilise($body),
+            'GET /api/routines/day/{date} no longer returns what it used to. The mobile DTOs (RoutineDayView.kt) and the admin (routinesApi.ts) are written against this response.',
+        );
+    }
+
+    /**
      * The bravo of a task done (MAG-508), as `/api/rewards/task/{id}` sends it
      * once the task is ticked: a shooting star, the task having waited a month.
      * The message is drawn by chance among three: the recording keeps the first.

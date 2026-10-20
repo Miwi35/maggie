@@ -1217,6 +1217,10 @@ fun NavGraph() {
                                 selectedEvent = null
                                 selectedTask = it
                             },
+                            onOpenRoutines = {
+                                tasksViewModel.requestRoutinesTab()
+                                navigateTo(Screen.Tasks.route)
+                            },
                         )
                     }
                     composable(
@@ -1298,7 +1302,7 @@ fun NavGraph() {
                             placeholder = "Touchez un événement pour le voir ici.",
                         )
                     }
-                    composable(Screen.Tasks.route) {
+                    composable(Screen.Tasks.route, deepLinks = DeepLinks.forRoute(Screen.Tasks.route)) {
                         val task = selectedTask
                         ListDetailPane(
                             showsDetailPane = paneShown,

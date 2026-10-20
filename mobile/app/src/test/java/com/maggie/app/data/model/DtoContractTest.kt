@@ -1003,6 +1003,25 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the routines of a day deserialise from the recorded response under the names the API sends (MAG-512)`() {
+        val body = readRecording("routines.day")
+        val moments = body["moments"]!!.jsonArray.map { it.jsonObject }
+        assertDeclaredFieldsExist("RoutineDayView", serializer<RoutineDayView>(), body.keys, "routines.day")
+        assertDeclaredFieldsExist("RoutineMoment", serializer<RoutineMoment>(), moments.flatMap { it.keys }.toSet(), "routines.day")
+        assertDeclaredFieldsExist(
+            "DayRoutine",
+            serializer<DayRoutine>(),
+            moments.flatMap { moment -> moment["routines"]!!.jsonArray.flatMap { it.jsonObject.keys } }.toSet(),
+            "routines.day",
+        )
+
+        val day = json.decodeFromJsonElement(serializer<RoutineDayView>(), body)
+        assertEquals(2, day.dueCount)
+        assertEquals(1, day.doneCount)
+        assertTrue(day.routines.any { it.remind })
+    }
+
+    @Test
     fun `the task order preview deserialises from the recorded response`() {
         val body = readRecording("task_settings.preview")
         val members = body["member"]!!.jsonArray

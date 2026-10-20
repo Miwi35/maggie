@@ -280,4 +280,21 @@ class InterruptionViewModelTest {
 
         coVerify(exactly = 0) { handler.handle(any(), any(), any(), any()) }
     }
+
+    @Test
+    fun `Voir closes the routine reminder, answers it and asks the screen to open its link (MAG-512)`() = runTest {
+        val payload = message("a", type = "routine", link = "maggie://tasks")
+            .copy(reminderId = "r-9", reminderActions = listOf("open", "in10"))
+        every { handler.answerInBackground(PushActionKind.OPEN, payload) } returns Unit
+        center.offer(payload)
+
+        viewModel.events.test {
+            viewModel.answer(PushActionKind.OPEN)
+
+            assertEquals(InterruptionEvent.OpenLink(payload), awaitItem())
+        }
+        assertNull(shown())
+        assertEquals(listOf("a"), dismissed)
+        verify(exactly = 1) { handler.answerInBackground(PushActionKind.OPEN, payload) }
+    }
 }

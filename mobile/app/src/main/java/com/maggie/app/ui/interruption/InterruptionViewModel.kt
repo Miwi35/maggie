@@ -96,6 +96,13 @@ class InterruptionViewModel(
                 handler.answerInBackground(kind, payload)
                 payload.focusLink()?.let { _events.trySend(InterruptionEvent.OpenLink(payload.copy(link = it))) }
             }
+            // « Voir » (MAG-512): the tasks open at once, the answer goes on its own.
+            PushActionKind.OPEN -> {
+                center.close(key)
+                dismiss(payload)
+                handler.answerInBackground(kind, payload)
+                _events.trySend(InterruptionEvent.OpenLink(payload))
+            }
             else -> viewModelScope.launch {
                 busy.value = key
                 failure.value = null

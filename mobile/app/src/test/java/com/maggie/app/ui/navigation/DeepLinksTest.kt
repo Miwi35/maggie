@@ -168,4 +168,9 @@ class DeepLinksTest {
         assertEquals(listOf("maggie-dev", "maggie", "maggie-e2e"), schemes)
         assertTrue(scheme in schemes)
     }
+
+    @Test
+    fun `the tasks screen opens from tasks, where a routine reminder's Voir lands (MAG-512)`() {
+        assertEquals(listOf("$scheme://tasks"), DeepLinks.patternsFor(Screen.Tasks.route))
+    }
 }

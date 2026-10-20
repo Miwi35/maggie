@@ -44,6 +44,8 @@ object DeepLinks {
         GROCERY_ROUTE to listOf("$SCHEME://grocery/{$ARG_ID}"),
         RECIPE_ROUTE to listOf("$SCHEME://recipe/{$ARG_ID}"),
         ACCOUNT_ROUTE to listOf("$SCHEME://finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"),
+        // The tasks screen (MAG-512): what a routine reminder's « Voir » opens.
+        Screen.Tasks.route to listOf("$SCHEME://tasks"),
         Screen.FinanceDashboard.route to listOf("$SCHEME://finance"),
         CONTACT_ROUTE to listOf("$SCHEME://finance/contacts/{$ARG_ID}"),
         Screen.AccountList.route to listOf("$SCHEME://finance/accounts"),

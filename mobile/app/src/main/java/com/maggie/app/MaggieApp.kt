@@ -340,9 +340,9 @@ class MaggieApp : Application() {
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
-            viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
+            viewModel { DashboardViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
-            viewModel { TasksViewModel(get(), get(), get(), get()) }
+            viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
