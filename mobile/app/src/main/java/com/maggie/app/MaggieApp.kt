@@ -94,6 +94,7 @@ import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
+import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.TransactionViewModel
@@ -380,6 +381,7 @@ class MaggieApp : Application() {
             viewModel { LoanViewModel(get()) }
             viewModel { MonthlyReviewViewModel(get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { PeriodReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get()) }
             viewModel { UpcomingViewModel(get(), get(), get()) }
             viewModel { MonthBalanceViewModel(get(), get(), get()) }

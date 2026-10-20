@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.PlanningPeriodRef
+import com.maggie.app.data.model.REVIEW_LEVEL_MONTH
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.REVIEW_STEP_DONE
 import com.maggie.app.data.model.RETROSPECT_UNRATED
@@ -30,6 +32,14 @@ data class ReviewActivityUiState(
     /** A start that could not read the queue or the progress: nothing to show but « Réessayer ». */
     val loadError: String? = null,
     val step: ReviewStep = ReviewStep.REVIEW,
+    /** `month`, or `quarter` / `semester` / `year` for the review that closes one (MAG-462). */
+    val level: String = REVIEW_LEVEL_MONTH,
+    /** The period this review closes, null for a plain month. */
+    val period: PlanningPeriodRef? = null,
+    /** The period it plans, null for a plain month. */
+    val nextPeriod: PlanningPeriodRef? = null,
+    /** The steps this review walks: five for a month, seven when it closes a period. */
+    val steps: List<ReviewStep> = ReviewStep.MONTH,
     /** The steps with nothing to do this month: never landed on, dimmed in the segment bar. */
     val skipped: Set<ReviewStep> = emptySet(),
     /** The lines of the Revue step, those already handled left out when the review started. */
@@ -81,7 +91,8 @@ private fun UpcomingProjection.isEmpty(): Boolean =
 
 /**
  * Activité Comptes · la revue (MAG-456): the month's review as a full-screen wizard in five steps —
- * Revue (one line at a time), Bilan, Enveloppes, À venir, Projets.
+ * Revue (one line at a time), Bilan, Enveloppes, À venir, Projets. The review that closes a quarter, a
+ * semester or a year walks two more (MAG-462): the bilan of the period, then the planning of the next one.
  *
  * Where it stands lives on the API, not here: each line left with « Valider » is written as handled at
  * once and each change of step is written too, so quitting at the 3rd line and relaunching — here or on
@@ -136,7 +147,10 @@ class ReviewActivityViewModel(
                 val remaining = items.filter { it.id !in handled }
 
                 // A step whose content could not be read is shown all the same: it says so itself.
+                val period = stored.period?.takeIf { stored.nextPeriod != null }
+                val steps = if (period != null) ReviewStep.entries.toList() else ReviewStep.MONTH
                 val skipped = buildSet {
+                    addAll(ReviewStep.entries.filter { it !in steps })
                     if (remaining.isEmpty()) add(ReviewStep.REVIEW)
                     if (adjustments.await().getOrNull()?.envelopes?.isEmpty() == true) add(ReviewStep.ENVELOPES)
                     if (upcoming.await().getOrNull()?.isEmpty() == true) add(ReviewStep.UPCOMING)
@@ -151,6 +165,10 @@ class ReviewActivityViewModel(
                     index = 0,
                     handled = handled,
                     skipped = skipped,
+                    level = if (period != null) stored.level else REVIEW_LEVEL_MONTH,
+                    period = period,
+                    nextPeriod = if (period != null) stored.nextPeriod else null,
+                    steps = steps,
                     categories = categories.await().getOrDefault(emptyList()),
                     done = done,
                     step = landing ?: ReviewStep.PROJECTS,

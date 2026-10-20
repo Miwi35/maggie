@@ -9,6 +9,10 @@ describe('reviewTitle', () => {
     ['2027-08-25', "Revue d'août"],
     ['2027-02-25', 'Revue de février'],
     ['2027-01-25', 'Revue de janvier'],
+    ['2027-03-25', 'Revue de fin de trimestre'],
+    ['2027-06-25', 'Revue de fin de semestre'],
+    ['2027-09-25', 'Revue de fin de trimestre'],
+    ['2026-12-25', "Revue de fin d'année"],
   ])('%s → %s', (day, title) => {
     expect(reviewTitle(day)).toBe(title)
   })
@@ -20,7 +24,7 @@ describe('reviewTitle', () => {
 
 describe('eventTitle', () => {
   test('names the review appointment after its month, whatever its summary', () => {
-    expect(eventTitle('Revue du mois', 'finance-review', '2026-12-25')).toBe('Revue de décembre')
+    expect(eventTitle('Revue du mois', 'finance-review', '2026-12-25')).toBe("Revue de fin d'année")
   })
 
   test('leaves any other event its own summary', () => {

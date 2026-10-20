@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\EnvelopeRepository;
@@ -21,6 +22,13 @@ use Maggie\Finance\Repository\TransactionRepository;
  * the year (`recurringCents`, MAG-307; an occurrence with a line attached is
  * that line's, never counted here) — a stored "validated plan" would be a
  * second truth, and it would start lying at the first purchase.
+ *
+ * The session is about a {@see PlanningPeriod} — a year, as the yearly
+ * session, or a quarter or a semester for the augmented reviews (MAG-462) —
+ * and reads the period of the same length right before it. Over a year the
+ * budget is the annual envelope; over a shorter period it is what the monthly
+ * envelopes of its months add up to. `lastYear` and `sourceYear` keep their
+ * names and mean « the source period ».
  */
 class GetAnnualPlan
 {
@@ -39,23 +47,27 @@ class GetAnnualPlan
     }
 
     /**
+     * @param int|PlanningPeriod $target a year, or the period to plan
+     *
      * @return array<string, mixed>
      *
-     * @throws \InvalidArgumentException on a year or a threshold no session
+     * @throws \InvalidArgumentException on a period or a threshold no session
      *                                   could be about
      */
-    public function execute(User $user, int $year, int $thresholdCents = self::DEFAULT_THRESHOLD_CENTS): array
+    public function execute(User $user, int|PlanningPeriod $target, int $thresholdCents = self::DEFAULT_THRESHOLD_CENTS): array
     {
-        PlanningYear::assert($year);
+        $period = $target instanceof PlanningPeriod ? $target : PlanningPeriod::ofYear($target);
 
         if ($thresholdCents < 0) {
             throw new \InvalidArgumentException('thresholdCents must be a positive integer of cents.');
         }
 
-        $sourceYear = $year - 1;
-        $sourceStart = new \DateTimeImmutable(sprintf('%04d-01-01', $sourceYear));
-        $targetStart = $sourceStart->modify('+1 year');
-        $targetEnd = $targetStart->modify('+1 year');
+        $source = $period->previous();
+        $year = $period->year;
+        $sourceYear = $source->year;
+        $sourceStart = $source->start();
+        $targetStart = $period->start();
+        $targetEnd = $period->end();
 
         /** @var array<string, array<string, mixed>> $rows keyed by category id */
         $rows = [];
@@ -75,20 +87,21 @@ class GetAnnualPlan
             $rows[$id]['lastYear']['consumedCents'] = $spending['spentCents'];
         }
 
-        // What the year behind had been budgeted.
-        foreach ($this->envelopeRepository->findForPeriod($user, $sourceYear, null) as $envelope) {
-            $id = $this->openFor($rows, $envelope->requireCategory());
-            $rows[$id]['currency'] = $envelope->getCurrency();
-            $rows[$id]['lastYear']['budgetedCents'] = $envelope->getAmountCents();
+        // What the period behind had been budgeted.
+        foreach ($this->budgets($user, $source) as $budget) {
+            $id = $this->openFor($rows, $budget['envelope']->requireCategory());
+            $rows[$id]['currency'] = $budget['envelope']->getCurrency();
+            $rows[$id]['lastYear']['budgetedCents'] = ($rows[$id]['lastYear']['budgetedCents'] ?? 0) + $budget['cents'];
         }
 
-        // The annual envelopes already set on the target year: re-opening the
+        // The envelopes already set on the target period: re-opening the
         // session must show what a previous pass decided, not propose it again.
-        foreach ($this->envelopeRepository->findForPeriod($user, $year, null) as $envelope) {
-            $id = $this->openFor($rows, $envelope->requireCategory());
-            $rows[$id]['currency'] = $envelope->getCurrency();
-            $rows[$id]['envelopeId'] = (string) $envelope->getId();
-            $rows[$id]['envelopeCents'] = $envelope->getAmountCents();
+        foreach ($this->budgets($user, $period) as $budget) {
+            $id = $this->openFor($rows, $budget['envelope']->requireCategory());
+            $rows[$id]['currency'] = $budget['envelope']->getCurrency();
+            // A sum over several monthly envelopes has no single id.
+            $rows[$id]['envelopeId'] = PlanningPeriod::YEAR === $period->level ? (string) $budget['envelope']->getId() : null;
+            $rows[$id]['envelopeCents'] = ($rows[$id]['envelopeCents'] ?? 0) + $budget['cents'];
         }
 
         // Last year's big expenses: the matter of the session.
@@ -138,6 +151,8 @@ class GetAnnualPlan
             // year behind actually cost. Two rules, no rolling average: the
             // owner must be able to redo the sum by hand.
             $rows[$id]['suggestedCents'] = $decided > 0 ? $decided : $row['lastYear']['consumedCents'];
+            // The same suggestion per month: what a monthly envelope is set at.
+            $rows[$id]['suggestedMonthlyCents'] = (int) round($rows[$id]['suggestedCents'] / $period->months());
         }
 
         // Biggest decision first.
@@ -147,6 +162,8 @@ class GetAnnualPlan
         return [
             'year' => $year,
             'sourceYear' => $sourceYear,
+            'period' => $period->describe(),
+            'sourcePeriod' => $source->describe(),
             'thresholdCents' => $thresholdCents,
             'totalLastYearConsumedCents' => $this->total($categories, fn (array $c) => $c['lastYear']['consumedCents']),
             'totalDecidedCents' => $this->total($categories, fn (array $c) => $c['decidedCents']),
@@ -155,6 +172,32 @@ class GetAnnualPlan
             'totalEnvelopedCents' => $this->total($categories, fn (array $c) => $c['envelopeCents'] ?? 0),
             'categories' => $categories,
         ];
+    }
+
+    /**
+     * What a period is budgeted at, envelope by envelope: the annual envelopes
+     * of a year, the monthly envelopes of each month of a shorter period (each
+     * at the amount of its month, its season included).
+     *
+     * @return list<array{envelope: Envelope, cents: int}>
+     */
+    private function budgets(User $user, PlanningPeriod $period): array
+    {
+        if (PlanningPeriod::YEAR === $period->level) {
+            return array_map(
+                static fn (Envelope $envelope): array => ['envelope' => $envelope, 'cents' => $envelope->getAmountCents()],
+                $this->envelopeRepository->findForPeriod($user, $period->year, null),
+            );
+        }
+
+        $budgets = [];
+        foreach ($period->monthStarts() as $month) {
+            foreach ($this->envelopeRepository->findForPeriod($user, (int) $month->format('Y'), (int) $month->format('n')) as $envelope) {
+                $budgets[] = ['envelope' => $envelope, 'cents' => $envelope->getMonthAmountCents()];
+            }
+        }
+
+        return $budgets;
     }
 
     /**
@@ -183,6 +226,7 @@ class GetAnnualPlan
             'envelopeId' => null,
             'envelopeCents' => null,
             'suggestedCents' => 0,
+            'suggestedMonthlyCents' => 0,
         ];
 
         return $id;

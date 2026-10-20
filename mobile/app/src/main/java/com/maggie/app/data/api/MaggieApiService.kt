@@ -81,6 +81,10 @@ import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.ControlRequest
 import com.maggie.app.data.model.ControlResult
 import com.maggie.app.data.model.RecognisedToControl
+import com.maggie.app.data.model.ApplyPlanRequest
+import com.maggie.app.data.model.PeriodBalance
+import com.maggie.app.data.model.PeriodPlan
+import com.maggie.app.data.model.PlanRefusedException
 import com.maggie.app.data.model.ReviewProgress
 import com.maggie.app.data.model.ReviewProgressUpdate
 import com.maggie.app.data.model.ReviewQueue
@@ -156,6 +160,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -1724,6 +1729,33 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(update)
         }.orRefusal().body()
+    }
+
+    // Finance — the review that closes a quarter, a semester or a year (MAG-462)
+    /** The bilan of the period the review of [month] (`YYYY-MM`) closes; a 400 when that month closes none. */
+    suspend fun getPeriodBalance(month: String): PeriodBalance {
+        return client.get("$baseUrl/api/finance/review/period-balance") {
+            url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /** The planning session of [period] (`2027-Q2`, `2027-S1`, `2027`): what the period behind cost, what is proposed. */
+    suspend fun getPeriodPlan(period: String): PeriodPlan {
+        return client.get("$baseUrl/api/finance/annual-plan") {
+            url.parameters.append("period", period)
+        }.orRefusal().body()
+    }
+
+    /** Writes the plan in one gesture; a refused plan (400) wrote nothing and names the line to blame. */
+    suspend fun applyPeriodPlan(request: ApplyPlanRequest) {
+        val response = client.post("$baseUrl/api/finance/annual-plan") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (response.status.isSuccess()) return
+        val body = response.bodyAsText()
+        val index = runCatching { (REFUSAL_JSON.parseToJsonElement(body).jsonObject["index"] as? JsonPrimitive)?.intOrNull }.getOrNull()
+        throw PlanRefusedException(refusalMessage(response.status.value, body), index)
     }
 
     suspend fun sortTransaction(id: String, request: SortRequest): SortResult {

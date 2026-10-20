@@ -13,7 +13,29 @@ class ReviewTitleTest {
     fun `the review is named after the month of its occurrence`() {
         assertEquals("Revue de novembre", reviewTitle(LocalDate.of(2026, 11, 25)))
         assertEquals("Revue de janvier", reviewTitle(LocalDate.of(2027, 1, 25)))
-        assertEquals("Revue de décembre", reviewTitle(LocalDate.of(2026, 12, 25)))
+    }
+
+    @Test
+    fun `the review of a quarter's, semester's or year's end says so (MAG-462)`() {
+        assertEquals("Revue de fin de trimestre", reviewTitle(LocalDate.of(2027, 3, 25)))
+        assertEquals("Revue de fin de semestre", reviewTitle(LocalDate.of(2027, 6, 25)))
+        assertEquals("Revue de fin de trimestre", reviewTitle(LocalDate.of(2026, 9, 25)))
+        assertEquals("Revue de fin d'année", reviewTitle(LocalDate.of(2026, 12, 25)))
+    }
+
+    @Test
+    fun `the titles of the two period steps follow the level of the review`() {
+        assertEquals("Bilan du trimestre", ReviewStep.PERIOD_BALANCE.titleFor(REVIEW_LEVEL_QUARTER))
+        assertEquals("Planification du semestre suivant", ReviewStep.PERIOD_PLAN.titleFor(REVIEW_LEVEL_SEMESTER))
+        assertEquals("Bilan de l'année", ReviewStep.PERIOD_BALANCE.titleFor(REVIEW_LEVEL_YEAR))
+        assertEquals("Planification de l'année suivante", ReviewStep.PERIOD_PLAN.titleFor(REVIEW_LEVEL_YEAR))
+        assertEquals("Projets", ReviewStep.PROJECTS.titleFor(REVIEW_LEVEL_YEAR))
+    }
+
+    @Test
+    fun `a period is read in a sentence`() {
+        assertEquals("avril à juin 2027", periodLabel(PlanningPeriodRef("2027-Q2", REVIEW_LEVEL_QUARTER, "2027-04", "2027-06", 3)))
+        assertEquals("2028", periodLabel(PlanningPeriodRef("2028", REVIEW_LEVEL_YEAR, "2028-01", "2028-12", 12)))
     }
 
     @Test

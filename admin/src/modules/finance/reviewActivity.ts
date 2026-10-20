@@ -36,9 +36,20 @@ const monthIndexOf = (when: Date | string): number => {
   return (typeof when === 'string' ? new Date(when) : when).getMonth()
 }
 
-/** « Revue d'octobre », « Revue de novembre »: the review's title for the month it falls in (élision before a vowel). */
+/** The reviews that close a quarter, a semester or a year (MAG-462), by month index. */
+const PERIOD_ENDS: Record<number, string> = {
+  2: 'Revue de fin de trimestre',
+  5: 'Revue de fin de semestre',
+  8: 'Revue de fin de trimestre',
+  11: "Revue de fin d'année",
+}
+
+/** « Revue d'octobre », « Revue de fin de trimestre »: the review's title for the month it falls in (élision before a vowel). */
 export const reviewTitle = (when: Date | string): string => {
-  const month = MONTHS[monthIndexOf(when)] ?? ''
+  const index = monthIndexOf(when)
+  if (PERIOD_ENDS[index]) return PERIOD_ENDS[index]
+
+  const month = MONTHS[index] ?? ''
 
   return /^[aeiouyéèâàô]/i.test(month) ? `Revue d'${month}` : `Revue de ${month}`
 }
@@ -50,3 +61,19 @@ export const eventTitle = (summary: string, activity: string | null | undefined,
 /** The month the activity reviews: the current one, `YYYY-MM`. */
 export const currentMonthKey = (now: Date = new Date()): string =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+/** The wording of each kind of period: « du trimestre », « le trimestre suivant »… */
+export const PERIOD_WORDS = {
+  quarter: { name: 'trimestre', of: 'du trimestre', next: 'du trimestre suivant' },
+  semester: { name: 'semestre', of: 'du semestre', next: 'du semestre suivant' },
+  year: { name: 'année', of: "de l'année", next: "de l'année suivante" },
+} as const
+
+/** « avril à juin 2027 », « 2028 »: a period as the owner reads it. */
+export const periodLabel = (period: { level: keyof typeof PERIOD_WORDS; from: string; to: string }): string => {
+  if (period.level === 'year') return period.from.slice(0, 4)
+  const from = MONTHS[Number(period.from.slice(5, 7)) - 1]
+  const to = MONTHS[Number(period.to.slice(5, 7)) - 1]
+
+  return `${from} à ${to} ${period.to.slice(0, 4)}`
+}

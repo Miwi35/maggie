@@ -77,8 +77,9 @@ internal fun reviewDayLabel(bookedAt: String?): String? =
     bookedAt?.let { runCatching { LocalDate.parse(it.take(10)).format(dayFormatter) }.getOrDefault(it) }
 
 /**
- * The activity with its four borrowed steps: Bilan, Enveloppes and À venir are the screens of the dashboard
+ * The activity with its borrowed steps: Bilan, Enveloppes and À venir are the screens of the dashboard
  * and of the budgets (MAG-457, MAG-461, MAG-463), Projets the next project and what is left toward it.
+ * A review that closes a quarter, a semester or a year adds the bilan of the period and the planning of the next.
  */
 @Composable
 fun ReviewActivityRoute(
@@ -86,12 +87,14 @@ fun ReviewActivityRoute(
     monthBalanceViewModel: MonthBalanceViewModel,
     adjustmentsViewModel: EnvelopeAdjustmentsViewModel,
     upcomingViewModel: UpcomingViewModel,
+    periodReviewViewModel: PeriodReviewViewModel,
     onQuit: () -> Unit,
     onOpenMaggie: () -> Unit,
     onOpen: (String) -> Unit,
 ) {
     val twoColumns = rememberAppLayout().detailPaneFits
     val adjustmentsSnackbar = remember { SnackbarHostState() }
+    val review by viewModel.uiState.collectAsState()
     ReviewActivityScreen(
         viewModel = viewModel,
         onQuit = onQuit,
@@ -106,6 +109,8 @@ fun ReviewActivityRoute(
         },
         upcoming = { UpcomingTab(upcomingViewModel, twoColumns) },
         projects = { ProjectsStep(upcomingViewModel) },
+        periodBalance = { PeriodBalanceStep(periodReviewViewModel, review.month) },
+        periodPlan = { review.nextPeriod?.let { PeriodPlanStep(periodReviewViewModel, it) } },
     )
 }
 
@@ -148,6 +153,8 @@ fun ReviewActivityScreen(
     envelopes: @Composable () -> Unit,
     upcoming: @Composable () -> Unit,
     projects: @Composable () -> Unit,
+    periodBalance: @Composable () -> Unit = {},
+    periodPlan: @Composable () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -229,6 +236,8 @@ fun ReviewActivityScreen(
                             state.step == ReviewStep.BALANCE -> balance()
                             state.step == ReviewStep.ENVELOPES -> envelopes()
                             state.step == ReviewStep.UPCOMING -> upcoming()
+                            state.step == ReviewStep.PERIOD_BALANCE -> periodBalance()
+                            state.step == ReviewStep.PERIOD_PLAN -> periodPlan()
                             else -> projects()
                         }
                     }
@@ -246,7 +255,7 @@ fun ReviewActivityScreen(
 private fun ReviewHeader(state: ReviewActivityUiState, onQuit: () -> Unit, onOpenMaggie: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            ReviewStep.entries.forEach { step ->
+            state.steps.forEach { step ->
                 val color = when {
                     state.done || step.ordinal < state.step.ordinal -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
                     step == state.step -> MaterialTheme.colorScheme.primary
@@ -268,14 +277,14 @@ private fun ReviewHeader(state: ReviewActivityUiState, onQuit: () -> Unit, onOpe
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (state.done) "Revue terminée" else state.step.title,
+                    text = if (state.done) "Revue terminée" else state.step.titleFor(state.level),
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.testTag(UiTags.REVIEW_ACTIVITY_STEP_TITLE),
                 )
                 val next = state.nextStep
                 if (!state.done && !state.isLoading && next != null) {
                     Text(
-                        text = "Ensuite… ${next.title}",
+                        text = "Ensuite… ${next.titleFor(state.level)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag(UiTags.REVIEW_ACTIVITY_NEXT_STEP),

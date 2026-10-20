@@ -1,6 +1,10 @@
 package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.model.ApplyPlanRequest
+import com.maggie.app.data.model.PeriodBalance
+import com.maggie.app.data.model.PeriodPlan
+import com.maggie.app.data.model.PlanItem
 import com.maggie.app.data.model.ReviewProgress
 import com.maggie.app.data.model.ReviewProgressUpdate
 import com.maggie.app.data.model.ReviewQueue
@@ -27,5 +31,20 @@ class ReviewRepository(
     /** [transactionId] was left with « Valider »: a relaunch, on any device, starts after it. */
     suspend fun markHandled(month: String, transactionId: String): Result<ReviewProgress> = runCatching {
         apiService.putReviewProgress(ReviewProgressUpdate(month = month, handledTransactionIds = listOf(transactionId)))
+    }.rethrowCancellation()
+
+    /** The bilan of the quarter, semester or year the review of [month] closes (MAG-462). */
+    suspend fun getPeriodBalance(month: String): Result<PeriodBalance> = runCatching {
+        apiService.getPeriodBalance(month)
+    }.rethrowCancellation()
+
+    /** The plan proposed for [period] (`2027-Q2`…), with what is already set on it. */
+    suspend fun getPeriodPlan(period: String): Result<PeriodPlan> = runCatching {
+        apiService.getPeriodPlan(period)
+    }.rethrowCancellation()
+
+    /** Writes [items] on [period] in one gesture: all of them, or none (a refusal is a `PlanRefusedException`). */
+    suspend fun applyPeriodPlan(period: String, items: List<PlanItem>): Result<Unit> = runCatching {
+        apiService.applyPeriodPlan(ApplyPlanRequest(period, items))
     }.rethrowCancellation()
 }

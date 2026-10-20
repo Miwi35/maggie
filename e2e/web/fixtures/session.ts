@@ -155,6 +155,13 @@ export const STARS_USER_EMAIL = 'e2e-stars@maggie.local'
  */
 export const ACTIVITY_USER_EMAIL = 'e2e-activity@maggie.local'
 
+/**
+ * The twentieth seeded account, for the review of a period (MAG-462): the
+ * journey books a quarter's spend on it and applies the plan of the next
+ * quarter, envelopes no other journey may meet.
+ */
+export const PERIOD_USER_EMAIL = 'e2e-period@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

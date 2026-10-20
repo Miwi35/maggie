@@ -16,15 +16,18 @@ class ActivityTitleTest extends TestCase
     public static function months(): iterable
     {
         yield 'janvier' => ['2027-01-25', 'Revue de janvier'];
+        yield 'mars closes a quarter' => ['2027-03-25', 'Revue de fin de trimestre'];
+        yield 'juin closes a semester' => ['2027-06-25', 'Revue de fin de semestre'];
+        yield 'septembre closes a quarter' => ['2027-09-25', 'Revue de fin de trimestre'];
+        yield 'décembre closes the year' => ['2026-12-25', "Revue de fin d'année"];
         yield 'avril, elided' => ['2027-04-25', "Revue d'avril"];
         yield 'août, elided' => ['2027-08-25', "Revue d'août"];
         yield 'octobre, elided' => ['2026-10-25', "Revue d'octobre"];
         yield 'novembre' => ['2026-11-25', 'Revue de novembre'];
-        yield 'décembre' => ['2026-12-25', 'Revue de décembre'];
     }
 
     #[DataProvider('months')]
-    public function testTheReviewIsNamedAfterItsMonth(string $day, string $title): void
+    public function testTheReviewIsNamedAfterItsMonthOrThePeriodItCloses(string $day, string $title): void
     {
         self::assertSame($title, ActivityTitle::review(new \DateTimeImmutable($day)));
     }

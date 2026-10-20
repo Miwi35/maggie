@@ -1,6 +1,20 @@
 {
     "year": 2026,
     "sourceYear": 2025,
+    "period": {
+        "key": "2026",
+        "level": "year",
+        "from": "2026-01",
+        "to": "2026-12",
+        "months": 12
+    },
+    "sourcePeriod": {
+        "key": "2025",
+        "level": "year",
+        "from": "2025-01",
+        "to": "2025-12",
+        "months": 12
+    },
     "thresholdCents": 10000,
     "totalLastYearConsumedCents": 0,
     "totalDecidedCents": 846000,
@@ -25,7 +39,8 @@
             "plannedEvents": [],
             "envelopeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "envelopeCents": 120000,
-            "suggestedCents": 846000
+            "suggestedCents": 846000,
+            "suggestedMonthlyCents": 70500
         }
     ]
 }

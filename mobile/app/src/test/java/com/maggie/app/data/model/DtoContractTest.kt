@@ -527,6 +527,60 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the review progress of a quarter's end carries the period closed and the next one`() {
+        val name = "finance_review_progress.read"
+        val body = readRecording(name)
+
+        val progress = json.decodeFromJsonElement(serializer<ReviewProgress>(), body)
+
+        assertDeclaredFieldsExist("PlanningPeriodRef", serializer<PlanningPeriodRef>(), body["period"]!!.jsonObject.keys, name)
+        assertDeclaredFieldsExist("PlanningPeriodRef", serializer<PlanningPeriodRef>(), body["nextPeriod"]!!.jsonObject.keys, name)
+        assertEquals(REVIEW_LEVEL_QUARTER, progress.level)
+        assertEquals("2026-Q1", progress.period?.key)
+        assertEquals("2026-Q2", progress.nextPeriod?.key)
+        assertEquals(3, progress.nextPeriod?.months)
+    }
+
+    @Test
+    fun `the bilan of a period deserialises from the recorded response`() {
+        val name = "finance_period_balance.read"
+        val body = readRecording(name)
+
+        val balance = json.decodeFromJsonElement(serializer<PeriodBalance>(), body)
+
+        assertDeclaredFieldsExist("PeriodBalance", serializer<PeriodBalance>(), body.keys, name)
+        assertDeclaredFieldsExist("PeriodMonth", serializer<PeriodMonth>(), body["months"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(), name)
+        assertDeclaredFieldsExist("PeriodTotals", serializer<PeriodTotals>(), body["totals"]!!.jsonObject.keys, name)
+        assertDeclaredFieldsExist("PeriodEnvelope", serializer<PeriodEnvelope>(), body["envelopes"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(), name)
+        assertDeclaredFieldsExist("PeriodProjects", serializer<PeriodProjects>(), body["projects"]!!.jsonObject.keys, name)
+
+        assertEquals("2026-Q1", balance.period.key)
+        assertEquals(listOf("2026-01", "2026-02", "2026-03"), balance.months.map { it.month })
+        assertEquals(balance.months.sumOf { it.spentCents }, balance.totals.spentCents)
+        assertEquals("over", balance.envelopes.single().status)
+        assertEquals(1_485_000, balance.savings.plannedCents)
+        assertNull(balance.satisfaction.keptPercent)
+    }
+
+    @Test
+    fun `the plan of a period deserialises from the recorded response`() {
+        val name = "finance_period_plan.read"
+        val body = readRecording(name)
+
+        val plan = json.decodeFromJsonElement(serializer<PeriodPlan>(), body)
+
+        assertDeclaredFieldsExist("PeriodPlan", serializer<PeriodPlan>(), body.keys, name)
+        val categories = body["categories"]!!.jsonArray.map { it.jsonObject }
+        assertTrue("The recording \"$name\" has no category, so it proves nothing.", categories.isNotEmpty())
+        assertDeclaredFieldsExist("PlanCategory", serializer<PlanCategory>(), categories.flatMap { it.keys }.toSet(), name)
+        assertDeclaredFieldsExist("PlanLastPeriod", serializer<PlanLastPeriod>(), categories.flatMap { it["lastYear"]!!.jsonObject.keys }.toSet(), name)
+
+        assertEquals("2026-Q2", plan.period.key)
+        assertEquals("2026-Q1", plan.sourcePeriod.key)
+        assertEquals(categories.size, plan.categories.size)
+    }
+
+    @Test
     fun `the recognised lines to control deserialise from the recorded response`() {
         val name = "finance_review_recognised.read"
         val body = readRecording(name)

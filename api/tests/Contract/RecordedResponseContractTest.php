@@ -16,8 +16,10 @@ use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
 use Maggie\Finance\UseCase\GetAccountTimeline;
 use Maggie\Finance\UseCase\GetAnnualPlan;
+use Maggie\Finance\UseCase\GetPeriodBalance;
 use Maggie\Finance\UseCase\GetRecurringOperations;
 use Maggie\Finance\UseCase\GetTreasuryOutlook;
+use Maggie\Finance\UseCase\PlanningPeriod;
 use Maggie\Finance\UseCase\SuggestRecurringOperations;
 use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\Product;
@@ -205,6 +207,34 @@ final class RecordedResponseContractTest extends WebTestCase
                 'responses/'.$name.'.json',
                 self::stabilise($body),
                 sprintf('The %s read no longer returns what it used to.', $name),
+            );
+        }
+    }
+
+    /**
+     * The reviews that close a quarter (MAG-462): the bilan of the first quarter
+     * of 2026, and the plan of the second, as the controllers send them.
+     */
+    public function testThePeriodReviewRecordingsAreCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+
+        $balance = self::getContainer()->get(GetPeriodBalance::class)->execute($user, PlanningPeriod::parse('2026-Q1'));
+        self::assertNotEmpty($balance['envelopes'], 'The recorded period balance holds no envelope.');
+        $plan = self::getContainer()->get(GetAnnualPlan::class)->execute($user, PlanningPeriod::parse('2026-Q2'));
+        self::assertNotEmpty($plan['categories'], 'The recorded period plan holds no category.');
+
+        foreach (['finance_period_balance.read' => $balance, 'finance_period_plan.read' => $plan] as $name => $read) {
+            $body = json_decode((string) json_encode($read, \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+            self::assertIsArray($body);
+
+            $this->assertMatchesContract(
+                'responses/'.$name.'.json',
+                self::stabilise($body),
+                sprintf('The %s read no longer returns what it used to. The mobile DTOs (ReviewActivity.kt) and the admin hooks (usePeriodBalance, usePeriodPlan) read it.', $name),
             );
         }
     }
