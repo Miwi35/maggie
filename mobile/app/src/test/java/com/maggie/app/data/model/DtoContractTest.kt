@@ -613,6 +613,10 @@ class DtoContractTest {
     }
 
     @Test
+    fun `projects deserialise from the recorded response (MAG-519)`() =
+        assertCollectionContract("finance_projects", serializer<Project>(), "Project")
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

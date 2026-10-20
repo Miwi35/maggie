@@ -126,6 +126,9 @@ import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
+import com.maggie.app.ui.screens.finance.ProjectFormScreen
+import com.maggie.app.ui.screens.finance.ProjectListScreen
+import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.TreasuryScreen
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
@@ -254,6 +257,12 @@ sealed class Screen(val route: String, val label: String) {
     data object SavingsAdvances : Screen("savings_advances", "Avances d'épargne")
     data object PeerDebts : Screen("peer_debts", "Créances et dettes")
     data object LoanList : Screen("loans", "Prêts")
+    data object ProjectList : Screen("finance_projects", "Projets")
+    /** The full-screen form of a project (MAG-519): `id` absent for a new one. Outside the menus, so drawn without chrome. */
+    data object ProjectForm : Screen("finance_projects/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Projet") {
+        fun of(projectId: String?): String =
+            if (projectId == null) "finance_projects/form" else "finance_projects/form?${DeepLinks.ARG_ID}=$projectId"
+    }
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
@@ -440,6 +449,33 @@ private fun NavController.backInFinance() {
             popUpTo(currentId) { inclusive = true }
         }
     }
+}
+
+/** « Projets » of Planification (MAG-519); out of [NavGraph]'s lambda, which the compiler already finds heavy. */
+@Composable
+private fun ProjectListPage(navController: NavController) {
+    val projectViewModel: ProjectViewModel = koinViewModel()
+    ProjectListScreen(
+        viewModel = projectViewModel,
+        onBack = { navController.backInFinance() },
+        onOpenForm = { id -> navController.navigate(Screen.ProjectForm.of(id)) { launchSingleTop = true } },
+    )
+}
+
+/**
+ * The full-screen form of a project, on the list's ViewModel: the form is only what is in front of
+ * the list, and the list shows what it saved without a request of its own.
+ */
+@Composable
+private fun ProjectFormPage(navController: NavController, entry: NavBackStackEntry) {
+    // The list is the Projets tab of Planification or its own screen: either way, the entry under the form.
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val projectViewModel: ProjectViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    ProjectFormScreen(
+        viewModel = projectViewModel,
+        projectId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
+        onClose = { navController.popBackStack() },
+    )
 }
 
 // Out of NavGraph's body, like FinanceMenuRoute: that one function is already as large as the compiler takes.
@@ -686,6 +722,7 @@ fun NavGraph() {
         openSuggestions = { navigateTo(Screen.RuleSuggestions.route) },
         openRules = { selectFinanceMenu(FinanceMenu.REVIEW, tab = "rules") },
         declareRente = { navigateTo(Screen.CategoryList.route) },
+        openProjectForm = { id -> navController.navigate(Screen.ProjectForm.of(id)) { launchSingleTop = true } },
         recurringSeed = recurringSeed,
         onSeedConsumed = { recurringSeed = null },
         onBackToTransaction = { navController.popBackStack() },
@@ -1704,6 +1741,21 @@ fun NavGraph() {
                             viewModel = loanViewModel,
                             onBack = { navController.backInFinance() },
                         )
+                    }
+                    composable(Screen.ProjectList.route, deepLinks = DeepLinks.forRoute(Screen.ProjectList.route)) {
+                        ProjectListPage(navController)
+                    }
+                    composable(
+                        Screen.ProjectForm.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_ID) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                    ) { entry ->
+                        ProjectFormPage(navController, entry)
                     }
                     composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
                         val reviewViewModel: MonthlyReviewViewModel = koinViewModel()

@@ -18,6 +18,7 @@ import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.PlanningTile
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.SavingsAdvances
@@ -31,6 +32,7 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.TransactionRepository
@@ -72,6 +74,7 @@ class FinanceMenuPageTest {
         val rules = mockk<CategorizationRuleRepository>()
         val recurring = mockk<RecurringOperationRepository>()
         val loans = mockk<LoanRepository>()
+        val projects = mockk<ProjectRepository>()
         val dashboard = mockk<FinanceDashboardRepository>()
         val banks = mockk<BankConnectionRepository>()
         val categories = mockk<CategoryRepository>()
@@ -87,6 +90,7 @@ class FinanceMenuPageTest {
             coEvery { rules.getRules() } returns Result.success(emptyList())
             coEvery { recurring.getOverview() } returns Result.success(RecurringOperationsOverview())
             coEvery { loans.getLoans() } returns Result.success(emptyList())
+            coEvery { projects.getProjects() } returns Result.success(emptyList())
             coEvery { dashboard.getDashboard(any(), any()) } returns Result.success(FinanceDashboard())
             coEvery { banks.getConnections() } returns Result.success(emptyList())
             coEvery { categories.getCategories() } returns Result.success(emptyList())
@@ -94,7 +98,7 @@ class FinanceMenuPageTest {
 
         val viewModel: FinanceSummaryViewModel by lazy {
             FinanceSummaryViewModel(
-                cushion, advances, treasury, review, rules, recurring, loans, dashboard, banks, categories, transactions,
+                cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories, transactions,
                 today = { LocalDate.of(2026, 10, 16) },
             )
         }
@@ -164,7 +168,7 @@ class FinanceMenuPageTest {
             financeAspects(FinanceMenu.REVIEW).map { it.id },
         )
         assertEquals(listOf("outlook", "cushion", "advances"), financeAspects(FinanceMenu.TREASURY).map { it.id })
-        assertEquals(listOf("loans", "independence"), financeAspects(FinanceMenu.PLANNING).map { it.id })
+        assertEquals(listOf("projects", "loans", "independence"), financeAspects(FinanceMenu.PLANNING).map { it.id })
         assertEquals(listOf("banks", "categories"), financeAspects(FinanceMenu.SETTINGS).map { it.id })
         listOf(FinanceMenu.DASHBOARD, FinanceMenu.ACCOUNTS, FinanceMenu.BUDGET).forEach {
             assertTrue(financeAspects(it).isEmpty())
@@ -212,7 +216,17 @@ class FinanceMenuPageTest {
         val viewModel = Backend().viewModel
         compose.setContent { Page(FinanceMenu.PLANNING, viewModel) }
 
-        assertOpenOn(FinanceMenu.PLANNING, "loans")
+        assertOpenOn(FinanceMenu.PLANNING, "projects")
+    }
+
+    @Test
+    fun `planning opens on the projects as soon as there is one, loans or not (MAG-519)`() {
+        val backend = Backend()
+        coEvery { backend.projects.getProjects() } returns Result.success(listOf(Project(id = "p1", name = "Canapé")))
+        coEvery { backend.loans.getLoans() } returns Result.success(listOf(Loan(id = "l1", name = "Voiture")))
+        compose.setContent { Page(FinanceMenu.PLANNING, backend.viewModel) }
+
+        assertOpenOn(FinanceMenu.PLANNING, "projects")
     }
 
     @Test

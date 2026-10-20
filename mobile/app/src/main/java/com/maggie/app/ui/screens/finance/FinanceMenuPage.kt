@@ -62,6 +62,7 @@ fun financeAspects(menu: FinanceMenu): List<FinanceAspect> = when (menu) {
         FinanceAspect("advances", "Avances d'épargne", SummaryBlock.SAVINGS_ADVANCES),
     )
     FinanceMenu.PLANNING -> listOf(
+        FinanceAspect("projects", "Projets", SummaryBlock.PROJECTS),
         FinanceAspect("loans", "Prêts", SummaryBlock.LOANS),
         FinanceAspect("independence", "Indépendance", SummaryBlock.INDEPENDENCE),
     )

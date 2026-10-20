@@ -1159,6 +1159,34 @@ object UiTags {
     const val PERIOD_PLAN_REFUSED = "review_period_plan_refused"
     const val PERIOD_PLAN_ERROR = "review_period_plan_error"
 
+    /**
+     * « Projets » of Planification (MAG-519): the screen, a row, its drag handle, the warning of a
+     * dependency placed after it, the empty state, « Nouveau projet »; the full-screen form, its fields,
+     * a wellbeing level, a date mode, a dependency, what the server refused, « Enregistrer » and « Supprimer ».
+     */
+    const val PROJECTS = "projects"
+    const val PROJECT_ROW = "project_row"
+    const val PROJECT_DRAG_HANDLE = "project_drag_handle"
+    const val PROJECT_UNMET = "project_unmet"
+    const val PROJECT_EMPTY = "project_empty"
+    const val PROJECT_ADD = "project_add"
+    const val PROJECT_FORM = "project_form"
+    const val PROJECT_NAME = "project_name"
+    const val PROJECT_AMOUNT = "project_amount"
+    const val PROJECT_WELLBEING_PREFIX = "project_wellbeing_"
+    const val PROJECT_DATE_MODE_PREFIX = "project_date_mode_"
+    const val PROJECT_TARGET_ON = "project_target_on"
+    const val PROJECT_DEPENDENCY_PREFIX = "project_dependency_"
+    const val PROJECT_NOTE = "project_note"
+    const val PROJECT_FORM_ERROR = "project_form_error"
+    const val PROJECT_SAVE = "project_save"
+    const val PROJECT_DELETE = "project_delete"
+    const val PROJECT_DELETE_CONFIRM = "project_delete_confirm"
+
+    fun projectWellbeing(key: String) = PROJECT_WELLBEING_PREFIX + key
+    fun projectDateMode(key: String) = PROJECT_DATE_MODE_PREFIX + key
+    fun projectDependency(id: String) = PROJECT_DEPENDENCY_PREFIX + id
+
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
     fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId
     fun periodPlanAmount(categoryId: String) = PERIOD_PLAN_AMOUNT_PREFIX + categoryId

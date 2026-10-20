@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
@@ -23,6 +24,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
@@ -55,6 +57,7 @@ class FinanceMenuPageContentTest {
 
     private fun summary(
         loans: LoanRepository = mockk(),
+        projects: ProjectRepository = noProjects(),
         dashboard: FinanceDashboardRepository = mockk(),
         banks: BankConnectionRepository = mockk(),
         categories: CategoryRepository = mockk(),
@@ -62,9 +65,15 @@ class FinanceMenuPageContentTest {
         advances: SavingsAdvancesRepository = mockk(),
     ) = FinanceSummaryViewModel(
         cushion, advances, mockk<TreasuryRepository>(), mockk<MonthlyReviewRepository>(),
-        mockk<CategorizationRuleRepository>(), mockk<RecurringOperationRepository>(), loans, dashboard, banks, categories,
+        mockk<CategorizationRuleRepository>(), mockk<RecurringOperationRepository>(), loans, projects, dashboard, banks, categories,
         mockk<TransactionRepository>(), today = { LocalDate.of(2026, 10, 16) },
     )
+
+    private fun noProjects(): ProjectRepository {
+        val repository = mockk<ProjectRepository>()
+        coEvery { repository.getProjects() } returns Result.success(emptyList())
+        return repository
+    }
 
     private fun loansOf(vararg loan: Loan): LoanRepository {
         val repository = mockk<LoanRepository>()
@@ -88,7 +97,9 @@ class FinanceMenuPageContentTest {
         FinanceMenuPage(FinanceMenu.PLANNING, summary, requestedTab = null, onBack = {}) { aspect, _, modifier ->
             when (aspect.id) {
                 "loans" -> LoanListContent(loanViewModel, modifier)
-                else -> IndependenceContent(independenceViewModel, onDeclareRente = {}, modifier = modifier)
+                "independence" -> IndependenceContent(independenceViewModel, onDeclareRente = {}, modifier = modifier)
+                // The projects have their own tests (ProjectListScreenTest): an empty body here.
+                else -> Box(modifier)
             }
         }
     }
@@ -108,13 +119,16 @@ class FinanceMenuPageContentTest {
     }
 
     @Test
-    fun `planning without loan or rente opens on an invitation to add a loan, and the other tab on one to declare a rente`() {
+    fun `planning without data invites to add a loan on its tab, and to declare a rente on the other`() {
         val loans = loansOf()
         val dashboard = dashboardOf(IndependenceCounter())
         compose.setContent {
             val summary = remember { summary(loans = loans, dashboard = dashboard) }
             PlanningPage(loans, dashboard, summary)
         }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.financeTab("loans")).performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("Aucun prêt enregistré").assertIsDisplayed()

@@ -624,6 +624,9 @@ mobile:
   e2e/mobile/flows/21-finance-peer-debts.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/contacts-api.js]
+  e2e/mobile/flows/23-finance-projects.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/projects-api.js, api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
