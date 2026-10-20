@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import com.maggie.app.data.fcm.PushActionHandler
 import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -22,6 +23,7 @@ import org.koin.android.ext.android.inject
 class MainActivity : FragmentActivity() {
     private val userPreferenceRepository: UserPreferenceRepository by inject()
     private val interruptions: InterruptionCenter by inject()
+    private val pushActions: PushActionHandler by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -55,5 +57,7 @@ class MainActivity : FragmentActivity() {
     private fun openedByPush(intent: Intent) {
         PushIntents.closeNotificationOf(this, intent)
         PushIntents.interruptionOf(intent)?.let(interruptions::reopen)
+        // « Je m'y mets » opened the Focus (MAG-510): the reminder is answered from here, the link does the rest.
+        PushIntents.answerOf(intent)?.let { (kind, payload) -> pushActions.answerInBackground(kind, payload) }
     }
 }

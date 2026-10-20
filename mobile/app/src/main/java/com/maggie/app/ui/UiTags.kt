@@ -991,6 +991,21 @@ object UiTags {
     const val SETTINGS_TASKS_REWARD_SOUND = "settings_tasks_reward_sound"
     const val SETTINGS_TASKS_TONE_PREFIX = "settings_tasks_tone_"
 
+    /**
+     * « Rappels et récompenses » (MAG-510): « Au plus, par jour » (− , the number, +), « Calme » from
+     * and to, and one row per moment of « Mes moments » ([settingsTasksMoment]).
+     */
+    const val SETTINGS_TASKS_REMINDER_CAP = "settings_tasks_reminder_cap"
+    const val SETTINGS_TASKS_REMINDER_CAP_MINUS = "settings_tasks_reminder_cap_minus"
+    const val SETTINGS_TASKS_REMINDER_CAP_VALUE = "settings_tasks_reminder_cap_value"
+    const val SETTINGS_TASKS_REMINDER_CAP_PLUS = "settings_tasks_reminder_cap_plus"
+    const val SETTINGS_TASKS_QUIET_START = "settings_tasks_quiet_start"
+    const val SETTINGS_TASKS_QUIET_END = "settings_tasks_quiet_end"
+    const val SETTINGS_TASKS_MOMENT_PREFIX = "settings_tasks_moment_"
+
+    /** A moment's row: `wake`, `afterBreakfast`, `afterLunch` or `afterDinner`, as the API names it. */
+    fun settingsTasksMoment(moment: String): String = SETTINGS_TASKS_MOMENT_PREFIX + moment
+
     /** The tone's segment: `doux`, `direct` or `drole`. */
     fun settingsTasksTone(tone: String): String = SETTINGS_TASKS_TONE_PREFIX + tone
 

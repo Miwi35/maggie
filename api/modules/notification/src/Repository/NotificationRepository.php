@@ -92,23 +92,6 @@ class NotificationRepository extends ServiceEntityRepository
         return (int) $result > 0;
     }
 
-    /** Whether a task was already alerted on one day (MAG-410): the key is the task and the start of the user's day. */
-    public function taskAlertExists(string $taskIri, \DateTimeImmutable $dayStart): bool
-    {
-        $result = $this->createQueryBuilder('n')
-            ->select('COUNT(n.id)')
-            ->where('n.relatedEntityIri = :iri')
-            ->andWhere('n.type = :type')
-            ->andWhere('n.occurrenceStartAt = :day')
-            ->setParameter('iri', $taskIri)
-            ->setParameter('type', NotificationType::TaskDue)
-            ->setParameter('day', $dayStart, Types::DATETIMETZ_IMMUTABLE)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return (int) $result > 0;
-    }
-
     /** Whether this user was already told about this entity since the given moment. */
     public function existsSince(NotificationType $type, string $relatedEntityIri, \DateTimeImmutable $since): bool
     {

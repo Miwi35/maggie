@@ -740,9 +740,11 @@ paris_now="$(TZ=Europe/Paris date -d "@$now_epoch" +%H:%M)"
 task_due_day="$(TZ=Europe/Paris date -d "$(TZ=Europe/Paris date -d "@$now_epoch" '+%F %T') 3 days" +%F)"
 task_title="Tâche smoke $(date -u -d "@$now_epoch" +%H%M%S)"
 
+# The stack's clock is the real one: no quiet hours (MAG-510, the same start and end) and the
+# widest daily cap, or a run at night or on a busy day would rightly send nothing.
 assert_eq "$paris_now" \
   "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
-    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t}')" \
+    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t, quietStart: "00:00", quietEnd: "00:00", reminderDailyCap: 12}')" \
     "$BASE_URL/api/task-settings/me" | jq -r '.morningTime // empty')" \
   "the user's morning is now"
 
@@ -762,7 +764,7 @@ fi
 
 task_alerts_of() {
   curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
-    | jq -c --arg t "Dans 3 j : $task_title" '[.member[] | select(.title == $t)]'
+    | jq -c --arg iri "/api/tasks/$task_id" '[.member[] | select(.type == "task_due" and .relatedEntityIri == $iri)]'
 }
 
 task_notified=""
@@ -783,6 +785,11 @@ fi
 
 assert_eq task_due "$(printf '%s' "$task_notifications" | jq -r '.[0].type // empty')" \
   "the notification carries the task-due kind"
+# Its words come from a bank (MAG-510): they name the task, and the days left.
+assert_eq yes "$(printf '%s' "$task_notifications" | jq -r --arg t "« $task_title »" '.[0].title | if contains($t) and contains("3 j") then "yes" else . end')" \
+  "the alert names the task and its three days"
+assert_eq "start,done,tomorrow" "$(printf '%s' "$task_notifications" | jq -r '.[0].actions | join(",")')" \
+  "the alert offers « Je m'y mets », « Fait », « Demain »"
 assert_eq "/api/tasks/$task_id" "$(printf '%s' "$task_notifications" | jq -r '.[0].relatedEntityIri // empty')" \
   "the notification points back at the task"
 
@@ -793,7 +800,129 @@ assert_eq 1 "$(task_alerts_of | jq -r 'length')" "a second run of the cron alert
 
 # Back to the default morning: the account is shared with the journeys that follow.
 curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
-  -d '{"morningTime":"08:00"}' "$BASE_URL/api/task-settings/me"
+  -d '{"morningTime":"08:00","quietStart":"21:00","quietEnd":"08:00","reminderDailyCap":6}' "$BASE_URL/api/task-settings/me"
+
+# ---------------------------------------------------------------------------
+step "11c. The task now of a confirmed day gets a nudge at afterBreakfast"
+# ---------------------------------------------------------------------------
+# MAG-510. The bell's buttons are `notifications-bell.spec.ts`'s, on a seeded nudge:
+# the cron that sends it is only reachable from here. afterBreakfast is set to the
+# minute the stack reads in Paris, afterLunch six hours away so the two moments never
+# share the ten minutes a reminder is sent in, no quiet hours, the widest cap.
+nudge_epoch="$("$REPO_ROOT/e2e/clock.sh" epoch)"
+nudge_epoch="${nudge_epoch:-$(date +%s)}"
+nudge_now="$(TZ=Europe/Paris date -d "@$nudge_epoch" +%H:%M)"
+nudge_lunch="$(TZ=Europe/Paris date -d "@$((nudge_epoch + 21600))" +%H:%M)"
+nudge_day="$(TZ=Europe/Paris date -d "@$nudge_epoch" +%F)"
+nudge_title="Nudge smoke $(date -u -d "@$nudge_epoch" +%H%M%S)"
+
+assert_eq "$nudge_now" \
+  "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg b "$nudge_now" --arg l "$nudge_lunch" \
+      '{dayMoments: {afterBreakfast: $b, afterLunch: $l}, quietStart: "00:00", quietEnd: "00:00", reminderDailyCap: 12}')" \
+    "$BASE_URL/api/task-settings/me" | jq -r '.dayMoments.afterBreakfast // empty')" \
+  "the user's afterBreakfast is now"
+
+nudge_task="$(curl -sS -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
+  -d "$(jq -nc --arg s "$nudge_title" '{title: $s, firstStep: "Ouvrir le dossier", priority: "medium"}')" \
+  "$BASE_URL/api/tasks")"
+nudge_task_id="$(printf '%s' "$nudge_task" | jq -r '.id // empty')"
+if [ -n "$nudge_task_id" ]; then
+  pass "the task was created"
+else
+  fail "could not create the task — response: $(printf '%s' "$nudge_task" | head -c 300)"
+fi
+
+# First of the day, and the day confirmed: it is the task « now » the nudge is about.
+assert_eq "$nudge_task_id" \
+  "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' -H 'Accept: application/json' \
+    -d "$(jq -nc --arg id "$nudge_task_id" '{slots: [{type: "task", taskId: $id}], confirm: true}')" \
+    "$BASE_URL/api/day-plans/$nudge_day" | jq -r '.now.task.id // empty')" \
+  "today's confirmed day holds it « now »"
+
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+
+nudges_of() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
+    | jq -c --arg iri "/api/tasks/$nudge_task_id" '[.member[] | select(.type == "task_nudge" and .relatedEntityIri == $iri)]'
+}
+
+nudged=""
+for _ in $(seq 1 60); do
+  nudge_notifications="$(nudges_of)"
+  if [ "$(printf '%s' "$nudge_notifications" | jq -r 'length')" -gt 0 ]; then
+    nudged=yes
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$nudged" ]; then
+  pass "the afterBreakfast cron nudged the task « now »"
+else
+  fail "the cron wrote no task_nudge for '$nudge_title' — is the day confirmed, and afterBreakfast read in Paris?"
+fi
+
+assert_eq yes "$(printf '%s' "$nudge_notifications" | jq -r --arg t "$nudge_title" '.[0].title | if contains($t) then "yes" else . end')" \
+  "the nudge names the task"
+assert_eq "Premier pas : Ouvrir le dossier" "$(printf '%s' "$nudge_notifications" | jq -r '.[0].body // empty')" \
+  "the nudge gives its first step"
+# « Ce soir » while afterDinner is still ahead, « Demain » once it has passed.
+assert_eq yes "$(printf '%s' "$nudge_notifications" | jq -r '.[0].actions | join(",") | if . == "start,in10,tonight" or . == "start,in10,tomorrow" then "yes" else . end')" \
+  "the nudge offers « Je m'y mets », « Dans 10 min », then « Ce soir » or « Demain »"
+nudge_reminder_id="$(printf '%s' "$nudge_notifications" | jq -r '.[0].reminderId // empty')"
+if [ -n "$nudge_reminder_id" ]; then
+  pass "the nudge names the reminder its buttons answer"
+else
+  fail "the nudge carries no reminderId"
+fi
+
+# Once per moment and per day: the next tick says nothing more.
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+sleep 5
+assert_eq 1 "$(nudges_of | jq -r 'length')" "a second run of the cron nudges nobody twice"
+
+# « Dans 10 min »: the notification goes, a reminder put off by the user comes back
+# ten minutes after the answer. The stack's clock barely moves (clock.sh), the real
+# one a few seconds: within a minute of it.
+answer_epoch="$("$REPO_ROOT/e2e/clock.sh" epoch)"
+answer_epoch="${answer_epoch:-$(date +%s)}"
+nudge_answer="$(curl -sS -X POST "${AUTH[@]}" -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -d '{"action":"in10"}' "$BASE_URL/api/task-reminders/$nudge_reminder_id/action")"
+assert_eq true "$(printf '%s' "$nudge_answer" | jq -r '.next.snoozed // empty')" \
+  "« Dans 10 min » plans a reminder put off by the user"
+snooze_delay=$(($(date -d "$(printf '%s' "$nudge_answer" | jq -r '.next.scheduledFor // "1970-01-01T00:00:00Z"')" +%s) - answer_epoch))
+if [ "$snooze_delay" -ge 599 ] && [ "$snooze_delay" -lt 660 ]; then
+  pass "the reminder put off comes back ten minutes later"
+else
+  fail "the reminder put off is planned ${snooze_delay}s after the answer, not 600"
+fi
+assert_eq null "$(printf '%s' "$nudge_answer" | jq -c '.notification')" \
+  "« Dans 10 min » leaves no notification to keep"
+
+nudge_gone=""
+for _ in $(seq 1 60); do
+  if [ "$(nudges_of | jq -r 'length')" -eq 0 ]; then
+    nudge_gone=yes
+    break
+  fi
+  sleep 1
+done
+if [ -n "$nudge_gone" ]; then
+  pass "the nudge put off has left the bell"
+else
+  fail "the nudge is still listed after « Dans 10 min »"
+fi
+
+# Back to the defaults, the day emptied and the task gone — a deleted task drops the
+# reminder put off: the account is shared with the journeys that follow.
+curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"dayMoments":{"afterBreakfast":"08:30","afterLunch":"13:30"},"quietStart":"21:00","quietEnd":"08:00","reminderDailyCap":6}' \
+  "$BASE_URL/api/task-settings/me"
+curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"slots":[],"confirm":true}' "$BASE_URL/api/day-plans/$nudge_day"
+assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/api/tasks/$nudge_task_id")" "the nudged task is deleted"
 
 # ---------------------------------------------------------------------------
 step "12. A bank consent runs from the picker to the callback"

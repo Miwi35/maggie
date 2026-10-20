@@ -28,6 +28,13 @@ const SCHEDULE = {
 
 const REWARD_DEFAULTS = { rewardAnimation: true, rewardVibration: true, rewardSound: true, tone: 'doux' }
 
+const REMINDER_DEFAULTS = {
+  dayMoments: { wake: '07:30', afterBreakfast: '08:30', afterLunch: '13:30', afterDinner: '20:00' },
+  reminderDailyCap: 6,
+  quietStart: '21:00',
+  quietEnd: '08:00',
+}
+
 const DEFAULTS = {
   orderWeights: {},
   orderLevels: LEVELS,
@@ -35,6 +42,7 @@ const DEFAULTS = {
   morningTime: '08:00',
   eveningTime: '21:00',
   ...REWARD_DEFAULTS,
+  ...REMINDER_DEFAULTS,
 }
 
 /** A user who already changed a few things — J-5 on Haute came through the API. */
@@ -53,6 +61,10 @@ const SAVED = {
   rewardVibration: false,
   rewardSound: true,
   tone: 'direct',
+  dayMoments: { wake: '06:45', afterBreakfast: '08:30', afterLunch: '13:30', afterDinner: '20:00' },
+  reminderDailyCap: 11,
+  quietStart: '22:00',
+  quietEnd: '07:30',
   defaults: DEFAULTS,
 }
 
@@ -66,11 +78,14 @@ function merge(stored: Saved, body: Record<string, unknown>): Saved {
     schedule[urgency] = { ...schedule[urgency], ...patch }
   }
   const rewards = Object.fromEntries(
-    Object.entries(body).filter(([key]) => ['rewardAnimation', 'rewardVibration', 'rewardSound', 'tone'].includes(key)),
+    Object.entries(body).filter(([key]) =>
+      ['rewardAnimation', 'rewardVibration', 'rewardSound', 'tone', 'reminderDailyCap', 'quietStart', 'quietEnd'].includes(key),
+    ),
   )
   return {
     ...stored,
     ...rewards,
+    dayMoments: { ...stored.dayMoments, ...((body.dayMoments ?? {}) as object) },
     ...(body.morningTime ? { morningTime: body.morningTime as string } : {}),
     ...(body.eveningTime ? { eveningTime: body.eveningTime as string } : {}),
     alertSchedule: schedule as Saved['alertSchedule'],
@@ -282,6 +297,83 @@ describe('TaskSettings — alerts', () => {
     expect(puts(fetchMock)).toHaveLength(2)
   })
 
+  test('the reminders show their cap, quiet hours and moments (MAG-510)', async () => {
+    stubApi()
+    render(<TaskSettings />)
+
+    const cap = await screen.findByRole('group', { name: 'Au plus, par jour' })
+    expect(within(cap).getByText('11')).toBeInTheDocument()
+    expect(screen.getByLabelText('Calme de')).toHaveValue('22:00')
+    expect(screen.getByLabelText("Calme jusqu'à")).toHaveValue('07:30')
+    expect(screen.getByLabelText('Réveil')).toHaveValue('06:45')
+    expect(screen.getByLabelText('Après le petit-déjeuner')).toHaveValue('08:30')
+    expect(screen.getByLabelText('Après le déjeuner')).toHaveValue('13:30')
+    expect(screen.getByLabelText('Après le dîner')).toHaveValue('20:00')
+  })
+
+  test('« Plus » and « Moins » save the cap at once, and stop at 12 and 1 (MAG-510)', async () => {
+    let cap = 11
+    const fetchMock = stubApi({ get: () => new Response(JSON.stringify({ ...SAVED, reminderDailyCap: cap })) })
+    const { unmount } = render(<TaskSettings />)
+
+    const group = await screen.findByRole('group', { name: 'Au plus, par jour' })
+    await userEvent.click(within(group).getByRole('button', { name: 'Plus' }))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ reminderDailyCap: 12 }]))
+    await waitFor(() => expect(within(group).getByText('12')).toBeInTheDocument())
+    expect(within(group).getByRole('button', { name: 'Plus' })).toBeDisabled()
+    expect(within(group).getByRole('button', { name: 'Moins' })).toBeEnabled()
+    unmount()
+
+    cap = 1
+    fetchMock.mockClear()
+    render(<TaskSettings />)
+    const low = await screen.findByRole('group', { name: 'Au plus, par jour' })
+    await waitFor(() => expect(within(low).getByText('1')).toBeInTheDocument())
+    expect(within(low).getByRole('button', { name: 'Moins' })).toBeDisabled()
+    await userEvent.click(within(low).getByRole('button', { name: 'Plus' }))
+    await waitFor(() => expect(puts(fetchMock)).toEqual([{ reminderDailyCap: 2 }]))
+  })
+
+  test('the quiet hours and a moment are saved when left, a moment alone (MAG-510)', async () => {
+    const fetchMock = stubApi()
+    render(<TaskSettings />)
+
+    const from = await screen.findByLabelText('Calme de')
+    fireEvent.change(from, { target: { value: '21:30' } })
+    fireEvent.blur(from)
+    await waitFor(() => expect(puts(fetchMock)).toHaveLength(1))
+    const until = screen.getByLabelText("Calme jusqu'à")
+    fireEvent.change(until, { target: { value: '08:15' } })
+    fireEvent.blur(until)
+    await waitFor(() => expect(puts(fetchMock)).toHaveLength(2))
+    const lunch = screen.getByLabelText('Après le déjeuner')
+    fireEvent.change(lunch, { target: { value: '14:00' } })
+    fireEvent.blur(lunch)
+
+    await waitFor(() =>
+      expect(puts(fetchMock)).toEqual([
+        { quietStart: '21:30' },
+        { quietEnd: '08:15' },
+        { dayMoments: { afterLunch: '14:00' } },
+      ]),
+    )
+    await waitFor(() => expect(screen.getByLabelText('Après le déjeuner')).toHaveValue('14:00'))
+    expect(screen.getByLabelText('Réveil')).toHaveValue('06:45')
+  })
+
+  test('a refused moment shows the API message and goes back to the saved time (MAG-510)', async () => {
+    stubApi({ put: () => new Response(JSON.stringify({ error: 'dayMoments.wake must be HH:MM' }), { status: 400 }) })
+    render(<TaskSettings />)
+
+    const wake = await screen.findByLabelText('Réveil')
+    fireEvent.change(wake, { target: { value: '05:00' } })
+    fireEvent.blur(wake)
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('dayMoments.wake must be HH:MM', { type: 'error' }))
+    await waitFor(() => expect(screen.getByLabelText('Réveil')).toHaveValue('06:45'))
+    expect(screen.queryByText('Enregistré')).toBeNull()
+  })
+
   test('a half-typed time is not sent and goes back to the saved one', async () => {
     const fetchMock = stubApi()
     render(<TaskSettings />)
@@ -308,8 +400,10 @@ describe('TaskSettings — alerts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(puts(fetchMock)).toEqual([{ alertSchedule: SCHEDULE, morningTime: '08:00', eveningTime: '21:00' }]))
-    // The rewards keep theirs (MAG-508), as on the phone.
+    // The rewards keep theirs (MAG-508), as on the phone, and so do the reminders (MAG-510).
     await waitFor(() => expect(screen.getByRole('button', { name: 'Direct' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(screen.getByLabelText('Calme de')).toHaveValue('22:00')
+    expect(within(screen.getByRole('group', { name: 'Au plus, par jour' })).getByText('11')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByLabelText('Heure du matin')).toHaveValue('08:00'))
     await waitFor(() => expect(screen.getByLabelText('Heure du soir')).toHaveValue('21:00'))
     await waitFor(() => expect(chip('Normale — J-2')).toHaveAttribute('aria-pressed', 'false'))

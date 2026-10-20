@@ -6,11 +6,15 @@ import kotlinx.serialization.Serializable
  * The user's task settings (MAG-407), `GET /api/task-settings/me`: the levels of the task
  * order (MAG-406) and the alert schedule per urgency, with the morning the alerts go out and
  * the evening the review opens after (MAG-500), then how a task done is rewarded (MAG-508):
- * the animation, the vibration and the sound, each on or off, and the [tone] of its message.
+ * the animation, the vibration and the sound, each on or off, and the [tone] of its message;
+ * last, the reminders (MAG-510): the moments of the day they are anchored to, how many a day
+ * at most, and the quiet hours none is sent in.
  *
  * - `orderLevels`: group (`timePressure`, `criticality`, `priority`) → level 0..4, what the
  *   sliders of « Ce qui passe en premier » set (the API turns them into weights);
- * - `alertSchedule`: urgency (`critical`, `high`, `normal` — `low` never alerts) → its rule.
+ * - `alertSchedule`: urgency (`critical`, `high`, `normal` — `low` never alerts) → its rule;
+ * - `dayMoments`: moment (`wake`, `afterBreakfast`, `afterLunch`, `afterDinner`) → `HH:MM`;
+ * - `quietStart` → `quietEnd`: the quiet hours, `HH:MM`, across midnight when the start is later.
  *
  * No defaults on purpose: the API always sends every key. The app writes with partial
  * `PUT` bodies built as JSON (see `MaggieApiService.updateTaskSettings`), so it can send
@@ -28,17 +32,32 @@ data class TaskSettings(
     val rewardSound: Boolean,
     /** `doux`, `direct` or `drole`. */
     val tone: String,
+    val dayMoments: Map<String, String>,
+    /** At most this many reminders a day, 1 to 12. */
+    val reminderDailyCap: Int,
+    val quietStart: String,
+    val quietEnd: String,
     val defaults: TaskSettingsValues,
 ) {
     val values: TaskSettingsValues
         get() = TaskSettingsValues(
             orderLevels, alertSchedule, morningTime, eveningTime, rewardAnimation, rewardVibration, rewardSound, tone,
+            dayMoments, reminderDailyCap, quietStart, quietEnd,
         )
 
     companion object {
         const val TONE_DOUX = "doux"
         const val TONE_DIRECT = "direct"
         const val TONE_DROLE = "drole"
+
+        const val MOMENT_WAKE = "wake"
+        const val MOMENT_AFTER_BREAKFAST = "afterBreakfast"
+        const val MOMENT_AFTER_LUNCH = "afterLunch"
+        const val MOMENT_AFTER_DINNER = "afterDinner"
+
+        /** The bounds of « Au plus, par jour », as the API checks them. */
+        const val MIN_DAILY_CAP = 1
+        const val MAX_DAILY_CAP = 12
     }
 }
 
@@ -53,6 +72,10 @@ data class TaskSettingsValues(
     val rewardVibration: Boolean,
     val rewardSound: Boolean,
     val tone: String,
+    val dayMoments: Map<String, String>,
+    val reminderDailyCap: Int,
+    val quietStart: String,
+    val quietEnd: String,
 )
 
 /** When a task of one urgency alerts: days before the due day (furthest first), the due day, every n days late (null: never). */

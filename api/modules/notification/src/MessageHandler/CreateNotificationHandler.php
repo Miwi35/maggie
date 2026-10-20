@@ -51,6 +51,8 @@ class CreateNotificationHandler
         $notification->setBody($command->body);
         $notification->setRelatedEntityIri($command->relatedEntityIri);
         $notification->setOccurrenceStartAt($command->occurrenceStartAt);
+        $notification->setReminderId($command->reminderId);
+        $notification->setActions($command->actions);
 
         $notification = $this->createNotification->execute($notification);
 

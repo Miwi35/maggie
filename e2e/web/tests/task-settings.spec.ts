@@ -19,6 +19,8 @@ test.describe.configure({ mode: 'serial' })
 
 interface TaskSettings {
   morningTime: string
+  tone: string
+  reminderDailyCap: number
   orderLevels: Record<string, number>
   alertSchedule: Record<string, { daysBefore: number[]; dueDay: boolean; overdueEveryDays: number | null }>
   defaults: Record<string, unknown>
@@ -84,4 +86,31 @@ test('« La gravité » pushed to « Énormément » holds after a reload and re
 
   const saved = await readSettings(api)
   expect(saved.orderLevels.criticality).toBe(4)
+})
+
+/**
+ * « Rappels et récompenses » (MAG-510): how many reminders a day at most, and
+ * the tone of their words. The defaults the hooks put back hold the reminder
+ * fields too, so the neighbour ends on 6 and « Doux » whatever the attempt.
+ */
+test('« Au plus, par jour » brought down to 4 and the tone « Drôle » hold after a reload and reach the API', async ({ otherUser }) => {
+  const { page, api } = otherUser
+  const settings = new TaskSettingsPage(page)
+  await settings.open()
+  await expect(settings.dailyCap).toHaveText('6')
+  await expect(settings.tone('Doux')).toHaveAttribute('aria-pressed', 'true')
+
+  await settings.stepDailyCap('Moins', 2)
+  await expect(settings.dailyCap).toHaveText('4')
+  await settings.chooseTone('Drôle')
+  await expect(settings.tone('Drôle')).toHaveAttribute('aria-pressed', 'true')
+
+  await page.reload()
+  await settings.expectReady()
+  await expect(settings.dailyCap).toHaveText('4')
+  await expect(settings.tone('Drôle')).toHaveAttribute('aria-pressed', 'true')
+  await expect(settings.tone('Doux')).toHaveAttribute('aria-pressed', 'false')
+
+  const saved = await readSettings(api)
+  expect([saved.reminderDailyCap, saved.tone]).toEqual([4, 'drole'])
 })

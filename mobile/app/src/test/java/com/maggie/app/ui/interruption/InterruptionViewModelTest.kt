@@ -11,7 +11,9 @@ import com.maggie.app.data.interruption.Interruptions
 import com.maggie.app.data.model.Notification
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -145,6 +147,35 @@ class InterruptionViewModelTest {
             assertEquals(InterruptionEvent.OpenLink(payload), awaitItem())
         }
         assertNull(shown())
+    }
+
+    @Test
+    fun `Je m'y mets closes it, answers the reminder and asks the screen to open the task's Focus (MAG-510)`() = runTest {
+        val payload = message("a", type = "task_nudge").copy(reminderId = "r-1", taskId = "t-1", reminderActions = listOf("start", "in10"))
+        every { handler.answerInBackground(PushActionKind.START, payload) } returns Unit
+        center.offer(payload)
+
+        viewModel.events.test {
+            viewModel.answer(PushActionKind.START)
+
+            val open = awaitItem() as InterruptionEvent.OpenLink
+            assertEquals("${BuildConfig.DEEP_LINK_SCHEME}://task/t-1/focus", open.payload.link)
+        }
+        assertNull(shown())
+        assertEquals(listOf("a"), dismissed)
+        verify(exactly = 1) { handler.answerInBackground(PushActionKind.START, payload) }
+    }
+
+    @Test
+    fun `Fait on a reminder closes it once the reward came back`() = runTest {
+        val payload = message("a", type = "task_due").copy(reminderId = "r-1", taskId = "t-1", reminderActions = listOf("done"))
+        coEvery { handler.handle(PushActionKind.TICK, any(), any(), any()) } returns PushOutcome.Rewarded("Bravo.")
+        center.offer(payload)
+
+        viewModel.answer(PushActionKind.TICK)
+
+        assertNull(shown())
+        assertEquals(listOf("a"), dismissed)
     }
 
     private fun envelopeAlert() = Interruptions.of(

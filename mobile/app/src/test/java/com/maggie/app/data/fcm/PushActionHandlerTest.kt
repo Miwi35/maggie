@@ -1,8 +1,13 @@
 package com.maggie.app.data.fcm
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.TaskReminder
+import com.maggie.app.data.model.TaskReminderAnswer
+import com.maggie.app.data.model.TaskReminderNotification
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -197,5 +202,127 @@ class PushActionHandlerTest {
         while (late.isEmpty() && System.currentTimeMillis() < deadline) delay(20)
         assertEquals(1, late.size)
         assertTrue(late.single().message.contains("Oui, merci"))
+    }
+
+    // MAG-510: the buttons of a task reminder answer it, each with its own effect.
+
+    private val reminder = payload("task_nudge").copy(reminderId = "r-1", taskId = "t-1", reminderActions = listOf("start", "in10", "tonight"))
+
+    private fun answer(reward: Reward? = null, notification: TaskReminderNotification? = null) = TaskReminderAnswer(
+        reminder = TaskReminder(id = "r-1", kind = "nudge", subjectId = "t-1", scheduledFor = "2026-10-19T08:30:00+00:00", snoozed = false),
+        reward = reward,
+        notification = notification,
+    )
+
+    private val reward = Reward(
+        id = "rw-1",
+        subjectType = "task",
+        subjectId = "t-1",
+        level = "standard",
+        messageKey = "standard.1",
+        message = "Et une de moins. Bravo.",
+        star = true,
+        earnedAt = "2026-10-19T08:31:00+00:00",
+    )
+
+    @Test
+    fun `Je m'y mets answers the reminder, the Focus opening by itself`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "start") } returns answer()
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.START, reminder))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-1", "start") }
+        coVerify(exactly = 0) { api.markNotificationRead(any()) }
+    }
+
+    @Test
+    fun `Dans 10 min answers the reminder and closes the notification, the server sends the next`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "in10") } returns answer()
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.IN_TEN, reminder))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-1", "in10") }
+    }
+
+    @Test
+    fun `Ce soir answers the reminder and closes the notification`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "tonight") } returns answer()
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.TONIGHT, reminder))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-1", "tonight") }
+    }
+
+    @Test
+    fun `Demain answers the reminder and closes the notification`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "tomorrow") } returns answer()
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.TOMORROW, reminder))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-1", "tomorrow") }
+    }
+
+    @Test
+    fun `Fait ticks the task and the notification says the reward's message`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "done") } returns
+            answer(reward = reward, notification = TaskReminderNotification(id = "n-1", title = reward.message))
+
+        assertEquals(PushOutcome.Rewarded("Et une de moins. Bravo."), handler.handle(PushActionKind.TICK, reminder))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-1", "done") }
+    }
+
+    @Test
+    fun `Fait without a reward says the notification's new words, else that it is done`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "done") } returns answer(notification = TaskReminderNotification(id = "n-1", title = "Bien joué."))
+        assertEquals(PushOutcome.Rewarded("Bien joué."), handler.handle(PushActionKind.TICK, reminder))
+
+        coEvery { api.answerTaskReminder("r-1", "done") } returns answer()
+        assertEquals(PushOutcome.Rewarded("C'est fait."), handler.handle(PushActionKind.TICK, reminder))
+    }
+
+    @Test
+    fun `a reminder already answered settles the notification in French`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "in10") } throws
+            ApiRefusalException(409, "This reminder was already answered: \"start\".")
+
+        assertEquals(PushOutcome.Settled("Ce rappel a déjà eu sa réponse."), handler.handle(PushActionKind.IN_TEN, reminder))
+    }
+
+    @Test
+    fun `a refused Ce soir or Demain says why, and a reminder gone says so`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "tonight") } throws ApiRefusalException(409, "Tonight has passed: put it in tomorrow instead.")
+        coEvery { api.answerTaskReminder("r-1", "tomorrow") } throws ApiRefusalException(409, "Tomorrow already holds 5 tasks.")
+        coEvery { api.answerTaskReminder("r-1", "start") } throws ApiRefusalException(404, "Reminder not found.")
+
+        assertEquals(PushOutcome.Settled("La soirée est passée : mettez-la plutôt à demain."), handler.handle(PushActionKind.TONIGHT, reminder))
+        assertEquals(PushOutcome.Settled("Demain est déjà plein."), handler.handle(PushActionKind.TOMORROW, reminder))
+        assertEquals(PushOutcome.Settled("Ce rappel n'existe plus."), handler.handle(PushActionKind.START, reminder))
+    }
+
+    @Test
+    fun `a reminder answer that cannot reach Maggie keeps the buttons to press again`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "done") } throws java.io.IOException("offline")
+        coEvery { api.answerTaskReminder("r-1", "tonight") } throws ApiRefusalException(503, "Service Unavailable")
+
+        assertEquals(PushOutcome.Retry("Maggie est injoignable. Réessayez."), handler.handle(PushActionKind.TICK, reminder))
+        assertEquals(PushOutcome.Retry("Maggie est injoignable. Réessayez."), handler.handle(PushActionKind.TONIGHT, reminder))
+    }
+
+    @Test
+    fun `a reminder button without its reminder answers nothing`() = runBlocking {
+        val outcome = handler.handle(PushActionKind.IN_TEN, payload("task_nudge"))
+
+        assertTrue(outcome is PushOutcome.Settled)
+        coVerify(exactly = 0) { api.answerTaskReminder(any(), any()) }
+    }
+
+    @Test
+    fun `Je m'y mets from the app answers in the background`() = runBlocking {
+        coEvery { api.answerTaskReminder("r-1", "start") } returns answer()
+
+        handler.answerInBackground(PushActionKind.START, reminder)
+
+        coVerify(timeout = 3_000) { api.answerTaskReminder("r-1", "start") }
     }
 }

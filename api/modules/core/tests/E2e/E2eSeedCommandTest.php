@@ -8,9 +8,12 @@ use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
+use Maggie\Calendar\Entity\DayPlan;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Entity\TaskReminder;
+use Maggie\Calendar\Enum\DayMoment;
 use Maggie\Calendar\Service\AgendaCandidate;
 use Maggie\Calendar\Service\AgendaChoiceKind;
 use Maggie\Calendar\Service\AgendaSuggester;
@@ -110,9 +113,12 @@ final class E2eSeedCommandTest extends KernelTestCase
         // journey asserts exactly. The nineteenth is the review activity's
         // (MAG-456): two unrecognised spends the review walks and resumes on, and
         // nothing else to review. The twentieth is the period review's (MAG-462):
-        // an account and « Loisirs », the quarter's spend is the journey's own. A
-        // twenty-first would mean somebody added an account without saying why.
-        self::assertSame(21, $this->rowsOf(User::class));
+        // an account and « Loisirs », the quarter's spend is the journey's own. The
+        // twenty-first is the reminders' (MAG-510): « Dans 10 min » deletes the
+        // notification its journey reads, and the other journeys count the
+        // bell's. A twenty-second would mean somebody added an account without
+        // saying why.
+        self::assertSame(22, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -133,6 +139,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stars-mobile@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-activity@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-period@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-reminders@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -148,8 +155,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(17, $this->rowsOf(Event::class));
         self::assertSame(2, $this->rowsOf(Meal::class));
         // Eight since MAG-405: one task due two days ago, never done. Eleven since
-        // MAG-406: the three whose order « Aujourd'hui » is read in.
-        self::assertSame(11, $this->rowsOf(Task::class));
+        // MAG-406: the three whose order « Aujourd'hui » is read in. Twelve since
+        // MAG-510: the reminders account's « Appeler le garagiste ».
+        self::assertSame(12, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
         // Five on the owner's list, three on the shopper's.
         self::assertSame(8, $this->rowsOf(GroceryItem::class));
@@ -177,7 +185,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // since MAG-463: the « À venir » account's current and next month's.
         // Eleven since MAG-457: the month balance account's « Alimentation » and « Transport ».
         self::assertSame(11, $this->rowsOf(Envelope::class));
-        self::assertSame(2, $this->rowsOf(Notification::class));
+        // Three since MAG-510: the nudge the reminders journey answers.
+        self::assertSame(3, $this->rowsOf(Notification::class));
     }
 
     public function testEveryRowBelongsToTheSeededUser(): void
@@ -335,6 +344,40 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame($today, $due[0]['dueOn']);
     }
 
+    public function testTheRemindersAccountHoldsASentNudgeItsBellCanAnswer(): void
+    {
+        // notifications-bell.spec.ts presses « Dans 10 min » under the seeded nudge
+        // (MAG-510): the notification must name its reminder, the reminder its
+        // task, and the confirmed day hold that task first — ids the fixture
+        // writes as strings, which a wrong expression would leave as « Ulid ».
+        $this->seed();
+
+        $user = $this->repository(User::class)->findOneBy(['email' => 'e2e-reminders@maggie.local']);
+        self::assertNotNull($user);
+        $task = $this->repository(Task::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($task);
+        $taskId = (string) $task->getId();
+
+        $reminder = $this->repository(TaskReminder::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($reminder);
+        self::assertSame(TaskReminder::KIND_NUDGE, $reminder->getKind());
+        self::assertSame(DayMoment::AfterBreakfast, $reminder->getMoment());
+        self::assertSame($taskId, $reminder->getSubjectId());
+        self::assertNotNull($reminder->getSentAt());
+        self::assertNull($reminder->getAction());
+
+        $notification = $reminder->getNotification();
+        self::assertNotNull($notification);
+        self::assertSame((string) $reminder->getId(), $notification->getReminderId());
+        self::assertSame(['start', 'in10', 'tonight'], $notification->getActions());
+        self::assertSame('/api/tasks/'.$taskId, $notification->getRelatedEntityIri());
+
+        $day = $this->repository(DayPlan::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($day);
+        self::assertNotNull($day->getConfirmedAt());
+        self::assertSame([$taskId], $day->getTaskIds());
+    }
+
     public function testTheSeedStoresHistoryAsWrittenWithoutFilingIt(): void
     {
         // finance-rules.spec.ts starts from an operation the seeded rule is
@@ -388,11 +431,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(22, $this->rowsOf(User::class));
+        self::assertSame(23, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(21, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(22, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

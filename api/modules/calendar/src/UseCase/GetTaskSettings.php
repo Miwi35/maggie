@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Calendar\UseCase;
 
 use Maggie\Calendar\Entity\TaskSettings;
+use Maggie\Calendar\Enum\DayMoment;
 use Maggie\Calendar\Message\CreateTaskSettingsCommand;
 use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Calendar\Service\TaskAlertSchedule;
@@ -58,6 +59,10 @@ class GetTaskSettings
             'rewardVibration' => $settings->isRewardVibration(),
             'rewardSound' => $settings->isRewardSound(),
             'tone' => $settings->getTone(),
+            'dayMoments' => $settings->getDayMoments(),
+            'reminderDailyCap' => $settings->getReminderDailyCap(),
+            'quietStart' => $settings->getQuietStart(),
+            'quietEnd' => $settings->getQuietEnd(),
             'defaults' => [
                 'orderWeights' => TaskOrderWeights::DEFAULTS,
                 'orderLevels' => array_map(static fn (): int => TaskOrderWeights::DEFAULT_LEVEL, TaskOrderWeights::DEFAULTS),
@@ -68,6 +73,10 @@ class GetTaskSettings
                 'rewardVibration' => true,
                 'rewardSound' => true,
                 'tone' => TaskSettings::DEFAULT_TONE,
+                'dayMoments' => DayMoment::DEFAULTS,
+                'reminderDailyCap' => TaskSettings::DEFAULT_REMINDER_DAILY_CAP,
+                'quietStart' => TaskSettings::DEFAULT_QUIET_START,
+                'quietEnd' => TaskSettings::DEFAULT_QUIET_END,
             ],
         ];
     }

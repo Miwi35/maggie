@@ -10,7 +10,8 @@ use Maggie\Notification\Enum\NotificationType;
 /**
  * Turns a stored notification into the FCM message one device receives.
  *
- * Both blocks, never data alone (owner's rule, 7 Oct.): with a `notification`
+ * Both blocks, never data alone (owner's rule, 7 Oct.) — but for a task
+ * reminder with buttons (MAG-510), see {@see self::build()}: with a `notification`
  * block Android shows the push itself while the app is closed, killed or in
  * the background; in the foreground it shows nothing and hands the message to
  * `onMessageReceived`, where the app raises its interruption (MAG-314). The
@@ -75,7 +76,22 @@ class PushMessageFactory
             'body' => $text,
             'link' => $action['link'] ?? null,
             'actionLabel' => $action['label'] ?? null,
+            // A task reminder's buttons (MAG-510), as ordered keys the phone labels; they answer the reminder.
+            'reminderId' => $notification->getReminderId(),
+            'taskId' => null === $notification->getReminderId() ? null : $this->taskId($notification->getRelatedEntityIri()),
+            'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
+
+        // A task reminder (MAG-510) goes as data alone: a `notification` block would be shown by
+        // Android itself in the background, without the buttons it exists for. The app posts it
+        // with them (`PushNotifier`), in the reminders channel its type maps to.
+        if ([] !== $notification->getActions()) {
+            return [
+                'token' => $deviceToken,
+                'data' => $data,
+                'android' => ['priority' => 'high'],
+            ];
+        }
 
         return [
             'token' => $deviceToken,
@@ -125,11 +141,18 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
         };
+    }
+
+    private function taskId(?string $relatedEntityIri): ?string
+    {
+        $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
+
+        return 1 === preg_match('#^/api/tasks/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
     }
 
     /** @return array{link: string, label: string}|null */

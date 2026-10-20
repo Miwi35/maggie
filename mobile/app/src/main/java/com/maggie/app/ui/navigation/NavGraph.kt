@@ -954,6 +954,21 @@ fun NavGraph() {
                             navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
                         }
                     }
+                    // « Je m'y mets » of a task reminder (MAG-510): the Focus of that task, over wherever the app was.
+                    composable(DeepLinks.TASK_FOCUS_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.TASK_FOCUS_ROUTE)) { entry ->
+                        val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                        LoadingScreen()
+                        LaunchedEffect(id, linkReady) {
+                            if (!linkReady) return@LaunchedEffect
+                            if (DeepLinks.isValidId(id)) {
+                                focusTaskId = id
+                                navController.replaceLink(entry, Screen.TaskFocus.route, singleTop = true)
+                            } else {
+                                Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                                navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
+                            }
+                        }
+                    }
                     composable(DeepLinks.GROCERY_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.GROCERY_ROUTE)) { entry ->
                         val id = entry.arguments?.getString(DeepLinks.ARG_ID)
                         LoadingScreen()

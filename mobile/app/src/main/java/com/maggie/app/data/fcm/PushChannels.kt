@@ -34,7 +34,7 @@ object PushChannels {
 
     /** The channel the server picks for a notification type (`PushMessageFactory::channel`). */
     fun forType(type: String?): String = when (type) {
-        "reminder", "task_due" -> REMINDERS
+        "reminder", "task_due", "task_nudge" -> REMINDERS
         "approval" -> APPROVALS
         "consent_expiring", "finance" -> FINANCE
         else -> CHAT

@@ -8,6 +8,7 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Reward;
+use Maggie\Calendar\Entity\TaskReminder;
 use Maggie\Calendar\Service\RewardGranter;
 use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Core\Entity\User;
@@ -26,6 +27,8 @@ use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\PurchasedItem;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Notification\Entity\Notification;
+use Maggie\Notification\Enum\NotificationType;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -778,6 +781,53 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/stars.read.json',
             self::stabilise($body),
             sprintf('GET %s no longer returns what it used to. The mobile DTOs (Stars.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
+     * A button pressed on a task reminder (MAG-510), as
+     * `/api/task-reminders/{id}/action` answers « Fait »: the reminder, the
+     * reward the tick laid down, the notification now saying it. The reward's
+     * message is drawn by chance: the recording keeps the bank's first.
+     */
+    public function testTheTaskReminderActionRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+        $taskId = (string) $this->getFixture('recorded_open_task')->getId();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = $em->find(User::class, $user->getId());
+        \assert($user instanceof User);
+        $now = Clock::get()->now();
+        $reminder = (new TaskReminder())->setUser($user)->setKind(TaskReminder::KIND_DUE)->setSubjectId($taskId)
+            ->setScheduledFor($now)->setSentAt($now)->setMessageKey('due.overdue.doux.1');
+        $notification = (new Notification())->setUser($user)->setType(NotificationType::TaskDue)->setTitle('« Recorded » peut trouver sa place aujourd\'hui, sans pression.')
+            ->setRelatedEntityIri('/api/tasks/'.$taskId)->setReminderId((string) $reminder->getId())->setActions(['start', 'done', 'tomorrow']);
+        $reminder->setNotification($notification);
+        $em->persist($notification);
+        $em->persist($reminder);
+        $em->flush();
+
+        $path = '/api/task-reminders/'.$reminder->getId().'/action';
+        $this->client->request('POST', $path, [], [], array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders()), json_encode(['action' => 'done'], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotNull($body['reward'], 'The recorded answer laid down no reward, so it proves nothing about it.');
+        self::assertNotNull($body['notification'], 'The recorded answer took the notification away.');
+        $message = $body['reward']['message'];
+        self::assertSame($message, $body['notification']['title']);
+        $body['reward']['messageKey'] = 'waited.1';
+        $body['reward']['message'] = $body['notification']['title'] = str_replace('{jours}', '33', RewardMessages::SURPRISES['waited'][0]);
+
+        $this->assertMatchesContract(
+            'responses/task_reminders.action.json',
+            self::stabilise($body),
+            sprintf('POST %s no longer returns what it used to. The mobile DTOs (TaskReminder.kt) are written against this response.', $path),
         );
     }
 

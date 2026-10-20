@@ -1,0 +1,54 @@
+# The reminder journeys (MAG-510, extends MAG-103): a nudge with its buttons.
+#
+# One account that only the reminder journey signs in to: « Dans 10 min »
+# deletes the notification and plans a new reminder, so on an account another
+# journey reads the bell of, the badge count would move under it. The cron
+# cannot run from a browser: the nudge is seeded as sent this morning, at
+# afterBreakfast, on the task « now » of a confirmed day. The smoke journey
+# (e2e/smoke/smoke.sh, step 11c) proves the cron sends it.
+
+Maggie\Core\Entity\User:
+  e2e_reminders_user:
+    email: 'e2e-reminders@maggie.local'
+    googleId: 'e2e-reminders-google-id'
+    name: 'Sam Rappel'
+
+Maggie\Calendar\Entity\Task:
+  e2e_reminders_task:
+    title: Appeler le garagiste
+    firstStep: Trouver le numéro
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Medium)>'
+    user: '@e2e_reminders_user'
+
+Maggie\Calendar\Entity\DayPlan:
+  e2e_reminders_day:
+    user: '@e2e_reminders_user'
+    date: '<e2eDate()>'
+    slots:
+      - { type: task, taskId: '<((string) @e2e_reminders_task->getId())>' }
+    confirmedAt: '<e2eDate("08:05")>'
+
+Maggie\Notification\Entity\Notification:
+  e2e_reminders_notification:
+    user: '@e2e_reminders_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::TaskNudge)>'
+    title: 'Suivante : « Appeler le garagiste ».'
+    body: 'Premier pas : Trouver le numéro'
+    relatedEntityIri: '<("/api/tasks/" . @e2e_reminders_task->getId())>'
+    actions: [start, in10, tonight]
+    readAt: null
+
+# The reminder comes after its notification: setNotification() writes its id
+# into the notification, which is what the bell's buttons answer.
+Maggie\Calendar\Entity\TaskReminder:
+  e2e_reminders_nudge:
+    user: '@e2e_reminders_user'
+    kind: nudge
+    subjectId: '<((string) @e2e_reminders_task->getId())>'
+    moment: '<(Maggie\Calendar\Enum\DayMoment::AfterBreakfast)>'
+    scheduledFor: '<e2eDate("08:30")>'
+    sentAt: '<e2eDate("08:30")>'
+    # The first message of the « direct » bank, which is what the title says.
+    messageKey: 'nudge.direct.1'
+    notification: '@e2e_reminders_notification'

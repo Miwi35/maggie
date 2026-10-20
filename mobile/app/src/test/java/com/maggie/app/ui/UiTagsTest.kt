@@ -80,6 +80,11 @@ class UiTagsTest {
         assertEquals("settings_tasks_overdue_high", UiTags.settingsTasksOverdue("high"))
         assertEquals("settings_task_order_timePressure", UiTags.settingsTaskOrder("timePressure"))
         assertEquals("settings_tasks_tone_drole", UiTags.settingsTasksTone("drole"))
+        // « Mes moments » (MAG-510): `17-task-settings.yaml` spells them by the API's moment.
+        assertEquals("settings_tasks_moment_afterLunch", UiTags.settingsTasksMoment("afterLunch"))
+        assertEquals(UiTags.SETTINGS_TASKS_REMINDER_CAP + "_minus", UiTags.SETTINGS_TASKS_REMINDER_CAP_MINUS)
+        assertEquals(UiTags.SETTINGS_TASKS_REMINDER_CAP + "_value", UiTags.SETTINGS_TASKS_REMINDER_CAP_VALUE)
+        assertEquals(UiTags.SETTINGS_TASKS_REMINDER_CAP + "_plus", UiTags.SETTINGS_TASKS_REMINDER_CAP_PLUS)
     }
 
     /** `e2e/mobile/flows/17b-tasks-day.yaml` spells the day's slots and the reserve's rows by hand (MAG-497). */

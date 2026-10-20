@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Tests\Service;
 
+use Maggie\Calendar\Service\ReminderMessages;
 use Maggie\Calendar\Service\RewardMessages;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 
-/** The written words of a reward (MAG-508): never twice in a row, never a reproach. */
+/** The written words of a reward (MAG-508), and of a reminder (MAG-510): never twice in a row, never a reproach. */
 class RewardMessagesTest extends TestCase
 {
     private const FORBIDDEN = ['retard', 'toujours pas', 'aurais dû', 'oublié', 'dépêche', 'enfin'];
@@ -133,6 +134,19 @@ class RewardMessagesTest extends TestCase
         self::assertCount(48, $all);
 
         foreach ($all as $message) {
+            foreach (self::FORBIDDEN as $word) {
+                self::assertStringNotContainsStringIgnoringCase($word, $message, \sprintf('« %s » in « %s »', $word, $message));
+            }
+        }
+    }
+
+    public function testNoReminderOfAnyBankIsAReproach(): void
+    {
+        $all = ReminderMessages::all();
+        self::assertCount(57, $all, '30 nudges, 27 morning alerts');
+
+        foreach ($all as $message) {
+            self::assertStringContainsString('« {titre} »', $message, 'every reminder names its task');
             foreach (self::FORBIDDEN as $word) {
                 self::assertStringNotContainsStringIgnoringCase($word, $message, \sprintf('« %s » in « %s »', $word, $message));
             }

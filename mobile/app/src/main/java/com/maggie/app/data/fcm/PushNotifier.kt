@@ -77,6 +77,18 @@ class PushNotifier(private val context: Context) {
         if (kind == PushActionKind.GO) {
             return NotificationCompat.Action.Builder(0, kind.label, openIntent(payload, toLink = true)).build()
         }
+        // « Je m'y mets » opens the Focus, so it is an activity intent too; the app answers the reminder once open.
+        if (kind == PushActionKind.START) {
+            PushIntents.startFocus(context, payload)?.let { intent ->
+                val pending = PendingIntent.getActivity(
+                    context,
+                    requestCode(payload, kind.name),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                return NotificationCompat.Action.Builder(0, kind.label, pending).build()
+            }
+        }
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (kind == PushActionKind.REPLY) mutableFlag() else PendingIntent.FLAG_IMMUTABLE
@@ -130,6 +142,12 @@ object PushIntents {
     const val EXTRA_APPROVAL_ID = "approvalId"
     const val EXTRA_CHANNEL = "channel"
     const val EXTRA_INTERACTION = "interaction"
+    const val EXTRA_REMINDER_ID = "reminderId"
+    const val EXTRA_TASK_ID = "taskId"
+    const val EXTRA_ACTIONS = "actions"
+
+    /** The reminder's button the app answers once it is open (« Je m'y mets »), by its key. */
+    const val EXTRA_ANSWER = "com.maggie.app.push.ANSWER"
 
     fun put(intent: Intent, payload: PushPayload) {
         intent.putExtra(EXTRA_NOTIFICATION_ID, payload.notificationId)
@@ -140,10 +158,16 @@ object PushIntents {
         intent.putExtra(EXTRA_APPROVAL_ID, payload.approvalId)
         intent.putExtra(EXTRA_CHANNEL, payload.channel)
         payload.interaction?.let { intent.putExtra(EXTRA_INTERACTION, kotlinx.serialization.json.Json.encodeToString(PushInteraction.serializer(), it)) }
+        intent.putExtra(EXTRA_REMINDER_ID, payload.reminderId)
+        intent.putExtra(EXTRA_TASK_ID, payload.taskId)
+        if (payload.reminderActions.isNotEmpty()) intent.putExtra(EXTRA_ACTIONS, payload.reminderActions.joinToString(","))
     }
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
-        data = listOf(EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_INTERACTION)
+        data = listOf(
+            EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_INTERACTION,
+            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS,
+        )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),
         notificationChannel = intent.getStringExtra(EXTRA_CHANNEL),
@@ -166,6 +190,31 @@ object PushIntents {
             }
             put(this, payload)
         }
+    }
+
+    /**
+     * « Je m'y mets » (MAG-510): the app opened on the Focus of the reminder's task, told to answer
+     * the reminder. Null when the reminder names no task: the button is then a plain answer.
+     */
+    fun startFocus(context: Context, payload: PushPayload): Intent? {
+        val link = linkOf(payload.focusLink()) ?: return null
+        return Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = Intent.ACTION_VIEW
+            data = link
+            put(this, payload)
+            putExtra(EXTRA_ANSWER, PushActionKind.START.reminderKey)
+        }
+    }
+
+    /** The reminder's button an intent asks the app to answer, with its push; null for any other intent. */
+    fun answerOf(intent: Intent): Pair<PushActionKind, PushPayload>? {
+        // « Je m'y mets » only, the one answer the app puts there: the activity is exported, and
+        // another app's intent must not tick a task or move it to tomorrow.
+        val kind = intent.getStringExtra(EXTRA_ANSWER)?.let(PushActionKind::ofReminderKey)
+            ?.takeIf { it == PushActionKind.START } ?: return null
+        val payload = payloadOf(intent)?.takeIf { it.reminderId != null } ?: return null
+        return kind to payload
     }
 
     /**

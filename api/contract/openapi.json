@@ -17965,6 +17965,7 @@
                             "consent_expiring",
                             "proaction",
                             "task_due",
+                            "task_nudge",
                             "grocery",
                             "approval",
                             "finance"
@@ -17984,6 +17985,23 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "reminderId": {
+                        "description": "The task reminder it was sent for (MAG-510), whose buttons answer through\n`/api/task-reminders/{id}/action`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "actions": {
+                        "description": "The buttons it offers, in order, as keys the screens label (`start`,\n`in10`…). Null or empty: none beyond opening it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "readAt": {
                         "type": [
@@ -18019,6 +18037,7 @@
                             "consent_expiring",
                             "proaction",
                             "task_due",
+                            "task_nudge",
                             "grocery",
                             "approval",
                             "finance"
@@ -18038,6 +18057,23 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "reminderId": {
+                        "description": "The task reminder it was sent for (MAG-510), whose buttons answer through\n`/api/task-reminders/{id}/action`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "actions": {
+                        "description": "The buttons it offers, in order, as keys the screens label (`start`,\n`in10`…). Null or empty: none beyond opening it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "readAt": {
                         "type": [
@@ -18073,6 +18109,7 @@
                             "consent_expiring",
                             "proaction",
                             "task_due",
+                            "task_nudge",
                             "grocery",
                             "approval",
                             "finance"
@@ -18092,6 +18129,23 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "reminderId": {
+                        "description": "The task reminder it was sent for (MAG-510), whose buttons answer through\n`/api/task-reminders/{id}/action`.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "actions": {
+                        "description": "The buttons it offers, in order, as keys the screens label (`start`,\n`in10`…). Null or empty: none beyond opening it.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "readAt": {
                         "type": [
@@ -18132,6 +18186,7 @@
                                     "consent_expiring",
                                     "proaction",
                                     "task_due",
+                                    "task_nudge",
                                     "grocery",
                                     "approval",
                                     "finance"
@@ -18151,6 +18206,23 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "reminderId": {
+                                "description": "The task reminder it was sent for (MAG-510), whose buttons answer through\n`/api/task-reminders/{id}/action`.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "actions": {
+                                "description": "The buttons it offers, in order, as keys the screens label (`start`,\n`in10`…). Null or empty: none beyond opening it.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "string"
+                                }
                             },
                             "readAt": {
                                 "type": [

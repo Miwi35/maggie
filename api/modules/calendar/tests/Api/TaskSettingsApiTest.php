@@ -105,7 +105,7 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertTrue($data['rewardVibration']);
         self::assertTrue($data['rewardSound']);
         self::assertSame('doux', $data['tone']);
-        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'orderLevels' => $levels, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00', 'eveningTime' => '21:00', 'rewardAnimation' => true, 'rewardVibration' => true, 'rewardSound' => true, 'tone' => 'doux'], $data['defaults']);
+        self::assertSame(['orderWeights' => TaskOrderWeights::DEFAULTS, 'orderLevels' => $levels, 'alertSchedule' => TaskAlertSchedule::DEFAULTS, 'morningTime' => '08:00', 'eveningTime' => '21:00', 'rewardAnimation' => true, 'rewardVibration' => true, 'rewardSound' => true, 'tone' => 'doux', 'dayMoments' => \Maggie\Calendar\Enum\DayMoment::DEFAULTS, 'reminderDailyCap' => 6, 'quietStart' => '21:00', 'quietEnd' => '08:00'], $data['defaults']);
         $this->assertMercurePublishedOnce('/api/task_settings/'.$created->getId());
     }
 
@@ -203,6 +203,44 @@ class TaskSettingsApiTest extends WebTestCase
         $this->assertNoElasticsearchIndexDispatched(TaskSettings::class);
     }
 
+    public function testPutChangesTheRemindersCapQuietHoursAndMomentsAndPublishes(): void
+    {
+        $data = $this->put('{"reminderDailyCap": 4, "quietStart": "22:00", "quietEnd": "07:00", "dayMoments": {"afterLunch": "14:00"}}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(4, $data['reminderDailyCap']);
+        self::assertSame('22:00', $data['quietStart']);
+        self::assertSame('07:00', $data['quietEnd']);
+        self::assertSame(['wake' => '07:30', 'afterBreakfast' => '08:30', 'afterLunch' => '14:00', 'afterDinner' => '20:00'], $data['dayMoments'], 'a moment not sent keeps its hour');
+
+        $stored = $this->settingsOf('test_user');
+        self::assertNotNull($stored);
+        self::assertSame(4, $stored->getReminderDailyCap());
+        self::assertSame('22:00', $stored->getQuietStart());
+        self::assertSame('07:00', $stored->getQuietEnd());
+        self::assertSame('14:00', $stored->getDayMoments()['afterLunch']);
+        self::assertSame(6, $this->settingsOf('other_user')?->getReminderDailyCap() ?? 6);
+
+        $topic = '/api/task_settings/'.$stored->getId();
+        $this->assertMercureUpdatePublished($topic);
+        $payloads = $this->mercurePayloadsOn($topic);
+        self::assertSame(4, end($payloads)['reminderDailyCap']);
+        self::assertSame('14:00', end($payloads)['dayMoments']['afterLunch']);
+    }
+
+    public function testTheRemindersStartAtSixADayQuietFromNineToEight(): void
+    {
+        $this->client->request('GET', self::ENDPOINT, [], [], $this->authHeaders());
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(6, $data['reminderDailyCap']);
+        self::assertSame('21:00', $data['quietStart']);
+        self::assertSame('08:00', $data['quietEnd']);
+        self::assertSame(['wake' => '07:30', 'afterBreakfast' => '08:30', 'afterLunch' => '13:30', 'afterDinner' => '20:00'], $data['dayMoments']);
+        self::assertSame(['wake' => '07:30', 'afterBreakfast' => '08:30', 'afterLunch' => '13:30', 'afterDinner' => '20:00'], $data['defaults']['dayMoments']);
+        self::assertSame(6, $data['defaults']['reminderDailyCap']);
+    }
+
     public function testTheDefaultsSentBackRestoreTheSettings(): void
     {
         $this->put('{"morningTime": "06:15", "eveningTime": "22:30", "alertSchedule": {"high": {"dueDay": false}}, "orderWeights": {"priority": {"high": 9}}, "rewardAnimation": false, "tone": "direct"}');
@@ -252,6 +290,15 @@ class TaskSettingsApiTest extends WebTestCase
         yield 'a level that is not an integer' => ['{"orderLevels": {"timePressure": "2"}}', 'orderLevels.timePressure'];
         yield 'an unknown level group' => ['{"orderLevels": {"urgency": 2}}', 'urgency'];
         yield 'levels that are not an object' => ['{"orderLevels": [2, 2, 2]}', 'orderLevels'];
+        yield 'a cap of zero' => ['{"reminderDailyCap": 0}', 'reminderDailyCap'];
+        yield 'a cap above twelve' => ['{"reminderDailyCap": 13}', 'reminderDailyCap'];
+        yield 'a cap that is not a whole number' => ['{"reminderDailyCap": "6"}', 'reminderDailyCap'];
+        yield 'an invalid quiet start' => ['{"quietStart": "24:00"}', 'quietStart'];
+        yield 'a quiet end that is not a string' => ['{"quietEnd": 8}', 'quietEnd'];
+        yield 'an unknown moment' => ['{"dayMoments": {"teaTime": "16:00"}}', 'teaTime'];
+        yield 'an invalid moment hour' => ['{"dayMoments": {"wake": "7h30"}}', 'dayMoments.wake'];
+        yield 'moments that are not an object' => ['{"dayMoments": "08:30"}', 'dayMoments'];
+        yield 'a good cap with a bad moment changes neither' => ['{"reminderDailyCap": 4, "dayMoments": {"afterLunch": "midi"}}', 'dayMoments.afterLunch'];
     }
 
     #[DataProvider('badBodies')]
@@ -272,6 +319,9 @@ class TaskSettingsApiTest extends WebTestCase
         self::assertSame('doux', $stored->getTone());
         self::assertTrue($stored->isRewardVibration());
         self::assertTrue($stored->isRewardSound());
+        self::assertSame(6, $stored->getReminderDailyCap());
+        self::assertSame('21:00', $stored->getQuietStart());
+        self::assertSame(\Maggie\Calendar\Enum\DayMoment::DEFAULTS, $stored->getDayMoments());
         $this->assertMercureUpdateCount(0);
     }
 

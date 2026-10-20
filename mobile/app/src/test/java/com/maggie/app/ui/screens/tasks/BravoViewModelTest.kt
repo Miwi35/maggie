@@ -72,6 +72,10 @@ class BravoViewModelTest {
         rewardVibration = true,
         rewardSound = true,
         tone = "doux",
+        dayMoments = mapOf("wake" to "07:30", "afterBreakfast" to "08:30", "afterLunch" to "13:30", "afterDinner" to "20:00"),
+        reminderDailyCap = 6,
+        quietStart = "21:00",
+        quietEnd = "08:00",
     )
 
     private fun settings(animation: Boolean = true, vibration: Boolean = true, sound: Boolean = true) = TaskSettings(
@@ -84,6 +88,10 @@ class BravoViewModelTest {
         rewardVibration = vibration,
         rewardSound = sound,
         tone = values.tone,
+        dayMoments = values.dayMoments,
+        reminderDailyCap = values.reminderDailyCap,
+        quietStart = values.quietStart,
+        quietEnd = values.quietEnd,
         defaults = values,
     )
 

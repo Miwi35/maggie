@@ -38,6 +38,8 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     is PushOutcome.Retry -> notifier.show(payload, note = outcome.message)
                     is PushOutcome.Settled -> notifier.show(payload, note = outcome.message, withActions = false)
+                    // The same notification, now the bravo: its words in place of the reminder's, nothing to press.
+                    is PushOutcome.Rewarded -> notifier.show(payload.copy(title = outcome.message, text = null), withActions = false)
                 }
             } finally {
                 pending.finish()

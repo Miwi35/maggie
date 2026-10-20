@@ -70,6 +70,18 @@ object TaskSettingsChoices {
         TaskSettings.TONE_DROLE to "Drôle",
     )
 
+    /** « Mes moments » (MAG-510): the moments of the day the reminders are anchored to, in the day's order. */
+    val MOMENT_LABELS: Map<String, String> = linkedMapOf(
+        TaskSettings.MOMENT_WAKE to "Réveil",
+        TaskSettings.MOMENT_AFTER_BREAKFAST to "Après le petit-déjeuner",
+        TaskSettings.MOMENT_AFTER_LUNCH to "Après le déjeuner",
+        TaskSettings.MOMENT_AFTER_DINNER to "Après le dîner",
+    )
+
+    /** « Au plus, par jour » moved by [step] (− 1 or + 1), kept within what the API takes. */
+    fun dailyCap(current: Int, step: Int): Int =
+        (current + step).coerceIn(TaskSettings.MIN_DAILY_CAP, TaskSettings.MAX_DAILY_CAP)
+
     val LEVEL_LABELS: List<String> = listOf("Très peu", "Peu", "Normal", "Beaucoup", "Énormément")
 
     fun levelLabel(level: Int): String = LEVEL_LABELS[level.coerceIn(LEVEL_LABELS.indices)]

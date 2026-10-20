@@ -71,6 +71,36 @@ final class PushMessageFactoryTest extends TestCase
         self::assertTrue(mb_check_encoding($message['data']['body'], 'UTF-8'));
     }
 
+    public function testATaskReminderCarriesItsReminderItsTaskAndItsButtonsInOrder(): void
+    {
+        $notification = $this->notification(NotificationType::TaskNudge, 'Suivante : « Appeler le garagiste ».', 'Premier pas : Trouver le numéro', '/api/tasks/01JABCDEF0123456789ABCDEFG')
+            ->setReminderId('01JREMINDER0123456789ABCDE')
+            ->setActions(['start', 'in10', 'tonight']);
+
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertSame('01JREMINDER0123456789ABCDE', $message['data']['reminderId']);
+        self::assertSame('01JABCDEF0123456789ABCDEFG', $message['data']['taskId']);
+        self::assertSame('start,in10,tonight', $message['data']['actions']);
+        self::assertSame('task_nudge', $message['data']['type']);
+        self::assertContainsOnlyString($message['data']);
+        // Data alone: Android would show a `notification` block itself, without the buttons.
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertSame(['priority' => 'high'], $message['android']);
+        self::assertSame('Suivante : « Appeler le garagiste ».', $message['data']['title']);
+    }
+
+    public function testANotificationWithoutButtonsCarriesNoReminderKeys(): void
+    {
+        $message = (new PushMessageFactory())->build($this->notification(NotificationType::TaskDue, 'Aujourd\'hui : « Payer »', null, '/api/tasks/01JABCDEF0123456789ABCDEFG'), 't');
+
+        self::assertArrayNotHasKey('reminderId', $message['data']);
+        self::assertArrayNotHasKey('taskId', $message['data']);
+        self::assertArrayNotHasKey('actions', $message['data']);
+        self::assertSame('reminders_v2', $message['android']['notification']['channel_id']);
+        self::assertArrayHasKey('notification', $message, 'without buttons, both blocks as always');
+    }
+
     public function testAShortMessageIsLeftWhole(): void
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Café prêt', 'À toi de jouer'), 't');

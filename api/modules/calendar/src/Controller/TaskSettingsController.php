@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The task settings (MAG-406, MAG-407, MAG-500, MAG-508), created on first read. Written here and not
+ * The task settings (MAG-406, MAG-407, MAG-500, MAG-508, MAG-510), created on first read. Written here and not
  * through an API Platform `Patch` on an identifier-less path, which would
  * build a fresh entity (MeOperationContractTest). The PUT applies the fields
  * it is sent, and in `orderWeights` the weights it is sent: the others keep
@@ -29,7 +29,7 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 final class TaskSettingsController
 {
-    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime', 'eveningTime', 'rewardAnimation', 'rewardVibration', 'rewardSound', 'tone'];
+    private const FIELDS = ['orderWeights', 'orderLevels', 'alertSchedule', 'morningTime', 'eveningTime', 'rewardAnimation', 'rewardVibration', 'rewardSound', 'tone', 'dayMoments', 'reminderDailyCap', 'quietStart', 'quietEnd'];
 
     public function __construct(
         private readonly Security $security,
@@ -107,6 +107,16 @@ final class TaskSettingsController
             return new JsonResponse(['error' => 'eveningTime must be a time "HH:MM"'], Response::HTTP_BAD_REQUEST);
         }
 
+        foreach (['quietStart', 'quietEnd'] as $field) {
+            if (\array_key_exists($field, $body) && !\is_string($body[$field])) {
+                return new JsonResponse(['error' => "{$field} must be a time \"HH:MM\""], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if (\array_key_exists('dayMoments', $body) && !\is_array($body['dayMoments'])) {
+            return new JsonResponse(['error' => 'dayMoments must be an object of moments'], Response::HTTP_BAD_REQUEST);
+        }
+
         $orderWeights = $body['orderWeights'] ?? null;
         if (\array_key_exists('orderLevels', $body)) {
             try {
@@ -131,6 +141,10 @@ final class TaskSettingsController
                 rewardVibration: $body['rewardVibration'] ?? null,
                 rewardSound: $body['rewardSound'] ?? null,
                 tone: $body['tone'] ?? null,
+                dayMoments: $body['dayMoments'] ?? null,
+                reminderDailyCap: $body['reminderDailyCap'] ?? null,
+                quietStart: $body['quietStart'] ?? null,
+                quietEnd: $body['quietEnd'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             // A refused value is the caller's; anything else is ours, and not theirs to read.

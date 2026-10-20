@@ -44,6 +44,21 @@ class UpdateTaskSettingsHandler
             if (null !== $command->tone && !\in_array($command->tone, TaskSettings::TONES, true)) {
                 throw new \InvalidArgumentException('tone must be one of '.implode(', ', TaskSettings::TONES).'.');
             }
+            $dayMoments = null;
+            if (null !== $command->dayMoments) {
+                if (!\is_array($command->dayMoments)) {
+                    throw new \InvalidArgumentException('dayMoments must be an object of moments.');
+                }
+                $dayMoments = TaskSettings::mergeMoments($settings->getDayMoments(), $command->dayMoments);
+            }
+            if (null !== $command->reminderDailyCap && (!\is_int($command->reminderDailyCap) || $command->reminderDailyCap < TaskSettings::MIN_REMINDER_DAILY_CAP || $command->reminderDailyCap > TaskSettings::MAX_REMINDER_DAILY_CAP)) {
+                throw new \InvalidArgumentException(\sprintf('reminderDailyCap must be a whole number from %d to %d.', TaskSettings::MIN_REMINDER_DAILY_CAP, TaskSettings::MAX_REMINDER_DAILY_CAP));
+            }
+            foreach (['quietStart' => $command->quietStart, 'quietEnd' => $command->quietEnd] as $field => $value) {
+                if (null !== $value && (!\is_string($value) || 1 !== preg_match(TaskSettings::TIME_PATTERN, $value))) {
+                    throw new \InvalidArgumentException("{$field} must be a time \"HH:MM\" from 00:00 to 23:59.");
+                }
+            }
         } catch (\InvalidArgumentException $e) {
             throw new \DomainException($e->getMessage(), 0, $e);
         }
@@ -71,6 +86,18 @@ class UpdateTaskSettingsHandler
         }
         if (\is_string($command->tone)) {
             $settings->setTone($command->tone);
+        }
+        if (null !== $dayMoments) {
+            $settings->setDayMoments($dayMoments);
+        }
+        if (\is_int($command->reminderDailyCap)) {
+            $settings->setReminderDailyCap($command->reminderDailyCap);
+        }
+        if (\is_string($command->quietStart)) {
+            $settings->setQuietStart($command->quietStart);
+        }
+        if (\is_string($command->quietEnd)) {
+            $settings->setQuietEnd($command->quietEnd);
         }
 
         return $this->updateTaskSettings->execute($settings);

@@ -35,12 +35,18 @@ export class TaskSettingsPage extends AdminShell {
   readonly heading: Locator
   readonly morningTime: Locator
   readonly defaultsButton: Locator
+  /** « Au plus, par jour » (MAG-510): « Moins », the number, « Plus ». */
+  readonly dailyCap: Locator
+  /** The tone of the words (MAG-508): « Doux », « Direct », « Drôle ». */
+  readonly toneGroup: Locator
 
   constructor(page: Page) {
     super(page)
     this.heading = this.content.getByRole('heading', { name: 'Tâches', exact: true })
     this.morningTime = this.content.getByLabel('Heure du matin')
     this.defaultsButton = this.content.getByRole('button', { name: 'Valeurs par défaut' })
+    this.dailyCap = this.content.getByRole('group', { name: 'Au plus, par jour', exact: true })
+    this.toneGroup = this.content.getByRole('group', { name: 'Ton', exact: true })
   }
 
   async open(): Promise<void> {
@@ -72,6 +78,22 @@ export class TaskSettingsPage extends AdminShell {
 
   async toggleDay(urgency: Urgency, chip: DayChip): Promise<void> {
     await savedBy(this.page, () => this.day(urgency, chip).click())
+  }
+
+  /** A tone button; `aria-pressed` says whether it is the one chosen. */
+  tone(label: 'Doux' | 'Direct' | 'Drôle'): Locator {
+    return this.toneGroup.getByRole('button', { name: label, exact: true })
+  }
+
+  async chooseTone(label: 'Doux' | 'Direct' | 'Drôle'): Promise<void> {
+    await savedBy(this.page, () => this.tone(label).click())
+  }
+
+  /** One click on « Moins » or « Plus », each saved before the next. */
+  async stepDailyCap(direction: 'Moins' | 'Plus', times = 1): Promise<void> {
+    for (let i = 0; i < times; i++) {
+      await savedBy(this.page, () => this.dailyCap.getByRole('button', { name: direction, exact: true }).click())
+    }
   }
 }
 

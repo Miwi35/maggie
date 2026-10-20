@@ -87,4 +87,36 @@ class PushIntentsTest {
 
         assertEquals(payload, back)
     }
+
+    @Test
+    fun `a task reminder survives the trip through an intent, its buttons with it (MAG-510)`() {
+        val payload = PushPayload.from(
+            mapOf(
+                "notificationId" to "n-1",
+                "type" to "task_nudge",
+                "title" to "Le garage, tu t'y mets ?",
+                "reminderId" to "r-1",
+                "taskId" to "t-1",
+                "actions" to "start,in10,tonight",
+            ),
+        )!!
+
+        val back = PushIntents.payloadOf(Intent().also { PushIntents.put(it, payload) })
+
+        assertEquals(payload, back)
+    }
+
+    @Test
+    fun `only the Focus intent of Je m'y mets asks the app to answer a reminder`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "reminderId" to "r-1", "taskId" to "t-1"))!!
+
+        val start = PushIntents.startFocus(context, payload)!!
+
+        assertEquals("$scheme://task/t-1/focus", start.dataString)
+        assertEquals(PushActionKind.START, PushIntents.answerOf(start)?.first)
+        assertNull("a tap on the body answers nothing", PushIntents.answerOf(PushIntents.open(context, payload)))
+        val forged = PushIntents.open(context, payload).putExtra(PushIntents.EXTRA_ANSWER, PushActionKind.TICK.reminderKey)
+        assertNull("only « Je m'y mets » is answered from an intent the app opens", PushIntents.answerOf(forged))
+        assertNull(PushIntents.startFocus(context, PushPayload.from(mapOf("notificationId" to "n-1", "reminderId" to "r-1"))!!))
+    }
 }

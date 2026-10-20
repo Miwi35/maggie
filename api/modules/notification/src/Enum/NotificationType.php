@@ -13,6 +13,8 @@ enum NotificationType: string
     case Proaction = 'proaction';
     /** A task reaches its due date. */
     case TaskDue = 'task_due';
+    /** A nudge on the task « now » of the day, at a moment of it (MAG-510). */
+    case TaskNudge = 'task_nudge';
     /** A grocery list needs attention. */
     case Grocery = 'grocery';
     /** An action waits for the user's approval before Maggie goes on. */

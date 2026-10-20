@@ -5,18 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Notification\Command;
 
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\TaskSettings;
-use Maggie\Calendar\Enum\TaskAlertReason;
 use Maggie\Calendar\Repository\EventRepository;
-use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Calendar\Service\RecurrenceService;
-use Maggie\Calendar\Service\TaskAlert;
-use Maggie\Calendar\Service\TaskAlertSchedule;
-use Maggie\Calendar\Service\TaskOverdue;
-use Maggie\Core\Entity\User;
+use Maggie\Calendar\Service\TaskReminders;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Repository\NotificationRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -31,26 +26,15 @@ use Symfony\Component\Messenger\MessageBusInterface;
 )]
 class CheckRemindersCommand extends Command
 {
-    /**
-     * How long after a user's morning the task alerts still go out. The cron runs
-     * every minute; a minute lost to a deploy or a restart must not cost the
-     * day's alerts. The run is told apart from the next by the dedup key, not by
-     * the clock.
-     */
-    private const MORNING_GRACE = '+10 minutes';
-
-    private const TITLE_MAX = 255;
-
     public function __construct(
         private readonly EventRepository $eventRepository,
         private readonly NotificationRepository $notificationRepository,
         private readonly RecurrenceService $recurrenceService,
         private readonly MessageBusInterface $messageBus,
         private readonly UserRepository $userRepository,
-        private readonly TaskSettingsRepository $taskSettingsRepository,
-        private readonly TaskAlertSchedule $taskAlertSchedule,
-        private readonly TaskOverdue $taskOverdue,
+        private readonly TaskReminders $taskReminders,
         private readonly ClockInterface $clock,
+        private readonly LoggerInterface $logger,
     ) {
         parent::__construct();
     }
@@ -117,7 +101,7 @@ class CheckRemindersCommand extends Command
             }
         }
 
-        $created += $this->alertTasks($now, $io);
+        $created += $this->remindTasks($io);
 
         if (0 === $created) {
             $io->info('No due reminders found.');
@@ -168,64 +152,29 @@ class CheckRemindersCommand extends Command
     }
 
     /**
-     * The task alerts of every user whose morning it is (MAG-410): one `task_due`
-     * notification per task the alert schedule picks, once per task and per day —
-     * the key is the task and the start of the user's day, so a second run, a
-     * changed morning time or a task edited since does not say it twice.
+     * The task reminders of every user (MAG-510): the morning alerts of
+     * MAG-410 and the nudges on the task « now », under the daily cap and the
+     * quiet hours ({@see TaskReminders}).
      */
-    private function alertTasks(\DateTimeImmutable $now, SymfonyStyle $io): int
+    private function remindTasks(SymfonyStyle $io): int
     {
         $created = 0;
 
         foreach ($this->userRepository->findAll() as $user) {
-            $local = $now->setTimezone($this->taskOverdue->zone($user));
-            if (!$this->isMorning($user, $local)) {
+            try {
+                $sent = $this->taskReminders->run($user);
+            } catch (\Throwable $e) {
+                // One user's trouble must not cost the others their reminders.
+                $this->logger->error('Task reminders failed for {user}: {error}', ['user' => (string) $user->getId(), 'error' => $e->getMessage(), 'exception' => $e]);
+                $io->warning(sprintf('Task reminders failed for %s: %s', $user->getEmail(), $e->getMessage()));
                 continue;
             }
-
-            $dayStart = $local->setTime(0, 0);
-
-            foreach ($this->taskAlertSchedule->dueAlerts($user, $this->taskOverdue->today($user)) as $alert) {
-                $iri = '/api/tasks/'.$alert->task->getId();
-                if ($this->notificationRepository->taskAlertExists($iri, $dayStart)) {
-                    continue;
-                }
-
-                $title = self::titleOf($alert);
-                $this->messageBus->dispatch(new CreateNotificationCommand(
-                    type: 'task_due',
-                    title: $title,
-                    relatedEntityIri: $iri,
-                    userId: (string) $user->getId(),
-                    occurrenceStartAt: $dayStart,
-                ));
-
-                ++$created;
-                $io->writeln(sprintf('  Created task alert "%s" for %s', $title, $user->getEmail()));
+            if ($sent > 0) {
+                $io->writeln(sprintf('  Sent %d task reminder(s) to %s', $sent, $user->getEmail()));
             }
+            $created += $sent;
         }
 
         return $created;
-    }
-
-    /** Whether $local, the user's own clock, is within the grace period after their morning time. */
-    private function isMorning(User $user, \DateTimeImmutable $local): bool
-    {
-        $time = $this->taskSettingsRepository->findOneByUser($user)?->getMorningTime() ?? TaskSettings::DEFAULT_MORNING_TIME;
-        [$hours, $minutes] = array_map('intval', explode(':', $time));
-        $morning = $local->setTime($hours, $minutes);
-
-        return $local >= $morning && $local < $morning->modify(self::MORNING_GRACE);
-    }
-
-    private static function titleOf(TaskAlert $alert): string
-    {
-        $prefix = match ($alert->reason) {
-            TaskAlertReason::DaysBefore => sprintf('Dans %d j : ', $alert->days),
-            TaskAlertReason::DueDay => "Aujourd'hui : ",
-            TaskAlertReason::Overdue => sprintf('En retard de %d j : ', $alert->days),
-        };
-
-        return $prefix.mb_strimwidth($alert->task->getTitle(), 0, self::TITLE_MAX - mb_strlen($prefix), '…');
     }
 }

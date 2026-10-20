@@ -89,13 +89,20 @@ class InterruptionViewModel(
                 dismiss(payload)
                 _events.trySend(InterruptionEvent.OpenChat)
             }
+            // « Je m'y mets » (MAG-510): the Focus opens at once, the answer goes on its own.
+            PushActionKind.START -> {
+                center.close(key)
+                dismiss(payload)
+                handler.answerInBackground(kind, payload)
+                payload.focusLink()?.let { _events.trySend(InterruptionEvent.OpenLink(payload.copy(link = it))) }
+            }
             else -> viewModelScope.launch {
                 busy.value = key
                 failure.value = null
                 try {
                     when (val outcome = handler.handle(kind, payload)) {
                         is PushOutcome.Retry -> failure.value = key to outcome.message
-                        PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled -> {
+                        PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled, is PushOutcome.Rewarded -> {
                             center.close(key)
                             dismiss(payload)
                         }

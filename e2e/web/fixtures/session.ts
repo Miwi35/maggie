@@ -162,6 +162,13 @@ export const ACTIVITY_USER_EMAIL = 'e2e-activity@maggie.local'
  */
 export const PERIOD_USER_EMAIL = 'e2e-period@maggie.local'
 
+/**
+ * The twenty-first seeded account, for the task reminders (MAG-510): it holds a
+ * nudge sent this morning, and « Dans 10 min » deletes it — on an account other
+ * journeys read the bell of, their unread count would move under them.
+ */
+export const REMINDERS_USER_EMAIL = 'e2e-reminders@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
